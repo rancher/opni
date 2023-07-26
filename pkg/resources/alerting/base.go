@@ -95,7 +95,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-alerting",
+			Name:      shared.AlertmanagerService,
 			Namespace: r.gw.Namespace,
 			Labels:    publicNodeSvcLabels,
 		},
@@ -108,12 +108,12 @@ func (r *Reconciler) alerting() []resources.Resource {
 
 	ss := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-alerting",
+			Name:      shared.AlertmanagerService,
 			Namespace: r.gw.Namespace,
 			Labels:    publicNodeLabels,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			ServiceName: shared.OperatorAlertingClusterNodeServiceName,
+			ServiceName: shared.AlertmanagerService,
 			Replicas:    r.ac.Spec.Alertmanager.ApplicationSpec.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: publicNodeLabels,
@@ -132,7 +132,9 @@ func (r *Reconciler) alerting() []resources.Resource {
 						r.alertmanagerWorkerArgs(),
 						r.nodeAlertingPorts(),
 					),
-					Volumes: requiredVolumes,
+					Volumes:                      requiredVolumes,
+					ServiceAccountName:           "opni",
+					AutomountServiceAccountToken: lo.ToPtr(true),
 				},
 			},
 			VolumeClaimTemplates: requiredPersistentClaims,
@@ -140,7 +142,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 	}
 
 	workerMonitor := r.serviceMonitor(
-		shared.OperatorAlertingClusterNodeServiceName,
+		shared.AlertmanagerService,
 		publicNodeSvcLabels,
 		[]monitoringv1.Endpoint{
 			{
@@ -150,13 +152,30 @@ func (r *Reconciler) alerting() []resources.Resource {
 			},
 		},
 	)
+
+	oldSvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-alerting",
+			Namespace: r.gw.Namespace,
+		},
+	}
+	oldSS := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-alerting",
+			Namespace: r.gw.Namespace,
+		},
+	}
 	ctrl.SetControllerReference(r.ac, svc, r.client.Scheme())
 	ctrl.SetControllerReference(r.ac, ss, r.client.Scheme())
 	ctrl.SetControllerReference(r.ac, workerMonitor, r.client.Scheme())
+	ctrl.SetControllerReference(r.ac, oldSvc, r.client.Scheme())
+	ctrl.SetControllerReference(r.ac, oldSS, r.client.Scheme())
 	return []resources.Resource{
 		resources.PresentIff(r.ac.Spec.Alertmanager.Enable, svc),
 		resources.PresentIff(r.ac.Spec.Alertmanager.Enable, ss),
 		resources.PresentIff(r.ac.Spec.Alertmanager.Enable, workerMonitor),
+		resources.Absent(oldSvc),
+		resources.Absent(oldSS),
 	}
 }
 
@@ -167,11 +186,13 @@ func (r *Reconciler) alertmanagerWorkerArgs() []string {
 		fmt.Sprintf("--log.level=%s", "info"),
 		"--log.format=json",
 		fmt.Sprintf("--opni.listen-address=:%d", 3000),
+		// TODO : make this configurable
+		"--opni.send-k8s",
 	}
 	replicas := lo.FromPtrOr(r.ac.Spec.Alertmanager.ApplicationSpec.Replicas, 1)
 	for i := 0; i < int(replicas); i++ {
-		peerDomain := shared.OperatorAlertingClusterNodeServiceName
-		amArgs = append(amArgs, fmt.Sprintf("--cluster.peer=%s-%d.%s:9094", shared.OperatorAlertingClusterNodeServiceName, i, peerDomain))
+		peerDomain := shared.AlertmanagerService
+		amArgs = append(amArgs, fmt.Sprintf("--cluster.peer=%s-%d.%s:9094", shared.AlertmanagerService, i, peerDomain))
 	}
 	amArgs = append(
 		amArgs,
@@ -212,6 +233,10 @@ func (r *Reconciler) newAlertingAlertManager(
 			{
 				Name:  "USER",
 				Value: alertingUser,
+			},
+			{
+				Name:  "POD_NAMESPACE",
+				Value: r.gw.Namespace,
 			},
 		},
 		Name:            "opni-alertmanager",
@@ -301,59 +326,6 @@ func (r *Reconciler) newAlertingClusterUnit(
 		r.newAlertingSyncer(r.syncerArgs()),
 	}
 	return res
-}
-
-func (r *Reconciler) newAlertingCluster(
-	name string,
-	containerArgs []string,
-	serviceLabels map[string]string,
-	deployLabels map[string]string,
-	alertManagerPorts []corev1.ContainerPort,
-	volumes []corev1.Volume,
-	persistentClaims []corev1.PersistentVolumeClaim,
-	replicas int32,
-) (*corev1.Service, *appsv1.StatefulSet) {
-	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: r.gw.Namespace,
-			Labels:    serviceLabels,
-		},
-		Spec: corev1.ServiceSpec{
-			Type:     "ClusterIP",
-			Selector: deployLabels,
-			Ports:    r.serviceAlertManagerPorts(append(alertManagerPorts, r.syncerPorts()...)),
-		},
-	}
-
-	ss := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: r.gw.Namespace,
-			Labels:    deployLabels,
-		},
-		Spec: appsv1.StatefulSetSpec{
-			Replicas: lo.ToPtr(replicas),
-			Selector: &metav1.LabelSelector{
-				MatchLabels: deployLabels,
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: deployLabels,
-				},
-				Spec: corev1.PodSpec{
-					SecurityContext: &corev1.PodSecurityContext{},
-					Containers: r.newAlertingClusterUnit(
-						containerArgs,
-						alertManagerPorts,
-					),
-					Volumes: volumes,
-				},
-			},
-			VolumeClaimTemplates: persistentClaims,
-		},
-	}
-	return svc, ss
 }
 
 func (r *Reconciler) syncerPorts() []corev1.ContainerPort {

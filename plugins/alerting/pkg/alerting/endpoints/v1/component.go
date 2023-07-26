@@ -4,12 +4,13 @@ import (
 	"context"
 	"sync"
 
+	"github.com/rancher/opni/pkg/alerting/server"
+	alertingSync "github.com/rancher/opni/pkg/alerting/server/sync"
 	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	notifications "github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
 	"go.uber.org/zap"
 )
 
@@ -81,7 +82,7 @@ func (e *EndpointServerComponent) SetConfig(conf server.Config) {
 	e.Config = conf
 }
 
-func (e *EndpointServerComponent) Sync(_ context.Context, _ bool) error {
+func (e *EndpointServerComponent) Sync(_ context.Context, _ alertingSync.SyncInfo) error {
 	return nil
 }
 

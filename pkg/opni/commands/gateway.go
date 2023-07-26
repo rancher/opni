@@ -21,6 +21,8 @@ import (
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/tracing"
+	"github.com/rancher/opni/pkg/update/noop"
+	"github.com/rancher/opni/pkg/urn"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
@@ -103,6 +105,7 @@ func BuildGatewayCmd() *cobra.Command {
 		lifecycler := config.NewLifecycler(objects)
 		g := gateway.NewGateway(ctx, gatewayConfig, pluginLoader,
 			gateway.WithLifecycler(lifecycler),
+			gateway.WithExtraUpdateHandlers(noop.NewSyncServer(noop.WithAllowedTypes(urn.Agent))),
 		)
 
 		m := management.NewServer(ctx, &gatewayConfig.Spec.Management, g, pluginLoader,

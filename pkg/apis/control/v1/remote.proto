@@ -1,11 +1,12 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/pkg/apis/control/v1";
-
-import "google/protobuf/empty.proto";
-import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
-import "github.com/kralicky/totem/extensions.proto";
 
 package control;
+
+import "github.com/kralicky/totem/extensions.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/rancher/opni/pkg/apis/control/v1";
 
 service Health {
   rpc GetHealth(google.protobuf.Empty) returns (core.Health);
@@ -33,14 +34,13 @@ enum PatchOp {
 }
 
 message SyncResults {
-  UpdateManifest desiredState = 1;
   PatchList requiredPatches = 2;
 }
 
 message UpdateManifestEntry {
   string package = 1;
-  string path = 2;
-  string digest = 3;
+  string path    = 2;
+  string digest  = 3;
 }
 
 message UpdateManifest {
@@ -49,7 +49,7 @@ message UpdateManifest {
 
 message PluginArchiveEntry {
   UpdateManifestEntry metadata = 1;
-  bytes data = 2;
+  bytes               data     = 2;
 }
 
 message PluginArchive {
@@ -59,12 +59,12 @@ message PluginArchive {
 // opPath should be empty when op == PatchRename
 // bytes should be empty when op == PatchRemove
 message PatchSpec {
-  string package = 1;
-  PatchOp op = 2;
-  bytes data = 3;
-  string path = 4;
-  string oldDigest = 5;
-  string newDigest = 6;
+  string  package   = 1;
+  PatchOp op        = 2;
+  bytes   data      = 3;
+  string  path      = 4;
+  string  oldDigest = 5;
+  string  newDigest = 6;
 }
 
 message PatchList {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"time"
@@ -14,10 +15,12 @@ import (
 	"github.com/kralicky/yaml/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	amCfg "github.com/prometheus/alertmanager/config"
 	"github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/extensions"
+	"github.com/rancher/opni/pkg/alerting/message"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -55,7 +58,7 @@ func BuildEmbeddedServerNotificationTests(
 	)
 	sendMsgAlertManager := func(ctx context.Context, labels, annotations map[string]string, alertManagerPort int) {
 		err := alertingClient.AlertClient().PostNotification(context.TODO(), client.AlertObject{
-			Id:          labels[alertingv1.NotificationPropertyOpniUuid],
+			Id:          labels[message.NotificationPropertyOpniUuid],
 			Labels:      labels,
 			Annotations: annotations,
 		})
@@ -118,7 +121,7 @@ func BuildEmbeddedServerNotificationTests(
 			freeport := freeport.GetFreePort()
 			Expect(freeport).NotTo(BeZero())
 			opniPort = freeport
-			extensions.StartOpniEmbeddedServer(env.Context(), fmt.Sprintf(":%d", opniPort))
+			extensions.StartOpniEmbeddedServer(env.Context(), fmt.Sprintf(":%d", opniPort), false)
 
 			router := routerConstructor(opniPort)
 			Expect(tmpConfigDir).NotTo(BeEmpty())
@@ -144,8 +147,8 @@ func BuildEmbeddedServerNotificationTests(
 						{
 							Status: "firing",
 							Labels: map[string]string{
-								alertingv1.NotificationPropertyOpniUuid: uuid.New().String(),
-								alertingv1.NotificationPropertySeverity: alertingv1.OpniSeverity_Info.String(),
+								message.NotificationPropertyOpniUuid: uuid.New().String(),
+								message.NotificationPropertySeverity: alertingv1.OpniSeverity_Info.String(),
 							},
 							Annotations: map[string]string{},
 						},
@@ -183,9 +186,9 @@ func BuildEmbeddedServerNotificationTests(
 						{
 							Status: "firing",
 							Labels: map[string]string{
-								alertingv1.NotificationPropertyOpniUuid:  msgId,
-								alertingv1.NotificationPropertySeverity:  alertingv1.OpniSeverity_Warning.String(),
-								alertingv1.NotificationPropertyDedupeKey: groupKey,
+								message.NotificationPropertyOpniUuid:  msgId,
+								message.NotificationPropertySeverity:  alertingv1.OpniSeverity_Warning.String(),
+								message.NotificationPropertyDedupeKey: groupKey,
 							},
 							Annotations: map[string]string{},
 						},
@@ -203,23 +206,23 @@ func BuildEmbeddedServerNotificationTests(
 				Expect(respList.Items).To(HaveLen(1))
 
 				// send the same message again with group key but different uuid
-				msg.Alerts[0].Labels[alertingv1.NotificationPropertyOpniUuid] = uuid.New().String()
+				msg.Alerts[0].Labels[message.NotificationPropertyOpniUuid] = uuid.New().String()
 				sendMsg(httpClient, msg, opniPort)
 				respList = listNotif(httpClient, listRequest, opniPort)
 				Expect(respList.Items).NotTo(BeNil())
 				Expect(respList.Items).To(HaveLen(1))
 
 				// send the same message again with uuid but different group key but same uuid
-				msg.Alerts[0].Labels[alertingv1.NotificationPropertyOpniUuid] = msgId
-				msg.Alerts[0].Labels[alertingv1.NotificationPropertyDedupeKey] = uuid.New().String()
+				msg.Alerts[0].Labels[message.NotificationPropertyOpniUuid] = msgId
+				msg.Alerts[0].Labels[message.NotificationPropertyDedupeKey] = uuid.New().String()
 
 				sendMsg(httpClient, msg, opniPort)
 				respList = listNotif(httpClient, listRequest, opniPort)
 				Expect(respList.Items).NotTo(BeNil())
 				Expect(respList.Items).To(HaveLen(2))
 
-				msg.Alerts[0].Labels[alertingv1.NotificationPropertyOpniUuid] = uuid.New().String()
-				msg.Alerts[0].Labels[alertingv1.NotificationPropertyDedupeKey] = uuid.New().String()
+				msg.Alerts[0].Labels[message.NotificationPropertyOpniUuid] = uuid.New().String()
+				msg.Alerts[0].Labels[message.NotificationPropertyDedupeKey] = uuid.New().String()
 				sendMsg(httpClient, msg, opniPort)
 				respList = listNotif(httpClient, listRequest, opniPort)
 				Expect(respList.Items).NotTo(BeNil())
@@ -244,7 +247,7 @@ func BuildEmbeddedServerNotificationTests(
 				freeport := freeport.GetFreePort()
 				Expect(freeport).NotTo(BeZero())
 				opniPort = freeport
-				extensions.StartOpniEmbeddedServer(env.Context(), fmt.Sprintf(":%d", opniPort))
+				extensions.StartOpniEmbeddedServer(env.Context(), fmt.Sprintf(":%d", opniPort), false)
 
 				router := routerConstructor(opniPort)
 				By("building the required routes for the routables")
@@ -255,7 +258,7 @@ func BuildEmbeddedServerNotificationTests(
 					}
 					err := router.SetNamespaceSpec(
 						r.Namespace(),
-						r.GetRoutingLabels()[alertingv1.NotificationPropertyOpniUuid],
+						r.GetRoutingLabels()[message.NotificationPropertyOpniUuid],
 						&alertingv1.FullAttachedEndpoints{
 							Items: []*alertingv1.FullAttachedEndpoint{},
 						},
@@ -285,13 +288,13 @@ func BuildEmbeddedServerNotificationTests(
 						lo.Assign(
 							r.GetRoutingLabels(),
 							map[string]string{
-								alertingv1.NotificationPropertyFingerprint: "fingerprint",
+								message.NotificationPropertyFingerprint: "fingerprint",
 							},
 						),
 						lo.Assign(
 							r.GetRoutingAnnotations(),
 							map[string]string{
-								alertingv1.NotificationPropertyFingerprint: "fingerprint",
+								message.NotificationPropertyFingerprint: "fingerprint",
 							},
 						),
 						webPort)
@@ -324,13 +327,13 @@ func BuildEmbeddedServerNotificationTests(
 						lo.Assign(
 							r.GetRoutingLabels(),
 							map[string]string{
-								alertingv1.NotificationPropertyFingerprint: fingerprint,
+								message.NotificationPropertyFingerprint: fingerprint,
 							},
 						),
 						lo.Assign(
 							r.GetRoutingAnnotations(),
 							map[string]string{
-								alertingv1.NotificationPropertyFingerprint: fingerprint,
+								message.NotificationPropertyFingerprint: fingerprint,
 							},
 						),
 						webPort,
@@ -376,7 +379,7 @@ func BuildEmbeddedServerNotificationTests(
 				Expect(err).To(BeNil())
 				foundFingerprints := map[string]struct{}{}
 				for _, ag := range ags {
-					if v, ok := ag.Labels[alertingv1.NotificationPropertyFingerprint]; ok {
+					if v, ok := ag.Labels[message.NotificationPropertyFingerprint]; ok {
 						foundFingerprints[v] = struct{}{}
 					}
 				}
@@ -412,9 +415,13 @@ func BuildEmbeddedServerNotificationTests(
 }
 
 var _ = BuildEmbeddedServerNotificationTests(func(dynamicPort int) routing.OpniRouting {
-	return routing.NewDefaultOpniRoutingWithOverrideHook(fmt.Sprintf(
-		"http://localhost:%d%s",
-		dynamicPort,
-		shared.AlertingDefaultHookName,
-	))
+	cfg := config.WebhookConfig{
+		NotifierConfig: config.NotifierConfig{
+			VSendResolved: false,
+		},
+		URL: &amCfg.URL{
+			URL: util.Must(url.Parse(fmt.Sprintf("http://localhost:%d%s", dynamicPort, shared.AlertingDefaultHookName))),
+		},
+	}
+	return routing.NewOpniRouterV1(cfg)
 }, alerting.NewRoutableDataset())

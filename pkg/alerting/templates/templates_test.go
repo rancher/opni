@@ -27,6 +27,7 @@ import (
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/promql"
 	promtemplate "github.com/prometheus/prometheus/template"
+	"github.com/rancher/opni/pkg/alerting/message"
 )
 
 func init() {
@@ -56,7 +57,7 @@ var _ = Describe("Prometheus fingerprint templating", Label("unit"), func() {
 					},
 				},
 			}
-			prometheusFingerprintTemplate := prometheusAlert.GetRoutingAnnotations()[alertingv1.NotificationPropertyFingerprint]
+			prometheusFingerprintTemplate := prometheusAlert.GetRoutingAnnotations()[message.NotificationPropertyFingerprint]
 			fingerprintTs := float64(time.Now().UnixMilli()) / 1000
 			scenarios := []scenario{
 				{
@@ -159,6 +160,18 @@ var _ = DescribeTable("Message templating",
 		for _, s := range bodyContains {
 			Expect(s2).To(ContainSubstring(s))
 		}
+
+		By("verifying the cluster name is included in the message if it exists")
+		if clusterName, ok := incomingMsg.GetRoutingAnnotations()[message.NotificationContentClusterName]; ok {
+			Expect(b1.String()).To(ContainSubstring(clusterName))
+		} else if clusterId, ok := incomingMsg.GetRoutingLabels()[message.NotificationPropertyClusterId]; ok {
+			Expect(b1.String()).To(ContainSubstring(clusterId))
+		}
+		By("verifying the alarm name is included in the message if it exists")
+		if alarmName, ok := incomingMsg.GetRoutingAnnotations()[message.NotificationContentAlarmName]; ok {
+			Expect(b1.String()).To(ContainSubstring(alarmName))
+		}
+
 		By("verifying that we output pretty timestamps in messages")
 		tsFunc, ok := amtemplate.DefaultFuncs["formatTime"]
 		Expect(ok).To(BeTrue())
@@ -196,6 +209,9 @@ var _ = DescribeTable("Message templating",
 					Title: "hello",
 					Body:  "world",
 				},
+			},
+			Annotations: map[string]string{
+				message.NotificationContentClusterName: "some-ridiculous-cluster-name",
 			},
 		},
 		"firing",
@@ -246,7 +262,7 @@ var _ = DescribeTable("Message templating",
 			Title: "notification title",
 			Body:  "notification body",
 			Properties: map[string]string{
-				alertingv1.NotificationPropertySeverity: "Critical",
+				message.NotificationPropertySeverity: "Critical",
 			},
 		},
 		"firing",

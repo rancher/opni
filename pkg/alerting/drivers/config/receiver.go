@@ -32,7 +32,6 @@ type OpniReceiver interface {
 	// configure receiver specific info
 	Configure(*alertingv1.AlertEndpoint) OpniReceiver
 	Clone() OpniReceiver
-	MarshalYAML() ([]byte, error)
 	yaml.Unmarshaler
 }
 
@@ -227,10 +226,6 @@ func (c *EmailConfig) Configure(endp *alertingv1.AlertEndpoint) OpniReceiver {
 	return c
 }
 
-func (c *EmailConfig) MarshalYAML() ([]byte, error) {
-	return yaml.Marshal(c)
-}
-
 func (c *EmailConfig) Clone() OpniReceiver {
 	return util.DeepCopy(c)
 }
@@ -274,10 +269,6 @@ func (c *SlackConfig) Configure(endp *alertingv1.AlertEndpoint) OpniReceiver {
 
 func (c *SlackConfig) Clone() OpniReceiver {
 	return util.DeepCopy(c)
-}
-
-func (c *SlackConfig) MarshalYAML() ([]byte, error) {
-	return yaml.Marshal(c)
 }
 
 func (c *PagerdutyConfig) InternalId() string {
@@ -326,10 +317,6 @@ func (c *PagerdutyConfig) Clone() OpniReceiver {
 	return util.DeepCopy(c)
 }
 
-func (c *PagerdutyConfig) MarshalYAML() ([]byte, error) {
-	return yaml.Marshal(c)
-}
-
 func (c *WebhookConfig) InternalId() string {
 	return shared.InternalWebhookId
 }
@@ -365,10 +352,6 @@ func (c *WebhookConfig) Clone() OpniReceiver {
 	return util.DeepCopy(c)
 }
 
-func (c *WebhookConfig) MarshalYAML() ([]byte, error) {
-	return yaml.Marshal(c)
-}
-
 func (c *OpsGenieConfig) InternalId() string {
 	return shared.InternalOpsGenieId
 }
@@ -390,10 +373,6 @@ func (c *OpsGenieConfig) Clone() OpniReceiver {
 	return util.DeepCopy(c)
 }
 
-func (c *OpsGenieConfig) MarshalYAML() ([]byte, error) {
-	return yaml.Marshal(c)
-}
-
 func (c *VictorOpsConfig) InternalId() string {
 	return shared.InternalVictorOpsId
 }
@@ -409,10 +388,6 @@ func (c *VictorOpsConfig) StoreInfo(_ *alertingv1.EndpointImplementation) {
 
 func (c *VictorOpsConfig) Configure(*alertingv1.AlertEndpoint) OpniReceiver {
 	return c
-}
-
-func (c *VictorOpsConfig) MarshalYAML() ([]byte, error) {
-	return yaml.Marshal(c)
 }
 
 func (c *VictorOpsConfig) Clone() OpniReceiver {
@@ -434,10 +409,6 @@ func (c *WechatConfig) StoreInfo(_ *alertingv1.EndpointImplementation) {
 
 func (c *WechatConfig) Configure(*alertingv1.AlertEndpoint) OpniReceiver {
 	return c
-}
-
-func (c *WechatConfig) MarshalYAML() ([]byte, error) {
-	return yaml.Marshal(c)
 }
 
 func (c *WechatConfig) Clone() OpniReceiver {
@@ -465,10 +436,6 @@ func (c *PushoverConfig) Clone() OpniReceiver {
 	return util.DeepCopy(c)
 }
 
-func (c *PushoverConfig) MarshalYAML() ([]byte, error) {
-	return yaml.Marshal(c)
-}
-
 func (c *SNSConfig) InternalId() string {
 	return shared.InternalSNSId
 }
@@ -484,10 +451,6 @@ func (c *SNSConfig) StoreInfo(_ *alertingv1.EndpointImplementation) {
 
 func (c *SNSConfig) Configure(*alertingv1.AlertEndpoint) OpniReceiver {
 	return c
-}
-
-func (c *SNSConfig) MarshalYAML() ([]byte, error) {
-	return yaml.Marshal(c)
 }
 
 func (c *SNSConfig) Clone() OpniReceiver {
@@ -513,8 +476,4 @@ func (c *TelegramConfig) Configure(*alertingv1.AlertEndpoint) OpniReceiver {
 
 func (c *TelegramConfig) Clone() OpniReceiver {
 	return util.DeepCopy(c)
-}
-
-func (c *TelegramConfig) MarshalYAML() ([]byte, error) {
-	return yaml.Marshal(c)
 }

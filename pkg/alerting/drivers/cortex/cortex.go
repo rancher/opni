@@ -7,6 +7,7 @@ import (
 
 	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
+	"github.com/rancher/opni/pkg/alerting/message"
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/samber/lo"
@@ -37,7 +38,7 @@ func ConstructRecordingRuleName(prefix, typeName string) string {
 
 func ConstructIdLabelsForRecordingRule(alertId string) map[string]string {
 	return map[string]string{
-		alertingv1.NotificationPropertyOpniUuid: alertId,
+		message.NotificationPropertyOpniUuid: alertId,
 	}
 }
 

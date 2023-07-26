@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	promql "github.com/prometheus/prometheus/promql/parser"
+	"github.com/rancher/opni/pkg/alerting/message"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/util"
@@ -495,14 +496,14 @@ func (n *Notification) Sanitize() {
 	if n.Properties == nil {
 		n.Properties = map[string]string{}
 	}
-	if _, ok := n.Properties[NotificationPropertyGoldenSignal]; !ok {
-		n.Properties[NotificationPropertyGoldenSignal] = GoldenSignal_Custom.String()
+	if _, ok := n.Properties[message.NotificationPropertyGoldenSignal]; !ok {
+		n.Properties[message.NotificationPropertyGoldenSignal] = GoldenSignal_Custom.String()
 	}
-	if _, ok := n.Properties[NotificationPropertySeverity]; !ok {
-		n.Properties[NotificationPropertySeverity] = OpniSeverity_Info.String()
+	if _, ok := n.Properties[message.NotificationPropertySeverity]; !ok {
+		n.Properties[message.NotificationPropertySeverity] = OpniSeverity_Info.String()
 	}
-	if _, ok := n.Properties[NotificationPropertyOpniUuid]; !ok {
-		n.Properties[NotificationPropertyOpniUuid] = util.HashStrings([]string{n.Title, n.Body})
+	if _, ok := n.Properties[message.NotificationPropertyOpniUuid]; !ok {
+		n.Properties[message.NotificationPropertyOpniUuid] = util.HashStrings([]string{n.Title, n.Body})
 	}
 }
 
@@ -513,21 +514,21 @@ func (n *Notification) Validate() error {
 	if n.Body == "" {
 		return validation.Error("field Body must be set")
 	}
-	if v, ok := n.Properties[NotificationPropertyGoldenSignal]; ok {
+	if v, ok := n.Properties[message.NotificationPropertyGoldenSignal]; ok {
 		if _, ok := GoldenSignal_value[v]; !ok {
 			return validation.Errorf("invalid golden signal value %s", v)
 		}
 	} else {
-		return validation.Errorf("property map must include a golden signal property '%s'", NotificationPropertyGoldenSignal)
+		return validation.Errorf("property map must include a golden signal property '%s'", message.NotificationPropertyGoldenSignal)
 	}
-	if v, ok := n.Properties[NotificationPropertySeverity]; ok {
+	if v, ok := n.Properties[message.NotificationPropertySeverity]; ok {
 		if _, ok := OpniSeverity_value[v]; !ok {
 			return validation.Errorf("invalid severity value %s", v)
 		}
 	} else {
-		return validation.Errorf("property map must include a severity property '%s'", NotificationPropertySeverity)
+		return validation.Errorf("property map must include a severity property '%s'", message.NotificationPropertySeverity)
 	}
-	if v, ok := n.Properties[NotificationPropertyClusterId]; ok {
+	if v, ok := n.Properties[message.NotificationPropertyClusterId]; ok {
 		if v == "" {
 			return validation.Error("if specifying a cluster id property, it must be set")
 		}

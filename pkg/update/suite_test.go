@@ -23,7 +23,7 @@ type mockHandler struct {
 
 func newMockHandler() *mockHandler {
 	return &mockHandler{
-		UpdateTypeHandler: noop.NewNoopUpdate(),
+		UpdateTypeHandler: noop.NewSyncServer(),
 	}
 }
 

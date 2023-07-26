@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
+	"github.com/rancher/opni/pkg/alerting/message"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
@@ -58,8 +59,8 @@ func (n *NotificationServerComponent) TriggerAlerts(ctx context.Context, req *al
 		req.Labels[req.Namespace] = req.ConditionId.Id
 	}
 
-	if _, ok := req.Labels[alertingv1.NotificationPropertyOpniUuid]; !ok {
-		req.Labels[alertingv1.NotificationPropertyOpniUuid] = req.ConditionId.Id
+	if _, ok := req.Labels[message.NotificationPropertyOpniUuid]; !ok {
+		req.Labels[message.NotificationPropertyOpniUuid] = req.ConditionId.Id
 	}
 
 	if _, ok := req.Annotations[shared.BackendConditionNameLabel]; !ok {
@@ -96,8 +97,8 @@ func (n *NotificationServerComponent) ResolveAlerts(ctx context.Context, req *al
 		req.Labels[req.Namespace] = req.ConditionId.Id
 	}
 
-	if _, ok := req.Labels[alertingv1.NotificationPropertyOpniUuid]; !ok {
-		req.Labels[alertingv1.NotificationPropertyOpniUuid] = req.ConditionId.Id
+	if _, ok := req.Labels[message.NotificationPropertyOpniUuid]; !ok {
+		req.Labels[message.NotificationPropertyOpniUuid] = req.ConditionId.Id
 	}
 
 	if _, ok := req.Annotations[shared.BackendConditionNameLabel]; !ok {
@@ -124,8 +125,8 @@ func (n *NotificationServerComponent) PushNotification(ctx context.Context, req 
 		return nil, err
 	}
 
-	if _, ok := req.GetProperties()[alertingv1.NotificationPropertyDedupeKey]; !ok {
-		req.Properties[alertingv1.NotificationPropertyDedupeKey] = util.HashStrings([]string{req.Title, req.Body})
+	if _, ok := req.GetProperties()[message.NotificationPropertyDedupeKey]; !ok {
+		req.Properties[message.NotificationPropertyDedupeKey] = util.HashStrings([]string{req.Title, req.Body})
 	}
 
 	routingLabels := req.GetRoutingLabels()
@@ -134,7 +135,7 @@ func (n *NotificationServerComponent) PushNotification(ctx context.Context, req 
 	err := n.Client.AlertClient().PostNotification(
 		ctx,
 		client.AlertObject{
-			Id:          lo.ValueOr(routingLabels, alertingv1.NotificationPropertyOpniUuid, uuid.New().String()),
+			Id:          lo.ValueOr(routingLabels, message.NotificationPropertyOpniUuid, uuid.New().String()),
 			Labels:      routingLabels,
 			Annotations: req.GetRoutingAnnotations(),
 		},

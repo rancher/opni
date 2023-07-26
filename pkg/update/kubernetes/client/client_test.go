@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/test/testlog"
+	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/update"
 	"github.com/rancher/opni/pkg/update/kubernetes"
 	"github.com/rancher/opni/pkg/update/kubernetes/client"
@@ -110,18 +111,9 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 		}
 	})
 
-	When("sync result has an plugin package", func() {
+	When("sync result has a plugin package", func() {
 		BeforeEach(func() {
 			packageURN := urn.NewOpniURN(urn.Plugin, kubernetes.UpdateStrategy, "agent")
-			manifest := &controlv1.UpdateManifest{
-				Items: []*controlv1.UpdateManifestEntry{
-					{
-						Package: packageURN.String(),
-						Path:    "opni.io/test",
-						Digest:  imageDigest,
-					},
-				},
-			}
 			patchList := &controlv1.PatchList{
 				Items: []*controlv1.PatchSpec{
 					{
@@ -132,7 +124,6 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 				},
 			}
 			syncResp = &controlv1.SyncResults{
-				DesiredState:    manifest,
 				RequiredPatches: patchList,
 			}
 		})
@@ -144,15 +135,6 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 	When("sync result has an unknown package", func() {
 		BeforeEach(func() {
 			packageURN := urn.NewOpniURN(urn.Agent, kubernetes.UpdateStrategy, "unknown")
-			manifest := &controlv1.UpdateManifest{
-				Items: []*controlv1.UpdateManifestEntry{
-					{
-						Package: packageURN.String(),
-						Path:    "opni.io/test",
-						Digest:  imageDigest,
-					},
-				},
-			}
 			patchList := &controlv1.PatchList{
 				Items: []*controlv1.PatchSpec{
 					{
@@ -163,7 +145,6 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 				},
 			}
 			syncResp = &controlv1.SyncResults{
-				DesiredState:    manifest,
 				RequiredPatches: patchList,
 			}
 		})
@@ -191,20 +172,6 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 		BeforeEach(func() {
 			packageURN1 := urn.NewOpniURN(urn.Agent, kubernetes.UpdateStrategy, "agent")
 			packageURN2 := urn.NewOpniURN(urn.Agent, kubernetes.UpdateStrategy, "controller")
-			manifest := &controlv1.UpdateManifest{
-				Items: []*controlv1.UpdateManifestEntry{
-					{
-						Package: packageURN1.String(),
-						Path:    "opni.io/test",
-						Digest:  "latest-minimal",
-					},
-					{
-						Package: packageURN2.String(),
-						Path:    "opni.io/test",
-						Digest:  "latest",
-					},
-				},
-			}
 			patchList := &controlv1.PatchList{
 				Items: []*controlv1.PatchSpec{
 					{
@@ -220,7 +187,6 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 				},
 			}
 			syncResp = &controlv1.SyncResults{
-				DesiredState:    manifest,
 				RequiredPatches: patchList,
 			}
 		})
@@ -248,20 +214,6 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 		BeforeEach(func() {
 			packageURN1 := urn.NewOpniURN(urn.Agent, kubernetes.UpdateStrategy, "agent")
 			packageURN2 := urn.NewOpniURN(urn.Agent, kubernetes.UpdateStrategy, "controller")
-			manifest := &controlv1.UpdateManifest{
-				Items: []*controlv1.UpdateManifestEntry{
-					{
-						Package: packageURN1.String(),
-						Path:    "opni.io/test",
-						Digest:  imageDigest,
-					},
-					{
-						Package: packageURN2.String(),
-						Path:    "opni.io/test",
-						Digest:  "latest",
-					},
-				},
-			}
 			patchList := &controlv1.PatchList{
 				Items: []*controlv1.PatchSpec{
 					{
@@ -279,7 +231,6 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 				},
 			}
 			syncResp = &controlv1.SyncResults{
-				DesiredState:    manifest,
 				RequiredPatches: patchList,
 			}
 		})
@@ -304,23 +255,9 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 		})
 	})
 	When("controller package has an update", func() {
+		packageURN1 := urn.NewOpniURN(urn.Agent, kubernetes.UpdateStrategy, "agent")
+		packageURN2 := urn.NewOpniURN(urn.Agent, kubernetes.UpdateStrategy, "controller")
 		BeforeEach(func() {
-			packageURN1 := urn.NewOpniURN(urn.Agent, kubernetes.UpdateStrategy, "agent")
-			packageURN2 := urn.NewOpniURN(urn.Agent, kubernetes.UpdateStrategy, "controller")
-			manifest := &controlv1.UpdateManifest{
-				Items: []*controlv1.UpdateManifestEntry{
-					{
-						Package: packageURN1.String(),
-						Path:    "opni.io/test",
-						Digest:  "latest-minimal",
-					},
-					{
-						Package: packageURN2.String(),
-						Path:    "opni.io/test",
-						Digest:  imageDigest,
-					},
-				},
-			}
 			patchList := &controlv1.PatchList{
 				Items: []*controlv1.PatchSpec{
 					{
@@ -338,13 +275,26 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 				},
 			}
 			syncResp = &controlv1.SyncResults{
-				DesiredState:    manifest,
 				RequiredPatches: patchList,
 			}
 		})
 		It("should just update the controller", func() {
 			err := updateClient.HandleSyncResults(context.Background(), syncResp)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(updateClient.GetCurrentManifest(context.Background())).To(testutil.ProtoEqual(&controlv1.UpdateManifest{
+				Items: []*controlv1.UpdateManifestEntry{
+					{
+						Package: packageURN1.String(),
+						Path:    "opni.io/test",
+						Digest:  "latest-minimal",
+					},
+					{
+						Package: packageURN2.String(),
+						Path:    "opni.io/test",
+						Digest:  imageDigest,
+					},
+				},
+			}))
 			Eventually(Object(&appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      deploy.Name,
@@ -363,23 +313,9 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 		})
 	})
 	When("both packages have an update", func() {
+		packageURN1 := urn.NewOpniURN(urn.Agent, kubernetes.UpdateStrategy, "agent")
+		packageURN2 := urn.NewOpniURN(urn.Agent, kubernetes.UpdateStrategy, "controller")
 		BeforeEach(func() {
-			packageURN1 := urn.NewOpniURN(urn.Agent, kubernetes.UpdateStrategy, "agent")
-			packageURN2 := urn.NewOpniURN(urn.Agent, kubernetes.UpdateStrategy, "controller")
-			manifest := &controlv1.UpdateManifest{
-				Items: []*controlv1.UpdateManifestEntry{
-					{
-						Package: packageURN1.String(),
-						Path:    "opni.io/test",
-						Digest:  imageDigest,
-					},
-					{
-						Package: packageURN2.String(),
-						Path:    "opni.io/test",
-						Digest:  imageDigest,
-					},
-				},
-			}
 			patchList := &controlv1.PatchList{
 				Items: []*controlv1.PatchSpec{
 					{
@@ -399,13 +335,26 @@ var _ = Describe("Kubernetes update client", Label("unit", "slow"), func() {
 				},
 			}
 			syncResp = &controlv1.SyncResults{
-				DesiredState:    manifest,
 				RequiredPatches: patchList,
 			}
 		})
 		It("should just update the controller", func() {
 			err := updateClient.HandleSyncResults(context.Background(), syncResp)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(updateClient.GetCurrentManifest(context.Background())).To(testutil.ProtoEqual(&controlv1.UpdateManifest{
+				Items: []*controlv1.UpdateManifestEntry{
+					{
+						Package: packageURN1.String(),
+						Path:    "opni.io/test",
+						Digest:  imageDigest,
+					},
+					{
+						Package: packageURN2.String(),
+						Path:    "opni.io/test",
+						Digest:  imageDigest,
+					},
+				},
+			}))
 			Eventually(Object(&appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      deploy.Name,

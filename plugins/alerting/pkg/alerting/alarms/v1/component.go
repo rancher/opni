@@ -5,6 +5,8 @@ import (
 	"sync"
 
 	"github.com/nats-io/nats.go"
+	"github.com/rancher/opni/pkg/alerting/server"
+	alertingSync "github.com/rancher/opni/pkg/alerting/server/sync"
 	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -12,8 +14,6 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
 	notifications "github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/ops"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/rules"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
@@ -82,7 +82,6 @@ type AlarmServerConfiguration struct {
 	spec.IncidentStorage
 	spec.StateStorage
 	spec.RouterStorage
-	OpsNode         *ops.AlertingOpsNode
 	Js              nats.JetStreamContext
 	MgmtClient      managementv1.ManagementClient
 	AdminClient     cortexadmin.CortexAdminClient
@@ -115,7 +114,7 @@ func (a *AlarmServerComponent) SetConfig(conf server.Config) {
 	a.Config = conf
 }
 
-func (a *AlarmServerComponent) Sync(ctx context.Context, shouldSync bool) error {
+func (a *AlarmServerComponent) Sync(ctx context.Context, syncInfo alertingSync.SyncInfo) error {
 	conditionStorage, err := a.conditionStorage.GetContext(a.ctx)
 	if err != nil {
 		return err
@@ -135,7 +134,7 @@ func (a *AlarmServerComponent) Sync(ctx context.Context, shouldSync bool) error 
 	eg := &util.MultiErrGroup{}
 	for _, cond := range conds {
 		cond := cond
-		if shouldSync {
+		if syncInfo.ShouldSync {
 			eg.Go(func() error {
 				activationAttrs := []attribute.KeyValue{
 					{
@@ -155,7 +154,7 @@ func (a *AlarmServerComponent) Sync(ctx context.Context, shouldSync bool) error 
 						Value: attribute.StringValue(cond.GetId()),
 					},
 				}
-				_, err := a.applyAlarm(ctx, cond, cond.Id)
+				_, err := a.applyAlarm(ctx, cond, cond.Id, syncInfo)
 				if err != nil {
 					activationAttrs = append(activationAttrs, attribute.KeyValue{
 						Key:   "status",

@@ -160,6 +160,14 @@ var _ = Describe("Client", Label("unit"), func() {
 			})
 		})
 	})
+	It("should have registered a patch client builder", func() {
+		builder := update.GetPluginSyncHandlerBuilder("binary")
+		Expect(builder).NotTo(BeNil())
+		syncHandler, err := builder("/plugins/foo", testlog.Log, newFs("/plugins/foo"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(syncHandler).NotTo(BeNil())
+		Expect(syncHandler.Strategy()).To(Equal("binary"))
+	})
 	When("patching from a plugin archive", Ordered, func() {
 		var pluginDir string
 		var client update.SyncHandler
@@ -170,6 +178,16 @@ var _ = Describe("Client", Label("unit"), func() {
 			pluginDir = "/plugins"
 			client, err = patchclient.NewPatchClient(pluginDir, testlog.Log, patchclient.WithBaseFS(fsys))
 			Expect(err).NotTo(HaveOccurred())
+		})
+		When("querying for the current manifest", func() {
+			It("should contain only a placeholder entry", func() {
+				currentManifest, err := client.GetCurrentManifest(context.Background())
+				Expect(err).NotTo(HaveOccurred())
+				Expect(currentManifest.Items).To(HaveLen(1))
+				Expect(currentManifest.Items[0].Package).To(Equal("urn:opni:plugin:binary:placeholder"))
+				Expect(currentManifest.Items[0].Path).To(Equal("placeholder"))
+				Expect(currentManifest.Items[0].Digest).To(Equal("placeholder"))
+			})
 		})
 		When("receiving a create operation", func() {
 			It("should write the plugin to the default directory", func() {

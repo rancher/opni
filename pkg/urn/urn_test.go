@@ -25,7 +25,7 @@ var _ = Describe("URN", Label("unit"), func() {
 		It("should return error", func() {
 			_, err := urn.ParseString("urn:foo:bar:baz:bat")
 			Expect(err).To(MatchError(urn.ErrInvalidURN))
-			Expect(err).To(MatchError(urn.ErrInvalidNamespace("foo")))
+			Expect(err).To(MatchError(ContainSubstring("invalid namespace: foo")))
 		})
 	})
 	When("URN is valid", func() {

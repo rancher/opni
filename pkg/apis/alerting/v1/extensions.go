@@ -7,13 +7,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rancher/opni/pkg/alerting/message"
+	alertingSync "github.com/rancher/opni/pkg/alerting/server/sync"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
-	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -26,29 +28,6 @@ const (
 const (
 	// maps to a wellknown.Capability
 	RoutingPropertyDatasource = "opni_datasource"
-)
-
-// Note these properties have to conform to the AlertManager label naming convention
-// https://prometheus.io/docs/alerting/latest/configuration/#labelname
-const (
-	// Property that specifies the unique identifier for the notification
-	// Corresponds to condition id for `AlertCondition` and an opaque identifier for
-	// an each ephemeral `Notification` instance
-	NotificationPropertyOpniUuid = "opni_uuid"
-	// Any messages already in the notification queue with the same dedupe key will not be processed
-	// immediately, but will be deduplicated.
-	NotificationPropertyDedupeKey = "opni_dedupe_key"
-	// Any messages with the same group key will be sent together
-	NotificationPropertyGroupKey = "opni_group_key"
-	// Opaque identifier for the cluster that generated the notification
-	NotificationPropertyClusterId = "opni_clusterId"
-	// Property that specifies how to classify the notification according to golden signal
-	NotificationPropertyGoldenSignal = "opni_goldenSignal"
-	// Property that specifies the severity of the notification. Severity impacts how quickly the
-	// notification is dispatched & repeated, as well as how long to persist it.
-	NotificationPropertySeverity = "opni_severity"
-	// Property that is used to correlate messages to particular incidents
-	NotificationPropertyFingerprint = "opni_fingerprint"
 )
 
 func (r *RoutingRelationships) InvolvedConditionsForEndpoint(endpointId string) []string {
@@ -86,39 +65,39 @@ func IsMetricsCondition(cond *AlertCondition) bool {
 
 func (n *Notification) GetRoutingLabels() map[string]string {
 	res := map[string]string{
-		NotificationPropertySeverity: n.GetProperties()[NotificationPropertySeverity],
-		NotificationPropertyOpniUuid: n.GetProperties()[NotificationPropertyOpniUuid],
+		message.NotificationPropertySeverity: n.GetProperties()[message.NotificationPropertySeverity],
+		message.NotificationPropertyOpniUuid: n.GetProperties()[message.NotificationPropertyOpniUuid],
 	}
-	if v, ok := n.GetProperties()[NotificationPropertyDedupeKey]; ok {
-		res[NotificationPropertyDedupeKey] = v
+	if v, ok := n.GetProperties()[message.NotificationPropertyDedupeKey]; ok {
+		res[message.NotificationPropertyDedupeKey] = v
 	} else {
-		res[NotificationPropertyDedupeKey] = n.GetProperties()[NotificationPropertyOpniUuid]
+		res[message.NotificationPropertyDedupeKey] = n.GetProperties()[message.NotificationPropertyOpniUuid]
 	}
 
-	if v, ok := n.GetProperties()[NotificationPropertyGroupKey]; ok {
-		res[NotificationPropertyGroupKey] = v
+	if v, ok := n.GetProperties()[message.NotificationPropertyGroupKey]; ok {
+		res[message.NotificationPropertyGroupKey] = v
 	} else {
 		// we have no knowledge of how to group messages by context
-		res[NotificationPropertyGroupKey] = uuid.New().String()
+		res[message.NotificationPropertyGroupKey] = uuid.New().String()
 	}
 	return res
 }
 
 func (n *Notification) GetRoutingAnnotations() map[string]string {
 	res := map[string]string{
-		shared.OpniHeaderAnnotations:      n.Title,
-		shared.OpniBodyAnnotations:        n.Body,
-		shared.OpniGoldenSignalAnnotation: n.GetRoutingGoldenSignal(),
+		message.NotificationContentHeader:        n.Title,
+		message.NotificationContentSummary:       n.Body,
+		message.NotificationPropertyGoldenSignal: n.GetRoutingGoldenSignal(),
 	}
 
-	if v, ok := n.GetProperties()[NotificationPropertyClusterId]; ok {
-		res[shared.OpniClusterAnnotation] = v
+	if v, ok := n.GetProperties()[message.NotificationPropertyClusterId]; ok {
+		res[message.NotificationPropertyClusterId] = v
 	}
-	return res
+	return lo.Assign(n.GetProperties(), res)
 }
 
 func (n *Notification) GetRoutingGoldenSignal() string {
-	v, ok := n.GetProperties()[NotificationPropertyGoldenSignal]
+	v, ok := n.GetProperties()[message.NotificationPropertyGoldenSignal]
 	if ok {
 		return v
 	}
@@ -126,7 +105,7 @@ func (n *Notification) GetRoutingGoldenSignal() string {
 }
 
 func (n *Notification) Namespace() string {
-	return NotificationPropertySeverity
+	return message.NotificationPropertySeverity
 }
 
 func (a *AlertCondition) Hash() (string, error) {
@@ -145,32 +124,45 @@ func (a *AlertCondition) Hash() (string, error) {
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
+func (a *AlertCondition) Visit(syncInfo alertingSync.SyncInfo) {
+	if clusterMd, ok := syncInfo.Clusters[a.GetClusterId().Id]; ok {
+		if a.Annotations == nil {
+			a.Annotations = map[string]string{}
+		}
+		if clusterMd.Metadata != nil && clusterMd.Metadata.Labels != nil {
+			if clusterName, ok := clusterMd.Metadata.Labels[corev1.NameLabel]; ok {
+				a.Annotations[message.NotificationContentClusterName] = clusterName
+			}
+		}
+	}
+}
+
 func (a *AlertCondition) Sanitize() {}
 
 func (a *AlertCondition) GetRoutingLabels() map[string]string {
 	res := map[string]string{
-		NotificationPropertySeverity: a.GetSeverity().String(),
-		NotificationPropertyOpniUuid: a.GetId(),
-		a.Namespace():                a.GetId(),
+		message.NotificationPropertySeverity: a.GetSeverity().String(),
+		message.NotificationPropertyOpniUuid: a.GetId(),
+		a.Namespace():                        a.GetId(),
 	}
 	return res
 }
 
 func (a *AlertCondition) GetRoutingAnnotations() map[string]string {
 	res := map[string]string{
-		shared.OpniHeaderAnnotations:      a.header(),
-		shared.OpniBodyAnnotations:        a.body(),
-		shared.OpniClusterAnnotation:      a.GetClusterId().GetId(),
-		shared.OpniAlarmNameAnnotation:    a.GetName(),
-		shared.OpniGoldenSignalAnnotation: a.GetRoutingGoldenSignal(),
+		message.NotificationContentHeader:        a.header(),
+		message.NotificationContentSummary:       a.body(),
+		message.NotificationPropertyClusterId:    a.GetClusterId().GetId(),
+		message.NotificationContentAlarmName:     a.GetName(),
+		message.NotificationPropertyGoldenSignal: a.GetRoutingGoldenSignal(),
 	}
 	if IsMetricsCondition(a) {
-		res[NotificationPropertyFingerprint] = fmt.Sprintf(
+		res[message.NotificationPropertyFingerprint] = fmt.Sprintf(
 			`{{ "ALERTS_FOR_STATE{opni_uuid=\"%s\"} OR vector(0)" | query | first | value `,
 			a.Id,
 		) + `| printf "%.0f" }}`
 	}
-	return res
+	return lo.Assign(a.GetAnnotations(), res)
 }
 
 func (a *AlertCondition) GetRoutingGoldenSignal() string {

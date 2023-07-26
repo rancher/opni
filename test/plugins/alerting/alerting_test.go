@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/alerting/message"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -212,7 +213,7 @@ func BuildAlertingClusterIntegrationTests(
 							}
 						}
 						return nil
-					}, time.Second*30, time.Second).Should(Succeed()) // FIXME: cortex clients can take an eternity to acquire from UseAPIExtensions
+					}, time.Second*30, time.Second).Should(Succeed())
 				})
 
 				It("should be able to create some endpoints", func() {
@@ -405,7 +406,7 @@ func BuildAlertingClusterIntegrationTests(
 							}
 						}
 						return nil
-					}, time.Second*60, time.Second).Should(Succeed())
+					}, time.Second*30, time.Second).Should(Succeed())
 					By("verifying the routing relationships are correctly loaded")
 					relationships, err := alertNotificationsClient.ListRoutingRelationships(env.Context(), &emptypb.Empty{})
 					Expect(err).To(Succeed())
@@ -559,7 +560,7 @@ func BuildAlertingClusterIntegrationTests(
 						Body:  "world",
 						// set to critical in order to expedite the notification during testing
 						Properties: map[string]string{
-							alertingv1.NotificationPropertySeverity: alertingv1.OpniSeverity_Critical.String(),
+							message.NotificationPropertySeverity: alertingv1.OpniSeverity_Critical.String(),
 						},
 					})
 					Expect(err).To(Succeed())
@@ -575,7 +576,7 @@ func BuildAlertingClusterIntegrationTests(
 					}, time.Second*5, time.Second)
 				})
 
-				XIt("should be able to list opni messages", func() { // FIXME: broken in test environment, requires messy dependency injection to fix
+				XIt("should be able to list opni messages", func() {
 					Eventually(func() error {
 						list, err := alertNotificationsClient.ListNotifications(env.Context(), &alertingv1.ListNotificationRequest{})
 						if err != nil {
@@ -704,6 +705,42 @@ func BuildAlertingClusterIntegrationTests(
 						}
 						return nil
 					}).Should(Succeed())
+				})
+
+				It("should sync friendly cluster names to conditions", func() {
+					friendlyName := "friendly-name"
+					agentId := agents[0].id
+					cl, err := mgmtClient.GetCluster(env.Context(), &corev1.Reference{Id: agentId})
+					Expect(err).To(Succeed())
+
+					_, err = mgmtClient.EditCluster(env.Context(), &managementv1.EditClusterRequest{
+						Cluster: &corev1.Reference{Id: agentId},
+						Labels: lo.Assign(cl.GetLabels(), map[string]string{
+							corev1.NameLabel: friendlyName,
+						}),
+					})
+					Expect(err).To(Succeed())
+
+					Eventually(func() error {
+						conds, err := alertConditionsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{
+							Clusters: []string{agentId},
+						})
+						if err != nil {
+							return err
+						}
+
+						for _, cond := range conds.Items {
+							name, ok := cond.GetAlertCondition().Annotations[message.NotificationContentClusterName]
+							if !ok {
+								return fmt.Errorf("expected alert condition to contain annotations with cluster name")
+							}
+							if name != friendlyName {
+								return fmt.Errorf("expected alert condition to contain annotations with cluster name %s, got %s", friendlyName, name)
+							}
+						}
+						return nil
+					}, time.Second*5, time.Millisecond*300).Should(Succeed())
+
 				})
 
 				It("should force update/delete alert endpoints involved in conditions", func() {

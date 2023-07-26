@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/update/kubernetes/server"
 	"github.com/rancher/opni/pkg/urn"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -23,6 +24,9 @@ const (
 
 var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 	var k8sServer update.UpdateTypeHandler
+	incomingContext := metadata.NewIncomingContext(context.Background(), metadata.Pairs(
+		controlv1.UpdateStrategyKeyForType(urn.Agent), "noop",
+	))
 
 	BeforeEach(func() {
 		var err error
@@ -44,7 +48,7 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 			},
 		}
 		It("should return an error", func() {
-			_, _, err := k8sServer.CalculateUpdate(context.Background(), manifest)
+			_, err := k8sServer.CalculateUpdate(incomingContext, manifest)
 			Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
 		})
 	})
@@ -59,7 +63,7 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 			},
 		}
 		It("should return an error", func() {
-			_, _, err := k8sServer.CalculateUpdate(context.Background(), manifest)
+			_, err := k8sServer.CalculateUpdate(incomingContext, manifest)
 			Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
 		})
 	})
@@ -88,17 +92,13 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 				}
 			})
 			It("should return noop updates", func() {
-				patchList, desiredManifest, err := k8sServer.CalculateUpdate(context.Background(), manifest)
+				patchList, err := k8sServer.CalculateUpdate(incomingContext, manifest)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(desiredManifest).To(Equal(manifest))
-				Expect(func() bool {
-					for _, patch := range patchList.GetItems() {
-						if patch.GetOp() != controlv1.PatchOp_None {
-							return false
-						}
-					}
-					return true
-				}()).To(BeTrue())
+				Expect(patchList.GetItems()).To(HaveLen(2))
+				Expect(patchList.Items[0].GetOp()).To(Equal(controlv1.PatchOp_None))
+				Expect(patchList.Items[1].GetOp()).To(Equal(controlv1.PatchOp_None))
+				Expect(patchList.Items[0].GetPackage()).To(Equal(packageURN1.String()))
+				Expect(patchList.Items[1].GetPackage()).To(Equal(packageURN2.String()))
 			})
 		})
 		When("digest matches the current version but registry is different", func() {
@@ -119,17 +119,13 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 				}
 			})
 			It("should return noop updates", func() {
-				patchList, desiredManifest, err := k8sServer.CalculateUpdate(context.Background(), manifest)
+				patchList, err := k8sServer.CalculateUpdate(incomingContext, manifest)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(desiredManifest).To(Equal(manifest))
-				Expect(func() bool {
-					for _, patch := range patchList.GetItems() {
-						if patch.GetOp() != controlv1.PatchOp_None {
-							return false
-						}
-					}
-					return true
-				}()).To(BeTrue())
+				Expect(patchList.GetItems()).To(HaveLen(2))
+				Expect(patchList.Items[0].GetOp()).To(Equal(controlv1.PatchOp_None))
+				Expect(patchList.Items[1].GetOp()).To(Equal(controlv1.PatchOp_None))
+				Expect(patchList.Items[0].GetPackage()).To(Equal(packageURN1.String()))
+				Expect(patchList.Items[1].GetPackage()).To(Equal(packageURN2.String()))
 			})
 		})
 		When("one digest does not match", func() {
@@ -150,14 +146,8 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 				}
 			})
 			It("should return one change update", func() {
-				patchList, desiredManifest, err := k8sServer.CalculateUpdate(context.Background(), manifest)
+				patchList, err := k8sServer.CalculateUpdate(incomingContext, manifest)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(desiredManifest).NotTo(Equal(manifest))
-				for _, item := range desiredManifest.GetItems() {
-					if item.GetPackage() == packageURN2.String() {
-						Expect(item.GetDigest()).To(Equal(imageDigest))
-					}
-				}
 				for _, patch := range patchList.GetItems() {
 					if patch.GetPackage() == packageURN2.String() {
 						Expect(patch.GetOp()).To(Equal(controlv1.PatchOp_Update))
@@ -168,7 +158,7 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 				}
 			})
 			It("should return one noop update", func() {
-				patchList, _, err := k8sServer.CalculateUpdate(context.Background(), manifest)
+				patchList, err := k8sServer.CalculateUpdate(incomingContext, manifest)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(func() bool {
 					for _, patch := range patchList.GetItems() {
@@ -198,14 +188,8 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 				}
 			})
 			It("should return one change update with the registry changed", func() {
-				patchList, desiredManifest, err := k8sServer.CalculateUpdate(context.Background(), manifest)
+				patchList, err := k8sServer.CalculateUpdate(incomingContext, manifest)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(desiredManifest).NotTo(Equal(manifest))
-				for _, item := range desiredManifest.GetItems() {
-					if item.GetPackage() == packageURN2.String() {
-						Expect(item.GetDigest()).To(Equal(imageDigest))
-					}
-				}
 				for _, patch := range patchList.GetItems() {
 					if patch.GetPackage() == packageURN2.String() {
 						Expect(patch.GetOp()).To(Equal(controlv1.PatchOp_Update))
@@ -234,14 +218,8 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 				}
 			})
 			It("should return one change update with the correct repo", func() {
-				patchList, desiredManifest, err := k8sServer.CalculateUpdate(context.Background(), manifest)
+				patchList, err := k8sServer.CalculateUpdate(incomingContext, manifest)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(desiredManifest).NotTo(Equal(manifest))
-				for _, item := range desiredManifest.GetItems() {
-					if item.GetPackage() == packageURN2.String() {
-						Expect(item.GetDigest()).To(Equal(imageDigest))
-					}
-				}
 				for _, patch := range patchList.GetItems() {
 					if patch.GetPackage() == packageURN2.String() {
 						Expect(patch.GetOp()).To(Equal(controlv1.PatchOp_Update))
@@ -270,7 +248,7 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 				}
 			})
 			It("should return patch updates", func() {
-				patchList, _, err := k8sServer.CalculateUpdate(context.Background(), manifest)
+				patchList, err := k8sServer.CalculateUpdate(incomingContext, manifest)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(func() bool {
 					for _, patch := range patchList.GetItems() {

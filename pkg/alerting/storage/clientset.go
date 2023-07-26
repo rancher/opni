@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -13,6 +14,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"gopkg.in/yaml.v3"
 
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
@@ -67,8 +69,13 @@ func (c *CompositeAlertingClientSet) GetHash(_ context.Context, key string) stri
 
 func (c *CompositeAlertingClientSet) CalculateHash(ctx context.Context, key string, syncOptions *storage_opts.SyncOptions) error {
 	aggregate := ""
-	if syncOptions.DefaultEndpoint != nil {
-		aggregate += syncOptions.DefaultEndpoint.String()
+	if syncOptions.DefaultReceiver != nil {
+		var st bytes.Buffer
+		err := yaml.NewEncoder(&st).Encode(syncOptions.DefaultReceiver)
+		if err != nil {
+			return err
+		}
+		aggregate += st.String()
 	}
 	if key == shared.SingleConfigId {
 		conds, err := c.listAllConditions(ctx)
@@ -202,8 +209,8 @@ func (c *CompositeAlertingClientSet) calculateRouters(ctx context.Context, syncO
 	}
 
 	// when we implement attaching endpoints to the default namespace. do this here
-	if syncOpts.DefaultEndpoint != nil {
-		syncOpts.Router.SetDefaultReceiver(*syncOpts.DefaultEndpoint)
+	if syncOpts.DefaultReceiver != nil {
+		syncOpts.Router.SetDefaultReceiver(*syncOpts.DefaultReceiver)
 	}
 	if err := c.Routers().Put(ctx, key, syncOpts.Router); err != nil {
 		return nil, err

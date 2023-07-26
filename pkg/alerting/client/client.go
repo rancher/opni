@@ -13,7 +13,7 @@ import (
 	alertmanagerv2 "github.com/prometheus/alertmanager/api/v2/models"
 	"github.com/prometheus/alertmanager/pkg/labels"
 	"github.com/rancher/opni/pkg/alerting/fingerprint"
-	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/alerting/message"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/validation"
 	"github.com/samber/lo"
@@ -402,7 +402,7 @@ func (c *Client) ListAlerts(ctx context.Context) (alertmanagerv2.AlertGroups, er
 			alerts := []*alertmanagerv2.GettableAlert{}
 			for _, a := range ag.Alerts {
 
-				key := fmt.Sprintf("%s-%s", a.Labels[alertingv1.NotificationPropertyOpniUuid], a.Labels[alertingv1.NotificationPropertyFingerprint])
+				key := fmt.Sprintf("%s-%s", a.Labels[message.NotificationPropertyOpniUuid], a.Labels[message.NotificationPropertyFingerprint])
 				if _, ok := dedupedAlerts[key]; !ok {
 					dedupedAlerts[key] = struct{}{}
 					alerts = append(alerts, a)
@@ -468,14 +468,14 @@ func (c *Client) PostAlarm(
 	addrs := c.MemberPeers()
 	n := len(addrs)
 	errors := []error{}
-	if _, ok := alarm.Labels[alertingv1.NotificationPropertyOpniUuid]; !ok {
-		alarm.Labels[alertingv1.NotificationPropertyOpniUuid] = alarm.Id
+	if _, ok := alarm.Labels[message.NotificationPropertyOpniUuid]; !ok {
+		alarm.Labels[message.NotificationPropertyOpniUuid] = alarm.Id
 	}
-	if _, ok := alarm.Annotations[shared.OpniAlarmNameAnnotation]; !ok {
-		alarm.Annotations[shared.OpniAlarmNameAnnotation] = alarm.Id
+	if _, ok := alarm.Annotations[message.NotificationContentAlarmName]; !ok {
+		alarm.Annotations[message.NotificationContentAlarmName] = alarm.Id
 	}
-	if _, ok := alarm.Labels[alertingv1.NotificationPropertyFingerprint]; !ok {
-		alarm.Annotations[alertingv1.NotificationPropertyFingerprint] = string(fingerprint.Default())
+	if _, ok := alarm.Labels[message.NotificationPropertyFingerprint]; !ok {
+		alarm.Annotations[message.NotificationPropertyFingerprint] = string(fingerprint.Default())
 	}
 	for _, addr := range addrs {
 		var b bytes.Buffer
@@ -528,11 +528,11 @@ func (c *Client) PostNotification(
 	notifiedInstances := 0
 	errors := []error{}
 	var b bytes.Buffer
-	if _, ok := notification.Labels[alertingv1.NotificationPropertyOpniUuid]; !ok {
-		notification.Labels[alertingv1.NotificationPropertyOpniUuid] = notification.Id
+	if _, ok := notification.Labels[message.NotificationPropertyOpniUuid]; !ok {
+		notification.Labels[message.NotificationPropertyOpniUuid] = notification.Id
 	}
-	if _, ok := notification.Labels[alertingv1.NotificationPropertyFingerprint]; !ok {
-		notification.Labels[alertingv1.NotificationPropertyFingerprint] = string(fingerprint.Default())
+	if _, ok := notification.Labels[message.NotificationPropertyFingerprint]; !ok {
+		notification.Labels[message.NotificationPropertyFingerprint] = string(fingerprint.Default())
 	}
 	t := time.Now()
 	for _, addr := range addrs {
@@ -584,8 +584,8 @@ func (c *Client) ResolveAlert(ctx context.Context, alertObject AlertObject) erro
 	resolvedInstances := 0
 	errors := []error{}
 	var b bytes.Buffer
-	if _, ok := alertObject.Labels[alertingv1.NotificationPropertyOpniUuid]; !ok {
-		alertObject.Labels[alertingv1.NotificationPropertyOpniUuid] = alertObject.Id
+	if _, ok := alertObject.Labels[message.NotificationPropertyOpniUuid]; !ok {
+		alertObject.Labels[message.NotificationPropertyOpniUuid] = alertObject.Id
 	}
 	t := time.Now()
 	for _, addr := range addrs {
@@ -755,7 +755,7 @@ func (c *Client) PostSilence(ctx context.Context, alertingObjectId string, dur t
 					{
 						IsEqual: lo.ToPtr(true),
 						IsRegex: lo.ToPtr(false),
-						Name:    lo.ToPtr(alertingv1.NotificationPropertyOpniUuid),
+						Name:    lo.ToPtr(message.NotificationPropertyOpniUuid),
 						Value:   lo.ToPtr(alertingObjectId),
 					},
 				},
@@ -827,7 +827,7 @@ func (c *Client) ListAlarmMessages(ctx context.Context, listReq *alertingv1.List
 	for _, addr := range addrs {
 		req, err := http.NewRequestWithContext(
 			ctx,
-			http.MethodGet,
+			http.MethodPost,
 			fmt.Sprintf("%s/alarms/list", addr.EmbeddedAddress),
 			bytes.NewReader(b),
 		)
@@ -853,10 +853,10 @@ func (c *Client) ListAlarmMessages(ctx context.Context, listReq *alertingv1.List
 			if msg.Notification == nil {
 				continue
 			}
-			if _, ok := msg.Notification.GetProperties()[alertingv1.NotificationPropertyOpniUuid]; !ok {
+			if _, ok := msg.Notification.GetProperties()[message.NotificationPropertyOpniUuid]; !ok {
 				continue
 			}
-			id = msg.Notification.GetProperties()[alertingv1.NotificationPropertyOpniUuid]
+			id = msg.Notification.GetProperties()[message.NotificationPropertyOpniUuid]
 			if curMsg, ok := mappedMsgs[id]; !ok {
 				mappedMsgs[id] = msg
 			} else {
@@ -896,7 +896,7 @@ func (c *Client) ListNotificationMessages(
 	for _, addr := range addrs {
 		req, err := http.NewRequestWithContext(
 			ctx,
-			http.MethodGet,
+			http.MethodPost,
 			fmt.Sprintf("%s/notifications/list", addr.EmbeddedAddress),
 			bytes.NewReader(b),
 		)
@@ -922,10 +922,10 @@ func (c *Client) ListNotificationMessages(
 			if msg.Notification == nil {
 				continue
 			}
-			if _, ok := msg.Notification.GetProperties()[alertingv1.NotificationPropertyOpniUuid]; !ok {
+			if _, ok := msg.Notification.GetProperties()[message.NotificationPropertyOpniUuid]; !ok {
 				continue
 			}
-			id = msg.Notification.GetProperties()[alertingv1.NotificationPropertyOpniUuid]
+			id = msg.Notification.GetProperties()[message.NotificationPropertyOpniUuid]
 			if curMsg, ok := mappedMsgs[id]; !ok {
 				mappedMsgs[id] = msg
 			} else {

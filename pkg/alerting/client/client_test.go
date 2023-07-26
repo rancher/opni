@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/alerting/client"
+	"github.com/rancher/opni/pkg/alerting/message"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -138,10 +139,10 @@ func BuildAlertAndQuerierClientTestSuite(
 				err := cl.PostAlarm(env.Context(), client.AlertObject{
 					Id: "test",
 					Labels: map[string]string{
-						alertingv1.NotificationPropertyFingerprint: strconv.Itoa(int(time.Now().Unix())),
+						message.NotificationPropertyFingerprint: strconv.Itoa(int(time.Now().Unix())),
 					},
 					Annotations: map[string]string{
-						shared.OpniAlarmNameAnnotation: "test-alarm",
+						message.NotificationContentAlarmName: "test-alarm",
 					},
 				})
 				Expect(err).To(Succeed())
@@ -169,8 +170,8 @@ func BuildAlertAndQuerierClientTestSuite(
 				err = cl.PostAlarm(env.Context(), client.AlertObject{
 					Id: "test2",
 					Labels: map[string]string{
-						alertingv1.NotificationPropertyFingerprint: strconv.Itoa(int(time.Now().Unix())),
-						"foo": "bar",
+						message.NotificationPropertyFingerprint: strconv.Itoa(int(time.Now().Unix())),
+						"foo":                                   "bar",
 					},
 					Annotations: map[string]string{},
 				})

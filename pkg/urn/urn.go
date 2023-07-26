@@ -17,6 +17,10 @@ const (
 	Agent  UpdateType = "agent"
 )
 
+func AllUpdateTypes() []UpdateType {
+	return []UpdateType{Agent, Plugin}
+}
+
 type OpniURN struct {
 	Namespace string
 	Type      UpdateType
@@ -26,25 +30,39 @@ type OpniURN struct {
 
 func ParseString(urn string) (OpniURN, error) {
 	splitURN := strings.Split(urn, ":")
-
 	if len(splitURN) != 5 {
-		return OpniURN{}, ErrInvalidURN
+		return OpniURN{}, fmt.Errorf("%w: incorrect number of fields", ErrInvalidURN)
 	}
 
-	if splitURN[0] != "urn" {
-		return OpniURN{}, ErrInvalidURN
-	}
-
-	if splitURN[1] != Namespace {
-		return OpniURN{}, ErrInvalidNamespace(splitURN[1])
-	}
-
-	return OpniURN{
+	u := OpniURN{
 		Namespace: splitURN[1],
 		Type:      UpdateType(splitURN[2]),
 		Strategy:  splitURN[3],
 		Component: splitURN[4],
-	}, nil
+	}
+	if err := u.Validate(); err != nil {
+		return OpniURN{}, err
+	}
+	return u, nil
+}
+
+func (u OpniURN) Validate() error {
+	if u.Namespace == "" {
+		return fmt.Errorf("%w: missing namespace", ErrInvalidURN)
+	}
+	if u.Namespace != Namespace {
+		return fmt.Errorf("%w: invalid namespace: %s", ErrInvalidURN, u.Namespace)
+	}
+	if u.Type == "" {
+		return fmt.Errorf("%w: missing type", ErrInvalidURN)
+	}
+	if u.Strategy == "" {
+		return fmt.Errorf("%w: missing strategy", ErrInvalidURN)
+	}
+	if u.Component == "" {
+		return fmt.Errorf("%w: missing component", ErrInvalidURN)
+	}
+	return nil
 }
 
 func NewOpniURN(updateType UpdateType, strategy, component string) OpniURN {
@@ -57,9 +75,5 @@ func NewOpniURN(updateType UpdateType, strategy, component string) OpniURN {
 }
 
 func (u OpniURN) String() string {
-	return fmt.Sprintf("urn:%s:%s:%s:%s", Namespace, u.Type, u.Strategy, u.Component)
-}
-
-func ErrInvalidNamespace(ns string) error {
-	return fmt.Errorf("invalid namespace - %s: %w", ns, ErrInvalidURN)
+	return fmt.Sprintf("urn:%s:%s:%s:%s", u.Namespace, u.Type, u.Strategy, u.Component)
 }

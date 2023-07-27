@@ -2,6 +2,7 @@
 import Loading from '@shell/components/Loading';
 import AsyncButton from '@shell/components/AsyncButton';
 import { Banner } from '@components/Banner';
+import LoadingSpinner from '@pkg/opni/components/LoadingSpinner';
 import { exceptionToErrorsArray } from '../utils/error';
 
 export default {
@@ -9,6 +10,7 @@ export default {
     AsyncButton,
     Banner,
     Loading,
+    LoadingSpinner
   },
 
   props: {
@@ -38,6 +40,11 @@ export default {
     },
 
     getStatus: {
+      type:    Function,
+      default: () => null
+    },
+
+    getConfig: {
       type:    Function,
       default: () => null
     },
@@ -80,6 +87,7 @@ export default {
 
       statsInterval:    null,
       statusInterval:   null,
+      loadingConfig:    false,
     };
   },
 
@@ -115,9 +123,11 @@ export default {
       this.$set(this, 'editing', true);
     },
 
-    async loadStatus() {
+    loadStatus() {
       if (this.enabled || this.editing) {
-        this.$set(this, 'status', await this.getStatus());
+        this.getStatus().then((status) => {
+          this.$set(this, 'status', status);
+        });
       }
     },
 
@@ -163,6 +173,19 @@ export default {
       }
     }
   },
+
+  watch: {
+    async editing() {
+      if (this.editing && this.getConfig) {
+        try {
+          this.$set(this, 'loadingConfig', true);
+          this.$set(this, 'config', await this.getConfig());
+        } finally {
+          this.$set(this, 'loadingConfig', false);
+        }
+      }
+    }
+  }
 };
 </script>
 <template>
@@ -171,7 +194,7 @@ export default {
     <header>
       <h1>{{ title }}</h1>
 
-      <div v-if="(enabled && !editing && $slots.details) ">
+      <div v-if="(enabled && !editing && $slots.details && !loadingConfig) ">
         <button class="btn role-secondary mr-5" @click="editFn">
           Edit Config
         </button>
@@ -180,7 +203,7 @@ export default {
         </button>
       </div>
 
-      <button v-if="enabled && (editing || !$slots.details)" class="btn bg-error" @click="disableFn">
+      <button v-if="enabled && (editing || !$slots.details) && !loadingConfig" class="btn bg-error" @click="disableFn">
         Uninstall
       </button>
     </header>
@@ -205,8 +228,9 @@ export default {
     </div>
     <div v-if="(enabled && !editing)" class="body">
       <slot name="details">
-        <slot name="editing" />
-        <div class="resource-footer mt-20">
+        <LoadingSpinner v-if="loadingConfig" />
+        <slot v-else name="editing" />
+        <div v-if="!loadingConfig" class="resource-footer mt-20">
           <button class="btn role-secondary mr-10" @click="cancel">
             Cancel
           </button>
@@ -215,8 +239,9 @@ export default {
       </slot>
     </div>
     <div v-if="(editing || (enabled && !showDetail))" class="body">
-      <slot name="editing" />
-      <div v-if="editing" class="resource-footer mt-20">
+      <LoadingSpinner v-if="loadingConfig" />
+      <slot v-else name="editing" />
+      <div v-if="editing && !loadingConfig" class="resource-footer mt-20">
         <button class="btn role-secondary mr-10" @click="cancel">
           Cancel
         </button>

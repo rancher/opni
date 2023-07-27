@@ -2,6 +2,7 @@
 import LabeledSelect from '@shell/components/form/LabeledSelect';
 import UnitInput from '@shell/components/form/UnitInput';
 import Loading from '@shell/components/Loading';
+import { createComputedTime } from '@pkg/opni/utils/computed';
 import { AlertType } from '../../models/alerting/Condition';
 import { loadClusters, loadChoices } from './shared';
 
@@ -123,15 +124,7 @@ export default {
       return options;
     },
 
-    kubeStateFor: {
-      get() {
-        return Number.parseInt(this.value.for || '0');
-      },
-
-      set(value) {
-        this.$set(this.value, 'for', `${ (value || 0) }s`);
-      }
-    },
+    kubeStateFor: createComputedTime('value.for'),
   },
 
   watch: {

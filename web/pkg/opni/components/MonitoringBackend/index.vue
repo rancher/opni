@@ -3,20 +3,22 @@ import LabeledSelect from '@shell/components/form/LabeledSelect';
 import Tab from '@shell/components/Tabbed/Tab';
 import Tabbed from '@shell/components/Tabbed';
 import { cloneDeep } from 'lodash';
+import { CortexOps, DryRun } from '@pkg/opni/api/opni';
+import { Duration } from '@bufbuild/protobuf';
 import Backend from '../Backend';
 import CapabilityTable from '../CapabilityTable';
 import { getMetricCapabilities } from '../../utils/requests/capability';
 import { getClusterStats } from '../../utils/requests';
-import {
-  StorageBackend, InstallState, DeploymentMode, configureCluster, uninstallCluster, getClusterStatus, getClusterConfig
-} from '../../utils/requests/monitoring';
 import Grafana from './Grafana';
-import Storage, { SECONDS_IN_DAY } from './Storage';
+import { default as StorageComponent } from './Storage';
 
 export async function isEnabled() {
-  const status = (await getClusterStatus()).state;
+  // TODO: Uncomment once status is updated
+  // const status = (await CortexOps.service.Status()).state;
 
-  return status !== InstallState.NotInstalled;
+  // return status !== CortexOps.types.InstallState.NotInstalled;
+
+  return true;
 }
 
 export default {
@@ -25,77 +27,18 @@ export default {
     LabeledSelect,
     Grafana,
     CapabilityTable,
-    Storage,
+    StorageComponent,
     Tab,
     Tabbed
   },
 
-  async fetch() {
-    try {
-      const config = await getClusterConfig();
-
-      config.storage = config.storage || { backend: StorageBackend.S3 };
-      const backendField = StorageBackend[config.storage.backend].toLowerCase();
-      const clone = cloneDeep(this.config);
-
-      this.$set(this.config, 'mode', config.mode || DeploymentMode.HighlyAvailable);
-      this.$set(this, 'config', { ...clone, ...config });
-      this.$set(this.config, 'storage', { ...clone.storage, ...config.storage });
-      this.$set(this.config.storage, backendField, { ...clone.storage[backendField], ...config.storage[backendField] });
-      this.$set(this.config.storage, 'backend', config.storage.backend);
-      this.$set(this.config, 'grafana', config.grafana || { enabled: true });
-    } catch (ex) { }
-  },
-
   data() {
     return {
-      modes:                      [
-        {
-          label: 'Standalone',
-          value: DeploymentMode.AllInOne
-        },
-        {
-          label: 'Highly Available',
-          value: DeploymentMode.HighlyAvailable
-        },
-      ],
-      loading:                    false,
-      dashboardEnabled:           false,
-      capabilities:               [],
-      status:           InstallState.NotInstalled,
-      config:           {
-        mode:    DeploymentMode.HighlyAvailable,
-        storage:       {
-          backend:         StorageBackend.S3,
-          retentionPeriod: `${ 30 * SECONDS_IN_DAY }s`,
-          filesystem:       { directory: '' },
-          s3:               {
-            endpoint:         '',
-            region:           'us-east-1',
-            bucketName:       '',
-            secretAccessKey:  '',
-            accessKeyID:      '',
-            insecure:         false,
-            signatureVersion: 'v4',
-            sse:              {
-              type:                 '',
-              kmsKeyID:             '',
-              kmsEncryptionContext: '',
-            },
-            http: {
-              idleConnTimeout:       '90s',
-              responseHeaderTimeout: '120s',
-              insecureSkipVerify:    false,
-              tlsHandshakeTimeout:   '10s',
-              expectContinueTimeout: '10s',
-              maxIdleConns:          100,
-              maxIdleConnsPerHost:   0,
-              maxConnsPerHost:       100,
-            },
-          },
-        },
-        grafana: { enabled: true },
-      },
+      presets:       [],
+      presetOptions: [],
+      presetIndex:   0,
+      capabilities:  [],
+      config:        {},
     };
   },
 
@@ -159,23 +102,23 @@ export default {
     },
 
     async disable() {
-      await uninstallCluster();
-      if (this.config.storage.s3?.secretAccessKey) {
-        this.$set(this.config.storage.s3, 'secretAccessKey', '');
+      await CortexOps.service.Uninstall();
+      if (this.config.cortexConfig.storage.s3?.secretAccessKey) {
+        this.$set(this.config.cortexConfig.storage.s3, 'secretAccessKey', '');
       }
     },
 
     async save() {
-      if (this.config.storage.backend === StorageBackend.S3) {
-        if (this.config.storage.s3.endpoint === '') {
+      if (this.config.cortexConfig.storage.backend === 's3') {
+        if (this.config.cortexConfig.storage.s3.endpoint === '') {
           throw new Error('Endpoint is required');
         }
 
-        if (this.config.storage.s3.bucketName === '') {
+        if (this.config.cortexConfig.storage.s3.bucketName === '') {
           throw new Error('Bucket Name is required');
         }
 
-        if (this.config.storage.s3.secretAccessKey === '') {
+        if (this.config.cortexConfig.storage.s3.secretAccessKey === '') {
           throw new Error('Secret Access Key is required');
         }
       }
@@ -187,34 +130,40 @@ export default {
         }
       }
 
-      const copy = cloneDeep(this.config);
+      const newConfig = CortexOps.types.CapabilityBackendConfigSpec.fromJson(this.config);
+      const activeConfig = await CortexOps.service.GetConfiguration(CortexOps.types.GetRequest.fromJson({}));
+      const shouldSetConfig = activeConfig.revision.revision === 0n;
 
-      if (this.config.storage.backend !== StorageBackend.Filesystem) {
-        delete copy.storage.filesystem;
-      }
-      if (this.config.storage.backend !== StorageBackend.S3) {
-        delete copy.storage.s3;
-      }
-      if (this.config.storage.backend !== StorageBackend.GCS) {
-        delete copy.storage.gcs;
-      }
-      if (this.config.storage.backend !== StorageBackend.Azure) {
-        delete copy.storage.azure;
-      }
-      if (this.config.storage.backend !== StorageBackend.Swift) {
-        delete copy.storage.swift;
+      const dryRunRequest = new CortexOps.types.DryRunRequest({
+        spec:   newConfig,
+        action: shouldSetConfig ? DryRun.types.Action.Set : DryRun.types.Action.Reset,
+        target: DryRun.types.Target.ActiveConfiguration
+      });
+
+      const dryRun = await CortexOps.service.DryRun(dryRunRequest);
+
+      if (dryRun.validationErrors?.length > 0) {
+        throw dryRun.validationErrors;
       }
 
-      await configureCluster(copy);
+      await CortexOps.service.SetDefaultConfiguration(newConfig);
+
+      if (shouldSetConfig) {
+        await CortexOps.service.SetConfiguration(CortexOps.types.CapabilityBackendConfigSpec.fromJson({}));
+      } else {
+        await CortexOps.service.ResetConfiguration();
+      }
+
+      await CortexOps.service.Install();
     },
 
     bannerMessage(status) {
       switch (status) {
-      case InstallState.Updating:
+      case CortexOps.types.InstallState.Updating:
         return `Monitoring is currently updating on the cluster. You can't make changes right now.`;
-      case InstallState.Uninstalling:
+      case CortexOps.types.InstallState.Uninstalling:
         return `Monitoring is currently uninstalling from the cluster. You can't make changes right now.`;
-      case InstallState.Installed:
+      case CortexOps.types.InstallState.Installed:
         return `Monitoring is currently installed on the cluster.`;
       default:
         return `Monitoring is currently in an unknown state on the cluster. You can't make changes right now.`;
@@ -223,41 +172,76 @@ export default {
 
     bannerState(status) {
       switch (status) {
-      case InstallState.Updating:
-      case InstallState.Uninstalling:
+      case CortexOps.types.InstallState.Updating:
+      case CortexOps.types.InstallState.Uninstalling:
         return 'warning';
-      case InstallState.Installed:
+      case CortexOps.types.InstallState.Installed:
         return `success`;
       default:
         return `error`;
       }
     },
 
-    async isEnabled() {
-      return await isEnabled();
-    },
+    isEnabled,
 
     async isUpgradeAvailable() {
       return await false;
     },
 
     async getStatus() {
-      try {
-        const status = (await getClusterStatus()).state;
+      // TODO: Uncomment once status is updated
+      // try {
+      //   const status = (await CortexOps.service.Status()).state;
 
-        if (status === InstallState.NotInstalled) {
-          return null;
-        }
+      //   if (status === CortexOps.types.InstallState.NotInstalled) {
+      //     return null;
+      //   }
 
-        return {
-          state:   this.bannerState(status),
-          message: this.bannerMessage(status)
-        };
-      } catch (ex) {
-        return null;
-      }
+      //   return {
+      //     state:   this.bannerState(status),
+      //     message: this.bannerMessage(status)
+      //   };
+      // } catch (ex) {
+      //   return null;
+      // }
+      return await null;
     },
+
+    async getConfig() {
+      const presets = (await CortexOps.service.ListPresets()).items;
+
+      this.$set(this, 'presets', presets);
+      this.$set(this, 'presetOptions', presets.map((p, i) => ({
+        label: p.metadata.displayName,
+        value: i
+      })));
+      this.setPresetAsConfig(this.presetIndex);
+
+      const config = JSON.parse((await CortexOps.service.GetDefaultConfiguration(new CortexOps.types.GetRequest({}))).toJsonString());
+
+      config.cortexConfig.storage = config.cortexConfig.storage || { backend: 's3' };
+      const backendField = config.cortexConfig.storage.backend;
+      const clone = cloneDeep(this.config);
+
+      this.$set(this, 'config', { ...clone, ...config });
+      this.$set(this.config.cortexConfig, 'storage', { ...(clone.cortexConfig.storage || {}), ...(config.cortexConfig.storage || {}) });
+      this.$set(this.config.cortexConfig.storage, backendField, { ...(clone.cortexConfig.storage?.[backendField] || {}), ...(config.cortexConfig.storage?.[backendField] || {}) });
+      this.$set(this.config.cortexConfig.storage, 'backend', config.cortexConfig.storage.backend || 'filesystem');
+      this.$set(this.config, 'grafana', config.grafana || { enabled: true });
+
+      return this.config;
+    },
+
+    setPresetAsConfig(index) {
+      this.$set(this, 'config', this.presets[index].spec);
+    }
   },
+
+  watch: {
+    presetIndex() {
+      this.setPresetAsConfig(this.presetIndex);
+    }
+  }
 };
 </script>
 <template>
@@ -267,17 +251,18 @@ export default {
     :disable="disable"
     :is-upgrade-available="isUpgradeAvailable"
     :get-status="getStatus"
+    :get-config="getConfig"
     :save="save"
   >
     <template #editing>
       <div class="row mb-20">
         <div class="col span-12">
-          <LabeledSelect v-model="config.mode" :options="modes" label="Mode" />
+          <LabeledSelect v-model="presetIndex" :options="presetOptions" label="Preset" />
         </div>
       </div>
       <Tabbed :side-tabs="true">
         <Tab :weight="4" name="storage" label="Storage">
-          <Storage v-model="config" />
+          <StorageComponent v-model="config.cortexConfig" />
         </Tab>
         <Tab :weight="3" name="grafana" label="Grafana">
           <Grafana v-model="config.grafana" :status="status" />

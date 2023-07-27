@@ -55,7 +55,7 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 
 	configs, err := r.config()
 	if err != nil {
-		return nil, err
+		return k8sutil.RequeueErr(err).ResultPtr()
 	}
 	allResources = append(allResources, configs...)
 

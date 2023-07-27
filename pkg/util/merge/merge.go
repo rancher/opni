@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // This file contains the implementation of proto.Merge, with new merge options.
+// It also differentiates between null and zero values of Duration and Timestamp.
 package merge
 
 import (
@@ -32,6 +33,8 @@ func Merge(dst, src proto.Message) {
 	MergeOptions{}.Merge(dst, src)
 }
 
+// MergeWithReplace is like Merge, but replaces lists and maps instead of
+// appending to them.
 func MergeWithReplace[T proto.Message](dst, src T) {
 	MergeOptions{
 		ReplaceLists: true,

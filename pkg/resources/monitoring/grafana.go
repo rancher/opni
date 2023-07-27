@@ -147,7 +147,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		})
 	}
 
-	if !r.mc.Spec.Grafana.Enabled {
+	if !r.mc.Spec.Grafana.GetEnabled() {
 		absentResources := append([]resources.Resource{
 			resources.Absent(grafana),
 			resources.Absent(datasource),
@@ -162,8 +162,8 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 	gatewayAuthProvider := r.gw.Spec.Auth.Provider
 
 	grafanaHostname := fmt.Sprintf("grafana.%s", gatewayHostname)
-	if r.mc.Spec.Grafana.Hostname != "" {
-		grafanaHostname = r.mc.Spec.Grafana.Hostname
+	if r.mc.Spec.Grafana.GetHostname() != "" {
+		grafanaHostname = r.mc.Spec.Grafana.GetHostname()
 	}
 
 	if strings.Contains(grafanaHostname, "://") {
@@ -176,8 +176,8 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 	}
 
 	tag := "latest"
-	if r.mc.Spec.Grafana.Version != "" {
-		tag = strings.TrimSpace(r.mc.Spec.Grafana.Version)
+	if r.mc.Spec.Grafana.GetVersion() != "" {
+		tag = strings.TrimSpace(r.mc.Spec.Grafana.GetVersion())
 	}
 
 	defaults := grafanav1alpha1.GrafanaSpec{

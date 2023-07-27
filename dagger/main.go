@@ -321,7 +321,8 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 	opni := archives.
 		Pipeline("Build Opni").
 		WithMountedDirectory(webDist, nodeBuild.Directory(webDist)).
-		WithExec(mage("build:opni"))
+		WithExec(mage("build:opni")).
+		WithExec([]string{"bin/opni", "completion", "bash"}, dagger.ContainerWithExecOpts{RedirectStdout: "/etc/bash_completion.d/opni"})
 
 	minimal := archives.
 		Pipeline("Build Opni Minimal").
@@ -386,6 +387,7 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		Pipeline("Full Image").
 		WithFile("/usr/bin/opni", opni.File(b.bin("opni"))).
 		WithDirectory("/var/lib/opni/plugins", plugins.Directory(b.bin("plugins"))).
+		WithDirectory("/etc/bash_completion.d", opni.Directory("/etc/bash_completion.d")).
 		WithEntrypoint([]string{"opni"})
 
 	minimalImage := alpineBase.

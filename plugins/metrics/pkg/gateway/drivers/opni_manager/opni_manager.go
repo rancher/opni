@@ -128,6 +128,9 @@ func NewOpniManagerClusterDriver(options OpniManagerClusterDriverOptions) (*Opni
 			mc := options.newMonitoringCluster()
 			err := options.K8sClient.Get(ctx, options.MonitoringCluster, mc)
 			if err != nil {
+				if k8serrors.IsNotFound(err) {
+					return nil, storage.ErrNotFound
+				}
 				return nil, fmt.Errorf("failed to get monitoring cluster: %w", err)
 			}
 			return &cortexops.CapabilityBackendConfigSpec{
@@ -166,7 +169,7 @@ func (k *OpniManager) ListPresets(context.Context, *emptypb.Empty) (*cortexops.P
 						},
 					},
 					CortexConfig: &cortexops.CortexApplicationConfig{
-						LogLevel: "debug",
+						LogLevel: lo.ToPtr("debug"),
 						Storage: &storagev1.StorageSpec{
 							Backend: storagev1.Backend_filesystem,
 							Filesystem: &storagev1.FilesystemStorageSpec{
@@ -185,19 +188,19 @@ func (k *OpniManager) ListPresets(context.Context, *emptypb.Empty) (*cortexops.P
 				Spec: &cortexops.CapabilityBackendConfigSpec{
 					CortexWorkloads: &cortexops.CortexWorkloadsConfig{
 						Targets: map[string]*cortexops.CortexWorkloadSpec{
-							"distributor":    {},
-							"query-frontend": {},
-							"purger":         {},
-							"ruler":          {},
-							"compactor":      {},
-							"store-gateway":  {},
-							"ingester":       {},
-							"alertmanager":   {},
-							"querier":        {},
+							"distributor":    {Replicas: lo.ToPtr[int32](1)},
+							"query-frontend": {Replicas: lo.ToPtr[int32](1)},
+							"purger":         {Replicas: lo.ToPtr[int32](1)},
+							"ruler":          {Replicas: lo.ToPtr[int32](3)},
+							"compactor":      {Replicas: lo.ToPtr[int32](3)},
+							"store-gateway":  {Replicas: lo.ToPtr[int32](3)},
+							"ingester":       {Replicas: lo.ToPtr[int32](3)},
+							"alertmanager":   {Replicas: lo.ToPtr[int32](3)},
+							"querier":        {Replicas: lo.ToPtr[int32](3)},
 						},
 					},
 					CortexConfig: &cortexops.CortexApplicationConfig{
-						LogLevel: "debug",
+						LogLevel: lo.ToPtr("debug"),
 						Storage: &storagev1.StorageSpec{
 							Backend: storagev1.Backend_s3,
 						},

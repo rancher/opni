@@ -13,6 +13,7 @@ import (
 	validation "github.com/rancher/opni/internal/cortex/config/validation"
 	v1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
+	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
 	proto "google.golang.org/protobuf/proto"
@@ -501,7 +502,7 @@ func (in *CortexApplicationConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 		in.Querier = &querier.Config{}
 	}
 	fs.AddFlagSet(in.Querier.FlagSet(append(prefix, "querier")...))
-	fs.StringVar(&in.LogLevel, strings.Join(append(prefix, "log-level"), "."), "debug", "")
+	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("debug"), &in.LogLevel), strings.Join(append(prefix, "log-level"), "."), "")
 	if in.Storage == nil {
 		in.Storage = &v1.StorageSpec{}
 	}
@@ -529,9 +530,9 @@ func (in *CortexApplicationConfig) UnredactSecrets(unredacted *CortexApplication
 func (in *GrafanaConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("GrafanaConfig", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.BoolVar(&in.Enabled, strings.Join(append(prefix, "enabled"), "."), false, "Whether to deploy a managed Grafana instance.")
-	fs.StringVar(&in.Version, strings.Join(append(prefix, "version"), "."), "latest", "The version of Grafana to deploy.")
-	fs.StringVar(&in.Hostname, strings.Join(append(prefix, "hostname"), "."), "", "")
+	fs.Var(flagutil.BoolPtrValue(flagutil.Ptr(false), &in.Enabled), strings.Join(append(prefix, "enabled"), "."), "Whether to deploy a managed Grafana instance.")
+	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("latest"), &in.Version), strings.Join(append(prefix, "version"), "."), "The version of Grafana to deploy.")
+	fs.Var(flagutil.StringPtrValue(nil, &in.Hostname), strings.Join(append(prefix, "hostname"), "."), "")
 	return fs
 }
 

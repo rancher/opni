@@ -108,12 +108,12 @@ func (*TestEnvMetricsClusterDriver) ListPresets(context.Context, *emptypb.Empty)
 					CortexWorkloads: &cortexops.CortexWorkloadsConfig{
 						Targets: map[string]*cortexops.CortexWorkloadSpec{
 							"all": {
-								Replicas: 1,
+								Replicas: lo.ToPtr[int32](1),
 							},
 						},
 					},
 					CortexConfig: &cortexops.CortexApplicationConfig{
-						LogLevel: "warn",
+						LogLevel: lo.ToPtr("warn"),
 					},
 				},
 			},

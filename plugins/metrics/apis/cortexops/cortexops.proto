@@ -214,7 +214,7 @@ message CortexWorkloadsConfig {
 }
 
 message CortexWorkloadSpec {
-  int32           replicas  = 1;
+  optional int32  replicas  = 1;
   repeated string extraArgs = 2;
 }
 
@@ -232,18 +232,18 @@ message CortexApplicationConfig {
   runtimeconfig.RuntimeConfigValues runtime_config = 2;
   compactor.Config                  compactor      = 3;
   querier.Config                    querier        = 4;
-  string                            log_level      = 5 [(cli.flag).default = "debug"];
+  optional string                   log_level      = 5 [(cli.flag).default = "debug"];
   storage.StorageSpec               storage        = 6;
 }
 
 message GrafanaConfig {
   // Whether to deploy a managed Grafana instance.
-  bool enabled = 1 [(cli.flag).default = "false"];
+  optional bool enabled = 1 [(cli.flag).default = "false"];
 
   // The version of Grafana to deploy.
-  string version = 2 [(cli.flag).default = "latest"];
+  optional string version = 2 [(cli.flag).default = "latest"];
 
-  string hostname = 3;
+  optional string hostname = 3;
 }
 
 message PresetList {

@@ -19,7 +19,7 @@ import (
 )
 
 func (r *Reconciler) config() ([]resources.Resource, error) {
-	if lo.FromPtr(r.mc.Spec.Cortex.Enabled) { // nil defaults to false
+	if r.mc.Spec.Cortex.Enabled == nil || !*r.mc.Spec.Cortex.Enabled {
 		return []resources.Resource{
 			resources.Absent(&corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -94,6 +94,9 @@ func (r *Reconciler) config() ([]resources.Resource, error) {
 	}
 	confBytes, err := configutil.MarshalCortexConfig(conf)
 	if err != nil {
+		r.logger.With(
+			zap.Error(err),
+		).Error("Failed to marshal cortex config (cannot continue)")
 		return nil, err
 	}
 	rtConfBytes, err := configutil.MarshalRuntimeConfig(rtConf)

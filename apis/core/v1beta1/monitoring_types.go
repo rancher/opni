@@ -57,8 +57,14 @@ type GrafanaSpec struct {
 type MonitoringClusterSpec struct {
 	//+kubebuilder:validation:Required
 	Gateway corev1.LocalObjectReference `json:"gateway,omitempty"`
-	Cortex  CortexSpec                  `json:"cortex,omitempty"`
-	Grafana GrafanaSpec                 `json:"grafana,omitempty"`
+	//+kubebuilder:validation:Schemaless
+	//+kubebuilder:pruning:PreserveUnknownFields
+	//+kubebuilder:validation:type=object
+	Cortex CortexSpec `json:"cortex,omitempty"`
+	//+kubebuilder:validation:Schemaless
+	//+kubebuilder:pruning:PreserveUnknownFields
+	//+kubebuilder:validation:type=object
+	Grafana GrafanaSpec `json:"grafana,omitempty"`
 }
 
 type MonitoringClusterStatus struct {

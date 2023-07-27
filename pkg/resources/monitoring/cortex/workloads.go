@@ -162,8 +162,8 @@ func (r *Reconciler) cortexWorkloads() []resources.Resource {
 				continue
 			}
 			opts := append([]CortexWorkloadOption{
-				Replicas(spec.Replicas),
-				ExtraArgs(spec.ExtraArgs...),
+				Replicas(spec.GetReplicas()),
+				ExtraArgs(spec.GetExtraArgs()...),
 			}, workloadOptions[target]...)
 			switch workloadType {
 			case deployment:

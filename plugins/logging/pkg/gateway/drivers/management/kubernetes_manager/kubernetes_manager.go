@@ -40,7 +40,7 @@ const (
 	LabelOpniNodeGroup  = "opni.io/node-group"
 	TopologyKeyK8sHost  = "kubernetes.io/hostname"
 
-	opensearchVersion = "2.4.0"
+	opensearchVersion = "2.8.0"
 	defaultRepo       = "docker.io/rancher"
 )
 
@@ -80,7 +80,7 @@ func (d *KubernetesManagerDriver) AdminPassword(ctx context.Context) (password [
 		return
 	}
 
-	password = util.GenerateRandomString(8)
+	password = util.GenerateRandomString(12)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-user-password",

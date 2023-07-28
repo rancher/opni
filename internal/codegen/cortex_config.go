@@ -10,6 +10,8 @@ import (
 	"github.com/cortexproject/cortex/pkg/compactor"
 	"github.com/cortexproject/cortex/pkg/cortex"
 	"github.com/cortexproject/cortex/pkg/querier"
+	"github.com/cortexproject/cortex/pkg/storage/bucket"
+	"github.com/cortexproject/cortex/pkg/util/flagext"
 	"github.com/cortexproject/cortex/pkg/util/validation"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/desc/builder"
@@ -22,6 +24,9 @@ import (
 )
 
 func GenCortexConfig() error {
+	if err := generate[bucket.Config]("github.com/rancher/opni/internal/cortex/config/storage/storage.proto"); err != nil {
+		return err
+	}
 	if err := generate[validation.Limits]("github.com/rancher/opni/internal/cortex/config/validation/limits.proto"); err != nil {
 		return err
 	}
@@ -78,8 +83,20 @@ func editFlagOptions(rf reflect.StructField) func(*cli.FlagOptions) {
 		return func(fo *cli.FlagOptions) {
 			fo.Skip = true
 		}
+	} else if rf.Type == reflect.TypeOf(flagext.Secret{}) || isSpecialCaseSecretFieldName(rf.Name) {
+		return func(fo *cli.FlagOptions) {
+			fo.Secret = true
+		}
 	}
 	return nil
+}
+
+func isSpecialCaseSecretFieldName(name string) bool {
+	// a couple fields don't have the flagext.Secret type, so we need to
+	// check for them specifically
+	return name == "Password" || // SwiftConfig
+		name == "MSIResource" || // AzureConfig
+		name == "KMSEncryptionContext" // S3SSEConfig
 }
 
 func editFieldComment(rf reflect.StructField, in *string) {
@@ -93,7 +110,11 @@ var cortexTypesToSkip = map[reflect.Type]bool{
 	reflect.TypeOf(compactor.RingConfig{}): true,
 }
 
-var customFieldTypes = map[reflect.Type]func() *builder.FieldType{}
+var customFieldTypes = map[reflect.Type]func() *builder.FieldType{
+	reflect.TypeOf(flagext.Secret{}): func() *builder.FieldType {
+		return builder.FieldTypeString()
+	},
+}
 
 func generate[T any](destFilename string, skipFunc ...func(rf reflect.StructField) bool) error {
 	messages := descriptors.BuildMessage[T](descriptors.BuilderOptions{

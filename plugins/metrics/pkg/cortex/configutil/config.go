@@ -2,28 +2,16 @@ package configutil
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"path/filepath"
 	"reflect"
 	"time"
 
-	compactor_gen "github.com/rancher/opni/internal/cortex/config/compactor"
-	querier_gen "github.com/rancher/opni/internal/cortex/config/querier"
-	runtimeconfig_gen "github.com/rancher/opni/internal/cortex/config/runtimeconfig"
-	validation_gen "github.com/rancher/opni/internal/cortex/config/validation"
-	"github.com/rancher/opni/pkg/metrics"
-	"github.com/weaveworks/common/logging"
-	"github.com/weaveworks/common/server"
-	"google.golang.org/protobuf/encoding/protojson"
-	"gopkg.in/yaml.v3"
-
 	"github.com/cortexproject/cortex/pkg/alertmanager"
 	"github.com/cortexproject/cortex/pkg/compactor"
 	"github.com/cortexproject/cortex/pkg/cortex"
 	"github.com/cortexproject/cortex/pkg/distributor"
-	"github.com/cortexproject/cortex/pkg/ingester"
 	"github.com/cortexproject/cortex/pkg/querier"
 	"github.com/cortexproject/cortex/pkg/querier/worker"
 	"github.com/cortexproject/cortex/pkg/ring"
@@ -32,23 +20,22 @@ import (
 	"github.com/cortexproject/cortex/pkg/ruler"
 	"github.com/cortexproject/cortex/pkg/ruler/rulestore"
 	"github.com/cortexproject/cortex/pkg/storage/bucket"
-	"github.com/cortexproject/cortex/pkg/storage/bucket/azure"
-	"github.com/cortexproject/cortex/pkg/storage/bucket/gcs"
-	bucket_http "github.com/cortexproject/cortex/pkg/storage/bucket/http"
-	"github.com/cortexproject/cortex/pkg/storage/bucket/s3"
-	"github.com/cortexproject/cortex/pkg/storage/bucket/swift"
 	"github.com/cortexproject/cortex/pkg/storage/tsdb"
 	"github.com/cortexproject/cortex/pkg/storegateway"
 	"github.com/cortexproject/cortex/pkg/util/flagext"
 	"github.com/cortexproject/cortex/pkg/util/grpcclient"
 	"github.com/cortexproject/cortex/pkg/util/runtimeconfig"
 	cortextls "github.com/cortexproject/cortex/pkg/util/tls"
-	"github.com/cortexproject/cortex/pkg/util/validation"
 	kyamlv3 "github.com/kralicky/yaml/v3"
-
 	"github.com/prometheus/prometheus/model/relabel"
+	compactor_gen "github.com/rancher/opni/internal/cortex/config/compactor"
+	querier_gen "github.com/rancher/opni/internal/cortex/config/querier"
+	runtimeconfig_gen "github.com/rancher/opni/internal/cortex/config/runtimeconfig"
+	validation_gen "github.com/rancher/opni/internal/cortex/config/validation"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
+	"github.com/rancher/opni/pkg/metrics"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/weaveworks/common/server"
 )
 
 type TLSServerConfigShape = struct {
@@ -84,73 +71,6 @@ type ImplementationSpecificOverridesShape = struct {
 	QueryFrontendAddress string
 	MemberlistJoinAddrs  []string
 	AlertmanagerURL      string
-}
-
-func StorageToBucketConfig(in *storagev1.StorageSpec) bucket.Config {
-	s3Spec := in.GetS3()
-	gcsSpec := in.GetGcs()
-	azureSpec := in.GetAzure()
-	swiftSpec := in.GetSwift()
-
-	storageConfig := bucket.Config{
-		Backend: in.GetBackend().String(),
-		S3: s3.Config{
-			Endpoint:   s3Spec.GetEndpoint(),
-			Region:     s3Spec.GetRegion(),
-			BucketName: s3Spec.GetBucketName(),
-			SecretAccessKey: flagext.Secret{
-				Value: s3Spec.GetSecretAccessKey(),
-			},
-			AccessKeyID:      s3Spec.GetAccessKeyID(),
-			Insecure:         s3Spec.GetInsecure(),
-			SignatureVersion: s3Spec.GetSignatureVersion(),
-			SSE: s3.SSEConfig{
-				Type:                 s3Spec.GetSse().GetType(),
-				KMSKeyID:             s3Spec.GetSse().GetKmsKeyID(),
-				KMSEncryptionContext: s3Spec.GetSse().GetKmsEncryptionContext(),
-			},
-			HTTP: s3.HTTPConfig{
-				Config: bucketHttpConfig(s3Spec.GetHttp()),
-			},
-		},
-		GCS: gcs.Config{
-			BucketName: gcsSpec.GetBucketName(),
-			ServiceAccount: flagext.Secret{
-				Value: gcsSpec.GetServiceAccount(),
-			},
-		},
-		Azure: azure.Config{
-			StorageAccountName: azureSpec.GetStorageAccountName(),
-			StorageAccountKey: flagext.Secret{
-				Value: azureSpec.GetStorageAccountKey(),
-			},
-			ContainerName: azureSpec.GetContainerName(),
-			Endpoint:      azureSpec.GetEndpoint(),
-			MaxRetries:    int(azureSpec.GetMaxRetries()),
-			Config:        bucketHttpConfig(azureSpec.GetHttp()),
-		},
-		Swift: swift.Config{
-			AuthVersion:       int(swiftSpec.GetAuthVersion()),
-			AuthURL:           swiftSpec.GetAuthURL(),
-			Username:          swiftSpec.GetUsername(),
-			UserDomainName:    swiftSpec.GetUserDomainName(),
-			UserDomainID:      swiftSpec.GetUserDomainID(),
-			UserID:            swiftSpec.GetUserID(),
-			Password:          swiftSpec.GetPassword(),
-			DomainID:          swiftSpec.GetDomainID(),
-			DomainName:        swiftSpec.GetDomainName(),
-			ProjectID:         swiftSpec.GetProjectID(),
-			ProjectName:       swiftSpec.GetProjectName(),
-			ProjectDomainID:   swiftSpec.GetProjectDomainID(),
-			ProjectDomainName: swiftSpec.GetProjectDomainName(),
-			RegionName:        swiftSpec.GetRegionName(),
-			ContainerName:     swiftSpec.GetContainerName(),
-			MaxRetries:        int(swiftSpec.GetMaxRetries()),
-			ConnectTimeout:    swiftSpec.GetConnectTimeout().AsDuration(),
-			RequestTimeout:    swiftSpec.GetRequestTimeout().AsDuration(),
-		},
-	}
-	return storageConfig
 }
 
 type cortexConfigOverrider[T any] interface {
@@ -227,9 +147,18 @@ func NewTargetsOverride(targets ...string) []CortexConfigOverrider {
 	}
 }
 
+func newStorageOverrides(storageConfig *bucket.Config) []CortexConfigOverrider {
+	return []CortexConfigOverrider{
+		NewOverrider(func(in *bucket.Config) bool {
+			*in = *storageConfig
+			return true
+		}),
+	}
+}
+
 // These overrides will automatically apply additional settings when deploying
 // components in separate targets, rather than using the 'all' target.
-func NewAutomaticHAOverrides() []CortexConfigOverrider {
+func newAutomaticHAOverrides() []CortexConfigOverrider {
 	const (
 		unknown = iota
 		aio
@@ -254,7 +183,10 @@ func NewAutomaticHAOverrides() []CortexConfigOverrider {
 			return false // Don't recurse into the kv config
 		}),
 		NewOverrider(func(in *kv.Config) bool {
-			if detectedMode == ha {
+			switch detectedMode {
+			case aio:
+				in.Store = "inmemory"
+			case ha:
 				in.Store = "memberlist"
 			}
 			return true
@@ -278,13 +210,19 @@ func NewAutomaticHAOverrides() []CortexConfigOverrider {
 			return true
 		}),
 		NewOverrider(func(in *ruler.Config) bool {
-			if detectedMode == ha {
+			switch detectedMode {
+			case aio:
+				in.EnableSharding = false
+			case ha:
 				in.EnableSharding = true
 			}
 			return true
 		}),
 		NewOverrider(func(in *storegateway.Config) bool {
-			if detectedMode == ha {
+			switch detectedMode {
+			case aio:
+				in.ShardingEnabled = false
+			case ha:
 				in.ShardingEnabled = true
 			}
 			return true
@@ -326,9 +264,9 @@ func NewAutomaticHAOverrides() []CortexConfigOverrider {
 	}
 }
 
-// These are the standard overrides that are generally always required to have
-// a working Cortex config. They configure network, TLS, and filesystem settings.
-func NewStandardOverrides(impl StandardOverridesShape) []CortexConfigOverrider {
+// These are overrides that configure host options such as networking and storage.
+// Generally always required to have a working Cortex config.
+func NewHostOverrides(impl StandardOverridesShape) []CortexConfigOverrider {
 	return []CortexConfigOverrider{
 		NewOverrider(func(t *server.Config) bool {
 			t.HTTPListenAddress = impl.HttpListenAddress
@@ -381,11 +319,6 @@ func NewStandardOverrides(impl StandardOverridesShape) []CortexConfigOverrider {
 			t.Dir = filepath.Join(impl.StorageDir, "tsdb")
 			return true
 		}),
-		NewOverrider(func(t *bucket.Config) bool {
-			t.Backend = "filesystem"
-			t.Filesystem.Directory = filepath.Join(impl.StorageDir, "bucket")
-			return true
-		}),
 		NewOverrider(func(t *ruler.Config) bool {
 			t.RulePath = filepath.Join(impl.StorageDir, "rules")
 			return true
@@ -433,7 +366,7 @@ func MergeOverrideLists(lists ...[]CortexConfigOverrider) []CortexConfigOverride
 }
 
 type cortexspec interface {
-	GetStorage() *storagev1.StorageSpec
+	GetStorage() *storagev1.Config
 	GetLogLevel() string
 	GetLimits() *validation_gen.Limits
 	GetQuerier() *querier_gen.Config
@@ -445,25 +378,40 @@ func CortexAPISpecToCortexConfig[T cortexspec](
 	in T,
 	overriders ...CortexConfigOverrider,
 ) (*cortex.Config, *cortex.RuntimeConfigValues, error) {
-	kvConfig := kv.Config{
-		Store: "inmemory",
-	}
-
-	logLevel := logging.Level{}
-	level := in.GetLogLevel()
-	if level == "" {
-		level = "info"
-	}
-	if err := logLevel.Set(level); err != nil {
-		level = "info"
-	}
-	logFmt := logging.Format{}
-	logFmt.Set("json")
-
-	storageConfig := StorageToBucketConfig(in.GetStorage())
-
 	config := cortex.Config{}
-	flagext.DefaultValues(&config)
+	loadDefaults(&config)
+	loadNonConfigurableStaticFields(&config)
+	config.Server.LogLevel.Set(in.GetLogLevel())
+
+	if err := LoadFromAPI(&config.LimitsConfig, in.GetLimits()); err != nil {
+		return nil, nil, err
+	}
+
+	if err := LoadFromAPI(&config.Querier, in.GetQuerier()); err != nil {
+		return nil, nil, err
+	}
+
+	if err := LoadFromAPI(&config.Compactor, in.GetCompactor()); err != nil {
+		return nil, nil, err
+	}
+
+	storageConfig := bucket.Config{}
+	if err := LoadFromAPI(&storageConfig, in.GetStorage()); err != nil {
+		return nil, nil, err
+	}
+	applyCortexConfigOverrides(&config, newStorageOverrides(&storageConfig))
+	applyCortexConfigOverrides(&config, newAutomaticHAOverrides())
+	applyCortexConfigOverrides(&config, overriders)
+
+	var rtConfig cortex.RuntimeConfigValues
+	if err := LoadFromAPI(&rtConfig, in.GetRuntimeConfig()); err != nil {
+		return nil, nil, err
+	}
+
+	return &config, &rtConfig, nil
+}
+
+func loadNonConfigurableStaticFields(config *cortex.Config) {
 	config.AuthEnabled = true
 	config.TenantFederation.Enabled = true
 	config.API.PrometheusHTTPPrefix = "/prometheus"
@@ -471,34 +419,22 @@ func CortexAPISpecToCortexConfig[T cortexspec](
 	config.Server.GPRCServerMaxConcurrentStreams = 10000 // typo in upstream
 	config.Server.GRPCServerMaxSendMsgSize = 100 << 20
 	config.Server.GPRCServerMaxRecvMsgSize = 100 << 20 // typo in upstream
-	config.Server.LogLevel = logLevel
-	config.Server.LogFormat = logFmt
+	config.Server.LogFormat.Set("json")
 	config.Storage.Engine = "blocks"
 	config.BlocksStorage.TSDB.FlushBlocksOnShutdown = true
-	config.BlocksStorage.Bucket = storageConfig
 	config.BlocksStorage.BucketStore.BucketIndex.Enabled = true
 	config.BlocksStorage.BucketStore.SyncInterval = 5 * time.Minute
 	config.BlocksStorage.BucketStore.IndexCache.Backend = "inmemory"
-	config.RulerStorage.Config = storageConfig
 	config.MemberlistKV.JoinMembers = nil
 	config.Alertmanager.EnableAPI = true
 	config.Alertmanager.ExternalURL = flagext.URLValue{
 		URL: util.Must(url.Parse("/api/prom/alertmanager")),
 	}
 	config.Alertmanager.FallbackConfigFile = "/etc/alertmanager/fallback.yaml"
-	config.Alertmanager.ShardingEnabled = false
-	config.Alertmanager.ShardingRing.KVStore = kvConfig
-	config.Alertmanager.ShardingRing.ReplicationFactor = 1
-	config.AlertmanagerStorage.Config = storageConfig
-	config.Compactor.ShardingEnabled = false
-	config.Compactor.ShardingRing.KVStore = kvConfig
 	config.Compactor.CleanupInterval = 5 * time.Minute
 	config.Distributor.PoolConfig.HealthCheckIngesters = true
-	config.Distributor.DistributorRing.KVStore = kvConfig
 	config.Distributor.ShardByAllLabels = true
 	config.Ingester.LifecyclerConfig.NumTokens = 512
-	config.Ingester.LifecyclerConfig.RingConfig.KVStore = kvConfig
-	config.Ingester.LifecyclerConfig.RingConfig.ReplicationFactor = 1
 	config.IngesterClient.GRPCClientConfig.MaxSendMsgSize = 100 << 20
 	config.Querier.QueryStoreForLabels = true
 	config.QueryRange.SplitQueriesByInterval = 24 * time.Hour
@@ -508,91 +444,15 @@ func CortexAPISpecToCortexConfig[T cortexspec](
 	config.QueryRange.ResultsCacheConfig.CacheConfig.Fifocache.Validity = 1 * time.Hour
 	config.Ruler.AlertmanangerEnableV2API = true
 	config.Ruler.EnableAPI = true
-	config.Ruler.Ring.KVStore = kvConfig
-	config.Ruler.EnableSharding = false
-	config.StoreGateway.ShardingEnabled = false
-	config.StoreGateway.ShardingRing.KVStore = kvConfig
-	config.StoreGateway.ShardingRing.ReplicationFactor = 1
 	config.LimitsConfig.MetricRelabelConfigs = []*relabel.Config{
 		metrics.OpniInternalLabelFilter(),
 	}
 	config.Flusher.ExitAfterFlush = false
-
-	limitsData, err := protojson.MarshalOptions{
-		UseProtoNames: true,
-	}.Marshal(in.GetLimits())
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to marshal limits: %w", err)
-	}
-	if err := yaml.Unmarshal(limitsData, &config.LimitsConfig); err != nil {
-		return nil, nil, fmt.Errorf("failed to unmarshal limits: %w", err)
-	}
-
-	if in.GetCompactor() != nil {
-		compactorData, err := protojson.MarshalOptions{
-			UseProtoNames: true,
-		}.Marshal(in.GetCompactor())
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to marshal compactor config: %w", err)
-		}
-		if err := yaml.Unmarshal(compactorData, &config.Compactor); err != nil {
-			return nil, nil, fmt.Errorf("failed to unmarshal compactor config: %w\n%s", err, string(compactorData))
-		}
-	}
-	if in.GetQuerier() != nil {
-		querierData, err := protojson.MarshalOptions{
-			UseProtoNames: true,
-		}.Marshal(in.GetQuerier())
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to marshal querier config: %w", err)
-		}
-		if err := yaml.Unmarshal(querierData, &config.Querier); err != nil {
-			return nil, nil, fmt.Errorf("failed to unmarshal querier config: %w", err)
-		}
-	}
-
-	applyCortexConfigOverrides(&config, overriders)
-
-	rt := in.GetRuntimeConfig()
-	rtConfig := cortex.RuntimeConfigValues{
-		TenantLimits: make(map[string]*validation.Limits),
-	}
-	if rt != nil {
-		rtConfig.IngesterChunkStreaming = rt.IngesterStreamChunksWhenUsingBlocks
-	}
-	if multi := rt.GetMultiKvConfig(); multi != nil {
-		rtConfig.Multi.PrimaryStore = multi.GetPrimary()
-		rtConfig.Multi.Mirroring = multi.MirrorEnabled
-	}
-	if il := rt.GetIngesterLimits(); il != nil {
-		rtConfig.IngesterLimits = &ingester.InstanceLimits{
-			MaxIngestionRate:        il.GetMaxIngestionRate(),
-			MaxInMemoryTenants:      il.GetMaxTenants(),
-			MaxInMemorySeries:       il.GetMaxSeries(),
-			MaxInflightPushRequests: il.GetMaxInflightPushRequests(),
-		}
-	}
-	for tenantId, tenantLimits := range rt.GetOverrides() {
-		limits := &validation.Limits{}
-		data, err := protojson.MarshalOptions{
-			UseProtoNames: true,
-		}.Marshal(tenantLimits)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to marshal tenant limits: %w", err)
-		}
-		if err := json.Unmarshal(data, limits); err != nil {
-			return nil, nil, fmt.Errorf("failed to unmarshal tenant limits: %w", err)
-		}
-		rtConfig.TenantLimits[tenantId] = limits
-	}
-
-	return &config, &rtConfig, nil
 }
 
 func MarshalCortexConfig(config *cortex.Config) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	encoder := kyamlv3.NewEncoder(buf)
-	// encoder.SetAlwaysOmitEmpty(true)
 	encoder.OverrideMarshalerForType(reflect.TypeOf(flagext.Secret{}),
 		newOverrideMarshaler(func(s flagext.Secret) (any, error) {
 			return s.Value, nil
@@ -608,7 +468,7 @@ func MarshalCortexConfig(config *cortex.Config) ([]byte, error) {
 func MarshalRuntimeConfig(config *cortex.RuntimeConfigValues) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	encoder := kyamlv3.NewEncoder(buf)
-	// encoder.SetAlwaysOmitEmpty(true)
+	encoder.SetAlwaysOmitEmpty(true)
 	err := encoder.Encode(config)
 	if err != nil {
 		return nil, err
@@ -627,18 +487,5 @@ func (m *overrideMarshaler[T]) MarshalYAML(v interface{}) (interface{}, error) {
 func newOverrideMarshaler[T kyamlv3.Marshaler](fn func(T) (interface{}, error)) *overrideMarshaler[T] {
 	return &overrideMarshaler[T]{
 		fn: fn,
-	}
-}
-
-func bucketHttpConfig(spec *storagev1.HTTPConfig) bucket_http.Config {
-	return bucket_http.Config{
-		IdleConnTimeout:       spec.GetIdleConnTimeout().AsDuration(),
-		ResponseHeaderTimeout: spec.GetResponseHeaderTimeout().AsDuration(),
-		InsecureSkipVerify:    spec.GetInsecureSkipVerify(),
-		TLSHandshakeTimeout:   spec.GetTlsHandshakeTimeout().AsDuration(),
-		ExpectContinueTimeout: spec.GetExpectContinueTimeout().AsDuration(),
-		MaxIdleConns:          int(spec.GetMaxIdleConns()),
-		MaxIdleConnsPerHost:   int(spec.GetMaxIdleConnsPerHost()),
-		MaxConnsPerHost:       int(spec.GetMaxConnsPerHost()),
 	}
 }

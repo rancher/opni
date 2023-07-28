@@ -774,8 +774,12 @@ func (cg *Generator) genSecretMethods(g *buffer, fs *flagSet) {
 	g.P(" return")
 	g.P("}")
 	for _, field := range fs.secretFields {
-		g.P("if in.", field.GoName, " != \"\" {")
-		g.P(" in.", field.GoName, " = \"***\"")
+		g.P("if in.Get", field.GoName, "() != \"\" {")
+		if field.Desc.HasPresence() {
+			g.P(" in.", field.GoName, " = ", _flagutil.Ident("Ptr"), "(\"***\")")
+		} else {
+			g.P(" in.", field.GoName, " = \"***\"")
+		}
 		g.P("}")
 	}
 	for _, dep := range fs.depsWithSecretFields {
@@ -789,11 +793,15 @@ func (cg *Generator) genSecretMethods(g *buffer, fs *flagSet) {
 	g.P(" return nil")
 	g.P("}")
 	for _, field := range fs.secretFields {
-		g.P("if in.", field.GoName, " == \"***\" {")
+		g.P("if in.Get", field.GoName, "() == \"***\" {")
 		g.P(" if unredacted.Get", field.GoName, "() == \"\" {")
 		g.P(`  return `, _errors.Ident("New"), `("cannot unredact: missing value for secret field: `, field.GoName, `")`)
 		g.P(" }")
-		g.P(" in.", field.GoName, " = unredacted.", field.GoName)
+		if field.Desc.HasPresence() {
+			g.P(" *in.", field.GoName, " = *unredacted.", field.GoName)
+		} else {
+			g.P(" in.", field.GoName, " = unredacted.", field.GoName)
+		}
 		g.P("}")
 	}
 	for _, dep := range fs.depsWithSecretFields {

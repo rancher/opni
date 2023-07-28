@@ -100,9 +100,13 @@ func (*TestEnvMetricsClusterDriver) ListPresets(context.Context, *emptypb.Empty)
 		Items: []*cortexops.Preset{
 			{
 				Id: &corev1.Reference{Id: "test-environment"},
-				Metadata: map[string]string{
-					"displayName": "Test Environment",
-					"description": "Cortex deployment for the test environment",
+				Metadata: &cortexops.PresetMetadata{
+					DisplayName: "Test Environment",
+					Description: "Runs cortex in single-binary mode from bin/opni",
+					Notes: []string{
+						"Configuration is stored in a temporary directory; press (i) for details.",
+						"Workload configuration is ignored in the test environment.",
+					},
 				},
 				Spec: &cortexops.CapabilityBackendConfigSpec{
 					CortexWorkloads: &cortexops.CortexWorkloadsConfig{
@@ -244,8 +248,7 @@ func (d *TestEnvMetricsClusterDriver) onActiveConfigChanged(old, new *cortexops.
 	d.Env.StartCortex(ctx, func(cco test.CortexConfigOptions, iso test.ImplementationSpecificOverrides) ([]byte, []byte, error) {
 		cconf, rtconf, err := configutil.CortexAPISpecToCortexConfig(d.activeConfig.GetCortexConfig(),
 			configutil.MergeOverrideLists(
-				configutil.NewAutomaticHAOverrides(),
-				configutil.NewStandardOverrides(cco),
+				configutil.NewHostOverrides(cco),
 				configutil.NewImplementationSpecificOverrides(iso),
 				[]configutil.CortexConfigOverrider{
 					configutil.NewOverrider(func(t *ring.LifecyclerConfig) bool {

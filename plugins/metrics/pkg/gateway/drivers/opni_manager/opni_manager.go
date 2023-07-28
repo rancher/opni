@@ -158,22 +158,25 @@ func (k *OpniManager) ListPresets(context.Context, *emptypb.Empty) (*cortexops.P
 		Items: []*cortexops.Preset{
 			{
 				Id: &corev1.Reference{Id: "all-in-one"},
-				Metadata: map[string]string{
-					"displayName": "All In One",
-					"description": "Minimal Cortex deployment with all components running in a single process",
+				Metadata: &cortexops.PresetMetadata{
+					DisplayName: "All In One",
+					Description: "Minimal Cortex deployment with all components running in a single process",
+					Notes: []string{
+						"Warning: this configuration is not recommended for production use.",
+					},
 				},
 				Spec: &cortexops.CapabilityBackendConfigSpec{
 					CortexWorkloads: &cortexops.CortexWorkloadsConfig{
 						Targets: map[string]*cortexops.CortexWorkloadSpec{
-							"all": {},
+							"all": {Replicas: lo.ToPtr[int32](1)},
 						},
 					},
 					CortexConfig: &cortexops.CortexApplicationConfig{
 						LogLevel: lo.ToPtr("debug"),
-						Storage: &storagev1.StorageSpec{
-							Backend: storagev1.Backend_filesystem,
-							Filesystem: &storagev1.FilesystemStorageSpec{
-								Directory: "/data",
+						Storage: &storagev1.Config{
+							Backend: lo.ToPtr(storagev1.Filesystem),
+							Filesystem: &storagev1.FilesystemConfig{
+								Dir: lo.ToPtr("/data"),
 							},
 						},
 					},
@@ -181,9 +184,13 @@ func (k *OpniManager) ListPresets(context.Context, *emptypb.Empty) (*cortexops.P
 			},
 			{
 				Id: &corev1.Reference{Id: "highly-available"},
-				Metadata: map[string]string{
-					"displayName": "Highly Available",
-					"description": "Basic HA Cortex deployment with all components running in separate processes",
+				Metadata: &cortexops.PresetMetadata{
+					DisplayName: "Highly Available",
+					Description: "Basic HA Cortex deployment with all components running in separate processes",
+					Notes: []string{
+						"Additional storage configuration is required. Note that filesystem storage cannot be used in HA mode.",
+						"Not all components are scaled to multiple replicas by default. The replica count for each component can be modified at any time.",
+					},
 				},
 				Spec: &cortexops.CapabilityBackendConfigSpec{
 					CortexWorkloads: &cortexops.CortexWorkloadsConfig{
@@ -201,8 +208,8 @@ func (k *OpniManager) ListPresets(context.Context, *emptypb.Empty) (*cortexops.P
 					},
 					CortexConfig: &cortexops.CortexApplicationConfig{
 						LogLevel: lo.ToPtr("debug"),
-						Storage: &storagev1.StorageSpec{
-							Backend: storagev1.Backend_s3,
+						Storage: &storagev1.Config{
+							Backend: lo.ToPtr(storagev1.S3),
 						},
 					},
 				},

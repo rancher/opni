@@ -10,8 +10,8 @@ import (
 	compactor "github.com/rancher/opni/internal/cortex/config/compactor"
 	querier "github.com/rancher/opni/internal/cortex/config/querier"
 	runtimeconfig "github.com/rancher/opni/internal/cortex/config/runtimeconfig"
+	storage "github.com/rancher/opni/internal/cortex/config/storage"
 	validation "github.com/rancher/opni/internal/cortex/config/validation"
-	v1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
 	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	cobra "github.com/spf13/cobra"
@@ -502,11 +502,11 @@ func (in *CortexApplicationConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 		in.Querier = &querier.Config{}
 	}
 	fs.AddFlagSet(in.Querier.FlagSet(append(prefix, "querier")...))
-	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("debug"), &in.LogLevel), strings.Join(append(prefix, "log-level"), "."), "")
 	if in.Storage == nil {
-		in.Storage = &v1.StorageSpec{}
+		in.Storage = &storage.Config{}
 	}
 	fs.AddFlagSet(in.Storage.FlagSet(append(prefix, "storage")...))
+	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("debug"), &in.LogLevel), strings.Join(append(prefix, "log-level"), "."), "")
 	return fs
 }
 
@@ -606,6 +606,15 @@ func (in *Preset) DeepCopyInto(out *Preset) {
 
 func (in *Preset) DeepCopy() *Preset {
 	return proto.Clone(in).(*Preset)
+}
+
+func (in *PresetMetadata) DeepCopyInto(out *PresetMetadata) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *PresetMetadata) DeepCopy() *PresetMetadata {
+	return proto.Clone(in).(*PresetMetadata)
 }
 
 func (in *DryRunRequest) DeepCopyInto(out *DryRunRequest) {

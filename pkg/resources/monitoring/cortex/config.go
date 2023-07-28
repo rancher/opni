@@ -61,28 +61,26 @@ func (r *Reconciler) config() ([]resources.Resource, error) {
 		ClientCAs:   "/run/cortex/certs/client/ca.crt",
 		ClientAuth:  "RequireAndVerifyClientCert",
 	}
-	overrideLists := [][]configutil.CortexConfigOverrider{
-		configutil.NewStandardOverrides(configutil.StandardOverridesShape{
-			HttpListenAddress:      "0.0.0.0",
-			HttpListenPort:         8080,
-			GrpcListenAddress:      "0.0.0.0",
-			GrpcListenPort:         9095,
-			StorageDir:             "/data",
-			RuntimeConfig:          "/etc/cortex-runtime-config/runtime_config.yaml",
-			TLSServerConfig:        configutil.TLSServerConfigShape(tlsServerConfig),
-			TLSGatewayClientConfig: configutil.TLSClientConfigShape(tlsGatewayClientConfig),
-			TLSCortexClientConfig:  configutil.TLSClientConfigShape(tlsCortexClientConfig),
-		}),
-		configutil.NewAutomaticHAOverrides(),
-		configutil.NewImplementationSpecificOverrides(configutil.ImplementationSpecificOverridesShape{
-			QueryFrontendAddress: "cortex-query-frontend-headless:9095",
-			MemberlistJoinAddrs:  []string{"cortex-memberlist"},
-			AlertmanagerURL:      fmt.Sprintf("https://opni-internal.%s.svc:8080/plugin_alerting/alertmanager", r.mc.Namespace),
-		}),
-	}
 
 	conf, rtConf, err := configutil.CortexAPISpecToCortexConfig(r.mc.Spec.Cortex.CortexConfig,
-		configutil.MergeOverrideLists(overrideLists...)...,
+		configutil.MergeOverrideLists(
+			configutil.NewHostOverrides(configutil.StandardOverridesShape{
+				HttpListenAddress:      "0.0.0.0",
+				HttpListenPort:         8080,
+				GrpcListenAddress:      "0.0.0.0",
+				GrpcListenPort:         9095,
+				StorageDir:             "/data",
+				RuntimeConfig:          "/etc/cortex-runtime-config/runtime_config.yaml",
+				TLSServerConfig:        configutil.TLSServerConfigShape(tlsServerConfig),
+				TLSGatewayClientConfig: configutil.TLSClientConfigShape(tlsGatewayClientConfig),
+				TLSCortexClientConfig:  configutil.TLSClientConfigShape(tlsCortexClientConfig),
+			}),
+			configutil.NewImplementationSpecificOverrides(configutil.ImplementationSpecificOverridesShape{
+				QueryFrontendAddress: "cortex-query-frontend-headless:9095",
+				MemberlistJoinAddrs:  []string{"cortex-memberlist"},
+				AlertmanagerURL:      fmt.Sprintf("https://opni-internal.%s.svc:8080/plugin_alerting/alertmanager", r.mc.Namespace),
+			}),
+		)...,
 	)
 	if err != nil {
 		return nil, err

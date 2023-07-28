@@ -344,7 +344,7 @@ func (in *SampleConfiguration) RedactSecrets() {
 	if in == nil {
 		return
 	}
-	if in.SecretField != "" {
+	if in.GetSecretField() != "" {
 		in.SecretField = "***"
 	}
 }
@@ -353,7 +353,7 @@ func (in *SampleConfiguration) UnredactSecrets(unredacted *SampleConfiguration) 
 	if in == nil {
 		return nil
 	}
-	if in.SecretField == "***" {
+	if in.GetSecretField() == "***" {
 		if unredacted.GetSecretField() == "" {
 			return errors.New("cannot unredact: missing value for secret field: SecretField")
 		}

@@ -232,8 +232,8 @@ message CortexApplicationConfig {
   runtimeconfig.RuntimeConfigValues runtime_config = 2;
   compactor.Config                  compactor      = 3;
   querier.Config                    querier        = 4;
-  optional string                   log_level      = 5 [(cli.flag).default = "debug"];
-  storage.StorageSpec               storage        = 6;
+  storage.Config                    storage        = 5;
+  optional string                   log_level      = 6 [(cli.flag).default = "debug"];
 }
 
 message GrafanaConfig {
@@ -252,8 +252,20 @@ message PresetList {
 
 message Preset {
   core.Reference              id       = 1;
-  map<string, string>         metadata = 2;
+  PresetMetadata              metadata = 2;
   CapabilityBackendConfigSpec spec     = 3;
+}
+
+message PresetMetadata {
+  // A display name for the preset.
+  string displayName = 1;
+  // Longer description of the preset.
+  string description = 2;
+  // Optional list of messages that should be displayed to the user when the
+  // preset is used (determined at the client's discretion).
+  // For example, this may contain additional information about requirements
+  // or next steps that the user should be aware of.
+  repeated string notes = 3;
 }
 
 message DryRunRequest {

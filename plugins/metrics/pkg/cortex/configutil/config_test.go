@@ -7,8 +7,10 @@ import (
 	"github.com/go-kit/log"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex/configutil"
+	"github.com/samber/lo"
 	"gopkg.in/yaml.v2"
 )
 
@@ -38,7 +40,14 @@ var allTargets = []string{
 
 var _ = Describe("Config", func() {
 	It("should generate a valid default config", func() {
-		appconfig := &cortexops.CortexApplicationConfig{}
+		appconfig := &cortexops.CortexApplicationConfig{
+			Storage: &v1.Config{
+				Backend: lo.ToPtr(v1.Filesystem),
+				Filesystem: &v1.FilesystemConfig{
+					Dir: lo.ToPtr("/dev/null"),
+				},
+			},
+		}
 		conf, _, err := configutil.CortexAPISpecToCortexConfig[*cortexops.CortexApplicationConfig](appconfig, configutil.NewTargetsOverride("all")...)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(conf.Target).To(ConsistOf("all"))
@@ -53,7 +62,7 @@ var _ = Describe("Config", func() {
 		conf, _, err := configutil.CortexAPISpecToCortexConfig[*cortexops.CortexApplicationConfig](appconfig,
 			configutil.MergeOverrideLists(
 				configutil.NewTargetsOverride("all"),
-				configutil.NewStandardOverrides(configutil.StandardOverridesShape{
+				configutil.NewHostOverrides(configutil.StandardOverridesShape{
 					HttpListenAddress: "127.0.0.1",
 					HttpListenNetwork: "tcp",
 					HttpListenPort:    8080,
@@ -78,7 +87,7 @@ var _ = Describe("Config", func() {
 		conf, _, err := configutil.CortexAPISpecToCortexConfig[*cortexops.CortexApplicationConfig](appconfig,
 			configutil.MergeOverrideLists(
 				configutil.NewTargetsOverride(allTargets...),
-				configutil.NewStandardOverrides(configutil.StandardOverridesShape{
+				configutil.NewHostOverrides(configutil.StandardOverridesShape{
 					HttpListenAddress: "127.0.0.1",
 					HttpListenNetwork: "tcp",
 					HttpListenPort:    8080,
@@ -88,7 +97,6 @@ var _ = Describe("Config", func() {
 					StorageDir:        "/dev/null",
 					RuntimeConfig:     "/dev/null",
 				}),
-				configutil.NewAutomaticHAOverrides(),
 				configutil.NewImplementationSpecificOverrides(configutil.ImplementationSpecificOverridesShape{
 					QueryFrontendAddress: "http://localhost:9095",
 					MemberlistJoinAddrs:  []string{"localhost"},

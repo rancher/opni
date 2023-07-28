@@ -76,7 +76,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 		}
 		dashboards = opsterv1.DashboardsConfig{
 			ImageSpec: &opsterv1.ImageSpec{
-				Image: lo.ToPtr("docker.io/rancher/opensearch-dashboards:2.8.0-0.11.0-rc1"),
+				Image: lo.ToPtr("docker.io/rancher/opensearch-dashboards:v0.11.0-rc1-2.8.0"),
 			},
 			Replicas: 1,
 			Enable:   true,

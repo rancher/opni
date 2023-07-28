@@ -653,10 +653,10 @@ func (d *KubernetesManagerDriver) convertProtobufToDashboards(
 	}
 
 	image := fmt.Sprintf(
-		"%s/opensearch-dashboards:%s-%s",
+		"%s/opensearch-dashboards:v%s-%s",
 		defaultRepo,
-		osVersion,
 		version,
+		osVersion,
 	)
 
 	resources := corev1.ResourceRequirements{

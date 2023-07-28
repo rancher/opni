@@ -25,9 +25,11 @@ test = true
 
 [images.opensearch.dashboards]
 	repo = "docker.io/rancher/opensearch-dashboards"
+	tag-suffix = "-2.8.0"
 
 [images.opensearch.opensearch]
 	repo = "docker.io/rancher/opensearch"
+	tag-suffix = "-2.8.0"
 
 [images.opensearch.update-service]
 	repo = "docker.io/rancher/opni-opensearch-update-service"

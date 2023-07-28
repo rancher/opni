@@ -671,7 +671,7 @@ replace github.com/openshift/api => github.com/openshift/api v0.0.0-202102162110
 // Forks
 replace (
 	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be
-	github.com/cortexproject/cortex => github.com/kralicky/cortex v1.16.0-opni.2
+	github.com/cortexproject/cortex => github.com/kralicky/cortex v1.16.0-opni.3
 	github.com/grafana-operator/grafana-operator/v4 => github.com/kralicky/grafana-operator/v4 v4.2.1-0.20230714191401-f7b79b2f8d98
 	// https://github.com/hashicorp/go-plugin/pull/251
 	github.com/hashicorp/go-plugin => github.com/alexandreLamarre/go-plugin v0.1.1-0.20230417174342-eab684801be5

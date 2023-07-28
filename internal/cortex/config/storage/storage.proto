@@ -106,22 +106,28 @@ message SwiftConfig {
   optional string domain_id = 8;
   // OpenStack Swift user's domain name.
   optional string domain_name = 9;
+  // OpenStack Swift application credential ID.
+  optional string application_credential_id = 10;
+  // OpenStack Swift application credential name.
+  optional string application_credential_name = 11;
+  // OpenStack Swift application credential secret.
+  optional string application_credential_secret = 12 [(cli.flag) = { secret: true }];
   // OpenStack Swift project ID (v2,v3 auth only).
-  optional string project_id = 10;
+  optional string project_id = 13;
   // OpenStack Swift project name (v2,v3 auth only).
-  optional string project_name = 11;
+  optional string project_name = 14;
   // ID of the OpenStack Swift project's domain (v3 auth only), only needed if it differs the from user domain.
-  optional string project_domain_id = 12;
+  optional string project_domain_id = 15;
   // Name of the OpenStack Swift project's domain (v3 auth only), only needed if it differs from the user domain.
-  optional string project_domain_name = 13;
+  optional string project_domain_name = 16;
   // OpenStack Swift Region to use (v2,v3 auth only).
-  optional string region_name = 14;
+  optional string region_name = 17;
   // Name of the OpenStack Swift container to put chunks in.
-  optional string container_name = 15;
+  optional string container_name = 18;
   // Max retries on requests error.
-  optional int32 max_retries = 16 [(cli.flag) = { default: "3" }];
+  optional int32 max_retries = 19 [(cli.flag) = { default: "3" }];
   // Time after which a connection attempt is aborted.
-  google.protobuf.Duration connect_timeout = 17 [(cli.flag) = { default: "10s" }];
+  google.protobuf.Duration connect_timeout = 20 [(cli.flag) = { default: "10s" }];
   // Time after which an idle request is aborted. The timeout watchdog is reset each time some data is received, so the timeout triggers after X time no data is received on a request.
-  google.protobuf.Duration request_timeout = 18 [(cli.flag) = { default: "5s" }];
+  google.protobuf.Duration request_timeout = 21 [(cli.flag) = { default: "5s" }];
 }

@@ -94,8 +94,7 @@ func editFlagOptions(rf reflect.StructField) func(*cli.FlagOptions) {
 func isSpecialCaseSecretFieldName(name string) bool {
 	// a couple fields don't have the flagext.Secret type, so we need to
 	// check for them specifically
-	return name == "Password" || // SwiftConfig
-		name == "MSIResource" || // AzureConfig
+	return name == "MSIResource" || // AzureConfig
 		name == "KMSEncryptionContext" // S3SSEConfig
 }
 

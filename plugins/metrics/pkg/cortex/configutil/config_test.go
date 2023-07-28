@@ -26,18 +26,6 @@ func loadAndValidateConfig(yamlData []byte) error {
 	return cfg.Validate(log.NewNopLogger())
 }
 
-var allTargets = []string{
-	"distributor",
-	"query-frontend",
-	"purger",
-	"ruler",
-	"compactor",
-	"store-gateway",
-	"ingester",
-	"alertmanager",
-	"querier",
-}
-
 var _ = Describe("Config", func() {
 	It("should generate a valid default config", func() {
 		appconfig := &cortexops.CortexApplicationConfig{
@@ -86,7 +74,7 @@ var _ = Describe("Config", func() {
 
 		conf, _, err := configutil.CortexAPISpecToCortexConfig[*cortexops.CortexApplicationConfig](appconfig,
 			configutil.MergeOverrideLists(
-				configutil.NewTargetsOverride(allTargets...),
+				configutil.NewTargetsOverride(configutil.CortexTargets()...),
 				configutil.NewHostOverrides(configutil.StandardOverridesShape{
 					HttpListenAddress: "127.0.0.1",
 					HttpListenNetwork: "tcp",
@@ -105,7 +93,7 @@ var _ = Describe("Config", func() {
 			)...,
 		)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(conf.Target).To(ConsistOf(allTargets))
+		Expect(conf.Target).To(ConsistOf(configutil.CortexTargets()))
 		yamlData, err := configutil.MarshalCortexConfig(conf)
 		Expect(err).NotTo(HaveOccurred())
 

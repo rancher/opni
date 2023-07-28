@@ -38,6 +38,22 @@ import (
 	"github.com/weaveworks/common/server"
 )
 
+var cortexTargets = []string{
+	"alertmanager",
+	"compactor",
+	"distributor",
+	"ingester",
+	"purger",
+	"querier",
+	"query-frontend",
+	"ruler",
+	"store-gateway",
+}
+
+func CortexTargets() []string {
+	return cortexTargets
+}
+
 type TLSServerConfigShape = struct {
 	TLSCertPath string
 	TLSKeyPath  string

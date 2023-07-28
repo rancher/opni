@@ -205,7 +205,7 @@ func mergeStrict(src, dest map[string]any) error {
 				// a type mismatch when merging with a slice of a specific type.
 				if reflect.TypeOf(dest[key]).Kind() == reflect.Slice &&
 					reflect.TypeOf(val) == reflect.TypeOf(([]any)(nil)) &&
-					reflect.ValueOf(val).Len() == 0 {
+					reflect.ValueOf(dest[key]).Len() == 0 {
 					dest[key] = reflect.MakeSlice(reflect.TypeOf(dest[key]), 0, 0).Interface()
 					continue
 				}

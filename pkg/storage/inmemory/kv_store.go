@@ -91,7 +91,7 @@ func (m *inMemoryKeyValueStore[T]) ListKeys(ctx context.Context, prefix string, 
 	var keys []string
 	m.keys.ForEachPrefix(art.Key([]byte(prefix)), func(node art.Node) (cont bool) {
 		if node.Value() != nil {
-			if node.Value().(*inMemoryValueStore[T]).IsDeleted() {
+			if _, err := node.Value().(*inMemoryValueStore[T]).Get(ctx); err != nil {
 				return true
 			}
 			keys = append(keys, string(node.Key()))

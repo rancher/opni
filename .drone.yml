@@ -106,6 +106,14 @@ steps:
       - docker stop --time 60 dagger-engine
       - docker logs dagger-engine
     volumes: *volumes
+    # run even if pipeline fails
+    when:
+      status:
+        - failure
+        - success
+      instance:
+        - drone-publish.rancher.io
+        - drone-pr.rancher.io
 volumes:
   - name: docker-sock
     host:

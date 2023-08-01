@@ -42,24 +42,6 @@ func NewProtoValueStore[T proto.Message](listeners ...func(prev, value T)) stora
 	return NewValueStore(util.ProtoClone, listeners...)
 }
 
-func (s *inMemoryValueStore[T]) IsDeleted() bool {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-	if s.isEmptyLocked() {
-		return false
-	}
-	if s.values.Value == nil {
-		return false
-	}
-	return s.values.Value.(*valueStoreElement[T]).deleted
-}
-
-func (s *inMemoryValueStore[T]) IsEmpty() bool {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-	return s.isEmptyLocked()
-}
-
 func (s *inMemoryValueStore[T]) isEmptyLocked() bool {
 	return s.revision == 0
 }
@@ -160,9 +142,6 @@ func (s *inMemoryValueStore[T]) Delete(ctx context.Context, opts ...storage.Dele
 	if options.Revision != nil && *options.Revision != s.revision {
 		return fmt.Errorf("%w: revision mismatch: %v (requested) != %v (actual)", storage.ErrConflict, *options.Revision, s.revision)
 	}
-	if s.values.Value == nil {
-		return storage.ErrNotFound
-	}
 	if s.values.Value.(*valueStoreElement[T]).deleted {
 		return storage.ErrNotFound
 	}
@@ -197,7 +176,7 @@ func (s *inMemoryValueStore[T]) History(ctx context.Context, opts ...storage.His
 	current := s.values
 	if options.Revision != nil {
 		for ; current != s.values.Next(); current = current.Prev() {
-			if current == nil {
+			if current.Value == nil {
 				return nil, storage.ErrNotFound
 			}
 			curElem := current.Value.(*valueStoreElement[T])

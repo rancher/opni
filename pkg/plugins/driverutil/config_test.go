@@ -17,8 +17,6 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
-// SampleConfiguration and SampleSubConfiguration as described in the previous examples
-
 var _ = Describe("DefaultingConfigTracker", Ordered, func() {
 	var (
 		ctx           context.Context

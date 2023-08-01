@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math/big"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/storage/lock"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
@@ -17,15 +20,16 @@ import (
 type jetstreamLockMetadata struct {
 	AccessType lock.AccessType `json:"accessType"`
 	// UnixNano
-	ExpireTime int64 `json:"expireTime"`
-	// lock manager uuid's that hold this lock
-	Holders map[string]struct{} `json:"holders"`
+	ExpireTime int64    `json:"expireTime"`
+	TokenStore *big.Int `json:"token"`
 }
 
 type JetstreamLock struct {
 	lg       *zap.SugaredLogger
 	kv       nats.KeyValue
 	lockPool *lock.LockPool
+
+	uuid uuid.UUID
 
 	kvCtx  context.Context
 	lockMu sync.Mutex
@@ -42,6 +46,10 @@ type JetstreamLock struct {
 	startUnlock lock.LockPrimitive
 }
 
+func (j *JetstreamLock) lockToken() *big.Int {
+	return util.Must(util.UUIDToBigInt(j.uuid))
+}
+
 func NewJetstreamLock(
 	ctx context.Context,
 	lg *zap.SugaredLogger,
@@ -49,7 +57,7 @@ func NewJetstreamLock(
 	key string,
 	options *lock.LockOptions,
 	lockPool *lock.LockPool,
-	uuid string,
+	managerUuid string,
 ) *JetstreamLock {
 	GlobalLockId++
 	return &JetstreamLock{
@@ -57,13 +65,14 @@ func NewJetstreamLock(
 		kvCtx:         ctx,
 		kv:            kv,
 		key:           key,
+		uuid:          uuid.New(),
 		lockRequestTs: future.New[int64](),
 		fencingToken:  future.New[uint64](),
 		LockOptions:   options,
 		startLock:     lock.LockPrimitive{},
 		startUnlock:   lock.LockPrimitive{},
 		lockPool:      lockPool,
-		managerUuid:   uuid,
+		managerUuid:   managerUuid,
 	}
 }
 
@@ -111,7 +120,7 @@ func (j *JetstreamLock) Lock() error {
 				select {
 				case <-cancelAcquire:
 				case <-time.After(j.RetryDelay + j.jitter()):
-					// retry
+					//retry
 					lg.Debug("REQ")
 					err := j.lock(j.kvCtx)
 					if err == nil {
@@ -141,25 +150,21 @@ func (j *JetstreamLock) forceRelease(
 }
 
 func (j *JetstreamLock) release() error {
-	if holds := j.lockPool.Holds(j.key); holds { // some other client registered to this manager holds a lock
-		return nil
-	}
-
 	lock, err := j.kv.Get(j.key)
 	if err != nil && errors.Is(err, nats.ErrKeyNotFound) {
 		return nil
 	}
-
 	var md jetstreamLockMetadata
 	if err := json.Unmarshal(lock.Value(), &md); err != nil {
 		return err
 	}
-
-	_, remotelyHolds := md.Holders[j.managerUuid]
-	if remotelyHolds {
-		delete(md.Holders, j.managerUuid)
-	}
-	if len(md.Holders) > 0 {
+	j.lg.Debugf("token store : %d", md.TokenStore)
+	md.TokenStore = util.XorBigInt(md.TokenStore, j.lockToken())
+	j.lg.Debugf("updated token store : %d", md.TokenStore)
+	if md.TokenStore.Cmp(big.NewInt(0)) == 0 {
+		j.lg.Debug("RLS : no more holders")
+		return j.forceRelease(lock.Revision())
+	} else {
 		mdData, err := json.Marshal(md)
 		if err != nil {
 			return err
@@ -169,10 +174,7 @@ func (j *JetstreamLock) release() error {
 			return err
 		}
 		return nil
-	} else if len(md.Holders) == 0 {
-		return j.forceRelease(lock.Revision())
 	}
-	return nil
 }
 
 func (j *JetstreamLock) Unlock() error {
@@ -182,6 +184,13 @@ func (j *JetstreamLock) Unlock() error {
 		if !j.isAcquired() {
 			return lock.ErrLockNotAcquired
 		}
+		now := time.Now()
+		expire := convertUnixNano(j.lockRequestTs.Get()).Add(j.LockValidity)
+		if now.After(expire) {
+			lg.Debug("TIMEOUT : external timeout lock expired")
+			return nil
+		}
+
 		maxRetries := j.MaxRetries
 		cancelAcquire := make(chan struct{})
 		unlockAcquired := make(chan error)
@@ -217,13 +226,13 @@ func (j *JetstreamLock) Unlock() error {
 				case <-time.After(j.RetryDelay + j.jitter()):
 					err := j.release()
 					if err == nil {
-						lg.Debug("ACK")
+						// lg.Debug("ACK")
 						unlockAcquired <- nil
 						return
 					}
 				}
 			}
-			lg.Debug("TIMEOUT retry")
+			// lg.Debug("TIMEOUT retry")
 			unlockErr <- lock.ErrAcquireUnlockTimeout
 		}()
 
@@ -281,7 +290,7 @@ func (j *JetstreamLock) getLockMd() (nats.KeyValueEntry, error) {
 }
 
 func (j *JetstreamLock) tryAcquireNewLock(ctx context.Context) error {
-	md, err := j.currentLockMetadata(ctx)
+	md, err := j.newLockMetadata(ctx)
 	if err != nil {
 		return err
 	}
@@ -319,19 +328,16 @@ func (j *JetstreamLock) tryAcquireLock(ctx context.Context, lockMessage nats.Key
 	if err := json.Unmarshal(lockMessage.Value(), &theirMd); err != nil {
 		return err
 	}
-
-	ourMd, err := j.currentLockMetadata(ctx)
+	ourMd, err := j.newLockMetadata(ctx)
 	if err != nil {
 		return err
 	}
-	ourMd.AccessType = lo.Ternary(ourMd.AccessType < theirMd.AccessType, theirMd.AccessType, ourMd.AccessType)
-	ourMd.Holders = lo.Assign(ourMd.Holders, theirMd.Holders)
-
-	mdData, err := json.Marshal(ourMd)
+	theirMd.AccessType = lo.Ternary(ourMd.AccessType < theirMd.AccessType, theirMd.AccessType, ourMd.AccessType)
+	theirMd.TokenStore = util.XorBigInt(theirMd.TokenStore, j.lockToken())
+	mdData, err := json.Marshal(theirMd)
 	if err != nil {
 		return err
 	}
-
 	updatedFencingToken, err := j.kv.Update(j.key, mdData, lockMessage.Revision())
 	if err != nil {
 		return lock.ErrAcquireLockConflict
@@ -344,7 +350,7 @@ func convertUnixNano(un int64) time.Time {
 	return time.Unix(0, un)
 }
 
-func (j *JetstreamLock) currentLockMetadata(ctx context.Context) (*jetstreamLockMetadata, error) {
+func (j *JetstreamLock) newLockMetadata(ctx context.Context) (*jetstreamLockMetadata, error) {
 	ts, err := j.lockRequestTs.GetContext(ctx)
 	if err != nil {
 		return nil, err
@@ -353,9 +359,7 @@ func (j *JetstreamLock) currentLockMetadata(ctx context.Context) (*jetstreamLock
 	return &jetstreamLockMetadata{
 		AccessType: j.AccessType,
 		ExpireTime: expire.UnixNano(),
-		Holders: map[string]struct{}{
-			j.managerUuid: {},
-		},
+		TokenStore: j.lockToken(),
 	}, nil
 }
 

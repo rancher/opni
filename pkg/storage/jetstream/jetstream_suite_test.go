@@ -28,8 +28,8 @@ func TestJetStream(t *testing.T) {
 }
 
 var store = future.New[*jetstream.JetStreamStore]()
-var lockManager1 = future.New[*jetstream.JetstreamLockManager]()
-var lockManager2 = future.New[*jetstream.JetstreamLockManager]()
+var lmsEff = future.New[[]*jetstream.JetstreamLockManagerEfficient]()
+var lmsFull = future.New[[]*jetstream.JetstreamLockManager]()
 
 var _ = BeforeSuite(func() {
 	testruntime.IfIntegration(func() {
@@ -46,12 +46,10 @@ var _ = BeforeSuite(func() {
 
 		l, err := jetstream.NewLockManager(context.Background(), env.JetStreamConfig())
 		Expect(err).NotTo(HaveOccurred())
-		lockManager1.Set(l)
-
 		l2, err := jetstream.NewLockManager(context.Background(), env.JetStreamConfig())
 		Expect(err).NotTo(HaveOccurred())
-		lockManager2.Set(l2)
-
+		lms2 := []*jetstream.JetstreamLockManager{l, l2}
+		lmsFull.Set(lms2)
 		DeferCleanup(env.Stop)
 	})
 })
@@ -61,4 +59,4 @@ var _ = Describe("Cluster Store", Ordered, Label("integration", "slow"), Cluster
 var _ = Describe("RBAC Store", Ordered, Label("integration", "slow"), RBACStoreTestSuite(store))
 var _ = Describe("Keyring Store", Ordered, Label("integration", "slow"), KeyringStoreTestSuite(store))
 var _ = Describe("KV Store", Ordered, Label("integration", "slow"), KeyValueStoreTestSuite(store))
-var _ = Describe("Lock Manager", Ordered, Label("integration", "slow"), LockManagerTestSuite(lockManager1, lockManager2))
+var _ = Describe("Lock Manager", Ordered, Label("integration", "slow"), LockManagerTestSuiteOld(lmsFull))

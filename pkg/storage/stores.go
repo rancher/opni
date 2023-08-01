@@ -92,11 +92,6 @@ type Lock interface {
 	Unlock() error
 }
 
-type RWLock interface {
-	RLock() error
-	RUnlock() error
-}
-
 type LockManager interface {
 	Locker(key string, opts ...lock.LockOption) Lock
 }

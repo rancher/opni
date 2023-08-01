@@ -42,7 +42,7 @@ func (Dagger) do(outputDir string, args ...string) error {
 	if err != nil {
 		return fmt.Errorf("could not find dagger: %w", err)
 	}
-	return sh.Run(daggerBinary, append([]string{"do", "--output", outputDir, "--project", string(dagger), "--config", string(daggerx)}, args...)...)
+	return sh.Run(daggerBinary, append([]string{"do", "--output", outputDir, "--project", string(daggerx), "--workdir", string(dagger)}, args...)...)
 }
 
 func (Dagger) takeArgv(arg0 string) (rest []string) {

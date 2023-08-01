@@ -154,10 +154,10 @@ var _ = Describe("Logging OpniOpensearch Controller", Ordered, Label("controller
 				opsterv1.GeneralConfig{
 					ImageSpec: &opsterv1.ImageSpec{
 						Image: lo.ToPtr(fmt.Sprintf(
-							"%s/opensearch:%s-%s",
+							"%s/opensearch:v%s-%s",
 							object.Spec.ImageRepo,
-							object.Spec.OpensearchVersion,
 							object.Spec.Version,
+							object.Spec.OpensearchVersion,
 						)),
 						ImagePullPolicy: lo.ToPtr(corev1.PullAlways),
 					},

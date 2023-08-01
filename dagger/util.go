@@ -17,6 +17,8 @@ func (b *Builder) nodeBase() *dagger.Container {
 	return images.NodeBase(b.client).
 		With(b.caches.Yarn).
 		WithEnvVariable("YARN_CACHE_FOLDER", "/cache/yarn").
+		With(b.caches.NodeModules).
+		WithEnvVariable("NODE_PATH", "/cache/node_modules").
 		WithWorkdir(filepath.Join(b.workdir, "web"))
 }
 

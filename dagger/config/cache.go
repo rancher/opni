@@ -22,6 +22,7 @@ type Caches struct {
 	GoBin        func(*dagger.Container) *dagger.Container
 	Mage         func(*dagger.Container) *dagger.Container
 	Yarn         func(*dagger.Container) *dagger.Container
+	NodeModules  func(*dagger.Container) *dagger.Container
 	GolangciLint func(*dagger.Container) *dagger.Container
 }
 
@@ -47,6 +48,9 @@ func SetupCaches(client *dagger.Client, cacheMode string) Caches {
 			},
 			Yarn: func(ctr *dagger.Container) *dagger.Container {
 				return ctr.WithMountedCache("/cache/yarn", client.CacheVolume("opni_yarn"))
+			},
+			NodeModules: func(ctr *dagger.Container) *dagger.Container {
+				return ctr.WithMountedCache("/cache/node_modules", client.CacheVolume("opni_node_modules"))
 			},
 			GolangciLint: func(ctr *dagger.Container) *dagger.Container {
 				return ctr.WithMountedCache("/root/.cache/golangci-lint", client.CacheVolume("opni_golangci_lint"))

@@ -30,6 +30,8 @@ baseConfig.devServer.proxy = {
 };
 
 baseConfig.configureWebpack = (config) => {
+  config.cache = { type: 'filesystem' };
+
   config.plugins.push(new webpack.DefinePlugin({ 'process.env.isStandalone': JSON.stringify(isStandalone) }));
 
   baseConfigureWebpack(config);

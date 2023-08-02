@@ -107,12 +107,8 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 
 		_, errC := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint}, test.WithContext(env.Context()))
 		Eventually(errC).Should(Receive(BeNil()))
-		pPort, err = env.StartPrometheus("agent")
-		Expect(err).NotTo(HaveOccurred())
 		_, errC = env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint}, test.WithContext(env.Context()))
 		Eventually(errC).Should(Receive(BeNil()))
-		pPort, err = env.StartPrometheus("agent2")
-		Expect(err).NotTo(HaveOccurred())
 
 		_, err = client.InstallCapability(env.Context(), &managementv1.CapabilityInstallRequest{
 			Name: wellknown.CapabilityMetrics,

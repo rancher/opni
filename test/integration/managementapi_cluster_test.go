@@ -45,10 +45,6 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 
 		_, errC := environment.StartAgent("test-cluster-id", token, []string{fingerprint})
 		Eventually(errC).Should(Receive(BeNil()))
-		promAgentPort, err := environment.StartPrometheus("test-cluster-id")
-		Expect(err).NotTo(HaveOccurred())
-		Expect(promAgentPort).NotTo(BeZero())
-		Consistently(errC).ShouldNot(Receive(HaveOccurred()))
 	})
 
 	AfterAll(func() {

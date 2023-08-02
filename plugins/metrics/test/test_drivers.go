@@ -249,14 +249,16 @@ func (d *TestEnvPrometheusNodeDriver) ConfigureNode(nodeId string, conf *node.Me
 		d.prometheusCtx = nil
 	} else if !exists && shouldExist {
 		lg.Info("starting prometheus")
-		ctx, ca := context.WithCancel(context.TODO())
+		ctx, ca := context.WithCancel(d.env.Context())
 		ctx = waitctx.FromContext(ctx)
-		_, err := d.env.StartPrometheusContext(ctx, nodeId)
+		// this is the only place where UnsafeStartPrometheus is safe
+		_, err := d.env.UnsafeStartPrometheus(ctx, nodeId)
 		if err != nil {
 			lg.With("err", err).Error("failed to start prometheus")
 			ca()
 			return err
 		}
+		lg.Info("started prometheus")
 		d.prometheusCtx = ctx
 		d.prometheusCancel = ca
 	} else if exists && shouldExist {
@@ -303,7 +305,7 @@ func (d *TestEnvOtelNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsC
 		d.otelCtx = nil
 	} else if !exists && shouldExist {
 		lg.Info("starting otel")
-		ctx, ca := context.WithCancel(context.TODO())
+		ctx, ca := context.WithCancel(d.env.Context())
 		ctx = waitctx.FromContext(ctx)
 		err := d.env.StartOTELCollectorContext(ctx, nodeId, node.CompatOTELStruct(conf.GetSpec().GetOtel()))
 		if err != nil {

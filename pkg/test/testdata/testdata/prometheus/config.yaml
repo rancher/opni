@@ -14,7 +14,7 @@ scrape_configs:
 
     static_configs:
       - targets:
-          - "localhost:{{ .ListenPort }}"
+          - "127.0.0.1:{{ .ListenPort }}"
 
   {{range .Jobs}}
   - job_name: "{{ .JobName }}"
@@ -23,7 +23,7 @@ scrape_configs:
     {{- end }}
     static_configs:
       - targets:
-          - "localhost:{{ .ScrapePort }}"
+          - "127.0.0.1:{{ .ScrapePort }}"
   {{end}}
 
 # When running prometheus in Agent mode, remote-write is required.

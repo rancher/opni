@@ -463,6 +463,9 @@ func (e *Environment) StartEmbeddedJetstream() (*nats.Conn, error) {
 }
 
 func (e *Environment) Stop() error {
+	os.Unsetenv("NATS_SERVER_URL")
+	os.Unsetenv("NKEY_SEED_FILENAME")
+
 	if e.cancel != nil {
 		e.cancel()
 		waitctx.WaitWithTimeout(e.ctx, 40*time.Second, 20*time.Second)
@@ -807,13 +810,9 @@ func (e *Environment) SetPrometheusNodeConfigOverride(agentId string, override *
 	e.nodeConfigOverrides[agentId] = override
 }
 
-func (e *Environment) StartPrometheus(opniAgentId string, override ...*OverridePrometheusConfig) (int, error) {
-	return e.StartPrometheusContext(e.ctx, opniAgentId, override...)
-}
-
 // `prometheus/config.yaml` is the default monitoring config.
 // `slo/prometheus/config.yaml` is the default SLO config.
-func (e *Environment) StartPrometheusContext(ctx waitctx.PermissiveContext, opniAgentId string, override ...*OverridePrometheusConfig) (int, error) {
+func (e *Environment) UnsafeStartPrometheus(ctx waitctx.PermissiveContext, opniAgentId string, override ...*OverridePrometheusConfig) (int, error) {
 	if len(override) == 0 {
 		e.nodeConfigOverridesMu.Lock()
 		if v, ok := e.nodeConfigOverrides[opniAgentId]; ok {
@@ -840,11 +839,9 @@ func (e *Environment) StartPrometheusContext(ctx waitctx.PermissiveContext, opni
 		return 0, err
 	}
 	promDir := path.Join(e.tempDir, "prometheus", opniAgentId)
-	err = os.MkdirAll(promDir, 0755)
-	if err != nil {
+	if err := os.MkdirAll(promDir, 0755); err != nil {
 		return 0, err
 	}
-
 	configFile, err := os.Create(path.Join(promDir, "config.yaml"))
 	if err != nil {
 		return 0, err
@@ -882,28 +879,29 @@ func (e *Environment) StartPrometheusContext(ctx waitctx.PermissiveContext, opni
 		}
 	}
 	lg.Info("Waiting for prometheus to start...")
-	var ready bool
-	for i := 0; i < 40; i++ {
+	for {
 		if ctx.Err() != nil {
-			break
+			return 0, fmt.Errorf("failed to start prometheus: %w", ctx.Err())
 		}
 		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/-/ready", port))
 		if err == nil {
 			defer resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
-				ready = true
 				break
 			}
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	if !ready {
-		return 0, errors.New("timed out waiting for prometheus to start")
-	}
-	lg.With("address", fmt.Sprintf("http://localhost:%d", port)).Info("Prometheus started")
+	lg.With(
+		"address", fmt.Sprintf("http://localhost:%d", port),
+		"dir", promDir,
+		"agentId", opniAgentId,
+	).Info("Prometheus started")
 	waitctx.Permissive.Go(ctx, func() {
 		<-ctx.Done()
+		cmd.Process.Kill()
 		session.Wait()
+		os.RemoveAll(promDir)
 	})
 	return port, nil
 }

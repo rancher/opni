@@ -20,7 +20,6 @@ func TestStorage(t *testing.T) {
 }
 
 var lmsEtcdF = future.New[[]*etcd.EtcdLockManager]()
-var lmsJetstreamF = future.New[[]*jetstream.JetstreamLockManagerEfficient]()
 var lmsJetstreamOldF = future.New[[]*jetstream.JetstreamLockManager]()
 
 var _ = BeforeSuite(func() {

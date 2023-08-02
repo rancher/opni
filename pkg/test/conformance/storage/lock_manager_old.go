@@ -300,12 +300,14 @@ func LockManagerTestSuiteOld[T storage.LockManager](
 			})
 
 			Specify("any lock should timeout after the specified timeout", func() {
+				frozen := lock.DefaultAcquireTimeout
+				lock.DefaultAcquireTimeout = 50 * time.Millisecond
 				Expect(ExpectTimeout(lm, lock.EX)).To(Succeed())
 				Expect(ExpectTimeout(lm, lock.PW)).To(Succeed())
 				Expect(ExpectTimeout(lm, lock.PR)).To(Succeed())
 				Expect(ExpectTimeout(lm, lock.CW)).To(Succeed())
 				Expect(ExpectTimeout(lm, lock.CR)).To(Succeed())
-
+				lock.DefaultAcquireTimeout = frozen
 			})
 
 			Specify("lock should respect their context errors", func() {
@@ -317,11 +319,14 @@ func LockManagerTestSuiteOld[T storage.LockManager](
 			})
 
 			Specify("locks should respect their retry limits", func() {
+				frozen := lock.DefaultMaxRetries
+				lock.DefaultMaxRetries = 3
 				Expect(ExpectRetryLimit(lm, lock.EX)).To(Succeed())
 				Expect(ExpectRetryLimit(lm, lock.PW)).To(Succeed())
 				Expect(ExpectRetryLimit(lm, lock.PR)).To(Succeed())
 				Expect(ExpectRetryLimit(lm, lock.CW)).To(Succeed())
 				Expect(ExpectRetryLimit(lm, lock.CR)).To(Succeed())
+				lock.DefaultMaxRetries = frozen
 			})
 		})
 

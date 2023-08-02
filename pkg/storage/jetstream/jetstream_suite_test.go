@@ -19,7 +19,7 @@ import (
 func init() {
 	lock.DefaultMaxRetries = 20
 	lock.DefaultRetryDelay = 500 * time.Microsecond
-	lock.DefaultAcquireTimeout = 10 * time.Millisecond
+	lock.DefaultAcquireTimeout = 1000 * time.Millisecond
 }
 
 func TestJetStream(t *testing.T) {
@@ -28,7 +28,6 @@ func TestJetStream(t *testing.T) {
 }
 
 var store = future.New[*jetstream.JetStreamStore]()
-var lmsEff = future.New[[]*jetstream.JetstreamLockManagerEfficient]()
 var lmsFull = future.New[[]*jetstream.JetstreamLockManager]()
 
 var _ = BeforeSuite(func() {

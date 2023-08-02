@@ -40,6 +40,8 @@ import (
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/yaml.v2"
@@ -273,6 +275,10 @@ func (l *TestEnvAlertingClusterDriver) UninstallCluster(_ context.Context, _ *al
 		subscriber <- []client.AlertingPeer{}
 	}
 	return &emptypb.Empty{}, nil
+}
+
+func (l *TestEnvAlertingClusterDriver) Info(_ context.Context, _ *emptypb.Empty) (*alertops.ComponentInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
 func (l *TestEnvAlertingClusterDriver) Name() string {

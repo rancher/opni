@@ -8,6 +8,7 @@ on an AlertManager config.
 import (
 	"fmt"
 	"net/url"
+	"sync"
 	"time"
 
 	amCfg "github.com/prometheus/alertmanager/config"
@@ -147,6 +148,7 @@ type rateLimitingConfig struct {
 
 // indexes using endpointId for scalability
 type OpniRouterV1 struct {
+	mu              sync.Mutex
 	DefaultReceiver config.WebhookConfig `yaml:"defaultReceiver,omitempty" json:"hookEndpoint,omitempty"`
 	// Contains an AlertManager config not created and managed by Opni
 	SyncedConfig *config.Config `yaml:"embeddedConfig,omitempty" json:"embeddedConfig,omitempty"`
@@ -265,6 +267,8 @@ func (o *OpniRouterV1) SetDefaultNamespaceConfig(endpoints []*alertingv1.AlertEn
 }
 
 func (o *OpniRouterV1) SetNamespaceSpec(namespace, routeId string, specs *alertingv1.FullAttachedEndpoints) error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
 	if namespace == "" {
 		return validation.Error("namespace cannot be empty when setting specs")
 	}
@@ -342,6 +346,8 @@ func (o *OpniRouterV1) DeleteEndpoint(id string) error {
 }
 
 func (o *OpniRouterV1) BuildConfig() (*config.Config, error) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
 	root := NewRoutingTree(&o.DefaultReceiver)
 
 	// update the default namespace with the configs

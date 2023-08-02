@@ -14,6 +14,8 @@ import (
 	"go.uber.org/zap"
 )
 
+type manualSync func(ctx context.Context, hashRing spec.HashRing, routers spec.RouterStorage) error
+
 type EndpointServerComponent struct {
 	alertingv1.UnsafeAlertEndpointsServer
 
@@ -23,14 +25,17 @@ type EndpointServerComponent struct {
 	mu sync.Mutex
 	server.Config
 
+	endpMu sync.Mutex
+
 	notifications *notifications.NotificationServerComponent
-	ManualSync    func(ctx context.Context, routerKeys []string, routers spec.RouterStorage)
+	manualSync    manualSync
 
 	logger *zap.SugaredLogger
 
 	endpointStorage  future.Future[spec.EndpointStorage]
 	conditionStorage future.Future[spec.ConditionStorage]
 	routerStorage    future.Future[spec.RouterStorage]
+	hashRing         future.Future[spec.HashRing]
 }
 
 var _ server.ServerComponent = (*EndpointServerComponent)(nil)
@@ -47,6 +52,7 @@ func NewEndpointServerComponent(
 		endpointStorage:  future.New[spec.EndpointStorage](),
 		conditionStorage: future.New[spec.ConditionStorage](),
 		routerStorage:    future.New[spec.RouterStorage](),
+		hashRing:         future.New[spec.HashRing](),
 	}
 }
 
@@ -54,8 +60,9 @@ type EndpointServerConfiguration struct {
 	spec.EndpointStorage
 	spec.ConditionStorage
 	spec.RouterStorage
+	spec.HashRing
 
-	ManualSync func(ctx context.Context, routerKeys []string, routers spec.RouterStorage)
+	ManualSync manualSync
 }
 
 func (e *EndpointServerComponent) Name() string {
@@ -91,6 +98,7 @@ func (e *EndpointServerComponent) Initialize(conf EndpointServerConfiguration) {
 		e.endpointStorage.Set(conf.EndpointStorage)
 		e.conditionStorage.Set(conf.ConditionStorage)
 		e.routerStorage.Set(conf.RouterStorage)
-		e.ManualSync = conf.ManualSync
+		e.hashRing.Set(conf.HashRing)
+		e.manualSync = conf.ManualSync
 	})
 }

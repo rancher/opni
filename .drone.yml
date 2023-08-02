@@ -18,7 +18,7 @@ steps:
         -e _EXPERIMENTAL_DAGGER_CACHESERVICE_TOKEN=$_EXPERIMENTAL_DAGGER_CACHESERVICE_TOKEN \
         -e _EXPERIMENTAL_DAGGER_CACHESERVICE_URL=https://api.dagger.cloud/magicache \
         -v dagger-engine:/var/lib/dagger \
-        registry.dagger.io/engine:main || docker start dagger-engine
+        registry.dagger.io/engine@sha256:47e385bd6fac5eb35ade38e4c26ada7defb6f412b739808933d09f2dc4ca30d6 || docker start dagger-engine
     volumes: &volumes
       - name: docker-sock
         path: /var/run/docker.sock

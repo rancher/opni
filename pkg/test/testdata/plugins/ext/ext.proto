@@ -3,6 +3,7 @@ syntax = "proto3";
 package ext;
 
 import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/duration.proto";
 
@@ -127,9 +128,10 @@ message BazRequest {
 }
 
 message SampleConfiguration {
-  string              stringField   = 1;
-  string              secretField   = 2 [(cli.flag).secret = true];
-  map<string, string> mapField      = 3;
-  repeated string     repeatedField = 4;
-  SampleConfiguration messageField  = 5;
+  core.Revision       revision      = 1 [(cli.flag).skip = true];
+  optional string     stringField   = 2;
+  optional string     secretField   = 3 [(cli.flag).secret = true];
+  map<string, string> mapField      = 4;
+  repeated string     repeatedField = 5;
+  SampleConfiguration messageField  = 6;
 }

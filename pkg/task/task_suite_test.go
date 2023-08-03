@@ -10,7 +10,6 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/task"
 	_ "github.com/rancher/opni/pkg/test/setup"
-	"go.uber.org/mock/gomock"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -19,12 +18,6 @@ func TestTask(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Task Suite")
 }
-
-var ctrl *gomock.Controller
-
-var _ = BeforeSuite(func() {
-	ctrl = gomock.NewController(GinkgoT())
-})
 
 type SampleTaskConfig struct {
 	// Number of items to read from the input channel to complete the task

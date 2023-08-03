@@ -79,6 +79,10 @@ func (o MergeOptions) mergeMessage(dst, src protoreflect.Message) {
 		}
 	}
 
+	if !dst.IsValid() {
+		panic(fmt.Sprintf("cannot merge into nil %v message", dst.Descriptor().FullName()))
+	}
+
 	if fqn := src.Descriptor().FullName(); fqn == "google.protobuf.Duration" {
 		srcpb := src.Interface().(*durationpb.Duration)
 		dstpb := dst.Interface().(*durationpb.Duration)
@@ -95,10 +99,6 @@ func (o MergeOptions) mergeMessage(dst, src protoreflect.Message) {
 			dstpb.Nanos = 0
 			return
 		}
-	}
-
-	if !dst.IsValid() {
-		panic(fmt.Sprintf("cannot merge into nil %v message", dst.Descriptor().FullName()))
 	}
 
 	src.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {

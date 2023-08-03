@@ -26,7 +26,7 @@ func (m *Manager) CreateInitialAdmin(password []byte, readyFunc ...ReadyFunc) {
 	}
 
 	m.adminInitStateRW.Lock()
-	_, err := m.systemKV.Get().Put(context.Background(), &system.KeyValue{
+	_, err := m.systemKV.Get().Put(context.Background(), &system.PutRequest{
 		Key:   fmt.Sprintf("%s%s", opensearchPrefix, initialAdminKey),
 		Value: []byte(initialAdminPending),
 	})
@@ -81,7 +81,7 @@ CREATE:
 	}
 
 	m.adminInitStateRW.Lock()
-	_, err = m.systemKV.Get().Put(context.Background(), &system.KeyValue{
+	_, err = m.systemKV.Get().Put(context.Background(), &system.PutRequest{
 		Key:   fmt.Sprintf("%s%s", opensearchPrefix, initialAdminKey),
 		Value: []byte(initialAdminCreated),
 	})
@@ -145,7 +145,7 @@ func (m *Manager) shouldCreateInitialAdmin() bool {
 		return true
 	}
 
-	adminState, err := m.systemKV.Get().Get(context.Background(), &system.Key{
+	adminState, err := m.systemKV.Get().Get(context.Background(), &system.GetRequest{
 		Key: fmt.Sprintf("%s%s", opensearchPrefix, initialAdminKey),
 	})
 	if err != nil {
@@ -170,7 +170,7 @@ func (m *Manager) DeleteInitialAdminState() error {
 	m.adminInitStateRW.Lock()
 	defer m.adminInitStateRW.Unlock()
 
-	_, err := m.systemKV.Get().Delete(context.Background(), &system.Key{
+	_, err := m.systemKV.Get().Delete(context.Background(), &system.DeleteRequest{
 		Key: fmt.Sprintf("%s%s", opensearchPrefix, initialAdminKey),
 	})
 	return err

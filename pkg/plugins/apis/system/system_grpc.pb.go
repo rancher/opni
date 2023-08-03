@@ -262,16 +262,18 @@ const (
 	KeyValueStore_Get_FullMethodName      = "/system.KeyValueStore/Get"
 	KeyValueStore_Delete_FullMethodName   = "/system.KeyValueStore/Delete"
 	KeyValueStore_ListKeys_FullMethodName = "/system.KeyValueStore/ListKeys"
+	KeyValueStore_History_FullMethodName  = "/system.KeyValueStore/History"
 )
 
 // KeyValueStoreClient is the client API for KeyValueStore service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type KeyValueStoreClient interface {
-	Put(ctx context.Context, in *KeyValue, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	Get(ctx context.Context, in *Key, opts ...grpc.CallOption) (*Value, error)
-	Delete(ctx context.Context, in *Key, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	ListKeys(ctx context.Context, in *Key, opts ...grpc.CallOption) (*KeyList, error)
+	Put(ctx context.Context, in *PutRequest, opts ...grpc.CallOption) (*PutResponse, error)
+	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
+	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
+	ListKeys(ctx context.Context, in *ListKeysRequest, opts ...grpc.CallOption) (*ListKeysResponse, error)
+	History(ctx context.Context, in *HistoryRequest, opts ...grpc.CallOption) (*HistoryResponse, error)
 }
 
 type keyValueStoreClient struct {
@@ -282,8 +284,8 @@ func NewKeyValueStoreClient(cc grpc.ClientConnInterface) KeyValueStoreClient {
 	return &keyValueStoreClient{cc}
 }
 
-func (c *keyValueStoreClient) Put(ctx context.Context, in *KeyValue, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *keyValueStoreClient) Put(ctx context.Context, in *PutRequest, opts ...grpc.CallOption) (*PutResponse, error) {
+	out := new(PutResponse)
 	err := c.cc.Invoke(ctx, KeyValueStore_Put_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -291,8 +293,8 @@ func (c *keyValueStoreClient) Put(ctx context.Context, in *KeyValue, opts ...grp
 	return out, nil
 }
 
-func (c *keyValueStoreClient) Get(ctx context.Context, in *Key, opts ...grpc.CallOption) (*Value, error) {
-	out := new(Value)
+func (c *keyValueStoreClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error) {
+	out := new(GetResponse)
 	err := c.cc.Invoke(ctx, KeyValueStore_Get_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -300,8 +302,8 @@ func (c *keyValueStoreClient) Get(ctx context.Context, in *Key, opts ...grpc.Cal
 	return out, nil
 }
 
-func (c *keyValueStoreClient) Delete(ctx context.Context, in *Key, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *keyValueStoreClient) Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error) {
+	out := new(DeleteResponse)
 	err := c.cc.Invoke(ctx, KeyValueStore_Delete_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -309,9 +311,18 @@ func (c *keyValueStoreClient) Delete(ctx context.Context, in *Key, opts ...grpc.
 	return out, nil
 }
 
-func (c *keyValueStoreClient) ListKeys(ctx context.Context, in *Key, opts ...grpc.CallOption) (*KeyList, error) {
-	out := new(KeyList)
+func (c *keyValueStoreClient) ListKeys(ctx context.Context, in *ListKeysRequest, opts ...grpc.CallOption) (*ListKeysResponse, error) {
+	out := new(ListKeysResponse)
 	err := c.cc.Invoke(ctx, KeyValueStore_ListKeys_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *keyValueStoreClient) History(ctx context.Context, in *HistoryRequest, opts ...grpc.CallOption) (*HistoryResponse, error) {
+	out := new(HistoryResponse)
+	err := c.cc.Invoke(ctx, KeyValueStore_History_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -322,10 +333,11 @@ func (c *keyValueStoreClient) ListKeys(ctx context.Context, in *Key, opts ...grp
 // All implementations must embed UnimplementedKeyValueStoreServer
 // for forward compatibility
 type KeyValueStoreServer interface {
-	Put(context.Context, *KeyValue) (*emptypb.Empty, error)
-	Get(context.Context, *Key) (*Value, error)
-	Delete(context.Context, *Key) (*emptypb.Empty, error)
-	ListKeys(context.Context, *Key) (*KeyList, error)
+	Put(context.Context, *PutRequest) (*PutResponse, error)
+	Get(context.Context, *GetRequest) (*GetResponse, error)
+	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
+	ListKeys(context.Context, *ListKeysRequest) (*ListKeysResponse, error)
+	History(context.Context, *HistoryRequest) (*HistoryResponse, error)
 	mustEmbedUnimplementedKeyValueStoreServer()
 }
 
@@ -333,17 +345,20 @@ type KeyValueStoreServer interface {
 type UnimplementedKeyValueStoreServer struct {
 }
 
-func (UnimplementedKeyValueStoreServer) Put(context.Context, *KeyValue) (*emptypb.Empty, error) {
+func (UnimplementedKeyValueStoreServer) Put(context.Context, *PutRequest) (*PutResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Put not implemented")
 }
-func (UnimplementedKeyValueStoreServer) Get(context.Context, *Key) (*Value, error) {
+func (UnimplementedKeyValueStoreServer) Get(context.Context, *GetRequest) (*GetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
 }
-func (UnimplementedKeyValueStoreServer) Delete(context.Context, *Key) (*emptypb.Empty, error) {
+func (UnimplementedKeyValueStoreServer) Delete(context.Context, *DeleteRequest) (*DeleteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
 }
-func (UnimplementedKeyValueStoreServer) ListKeys(context.Context, *Key) (*KeyList, error) {
+func (UnimplementedKeyValueStoreServer) ListKeys(context.Context, *ListKeysRequest) (*ListKeysResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListKeys not implemented")
+}
+func (UnimplementedKeyValueStoreServer) History(context.Context, *HistoryRequest) (*HistoryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method History not implemented")
 }
 func (UnimplementedKeyValueStoreServer) mustEmbedUnimplementedKeyValueStoreServer() {}
 
@@ -359,7 +374,7 @@ func RegisterKeyValueStoreServer(s grpc.ServiceRegistrar, srv KeyValueStoreServe
 }
 
 func _KeyValueStore_Put_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(KeyValue)
+	in := new(PutRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -371,13 +386,13 @@ func _KeyValueStore_Put_Handler(srv interface{}, ctx context.Context, dec func(i
 		FullMethod: KeyValueStore_Put_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KeyValueStoreServer).Put(ctx, req.(*KeyValue))
+		return srv.(KeyValueStoreServer).Put(ctx, req.(*PutRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _KeyValueStore_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Key)
+	in := new(GetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -389,13 +404,13 @@ func _KeyValueStore_Get_Handler(srv interface{}, ctx context.Context, dec func(i
 		FullMethod: KeyValueStore_Get_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KeyValueStoreServer).Get(ctx, req.(*Key))
+		return srv.(KeyValueStoreServer).Get(ctx, req.(*GetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _KeyValueStore_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Key)
+	in := new(DeleteRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -407,13 +422,13 @@ func _KeyValueStore_Delete_Handler(srv interface{}, ctx context.Context, dec fun
 		FullMethod: KeyValueStore_Delete_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KeyValueStoreServer).Delete(ctx, req.(*Key))
+		return srv.(KeyValueStoreServer).Delete(ctx, req.(*DeleteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _KeyValueStore_ListKeys_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Key)
+	in := new(ListKeysRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -425,7 +440,25 @@ func _KeyValueStore_ListKeys_Handler(srv interface{}, ctx context.Context, dec f
 		FullMethod: KeyValueStore_ListKeys_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KeyValueStoreServer).ListKeys(ctx, req.(*Key))
+		return srv.(KeyValueStoreServer).ListKeys(ctx, req.(*ListKeysRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KeyValueStore_History_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KeyValueStoreServer).History(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KeyValueStore_History_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KeyValueStoreServer).History(ctx, req.(*HistoryRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -452,6 +485,10 @@ var KeyValueStore_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListKeys",
 			Handler:    _KeyValueStore_ListKeys_Handler,
+		},
+		{
+			MethodName: "History",
+			Handler:    _KeyValueStore_History_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

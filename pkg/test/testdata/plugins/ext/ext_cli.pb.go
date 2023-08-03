@@ -333,8 +333,8 @@ func (in *BarResponse) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *SampleConfiguration) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("SampleConfiguration", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.StringVar(&in.StringField, strings.Join(append(prefix, "string-field"), "."), "", "")
-	fs.StringVar(&in.SecretField, strings.Join(append(prefix, "secret-field"), "."), "", "\x1b[31m[secret]\x1b[0m ")
+	fs.Var(flagutil.StringPtrValue(nil, &in.StringField), strings.Join(append(prefix, "string-field"), "."), "")
+	fs.Var(flagutil.StringPtrValue(nil, &in.SecretField), strings.Join(append(prefix, "secret-field"), "."), "\x1b[31m[secret]\x1b[0m ")
 	fs.StringToStringVar(&in.MapField, strings.Join(append(prefix, "map-field"), "."), nil, "")
 	fs.StringSliceVar(&in.RepeatedField, strings.Join(append(prefix, "repeated-field"), "."), nil, "")
 	return fs
@@ -345,7 +345,7 @@ func (in *SampleConfiguration) RedactSecrets() {
 		return
 	}
 	if in.GetSecretField() != "" {
-		in.SecretField = "***"
+		in.SecretField = flagutil.Ptr("***")
 	}
 }
 
@@ -357,7 +357,7 @@ func (in *SampleConfiguration) UnredactSecrets(unredacted *SampleConfiguration) 
 		if unredacted.GetSecretField() == "" {
 			return errors.New("cannot unredact: missing value for secret field: SecretField")
 		}
-		in.SecretField = unredacted.SecretField
+		*in.SecretField = *unredacted.SecretField
 	}
 	return nil
 }

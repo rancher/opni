@@ -45,3 +45,129 @@ type AlertFilterOptions struct {
 	Labels map[string]string
 	Range  *corev1.TimeRange
 }
+
+// ================
+// KV Store Options
+// ================
+
+type GetOptions struct {
+	// Get the value at a specific Revision
+	Revision *int64
+
+	// If non-nil, will be set to the current revision of the key after the Get
+	// operation completes successfully. If an error occurs, no changes
+	// will be made to the value.
+	RevisionOut *int64
+}
+
+type PutOptions struct {
+	// Put only if the latest Revision matches
+	Revision *int64
+
+	// If non-nil, will be set to the updated revision of the key after the Put
+	// operation completes successfully. If an error occurs, no changes
+	// will be made to the value.
+	RevisionOut *int64
+}
+
+type DeleteOptions struct {
+	// Delete only if the latest Revision matches
+	Revision *int64
+}
+
+type ListKeysOptions struct {
+	// Maximum number of keys to return
+	Limit *int64
+}
+
+type HistoryOptions struct {
+	// Specifies the latest modification revision to include in the returned
+	// history. The history will contain all revisions of the key, starting at
+	// the most recent creation revision, and ending at either the specified
+	// revision, or the most recent modification revision of the key. If the
+	// specified revision is before the latest creation revision, and the
+	// key has multiple creation revisions (due to a delete and re-create),
+	// then the history will instead start at the most recent creation
+	// revision that is <= the specified revision.
+	Revision *int64
+	// Include the values in the response, not just the metadata. This could
+	// have performance implications, so use with caution.
+	IncludeValues bool
+}
+
+type (
+	revisionOpt      int64
+	revisionOutOpt   struct{ *int64 }
+	limitOpt         int64
+	includeValuesOpt bool
+)
+
+// WithRevision can be used for [GetOptions], [PutOptions], or [DeleteOptions]
+func WithRevision(rev int64) revisionOpt {
+	return revisionOpt(rev)
+}
+
+// WithRevisionOut can be used for [GetOptions] or [PutOptions].
+func WithRevisionOut(out *int64) revisionOutOpt {
+	return revisionOutOpt{out}
+}
+
+// WithLimit can be used for [ListKeysOptions] or [HistoryOptions].
+func WithLimit(limit int64) limitOpt {
+	return limitOpt(limit)
+}
+
+// IncludeValues can be used for [HistoryOptions].
+func IncludeValues(include bool) includeValuesOpt {
+	return includeValuesOpt(include)
+}
+
+func (r revisionOpt) ApplyGetOption(opts *GetOptions)         { opts.Revision = (*int64)(&r) }
+func (r revisionOpt) ApplyPutOption(opts *PutOptions)         { opts.Revision = (*int64)(&r) }
+func (r revisionOpt) ApplyDeleteOption(opts *DeleteOptions)   { opts.Revision = (*int64)(&r) }
+func (r revisionOpt) ApplyHistoryOption(opts *HistoryOptions) { opts.Revision = (*int64)(&r) }
+
+func (r revisionOutOpt) ApplyPutOption(opts *PutOptions) { opts.RevisionOut = r.int64 }
+func (r revisionOutOpt) ApplyGetOption(opts *GetOptions) { opts.RevisionOut = r.int64 }
+
+func (l limitOpt) ApplyListOption(opts *ListKeysOptions) { opts.Limit = (*int64)(&l) }
+
+func (i includeValuesOpt) ApplyHistoryOption(opts *HistoryOptions) { opts.IncludeValues = bool(i) }
+
+type (
+	GetOpt     interface{ ApplyGetOption(*GetOptions) }
+	PutOpt     interface{ ApplyPutOption(*PutOptions) }
+	DeleteOpt  interface{ ApplyDeleteOption(*DeleteOptions) }
+	ListOpt    interface{ ApplyListOption(*ListKeysOptions) }
+	HistoryOpt interface{ ApplyHistoryOption(*HistoryOptions) }
+)
+
+func (o *GetOptions) Apply(opts ...GetOpt) {
+	for _, opt := range opts {
+		opt.ApplyGetOption(o)
+	}
+}
+
+func (o *PutOptions) Apply(opts ...PutOpt) {
+	for _, opt := range opts {
+		opt.ApplyPutOption(o)
+	}
+}
+
+func (o *DeleteOptions) Apply(opts ...DeleteOpt) {
+	for _, opt := range opts {
+		opt.ApplyDeleteOption(o)
+	}
+}
+
+func (o *ListKeysOptions) Apply(opts ...ListOpt) {
+	for _, opt := range opts {
+		opt.ApplyListOption(o)
+	}
+}
+
+func (o *HistoryOptions) Apply(opts ...HistoryOpt) {
+	for _, opt := range opts {
+		opt.ApplyHistoryOption(o)
+	}
+}

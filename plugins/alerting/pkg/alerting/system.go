@@ -11,7 +11,6 @@ import (
 
 	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/management"
-	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/node_backend"
@@ -39,6 +38,7 @@ import (
 
 	_ "github.com/rancher/opni/pkg/storage/etcd"
 	_ "github.com/rancher/opni/pkg/storage/jetstream"
+	"github.com/rancher/opni/pkg/storage/kvutil"
 )
 
 func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
@@ -92,8 +92,8 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 // UseKeyValueStore Alerting Condition & Alert Endpoints are stored in K,V stores
 func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	p.capabilitySpecStore.Set(node_backend.CapabilitySpecKV{
-		DefaultCapabilitySpec: storage.NewValueStore(system.NewKVStoreClient[*node.AlertingCapabilitySpec](client), "/alerting/config/capability/default"),
-		NodeCapabilitySpecs:   storage.NewKeyValueStoreWithPrefix(system.NewKVStoreClient[*node.AlertingCapabilitySpec](client), "/alerting/config/capability/nodes"),
+		DefaultCapabilitySpec: kvutil.WithKey(system.NewKVStoreClient[*node.AlertingCapabilitySpec](client), "/alerting/config/capability/default"),
+		NodeCapabilitySpecs:   kvutil.WithPrefix(system.NewKVStoreClient[*node.AlertingCapabilitySpec](client), "/alerting/config/capability/nodes"),
 	})
 
 	var (

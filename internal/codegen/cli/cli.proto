@@ -45,7 +45,8 @@ message FlagOptions {
 }
 
 message FlagSetOptions {
-  google.protobuf.Any default = 1;
+  google.protobuf.Any default   = 1;
+  bool                no_prefix = 2;
 }
 
 message CommandGroupOptions {

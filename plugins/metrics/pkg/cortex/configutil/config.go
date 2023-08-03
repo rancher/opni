@@ -412,6 +412,7 @@ func CortexAPISpecToCortexConfig[T cortexspec](
 	}
 
 	storageConfig := bucket.Config{}
+	loadDefaults(&storageConfig)
 	if err := LoadFromAPI(&storageConfig, in.GetStorage()); err != nil {
 		return nil, nil, err
 	}

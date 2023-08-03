@@ -103,6 +103,7 @@ service CortexOps {
   }
 
   // Resets the configuration of the managed Cortex cluster to the current default configuration.
+  // The value of "enabled" will be preserved if it is set.
   rpc ResetConfiguration(google.protobuf.Empty) returns (google.protobuf.Empty) {
     option (cli.command) = {
       use: "config reset"
@@ -204,6 +205,7 @@ message InstallStatus {
 
 message CapabilityBackendConfigSpec {
   optional bool           enabled         = 1 [(cli.flag).skip = true];
+  core.Revision           revision        = 2 [(cli.flag).skip = true];
   CortexWorkloadsConfig   cortexWorkloads = 4;
   CortexApplicationConfig cortexConfig    = 5;
   GrafanaConfig           grafana         = 9;

@@ -290,6 +290,8 @@ func BuildCortexOpsResetConfigurationCmd() *cobra.Command {
 		Use:   "config reset",
 		Short: "Resets the configuration of the managed Cortex cluster to the current default configuration.",
 		Long: `
+The value of "enabled" will be preserved if it is set.
+
 HTTP handlers for this method:
 - DELETE /configuration
 `[1:],

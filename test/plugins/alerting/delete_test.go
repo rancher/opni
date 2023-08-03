@@ -42,7 +42,7 @@ var _ = Describe("Invalidated and clean up suite test", Ordered, Label("integrat
 		mgmtClient := env.NewManagementClient()
 		_, err := alertopsClient.InstallCluster(env.Context(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
-		_, err = cortexOpsClient.Install(context.Background(), &emptypb.Empty{})
+		err = cortexops.InstallWithPreset(context.Background(), cortexOpsClient)
 		Expect(err).NotTo(HaveOccurred())
 		certsInfo, err := mgmtClient.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())

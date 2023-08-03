@@ -96,7 +96,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 		info, err := client.CertsInfo(env.Context(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
 		opsClient := cortexops.NewCortexOpsClient(env.ManagementClientConn())
-		_, err = opsClient.Install(context.Background(), &emptypb.Empty{})
+		err = cortexops.InstallWithPreset(context.Background(), opsClient)
 		Expect(err).NotTo(HaveOccurred())
 
 		_, errC := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint}, test.WithContext(env.Context()))

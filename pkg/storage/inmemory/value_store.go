@@ -87,6 +87,9 @@ func (s *inMemoryValueStore[T]) Get(ctx context.Context, opts ...storage.GetOpt)
 	defer s.lock.RUnlock()
 	if s.isEmptyLocked() {
 		var zero T
+		if options.Revision != nil && *options.Revision != 0 {
+			return zero, status.Errorf(codes.OutOfRange, "revision %d is a future revision", *options.Revision)
+		}
 		return zero, storage.ErrNotFound
 	}
 

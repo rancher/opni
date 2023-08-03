@@ -8,7 +8,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/inmemory"
+	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/samber/lo"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -65,6 +67,12 @@ var _ = Describe("Value Store", func() {
 		})
 
 		When("retrieving a value with a specific revision", func() {
+			When("the value store is empty", func() {
+				It("should return an OutOfRange error for any nonzero revision", func() {
+					_, err := valueStore.Get(ctx, storage.WithRevision(1))
+					Expect(err).To(testutil.MatchStatusCode(codes.OutOfRange))
+				})
+			})
 			It("should retrieve the value for the correct revision", func() {
 				revOut := int64(0)
 				Expect(valueStore.Put(ctx, "value1")).To(Succeed())

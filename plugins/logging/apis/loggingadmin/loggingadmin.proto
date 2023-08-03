@@ -8,45 +8,6 @@ import "k8s.io/api/core/v1/generated.proto";
 
 package loggingadmin;
 
-service LoggingAdmin {
-    rpc GetOpensearchCluster(google.protobuf.Empty) returns(OpensearchCluster) {
-        option (google.api.http) = {
-            get: "/logging/cluster"
-        };
-    }
-    rpc DeleteOpensearchCluster(google.protobuf.Empty) returns(google.protobuf.Empty) {
-        option (google.api.http) = {
-            delete: "/logging/cluster"
-        };
-    }
-    rpc CreateOrUpdateOpensearchCluster(OpensearchCluster) returns(google.protobuf.Empty) {
-        option (google.api.http) = {
-            put: "/logging/cluster"
-            body: "*"
-        };
-    }
-    rpc UpgradeAvailable(google.protobuf.Empty) returns(UpgradeAvailableResponse) {
-        option (google.api.http) = {
-            get: "/logging/upgrade/available"
-        };
-    }
-    rpc DoUpgrade(google.protobuf.Empty) returns(google.protobuf.Empty) {
-        option (google.api.http) = {
-            post: "/logging/upgrade/do"
-        };
-    }
-    rpc GetStorageClasses(google.protobuf.Empty) returns(StorageClassResponse) {
-        option (google.api.http) = {
-            get: "/logging/storageclasses"
-        };
-    }
-    rpc GetOpensearchStatus(google.protobuf.Empty) returns(StatusResponse) {
-        option (google.api.http) = {
-            get: "/logging/status"
-        };
-    }
-}
-
 service LoggingAdminV2 {
     rpc GetOpensearchCluster(google.protobuf.Empty) returns(OpensearchClusterV2) {
         option (google.api.http) = {
@@ -86,14 +47,6 @@ service LoggingAdminV2 {
     }
 }
 
-message OpensearchCluster {
-    string ExternalURL = 1;
-    // +optional
-    repeated OpensearchNodeDetails NodePools = 2;
-    optional DashboardsDetails Dashboards = 3;
-    optional string DataRetention = 4;
-}
-
 message OpensearchClusterV2 {
     string externalURL = 1;
     DataDetails dataNodes = 2;
@@ -101,6 +54,7 @@ message OpensearchClusterV2 {
     optional ControlplaneDetails controlplaneNodes = 4;
     optional DashboardsDetails dashboards = 5;
     optional string dataRetention = 6;
+    optional OpensearchS3Settings s3 = 7;
 }
 
 message DataPersistence {
@@ -111,6 +65,26 @@ message DataPersistence {
 message CPUResource {
     string request = 1;
     string limit = 2;
+}
+
+message OpensearchS3Settings {
+    string endpoint = 1;
+    bool insecure = 2;
+    bool pathStyleAccess = 3;
+    S3Credentials credentials = 4;
+    string bucket = 5;
+    optional string folder = 6;
+    ProxySettings proxySettings  = 7;
+}
+
+message ProxySettings {
+    string proxyHost = 1;
+    optional int32 proxyPort = 2;
+}
+
+message S3Credentials {
+    string accessKey = 1;
+    string secretKey = 2;
 }
 
 message OpensearchNodeDetails {

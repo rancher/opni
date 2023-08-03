@@ -111,6 +111,11 @@ func BuildManagerCmd() *cobra.Command {
 			return err
 		}
 
+		if err = (&controllers.LoggingOpensearchRepositoryReconciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Logging OpensearchRepository")
+			return err
+		}
+
 		if err = (&controllers.CoreGatewayReconciler{}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Core Gateway")
 			return err

@@ -3,8 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.13.0
   name: opniopensearches.logging.opni.io
 spec:
   group: logging.opni.io
@@ -1402,6 +1401,36 @@ spec:
                       - roles
                       type: object
                     type: array
+                  s3:
+                    properties:
+                      credentialSecret:
+                        properties:
+                          name:
+                            type: string
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      endpoint:
+                        type: string
+                      pathStyleAccess:
+                        type: boolean
+                      protocol:
+                        type: string
+                      proxyHost:
+                        type: string
+                      proxyPort:
+                        format: int32
+                        type: integer
+                      repository:
+                        properties:
+                          bucket:
+                            type: string
+                          folder:
+                            type: string
+                        required:
+                        - bucket
+                        - folder
+                        type: object
+                    type: object
                   security:
                     properties:
                       config:

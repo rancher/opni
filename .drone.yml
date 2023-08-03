@@ -64,7 +64,7 @@ steps:
     volumes: *volumes
     commands:
       - apk add --no-cache go
-      - go run ./dagger -c dagger/ci/defaults,dagger/ci/push,dagger/ci/push-charts,dagger/ci/tag-latest
+      - go run ./dagger -c dagger/ci/defaults,dagger/ci/push,dagger/ci/push-charts,dagger/ci/tag-latest --lint=false --test=false
     when:
       event:
         - tag
@@ -80,7 +80,7 @@ steps:
     volumes: *volumes
     commands:
       - apk add --no-cache go
-      - go run ./dagger -c dagger/ci/defaults,dagger/ci/push
+      - go run ./dagger -c dagger/ci/defaults,dagger/ci/push --lint=false --test=false
     when:
       event:
         - push

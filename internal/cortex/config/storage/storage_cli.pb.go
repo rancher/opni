@@ -325,6 +325,9 @@ func (in *SwiftConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.Var(flagutil.StringPtrValue(nil, &in.Password), strings.Join(append(prefix, "password"), "."), "\x1b[31m[secret]\x1b[0m OpenStack Swift API key.")
 	fs.Var(flagutil.StringPtrValue(nil, &in.DomainId), strings.Join(append(prefix, "domain-id"), "."), "OpenStack Swift user's domain ID.")
 	fs.Var(flagutil.StringPtrValue(nil, &in.DomainName), strings.Join(append(prefix, "domain-name"), "."), "OpenStack Swift user's domain name.")
+	fs.Var(flagutil.StringPtrValue(nil, &in.ApplicationCredentialId), strings.Join(append(prefix, "application-credential-id"), "."), "OpenStack Swift application credential ID.")
+	fs.Var(flagutil.StringPtrValue(nil, &in.ApplicationCredentialName), strings.Join(append(prefix, "application-credential-name"), "."), "OpenStack Swift application credential name.")
+	fs.Var(flagutil.StringPtrValue(nil, &in.ApplicationCredentialSecret), strings.Join(append(prefix, "application-credential-secret"), "."), "\x1b[31m[secret]\x1b[0m OpenStack Swift application credential secret.")
 	fs.Var(flagutil.StringPtrValue(nil, &in.ProjectId), strings.Join(append(prefix, "project-id"), "."), "OpenStack Swift project ID (v2,v3 auth only).")
 	fs.Var(flagutil.StringPtrValue(nil, &in.ProjectName), strings.Join(append(prefix, "project-name"), "."), "OpenStack Swift project name (v2,v3 auth only).")
 	fs.Var(flagutil.StringPtrValue(nil, &in.ProjectDomainId), strings.Join(append(prefix, "project-domain-id"), "."), "ID of the OpenStack Swift project's domain (v3 auth only), only needed if it differs the from user domain.")
@@ -344,6 +347,9 @@ func (in *SwiftConfig) RedactSecrets() {
 	if in.GetPassword() != "" {
 		in.Password = flagutil.Ptr("***")
 	}
+	if in.GetApplicationCredentialSecret() != "" {
+		in.ApplicationCredentialSecret = flagutil.Ptr("***")
+	}
 }
 
 func (in *SwiftConfig) UnredactSecrets(unredacted *SwiftConfig) error {
@@ -355,6 +361,12 @@ func (in *SwiftConfig) UnredactSecrets(unredacted *SwiftConfig) error {
 			return errors.New("cannot unredact: missing value for secret field: Password")
 		}
 		*in.Password = *unredacted.Password
+	}
+	if in.GetApplicationCredentialSecret() == "***" {
+		if unredacted.GetApplicationCredentialSecret() == "" {
+			return errors.New("cannot unredact: missing value for secret field: ApplicationCredentialSecret")
+		}
+		*in.ApplicationCredentialSecret = *unredacted.ApplicationCredentialSecret
 	}
 	return nil
 }

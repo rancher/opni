@@ -2,12 +2,15 @@ syntax = "proto3";
 
 package core;
 
-import "google/protobuf/duration.proto";
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/rancher/opni/pkg/apis/core/v1";
+option (cli.generator) = {
+  generate: true
+};
 
 service Pinger {
   rpc Ping(google.protobuf.Empty) returns (PingResponse);
@@ -306,5 +309,11 @@ enum ConfigStatus {
 }
 
 message Revision {
+  // A numerical revision uniquely identifying a specific version of the resource.
+  // Larger values are newer, but this should otherwise be treated as opaque.
   optional int64 revision = 1;
+  // An optional timestamp corresponding to the time the revision was created.
+  // Do not depend on this field being set; if it is, it is for informational
+  // purposes only.
+  google.protobuf.Timestamp timestamp = 2 [(cli.flag).skip = true];
 }

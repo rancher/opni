@@ -12,10 +12,13 @@ import (
 	runtimeconfig "github.com/rancher/opni/internal/cortex/config/runtimeconfig"
 	storage "github.com/rancher/opni/internal/cortex/config/storage"
 	validation "github.com/rancher/opni/internal/cortex/config/validation"
+	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
+	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
 	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
+	v2 "github.com/thediveo/enumflag/v2"
 	proto "google.golang.org/protobuf/proto"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	strings "strings"
@@ -59,12 +62,14 @@ func BuildCortexOpsCmd() *cobra.Command {
 		BuildCortexOpsInstallCmd(),
 		BuildCortexOpsUninstallCmd(),
 		BuildCortexOpsListPresetsCmd(),
+		BuildCortexOpsConfigurationHistoryCmd(),
 	}, extraCmds_CortexOps...)...)
 	cli.AddOutputFlag(cmd)
 	return cmd
 }
 
 func BuildCortexOpsGetDefaultConfigurationCmd() *cobra.Command {
+	in := &GetRequest{}
 	cmd := &cobra.Command{
 		Use:   "config get-default",
 		Short: "Returns the default implementation-specific configuration, or one previously set.",
@@ -83,7 +88,10 @@ HTTP handlers for this method:
 				cmd.PrintErrln("failed to get client from context")
 				return nil
 			}
-			response, err := client.GetDefaultConfiguration(cmd.Context(), &emptypb.Empty{})
+			if in == nil {
+				return errors.New("no input provided")
+			}
+			response, err := client.GetDefaultConfiguration(cmd.Context(), in)
 			if err != nil {
 				return err
 			}
@@ -91,6 +99,7 @@ HTTP handlers for this method:
 			return nil
 		},
 	}
+	cmd.Flags().AddFlagSet(in.FlagSet())
 	return cmd
 }
 
@@ -126,7 +135,7 @@ HTTP handlers for this method:
 					cmd.PrintErrln("failed to get client from context")
 					return nil
 				}
-				if curValue, err := client.GetDefaultConfiguration(cmd.Context(), &emptypb.Empty{}); err == nil {
+				if curValue, err := client.GetDefaultConfiguration(cmd.Context(), &GetRequest{}); err == nil {
 					in = curValue
 				}
 				if edited, err := cliutil.EditInteractive(in); err != nil {
@@ -187,6 +196,7 @@ HTTP handlers for this method:
 }
 
 func BuildCortexOpsGetConfigurationCmd() *cobra.Command {
+	in := &GetRequest{}
 	cmd := &cobra.Command{
 		Use:   "config get",
 		Short: "Gets the current configuration of the managed Cortex cluster.",
@@ -202,7 +212,10 @@ HTTP handlers for this method:
 				cmd.PrintErrln("failed to get client from context")
 				return nil
 			}
-			response, err := client.GetConfiguration(cmd.Context(), &emptypb.Empty{})
+			if in == nil {
+				return errors.New("no input provided")
+			}
+			response, err := client.GetConfiguration(cmd.Context(), in)
 			if err != nil {
 				return err
 			}
@@ -210,6 +223,7 @@ HTTP handlers for this method:
 			return nil
 		},
 	}
+	cmd.Flags().AddFlagSet(in.FlagSet())
 	return cmd
 }
 
@@ -252,7 +266,7 @@ HTTP handlers for this method:
 					cmd.PrintErrln("failed to get client from context")
 					return nil
 				}
-				if curValue, err := client.GetConfiguration(cmd.Context(), &emptypb.Empty{}); err == nil {
+				if curValue, err := client.GetConfiguration(cmd.Context(), &GetRequest{}); err == nil {
 					in = curValue
 				}
 				if edited, err := cliutil.EditInteractive(in); err != nil {
@@ -441,6 +455,51 @@ HTTP handlers for this method:
 	return cmd
 }
 
+func BuildCortexOpsConfigurationHistoryCmd() *cobra.Command {
+	in := &ConfigurationHistoryRequest{}
+	cmd := &cobra.Command{
+		Use:   "config history",
+		Short: "",
+		Long: `
+HTTP handlers for this method:
+- GET /configuration/history
+`[1:],
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, ok := CortexOpsClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			if in == nil {
+				return errors.New("no input provided")
+			}
+			response, err := client.ConfigurationHistory(cmd.Context(), in)
+			if err != nil {
+				return err
+			}
+			cli.RenderOutput(cmd, response)
+			return nil
+		},
+	}
+	cmd.Flags().AddFlagSet(in.FlagSet())
+	cmd.RegisterFlagCompletionFunc("target", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"ActiveConfiguration", "DefaultConfiguration"}, cobra.ShellCompDirectiveDefault
+	})
+	return cmd
+}
+
+func (in *GetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("GetRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Revision == nil {
+		in.Revision = &v1.Revision{}
+	}
+	fs.AddFlagSet(in.Revision.FlagSet(append(prefix, "revision")...))
+	return fs
+}
+
 func (in *CapabilityBackendConfigSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("CapabilityBackendConfigSpec", pflag.ExitOnError)
 	fs.SortFlags = true
@@ -535,6 +594,17 @@ func (in *GrafanaConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.Var(flagutil.BoolPtrValue(flagutil.Ptr(false), &in.Enabled), strings.Join(append(prefix, "enabled"), "."), "Whether to deploy a managed Grafana instance.")
 	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("latest"), &in.Version), strings.Join(append(prefix, "version"), "."), "The version of Grafana to deploy.")
 	fs.Var(flagutil.StringPtrValue(nil, &in.Hostname), strings.Join(append(prefix, "hostname"), "."), "")
+	return fs
+}
+
+func (in *ConfigurationHistoryRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("ConfigurationHistoryRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Var(v2.New(&in.Target, "Target", map[driverutil.Target][]string{
+		driverutil.Target_ActiveConfiguration:  {"ActiveConfiguration"},
+		driverutil.Target_DefaultConfiguration: {"DefaultConfiguration"},
+	}, v2.EnumCaseSensitive), strings.Join(append(prefix, "target"), "."), "The configuration type to return history for.")
+	fs.BoolVar(&in.IncludeValues, strings.Join(append(prefix, "include-values"), "."), true, "If set, will include the values of the configuration in the response. Otherwise, only the revision field of each entry will be populated.")
 	return fs
 }
 
@@ -644,4 +714,31 @@ func (in *DryRunResponse) DeepCopyInto(out *DryRunResponse) {
 
 func (in *DryRunResponse) DeepCopy() *DryRunResponse {
 	return proto.Clone(in).(*DryRunResponse)
+}
+
+func (in *GetRequest) DeepCopyInto(out *GetRequest) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *GetRequest) DeepCopy() *GetRequest {
+	return proto.Clone(in).(*GetRequest)
+}
+
+func (in *ConfigurationHistoryRequest) DeepCopyInto(out *ConfigurationHistoryRequest) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ConfigurationHistoryRequest) DeepCopy() *ConfigurationHistoryRequest {
+	return proto.Clone(in).(*ConfigurationHistoryRequest)
+}
+
+func (in *ConfigurationHistoryResponse) DeepCopyInto(out *ConfigurationHistoryResponse) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ConfigurationHistoryResponse) DeepCopy() *ConfigurationHistoryResponse {
+	return proto.Clone(in).(*ConfigurationHistoryResponse)
 }

@@ -62,11 +62,11 @@ func (ct *DefaultingConfigTracker[T]) newDefaultSpec() (t T) {
 
 // Gets the default config if one has been set, otherwise returns a new default
 // config as defined by the type.
-func (ct *DefaultingConfigTracker[T]) GetDefaultConfig(ctx context.Context) (T, error) {
+func (ct *DefaultingConfigTracker[T]) GetDefaultConfig(ctx context.Context, atRevision ...*corev1.Revision) (T, error) {
 	ct.lock.Lock()
 	defer ct.lock.Unlock()
 
-	def, rev, err := ct.getDefaultConfigLocked(ctx)
+	def, rev, err := ct.getDefaultConfigLocked(ctx, atRevision...)
 	if err != nil {
 		return def, err
 	}
@@ -109,9 +109,13 @@ func (ct *DefaultingConfigTracker[T]) ResetDefaultConfig(ctx context.Context) er
 	return nil
 }
 
-func (ct *DefaultingConfigTracker[T]) getDefaultConfigLocked(ctx context.Context) (T, int64, error) {
+func (ct *DefaultingConfigTracker[T]) getDefaultConfigLocked(ctx context.Context, atRevision ...*corev1.Revision) (T, int64, error) {
 	var revision int64
-	def, err := ct.defaultStore.Get(ctx, storage.WithRevisionOut(&revision))
+	opts := []storage.GetOpt{
+		storage.WithRevisionOut(&revision),
+	}
+	opts = maybeWithRevision(atRevision, opts)
+	def, err := ct.defaultStore.Get(ctx, opts...)
 	if err != nil {
 		if !errors.Is(err, storage.ErrNotFound) {
 			return def, 0, fmt.Errorf("error looking up default config: %w", err)
@@ -122,12 +126,17 @@ func (ct *DefaultingConfigTracker[T]) getDefaultConfigLocked(ctx context.Context
 }
 
 // Returns the active config if it has been set, otherwise returns a "not found" error.
-func (ct *DefaultingConfigTracker[T]) GetConfig(ctx context.Context) (T, error) {
+// An optional revision can be provided to get the config at a specific revision.
+func (ct *DefaultingConfigTracker[T]) GetConfig(ctx context.Context, atRevision ...*corev1.Revision) (T, error) {
 	ct.lock.Lock()
 	defer ct.lock.Unlock()
 
 	var revision int64
-	existing, err := ct.activeStore.Get(ctx, storage.WithRevisionOut(&revision))
+	opts := []storage.GetOpt{
+		storage.WithRevisionOut(&revision),
+	}
+	opts = maybeWithRevision(atRevision, opts)
+	existing, err := ct.activeStore.Get(ctx, opts...)
 	if err != nil {
 		return existing, fmt.Errorf("error looking up config: %w", err)
 	}
@@ -169,11 +178,13 @@ func (ct *DefaultingConfigTracker[T]) ResetConfig(ctx context.Context, keep *fie
 }
 
 // Returns the active config if it has been set, otherwise returns the default config.
-func (ct *DefaultingConfigTracker[T]) GetConfigOrDefault(ctx context.Context) (T, error) {
+// The optional revision only applies to the active config; if it does not exist,
+// the default config will always be at the latest revision.
+func (ct *DefaultingConfigTracker[T]) GetConfigOrDefault(ctx context.Context, atRevision ...*corev1.Revision) (T, error) {
 	ct.lock.Lock()
 	defer ct.lock.Unlock()
 
-	value, rev, err := ct.getConfigOrDefaultLocked(ctx)
+	value, rev, err := ct.getConfigOrDefaultLocked(ctx, atRevision...)
 	if err != nil {
 		return value, err
 	}
@@ -183,9 +194,13 @@ func (ct *DefaultingConfigTracker[T]) GetConfigOrDefault(ctx context.Context) (T
 	return value, nil
 }
 
-func (ct *DefaultingConfigTracker[T]) getConfigOrDefaultLocked(ctx context.Context) (T, int64, error) {
+func (ct *DefaultingConfigTracker[T]) getConfigOrDefaultLocked(ctx context.Context, atRevision ...*corev1.Revision) (T, int64, error) {
 	var revision int64
-	value, err := ct.activeStore.Get(ctx, storage.WithRevisionOut(&revision))
+	opts := []storage.GetOpt{
+		storage.WithRevisionOut(&revision),
+	}
+	opts = maybeWithRevision(atRevision, opts)
+	value, err := ct.activeStore.Get(ctx, opts...)
 	if err != nil {
 		if !errors.Is(err, storage.ErrNotFound) {
 			return value, 0, fmt.Errorf("error looking up config: %w", err)
@@ -206,24 +221,24 @@ func (ct *DefaultingConfigTracker[T]) getConfigOrDefaultLocked(ctx context.Conte
 	return value, revision, nil
 }
 
+func maybeWithRevision(atRevision []*corev1.Revision, opts []storage.GetOpt) []storage.GetOpt {
+	if len(atRevision) > 0 && atRevision[0] != nil && atRevision[0].Revision != nil {
+		opts = append(opts, storage.WithRevision(*atRevision[0].Revision))
+	}
+	return opts
+}
+
 // ApplyConfig sets the active config by merging the given config onto the existing
 // active config, or onto the default config if no active config has been set.
 func (ct *DefaultingConfigTracker[T]) ApplyConfig(ctx context.Context, newConfig T) error {
 	ct.lock.Lock()
 	defer ct.lock.Unlock()
 
-	var newConfigRevision *int64
-	if newConfig.GetRevision() != nil {
-		newConfigRevision = newConfig.GetRevision().Revision
-	}
-
-	existing, rev, err := ct.getConfigOrDefaultLocked(ctx)
+	existing, rev, err := ct.getConfigOrDefaultLocked(ctx, newConfig.GetRevision())
 	if err != nil {
 		return err
 	}
-	if newConfigRevision == nil {
-		newConfigRevision = &rev
-	}
+
 	if err := newConfig.UnredactSecrets(existing); err != nil {
 		return err
 	}
@@ -231,7 +246,7 @@ func (ct *DefaultingConfigTracker[T]) ApplyConfig(ctx context.Context, newConfig
 	merge.MergeWithReplace(existing, newConfig)
 
 	ct.unsetRevision(existing)
-	return ct.activeStore.Put(ctx, existing, storage.WithRevision(*newConfigRevision))
+	return ct.activeStore.Put(ctx, existing, storage.WithRevision(rev))
 }
 
 func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, target Target, action Action, spec T) (*DryRunResults[T], error) {
@@ -287,6 +302,17 @@ func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, target Target,
 	}
 }
 
+func (ct *DefaultingConfigTracker[T]) History(ctx context.Context, target Target, opts ...storage.HistoryOpt) ([]storage.KeyRevision[T], error) {
+	switch target {
+	case Target_ActiveConfiguration:
+		return ct.activeStore.History(ctx, opts...)
+	case Target_DefaultConfiguration:
+		return ct.defaultStore.History(ctx, opts...)
+	default:
+		return nil, fmt.Errorf("invalid target: %s", target)
+	}
+}
+
 func (ct *DefaultingConfigTracker[T]) DryRunApplyConfig(ctx context.Context, newConfig T) (DryRunResults[T], error) {
 	ct.lock.Lock()
 	defer ct.lock.Unlock()
@@ -310,9 +336,10 @@ func (ct *DefaultingConfigTracker[T]) DryRunApplyConfig(ctx context.Context, new
 	current.RedactSecrets()
 	modified.RedactSecrets()
 
-	// Keep the old revision in the dry run results. Revisions are not stored
+	// Unset the revision for the modified config. Revisions are not stored
 	// in the actual object inside the kv store, so they should not be included
 	// in the diff.
+	ct.unsetRevision(modified)
 	return DryRunResults[T]{
 		Current:  current,
 		Modified: modified,

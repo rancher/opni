@@ -20,7 +20,7 @@ type OpsServiceBackend struct {
 
 var _ cortexops.CortexOpsServer = (*OpsServiceBackend)(nil)
 
-func (m *OpsServiceBackend) GetDefaultConfiguration(ctx context.Context, in *emptypb.Empty) (*cortexops.CapabilityBackendConfigSpec, error) {
+func (m *OpsServiceBackend) GetDefaultConfiguration(ctx context.Context, in *cortexops.GetRequest) (*cortexops.CapabilityBackendConfigSpec, error) {
 	m.WaitForInit()
 
 	return m.ClusterDriver.GetDefaultConfiguration(ctx, in)
@@ -38,7 +38,7 @@ func (m *OpsServiceBackend) ResetDefaultConfiguration(ctx context.Context, in *e
 	return m.ClusterDriver.ResetDefaultConfiguration(ctx, in)
 }
 
-func (m *OpsServiceBackend) GetConfiguration(ctx context.Context, in *emptypb.Empty) (*cortexops.CapabilityBackendConfigSpec, error) {
+func (m *OpsServiceBackend) GetConfiguration(ctx context.Context, in *cortexops.GetRequest) (*cortexops.CapabilityBackendConfigSpec, error) {
 	m.WaitForInit()
 
 	return m.ClusterDriver.GetConfiguration(ctx, in)
@@ -113,4 +113,10 @@ func (m *OpsServiceBackend) DryRun(ctx context.Context, req *cortexops.DryRunReq
 	m.WaitForInit()
 
 	return m.ClusterDriver.DryRun(ctx, req)
+}
+
+func (m *OpsServiceBackend) ConfigurationHistory(ctx context.Context, req *cortexops.ConfigurationHistoryRequest) (*cortexops.ConfigurationHistoryResponse, error) {
+	m.WaitForInit()
+
+	return m.ClusterDriver.ConfigurationHistory(ctx, req)
 }

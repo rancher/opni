@@ -31,6 +31,7 @@ const (
 	CortexOps_Uninstall_FullMethodName                 = "/cortexops.CortexOps/Uninstall"
 	CortexOps_ListPresets_FullMethodName               = "/cortexops.CortexOps/ListPresets"
 	CortexOps_DryRun_FullMethodName                    = "/cortexops.CortexOps/DryRun"
+	CortexOps_ConfigurationHistory_FullMethodName      = "/cortexops.CortexOps/ConfigurationHistory"
 )
 
 // CortexOpsClient is the client API for CortexOps service.
@@ -40,7 +41,7 @@ type CortexOpsClient interface {
 	// Returns the default implementation-specific configuration, or one previously set.
 	// If a default configuration was previously set using SetDefaultConfiguration, it
 	// returns that configuration. Otherwise, returns implementation-specific defaults.
-	GetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error)
+	GetDefaultConfiguration(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error)
 	// Sets the default configuration that will be used as the base for future configuration changes.
 	// If no custom default configuration is set using this method,
 	// implementation-specific defaults may be chosen.
@@ -57,7 +58,7 @@ type CortexOpsClient interface {
 	// Otherwise, this will have no effect.
 	ResetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Gets the current configuration of the managed Cortex cluster.
-	GetConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error)
+	GetConfiguration(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error)
 	// Updates the configuration of the managed Cortex cluster to match the provided configuration.
 	// If the cluster is not installed, it will be configured, but remain disabled.
 	// Otherwise, the already-installed cluster will be reconfigured.
@@ -108,6 +109,7 @@ type CortexOpsClient interface {
 	//     require a target.
 	//   - Only the Set action requires a spec to be provided.
 	DryRun(ctx context.Context, in *DryRunRequest, opts ...grpc.CallOption) (*DryRunResponse, error)
+	ConfigurationHistory(ctx context.Context, in *ConfigurationHistoryRequest, opts ...grpc.CallOption) (*ConfigurationHistoryResponse, error)
 }
 
 type cortexOpsClient struct {
@@ -118,7 +120,7 @@ func NewCortexOpsClient(cc grpc.ClientConnInterface) CortexOpsClient {
 	return &cortexOpsClient{cc}
 }
 
-func (c *cortexOpsClient) GetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
+func (c *cortexOpsClient) GetDefaultConfiguration(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
 	out := new(CapabilityBackendConfigSpec)
 	err := c.cc.Invoke(ctx, CortexOps_GetDefaultConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -145,7 +147,7 @@ func (c *cortexOpsClient) ResetDefaultConfiguration(ctx context.Context, in *emp
 	return out, nil
 }
 
-func (c *cortexOpsClient) GetConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
+func (c *cortexOpsClient) GetConfiguration(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
 	out := new(CapabilityBackendConfigSpec)
 	err := c.cc.Invoke(ctx, CortexOps_GetConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -217,6 +219,15 @@ func (c *cortexOpsClient) DryRun(ctx context.Context, in *DryRunRequest, opts ..
 	return out, nil
 }
 
+func (c *cortexOpsClient) ConfigurationHistory(ctx context.Context, in *ConfigurationHistoryRequest, opts ...grpc.CallOption) (*ConfigurationHistoryResponse, error) {
+	out := new(ConfigurationHistoryResponse)
+	err := c.cc.Invoke(ctx, CortexOps_ConfigurationHistory_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CortexOpsServer is the server API for CortexOps service.
 // All implementations must embed UnimplementedCortexOpsServer
 // for forward compatibility
@@ -224,7 +235,7 @@ type CortexOpsServer interface {
 	// Returns the default implementation-specific configuration, or one previously set.
 	// If a default configuration was previously set using SetDefaultConfiguration, it
 	// returns that configuration. Otherwise, returns implementation-specific defaults.
-	GetDefaultConfiguration(context.Context, *emptypb.Empty) (*CapabilityBackendConfigSpec, error)
+	GetDefaultConfiguration(context.Context, *GetRequest) (*CapabilityBackendConfigSpec, error)
 	// Sets the default configuration that will be used as the base for future configuration changes.
 	// If no custom default configuration is set using this method,
 	// implementation-specific defaults may be chosen.
@@ -241,7 +252,7 @@ type CortexOpsServer interface {
 	// Otherwise, this will have no effect.
 	ResetDefaultConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	// Gets the current configuration of the managed Cortex cluster.
-	GetConfiguration(context.Context, *emptypb.Empty) (*CapabilityBackendConfigSpec, error)
+	GetConfiguration(context.Context, *GetRequest) (*CapabilityBackendConfigSpec, error)
 	// Updates the configuration of the managed Cortex cluster to match the provided configuration.
 	// If the cluster is not installed, it will be configured, but remain disabled.
 	// Otherwise, the already-installed cluster will be reconfigured.
@@ -292,6 +303,7 @@ type CortexOpsServer interface {
 	//     require a target.
 	//   - Only the Set action requires a spec to be provided.
 	DryRun(context.Context, *DryRunRequest) (*DryRunResponse, error)
+	ConfigurationHistory(context.Context, *ConfigurationHistoryRequest) (*ConfigurationHistoryResponse, error)
 	mustEmbedUnimplementedCortexOpsServer()
 }
 
@@ -299,7 +311,7 @@ type CortexOpsServer interface {
 type UnimplementedCortexOpsServer struct {
 }
 
-func (UnimplementedCortexOpsServer) GetDefaultConfiguration(context.Context, *emptypb.Empty) (*CapabilityBackendConfigSpec, error) {
+func (UnimplementedCortexOpsServer) GetDefaultConfiguration(context.Context, *GetRequest) (*CapabilityBackendConfigSpec, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDefaultConfiguration not implemented")
 }
 func (UnimplementedCortexOpsServer) SetDefaultConfiguration(context.Context, *CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
@@ -308,7 +320,7 @@ func (UnimplementedCortexOpsServer) SetDefaultConfiguration(context.Context, *Ca
 func (UnimplementedCortexOpsServer) ResetDefaultConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResetDefaultConfiguration not implemented")
 }
-func (UnimplementedCortexOpsServer) GetConfiguration(context.Context, *emptypb.Empty) (*CapabilityBackendConfigSpec, error) {
+func (UnimplementedCortexOpsServer) GetConfiguration(context.Context, *GetRequest) (*CapabilityBackendConfigSpec, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetConfiguration not implemented")
 }
 func (UnimplementedCortexOpsServer) SetConfiguration(context.Context, *CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
@@ -332,6 +344,9 @@ func (UnimplementedCortexOpsServer) ListPresets(context.Context, *emptypb.Empty)
 func (UnimplementedCortexOpsServer) DryRun(context.Context, *DryRunRequest) (*DryRunResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DryRun not implemented")
 }
+func (UnimplementedCortexOpsServer) ConfigurationHistory(context.Context, *ConfigurationHistoryRequest) (*ConfigurationHistoryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConfigurationHistory not implemented")
+}
 func (UnimplementedCortexOpsServer) mustEmbedUnimplementedCortexOpsServer() {}
 
 // UnsafeCortexOpsServer may be embedded to opt out of forward compatibility for this service.
@@ -346,7 +361,7 @@ func RegisterCortexOpsServer(s grpc.ServiceRegistrar, srv CortexOpsServer) {
 }
 
 func _CortexOps_GetDefaultConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(GetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -358,7 +373,7 @@ func _CortexOps_GetDefaultConfiguration_Handler(srv interface{}, ctx context.Con
 		FullMethod: CortexOps_GetDefaultConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexOpsServer).GetDefaultConfiguration(ctx, req.(*emptypb.Empty))
+		return srv.(CortexOpsServer).GetDefaultConfiguration(ctx, req.(*GetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -400,7 +415,7 @@ func _CortexOps_ResetDefaultConfiguration_Handler(srv interface{}, ctx context.C
 }
 
 func _CortexOps_GetConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(GetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -412,7 +427,7 @@ func _CortexOps_GetConfiguration_Handler(srv interface{}, ctx context.Context, d
 		FullMethod: CortexOps_GetConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexOpsServer).GetConfiguration(ctx, req.(*emptypb.Empty))
+		return srv.(CortexOpsServer).GetConfiguration(ctx, req.(*GetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -543,6 +558,24 @@ func _CortexOps_DryRun_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CortexOps_ConfigurationHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConfigurationHistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexOpsServer).ConfigurationHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CortexOps_ConfigurationHistory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexOpsServer).ConfigurationHistory(ctx, req.(*ConfigurationHistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CortexOps_ServiceDesc is the grpc.ServiceDesc for CortexOps service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -593,6 +626,10 @@ var CortexOps_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DryRun",
 			Handler:    _CortexOps_DryRun_Handler,
+		},
+		{
+			MethodName: "ConfigurationHistory",
+			Handler:    _CortexOps_ConfigurationHistory_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

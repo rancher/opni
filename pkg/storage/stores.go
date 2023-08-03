@@ -63,7 +63,9 @@ type KeyringStore interface {
 type KeyRevision[T any] interface {
 	Key() string
 	// If values were requested, returns the value at this revision. Otherwise,
-	// returns nil.
+	// returns nil. Note that if the value has a revision field, it will *not*
+	// be populated, and should be set manually if needed using the Revision()
+	// method.
 	Value() T
 	// Returns the revision of this key. Larger values are newer, but the
 	// revision number should otherwise be treated as an opaque value.

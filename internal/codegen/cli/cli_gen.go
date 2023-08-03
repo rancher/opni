@@ -857,7 +857,24 @@ var customFieldGenerators = map[string]func(g *buffer, field *protogen.Field, de
 		g.P(`fs.Var(`, _flagutil.Ident(identName), `(`, values, `, &in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, flagName, `"), "."),`, usage, `)`)
 	},
 	"google.protobuf.Timestamp": func(g *buffer, field *protogen.Field, defaultValue any, flagName, usage string) {
-		g.P(`fs.Var(`, _flagutil.Ident("TimestamppbValue"), `(`, _flagutil.Ident("Ptr"), "(", defaultValue, `), &in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, flagName, `"), "."),`, usage, `)`)
+		var identName string
+		if field.Desc.IsList() {
+			identName = "TimestamppbSliceValue"
+		} else {
+			identName = "TimestamppbValue"
+		}
+		values := []any{"nil"}
+		switch defaultValue := defaultValue.(type) {
+		case string:
+			if field.Desc.IsList() {
+				values = unparseStringSlice(defaultValue)
+			} else {
+				values = append(append([]any{_flagutil.Ident("Ptr"), "("}, defaultValue), ")")
+			}
+		case []any:
+			values = defaultValue
+		}
+		g.P(`fs.Var(`, _flagutil.Ident(identName), `(`, values, `, &in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, flagName, `"), "."),`, usage, `)`)
 	},
 }
 
@@ -997,13 +1014,14 @@ func (cg *Generator) generateInteractiveEdit(service *protogen.Service, method *
 		if candidate == method || cg.shouldSkipMethod(candidate) {
 			continue
 		}
-		if candidate.Desc.Input() == method.Desc.Output() &&
-			candidate.Desc.Output() == method.Desc.Input() &&
+		if candidate.Desc.Output() == method.Desc.Input() &&
 			string(candidate.Desc.Name()) == "Get"+strings.TrimPrefix(string(method.Desc.Name()), "Set") {
 			writers.PrintObtainClient(service, g)
-			g.P(" if curValue, err := client.", candidate.GoName, "(cmd.Context(), &", _emptypb.Ident("Empty"), "{}); err == nil {")
+
+			g.P(" if curValue, err := client.", candidate.GoName, "(cmd.Context(), &", candidate.Input.GoIdent, "{}); err == nil {")
 			g.P("  in = curValue")
 			g.P(" }")
+
 			break
 		}
 	}
@@ -1023,7 +1041,7 @@ func (cg *Generator) generateRun(service *protogen.Service, method *protogen.Met
 	opts := CommandOptions{}
 	applyOptions(method.Desc, &opts)
 
-	genEditInteractive := opts.Granularity == EditScope_EditMessage && !requestIsEmpty && responseIsEmpty
+	genEditInteractive := opts.Granularity == EditScope_EditMessage && !requestIsEmpty
 
 	if genEditInteractive {
 		cg.generateInteractiveEdit(service, method, g, writers)

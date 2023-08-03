@@ -232,7 +232,11 @@ func NewTestEnvMetricsClusterDriver(env *test.Environment) *TestEnvMetricsCluste
 	}
 	d.state.Store(cortexops.InstallState_NotInstalled)
 	defaultStore := inmemory.NewProtoValueStore[*cortexops.CapabilityBackendConfigSpec]()
-	activeStore := inmemory.NewProtoValueStore[*cortexops.CapabilityBackendConfigSpec](d.onActiveConfigChanged)
+	activeStore := inmemory.NewProtoValueStore[*cortexops.CapabilityBackendConfigSpec](
+		func(prev, value *cortexops.CapabilityBackendConfigSpec) {
+			go d.onActiveConfigChanged(prev, value)
+		},
+	)
 	d.configTracker = driverutil.NewDefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec](
 		defaultStore, activeStore, flagutil.LoadDefaults[*cortexops.CapabilityBackendConfigSpec],
 	)

@@ -2,6 +2,7 @@ package inmemory_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -14,21 +15,45 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var _ = Describe("Value Store", func() {
+var _ = Describe("Value Store", Ordered, Label("unit"), func() {
 	var (
-		ctx        context.Context
-		valueStore storage.ValueStoreT[string]
-		updateC    chan lo.Tuple2[string, string]
+		ctx             context.Context
+		valueStore      storage.ValueStoreT[string]
+		updateC         chan lo.Tuple2[string, string]
+		expectedUpdates []lo.Tuple2[string, string]
 	)
 
 	BeforeEach(func() {
 		updateC = make(chan lo.Tuple2[string, string], 10)
+		expectedUpdates = nil
 
+		updateC := updateC
 		valueStore = inmemory.NewValueStore(strings.Clone, func(prev, value string) {
 			updateC <- lo.T2(prev, value)
 		})
 		ctx = context.TODO()
+
 	})
+	AfterEach(func(ctx context.Context) {
+		close(updateC)
+		for i, pair := range expectedUpdates {
+			select {
+			case t2, ok := <-updateC:
+				if ok {
+					Expect(t2).To(Equal(pair), "for update %d", i)
+				} else {
+					Fail(fmt.Sprintf("received fewer updates than expected: \nwant: %v\ngot: %v", expectedUpdates, expectedUpdates[0:i]))
+				}
+			case <-ctx.Done():
+				Fail("timed out waiting for updates")
+			}
+		}
+		Expect(updateC).NotTo(Receive())
+	})
+
+	expectUpdates := func(pairs ...lo.Tuple2[string, string]) {
+		expectedUpdates = append(expectedUpdates, pairs...)
+	}
 
 	Describe("Put", func() {
 		When("a value is put without a specific revision", func() {
@@ -37,13 +62,15 @@ var _ = Describe("Value Store", func() {
 				value, err := valueStore.Get(ctx)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(value).To(Equal("value"))
+
+				expectUpdates(lo.T2("", "value"))
 			})
 		})
 
 		When("a value is put with a specific revision", func() {
 			It("should fail if the revision does not match", func() {
 				rev := int64(10)
-				Expect(valueStore.Put(ctx, "value", storage.WithRevision(rev))).To(HaveOccurred())
+				Expect(valueStore.Put(ctx, "value", storage.WithRevision(rev))).To(MatchError(storage.ErrConflict))
 			})
 
 			It("should succeed if the revision matches", func() {
@@ -54,6 +81,12 @@ var _ = Describe("Value Store", func() {
 				value, err := valueStore.Get(ctx)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(value).To(Equal("new-value2"))
+
+				expectUpdates(
+					lo.T2("", "value"),
+					lo.T2("value", "new-value"),
+					lo.T2("new-value", "new-value2"),
+				)
 			})
 		})
 	})
@@ -80,6 +113,11 @@ var _ = Describe("Value Store", func() {
 				value, err := valueStore.Get(ctx, storage.WithRevision(revOut))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(value).To(Equal("value2"))
+
+				expectUpdates(
+					lo.T2("", "value1"),
+					lo.T2("value1", "value2"),
+				)
 			})
 			When("the value at the specified revision has been deleted", func() {
 				It("should return a NotFound error", func() {
@@ -89,6 +127,13 @@ var _ = Describe("Value Store", func() {
 					Expect(valueStore.Put(ctx, "value3")).To(Succeed())
 					_, err := valueStore.Get(ctx, storage.WithRevision(3))
 					Expect(err).To(Equal(storage.ErrNotFound))
+
+					expectUpdates(
+						lo.T2("", "value1"),
+						lo.T2("value1", "value2"),
+						lo.T2("value2", ""),
+						lo.T2("", "value3"),
+					)
 				})
 			})
 		})
@@ -107,6 +152,11 @@ var _ = Describe("Value Store", func() {
 				Expect(valueStore.Delete(ctx, storage.WithRevision(1))).To(Succeed())
 				_, err := valueStore.Get(ctx)
 				Expect(err).To(Equal(storage.ErrNotFound))
+
+				expectUpdates(
+					lo.T2("", "value"),
+					lo.T2("value", ""),
+				)
 			})
 
 			It("should not delete the value if the revision does not match", func() {
@@ -116,6 +166,8 @@ var _ = Describe("Value Store", func() {
 				value, err := valueStore.Get(ctx)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(value).To(Equal("value"))
+
+				expectUpdates(lo.T2("", "value"))
 			})
 		})
 
@@ -124,6 +176,11 @@ var _ = Describe("Value Store", func() {
 				Expect(valueStore.Put(ctx, "value")).To(Succeed())
 				Expect(valueStore.Delete(ctx)).To(Succeed())
 				Expect(valueStore.Delete(ctx)).To(Equal(storage.ErrNotFound))
+
+				expectUpdates(
+					lo.T2("", "value"),
+					lo.T2("value", ""),
+				)
 			})
 		})
 
@@ -151,6 +208,12 @@ var _ = Describe("Value Store", func() {
 				history, err := valueStore.History(ctx, storage.WithRevision(revOut))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(history)).To(Equal(2))
+
+				expectUpdates(
+					lo.T2("", "value1"),
+					lo.T2("value1", "value2"),
+					lo.T2("value2", "value3"),
+				)
 			})
 		})
 
@@ -168,6 +231,12 @@ var _ = Describe("Value Store", func() {
 				Expect(valueStore.Delete(ctx)).To(Succeed())
 				_, err := valueStore.History(ctx, storage.IncludeValues(true), storage.WithRevision(3))
 				Expect(err).To(Equal(storage.ErrNotFound))
+
+				expectUpdates(
+					lo.T2("", "value1"),
+					lo.T2("value1", "value2"),
+					lo.T2("value2", ""),
+				)
 			})
 
 			When("a new element is added after the deleted element", func() {
@@ -181,6 +250,13 @@ var _ = Describe("Value Store", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(len(history)).To(Equal(1))
 					Expect(history[0].Value()).To(Equal("value3"))
+
+					expectUpdates(
+						lo.T2("", "value1"),
+						lo.T2("value1", "value2"),
+						lo.T2("value2", ""),
+						lo.T2("", "value3"),
+					)
 				})
 			})
 		})

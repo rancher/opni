@@ -30,6 +30,13 @@ type inMemoryValueStore[T any] struct {
 	cloneFunc      func(T) T
 }
 
+// Returns a new value store for any type T that can be cloned using the provided
+// clone function.
+//
+// Any listener functions provided will be called when the value is created,
+// updated, or deleted, with the following considerations:
+// - For create events, the previous value will be the zero value for T.
+// - For delete events, the new value will be the zero value for T.
 func NewValueStore[T any](cloneFunc func(T) T, listeners ...func(prev, value T)) storage.ValueStoreT[T] {
 	return &inMemoryValueStore[T]{
 		values:         ring.New(64),
@@ -38,6 +45,8 @@ func NewValueStore[T any](cloneFunc func(T) T, listeners ...func(prev, value T))
 	}
 }
 
+// NewProtoValueStore is a convenience function for creating a value store for
+// protobuf message types. See [NewValueStore] for details.
 func NewProtoValueStore[T proto.Message](listeners ...func(prev, value T)) storage.ValueStoreT[T] {
 	return NewValueStore(util.ProtoClone, listeners...)
 }
@@ -72,9 +81,16 @@ func (s *inMemoryValueStore[T]) Put(ctx context.Context, value T, opts ...storag
 	if previous != nil {
 		prevValue = s.cloneFunc(previous.(*valueStoreElement[T]).value)
 	}
+	var wg sync.WaitGroup
 	for _, listener := range s.onValueChanged {
-		go listener(prevValue, value)
+		listener := listener
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			listener(prevValue, value)
+		}()
 	}
+	wg.Wait()
 
 	return nil
 }
@@ -159,10 +175,17 @@ func (s *inMemoryValueStore[T]) Delete(ctx context.Context, opts ...storage.Dele
 	s.values = next
 
 	prevValue := s.cloneFunc(previous.(*valueStoreElement[T]).value)
+	var wg sync.WaitGroup
 	for _, listener := range s.onValueChanged {
-		var zero T
-		go listener(prevValue, zero)
+		listener := listener
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var zero T
+			listener(prevValue, zero)
+		}()
 	}
+	wg.Wait()
 	return nil
 }
 

@@ -12,7 +12,6 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/desc/builder"
 	"github.com/rancher/opni/internal/codegen/cli"
-	"github.com/spf13/pflag"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/runtime/protoimpl"
@@ -42,7 +41,7 @@ type Builder struct {
 	cache map[reflect.Type]*builder.MessageBuilder
 }
 
-type stdFlagRegistrar = flagRegistrar[flag.Flag, flag.FlagSet, *flag.FlagSet]
+type stdFlagRegistrar = FlagRegistrar[*flag.FlagSet, *flag.Flag]
 
 func BuildMessage[T any](opts ...BuilderOptions) []*builder.MessageBuilder {
 	if len(opts) == 0 {
@@ -362,7 +361,7 @@ type generic_flag struct {
 	DefValue string
 }
 
-func newGenericFlag[T flagT](f *T) generic_flag {
+func newGenericFlag[F any](f F) generic_flag {
 	v := reflect.ValueOf(f).Elem()
 	return generic_flag{
 		Name:     v.FieldByName("Name").String(),
@@ -372,30 +371,21 @@ func newGenericFlag[T flagT](f *T) generic_flag {
 	}
 }
 
-type flagT interface {
-	flag.Flag | pflag.Flag
+type FlagSet[F any] interface {
+	VisitAll(func(F))
 }
 
-type flagRegistrar[F flagT, T any, PT interface {
-	flagSet[F]
-	*T
-}] interface {
-	RegisterFlags(flags PT)
-}
-
-type flagSet[T flagT] interface {
-	VisitAll(func(*T))
+type FlagRegistrar[FS FlagSet[F], F any] interface {
+	RegisterFlags(flags FS)
 }
 
 // this code is cursed but works surprisingly well
-func autoDiscoverMetadataFromFlags[F flagT, T any, PT interface {
-	flagSet[F]
-	*T
-}](fr flagRegistrar[F, T, PT]) func(*builder.FieldBuilder, reflect.StructField) {
-	var flagSet PT = new(T)
+func autoDiscoverMetadataFromFlags[FR FlagRegistrar[FS, F], FS FlagSet[F], F any](fr FR) func(*builder.FieldBuilder, reflect.StructField) {
+	var zero FS
+	flagSet := reflect.New(reflect.TypeOf(zero).Elem()).Interface().(FS)
 	fr.RegisterFlags(flagSet)
 	fieldLookup := map[uintptr]generic_flag{}
-	flagSet.VisitAll(func(flag *F) {
+	flagSet.VisitAll(func(flag F) {
 		g := newGenericFlag(flag)
 		v := reflect.ValueOf(g.Value)
 		if v.Kind() == reflect.Ptr {

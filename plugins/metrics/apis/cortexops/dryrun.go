@@ -14,7 +14,6 @@ import (
 	"google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -63,16 +62,6 @@ func BuildDryRunCmd() *cobra.Command {
 				}
 			}
 
-			currentJson, _ := protojson.MarshalOptions{
-				EmitUnpopulated: true,
-				UseProtoNames:   true,
-			}.Marshal(response.Current)
-
-			modifiedJson, _ := protojson.MarshalOptions{
-				EmitUnpopulated: true,
-				UseProtoNames:   true,
-			}.Marshal(response.Modified)
-
 			var opts jsondiff.Options
 			switch diffFormat {
 			case "console":
@@ -86,12 +75,12 @@ func BuildDryRunCmd() *cobra.Command {
 			}
 			opts.SkipMatches = !diffFull
 
-			difference, str := jsondiff.Compare(currentJson, modifiedJson, &opts)
-			if difference == jsondiff.FullMatch {
-				fmt.Println("no changes")
-				return nil
+			str, anyChanges := driverutil.RenderJsonDiff(response.Current, response.Modified, opts)
+			if !anyChanges {
+				cmd.Println("no changes")
+			} else {
+				cmd.Println(str)
 			}
-			fmt.Println(str)
 			return nil
 		},
 	}
@@ -211,18 +200,22 @@ func (dc *DryRunClient) ListPresets(ctx context.Context, in *emptypb.Empty, opts
 }
 
 // GetConfiguration implements CortexOpsClient.
-func (dc *DryRunClient) GetConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
+func (dc *DryRunClient) GetConfiguration(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
 	return dc.Client.GetConfiguration(ctx, in, opts...)
 }
 
 // GetDefaultConfiguration implements CortexOpsClient.
-func (dc *DryRunClient) GetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
+func (dc *DryRunClient) GetDefaultConfiguration(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
 	return dc.Client.GetDefaultConfiguration(ctx, in, opts...)
 }
 
 // DryRun implements CortexOpsClient.
 func (dc *DryRunClient) DryRun(ctx context.Context, in *DryRunRequest, opts ...grpc.CallOption) (*DryRunResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "[dry-run] method DryRun not implemented")
+}
+
+func (dc *DryRunClient) ConfigurationHistory(ctx context.Context, in *ConfigurationHistoryRequest, opts ...grpc.CallOption) (*ConfigurationHistoryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "[dry-run] method ConfigurationHistory not implemented")
 }
 
 // Install implements CortexOpsClient.

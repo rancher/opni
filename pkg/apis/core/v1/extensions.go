@@ -3,6 +3,7 @@ package v1
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap/zapcore"
@@ -62,9 +63,15 @@ func stateColor(state TaskState) chalk.Color {
 	}
 }
 
-func NewRevision(revision int64) *Revision {
+func NewRevision(revision int64, maybeTimestamp ...time.Time) *Revision {
 	return &Revision{
 		Revision: &revision,
+		Timestamp: func() *timestamppb.Timestamp {
+			if len(maybeTimestamp) > 0 && !maybeTimestamp[0].IsZero() {
+				return timestamppb.New(maybeTimestamp[0])
+			}
+			return nil
+		}(),
 	}
 }
 

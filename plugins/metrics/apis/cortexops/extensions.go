@@ -1,10 +1,14 @@
 package cortexops
 
 import (
+	"os"
+
 	"github.com/rancher/opni/internal/codegen/cli"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
+	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
 	cobra "github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
+	"golang.org/x/term"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -26,6 +30,15 @@ func (s *InstallStatus) RenderText(out cli.Writer) {
 	for k, v := range s.Metadata {
 		out.Printf("%s: %s\n", k, v)
 	}
+}
+
+func (h *ConfigurationHistoryResponse) RenderText(out cli.Writer) {
+	if !term.IsTerminal(int(os.Stdout.Fd())) {
+		out.Println(driverutil.MarshalConfigJson(h))
+		return
+	}
+	ui := driverutil.NewHistoryUI(h.GetEntries())
+	ui.Run()
 }
 
 func init() {

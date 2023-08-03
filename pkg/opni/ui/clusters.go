@@ -18,7 +18,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var baseStyle = lipgloss.NewStyle().
+var BaseStyle = lipgloss.NewStyle().
 	BorderStyle(lipgloss.HiddenBorder()).
 	Background(lipgloss.Color("#3B4252"))
 
@@ -27,12 +27,12 @@ type Ref[T any] struct {
 	R *corev1.Reference
 }
 
-type keymap struct {
+type Keymap struct {
 	table.KeyMap
 	Quit key.Binding
 }
 
-func (km keymap) ShortHelp() []key.Binding {
+func (km Keymap) ShortHelp() []key.Binding {
 	return []key.Binding{
 		km.Quit,
 		km.LineUp,
@@ -42,7 +42,7 @@ func (km keymap) ShortHelp() []key.Binding {
 	}
 }
 
-func (km keymap) FullHelp() [][]key.Binding {
+func (km Keymap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{
 			km.Quit,
@@ -76,6 +76,27 @@ type ClusterListModel struct {
 	showSessionAttrs     bool
 }
 
+func NewTable(cols []table.Column, opts ...table.Option) table.Model {
+	t := table.New(append([]table.Option{
+		table.WithColumns(cols),
+		table.WithFocused(true),
+	}, opts...)...)
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		Background(lipgloss.Color("#5e81ac")).
+		Bold(true)
+	s.Selected = lipgloss.NewStyle().Background(lipgloss.Color("#4C566A"))
+	t.SetStyles(s)
+	return t
+}
+
+func NewTableKeymap() Keymap {
+	return Keymap{
+		KeyMap: table.DefaultKeyMap(),
+		Quit:   key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
+	}
+}
+
 func NewClusterListModel() ClusterListModel {
 	cols := []table.Column{
 		{
@@ -95,26 +116,12 @@ func NewClusterListModel() ClusterListModel {
 			Width: 16,
 		},
 	}
-	t := table.New(
-		table.WithColumns(cols),
-		table.WithFocused(true),
-		table.WithHeight(10),
-	)
 
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		Background(lipgloss.Color("#5e81ac")).
-		Bold(true)
-	s.Selected = lipgloss.NewStyle().Background(lipgloss.Color("#4C566A"))
-	t.SetStyles(s)
-
+	t := NewTable(cols, table.WithHeight(10))
 	return ClusterListModel{
-		t:    t,
-		help: help.New(),
-		keymap: keymap{
-			KeyMap: table.DefaultKeyMap(),
-			Quit:   key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
-		},
+		t:                    t,
+		help:                 help.New(),
+		keymap:               NewTableKeymap(),
 		columns:              cols,
 		lateJoinHealthStatus: make(map[string]*corev1.HealthStatus),
 	}
@@ -231,7 +238,7 @@ func (m ClusterListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m ClusterListModel) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left,
-		baseStyle.Render(m.t.View()),
+		BaseStyle.Render(m.t.View()),
 		lipgloss.NewStyle().Margin(0, 1, 0, 1).Faint(true).Render(fmt.Sprintf("%d/%d", m.t.Cursor(), len(m.rows))),
 		lipgloss.NewStyle().Margin(0, 1, 0, 1).Render(m.help.View(m.keymap)),
 	)

@@ -28,7 +28,7 @@ service CortexOps {
   // Returns the default implementation-specific configuration, or one previously set.
   // If a default configuration was previously set using SetDefaultConfiguration, it
   // returns that configuration. Otherwise, returns implementation-specific defaults.
-  rpc GetDefaultConfiguration(google.protobuf.Empty) returns (CapabilityBackendConfigSpec) {
+  rpc GetDefaultConfiguration(GetRequest) returns (CapabilityBackendConfigSpec) {
     option (cli.command) = {
       use: "config get-default"
     };
@@ -71,7 +71,7 @@ service CortexOps {
   }
 
   // Gets the current configuration of the managed Cortex cluster.
-  rpc GetConfiguration(google.protobuf.Empty) returns (CapabilityBackendConfigSpec) {
+  rpc GetConfiguration(GetRequest) returns (CapabilityBackendConfigSpec) {
     option (cli.command) = {
       use: "config get"
     };
@@ -187,6 +187,15 @@ service CortexOps {
       body: "*"
     };
   }
+
+  rpc ConfigurationHistory(ConfigurationHistoryRequest) returns (ConfigurationHistoryResponse) {
+    option (cli.command) = {
+      use: "config history"
+    };
+    option (google.api.http) = {
+      get: "/configuration/history"
+    };
+  }
 }
 
 enum InstallState {
@@ -290,4 +299,23 @@ message DryRunResponse {
   CapabilityBackendConfigSpec current          = 1;
   CapabilityBackendConfigSpec modified         = 2;
   repeated ValidationError    validationErrors = 3;
+}
+
+message GetRequest {
+  // If set, will return the config at the specified revision instead of
+  // the current config.
+  core.Revision revision = 1;
+}
+
+message ConfigurationHistoryRequest {
+  // The configuration type to return history for.
+  driverutil.Target target = 1;
+
+  // If set, will include the values of the configuration in the response.
+  // Otherwise, only the revision field of each entry will be populated.
+  bool includeValues = 2 [(cli.flag).default = "true"];
+}
+
+message ConfigurationHistoryResponse {
+  repeated CapabilityBackendConfigSpec entries = 1;
 }

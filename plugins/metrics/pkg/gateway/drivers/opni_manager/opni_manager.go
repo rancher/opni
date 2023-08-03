@@ -291,8 +291,8 @@ func (k *OpniManager) Install(ctx context.Context, _ *emptypb.Empty) (*emptypb.E
 
 var _ cortexops.CortexOpsServer = (*OpniManager)(nil)
 
-func (k *OpniManager) GetDefaultConfiguration(ctx context.Context, _ *emptypb.Empty) (*cortexops.CapabilityBackendConfigSpec, error) {
-	return k.configTracker.GetDefaultConfig(ctx)
+func (k *OpniManager) GetDefaultConfiguration(ctx context.Context, in *cortexops.GetRequest) (*cortexops.CapabilityBackendConfigSpec, error) {
+	return k.configTracker.GetDefaultConfig(ctx, in.GetRevision())
 }
 
 func (k *OpniManager) SetDefaultConfiguration(ctx context.Context, spec *cortexops.CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
@@ -310,8 +310,8 @@ func (k *OpniManager) ResetDefaultConfiguration(ctx context.Context, _ *emptypb.
 	return &emptypb.Empty{}, nil
 }
 
-func (k *OpniManager) GetConfiguration(ctx context.Context, _ *emptypb.Empty) (*cortexops.CapabilityBackendConfigSpec, error) {
-	return k.configTracker.GetConfigOrDefault(ctx)
+func (k *OpniManager) GetConfiguration(ctx context.Context, in *cortexops.GetRequest) (*cortexops.CapabilityBackendConfigSpec, error) {
+	return k.configTracker.GetConfigOrDefault(ctx, in.GetRevision())
 }
 
 func (k *OpniManager) SetConfiguration(ctx context.Context, conf *cortexops.CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
@@ -361,6 +361,22 @@ func (k *OpniManager) DryRun(ctx context.Context, req *cortexops.DryRunRequest) 
 		Modified:         res.Modified,
 		ValidationErrors: configutil.CollectValidationErrorLogs(res.Modified.GetCortexConfig()),
 	}, nil
+}
+
+func (k *OpniManager) ConfigurationHistory(ctx context.Context, req *cortexops.ConfigurationHistoryRequest) (*cortexops.ConfigurationHistoryResponse, error) {
+	revisions, err := k.configTracker.History(ctx, req.GetTarget(), storage.IncludeValues(req.GetIncludeValues()))
+	if err != nil {
+		return nil, err
+	}
+	resp := &cortexops.ConfigurationHistoryResponse{
+		Entries: make([]*cortexops.CapabilityBackendConfigSpec, len(revisions)),
+	}
+	for i, rev := range revisions {
+		spec := rev.Value()
+		spec.Revision = corev1.NewRevision(rev.Revision(), rev.Timestamp())
+		resp.Entries[i] = spec
+	}
+	return resp, nil
 }
 
 func init() {

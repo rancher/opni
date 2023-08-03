@@ -304,3 +304,7 @@ enum ConfigStatus {
   UpToDate    = 1;
   NeedsUpdate = 2;
 }
+
+message Revision {
+  optional int64 revision = 1;
+}

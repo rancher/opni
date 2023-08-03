@@ -60,17 +60,55 @@ type KeyringStore interface {
 	Delete(ctx context.Context) error
 }
 
+type KeyRevision[T any] interface {
+	Key() string
+	// If values were requested, returns the value at this revision. Otherwise,
+	// returns nil.
+	Value() T
+	// Returns the revision of this key. Larger values are newer, but the
+	// revision number should otherwise be treated as an opaque value.
+	Revision() int64
+	// Returns the timestamp of this revision. This may or may not always be
+	// available, depending on if the underlying store supports it.
+	Timestamp() time.Time
+}
+
+type KeyRevisionImpl[T any] struct {
+	K    string
+	V    T
+	Rev  int64
+	Time time.Time
+}
+
+func (k *KeyRevisionImpl[T]) Key() string {
+	return k.K
+}
+
+func (k *KeyRevisionImpl[T]) Value() T {
+	return k.V
+}
+
+func (k *KeyRevisionImpl[T]) Revision() int64 {
+	return k.Rev
+}
+
+func (k *KeyRevisionImpl[T]) Timestamp() time.Time {
+	return k.Time
+}
+
 type KeyValueStoreT[T any] interface {
-	Put(ctx context.Context, key string, value T) error
-	Get(ctx context.Context, key string) (T, error)
-	Delete(ctx context.Context, key string) error
-	ListKeys(ctx context.Context, prefix string) ([]string, error)
+	Put(ctx context.Context, key string, value T, opts ...PutOpt) error
+	Get(ctx context.Context, key string, opts ...GetOpt) (T, error)
+	Delete(ctx context.Context, key string, opts ...DeleteOpt) error
+	ListKeys(ctx context.Context, prefix string, opts ...ListOpt) ([]string, error)
+	History(ctx context.Context, key string, opts ...HistoryOpt) ([]KeyRevision[T], error)
 }
 
 type ValueStoreT[T any] interface {
-	Put(ctx context.Context, value T) error
-	Get(ctx context.Context) (T, error)
-	Delete(ctx context.Context) error
+	Put(ctx context.Context, value T, opts ...PutOpt) error
+	Get(ctx context.Context, opts ...GetOpt) (T, error)
+	Delete(ctx context.Context, opts ...DeleteOpt) error
+	History(ctx context.Context, opts ...HistoryOpt) ([]KeyRevision[T], error)
 }
 
 type KeyValueStore KeyValueStoreT[[]byte]

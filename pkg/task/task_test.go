@@ -6,10 +6,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	mock_storage "github.com/rancher/opni/pkg/test/mock/storage"
+	"github.com/rancher/opni/pkg/storage/inmemory"
+	"github.com/rancher/opni/pkg/util"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/util"
 
 	"github.com/rancher/opni/pkg/task"
 )
@@ -18,7 +18,7 @@ var _ = Describe("Task", Ordered, Label("unit"), func() {
 	var store task.KVStore
 
 	BeforeAll(func() {
-		store = mock_storage.NewTestKeyValueStore(ctrl, util.ProtoClone[*corev1.TaskStatus])
+		store = inmemory.NewKeyValueStore[*corev1.TaskStatus](util.ProtoClone)
 	})
 
 	newController := func(ctx context.Context, ch chan any) *task.Controller {

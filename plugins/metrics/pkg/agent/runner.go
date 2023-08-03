@@ -12,7 +12,7 @@ import (
 	"github.com/prometheus/prometheus/prompb"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/clients"
-	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/storage/inmemory"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
@@ -84,48 +84,48 @@ type TargetRunMetadata struct {
 	Query  *remoteread.Query
 }
 
-type targetStore struct {
-	innerMu sync.RWMutex
-	inner   map[string]*corev1.TaskStatus
-}
+// type targetStore struct {
+// 	innerMu sync.RWMutex
+// 	inner   map[string]*corev1.TaskStatus
+// }
 
-func (store *targetStore) Put(_ context.Context, key string, value *corev1.TaskStatus) error {
-	store.innerMu.Lock()
-	defer store.innerMu.Unlock()
-	store.inner[key] = value
-	return nil
-}
+// func (store *targetStore) Put(_ context.Context, key string, value *corev1.TaskStatus) error {
+// 	store.innerMu.Lock()
+// 	defer store.innerMu.Unlock()
+// 	store.inner[key] = value
+// 	return nil
+// }
 
-func (store *targetStore) Get(_ context.Context, key string) (*corev1.TaskStatus, error) {
-	store.innerMu.RLock()
-	defer store.innerMu.RUnlock()
+// func (store *targetStore) Get(_ context.Context, key string) (*corev1.TaskStatus, error) {
+// 	store.innerMu.RLock()
+// 	defer store.innerMu.RUnlock()
 
-	status, found := store.inner[key]
-	if !found {
-		return nil, storage.ErrNotFound
-	}
+// 	status, found := store.inner[key]
+// 	if !found {
+// 		return nil, storage.ErrNotFound
+// 	}
 
-	return status, nil
-}
+// 	return status, nil
+// }
 
-func (store *targetStore) Delete(_ context.Context, key string) error {
-	store.innerMu.Lock()
-	defer store.innerMu.Unlock()
-	delete(store.inner, key)
-	return nil
-}
+// func (store *targetStore) Delete(_ context.Context, key string) error {
+// 	store.innerMu.Lock()
+// 	defer store.innerMu.Unlock()
+// 	delete(store.inner, key)
+// 	return nil
+// }
 
-func (store *targetStore) ListKeys(_ context.Context, prefix string) ([]string, error) {
-	store.innerMu.RLock()
-	defer store.innerMu.RUnlock()
-	keys := make([]string, 0, len(store.inner))
-	for key := range store.inner {
-		if strings.HasPrefix(key, prefix) {
-			keys = append(keys, key)
-		}
-	}
-	return keys, nil
-}
+// func (store *targetStore) ListKeys(_ context.Context, prefix string) ([]string, error) {
+// 	store.innerMu.RLock()
+// 	defer store.innerMu.RUnlock()
+// 	keys := make([]string, 0, len(store.inner))
+// 	for key := range store.inner {
+// 		if strings.HasPrefix(key, prefix) {
+// 			keys = append(keys, key)
+// 		}
+// 	}
+// 	return keys, nil
+// }
 
 type taskRunner struct {
 	remoteWriteClient clients.Locker[remotewrite.RemoteWriteClient]
@@ -324,9 +324,7 @@ type taskingTargetRunner struct {
 }
 
 func NewTargetRunner(logger *zap.SugaredLogger) TargetRunner {
-	store := &targetStore{
-		inner: make(map[string]*corev1.TaskStatus),
-	}
+	store := inmemory.NewKeyValueStore[*corev1.TaskStatus](util.ProtoClone)
 
 	runner := newTaskRunner(logger)
 

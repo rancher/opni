@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
@@ -11,6 +12,7 @@ import (
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/storage/kvutil"
 	"github.com/rancher/opni/pkg/util/flagutil"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
@@ -20,6 +22,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,8 +79,11 @@ func NewOpniManagerClusterDriver(options OpniManagerClusterDriverOptions) (*Opni
 	if options.DefaultConfigStore == nil {
 		return nil, fmt.Errorf("missing required option: DefaultConfigStore")
 	}
-	activeStore := storage.ValueStoreAdapter[*cortexops.CapabilityBackendConfigSpec]{
-		PutFunc: func(ctx context.Context, value *cortexops.CapabilityBackendConfigSpec) error {
+	activeStore := kvutil.ValueStoreAdapter[*cortexops.CapabilityBackendConfigSpec]{
+		PutFunc: func(ctx context.Context, value *cortexops.CapabilityBackendConfigSpec, opts ...storage.PutOpt) error {
+			putOptions := storage.PutOptions{}
+			putOptions.Apply(opts...)
+
 			cluster := options.newMonitoringCluster()
 			err := options.K8sClient.Get(ctx, options.MonitoringCluster, cluster)
 			exists := true
@@ -122,9 +128,13 @@ func NewOpniManagerClusterDriver(options OpniManagerClusterDriverOptions) (*Opni
 					return fmt.Errorf("failed to update monitoring cluster: %w", err)
 				}
 			}
+			if putOptions.RevisionOut != nil {
+				*putOptions.RevisionOut, _ = strconv.ParseInt(cluster.ResourceVersion, 10, 64)
+			}
+
 			return nil
 		},
-		GetFunc: func(ctx context.Context) (*cortexops.CapabilityBackendConfigSpec, error) {
+		GetFunc: func(ctx context.Context, opts ...storage.GetOpt) (*cortexops.CapabilityBackendConfigSpec, error) {
 			mc := options.newMonitoringCluster()
 			err := options.K8sClient.Get(ctx, options.MonitoringCluster, mc)
 			if err != nil {
@@ -140,7 +150,7 @@ func NewOpniManagerClusterDriver(options OpniManagerClusterDriverOptions) (*Opni
 				Grafana:         mc.Spec.Grafana.GrafanaConfig,
 			}, nil
 		},
-		DeleteFunc: func(ctx context.Context) error {
+		DeleteFunc: func(ctx context.Context, opts ...storage.DeleteOpt) error {
 			return options.K8sClient.Delete(ctx, options.newMonitoringCluster())
 		},
 	}
@@ -313,7 +323,10 @@ func (k *OpniManager) SetConfiguration(ctx context.Context, conf *cortexops.Capa
 }
 
 func (k *OpniManager) ResetConfiguration(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	if err := k.configTracker.ResetConfig(ctx); err != nil {
+	mask := &fieldmaskpb.FieldMask{
+		Paths: []string{"enabled"},
+	}
+	if err := k.configTracker.ResetConfig(ctx, mask); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil

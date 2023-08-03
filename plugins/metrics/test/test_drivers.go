@@ -16,7 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/rules"
-	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/storage/inmemory"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util/flagutil"
 	"github.com/rancher/opni/pkg/util/notifier"
@@ -32,6 +32,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 var (
@@ -177,7 +178,10 @@ func (d *TestEnvMetricsClusterDriver) SetConfiguration(ctx context.Context, conf
 }
 
 func (k *TestEnvMetricsClusterDriver) ResetConfiguration(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	if err := k.configTracker.ResetConfig(ctx); err != nil {
+	mask := &fieldmaskpb.FieldMask{
+		Paths: []string{"enabled"},
+	}
+	if err := k.configTracker.ResetConfig(ctx, mask); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -203,8 +207,8 @@ func NewTestEnvMetricsClusterDriver(env *test.Environment) *TestEnvMetricsCluste
 		Env: env,
 	}
 	d.state.Store(cortexops.InstallState_NotInstalled)
-	defaultStore := storage.NewInMemoryValueStore[*cortexops.CapabilityBackendConfigSpec]()
-	activeStore := storage.NewInMemoryValueStore[*cortexops.CapabilityBackendConfigSpec](d.onActiveConfigChanged)
+	defaultStore := inmemory.NewProtoValueStore[*cortexops.CapabilityBackendConfigSpec]()
+	activeStore := inmemory.NewProtoValueStore[*cortexops.CapabilityBackendConfigSpec](d.onActiveConfigChanged)
 	d.configTracker = driverutil.NewDefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec](
 		defaultStore, activeStore, flagutil.LoadDefaults[*cortexops.CapabilityBackendConfigSpec],
 	)

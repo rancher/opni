@@ -18,7 +18,7 @@ import (
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/storage/kvutil"
 	"github.com/rancher/opni/pkg/util"
 )
 
@@ -45,7 +45,7 @@ func NewController(ctx context.Context, name string, store KVStore, runner TaskR
 	ctrl := &Controller{
 		ctx:    ctx,
 		name:   name,
-		store:  storage.NewKeyValueStoreWithPrefix(store, fmt.Sprintf("/tasks/%s/", name)),
+		store:  kvutil.WithPrefix(store, fmt.Sprintf("/tasks/%s/", name)),
 		locks:  util.NewLockMap[string, *sync.Mutex](),
 		runner: runner,
 		logger: logger.New().Named("tasks"),
@@ -81,7 +81,7 @@ func NewController(ctx context.Context, name string, store KVStore, runner TaskR
 				}
 			case StateCompleted, StateFailed, StateCanceled:
 				// clean up the old task state
-				rw := storage.NewValueStoreLocker(storage.NewValueStore(ctrl.store, id), ctrl.locks.Get(id))
+				rw := kvutil.NewValueStoreLocker(kvutil.WithKey(ctrl.store, id), ctrl.locks.Get(id))
 				rw.Lock()
 				if err := rw.Delete(ctx); err != nil {
 					ctrl.logger.With(
@@ -177,7 +177,7 @@ func (c *Controller) LaunchTask(id string, opts ...NewTaskOption) error {
 
 	taskCtx, taskCancel := context.WithCancel(c.ctx)
 
-	rw := storage.NewValueStoreLocker(storage.NewValueStore(c.store, id), c.locks.Get(id))
+	rw := kvutil.NewValueStoreLocker(kvutil.WithKey(c.store, id), c.locks.Get(id))
 
 	accessor := func(taskCtx context.Context) (interface{}, error) {
 		rw.Lock()
@@ -370,7 +370,7 @@ func (c *Controller) ListTasks() ([]string, error) {
 }
 
 func (c *Controller) TaskStatus(id string) (*corev1.TaskStatus, error) {
-	rw := storage.NewValueStoreLocker(storage.NewValueStore(c.store, id), c.locks.Get(id))
+	rw := kvutil.NewValueStoreLocker(kvutil.WithKey(c.store, id), c.locks.Get(id))
 	rw.Lock()
 	defer rw.Unlock()
 	status, err := rw.Get(c.ctx)

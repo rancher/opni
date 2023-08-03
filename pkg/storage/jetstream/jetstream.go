@@ -14,6 +14,8 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -189,6 +191,39 @@ func (s *JetStreamStore) KeyValueStore(prefix string) storage.KeyValueStore {
 	return &jetstreamKeyValueStore{
 		kv: bucket,
 	}
+}
+
+func jetstreamGrpcError(err error) error {
+	if err == nil {
+		return nil
+	}
+	code := codes.Unknown
+	switch err {
+	case nats.ErrKeyValueConfigRequired, nats.ErrInvalidBucketName, nats.ErrInvalidKey, nats.ErrBadBucket, nats.ErrHistoryToLarge:
+		code = codes.InvalidArgument
+	case nats.ErrBucketNotFound, nats.ErrKeyNotFound, nats.ErrKeyDeleted, nats.ErrNoKeysFound:
+		code = codes.NotFound
+	default:
+		switch err := err.(type) {
+		case nats.JetStreamError:
+			apierror := err.APIError()
+			switch apierror.ErrorCode {
+			case nats.JSErrCodeJetStreamNotEnabledForAccount, nats.JSErrCodeJetStreamNotEnabled:
+				code = codes.PermissionDenied
+			case nats.JSErrCodeInsufficientResourcesErr:
+				code = codes.ResourceExhausted
+			case nats.JSErrCodeStreamNotFound, nats.JSErrCodeConsumerNotFound, nats.JSErrCodeMessageNotFound:
+				code = codes.NotFound
+			case nats.JSErrCodeStreamNameInUse, nats.JSErrCodeConsumerNameExists, nats.JSErrCodeConsumerAlreadyExists:
+				code = codes.AlreadyExists
+			case nats.JSErrCodeBadRequest:
+				code = codes.InvalidArgument
+			case nats.JSErrCodeStreamWrongLastSequence:
+				code = codes.Aborted
+			}
+		}
+	}
+	return status.Error(code, err.Error())
 }
 
 func init() {

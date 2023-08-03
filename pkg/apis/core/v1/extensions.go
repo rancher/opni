@@ -61,3 +61,20 @@ func stateColor(state TaskState) chalk.Color {
 		return chalk.White
 	}
 }
+
+func NewRevision(revision int64) *Revision {
+	return &Revision{
+		Revision: &revision,
+	}
+}
+
+func (r *Revision) Set(revision int64) {
+	if r == nil {
+		panic("revision is nil")
+	}
+	if r.Revision == nil {
+		r.Revision = &revision
+	} else {
+		*r.Revision = revision
+	}
+}

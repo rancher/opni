@@ -4,7 +4,6 @@ package commands
 
 import (
 	"context"
-	"math"
 	"strings"
 	"time"
 
@@ -44,7 +43,7 @@ func getProgressAsPercent(progress *remoteread.TargetProgress) float64 {
 		return 0
 	}
 	percent := completed / total
-	return math.Min(1, percent)
+	return min(1, percent)
 }
 
 type ProgressModel struct {

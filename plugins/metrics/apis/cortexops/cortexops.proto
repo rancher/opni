@@ -28,6 +28,8 @@ service CortexOps {
   // Returns the default implementation-specific configuration, or one previously set.
   // If a default configuration was previously set using SetDefaultConfiguration, it
   // returns that configuration. Otherwise, returns implementation-specific defaults.
+  // An optional revision argument can be provided to get a specific historical
+  // version of the configuration instead of the current configuration.
   rpc GetDefaultConfiguration(GetRequest) returns (CapabilityBackendConfigSpec) {
     option (cli.command) = {
       use: "config get-default"
@@ -71,6 +73,8 @@ service CortexOps {
   }
 
   // Gets the current configuration of the managed Cortex cluster.
+  // An optional revision argument can be provided to get a specific historical
+  // version of the configuration instead of the current configuration.
   rpc GetConfiguration(GetRequest) returns (CapabilityBackendConfigSpec) {
     option (cli.command) = {
       use: "config get"
@@ -87,6 +91,9 @@ service CortexOps {
   // by directly overwriting fields. Slices and maps are overwritten and not combined.
   // Subsequent calls to this API will merge inputs with the current configuration,
   // not the default configuration.
+  // When updating an existing configuration, the revision number in the updated configuration
+  // must match the revision number of the existing configuration, otherwise a conflict
+  // error will be returned. The timestamp field of the revision is ignored.
   //
   // Note: some fields may contain secrets. The placeholder value "***" can be used to
   // keep an existing secret when updating the cluster configuration.
@@ -180,6 +187,14 @@ service CortexOps {
   //   for the SetDefaultConfiguration API. Install and Uninstall actions do not
   //   require a target.
   // - Only the Set action requires a spec to be provided.
+  //
+  // Notes:
+  // - When DryRun is used on Install or Uninstall requests, the response will
+  //   contain modifications to the 'enabled' field only. This field is read-only
+  //   in the Set* APIs.
+  // - To validate the current configuration but keep it unchanged, use the
+  //   Set action with an empty spec.
+  // - Configurations returned by DryRun will always have an empty revision field.
   rpc DryRun(DryRunRequest) returns (DryRunResponse) {
     option (cli.command).skip = true;
     option (google.api.http) = {
@@ -188,6 +203,10 @@ service CortexOps {
     };
   }
 
+  // Returns a list of past revisions of the configuration, for either the
+  // active or default configuration depending on the specified target.
+  // The entries are ordered from oldest to newest, where the last entry is
+  // the current configuration.
   rpc ConfigurationHistory(ConfigurationHistoryRequest) returns (ConfigurationHistoryResponse) {
     option (cli.command) = {
       use: "config history"
@@ -304,6 +323,9 @@ message DryRunResponse {
 message GetRequest {
   // If set, will return the config at the specified revision instead of
   // the current config.
+  // This revision value can be obtained from the revision field of a
+  // CapabilityBackendConfigSpec, either from GetConfiguration/GetDefaultConfiguration
+  // or from one of the history entries returned by ConfigurationHistory.
   core.Revision revision = 1;
 }
 

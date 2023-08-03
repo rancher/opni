@@ -898,6 +898,9 @@ type GetRequest struct {
 
 	// If set, will return the config at the specified revision instead of
 	// the current config.
+	// This revision value can be obtained from the revision field of a
+	// CapabilityBackendConfigSpec, either from GetConfiguration/GetDefaultConfiguration
+	// or from one of the history entries returned by ConfigurationHistory.
 	Revision *v1.Revision `protobuf:"bytes,1,opt,name=revision,proto3" json:"revision,omitempty"`
 }
 

@@ -41,6 +41,8 @@ type CortexOpsClient interface {
 	// Returns the default implementation-specific configuration, or one previously set.
 	// If a default configuration was previously set using SetDefaultConfiguration, it
 	// returns that configuration. Otherwise, returns implementation-specific defaults.
+	// An optional revision argument can be provided to get a specific historical
+	// version of the configuration instead of the current configuration.
 	GetDefaultConfiguration(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error)
 	// Sets the default configuration that will be used as the base for future configuration changes.
 	// If no custom default configuration is set using this method,
@@ -58,6 +60,8 @@ type CortexOpsClient interface {
 	// Otherwise, this will have no effect.
 	ResetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Gets the current configuration of the managed Cortex cluster.
+	// An optional revision argument can be provided to get a specific historical
+	// version of the configuration instead of the current configuration.
 	GetConfiguration(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error)
 	// Updates the configuration of the managed Cortex cluster to match the provided configuration.
 	// If the cluster is not installed, it will be configured, but remain disabled.
@@ -66,6 +70,9 @@ type CortexOpsClient interface {
 	// by directly overwriting fields. Slices and maps are overwritten and not combined.
 	// Subsequent calls to this API will merge inputs with the current configuration,
 	// not the default configuration.
+	// When updating an existing configuration, the revision number in the updated configuration
+	// must match the revision number of the existing configuration, otherwise a conflict
+	// error will be returned. The timestamp field of the revision is ignored.
 	//
 	// Note: some fields may contain secrets. The placeholder value "***" can be used to
 	// keep an existing secret when updating the cluster configuration.
@@ -108,7 +115,19 @@ type CortexOpsClient interface {
 	//     for the SetDefaultConfiguration API. Install and Uninstall actions do not
 	//     require a target.
 	//   - Only the Set action requires a spec to be provided.
+	//
+	// Notes:
+	//   - When DryRun is used on Install or Uninstall requests, the response will
+	//     contain modifications to the 'enabled' field only. This field is read-only
+	//     in the Set* APIs.
+	//   - To validate the current configuration but keep it unchanged, use the
+	//     Set action with an empty spec.
+	//   - Configurations returned by DryRun will always have an empty revision field.
 	DryRun(ctx context.Context, in *DryRunRequest, opts ...grpc.CallOption) (*DryRunResponse, error)
+	// Returns a list of past revisions of the configuration, for either the
+	// active or default configuration depending on the specified target.
+	// The entries are ordered from oldest to newest, where the last entry is
+	// the current configuration.
 	ConfigurationHistory(ctx context.Context, in *ConfigurationHistoryRequest, opts ...grpc.CallOption) (*ConfigurationHistoryResponse, error)
 }
 
@@ -235,6 +254,8 @@ type CortexOpsServer interface {
 	// Returns the default implementation-specific configuration, or one previously set.
 	// If a default configuration was previously set using SetDefaultConfiguration, it
 	// returns that configuration. Otherwise, returns implementation-specific defaults.
+	// An optional revision argument can be provided to get a specific historical
+	// version of the configuration instead of the current configuration.
 	GetDefaultConfiguration(context.Context, *GetRequest) (*CapabilityBackendConfigSpec, error)
 	// Sets the default configuration that will be used as the base for future configuration changes.
 	// If no custom default configuration is set using this method,
@@ -252,6 +273,8 @@ type CortexOpsServer interface {
 	// Otherwise, this will have no effect.
 	ResetDefaultConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	// Gets the current configuration of the managed Cortex cluster.
+	// An optional revision argument can be provided to get a specific historical
+	// version of the configuration instead of the current configuration.
 	GetConfiguration(context.Context, *GetRequest) (*CapabilityBackendConfigSpec, error)
 	// Updates the configuration of the managed Cortex cluster to match the provided configuration.
 	// If the cluster is not installed, it will be configured, but remain disabled.
@@ -260,6 +283,9 @@ type CortexOpsServer interface {
 	// by directly overwriting fields. Slices and maps are overwritten and not combined.
 	// Subsequent calls to this API will merge inputs with the current configuration,
 	// not the default configuration.
+	// When updating an existing configuration, the revision number in the updated configuration
+	// must match the revision number of the existing configuration, otherwise a conflict
+	// error will be returned. The timestamp field of the revision is ignored.
 	//
 	// Note: some fields may contain secrets. The placeholder value "***" can be used to
 	// keep an existing secret when updating the cluster configuration.
@@ -302,7 +328,19 @@ type CortexOpsServer interface {
 	//     for the SetDefaultConfiguration API. Install and Uninstall actions do not
 	//     require a target.
 	//   - Only the Set action requires a spec to be provided.
+	//
+	// Notes:
+	//   - When DryRun is used on Install or Uninstall requests, the response will
+	//     contain modifications to the 'enabled' field only. This field is read-only
+	//     in the Set* APIs.
+	//   - To validate the current configuration but keep it unchanged, use the
+	//     Set action with an empty spec.
+	//   - Configurations returned by DryRun will always have an empty revision field.
 	DryRun(context.Context, *DryRunRequest) (*DryRunResponse, error)
+	// Returns a list of past revisions of the configuration, for either the
+	// active or default configuration depending on the specified target.
+	// The entries are ordered from oldest to newest, where the last entry is
+	// the current configuration.
 	ConfigurationHistory(context.Context, *ConfigurationHistoryRequest) (*ConfigurationHistoryResponse, error)
 	mustEmbedUnimplementedCortexOpsServer()
 }

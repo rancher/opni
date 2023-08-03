@@ -3,7 +3,6 @@ package alarms
 import (
 	"context"
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/alitto/pond"
@@ -471,7 +470,7 @@ func (a *AlarmServerComponent) Timeline(ctx context.Context, req *alertingv1.Tim
 	yieldedValues := make(chan lo.Tuple2[string, *alertingv1.ActiveWindows])
 	go func() {
 		n := int(req.Limit)
-		pool := pond.New(int(math.Max(25, float64(n/10))), n, pond.Strategy(pond.Balanced()))
+		pool := pond.New(max(25, n/10), n, pond.Strategy(pond.Balanced()))
 		for _, cond := range conditions {
 			cond := cond
 			pool.Submit(func() {

@@ -326,7 +326,7 @@ message GetRequest {
   // This revision value can be obtained from the revision field of a
   // CapabilityBackendConfigSpec, either from GetConfiguration/GetDefaultConfiguration
   // or from one of the history entries returned by ConfigurationHistory.
-  core.Revision revision = 1;
+  core.Revision revision = 1 [(cli.flag_set).no_prefix = true];
 }
 
 message ConfigurationHistoryRequest {

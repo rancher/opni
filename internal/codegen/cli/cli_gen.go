@@ -567,7 +567,10 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 
 			kebabName := formatKebab(field.GoName)
 			commentLines := formatComments(field.Comments)
-			comment := strings.Join(commentLines, " ")
+			var comment string
+			if len(commentLines) > 0 {
+				comment = commentLines[0]
+			}
 
 			var hasCustomDefault bool
 			var defaultValue any
@@ -720,12 +723,17 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 				}
 				// Add flag sets for nested messages
 				if !field.Desc.IsList() && field.Message != message {
+					flagSetOpts := FlagSetOptions{}
+					applyOptions(field.Desc, &flagSetOpts)
+
 					g.P("if in.", field.GoName, " == nil {")
 					g.P(" in.", field.GoName, " = &", field.Message.GoIdent, "{}")
 					g.P("}")
-					g.P("fs.AddFlagSet(in.", field.GoName, `.FlagSet(append(prefix,"`, kebabName, `")...))`)
-					flagSetOpts := FlagSetOptions{}
-					applyOptions(field.Desc, &flagSetOpts)
+					if flagSetOpts.NoPrefix {
+						g.P("fs.AddFlagSet(in.", field.GoName, `.FlagSet(prefix...))`)
+					} else {
+						g.P("fs.AddFlagSet(in.", field.GoName, `.FlagSet(append(prefix,"`, kebabName, `")...))`)
+					}
 
 					flagSetOpts.ForEachDefault(field.Message, func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
 						fdOpts := FlagOptions{}
@@ -733,7 +741,11 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 						if fdOpts.Skip {
 							return true
 						}
-						g.P(`fs.Lookup(`, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `", "`, formatKebab(fd.Name()), `"), ".")).DefValue = `, fmt.Sprintf("%q", v.String()))
+						if flagSetOpts.NoPrefix {
+							g.P(`fs.Lookup(`, _strings.Ident("Join"), `(append(prefix, "`, formatKebab(fd.Name()), `"), ".")).DefValue = `, fmt.Sprintf("%q", v.String()))
+						} else {
+							g.P(`fs.Lookup(`, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `", "`, formatKebab(fd.Name()), `"), ".")).DefValue = `, fmt.Sprintf("%q", v.String()))
+						}
 						return true
 					})
 

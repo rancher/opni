@@ -71,6 +71,6 @@ func BuildPingerPingCmd() *cobra.Command {
 func (in *Revision) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Revision", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.IntPtrValue(nil, &in.Revision), strings.Join(append(prefix, "revision"), "."), "A numerical revision uniquely identifying a specific version of the resource. Larger values are newer, but this should otherwise be treated as opaque.")
+	fs.Var(flagutil.IntPtrValue(nil, &in.Revision), strings.Join(append(prefix, "revision"), "."), "A numerical revision uniquely identifying a specific version of the resource.")
 	return fs
 }

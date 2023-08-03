@@ -76,6 +76,8 @@ func BuildCortexOpsGetDefaultConfigurationCmd() *cobra.Command {
 		Long: `
 If a default configuration was previously set using SetDefaultConfiguration, it
 returns that configuration. Otherwise, returns implementation-specific defaults.
+An optional revision argument can be provided to get a specific historical
+version of the configuration instead of the current configuration.
 
 HTTP handlers for this method:
 - GET /configuration/default
@@ -201,6 +203,9 @@ func BuildCortexOpsGetConfigurationCmd() *cobra.Command {
 		Use:   "config get",
 		Short: "Gets the current configuration of the managed Cortex cluster.",
 		Long: `
+An optional revision argument can be provided to get a specific historical
+version of the configuration instead of the current configuration.
+
 HTTP handlers for this method:
 - GET /configuration
 `[1:],
@@ -245,6 +250,9 @@ The provided configuration will be merged with the default configuration
 by directly overwriting fields. Slices and maps are overwritten and not combined.
 Subsequent calls to this API will merge inputs with the current configuration,
 not the default configuration.
+When updating an existing configuration, the revision number in the updated configuration
+must match the revision number of the existing configuration, otherwise a conflict
+error will be returned. The timestamp field of the revision is ignored.
 
 Note: some fields may contain secrets. The placeholder value "***" can be used to
 keep an existing secret when updating the cluster configuration.
@@ -459,8 +467,12 @@ func BuildCortexOpsConfigurationHistoryCmd() *cobra.Command {
 	in := &ConfigurationHistoryRequest{}
 	cmd := &cobra.Command{
 		Use:   "config history",
-		Short: "",
+		Short: "Returns a list of past revisions of the configuration, for either the",
 		Long: `
+active or default configuration depending on the specified target.
+The entries are ordered from oldest to newest, where the last entry is
+the current configuration.
+
 HTTP handlers for this method:
 - GET /configuration/history
 `[1:],

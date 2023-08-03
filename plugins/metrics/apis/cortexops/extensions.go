@@ -1,7 +1,10 @@
 package cortexops
 
 import (
+	context "context"
+	"fmt"
 	"os"
+	"time"
 
 	"github.com/rancher/opni/internal/codegen/cli"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
@@ -86,6 +89,21 @@ func init() {
 			return defaultRunE(cmd, args)
 		}
 	})
+
+	addBuildHook_CortexOpsGetConfiguration(func(c *cobra.Command) {
+		c.RegisterFlagCompletionFunc("revision", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			cliutil.BasePreRunE(cmd, args)
+			return completeRevisions(cmd.Context(), driverutil.Target_ActiveConfiguration)
+		})
+	})
+
+	addBuildHook_CortexOpsGetDefaultConfiguration(func(c *cobra.Command) {
+		c.RegisterFlagCompletionFunc("revision", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			cliutil.BasePreRunE(cmd, args)
+			return completeRevisions(cmd.Context(), driverutil.Target_DefaultConfiguration)
+		})
+	})
+
 	// NB: order matters here in order to pick up the build hook correctly
 	// this is not added in dryrun.go because it is in the wrong order
 	// alphabetically by filename
@@ -94,4 +112,29 @@ func init() {
 	// helpful aliases for dry-run operations
 	addExtraCortexOpsCmd(BuildLintCmd())
 	addExtraCortexOpsCmd(BuildLintDefaultCmd())
+}
+
+func completeRevisions(ctx context.Context, target driverutil.Target) ([]string, cobra.ShellCompDirective) {
+	client, ok := CortexOpsClientFromContext(ctx)
+	if !ok {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	history, err := client.ConfigurationHistory(ctx, &ConfigurationHistoryRequest{
+		Target:        target,
+		IncludeValues: false,
+	})
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+	revisions := make([]string, len(history.GetEntries()))
+	for i, entry := range history.GetEntries() {
+		comp := fmt.Sprint(entry.GetRevision().GetRevision())
+		ts := entry.GetRevision().GetTimestamp().AsTime()
+		if !ts.IsZero() {
+			comp = fmt.Sprintf("%s\t%s", comp, ts.Format(time.Stamp))
+		}
+		revisions[i] = comp
+	}
+	return revisions, cobra.ShellCompDirectiveNoFileComp
 }

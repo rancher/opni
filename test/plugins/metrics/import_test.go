@@ -147,8 +147,8 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 		Eventually(errC).Should(Receive(BeNil()))
 
 		cortexOpsClient := cortexops.NewCortexOpsClient(env.ManagementClientConn())
-		_, err = cortexOpsClient.Install(ctx, &emptypb.Empty{})
-		Expect(err).ToNot(HaveOccurred())
+		err = cortexops.InstallWithPreset(context.Background(), cortexOpsClient)
+		Expect(err).NotTo(HaveOccurred())
 
 		By("adding prometheus resources to k8s")
 		k8sctx, ca := context.WithCancel(waitctx.Background())

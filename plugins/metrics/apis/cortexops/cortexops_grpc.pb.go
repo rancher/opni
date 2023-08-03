@@ -70,6 +70,7 @@ type CortexOpsClient interface {
 	// keep an existing secret when updating the cluster configuration.
 	SetConfiguration(ctx context.Context, in *CapabilityBackendConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Resets the configuration of the managed Cortex cluster to the current default configuration.
+	// The value of "enabled" will be preserved if it is set.
 	ResetConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Gets the current status of the managed Cortex cluster.
 	// The status includes the current install state, version, and metadata. If
@@ -253,6 +254,7 @@ type CortexOpsServer interface {
 	// keep an existing secret when updating the cluster configuration.
 	SetConfiguration(context.Context, *CapabilityBackendConfigSpec) (*emptypb.Empty, error)
 	// Resets the configuration of the managed Cortex cluster to the current default configuration.
+	// The value of "enabled" will be preserved if it is set.
 	ResetConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	// Gets the current status of the managed Cortex cluster.
 	// The status includes the current install state, version, and metadata. If

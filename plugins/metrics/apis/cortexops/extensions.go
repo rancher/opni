@@ -77,4 +77,8 @@ func init() {
 	// this is not added in dryrun.go because it is in the wrong order
 	// alphabetically by filename
 	addExtraCortexOpsCmd(BuildDryRunCmd())
+
+	// helpful aliases for dry-run operations
+	addExtraCortexOpsCmd(BuildLintCmd())
+	addExtraCortexOpsCmd(BuildLintDefaultCmd())
 }

@@ -32,7 +32,8 @@ service CortexOps {
   // version of the configuration instead of the current configuration.
   rpc GetDefaultConfiguration(GetRequest) returns (CapabilityBackendConfigSpec) {
     option (cli.command) = {
-      use: "config get-default"
+      use:          "config get-default"
+      enable_hooks: true
     };
     option (google.api.http) = {
       get: "/configuration/default"
@@ -77,7 +78,8 @@ service CortexOps {
   // version of the configuration instead of the current configuration.
   rpc GetConfiguration(GetRequest) returns (CapabilityBackendConfigSpec) {
     option (cli.command) = {
-      use: "config get"
+      use:          "config get"
+      enable_hooks: true
     };
     option (google.api.http) = {
       get: "/configuration"

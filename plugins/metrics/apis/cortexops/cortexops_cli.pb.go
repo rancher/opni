@@ -68,6 +68,12 @@ func BuildCortexOpsCmd() *cobra.Command {
 	return cmd
 }
 
+var buildHooks_CortexOpsGetDefaultConfiguration []func(*cobra.Command)
+
+func addBuildHook_CortexOpsGetDefaultConfiguration(hook func(*cobra.Command)) {
+	buildHooks_CortexOpsGetDefaultConfiguration = append(buildHooks_CortexOpsGetDefaultConfiguration, hook)
+}
+
 func BuildCortexOpsGetDefaultConfigurationCmd() *cobra.Command {
 	in := &GetRequest{}
 	cmd := &cobra.Command{
@@ -102,6 +108,9 @@ HTTP handlers for this method:
 		},
 	}
 	cmd.Flags().AddFlagSet(in.FlagSet())
+	for _, hook := range buildHooks_CortexOpsGetDefaultConfiguration {
+		hook(cmd)
+	}
 	return cmd
 }
 
@@ -197,6 +206,12 @@ HTTP handlers for this method:
 	return cmd
 }
 
+var buildHooks_CortexOpsGetConfiguration []func(*cobra.Command)
+
+func addBuildHook_CortexOpsGetConfiguration(hook func(*cobra.Command)) {
+	buildHooks_CortexOpsGetConfiguration = append(buildHooks_CortexOpsGetConfiguration, hook)
+}
+
 func BuildCortexOpsGetConfigurationCmd() *cobra.Command {
 	in := &GetRequest{}
 	cmd := &cobra.Command{
@@ -229,6 +244,9 @@ HTTP handlers for this method:
 		},
 	}
 	cmd.Flags().AddFlagSet(in.FlagSet())
+	for _, hook := range buildHooks_CortexOpsGetConfiguration {
+		hook(cmd)
+	}
 	return cmd
 }
 
@@ -508,7 +526,7 @@ func (in *GetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	if in.Revision == nil {
 		in.Revision = &v1.Revision{}
 	}
-	fs.AddFlagSet(in.Revision.FlagSet(append(prefix, "revision")...))
+	fs.AddFlagSet(in.Revision.FlagSet(prefix...))
 	return fs
 }
 
@@ -616,7 +634,7 @@ func (in *ConfigurationHistoryRequest) FlagSet(prefix ...string) *pflag.FlagSet 
 		driverutil.Target_ActiveConfiguration:  {"ActiveConfiguration"},
 		driverutil.Target_DefaultConfiguration: {"DefaultConfiguration"},
 	}, v2.EnumCaseSensitive), strings.Join(append(prefix, "target"), "."), "The configuration type to return history for.")
-	fs.BoolVar(&in.IncludeValues, strings.Join(append(prefix, "include-values"), "."), true, "If set, will include the values of the configuration in the response. Otherwise, only the revision field of each entry will be populated.")
+	fs.BoolVar(&in.IncludeValues, strings.Join(append(prefix, "include-values"), "."), true, "If set, will include the values of the configuration in the response.")
 	return fs
 }
 

@@ -211,9 +211,15 @@ func (k *TestEnvMetricsClusterDriver) ConfigurationHistory(ctx context.Context, 
 		Entries: make([]*cortexops.CapabilityBackendConfigSpec, len(revisions)),
 	}
 	for i, rev := range revisions {
-		spec := rev.Value()
-		spec.Revision = corev1.NewRevision(rev.Revision(), rev.Timestamp())
-		resp.Entries[i] = spec
+		if req.IncludeValues {
+			spec := rev.Value()
+			spec.Revision = corev1.NewRevision(rev.Revision(), rev.Timestamp())
+			resp.Entries[i] = spec
+		} else {
+			resp.Entries[i] = &cortexops.CapabilityBackendConfigSpec{
+				Revision: corev1.NewRevision(rev.Revision(), rev.Timestamp()),
+			}
+		}
 	}
 	return resp, nil
 }

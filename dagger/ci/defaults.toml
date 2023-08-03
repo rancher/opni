@@ -19,15 +19,17 @@ test = true
 	tag-suffix = "-minimal"
 
 [images.opensearch.build]
-	dashboards-version = "2.4.0"
-	opensearch-version = "2.4.0"
-	plugin-version = "0.10.0"
+	dashboards-version = "2.8.0"
+	opensearch-version = "2.8.0"
+	plugin-version = "0.11.0-rc2"
 
 [images.opensearch.dashboards]
 	repo = "docker.io/rancher/opensearch-dashboards"
+	tag-suffix = "-2.8.0"
 
 [images.opensearch.opensearch]
 	repo = "docker.io/rancher/opensearch"
+	tag-suffix = "-2.8.0"
 
 [images.opensearch.update-service]
 	repo = "docker.io/rancher/opni-opensearch-update-service"

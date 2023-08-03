@@ -301,7 +301,8 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 	nodeBuild := nodeBase.
 		Pipeline("Node Build").
 		WithDirectory(filepath.Join(b.workdir, "web"), b.sources.Directory("web")).
-		// With(b.caches.NodeModules).
+		WithExec([]string{"ln", "-s", "/cache/node_modules", filepath.Join(b.workdir, "web", "node_modules")}).
+		WithExec([]string{"ls", "-halL", "node_modules"}).
 		WithExec(yarn([]string{"install", "--frozen-lockfile"})).
 		WithExec(yarn("build"))
 
@@ -477,7 +478,7 @@ func (b *Builder) runOutOfTreeBuilds(ctx context.Context) error {
 	entrypointScript := b.sources.File("images/opensearch/entrypoint.sh")
 	opensearch := b.client.Container().
 		Pipeline("Opensearch Image").
-		From(fmt.Sprintf("opensearchproject/opensearch:%s", b.Images.Opensearch.Build.DashboardsVersion)).
+		From(fmt.Sprintf("opensearchproject/opensearch:%s", b.Images.Opensearch.Build.OpensearchVersion)).
 		WithExec([]string{"opensearch-plugin", "-s", "install", "-b",
 			fmt.Sprintf("https://github.com/rancher/opni-ingest-plugin/releases/download/v%s/opnipreprocessing.zip", b.Images.Opensearch.Build.PluginVersion),
 		}).

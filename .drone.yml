@@ -6,26 +6,42 @@ platform:
   os: linux
   arch: amd64
 steps:
+  - name: setup-dagger-engine
+    image: docker
+    commands:
+      - |
+        docker run \
+        --name dagger-engine \
+        --privileged \
+        --stop-signal SIGTERM \
+        -d \
+        -e _EXPERIMENTAL_DAGGER_CACHESERVICE_TOKEN=$_EXPERIMENTAL_DAGGER_CACHESERVICE_TOKEN \
+        -e _EXPERIMENTAL_DAGGER_CACHESERVICE_URL=https://api.dagger.cloud/magicache \
+        -v dagger-engine:/var/lib/dagger \
+        registry.dagger.io/engine@sha256:47e385bd6fac5eb35ade38e4c26ada7defb6f412b739808933d09f2dc4ca30d6 || docker start dagger-engine
+    volumes: &volumes
+      - name: docker-sock
+        path: /var/run/docker.sock
+      - name: docker-config
+        path: /root/.docker
+    environment:
+      _EXPERIMENTAL_DAGGER_CACHESERVICE_TOKEN:
+        from_secret: dagger_cacheservice_token
   - name: build-and-package
     image: docker
     environment: &environment
+      _EXPERIMENTAL_DAGGER_CACHESERVICE_TOKEN:
+        from_secret: dagger_cacheservice_token
       _EXPERIMENTAL_DAGGER_CLOUD_TOKEN:
         from_secret: dagger_cloud_token
-      _EXPERIMENTAL_DAGGER_CACHE_CONFIG:
-        from_secret: dagger_cache_config
+      _EXPERIMENTAL_DAGGER_RUNNER_HOST: docker-container://dagger-engine
       DOCKER_USERNAME:
         from_secret: docker_username
       DOCKER_PASSWORD:
         from_secret: docker_password
       GH_TOKEN:
         from_secret: github_token
-    volumes: &volumes
-      - name: dagger-bin
-        path: /dagger-bin
-      - name: docker-sock
-        path: /var/run/docker.sock
-      - name: docker-config
-        path: /root/.docker
+    volumes: *volumes
     commands:
       - apk add --no-cache go
       - go run ./dagger -c dagger/ci/defaults
@@ -48,7 +64,7 @@ steps:
     volumes: *volumes
     commands:
       - apk add --no-cache go
-      - go run ./dagger -c dagger/ci/defaults,dagger/ci/push,dagger/ci/push-charts,dagger/ci/tag-latest
+      - go run ./dagger -c dagger/ci/defaults,dagger/ci/push,dagger/ci/push-charts,dagger/ci/tag-latest --lint=false --test=false
     when:
       event:
         - tag
@@ -64,7 +80,7 @@ steps:
     volumes: *volumes
     commands:
       - apk add --no-cache go
-      - go run ./dagger -c dagger/ci/defaults,dagger/ci/push
+      - go run ./dagger -c dagger/ci/defaults,dagger/ci/push --lint=false --test=false
     when:
       event:
         - push
@@ -83,6 +99,20 @@ steps:
       event:
         - push
       instance:
+        - drone-pr.rancher.io
+  - name: cleanup-dagger-engine
+    image: docker
+    commands:
+      - docker stop --time 60 dagger-engine
+      - docker logs dagger-engine
+    volumes: *volumes
+    # run even if pipeline fails
+    when:
+      status:
+        - failure
+        - success
+      instance:
+        - drone-publish.rancher.io
         - drone-pr.rancher.io
 volumes:
   - name: docker-sock

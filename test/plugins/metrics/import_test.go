@@ -126,7 +126,10 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 	var importClient remoteread.RemoteReadGatewayClient
 
 	BeforeAll(func() {
-		Expect(os.Setenv("POD_NAMESPACE", "default")).ToNot(HaveOccurred())
+		os.Setenv("POD_NAMESPACE", "default")
+		DeferCleanup(func() {
+			os.Unsetenv("POD_NAMESPACE")
+		})
 
 		By("starting test environment")
 		env = &test.Environment{}

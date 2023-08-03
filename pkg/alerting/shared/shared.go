@@ -37,16 +37,6 @@ const InternalOpsGenieId = "opsgenie"
 const InternalVictorOpsId = "victorops"
 const InternalWechatId = "wechat"
 
-// -------- const routing label identifiers -----------
-
-// -------- const routing annotation identifiers ------
-
-const OpniHeaderAnnotations = "OpniHeader"
-const OpniBodyAnnotations = "OpniSummary"
-const OpniClusterAnnotation = "OpniCluster"
-const OpniAlarmNameAnnotation = "OpniAlarmName"
-const OpniGoldenSignalAnnotation = "OpniGoldenSignal"
-
 type OpniReceiverId struct {
 	Namespace  string
 	ReceiverId string
@@ -107,15 +97,15 @@ const BackendConditionSeverityLabel = "severity"
 // Operator container & service definitions
 
 const (
-	ConfigMountPath                        = "/etc/config"
-	DataMountPath                          = "/var/lib"
-	AlertManagerConfigKey                  = "alertmanager.yaml"
-	InternalRoutingConfigKey               = "internal-routing.yaml"
-	OperatorAlertingControllerServiceName  = "opni-alerting-controller"
-	OperatorAlertingClusterNodeServiceName = "opni-alerting"
-	AlertingHookReceiverName               = "opni.default.hook"
-	AlertingDefaultHookName                = "/opni/hook"
-	AlertingDefaultHookPort                = 3000
+	ConfigMountPath          = "/etc/config"
+	DataMountPath            = "/var/lib"
+	AlertManagerConfigKey    = "alertmanager.yaml"
+	InternalRoutingConfigKey = "internal-routing.yaml"
+	AlertmanagerService      = "opni-alertmanager-alerting"
+	EmitterService           = "opni-emitter-alerting"
+	AlertingHookReceiverName = "opni.default.hook"
+	AlertingDefaultHookName  = "/opni/hook"
+	AlertingDefaultHookPort  = 3000
 )
 
 var (

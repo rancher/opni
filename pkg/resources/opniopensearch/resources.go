@@ -45,14 +45,14 @@ func (r *Reconciler) buildOpensearchCluster(
 	// Set default image version
 	version := r.instance.Spec.Version
 	if version == "unversioned" {
-		version = "0.10.0"
+		version = "0.11.0-rc2"
 	}
 
 	image := fmt.Sprintf(
-		"%s/opensearch:%s-%s",
+		"%s/opensearch:v%s-%s",
 		r.instance.Spec.ImageRepo,
-		r.instance.Spec.OpensearchVersion,
 		version,
+		r.instance.Spec.OpensearchVersion,
 	)
 
 	updatedSecurityConfig := r.instance.Spec.OpensearchSettings.Security.DeepCopy()

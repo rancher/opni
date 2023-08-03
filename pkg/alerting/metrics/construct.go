@@ -11,7 +11,7 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
 	promql "github.com/prometheus/prometheus/promql/parser"
-	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	"github.com/rancher/opni/pkg/alerting/message"
 	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
 )
@@ -207,10 +207,10 @@ func (a *AlertingRule) Build(id string) (*rulefmt.RuleNode, error) {
 		return nil, fmt.Errorf("constructed rule : %s is not a valid prometheus rule %v", promRule.Expr.Value, err)
 	}
 	promRule.Annotations = lo.Assign(promRule.Annotations, map[string]string{
-		alertingv1.NotificationPropertyOpniUuid: id,
+		message.NotificationPropertyOpniUuid: id,
 	})
 	promRule.Labels = lo.Assign(promRule.Labels, map[string]string{
-		alertingv1.NotificationPropertyOpniUuid: id,
+		message.NotificationPropertyOpniUuid: id,
 	})
 	return promRule, nil
 }

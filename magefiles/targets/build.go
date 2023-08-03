@@ -12,6 +12,8 @@ import (
 	"github.com/magefile/mage/sh"
 )
 
+var verboseFlag = fmt.Sprintf("-v=%t", mg.Verbose())
+
 type Build mg.Namespace
 
 // Builds the opni binary and plugins
@@ -37,7 +39,7 @@ func (Build) Linter(ctx context.Context) error {
 
 	return sh.RunWith(map[string]string{
 		"CGO_ENABLED": "1",
-	}, mg.GoCmd(), "build", "-buildmode=plugin", "-o=internal/linter/linter.so", "./internal/linter")
+	}, mg.GoCmd(), "build", verboseFlag, "-buildmode=plugin", "-o=internal/linter/linter.so", "./internal/linter")
 }
 
 // Build the typescript service generator plugin
@@ -102,5 +104,5 @@ func buildMainPackage(opts buildOpts) error {
 func buildArchive(path string) error {
 	return sh.RunWith(map[string]string{
 		"CGO_ENABLED": "0",
-	}, mg.GoCmd(), "build", "-buildmode=archive", "-trimpath", "-tags=nomsgpack", path)
+	}, mg.GoCmd(), "build", verboseFlag, "-buildmode=archive", "-trimpath", "-tags=nomsgpack", path)
 }

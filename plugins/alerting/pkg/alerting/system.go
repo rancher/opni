@@ -23,6 +23,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingStorage "github.com/rancher/opni/pkg/alerting/storage"
 
+	"github.com/rancher/opni/pkg/alerting/server"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -30,7 +31,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	natsutil "github.com/rancher/opni/pkg/util/nats"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/server"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/node"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
@@ -136,8 +136,13 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 			return
 		}
 		if clStatus.State == alertops.InstallState_Installed || clStatus.State == alertops.InstallState_InstallUpdating {
-			for _, comp := range p.Components() {
-				comp.Sync(p.ctx, true)
+			syncInfo, err := p.getSyncInfo(p.ctx)
+			if err != nil {
+				p.logger.With("err", err).Error("failed to get sync info")
+			} else {
+				for _, comp := range p.Components() {
+					comp.Sync(p.ctx, syncInfo)
+				}
 			}
 			conf, err := p.GetClusterConfiguration(p.ctx, &emptypb.Empty{})
 			if err != nil {
@@ -218,8 +223,8 @@ func listPeers(replicas int) []alertingClient.AlertingPeer {
 	peers := []alertingClient.AlertingPeer{}
 	for i := 0; i < replicas; i++ {
 		peers = append(peers, alertingClient.AlertingPeer{
-			ApiAddress:      fmt.Sprintf("http://%s-%d.%s:9093", shared.OperatorAlertingClusterNodeServiceName, i, shared.OperatorAlertingClusterNodeServiceName),
-			EmbeddedAddress: fmt.Sprintf("http://%s-%d.%s:3000", shared.OperatorAlertingClusterNodeServiceName, i, shared.OperatorAlertingClusterNodeServiceName),
+			ApiAddress:      fmt.Sprintf("http://%s-%d.%s:9093", shared.AlertmanagerService, i, shared.AlertmanagerService),
+			EmbeddedAddress: fmt.Sprintf("http://%s-%d.%s:3000", shared.EmitterService, i, shared.EmitterService),
 		})
 	}
 	return peers

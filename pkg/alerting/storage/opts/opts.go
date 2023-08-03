@@ -1,9 +1,9 @@
 package opts
 
 import (
-	"net/url"
 	"time"
 
+	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"go.uber.org/zap"
 )
@@ -28,7 +28,7 @@ func (o *RequestOptions) Apply(opts ...RequestOption) {
 
 type SyncOptions struct {
 	Router          routing.OpniRouting
-	DefaultEndpoint *url.URL
+	DefaultReceiver *config.WebhookConfig
 	Timeout         time.Duration
 }
 
@@ -46,9 +46,9 @@ func WithInitialRouter(router routing.OpniRouting) SyncOption {
 	}
 }
 
-func WithDefaultReceiverAddress(endpoint *url.URL) SyncOption {
+func WithDefaultReceiver(cfg *config.WebhookConfig) SyncOption {
 	return func(o *SyncOptions) {
-		o.DefaultEndpoint = endpoint
+		o.DefaultReceiver = cfg
 	}
 }
 

@@ -8,16 +8,20 @@ import (
 
 	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"gopkg.in/yaml.v2"
 
+	alertingSync "github.com/rancher/opni/pkg/alerting/server/sync"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -213,8 +217,8 @@ func (p *Plugin) constructSyncRequest(
 	return syncReq
 }
 
-func (p *Plugin) doConfigSync(ctx context.Context, shouldSync bool) error {
-	if !shouldSync {
+func (p *Plugin) doConfigSync(ctx context.Context, syncInfo alertingSync.SyncInfo) error {
+	if !syncInfo.ShouldSync {
 		return nil
 	}
 	lg := p.logger.With("method", "doSync")
@@ -227,6 +231,7 @@ func (p *Plugin) doConfigSync(ctx context.Context, shouldSync bool) error {
 		lg.Warn("failed to acquire alerting storage clientset, skipping sync...")
 		return err
 	}
+
 	routerKeys, err := clientSet.Sync(ctx)
 	if err != nil {
 		lg.Errorf("failed to sync configuration in alerting clientset %s", err)
@@ -240,8 +245,8 @@ func (p *Plugin) doConfigSync(ctx context.Context, shouldSync bool) error {
 	return nil
 }
 
-func (p *Plugin) doConfigForceSync(ctx context.Context, shouldSync bool) error {
-	if !shouldSync {
+func (p *Plugin) doConfigForceSync(ctx context.Context, syncInfo alertingSync.SyncInfo) error {
+	if !syncInfo.ShouldSync {
 		return nil
 	}
 	lg := p.logger.With("method", "doForceSync")
@@ -269,9 +274,33 @@ func (p *Plugin) doConfigForceSync(ctx context.Context, shouldSync bool) error {
 	return nil
 }
 
-type syncTask func(ctx context.Context, shouldSync bool) error
+func (p *Plugin) getSyncInfo(ctx context.Context) (alertingSync.SyncInfo, error) {
+	syncInfo := alertingSync.SyncInfo{
+		ShouldSync: false,
+		Clusters:   map[string]*corev1.Cluster{},
+	}
+	clStatus, err := p.GetClusterStatus(ctx, &emptypb.Empty{})
+	if err != nil {
+		return syncInfo, err
+	}
+	syncInfo.ShouldSync = clStatus.State == alertops.InstallState_Installed
 
-func (p *Plugin) runSyncTasks(tasks []syncTask) (retErr error) {
+	mgmtClient, err := p.mgmtClient.GetContext(ctx)
+	if err != nil {
+		return syncInfo, err
+	}
+	cls, err := mgmtClient.ListClusters(ctx, &managementv1.ListClustersRequest{})
+	if err != nil {
+		return syncInfo, err
+	}
+
+	syncInfo.Clusters = lo.Associate(cls.GetItems(), func(c *corev1.Cluster) (string, *corev1.Cluster) {
+		return c.Id, c
+	})
+	return syncInfo, nil
+}
+
+func (p *Plugin) runSyncTasks(tasks []alertingSync.SyncTask) (retErr error) {
 	lg := p.logger.With("action", "runSyncTasks")
 	ctx, ca := context.WithTimeout(p.ctx, 10*time.Second)
 	defer ca()
@@ -294,23 +323,24 @@ func (p *Plugin) runSyncTasks(tasks []syncTask) (retErr error) {
 			cycleAttributes...,
 		))
 	}()
-	clStatus, err := p.GetClusterStatus(ctx, &emptypb.Empty{})
+
+	syncInfo, err := p.getSyncInfo(ctx)
 	if err != nil {
-		lg.Warnf("skipping periodic sync due to status error: %s", err)
-		retErr = err
-		return
+		lg.Error("skipping alerting periodic sync due to error : %s", err)
 	}
-	shouldSync := clStatus.State == alertops.InstallState_Installed
+
 	lg.Info("Running periodic sync for alerting")
 	var eg util.MultiErrGroup
 	for _, task := range tasks {
 		task := task
 		eg.Go(func() error {
-			return task(ctx, shouldSync)
+			return task(ctx, syncInfo)
 		})
 	}
 	eg.Wait()
+	lg.Info("Finished running periodic sync for alerting")
 	if err := eg.Error(); err != nil {
+		lg.Error(err)
 		retErr = err
 	}
 	return
@@ -321,8 +351,8 @@ func (p *Plugin) runSync() {
 	longTicker := p.syncController.forceSyncTicker
 	defer ticker.Stop()
 	defer longTicker.Stop()
-	syncTasks := []syncTask{p.doConfigSync}
-	forceSyncTasks := []syncTask{p.doConfigForceSync}
+	syncTasks := []alertingSync.SyncTask{p.doConfigSync}
+	forceSyncTasks := []alertingSync.SyncTask{p.doConfigForceSync}
 	for _, comp := range p.Components() {
 		syncTasks = append(syncTasks, comp.Sync)
 		forceSyncTasks = append(forceSyncTasks, comp.Sync)

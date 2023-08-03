@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path"
@@ -15,8 +16,11 @@ import (
 	"time"
 
 	"emperror.dev/errors"
+	amCfg "github.com/prometheus/alertmanager/config"
+
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/client"
+	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -26,6 +30,7 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/test/testutil"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	node_drivers "github.com/rancher/opni/plugins/alerting/pkg/agent/drivers"
@@ -96,7 +101,15 @@ func NewTestEnvAlertingClusterDriver(env *test.Environment, options TestEnvAlert
 	configFile := path.Join(dir, "alertmanager.yaml")
 	lg := logger.NewPluginLogger().Named("alerting-test-cluster-driver")
 	lg = lg.With("config-file", configFile)
-	rTree := routing.NewRoutingTree("http://localhost:6000")
+
+	rTree := routing.NewRoutingTree(&config.WebhookConfig{
+		NotifierConfig: config.NotifierConfig{
+			VSendResolved: false,
+		},
+		URL: &amCfg.URL{
+			URL: util.Must(url.Parse("http://localhost:6006")),
+		},
+	})
 	rTreeBytes, err := yaml.Marshal(rTree)
 	if err != nil {
 		panic(err)
@@ -162,7 +175,7 @@ func (l *TestEnvAlertingClusterDriver) ConfigureCluster(_ context.Context, confi
 	for _, inst := range l.managedInstances {
 		peers = append(peers, client.AlertingPeer{
 			ApiAddress:      fmt.Sprintf("http://127.0.0.1:%d", inst.AlertManagerPort),
-			EmbeddedAddress: fmt.Sprintf("http://127.0.0.1:%d", inst.OpniPort),
+			EmbeddedAddress: "http://127.0.0.1:6006",
 		})
 	}
 	l.AlertingClient.MemberlistClient().SetKnownPeers(peers)
@@ -204,6 +217,7 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(_ context.Context, _ *empt
 	if len(l.managedInstances) > 0 {
 		panic("should not have existing replicas")
 	}
+
 	l.stateMu.Lock()
 	defer l.stateMu.Unlock()
 	l.NumReplicas = 1
@@ -216,14 +230,14 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(_ context.Context, _ *empt
 	l.AlertingClient = client.NewClient(
 		nil,
 		fmt.Sprintf("http://127.0.0.1:%d", l.managedInstances[0].AlertManagerPort),
-		fmt.Sprintf("http://127.0.0.1:%d", l.managedInstances[0].OpniPort),
+		"http://127.0.0.1:6006",
 	)
 
 	peers := []client.AlertingPeer{}
 	for _, inst := range l.managedInstances {
 		peers = append(peers, client.AlertingPeer{
 			ApiAddress:      fmt.Sprintf("http://127.0.0.1:%d", inst.AlertManagerPort),
-			EmbeddedAddress: fmt.Sprintf("http://127.0.0.1:%d", inst.OpniPort),
+			EmbeddedAddress: "http://127.0.0.1:6006",
 		})
 	}
 	l.AlertingClient.MemberlistClient().SetKnownPeers(peers)
@@ -244,16 +258,6 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(_ context.Context, _ *empt
 	l.AlertingClusterOptions.ControllerClusterPort = l.managedInstances[0].ClusterPort
 	l.AlertingClusterOptions.ControllerNodePort = l.managedInstances[0].AlertManagerPort
 	l.AlertingClusterOptions.OpniPort = l.managedInstances[0].OpniPort
-
-	rTree := routing.NewRoutingTree(fmt.Sprintf("http://127.0.0.1:%d", l.managedInstances[0].OpniPort))
-	rTreeBytes, err := yaml.Marshal(rTree)
-	if err != nil {
-		panic(err)
-	}
-	err = os.WriteFile(l.ConfigFile, rTreeBytes, 0644)
-	if err != nil {
-		panic(err)
-	}
 	return &emptypb.Empty{}, nil
 }
 
@@ -269,10 +273,6 @@ func (l *TestEnvAlertingClusterDriver) UninstallCluster(_ context.Context, _ *al
 		subscriber <- []client.AlertingPeer{}
 	}
 	return &emptypb.Empty{}, nil
-}
-
-func (l *TestEnvAlertingClusterDriver) GetRuntimeOptions() shared.AlertingClusterOptions {
-	return *l.AlertingClusterOptions
 }
 
 func (l *TestEnvAlertingClusterDriver) Name() string {
@@ -317,7 +317,6 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 		"alertmanager",
 		fmt.Sprintf("--config.file=%s", configFilePath),
 		fmt.Sprintf("--web.listen-address=:%d", webPort),
-		fmt.Sprintf("--opni.listen-address=:%d", opniPort),
 		fmt.Sprintf("--cluster.listen-address=:%d", clusterPort),
 		"--storage.path=/tmp/data",
 		// "--log.level=debug",

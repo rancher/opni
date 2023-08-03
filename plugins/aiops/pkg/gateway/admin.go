@@ -41,9 +41,9 @@ const (
 
 var (
 	DefaultModelSources = map[pretrainedModelType]*string{
-		pretrainedModelControlplane: lo.ToPtr("https://opni-public.s3.us-east-2.amazonaws.com/pretrain-models/control-plane-model-v0.4.2.zip"),
-		pretrainedModelRancher:      lo.ToPtr("https://opni-public.s3.us-east-2.amazonaws.com/pretrain-models/rancher-model-v0.4.2.zip"),
-		pretrainedModelLonghorn:     lo.ToPtr("https://opni-public.s3.us-east-2.amazonaws.com/pretrain-models/longhorn-model-v0.6.0.zip"),
+		pretrainedModelControlplane: lo.ToPtr("https://opni-pretrained-models.s3.us-east-2.amazonaws.com/control-plane-model-v0.4.2.zip"),
+		pretrainedModelRancher:      lo.ToPtr("https://opni-pretrained-models.s3.us-east-2.amazonaws.com/rancher-model-v0.4.2.zip"),
+		pretrainedModelLonghorn:     lo.ToPtr("https://opni-pretrained-models.s3.us-east-2.amazonaws.com/longhorn-model-v0.6.0.zip"),
 	}
 	ModelHyperParameters = map[pretrainedModelType]map[string]intstr.IntOrString{
 		pretrainedModelControlplane: {

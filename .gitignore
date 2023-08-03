@@ -55,4 +55,4 @@ mage_output_file.go
 
 # crd generation
 
-crds.yaml
+#crds.yaml

@@ -20,7 +20,7 @@ var _ = Describe("In-Cluster Bootstrap V2", Ordered, Label("integration"), func(
 	var managementClient managementv1.ManagementClient
 	BeforeAll(func() {
 		env := test.Environment{}
-		Expect(env.Start()).To(Succeed())
+		Expect(env.Start(test.WithEnableJetstream(false))).To(Succeed())
 
 		conf := env.GatewayConfig()
 		gatewayEndpoint = strings.TrimPrefix(conf.Spec.GRPCListenAddress, "tcp://")

@@ -3,6 +3,7 @@ package metrics_test
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -44,7 +45,9 @@ var _ = Describe("Impersonated Metrics", Ordered, Label("integration"), func() {
 		_, errC = environment.StartAgent("agent2", token, []string{fingerprint})
 		Eventually(errC).Should(Receive(BeNil()))
 
-		metricsUrl = fmt.Sprintf("http://%s/metrics", environment.GatewayConfig().Spec.MetricsListenAddress)
+		hostport := environment.GatewayConfig().Spec.MetricsListenAddress
+		_, port, _ := net.SplitHostPort(hostport)
+		metricsUrl = fmt.Sprintf("http://127.0.0.1:%s/metrics", port)
 	})
 
 	When("scraping metrics from the gateway", func() {

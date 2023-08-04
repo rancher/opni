@@ -245,7 +245,6 @@ The following validation rules are applied after loading all files, environment 
 				"test/",
 				"configuration.yaml",
 				".golangci.yaml",
-				"tools.go",
 				"LICENSE",
 			},
 			Exclude: []string{
@@ -282,21 +281,12 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 
 	goBuild := goBase.
 		Pipeline("Go Build").
-		WithEnvVariable("CGO_ENABLED", "0").  // important for cached magefiles
+		With(installTools).
+		WithEnvVariable("CGO_ENABLED", "0").
 		WithEnvVariable("GOBIN", "/usr/bin"). // important for cached mage binary
 		WithExec([]string{"go", "install", "github.com/magefile/mage@latest"}).
-		WithDirectory(b.workdir, b.sources, dagger.ContainerWithDirectoryOpts{
-			Include: []string{
-				"go.mod",
-				"go.sum",
-				"tools.go",
-			},
-		}).
-		WithEnvVariable("CGO_ENABLED", "1").
-		WithExec([]string{"sh", "-c", `go install $(go list -f '{{join .Imports " "}}' tools.go)`}).
-		WithEnvVariable("CGO_ENABLED", "0").
-		WithDirectory(b.workdir, b.sources).
-		WithoutEnvVariable("GOBIN")
+		WithoutEnvVariable("GOBIN").
+		WithDirectory(b.workdir, b.sources)
 
 	nodeBuild := nodeBase.
 		Pipeline("Node Build").

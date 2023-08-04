@@ -6,7 +6,6 @@ run:
     - pkg/test/testdata
   skip-files:
     - magefile.go
-    - tools.go
     - /zz_generated
 linters:
   disable-all: true

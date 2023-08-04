@@ -107,7 +107,7 @@ func (s *GatewayGRPCServer) ListenAndServe(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		server.Stop()
-		return ctx.Err()
+		return (<-errC)
 	case err := <-errC:
 		return err
 	}

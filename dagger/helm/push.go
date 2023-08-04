@@ -57,6 +57,7 @@ func PublishToChartsRepo(ctx context.Context, client *dagger.Client, opts Publis
 		WithSecretVariable("GH_TOKEN", opts.Target.Auth.Secret).
 		WithDirectory(workdir, client.Git(opts.Target.Repo, dagger.GitOpts{KeepGitDir: true}).Branch(opts.Target.Branch).Tree()).
 		With(GithubCLI).
+		WithExec([]string{"git", "checkout", opts.Target.Branch}). // leave detached head
 		WithExec([]string{"gh", "auth", "setup-git"}).
 		// WithExec([]string{"gh", "repo", "clone", opts.Target.Repo, ".", "--", "--branch", opts.Target.Branch, "--depth", "1", "--no-tags"}).
 		WithDirectory(chartsMountPath, opts.BuildContainer.Directory(chartsMountPath)). // Important: WithDirectory merges the contents

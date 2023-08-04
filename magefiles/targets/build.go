@@ -37,9 +37,10 @@ func (Build) Linter(ctx context.Context) error {
 	_, tr := Tracer.Start(ctx, "target.build.linter")
 	defer tr.End()
 
-	return sh.RunWith(map[string]string{
-		"CGO_ENABLED": "1",
-	}, mg.GoCmd(), "build", verboseFlag, "-buildmode=plugin", "-o=internal/linter/linter.so", "./internal/linter")
+	return buildMainPackage(buildOpts{
+		Path:   "./internal/cmd/lint",
+		Output: "bin/lint",
+	})
 }
 
 // Build the typescript service generator plugin

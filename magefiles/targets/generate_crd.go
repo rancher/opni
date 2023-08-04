@@ -38,7 +38,7 @@ func (CRD) CRDGen(ctx context.Context) error {
 	if ok {
 		runReplace = true
 		var commands []*exec.Cmd
-		commands = append(commands, exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/kustomize/kustomize/v5",
+		commands = append(commands, exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/kustomize/kustomize/v5@latest",
 			"build", "./config/chart-crds", "-o", "./packages/opni/opni/charts/crds/crds.yaml",
 		))
 		for _, cmd := range commands {
@@ -67,7 +67,7 @@ func (CRD) CRDGen(ctx context.Context) error {
 		expr := `del(.. | select(has("description")).description | select(has("type") | not )) | .. style="flow"`
 
 		e1 := lo.Async(func() error {
-			return sh.Run(mg.GoCmd(), "run", "github.com/mikefarah/yq/v4", "-i", expr, "./packages/opni/opni/charts/crds/crds.yaml")
+			return sh.Run(mg.GoCmd(), "run", "github.com/mikefarah/yq/v4@latest", "-i", expr, "./packages/opni/opni/charts/crds/crds.yaml")
 		})
 
 		if err := <-e1; err != nil {

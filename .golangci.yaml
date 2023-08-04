@@ -6,7 +6,6 @@ run:
     - pkg/test/testdata
   skip-files:
     - magefile.go
-    - tools.go
     - /zz_generated
 linters:
   disable-all: true
@@ -14,11 +13,7 @@ linters:
     - revive
     - ineffassign
     - gofmt
-    - opni
 linters-settings:
-  custom:
-    opni:
-      path: internal/linter/linter.so
   revive:
     ignore-generated-header: false
     severity: warning

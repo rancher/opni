@@ -113,7 +113,9 @@ func findTempDirBase(baseFs afero.Fs, pluginDir string) (string, error) {
 	if sys := pluginDirInfo.Sys(); sys != nil {
 		if stat, ok := sys.(*syscall.Stat_t); ok {
 			deviceInfoAvailable = true
-			pluginDirDevice = stat.Dev
+			// This cast is necessary for arm64 compilation.
+			// See https://github.com/rancher/opni/issues/1614
+			pluginDirDevice = uint64(stat.Dev)
 		}
 	}
 
@@ -124,7 +126,9 @@ func findTempDirBase(baseFs afero.Fs, pluginDir string) (string, error) {
 			if info, err := af.Stat(candidate); err == nil {
 				if sys := info.Sys(); sys != nil {
 					if stat, ok := sys.(*syscall.Stat_t); ok {
-						if stat.Dev == pluginDirDevice {
+						// This cast is necessary for arm64 compilation.
+						// See https://github.com/rancher/opni/issues/1614
+						if uint64(stat.Dev) == pluginDirDevice {
 							return candidate, nil
 						}
 					}

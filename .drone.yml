@@ -44,7 +44,8 @@ steps:
     volumes: *volumes
     commands:
       - apk add --no-cache go
-      - go run ./dagger -c dagger/ci/defaults
+      - go run golang.org/dl/go1.21rc4@latest download
+      - /root/sdk/go1.21rc4/bin/go run ./dagger -c dagger/ci/defaults
     when:
       instance:
         - drone-publish.rancher.io
@@ -54,7 +55,8 @@ steps:
     volumes: *volumes
     commands:
       - apk add --no-cache go
-      - go run ./dagger -c dagger/ci/defaults --coverage.export=true
+      - go run golang.org/dl/go1.21rc4@latest download
+      - /root/sdk/go1.21rc4/bin/go run ./dagger -c dagger/ci/defaults --coverage.export=true
     when:
       instance:
         - drone-pr.rancher.io
@@ -64,7 +66,8 @@ steps:
     volumes: *volumes
     commands:
       - apk add --no-cache go
-      - go run ./dagger -c dagger/ci/defaults,dagger/ci/push,dagger/ci/push-charts,dagger/ci/tag-latest --lint=false --test=false
+      - go run golang.org/dl/go1.21rc4@latest download
+      - /root/sdk/go1.21rc4/bin/go run ./dagger -c dagger/ci/defaults,dagger/ci/push,dagger/ci/push-charts,dagger/ci/tag-latest --lint=false --test=false
     when:
       event:
         - tag
@@ -80,7 +83,8 @@ steps:
     volumes: *volumes
     commands:
       - apk add --no-cache go
-      - go run ./dagger -c dagger/ci/defaults,dagger/ci/push --lint=false --test=false
+      - go run golang.org/dl/go1.21rc4@latest download
+      - /root/sdk/go1.21rc4/bin/go run ./dagger -c dagger/ci/defaults,dagger/ci/push --lint=false --test=false
     when:
       event:
         - push

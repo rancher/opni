@@ -11,7 +11,6 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"golang.org/x/exp/slices"
@@ -28,14 +27,9 @@ var _ = Describe("Agent - Remote Write Tests", Ordered, Label("integration"), fu
 		Expect(environment.Start()).To(Succeed())
 		DeferCleanup(environment.Stop)
 		client = environment.NewManagementClient()
-		cortexOpsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
 
-		_, err := cortexOpsClient.ConfigureCluster(context.Background(), &cortexops.ClusterConfiguration{
-			Mode: cortexops.DeploymentMode_AllInOne,
-			Storage: &storagev1.StorageSpec{
-				Backend: storagev1.Filesystem,
-			},
-		})
+		opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
+		err := cortexops.InstallWithPreset(context.Background(), opsClient)
 		Expect(err).NotTo(HaveOccurred())
 
 		certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})

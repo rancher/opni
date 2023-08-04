@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
+	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 )
 
 const (
@@ -43,7 +44,7 @@ func (p protoJSON) Render(w http.ResponseWriter) error {
 	return err
 }
 
-func (f *OTELForwarder) renderProto(c *gin.Context) {
+func (f *LogsForwarder) renderProto(c *gin.Context) {
 	body, err := readBody(c)
 	if err != nil {
 		f.lg.Error(fmt.Sprintf("failed to read body: %v", err))
@@ -70,7 +71,7 @@ func (f *OTELForwarder) renderProto(c *gin.Context) {
 	})
 }
 
-func (f *OTELForwarder) renderProtoJSON(c *gin.Context) {
+func (f *LogsForwarder) renderProtoJSON(c *gin.Context) {
 	body, err := readBody(c)
 	if err != nil {
 		f.lg.Error(fmt.Sprintf("failed to read body: %v", err))
@@ -87,6 +88,59 @@ func (f *OTELForwarder) renderProtoJSON(c *gin.Context) {
 	}
 
 	otlpResp, err := f.forwardLogs(c.Request.Context(), req)
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	c.Render(http.StatusOK, protoJSON{
+		Data: otlpResp,
+	})
+}
+
+func (f *TraceForwarder) renderProto(c *gin.Context) {
+	body, err := readBody(c)
+	if err != nil {
+		f.lg.Errorf("failed to read body: %v", err)
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	req := &coltracepb.ExportTraceServiceRequest{}
+	err = proto.Unmarshal(body, req)
+	if err != nil {
+		f.lg.Errorf("failed to unmarshal body: %v", err)
+		f.lg.Debugf("body: %x", body)
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	otlpResp, err := f.forwardTrace(c.Request.Context(), req)
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	c.Render(http.StatusOK, render.ProtoBuf{
+		Data: otlpResp,
+	})
+}
+
+func (f *TraceForwarder) renderProtoJSON(c *gin.Context) {
+	body, err := readBody(c)
+	if err != nil {
+		f.lg.Errorf("failed to read body: %v", err)
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	req := &coltracepb.ExportTraceServiceRequest{}
+	err = protojson.Unmarshal(body, req)
+	if err != nil {
+		f.lg.Errorf("failed to unmarshal body: %v", err)
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	otlpResp, err := f.forwardTrace(c.Request.Context(), req)
 	if err != nil {
 		c.Status(http.StatusInternalServerError)
 		return

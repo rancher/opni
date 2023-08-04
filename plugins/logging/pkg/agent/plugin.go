@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-
 	"log/slog"
 
 	healthpkg "github.com/rancher/opni/pkg/health"
@@ -16,13 +15,14 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/logging/pkg/otel"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
+	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 )
 
 type Plugin struct {
 	ctx           context.Context
 	logger        *slog.Logger
 	node          *LoggingNode
-	otelForwarder *otel.OTELForwarder
+	otelForwarder *otel.Forwarder
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
@@ -31,10 +31,13 @@ func NewPlugin(ctx context.Context) *Plugin {
 	ct := healthpkg.NewDefaultConditionTracker(lg)
 
 	p := &Plugin{
-		ctx:           ctx,
-		logger:        lg,
-		node:          NewLoggingNode(ct, lg),
-		otelForwarder: otel.NewOTELForwarder(otel.WithLogger(lg.WithGroup("otel-forwarder"))),
+		ctx:    ctx,
+		logger: lg,
+		node:   NewLoggingNode(ct, lg),
+		otelForwarder: otel.NewForwarder(
+			otel.NewLogsForwarder(otel.WithLogger(lg.WithGroup("otel-logs-forwarder"))),
+			otel.NewTraceForwarder(otel.WithLogger(lg.WithGroup("otel-trace-forwarder"))),
+		),
 	}
 
 	for _, d := range drivers.NodeDrivers.List() {
@@ -55,7 +58,10 @@ func NewPlugin(ctx context.Context) *Plugin {
 	return p
 }
 
-var _ collogspb.LogsServiceServer = (*otel.OTELForwarder)(nil)
+var (
+	_ collogspb.LogsServiceServer   = (*otel.LogsForwarder)(nil)
+	_ coltracepb.TraceServiceServer = (*otel.TraceForwarder)(nil)
+)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeAgent))

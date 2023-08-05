@@ -110,7 +110,7 @@ func (Generate) ProtobufTypescript() error {
 			},
 		}),
 		external.NewGenerator([]string{"./web/service-generator/generate"}, external.GeneratorOptions{
-			Opt: "target=ts",
+			Opt: "target=ts,import_extension=none",
 		}),
 	}, targets...)
 	if err != nil {

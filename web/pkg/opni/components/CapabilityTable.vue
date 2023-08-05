@@ -2,7 +2,7 @@
 import { Card } from '@components/Card';
 import SortableTable from '@shell/components/SortableTable';
 import { Banner } from '@components/Banner';
-import LoadingSpinner from './LoadingSpinner';
+import LoadingSpinner from '@pkg/opni/components/LoadingSpinner';
 import UninstallCapabilitiesDialog from './dialogs/UninstallCapabilitiesDialog';
 import CancelUninstallCapabilitiesDialog from './dialogs/CancelUninstallCapabilitiesDialog';
 

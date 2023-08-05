@@ -12,6 +12,7 @@
     "chartjs-plugin-annotation": "^2.0.1",
     "core-js": "3.21.1",
     "css-loader": "4.3.0",
+    "dayjs": "^1.8.16",
     "express": "^4.18.2",
     "http-proxy-middleware": "^2.0.6",
     "js-yaml": "4.1.0",
@@ -19,8 +20,7 @@
     "marked": "^4.3.0",
     "unique-names-generator": "^4.7.1",
     "vue-chartjs": "^4.1.1",
-    "vue-fragment": "^1.6.0",
-    "dayjs": "^1.8.16"
+    "vue-fragment": "^1.6.0"
   },
   "resolutions": {
     "**/webpack": "4",
@@ -37,5 +37,8 @@
     "docker": "docker build -t opni-ui -f ./Dockerfile .",
     "build": "IS_STANDALONE=true ./node_modules/.bin/vue-cli-service build",
     "start": "node prod.js"
+  },
+  "devDependencies": {
+    "@bufbuild/protobuf": "1.2.1"
   }
 }

@@ -10,6 +10,7 @@ import Tab from '@shell/components/Tabbed/Tab';
 import Tabbed from '@shell/components/Tabbed';
 import { Banner } from '@components/Banner';
 import dayjs from 'dayjs';
+import { createComputedTime } from '@pkg/opni/utils/computed';
 import { exceptionToErrorsArray } from '../utils/error';
 import { AlertType, Severity, SeverityResponseToEnum } from '../models/alerting/Condition';
 import {
@@ -357,25 +358,7 @@ export default {
       return options;
     },
 
-    systemTimeout: {
-      get() {
-        return Number.parseInt(this.system.config.timeout || '0');
-      },
-
-      set(value) {
-        this.$set(this.system.config, 'timeout', `${ (value || 0) }s`);
-      }
-    },
-
-    kubeStateFor: {
-      get() {
-        return Number.parseInt(this.kubeState.config.for || '0');
-      },
-
-      set(value) {
-        this.$set(this.kubeState.config, 'for', `${ (value || 0) }s`);
-      }
-    },
+    systemTimeout: createComputedTime('system.config.timeout'),
 
     silenceUntil() {
       if (!this.config?.silence?.endsAt) {
@@ -393,15 +376,8 @@ export default {
 
       return options;
     },
-    downstreamCapabilityFor: {
-      get() {
-        return Number.parseInt(this.downstreamCapability.config.for || '0');
-      },
+    downstreamCapabilityFor: createComputedTime('downstreamCapability.config.for'),
 
-      set(value) {
-        this.$set(this.downstreamCapability.config, 'for', `${ (value || 0) }s`);
-      }
-    },
     downstreamCapabilityStateOptions() {
       const options = this.downstreamCapability.choices.clusters[this.downstreamCapability.config.clusterId]?.states || [];
 
@@ -421,15 +397,7 @@ export default {
       return options;
     },
 
-    monitoringBackendFor: {
-      get() {
-        return Number.parseInt(this.monitoringBackend.config.for || '0');
-      },
-
-      set(value) {
-        this.$set(this.monitoringBackend.config, 'for', `${ (value || 0) }s`);
-      }
-    }
+    monitoringBackendFor: createComputedTime('monitoringBackend.config.for')
   },
 
   watch: {

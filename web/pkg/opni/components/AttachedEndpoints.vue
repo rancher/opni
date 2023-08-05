@@ -6,6 +6,7 @@ import { Checkbox } from '@components/Form/Checkbox';
 import TextAreaAutoGrow from '@components/Form/TextArea/TextAreaAutoGrow';
 import Loading from '@shell/components/Loading';
 import { Banner } from '@components/Banner';
+import { createComputedTime } from '@pkg/opni/utils/computed';
 import { Severity } from '../models/alerting/Condition';
 import { getAlertEndpoints } from '../utils/requests/alerts';
 import ArrayListSelect from './RancherOverride/ArrayListSelect';
@@ -99,40 +100,16 @@ export default {
       },
 
       set(value) {
-        console.log('seeeti', value);
         this.$emit('input', { ...this.value, items: value.map(v => ({ endpointId: v })) });
       }
     },
 
-    initialDelay: {
-      get() {
-        return Number.parseInt(this.value.initialDelay || '0');
-      },
+    initialDelay: createComputedTime('value.initialDelay'),
 
-      set(value) {
-        this.$emit('input', { ...this.value, initialDelay: `${ (value || 0) }s` });
-      }
-    },
+    repeatInterval: createComputedTime('value.repeatInterval', 60),
 
-    repeatInterval: {
-      get() {
-        return Number.parseInt(this.value.repeatInterval || '0') / 60;
-      },
+    throttlingDuration: createComputedTime('value.throttlingDuration', 60),
 
-      set(value) {
-        this.$emit('input', { ...this.value, repeatInterval: `${ Math.round(value * 60 || 0) }s` });
-      }
-    },
-
-    throttlingDuration: {
-      get() {
-        return Number.parseInt(this.value.throttlingDuration || '0') / 60;
-      },
-
-      set(value) {
-        this.$emit('input', { ...this.value, throttlingDuration: `${ Math.round(value * 60 || 0) }s` });
-      }
-    },
     showMessageOptions() {
       return this.value.items.length > 0 && this.value.items.some(item => item?.endpointId);
     }

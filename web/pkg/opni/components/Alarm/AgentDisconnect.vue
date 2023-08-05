@@ -2,6 +2,7 @@
 import LabeledSelect from '@shell/components/form/LabeledSelect';
 import UnitInput from '@shell/components/form/UnitInput';
 import Loading from '@shell/components/Loading';
+import { createComputedTime } from '@pkg/opni/utils/computed';
 import { AlertType } from '../../models/alerting/Condition';
 import { loadClusters, loadChoices } from './shared';
 
@@ -65,15 +66,7 @@ export default {
       return options;
     },
 
-    systemTimeout: {
-      get() {
-        return Number.parseInt(this.value.timeout || '0');
-      },
-
-      set(value) {
-        this.$set(this.value, 'timeout', `${ (value || 0) }s`);
-      }
-    },
+    systemTimeout: createComputedTime('value.timeout'),
   },
 };
 </script>

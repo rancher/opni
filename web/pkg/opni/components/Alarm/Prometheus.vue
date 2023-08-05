@@ -3,6 +3,7 @@ import LabeledSelect from '@shell/components/form/LabeledSelect';
 import UnitInput from '@shell/components/form/UnitInput';
 import TextAreaAutoGrow from '@components/Form/TextArea/TextAreaAutoGrow';
 import Loading from '@shell/components/Loading';
+import { createComputedTime } from '@pkg/opni/utils/computed';
 import { AlertType } from '../../models/alerting/Condition';
 import { loadClusters, loadChoices } from './shared';
 
@@ -71,14 +72,7 @@ export default {
       return options;
     },
 
-    prometheusQueryFor: {
-      get() {
-        return Math.floor(Number.parseInt(this.value.for || '0') / 60);
-      },
-      set(value) {
-        this.$set(this.value, 'for', `${ (value || 0) * 60 }s`);
-      }
-    }
+    prometheusQueryFor: createComputedTime('value.for', 60),
   },
 };
 </script>

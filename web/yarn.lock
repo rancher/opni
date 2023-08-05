@@ -2006,6 +2006,11 @@
   resolved "https://registry.yarnpkg.com/@bcoe/v8-coverage/-/v8-coverage-0.2.3.tgz#75a2e8b51cb758a7553d6804a5932d7aace75c39"
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
 
+"@bufbuild/protobuf@1.2.1":
+  version "1.2.1"
+  resolved "https://registry.yarnpkg.com/@bufbuild/protobuf/-/protobuf-1.2.1.tgz#f8b1fbbe79726a4eafa9772ddde147b57f85d177"
+  integrity sha512-cwwGvLGqvoaOZmoP5+i4v/rbW+rHkguvTehuZyM2p/xpmaNSdT2h3B7kHw33aiffv35t1XrYHIkdJSEkSEMJuA==
+
 "@colors/colors@1.5.0":
   version "1.5.0"
   resolved "https://registry.yarnpkg.com/@colors/colors/-/colors-1.5.0.tgz#bb504579c1cae923e6576a4f5da43d25f97bdbd9"

@@ -3,7 +3,8 @@ import { LabeledInput } from '@components/Form/LabeledInput';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
 import { Checkbox } from '@components/Form/Checkbox';
 import UnitInput from '@shell/components/form/UnitInput';
-import { DeploymentMode, StorageBackend } from '../../utils/requests/monitoring';
+import { Storage } from '@pkg/opni/api/opni';
+import { createComputedTime } from '@pkg/opni/utils/computed';
 
 export const SECONDS_IN_DAY = 86400;
 
@@ -70,75 +71,27 @@ export default {
         { label: 'SSE-S3', value: 'SSE-S3' },
       ],
       SECONDS_IN_DAY,
-      StorageBackend,
-      DeploymentMode,
+      Storage,
     };
   },
 
   computed: {
     storageOptions() {
-      // only enable filesystem in standalone mode (0)
-      if (this.value.mode === DeploymentMode.AllInOne) {
-        return [
-          { label: 'Filesystem', value: StorageBackend.Filesystem },
-          { label: 'S3', value: StorageBackend.S3 }
-        ];
-      }
-
       return [
-        { label: 'S3', value: StorageBackend.S3 }
+        { label: 'Filesystem', value: 'filesystem' },
+        { label: 'S3', value: 's3' }
       ];
     },
 
-    s3RetentionPeriod: {
-      get() {
-        return Number.parseInt(this.value.storage.retentionPeriod || '0') / SECONDS_IN_DAY;
-      },
+    s3RetentionPeriod: createComputedTime('value.limits.compactorBlocksRetentionPeriod', SECONDS_IN_DAY),
 
-      set(value) {
-        this.$set(this.value.storage, 'retentionPeriod', `${ (value || 0) * SECONDS_IN_DAY }s`);
-      }
-    },
+    s3IdleConnTimeout: createComputedTime('value.storage.s3.http.idleConnTimeout'),
 
-    s3IdleConnTimeout: {
-      get() {
-        return Number.parseInt(this.value.storage.s3?.http?.idleConnTimeout || '0');
-      },
+    s3ResponseHeaderTimeout: createComputedTime('value.storage.s3.http.responseHeaderTimeout'),
 
-      set(value) {
-        this.$set(this.value.storage.s3.http, 'idleConnTimeout', `${ value || 0 }s`);
-      }
-    },
+    s3TlsHandshakeTimeout: createComputedTime('value.storage.s3.http.tlsHandshakeTimeout'),
 
-    s3ResponseHeaderTimeout: {
-      get() {
-        return Number.parseInt(this.value.storage.s3?.http?.responseHeaderTimeout || '0');
-      },
-
-      set(value) {
-        this.$set(this.value.storage.s3.http, 'responseHeaderTimeout', `${ value || 0 }s`);
-      }
-    },
-
-    s3TlsHandshakeTimeout: {
-      get() {
-        return Number.parseInt(this.value.storage.s3?.http?.tlsHandshakeTimeout || '0');
-      },
-
-      set(value) {
-        this.$set(this.value.storage.s3.http, 'tlsHandshakeTimeout', `${ value || 0 }s`);
-      }
-    },
-
-    s3ExpectContinueTimeout: {
-      get() {
-        return Number.parseInt(this.value.storage.s3?.http?.expectContinueTimeout || '0');
-      },
-
-      set(value) {
-        this.$set(this.value.storage.s3.http, 'expectContinueTimeout', `${ value || 0 }s`);
-      }
-    },
+    s3ExpectContinueTimeout: createComputedTime('value.storage.s3.http.expectContinueTimeout'),
   },
 
   methods: {
@@ -191,7 +144,7 @@ export default {
 <template>
   <div class="m-0">
     <div>
-      <div class="row" :class="{ border: value.storage.backend === StorageBackend.S3 }">
+      <div class="row" :class="{ border: value.storage.backend === 's3' }">
         <div class="col span-6">
           <LabeledSelect v-model="value.storage.backend" :options="storageOptions" label="Storage Type" />
         </div>
@@ -205,7 +158,7 @@ export default {
           />
         </div>
       </div>
-      <div v-if="value.storage.backend === StorageBackend.S3" class="mt-15">
+      <div v-if="value.storage.backend === 's3'" class="mt-15">
         <h3>Target</h3>
         <div class="row mb-10">
           <div class="col span-6">
@@ -226,7 +179,7 @@ export default {
         <h3>Access</h3>
         <div class="row mb-10">
           <div class="col span-6">
-            <LabeledInput v-model="value.storage.s3.accessKeyID" label="Access Key ID" :required="true" />
+            <LabeledInput v-model="value.storage.s3.accessKeyId" label="Access Key ID" :required="true" />
           </div>
           <div class="col span-6">
             <LabeledInput
@@ -301,17 +254,19 @@ export default {
         </div>
         <div class="row mb-10">
           <div class="col span-4">
-            <UnitInput v-model="value.storage.s3.http.maxIdleConns" label="Max Idle Connections" suffix="" />
+            <UnitInput v-model="value.storage.s3.http.maxIdleConnections" label="Max Idle Connections" suffix="" :input-exponent="0" base-unit="" />
           </div>
           <div class="col span-4">
             <UnitInput
-              v-model="value.storage.s3.http.maxIdleConnsPerHost"
+              v-model="value.storage.s3.http.maxIdleConnectionsPerHost"
               label="Max Idle Connections Per Host"
               suffix=""
+              :input-exponent="0"
+              base-unit=""
             />
           </div>
           <div class="col span-4">
-            <UnitInput v-model="value.storage.s3.http.maxConnsPerHost" label="Max Connections Per Host" suffix="" />
+            <UnitInput v-model="value.storage.s3.http.maxConnectionsPerHost" label="Max Connections Per Host" suffix="" :input-exponent="0" base-unit="" />
           </div>
         </div>
       </div>

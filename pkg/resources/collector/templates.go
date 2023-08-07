@@ -131,7 +131,7 @@ filelog/rke2:
     from: body
     to: attributes.message
   - type: add
-    field: attributes.log_type:
+    field: attributes.log_type
     value: controlplane
   - type: add
     field: attributes.kubernetes_component

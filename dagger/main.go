@@ -473,14 +473,13 @@ func (b *Builder) runOutOfTreeBuilds(ctx context.Context) error {
 			fmt.Sprintf("https://github.com/rancher/opni-ui/releases/download/plugin-%[1]s/opni-dashboards-plugin-%[1]s.zip", b.Images.Opensearch.Build.PluginVersion),
 		})
 
-	entrypointScript := b.sources.File("images/opensearch/entrypoint.sh")
 	opensearch := b.client.Container().
 		Pipeline("Opensearch Image").
 		From(fmt.Sprintf("opensearchproject/opensearch:%s", b.Images.Opensearch.Build.OpensearchVersion)).
 		WithExec([]string{"opensearch-plugin", "-s", "install", "-b",
 			fmt.Sprintf("https://github.com/rancher/opni-ingest-plugin/releases/download/v%s/opnipreprocessing.zip", b.Images.Opensearch.Build.PluginVersion),
 		}).
-		WithFile("/usr/share/opensearch/opensearch-docker-entrypoint.sh", entrypointScript)
+		WithDirectory("/usr/share/opensearch/extensions", b.client.Directory(), dagger.ContainerWithDirectoryOpts{Owner: "1000:1000"})
 
 	pythonBase := b.client.Container().
 		Pipeline("Opni Python Base Image").

@@ -44,10 +44,16 @@ func (i *MultiErrGroup) Wait() {
 	i.WaitGroup.Wait()
 }
 
-func (i *MultiErrGroup) AddError(err error) {
+func (i *MultiErrGroup) addError(err error) {
 	i.errMu.Lock()
 	defer i.errMu.Unlock()
 	i.errs = append(i.errs, err)
+}
+
+func (i *MultiErrGroup) Errors() []error {
+	i.errMu.Lock()
+	defer i.errMu.Unlock()
+	return i.errs
 }
 
 func (i *MultiErrGroup) Error() error {
@@ -73,7 +79,7 @@ func (i *MultiErrGroup) Go(fn func() error) {
 	go func() {
 		defer i.Done()
 		if err := fn(); err != nil {
-			i.AddError(err)
+			i.addError(err)
 		}
 	}()
 }

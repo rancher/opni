@@ -2,6 +2,7 @@ package alerting
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/management"
@@ -16,6 +17,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/server"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
@@ -125,8 +127,8 @@ func NewPlugin(ctx context.Context) *Plugin {
 
 		AlertingClient: client.NewClient(
 			nil,
-			"http://opni-alerting:9093",
-			"http://opni-alerting:3000",
+			fmt.Sprintf("http://%s:9093", shared.AlertmanagerService),
+			fmt.Sprintf("http://%s:3000", shared.AlertmanagerService),
 		),
 	}
 

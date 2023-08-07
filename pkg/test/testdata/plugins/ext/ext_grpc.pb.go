@@ -19,12 +19,13 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Ext_Foo_FullMethodName          = "/ext.Ext/Foo"
-	Ext_Bar_FullMethodName          = "/ext.Ext/Bar"
-	Ext_Baz_FullMethodName          = "/ext.Ext/Baz"
-	Ext_Set_FullMethodName          = "/ext.Ext/Set"
-	Ext_ServerStream_FullMethodName = "/ext.Ext/ServerStream"
-	Ext_ClientStream_FullMethodName = "/ext.Ext/ClientStream"
+	Ext_Foo_FullMethodName                 = "/ext.Ext/Foo"
+	Ext_Bar_FullMethodName                 = "/ext.Ext/Bar"
+	Ext_Baz_FullMethodName                 = "/ext.Ext/Baz"
+	Ext_Set_FullMethodName                 = "/ext.Ext/Set"
+	Ext_ServerStream_FullMethodName        = "/ext.Ext/ServerStream"
+	Ext_ClientStream_FullMethodName        = "/ext.Ext/ClientStream"
+	Ext_BidirectionalStream_FullMethodName = "/ext.Ext/BidirectionalStream"
 )
 
 // ExtClient is the client API for Ext service.
@@ -37,6 +38,7 @@ type ExtClient interface {
 	Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetRequest, error)
 	ServerStream(ctx context.Context, in *FooRequest, opts ...grpc.CallOption) (Ext_ServerStreamClient, error)
 	ClientStream(ctx context.Context, opts ...grpc.CallOption) (Ext_ClientStreamClient, error)
+	BidirectionalStream(ctx context.Context, opts ...grpc.CallOption) (Ext_BidirectionalStreamClient, error)
 }
 
 type extClient struct {
@@ -149,6 +151,37 @@ func (x *extClientStreamClient) CloseAndRecv() (*FooResponse, error) {
 	return m, nil
 }
 
+func (c *extClient) BidirectionalStream(ctx context.Context, opts ...grpc.CallOption) (Ext_BidirectionalStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Ext_ServiceDesc.Streams[2], Ext_BidirectionalStream_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &extBidirectionalStreamClient{stream}
+	return x, nil
+}
+
+type Ext_BidirectionalStreamClient interface {
+	Send(*FooRequest) error
+	Recv() (*FooResponse, error)
+	grpc.ClientStream
+}
+
+type extBidirectionalStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *extBidirectionalStreamClient) Send(m *FooRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *extBidirectionalStreamClient) Recv() (*FooResponse, error) {
+	m := new(FooResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // ExtServer is the server API for Ext service.
 // All implementations must embed UnimplementedExtServer
 // for forward compatibility
@@ -159,6 +192,7 @@ type ExtServer interface {
 	Set(context.Context, *SetRequest) (*SetRequest, error)
 	ServerStream(*FooRequest, Ext_ServerStreamServer) error
 	ClientStream(Ext_ClientStreamServer) error
+	BidirectionalStream(Ext_BidirectionalStreamServer) error
 	mustEmbedUnimplementedExtServer()
 }
 
@@ -183,6 +217,9 @@ func (UnimplementedExtServer) ServerStream(*FooRequest, Ext_ServerStreamServer) 
 }
 func (UnimplementedExtServer) ClientStream(Ext_ClientStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method ClientStream not implemented")
+}
+func (UnimplementedExtServer) BidirectionalStream(Ext_BidirectionalStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method BidirectionalStream not implemented")
 }
 func (UnimplementedExtServer) mustEmbedUnimplementedExtServer() {}
 
@@ -316,6 +353,32 @@ func (x *extClientStreamServer) Recv() (*FooRequest, error) {
 	return m, nil
 }
 
+func _Ext_BidirectionalStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ExtServer).BidirectionalStream(&extBidirectionalStreamServer{stream})
+}
+
+type Ext_BidirectionalStreamServer interface {
+	Send(*FooResponse) error
+	Recv() (*FooRequest, error)
+	grpc.ServerStream
+}
+
+type extBidirectionalStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *extBidirectionalStreamServer) Send(m *FooResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *extBidirectionalStreamServer) Recv() (*FooRequest, error) {
+	m := new(FooRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // Ext_ServiceDesc is the grpc.ServiceDesc for Ext service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -349,6 +412,12 @@ var Ext_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "ClientStream",
 			Handler:       _Ext_ClientStream_Handler,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "BidirectionalStream",
+			Handler:       _Ext_BidirectionalStream_Handler,
+			ServerStreams: true,
 			ClientStreams: true,
 		},
 	},

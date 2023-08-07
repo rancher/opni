@@ -2,6 +2,7 @@ package management_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/samber/lo"
 	"go.uber.org/atomic"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
@@ -106,6 +108,33 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 				return stream.SendAndClose(&ext.FooResponse{
 					Response: strings.Join(requests, ","),
 				})
+			}).
+			AnyTimes()
+
+		extSrv.EXPECT().
+			BidirectionalStream(gomock.Any()).
+			DoAndReturn(func(stream ext.Ext_BidirectionalStreamServer) error {
+				stream.SendHeader(metadata.Pairs("foo", "header"))
+				stream.SetTrailer(metadata.Pairs("foo", "trailer"))
+				var requests []string
+				for {
+					req, err := stream.Recv()
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						return err
+					}
+					requests = append(requests, req.Request)
+				}
+				for _, req := range requests {
+					if err := stream.Send(&ext.FooResponse{
+						Response: strings.ToUpper(req),
+					}); err != nil {
+						return err
+					}
+				}
+				return nil
 			}).
 			AnyTimes()
 
@@ -448,6 +477,60 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 		trailer := stream.Trailer()
 		Expect(trailer).To(Equal(metadata.Pairs("foo", "trailer")))
 	})
+
+	It("should handle bidirectional streaming RPCs", func() {
+		cc, err := grpc.Dial(tv.grpcEndpoint,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithBlock(),
+		)
+		Expect(err).NotTo(HaveOccurred())
+		defer cc.Close()
+		client := ext.NewExtClient(cc)
+		stream, err := client.BidirectionalStream(context.Background())
+		Expect(err).NotTo(HaveOccurred())
+
+		md, err := stream.Header()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(md).To(Equal(metadata.Pairs("foo", "header", "content-type", "application/grpc")))
+
+		recvChan := make(chan *ext.FooResponse, 10)
+		var eg errgroup.Group
+		eg.Go(func() error {
+			defer close(recvChan)
+			for {
+				resp, err := stream.Recv()
+				if errors.Is(err, io.EOF) {
+					return nil
+				}
+				if err != nil {
+					return err
+				}
+				recvChan <- resp
+			}
+		})
+
+		for i := 0; i < 5; i++ {
+			err := stream.Send(&ext.FooRequest{Request: fmt.Sprintf("hello%d", i)})
+			Expect(err).NotTo(HaveOccurred())
+		}
+		err = stream.CloseSend()
+		Expect(err).NotTo(HaveOccurred())
+		err = eg.Wait()
+		Expect(err).NotTo(HaveOccurred())
+		trailer := stream.Trailer()
+		Expect(trailer).To(Equal(metadata.Pairs("foo", "trailer")))
+
+		raw := make([]*ext.FooResponse, 0)
+		for resp := range recvChan {
+			raw = append(raw, resp)
+		}
+		Expect(raw).To(HaveLen(5))
+		resps := lo.Map(raw, func(resp *ext.FooResponse, _ int) string {
+			return resp.GetResponse()
+		})
+		Expect(resps).To(ConsistOf("HELLO0", "HELLO1", "HELLO2", "HELLO3", "HELLO4"))
+	})
+
 	Context("error handling", func() {
 		When("the plugin's Descriptor method returns an error", func() {
 			BeforeEach(func() {

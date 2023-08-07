@@ -87,7 +87,7 @@ var _ = XDescribe("Monitoring", Ordered, Label("web"), func() {
 
 		status, err := opsClient.Status(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(status.State).To(Equal(cortexops.InstallState_Installed))
+		Expect(status.InstallState).To(Equal(cortexops.InstallState_Installed))
 	})
 
 	It("should show all agents in the Capability Management table", func() {
@@ -390,7 +390,7 @@ var _ = XDescribe("Monitoring", Ordered, Label("web"), func() {
 
 		status, err := opsClient.Status(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(status.State).To(Equal(cortexops.InstallState_NotInstalled))
+		Expect(status.InstallState).To(Equal(cortexops.InstallState_NotInstalled))
 	})
 
 	It("should delete the agents", func() {

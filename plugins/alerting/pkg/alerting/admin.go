@@ -329,7 +329,7 @@ func (p *Plugin) runSyncTasks(tasks []alertingSync.SyncTask) (retErr error) {
 		lg.Error("skipping alerting periodic sync due to error : %s", err)
 	}
 
-	lg.Info("Running periodic sync for alerting")
+	// lg.Info("Running periodic sync for alerting")
 	var eg util.MultiErrGroup
 	for _, task := range tasks {
 		task := task
@@ -338,7 +338,7 @@ func (p *Plugin) runSyncTasks(tasks []alertingSync.SyncTask) (retErr error) {
 		})
 	}
 	eg.Wait()
-	lg.Info("Finished running periodic sync for alerting")
+	// lg.Info("Finished running periodic sync for alerting")
 	if err := eg.Error(); err != nil {
 		lg.Error(err)
 		retErr = err

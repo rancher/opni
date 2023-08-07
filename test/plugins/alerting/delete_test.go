@@ -70,7 +70,7 @@ var _ = Describe("Invalidated and clean up suite test", Ordered, Label("integrat
 			if err != nil {
 				return err
 			}
-			if cortexState.State != cortexops.InstallState_Installed {
+			if cortexState.InstallState != cortexops.InstallState_Installed {
 				return fmt.Errorf("cortex cluster not yet installed")
 			}
 			_, err = alertingCondsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{})

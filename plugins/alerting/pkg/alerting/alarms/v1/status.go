@@ -58,10 +58,16 @@ func (a *AlarmServerComponent) checkMetricsClusterStatus(
 	coreInfo *coreInfo,
 	metricsInfo *metricsInfo,
 ) *alertingv1.AlertStatusResponse {
-	if metricsInfo.metricsBackendStatus.State == cortexops.InstallState_NotInstalled {
+	if metricsInfo.metricsBackendStatus.InstallState == cortexops.InstallState_NotInstalled {
 		return &alertingv1.AlertStatusResponse{
 			State:  alertingv1.AlertConditionState_Invalidated,
 			Reason: "metrics backend not installed",
+		}
+	}
+	if metricsInfo.metricsBackendStatus.AppState != cortexops.ApplicationState_Running {
+		return &alertingv1.AlertStatusResponse{
+			State:  alertingv1.AlertConditionState_Pending,
+			Reason: "metrics backend is not yet running",
 		}
 	}
 	cluster, ok := coreInfo.clusterMap[clusterId]
@@ -215,14 +221,12 @@ func (a *AlarmServerComponent) loadMetricsInfo(ctx context.Context) (*metricsInf
 	}
 	metricsBackendStatus, err := cortexOpsClient.Status(ctx, &emptypb.Empty{})
 	if util.StatusCode(err) == codes.Unavailable || util.StatusCode(err) == codes.Unimplemented {
-		metricsBackendStatus = &cortexops.InstallStatus{
-			State: cortexops.InstallState_NotInstalled,
-		}
+		metricsBackendStatus = &cortexops.InstallStatus{}
 	} else if err != nil {
 		return nil, err
 	}
 	var crs *cortexadmin.RuleGroups
-	if metricsBackendStatus.State == cortexops.InstallState_Installed {
+	if metricsBackendStatus.AppState == cortexops.ApplicationState_Running {
 		cortexAdminClient, err := a.adminClient.GetContext(ctx)
 		if err != nil {
 			return nil, err

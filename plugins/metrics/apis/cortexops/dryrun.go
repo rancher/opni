@@ -104,30 +104,6 @@ func BuildDryRunCmd() *cobra.Command {
 	return dryRunCmd
 }
 
-func BuildLintCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "config lint",
-		Args:  cobra.NoArgs,
-		Short: "lint the current active configuration",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.Parent().SetArgs([]string{"dry-run", "set"})
-			return cmd.Parent().ExecuteContext(cmd.Context())
-		},
-	}
-}
-
-func BuildLintDefaultCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "config lint-default",
-		Args:  cobra.NoArgs,
-		Short: "lint the current default configuration",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.Parent().SetArgs([]string{"dry-run", "set-default"})
-			return cmd.Parent().ExecuteContext(cmd.Context())
-		},
-	}
-}
-
 type DryRunClient struct {
 	Client   CortexOpsClient
 	Request  *DryRunRequest
@@ -246,7 +222,7 @@ func (dc *DryRunClient) Uninstall(ctx context.Context, in *emptypb.Empty, opts .
 		Action: driverutil.Action_Set,
 		Target: driverutil.Target_ActiveConfiguration,
 		Spec: &CapabilityBackendConfigSpec{
-			Enabled: lo.ToPtr(true),
+			Enabled: lo.ToPtr(false),
 		},
 	}
 	var err error

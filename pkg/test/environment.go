@@ -745,7 +745,7 @@ type ImplementationSpecificOverrides = struct {
 	AlertmanagerURL      string
 }
 
-func (e *Environment) StartCortex(ctx context.Context, configBuilder func(CortexConfigOptions, ImplementationSpecificOverrides) ([]byte, []byte, error)) {
+func (e *Environment) StartCortex(ctx context.Context, configBuilder func(CortexConfigOptions, ImplementationSpecificOverrides) ([]byte, []byte, error)) (context.Context, error) {
 	lg := e.Logger
 	storageDir := path.Join(e.tempDir, "cortex")
 
@@ -791,48 +791,65 @@ func (e *Environment) StartCortex(ctx context.Context, configBuilder func(Cortex
 		"cortex", fmt.Sprintf("-config.file=%s", path.Join(storageDir, "config.yaml")),
 	}
 	cmd := exec.CommandContext(ctx, cortexBin, defaultArgs...)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
 	plugins.ConfigureSysProcAttr(cmd)
-	session, err := testutil.StartCmd(cmd)
-	if err != nil {
-		if !errors.Is(ctx.Err(), context.Canceled) {
-			panic(err)
-		}
-		return
-	}
 	lg.Info("Waiting for cortex to start...")
+	client := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: e.CortexTLSConfig(),
+		},
+	}
+
+	exited := lo.Async(cmd.Run)
+
 	retryCount := 0
-	for ctx.Err() == nil {
-		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("https://localhost:%d/ready", e.ports.CortexHTTP), nil)
-		client := http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: e.CortexTLSConfig(),
-			},
-		}
-		resp, err := client.Do(req)
-		if err == nil && resp.StatusCode == http.StatusOK {
-			break
-		}
-		if resp != nil {
-			if retryCount%100 == 0 {
-				lg.With(
-					zap.Error(err),
-					"status", resp.Status,
-				).Info("Waiting for cortex to start...")
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+READY:
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-exited:
+			return nil, errors.New("cortex exited unexpectedly")
+		case <-ticker.C:
+			reqContext, reqCancel := context.WithTimeout(ctx, 10*time.Millisecond)
+			req, _ := http.NewRequestWithContext(reqContext, http.MethodGet, fmt.Sprintf("https://localhost:%d/ready", e.ports.CortexHTTP), nil)
+			resp, err := client.Do(req)
+			reqCancel()
+			if err == nil && resp.StatusCode == http.StatusOK {
+				break READY
 			}
-			retryCount++
+			if resp != nil {
+				if retryCount%100 == 0 {
+					lg.With(
+						zap.Error(err),
+						"status", resp.Status,
+					).Info("Waiting for cortex to start...")
+				}
+				retryCount++
+			}
 		}
-		time.Sleep(10 * time.Millisecond)
 	}
 	lg.With(
 		"httpAddress", fmt.Sprintf("https://localhost:%d", e.ports.CortexHTTP),
 		"grpcAddress", fmt.Sprintf("localhost:%d", e.ports.CortexGRPC),
 	).Info("Cortex started")
+	retCtx, retCa := context.WithCancel(ctx)
 	waitctx.Go(ctx, func() {
-		<-ctx.Done()
-		lg.Info("Cortex stopping...")
-		session.Wait()
-		lg.Info("Cortex stopped")
+		select {
+		case <-ctx.Done():
+			lg.Info("Cortex stopping...")
+			<-exited
+			lg.Info("Cortex stopped")
+			retCa()
+		case <-exited:
+			lg.Error("Cortex exited with error")
+			retCa()
+		}
 	})
+	return retCtx, nil
 }
 
 type PrometheusJob struct {

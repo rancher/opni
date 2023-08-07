@@ -40,13 +40,11 @@ func (m *MetricsBackend) canInstall(ctx context.Context) error {
 	if err != nil {
 		return status.Error(codes.Unavailable, err.Error())
 	}
-	switch stat.State {
-	case cortexops.InstallState_Updating, cortexops.InstallState_Installed:
+	switch stat.InstallState {
+	case cortexops.InstallState_Installed:
 		// ok
 	case cortexops.InstallState_NotInstalled, cortexops.InstallState_Uninstalling:
 		return status.Error(codes.Unavailable, fmt.Sprintf("cortex cluster is not installed"))
-	case cortexops.InstallState_Unknown:
-		fallthrough
 	default:
 		return status.Error(codes.Internal, fmt.Sprintf("unknown cortex cluster state"))
 	}

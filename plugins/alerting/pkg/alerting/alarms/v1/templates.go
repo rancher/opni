@@ -695,7 +695,7 @@ func (p *AlarmServerComponent) fetchMonitoringBackendInfo(ctx context.Context) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to get monitoring backend status %s", err)
 	}
-	if state.State == cortexops.InstallState_NotInstalled || state.State == cortexops.InstallState_Unknown {
+	if state.InstallState == cortexops.InstallState_NotInstalled {
 		return nil, validation.Error("monitoring backend is not installed")
 	}
 	return &alertingv1.ListAlertTypeDetails{

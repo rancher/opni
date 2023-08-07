@@ -220,17 +220,30 @@ service CortexOps {
 }
 
 enum InstallState {
-  Unknown      = 0;
-  NotInstalled = 1;
-  Updating     = 2;
-  Installed    = 3;
-  Uninstalling = 4;
+  NotInstalled = 0;
+  Installed    = 1;
+  Uninstalling = 2;
+}
+
+enum ConfigurationState {
+  NotConfigured = 0;
+  Configured    = 1;
+}
+
+enum ApplicationState {
+  NotRunning = 0;
+  Pending    = 1;
+  Running    = 2;
+  Failed     = 3;
 }
 
 message InstallStatus {
-  InstallState        state    = 1;
-  string              version  = 2;
-  map<string, string> metadata = 3;
+  ConfigurationState  configState  = 1;
+  InstallState        installState = 2;
+  ApplicationState    appState     = 3;
+  repeated string     warnings     = 4;
+  string              version      = 5;
+  map<string, string> metadata     = 6;
 }
 
 message CapabilityBackendConfigSpec {
@@ -314,6 +327,7 @@ message ValidationError {
   }
   Severity severity = 1;
   string   message  = 2;
+  string   source   = 3;
 }
 
 message DryRunResponse {

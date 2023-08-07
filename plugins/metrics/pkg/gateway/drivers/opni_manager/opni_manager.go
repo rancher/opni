@@ -279,13 +279,11 @@ func (k *OpniManager) ShouldDisableNode(_ *corev1.Reference) error {
 		// can't determine cluster status, so don't disable the node
 		return nil
 	}
-	switch stat.State {
+	switch stat.InstallState {
 	case cortexops.InstallState_NotInstalled, cortexops.InstallState_Uninstalling:
 		return status.Error(codes.Unavailable, fmt.Sprintf("Cortex cluster is not installed"))
-	case cortexops.InstallState_Updating, cortexops.InstallState_Installed:
+	case cortexops.InstallState_Installed:
 		return nil
-	case cortexops.InstallState_Unknown:
-		fallthrough
 	default:
 		// can't determine cluster status, so don't disable the node
 		return nil
@@ -300,7 +298,7 @@ func (k *OpniManager) DryRun(ctx context.Context, req *cortexops.DryRunRequest) 
 	return &cortexops.DryRunResponse{
 		Current:          res.Current,
 		Modified:         res.Modified,
-		ValidationErrors: configutil.CollectValidationErrorLogs(res.Modified.GetCortexConfig()),
+		ValidationErrors: configutil.ValidateConfiguration(res.Modified),
 	}, nil
 }
 

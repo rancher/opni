@@ -436,7 +436,6 @@ func loadNonConfigurableStaticFields(config *cortex.Config) {
 	config.Server.GPRCServerMaxConcurrentStreams = 10000 // typo in upstream
 	config.Server.GRPCServerMaxSendMsgSize = 100 << 20
 	config.Server.GPRCServerMaxRecvMsgSize = 100 << 20 // typo in upstream
-	config.Server.LogFormat.Set("json")
 	config.Storage.Engine = "blocks"
 	config.BlocksStorage.TSDB.FlushBlocksOnShutdown = true
 	config.BlocksStorage.BucketStore.BucketIndex.Enabled = true

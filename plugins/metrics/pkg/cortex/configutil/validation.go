@@ -8,6 +8,7 @@ import (
 	gokitlog "github.com/go-kit/kit/log"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/reflect/protopath"
 
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
@@ -39,11 +40,25 @@ func mkerrorf(msg string, args ...any) *cortexops.ValidationError {
 	}
 }
 
-func CollectValidationErrorLogs(cfg *cortexops.CortexApplicationConfig) []*cortexops.ValidationError {
+func requiredFieldError(field protopath.Path) *cortexops.ValidationError {
+	return mkerrorf("missing required field: %s", field)
+}
+
+func ValidateConfiguration(cfg *cortexops.CapabilityBackendConfigSpec, overriders ...CortexConfigOverrider) []*cortexops.ValidationError {
 	errs := []*cortexops.ValidationError{}
-	conf, _, err := CortexAPISpecToCortexConfig(cfg)
+	errs = append(errs, CollectValidationErrorLogs(cfg.GetCortexConfig(), overriders...)...)
+	errs = append(errs, RunCustomValidationRules(cfg)...)
+	return errs
+}
+
+func CollectValidationErrorLogs(cfg *cortexops.CortexApplicationConfig, overriders ...CortexConfigOverrider) []*cortexops.ValidationError {
+	errs := []*cortexops.ValidationError{}
+	conf, _, err := CortexAPISpecToCortexConfig(cfg, overriders...)
 	if err != nil {
 		errs = append(errs, mkerrorf(err.Error()))
+		for _, err := range errs {
+			err.Source = "opni"
+		}
 		return errs
 	}
 	lg := errLogger{}
@@ -53,6 +68,9 @@ func CollectValidationErrorLogs(cfg *cortexops.CortexApplicationConfig) []*corte
 	}
 	for _, err := range lg.errs {
 		errs = append(errs, mkerrorf(err))
+	}
+	for _, err := range errs {
+		err.Source = "cortex"
 	}
 	return errs
 }
@@ -66,6 +84,9 @@ func RunCustomValidationRules(cfg *cortexops.CapabilityBackendConfigSpec) []*cor
 	errs := []*cortexops.ValidationError{}
 	for _, rule := range rules {
 		errs = append(errs, rule(cfg)...)
+	}
+	for _, err := range errs {
+		err.Source = "opni"
 	}
 	return errs
 }
@@ -94,49 +115,49 @@ func validateRequiredStorageCredentials(cfg *cortexops.CapabilityBackendConfigSp
 	case storagev1.S3:
 		conf := cfg.GetCortexConfig().GetStorage().GetS3()
 		if conf.GetEndpoint() == "" {
-			errs = append(errs, mkerrorf("endpoint is required"))
+			errs = append(errs, mkerrorf("s3: endpoint is required"))
 		}
 		if conf.GetAccessKeyId() != "" {
-			errs = append(errs, mkerrorf("access_key_id is required"))
+			errs = append(errs, mkerrorf("s3: access_key_id is required"))
 		}
 		if conf.GetSecretAccessKey() != "" {
-			errs = append(errs, mkerrorf("secret_access_key is required"))
+			errs = append(errs, mkerrorf("s3: secret_access_key is required"))
 		}
 		if conf.GetBucketName() == "" {
-			errs = append(errs, mkerrorf("bucket_name is required"))
+			errs = append(errs, mkerrorf("s3: bucket_name is required"))
 		}
 	case storagev1.GCS:
 		conf := cfg.GetCortexConfig().GetStorage().GetGcs()
 		if conf.GetBucketName() == "" {
-			errs = append(errs, mkerrorf("bucket_name is required"))
+			errs = append(errs, mkerrorf("gcs: bucket_name is required"))
 		}
 		if conf.GetServiceAccount() == "" {
-			errs = append(errs, mkerrorf("service_account is required"))
+			errs = append(errs, mkerrorf("gcs: service_account is required"))
 		}
 	case storagev1.Azure:
 		conf := cfg.GetCortexConfig().GetStorage().GetAzure()
 		if conf.GetMsiResource() == "" && conf.GetAccountKey() == "" {
-			errs = append(errs, mkerrorf("msi_resource or account_key is required"))
+			errs = append(errs, mkerrorf("azure: msi_resource or account_key is required"))
 		}
 		if conf.GetMsiResource() != "" && conf.GetAccountKey() != "" {
-			errs = append(errs, mkerrorf("msi_resource and account_key are mutually exclusive"))
+			errs = append(errs, mkerrorf("azure: msi_resource and account_key are mutually exclusive"))
 		}
 		if conf.GetUserAssignedId() != "" && conf.GetAccountKey() != "" {
-			errs = append(errs, mkerrorf("user_assigned_id cannot be set when using account_key authentication"))
+			errs = append(errs, mkerrorf("azure: user_assigned_id cannot be set when using account_key authentication"))
 		}
 		if conf.GetAccountName() == "" {
-			errs = append(errs, mkerrorf("account_name is required"))
+			errs = append(errs, mkerrorf("azure: account_name is required"))
 		}
 		if conf.GetContainerName() == "" {
-			errs = append(errs, mkerrorf("container_name is required"))
+			errs = append(errs, mkerrorf("azure: container_name is required"))
 		}
 		if conf.GetMaxRetries() < 0 {
-			errs = append(errs, mkerrorf("max_retries must be greater than or equal to 0"))
+			errs = append(errs, mkerrorf("azure: max_retries must be greater than or equal to 0"))
 		}
 	case storagev1.Swift:
 		conf := cfg.GetCortexConfig().GetStorage().GetSwift()
 		if conf.GetAuthUrl() == "" {
-			errs = append(errs, mkerrorf("auth_url is required"))
+			errs = append(errs, mkerrorf("swift: auth_url is required"))
 		}
 		username := conf.GetUsername()
 		userId := conf.GetUserId()
@@ -163,24 +184,24 @@ func validateRequiredStorageCredentials(cfg *cortexops.CapabilityBackendConfigSp
 
 		switch {
 		case hasUsernameAuth && hasApplicationCredAuth:
-			errs = append(errs, mkerrorf("%s %s mutually exclusive with %s",
+			errs = append(errs, mkerrorf("swift: %s %s mutually exclusive with %s",
 				strings.Join(whichUser, " and "), lo.Ternary(len(whichUser) > 1, "are", "is"),
 				strings.Join(whichAppCred, " and ")))
 		case !hasUsernameAuth && !hasApplicationCredAuth:
-			errs = append(errs, mkerrorf("one of {username|user_id|application_credential_name|application_credential_id} is required"))
+			errs = append(errs, mkerrorf("swift: one of {username|user_id|application_credential_name|application_credential_id} is required"))
 		case hasUsernameAuth:
 			if conf.GetPassword() == "" {
-				errs = append(errs, mkerrorf("password is required when username or user_id is set"))
+				errs = append(errs, mkerrorf("swift: password is required when username or user_id is set"))
 			}
 		case hasApplicationCredAuth:
 			if conf.GetApplicationCredentialSecret() == "" {
-				errs = append(errs, mkerrorf("application_credential_secret is required when application_credential_id or application_credential_name is set"))
+				errs = append(errs, mkerrorf("swift: application_credential_secret is required when application_credential_id or application_credential_name is set"))
 			}
 		}
 	case storagev1.Filesystem:
 		conf := cfg.GetCortexConfig().GetStorage().GetFilesystem()
 		if conf.GetDir() == "" {
-			errs = append(errs, mkerrorf("dir is required"))
+			errs = append(errs, mkerrorf("filesystem: dir is required"))
 		}
 	}
 	return errs

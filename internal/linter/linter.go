@@ -1,4 +1,4 @@
-package main
+package linter
 
 import (
 	"fmt"
@@ -11,9 +11,9 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-type analyzerPlugin struct{}
+type Plugin struct{}
 
-func (*analyzerPlugin) GetAnalyzers() []*analysis.Analyzer {
+func (*Plugin) GetAnalyzers() []*analysis.Analyzer {
 	return []*analysis.Analyzer{
 		{
 			Name: "imports",
@@ -28,7 +28,7 @@ func (*analyzerPlugin) GetAnalyzers() []*analysis.Analyzer {
 	}
 }
 
-var AnalyzerPlugin analyzerPlugin
+var AnalyzerPlugin Plugin
 
 type restrictedImport struct {
 	Regex      *regexp.Regexp
@@ -42,9 +42,9 @@ func matchTestPackages(_ *types.Package, from *analysis.Pass) bool {
 func analyzeImports(p *analysis.Pass) (any, error) {
 	restrictions := []restrictedImport{
 		{
-			Regex: regexp.MustCompile("^github.com/rancher/opni/plugins/"),
+			Regex: regexp.MustCompile("^github.com/rancher/opni/plugins/pkg/"),
 			Exceptions: []any{
-				"github.com/rancher/opni/plugins/",
+				"github.com/rancher/opni/plugins/pkg/",
 				matchTestPackages,
 				"github.com/rancher/opni/cmd/",
 				"github.com/rancher/opni/pkg/opni/",
@@ -97,11 +97,15 @@ func analyzeImports(p *analysis.Pass) (any, error) {
 	}
 
 	pkgPath := p.Pkg.Path()
+	if strings.HasSuffix(pkgPath, ".test") {
+		pkgPath = strings.TrimSuffix(pkgPath, ".test") + "_test"
+	}
 
 	skip := map[string]struct{}{}
 	var visit func(pkg *types.Package, trace []string)
 	visit = func(pkg *types.Package, trace []string) {
 		path := pkg.Path()
+
 		if !strings.HasPrefix(path, "github.com/rancher/opni") {
 			skip[path] = struct{}{}
 			return
@@ -153,6 +157,9 @@ func analyzeImports(p *analysis.Pass) (any, error) {
 		for _, f := range p.Files {
 			for _, i := range f.Imports {
 				if i.Path.Value == "\""+path+"\"" {
+					if path == pkgPath {
+						continue
+					}
 					msg := fmt.Sprintf("importing %s from %s is not allowed\nFull import trace:\n%s\nStarting at:", path, pkgPath, importTrace)
 					p.Report(analysis.Diagnostic{
 						Pos:      i.Pos(),

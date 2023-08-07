@@ -8,12 +8,18 @@ import (
 )
 
 // Runs golangci-lint with the project config and custom linters
-func Lint(ctx context.Context) error {
-	mg.CtxDeps(ctx, Build.Linter)
+func Lint(ctx context.Context) {
 	_, tr := Tracer.Start(ctx, "target.lint")
 	defer tr.End()
 
-	return sh.RunWith(map[string]string{
-		"CGO_ENABLED": "1",
-	}, mg.GoCmd(), "run", "github.com/golangci/golangci-lint/cmd/golangci-lint", "run", "-v", "--fast")
+	mg.Deps(golangciLint, customLint)
+}
+
+func golangciLint() error {
+	return sh.Run(mg.GoCmd(), "run", "github.com/golangci/golangci-lint/cmd/golangci-lint@latest", "run", "-v", "--fast")
+}
+
+func customLint() error {
+	mg.Deps(Build.Linter)
+	return sh.Run("bin/lint", "./...")
 }

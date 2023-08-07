@@ -73,3 +73,16 @@ func must(err error) {
 		os.Exit(1)
 	}
 }
+
+func installTools(ctr *dagger.Container) *dagger.Container {
+	for _, tool := range []string{
+		"github.com/golangci/golangci-lint/cmd/golangci-lint@latest",
+		"github.com/mikefarah/yq/v4@latest",
+		"go.uber.org/mock/mockgen@latest",
+		"sigs.k8s.io/controller-tools/cmd/controller-gen@latest",
+		"sigs.k8s.io/kustomize/kustomize/v5@latest",
+	} {
+		ctr = ctr.WithExec([]string{"go", "install", tool})
+	}
+	return ctr
+}

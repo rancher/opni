@@ -322,7 +322,7 @@ export default {
     },
 
     failedTraining() {
-      return this.status?.statistics.stage === 'training failed';
+      return this.status?.statistics?.stage === 'training failed';
     }
   },
 

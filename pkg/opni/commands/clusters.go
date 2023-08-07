@@ -10,7 +10,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/opni/cliutil"
-	"github.com/rancher/opni/pkg/opni/ui"
+	"github.com/rancher/opni/pkg/tui"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -40,8 +40,8 @@ func BuildClustersListCmd() *cobra.Command {
 		Short:   "List clusters",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if watch {
-				m := ui.NewClusterListModel()
-				w := &ui.ClusterListWatcher{
+				m := tui.NewClusterListModel()
+				w := &tui.ClusterListWatcher{
 					Messages: make(chan tea.Msg, 100),
 					Client:   mgmtClient,
 				}

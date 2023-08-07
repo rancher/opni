@@ -1,4 +1,4 @@
-package ui
+package tui
 
 import (
 	"context"
@@ -17,10 +17,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
-
-var BaseStyle = lipgloss.NewStyle().
-	BorderStyle(lipgloss.HiddenBorder()).
-	Background(lipgloss.Color("#3B4252"))
 
 type Ref[T any] struct {
 	V *T
@@ -74,20 +70,6 @@ type ClusterListModel struct {
 	width                int
 	columns              []table.Column
 	showSessionAttrs     bool
-}
-
-func NewTable(cols []table.Column, opts ...table.Option) table.Model {
-	t := table.New(append([]table.Option{
-		table.WithColumns(cols),
-		table.WithFocused(true),
-	}, opts...)...)
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		Background(lipgloss.Color("#5e81ac")).
-		Bold(true)
-	s.Selected = lipgloss.NewStyle().Background(lipgloss.Color("#4C566A"))
-	t.SetStyles(s)
-	return t
 }
 
 func NewTableKeymap() Keymap {

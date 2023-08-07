@@ -9,6 +9,7 @@ import (
 	"github.com/rancher/opni/internal/codegen/cli"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
 	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
+	"github.com/rancher/opni/pkg/tui"
 	cobra "github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
 	"golang.org/x/term"
@@ -40,7 +41,7 @@ func (h *ConfigurationHistoryResponse) RenderText(out cli.Writer) {
 		out.Println(driverutil.MarshalConfigJson(h))
 		return
 	}
-	ui := driverutil.NewHistoryUI(h.GetEntries())
+	ui := tui.NewHistoryUI(h.GetEntries())
 	ui.Run()
 }
 

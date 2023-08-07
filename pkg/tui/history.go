@@ -1,4 +1,4 @@
-package driverutil
+package tui
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/nsf/jsondiff"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/opni/ui"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
@@ -30,7 +30,7 @@ type historyModel struct {
 	diffMode      string
 }
 
-type keymap struct {
+type historyKeymap struct {
 	Quit        key.Binding
 	LineUp      key.Binding
 	LineDown    key.Binding
@@ -42,7 +42,7 @@ type keymap struct {
 	DiffView    key.Binding
 }
 
-var Keymap = keymap{
+var HistoryKeymap = historyKeymap{
 	Quit:        key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
 	LineUp:      key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
 	LineDown:    key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
@@ -54,7 +54,7 @@ var Keymap = keymap{
 	DiffView:    key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "toggle diff view")),
 }
 
-func (km keymap) ShortHelp() []key.Binding {
+func (km historyKeymap) ShortHelp() []key.Binding {
 	return []key.Binding{
 		km.Quit,
 		km.LineUp,
@@ -64,7 +64,7 @@ func (km keymap) ShortHelp() []key.Binding {
 	}
 }
 
-func (km keymap) FullHelp() [][]key.Binding {
+func (km historyKeymap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{
 			km.Quit,
@@ -97,9 +97,9 @@ func (m historyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, Keymap.Quit):
+		case key.Matches(msg, HistoryKeymap.Quit):
 			return m, tea.Quit
-		case key.Matches(msg, Keymap.LineUp, Keymap.LineDown, Keymap.PageUp, Keymap.PageDown):
+		case key.Matches(msg, HistoryKeymap.LineUp, HistoryKeymap.LineDown, HistoryKeymap.PageUp, HistoryKeymap.PageDown):
 			if m.table.Focused() {
 				m.table, cmd = m.table.Update(msg)
 			} else {
@@ -113,13 +113,13 @@ func (m historyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			cmds = append(cmds, cmd)
-		case key.Matches(msg, Keymap.SwitchFocus):
+		case key.Matches(msg, HistoryKeymap.SwitchFocus):
 			if m.table.Focused() {
 				m.table.Blur()
 			} else {
 				m.table.Focus()
 			}
-		case key.Matches(msg, Keymap.DiffView):
+		case key.Matches(msg, HistoryKeymap.DiffView):
 			modes := []string{"diff", "full-diff", "none"}
 			m.diffMode = modes[(slices.Index(modes, m.diffMode)+1)%len(modes)]
 		case msg.String() == "?":
@@ -153,7 +153,7 @@ func (m historyModel) View() string {
 	contents := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 	return lipgloss.JoinVertical(lipgloss.Left,
 		contents,
-		lipgloss.NewStyle().Margin(0, 1, 0, 1).Render(m.help.View(Keymap)),
+		lipgloss.NewStyle().Margin(0, 1, 0, 1).Render(m.help.View(HistoryKeymap)),
 	)
 }
 
@@ -164,7 +164,7 @@ func (m *historyModel) renderTableView() string {
 	} else {
 		border = lipgloss.HiddenBorder()
 	}
-	return ui.BaseStyle.Copy().BorderStyle(border).BorderForeground(lipgloss.Color("#8fbcbb")).Render(m.table.View())
+	return BaseStyle.Copy().BorderStyle(border).BorderForeground(lipgloss.Color("#8fbcbb")).Render(m.table.View())
 }
 
 func (m *historyModel) renderJsonView() string {
@@ -204,7 +204,7 @@ func (m *historyModel) renderJsonView() string {
 	)
 }
 
-func NewHistoryUI[T config_type[T]](ts []T) *HistoryUI {
+func NewHistoryUI[T driverutil.ConfigType[T]](ts []T) *HistoryUI {
 	var entries []entry
 	for i, e := range ts {
 		entry := entry{
@@ -226,7 +226,7 @@ func NewHistoryUI[T config_type[T]](ts []T) *HistoryUI {
 			prev := entries[i-1]
 			opts := jsondiff.DefaultConsoleOptions()
 			opts.SkipMatches = true
-			str, _ := RenderJsonDiff(prev.cfg, entry.cfg, opts)
+			str, _ := driverutil.RenderJsonDiff(prev.cfg, entry.cfg, opts)
 
 			diffView := viewport.New(0, 29)
 			diffView.SetContent(str)
@@ -235,7 +235,7 @@ func NewHistoryUI[T config_type[T]](ts []T) *HistoryUI {
 			entry.diffSummary = diffSummary(str)
 
 			opts.SkipMatches = false
-			str, _ = RenderJsonDiff(prev.cfg, entry.cfg, opts)
+			str, _ = driverutil.RenderJsonDiff(prev.cfg, entry.cfg, opts)
 			fullDiffView := viewport.New(0, 29)
 			fullDiffView.SetContent(str)
 			entry.fullDiffView = fullDiffView
@@ -259,7 +259,7 @@ func NewHistoryUI[T config_type[T]](ts []T) *HistoryUI {
 		}
 	}
 
-	table := ui.NewTable(columns, table.WithRows(rows), table.WithHeight(30), table.WithWidth(38))
+	table := NewTable(columns, table.WithRows(rows), table.WithHeight(30), table.WithWidth(38))
 	table.GotoBottom()
 	help := help.New()
 	return &HistoryUI{

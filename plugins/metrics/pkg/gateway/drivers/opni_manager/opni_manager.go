@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -22,7 +21,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,6 +57,7 @@ func (k OpniManagerClusterDriverOptions) newGateway() *opnicorev1beta1.Gateway {
 
 type OpniManager struct {
 	cortexops.UnsafeCortexOpsServer
+	driverutil.DefaultConfigurableServer[*cortexops.CapabilityBackendConfigSpec, *cortexops.GetRequest]
 	OpniManagerClusterDriverOptions
 
 	configTracker *driverutil.DefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec]
@@ -155,10 +154,13 @@ func NewOpniManagerClusterDriver(options OpniManagerClusterDriverOptions) (*Opni
 		},
 	}
 
+	configTracker := driverutil.NewDefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec](
+		options.DefaultConfigStore, activeStore, flagutil.LoadDefaults[*cortexops.CapabilityBackendConfigSpec])
+
 	return &OpniManager{
 		OpniManagerClusterDriverOptions: options,
-		configTracker: driverutil.NewDefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec](
-			options.DefaultConfigStore, activeStore, flagutil.LoadDefaults[*cortexops.CapabilityBackendConfigSpec]),
+		configTracker:                   configTracker,
+		DefaultConfigurableServer:       driverutil.NewDefaultConfigurableServer[cortexops.CortexOpsServer](configTracker),
 	}, nil
 }
 
@@ -230,106 +232,45 @@ func (k *OpniManager) ListPresets(context.Context, *emptypb.Empty) (*cortexops.P
 
 // Status implements cortexops.CortexOpsServer.
 func (k *OpniManager) Status(ctx context.Context, _ *emptypb.Empty) (*cortexops.InstallStatus, error) {
-	metadata := map[string]string{}
-	var state cortexops.InstallState
-	var version string
+	status := &cortexops.InstallStatus{
+		ConfigState:  cortexops.ConfigurationState_NotConfigured,
+		InstallState: cortexops.InstallState_NotInstalled,
+		AppState:     cortexops.ApplicationState_NotRunning,
+		Metadata: map[string]string{
+			"driver": "opni-manager",
+		},
+	}
 
 	cluster := k.newMonitoringCluster()
 	err := k.K8sClient.Get(ctx, k.MonitoringCluster, cluster)
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			state = cortexops.InstallState_NotInstalled
-		} else {
+		if !k8serrors.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to get monitoring cluster: %w", err)
 		}
 	} else {
-		status := cluster.Status.Cortex
+		status.ConfigState = cortexops.ConfigurationState_Configured
+		if cluster.Spec.Cortex.Enabled != nil && *cluster.Spec.Cortex.Enabled {
+			status.InstallState = cortexops.InstallState_Installed
+		}
+		mcStatus := cluster.Status.Cortex
 		if err != nil {
 			return nil, err
 		}
-		version = status.Version
+		status.Version = mcStatus.Version
 		if cluster.GetDeletionTimestamp() != nil {
-			state = cortexops.InstallState_Uninstalling
+			status.InstallState = cortexops.InstallState_Uninstalling
+			status.AppState = cortexops.ApplicationState_Running
 		} else {
-			if status.WorkloadsReady {
-				state = cortexops.InstallState_Installed
+			if mcStatus.WorkloadsReady {
+				status.AppState = cortexops.ApplicationState_Running
 			} else {
-				state = cortexops.InstallState_Updating
-				metadata["Conditions"] = strings.Join(status.Conditions, "; ")
+				status.AppState = cortexops.ApplicationState_Pending
+				status.Warnings = append(status.Warnings, mcStatus.Conditions...)
 			}
 		}
 	}
 
-	return &cortexops.InstallStatus{
-		State:   state,
-		Version: version,
-		Metadata: lo.Assign(metadata, map[string]string{
-			"Driver": "opni-manager",
-		}),
-	}, nil
-}
-
-func (k *OpniManager) Uninstall(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	err := k.configTracker.ApplyConfig(ctx, &cortexops.CapabilityBackendConfigSpec{
-		Enabled: lo.ToPtr[bool](false),
-	})
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to uninstall monitoring cluster: %s", err.Error())
-	}
-	return &emptypb.Empty{}, nil
-}
-
-func (k *OpniManager) Install(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	err := k.configTracker.ApplyConfig(ctx, &cortexops.CapabilityBackendConfigSpec{
-		Enabled: lo.ToPtr[bool](true),
-	})
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to install monitoring cluster: %s", err.Error())
-	}
-	return &emptypb.Empty{}, nil
-}
-
-var _ cortexops.CortexOpsServer = (*OpniManager)(nil)
-
-func (k *OpniManager) GetDefaultConfiguration(ctx context.Context, in *cortexops.GetRequest) (*cortexops.CapabilityBackendConfigSpec, error) {
-	return k.configTracker.GetDefaultConfig(ctx, in.GetRevision())
-}
-
-func (k *OpniManager) SetDefaultConfiguration(ctx context.Context, spec *cortexops.CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
-	spec.Enabled = nil
-	if err := k.configTracker.SetDefaultConfig(ctx, spec); err != nil {
-		return nil, err
-	}
-	return &emptypb.Empty{}, nil
-}
-
-func (k *OpniManager) ResetDefaultConfiguration(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	if err := k.configTracker.ResetDefaultConfig(ctx); err != nil {
-		return nil, err
-	}
-	return &emptypb.Empty{}, nil
-}
-
-func (k *OpniManager) GetConfiguration(ctx context.Context, in *cortexops.GetRequest) (*cortexops.CapabilityBackendConfigSpec, error) {
-	return k.configTracker.GetConfigOrDefault(ctx, in.GetRevision())
-}
-
-func (k *OpniManager) SetConfiguration(ctx context.Context, conf *cortexops.CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
-	conf.Enabled = nil
-	if err := k.configTracker.ApplyConfig(ctx, conf); err != nil {
-		return nil, err
-	}
-	return &emptypb.Empty{}, nil
-}
-
-func (k *OpniManager) ResetConfiguration(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	mask := &fieldmaskpb.FieldMask{
-		Paths: []string{"enabled"},
-	}
-	if err := k.configTracker.ResetConfig(ctx, mask); err != nil {
-		return nil, err
-	}
-	return &emptypb.Empty{}, nil
+	return status, nil
 }
 
 func (k *OpniManager) ShouldDisableNode(_ *corev1.Reference) error {

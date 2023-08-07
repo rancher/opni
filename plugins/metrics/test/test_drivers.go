@@ -33,7 +33,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 var (
@@ -127,67 +126,6 @@ func (*TestEnvMetricsClusterDriver) ListPresets(context.Context, *emptypb.Empty)
 	}, nil
 }
 
-func (k *TestEnvMetricsClusterDriver) Uninstall(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	err := k.configTracker.ApplyConfig(ctx, &cortexops.CapabilityBackendConfigSpec{
-		Enabled: lo.ToPtr[bool](false),
-	})
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to uninstall monitoring cluster: %s", err.Error())
-	}
-	return &emptypb.Empty{}, nil
-}
-
-func (k *TestEnvMetricsClusterDriver) Install(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	err := k.configTracker.ApplyConfig(ctx, &cortexops.CapabilityBackendConfigSpec{
-		Enabled: lo.ToPtr[bool](true),
-	})
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to install monitoring cluster: %s", err.Error())
-	}
-	return &emptypb.Empty{}, nil
-}
-
-func (k *TestEnvMetricsClusterDriver) GetDefaultConfiguration(ctx context.Context, in *cortexops.GetRequest) (*cortexops.CapabilityBackendConfigSpec, error) {
-	return k.configTracker.GetDefaultConfig(ctx, in.GetRevision())
-}
-
-func (k *TestEnvMetricsClusterDriver) SetDefaultConfiguration(ctx context.Context, spec *cortexops.CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
-	spec.Enabled = nil
-	if err := k.configTracker.SetDefaultConfig(ctx, spec); err != nil {
-		return nil, err
-	}
-	return &emptypb.Empty{}, nil
-}
-
-func (k *TestEnvMetricsClusterDriver) ResetDefaultConfiguration(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	if err := k.configTracker.ResetDefaultConfig(ctx); err != nil {
-		return nil, err
-	}
-	return &emptypb.Empty{}, nil
-}
-
-func (k *TestEnvMetricsClusterDriver) GetConfiguration(ctx context.Context, in *cortexops.GetRequest) (*cortexops.CapabilityBackendConfigSpec, error) {
-	return k.configTracker.GetConfigOrDefault(ctx, in.GetRevision())
-}
-
-func (d *TestEnvMetricsClusterDriver) SetConfiguration(ctx context.Context, conf *cortexops.CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
-	conf.Enabled = nil
-	if err := d.configTracker.ApplyConfig(ctx, conf); err != nil {
-		return nil, err
-	}
-	return &emptypb.Empty{}, nil
-}
-
-func (k *TestEnvMetricsClusterDriver) ResetConfiguration(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	mask := &fieldmaskpb.FieldMask{
-		Paths: []string{"enabled"},
-	}
-	if err := k.configTracker.ResetConfig(ctx, mask); err != nil {
-		return nil, err
-	}
-	return &emptypb.Empty{}, nil
-}
-
 // DryRun implements cortexops.CortexOpsServer.
 func (k *TestEnvMetricsClusterDriver) DryRun(ctx context.Context, req *cortexops.DryRunRequest) (*cortexops.DryRunResponse, error) {
 	res, err := k.configTracker.DryRun(ctx, req.Target, req.Action, req.Spec)
@@ -240,6 +178,7 @@ func NewTestEnvMetricsClusterDriver(env *test.Environment) *TestEnvMetricsCluste
 	d.configTracker = driverutil.NewDefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec](
 		defaultStore, activeStore, flagutil.LoadDefaults[*cortexops.CapabilityBackendConfigSpec],
 	)
+	d.DefaultConfigurableServer = driverutil.NewDefaultConfigurableServer[cortexops.CortexOpsServer](d.configTracker)
 	return d
 }
 

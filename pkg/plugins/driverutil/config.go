@@ -11,30 +11,18 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/merge"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 type DefaultLoaderFunc[T any] func(T)
 
-type secretsRedactor[T any] interface {
-	RedactSecrets()
-	UnredactSecrets(T) error
-}
-
-type config_type[T any] interface {
-	proto.Message
-	GetRevision() *corev1.Revision
-	secretsRedactor[T]
-}
-
 type DryRunResults[T any] struct {
 	Current  T
 	Modified T
 }
 
-type DefaultingConfigTracker[T config_type[T]] struct {
+type DefaultingConfigTracker[T ConfigType[T]] struct {
 	lock               sync.Mutex
 	defaultStore       storage.ValueStoreT[T]
 	activeStore        storage.ValueStoreT[T]
@@ -42,7 +30,7 @@ type DefaultingConfigTracker[T config_type[T]] struct {
 	revisionFieldIndex int
 }
 
-func NewDefaultingConfigTracker[T config_type[T]](
+func NewDefaultingConfigTracker[T ConfigType[T]](
 	defaultStore, activeStore storage.ValueStoreT[T],
 	loadDefaultsFunc DefaultLoaderFunc[T],
 ) *DefaultingConfigTracker[T] {
@@ -321,7 +309,7 @@ func (ct *DefaultingConfigTracker[T]) DryRunApplyConfig(ctx context.Context, new
 		return DryRunResults[T]{}, err
 	}
 
-	if newConfig.GetRevision().GetRevision() != rev {
+	if newConfig.GetRevision() != nil && newConfig.GetRevision().GetRevision() != rev {
 		return DryRunResults[T]{}, storage.ErrConflict
 	}
 
@@ -353,7 +341,7 @@ func (ct *DefaultingConfigTracker[T]) DryRunSetDefaultConfig(ctx context.Context
 	if err != nil {
 		return DryRunResults[T]{}, err
 	}
-	if newDefault.GetRevision().GetRevision() != rev {
+	if newDefault.GetRevision() != nil && newDefault.GetRevision().GetRevision() != rev {
 		return DryRunResults[T]{}, storage.ErrConflict
 	}
 
@@ -429,7 +417,7 @@ func (ct *DefaultingConfigTracker[T]) unsetRevision(t T) {
 	}
 }
 
-func getRevisionFieldIndex[T config_type[T]]() int {
+func getRevisionFieldIndex[T ConfigType[T]]() int {
 	var revision corev1.Revision
 	revisionFqn := revision.ProtoReflect().Descriptor().FullName()
 	var t T

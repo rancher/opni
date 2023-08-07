@@ -7,18 +7,16 @@ import (
 	"github.com/samber/lo"
 )
 
-type driver interface{}
+type DriverBuilder[D Driver] func(ctx context.Context, opts ...Option) (D, error)
 
-type DriverBuilder[D driver] func(ctx context.Context, opts ...Option) (D, error)
-
-type DriverCache[D driver] interface {
+type DriverCache[D Driver] interface {
 	Register(name string, builder DriverBuilder[D])
 	Unregister(name string)
 	Get(name string) (DriverBuilder[D], bool)
 	List() []string
 }
 
-type driverCache[D driver] struct {
+type driverCache[D Driver] struct {
 	lock     sync.RWMutex
 	builders map[string]DriverBuilder[D]
 }
@@ -52,7 +50,7 @@ func (dc *driverCache[D]) List() []string {
 	return lo.Keys(dc.builders)
 }
 
-func NewDriverCache[D driver]() DriverCache[D] {
+func NewDriverCache[D Driver]() DriverCache[D] {
 	return &driverCache[D]{
 		builders: make(map[string]DriverBuilder[D]),
 	}

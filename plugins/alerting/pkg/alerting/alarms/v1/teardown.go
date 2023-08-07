@@ -37,18 +37,30 @@ func (p *AlarmServerComponent) teardownCondition(
 		return nil
 	}
 	if alertingv1.IsInternalCondition(req) {
+		incidentStorage, err := p.incidentStorage.GetContext(ctx)
+		if err != nil {
+			return err
+		}
+		stateStorage, err := p.stateStorage.GetContext(ctx)
+		if err != nil {
+			return err
+		}
 		p.runner.RemoveConfigListener(id)
-		if err := p.incidentStorage.Get().Delete(ctx, id); err != nil {
+		if err := incidentStorage.Delete(ctx, id); err != nil {
 			retErr = err
 		}
-		if err := p.stateStorage.Get().Delete(ctx, id); err != nil {
+		if err := stateStorage.Delete(ctx, id); err != nil {
 			retErr = err
 		}
 		return
 	}
 	if alertingv1.IsMetricsCondition(req) {
 		if r, _ := extractClusterMd(req.AlertType); r != nil {
-			_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.DeleteRuleRequest{
+			cortexAdminClient, err := p.adminClient.GetContext(ctx)
+			if err != nil {
+				return err
+			}
+			_, err = cortexAdminClient.DeleteRule(ctx, &cortexadmin.DeleteRuleRequest{
 				ClusterId: r.Id,
 				Namespace: shared.OpniAlertingCortexNamespace,
 				GroupName: cortex.RuleIdFromUuid(id),

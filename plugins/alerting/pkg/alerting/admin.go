@@ -51,8 +51,11 @@ func (s *SyncController) RemoveSyncPusher(LifecycleUuid string) {
 }
 
 func (s *SyncController) PushSyncReq(req *alertops.SyncRequest) {
-	for _, syncers := range s.syncPushers {
-		syncers <- req
+	for _, syncer := range s.syncPushers {
+		syncer := syncer
+		go func() {
+			syncer <- req
+		}()
 	}
 }
 
@@ -162,7 +165,8 @@ func (p *Plugin) ConnectRemoteSyncer(request *alertops.ConnectRequest, syncerSer
 		lg.Error("failed to send initial sync")
 	}
 	lg.Debug("finished performing intial sync")
-	syncChan := make(chan *alertops.SyncRequest)
+	syncChan := make(chan *alertops.SyncRequest, 16)
+	defer close(syncChan)
 	p.syncController.AddSyncPusher(request.LifecycleUuid, syncChan)
 	for {
 		select {
@@ -171,12 +175,15 @@ func (p *Plugin) ConnectRemoteSyncer(request *alertops.ConnectRequest, syncerSer
 			return nil
 		case <-syncerServer.Context().Done():
 			lg.Debug("exiting syncer loop, remote syncer shutting down")
+			p.syncController.RemoveSyncPusher(request.LifecycleUuid)
 			return nil
 		case syncReq := <-syncChan:
-			err := syncerServer.Send(syncReq)
-			if err != nil {
-				lg.Errorf("could not send sync request to remote syncer %s", err)
-			}
+			go func(req *alertops.SyncRequest) {
+				err := syncerServer.Send(syncReq)
+				if err != nil {
+					lg.Errorf("could not send sync request to remote syncer %s", err)
+				}
+			}(syncReq)
 		}
 	}
 }
@@ -327,6 +334,7 @@ func (p *Plugin) runSyncTasks(tasks []alertingSync.SyncTask) (retErr error) {
 	syncInfo, err := p.getSyncInfo(ctx)
 	if err != nil {
 		lg.Error("skipping alerting periodic sync due to error : %s", err)
+		return err
 	}
 
 	lg.Info("Running periodic sync for alerting")
@@ -338,7 +346,7 @@ func (p *Plugin) runSyncTasks(tasks []alertingSync.SyncTask) (retErr error) {
 		})
 	}
 	eg.Wait()
-	lg.Info("Finished running periodic sync for alerting")
+	lg.Infof("finished running periodic sync for alerting, sucessfully ran %d/%d sync tasks", len(tasks)-len(eg.Errors()), len(tasks))
 	if err := eg.Error(); err != nil {
 		lg.Error(err)
 		retErr = err
@@ -363,9 +371,13 @@ func (p *Plugin) runSync() {
 			p.logger.Info("exiting main sync loop")
 			return
 		case <-ticker.C:
-			p.runSyncTasks(syncTasks)
+			if err := p.runSyncTasks(syncTasks); err != nil {
+				p.logger.Errorf("failed to successfully run all alerting sync tasks : %s", err)
+			}
 		case <-longTicker.C:
-			p.runSyncTasks(forceSyncTasks)
+			if err := p.runSyncTasks(forceSyncTasks); err != nil {
+				p.logger.Errorf("failed to successfully run all alerting force sync tasks : %s", err)
+			}
 		}
 	}
 }

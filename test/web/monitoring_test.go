@@ -154,8 +154,8 @@ var _ = XDescribe("Monitoring", Ordered, Label("web"), func() {
 		b.Click("section#matchLabels > div.key-value button")
 
 		By("entering a key and value")
-		Eventually("section#matchLabels div.key > input").Should(b.SetValue("test-key"))
-		Eventually("section#matchLabels div.value > input").Should(b.SetValue("test-value"))
+		Eventually("section#matchLabels .key input").Should(b.SetValue("test-key"))
+		Eventually("section#matchLabels .value input").Should(b.SetValue("test-value"))
 		time.Sleep(600 * time.Millisecond) // these text boxes have a 500ms(??) debounce
 
 		By("clicking the Save button")

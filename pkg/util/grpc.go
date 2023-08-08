@@ -61,5 +61,5 @@ func HashString(s string) uint64 {
 }
 
 func DeleteMe() {
-	panic("sample code 2")
+	panic("sample code 3")
 }

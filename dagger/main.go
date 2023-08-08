@@ -315,7 +315,9 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 	opni := archives.
 		Pipeline("Build Opni").
 		WithMountedDirectory(webDist, nodeBuild.Directory(webDist)).
-		WithExec(mage("build:opni"))
+		WithExec(mage("build:opni")).
+		WithExec([]string{"ls", "-alhS", "/go/pkg/mod"}).
+		WithExec([]string{"ls", "-alhS", "/root/.cache/go-build"})
 
 	minimal := archives.
 		Pipeline("Build Opni Minimal").

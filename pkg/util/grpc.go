@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+
 	"github.com/zeebo/xxh3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -57,4 +58,8 @@ func HashStrings(strings []string) string {
 
 func HashString(s string) uint64 {
 	return xxh3.HashString(s)
+}
+
+func DeleteMe() {
+	panic("sample code")
 }

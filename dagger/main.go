@@ -289,8 +289,7 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		WithoutEnvVariable("GOBIN").
 		WithDirectory(b.workdir, b.sources).
 		WithExec([]string{"ls", "-alhS", "/go/pkg/mod"}).
-		WithExec([]string{"ls", "-alhS", "/root/.cache/go-build"}).
-		WithExec([]string{"ls", "-alhS", "/root/.cache/golangci-lint"})
+		WithExec([]string{"ls", "-alhS", "/root/.cache/go-build"})
 
 	nodeBuild := nodeBase.
 		Pipeline("Node Build").

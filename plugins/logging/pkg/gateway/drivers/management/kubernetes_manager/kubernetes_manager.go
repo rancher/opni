@@ -342,10 +342,10 @@ func (d *KubernetesManagerDriver) DoUpgrade(ctx context.Context, opniVersion str
 		k8sOpensearchCluster.Spec.OpensearchVersion = opensearchVersion
 
 		image := fmt.Sprintf(
-			"%s/opensearch-dashboards:%s-%s",
+			"%s/opensearch-dashboards:v%s-%s",
 			defaultRepo,
-			opensearchVersion,
 			opniVersion,
+			opensearchVersion,
 		)
 
 		k8sOpensearchCluster.Spec.OpensearchSettings.Dashboards.Image = &image

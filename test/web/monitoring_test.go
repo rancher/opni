@@ -21,7 +21,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var _ = XDescribe("Monitoring", Ordered, Label("web"), func() {
+var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 	var mgmtClient managementv1.ManagementClient
 	var adminClient cortexadmin.CortexAdminClient
 	var opsClient cortexops.CortexOpsClient

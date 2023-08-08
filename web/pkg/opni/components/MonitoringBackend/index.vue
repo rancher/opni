@@ -4,7 +4,6 @@ import Tab from '@shell/components/Tabbed/Tab';
 import Tabbed from '@shell/components/Tabbed';
 import { cloneDeep } from 'lodash';
 import { CortexOps, DryRun } from '@pkg/opni/api/opni';
-import { Duration } from '@bufbuild/protobuf';
 import Backend from '../Backend';
 import CapabilityTable from '../CapabilityTable';
 import { getMetricCapabilities } from '../../utils/requests/capability';
@@ -13,12 +12,9 @@ import Grafana from './Grafana';
 import { default as StorageComponent } from './Storage';
 
 export async function isEnabled() {
-  // TODO: Uncomment once status is updated
-  // const status = (await CortexOps.service.Status()).state;
+  const state = (await CortexOps.service.Status()).installState;
 
-  // return status !== CortexOps.types.InstallState.NotInstalled;
-
-  return true;
+  return state !== CortexOps.types.InstallState.NotInstalled;
 }
 
 export default {
@@ -158,9 +154,11 @@ export default {
     },
 
     bannerMessage(status) {
-      switch (status) {
-      case CortexOps.types.InstallState.Updating:
-        return `Monitoring is currently updating on the cluster. You can't make changes right now.`;
+      if (status.warnings?.length > 0) {
+        return `There are currently errors that need to be resolved:`;
+      }
+
+      switch (status.installState) {
       case CortexOps.types.InstallState.Uninstalling:
         return `Monitoring is currently uninstalling from the cluster. You can't make changes right now.`;
       case CortexOps.types.InstallState.Installed:
@@ -171,8 +169,11 @@ export default {
     },
 
     bannerState(status) {
-      switch (status) {
-      case CortexOps.types.InstallState.Updating:
+      if (status.warnings?.length > 0) {
+        return 'error';
+      }
+
+      switch (status.installState) {
       case CortexOps.types.InstallState.Uninstalling:
         return 'warning';
       case CortexOps.types.InstallState.Installed:
@@ -189,22 +190,21 @@ export default {
     },
 
     async getStatus() {
-      // TODO: Uncomment once status is updated
-      // try {
-      //   const status = (await CortexOps.service.Status()).state;
+      try {
+        const status = (await CortexOps.service.Status());
 
-      //   if (status === CortexOps.types.InstallState.NotInstalled) {
-      //     return null;
-      //   }
+        if (status.installState === CortexOps.types.InstallState.NotInstalled) {
+          return null;
+        }
 
-      //   return {
-      //     state:   this.bannerState(status),
-      //     message: this.bannerMessage(status)
-      //   };
-      // } catch (ex) {
-      //   return null;
-      // }
-      return await null;
+        return {
+          state:   this.bannerState(status),
+          message: this.bannerMessage(status),
+          list:     status.warnings
+        };
+      } catch (ex) {
+        return null;
+      }
     },
 
     async getConfig() {

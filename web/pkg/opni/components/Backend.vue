@@ -209,6 +209,11 @@ export default {
     </header>
     <Banner v-if="((enabled || editing) && status && status.message)" :color="status.state" class="mt-0">
       {{ status.message }}
+      <ul v-if="status.list">
+        <li v-for="(item, i) in status.list" :key="i">
+          {{ item }}
+        </li>
+      </ul>
     </Banner>
     <Banner v-if="(enabled && upgradeable)" color="success" class="mt-0">
       <div class="banner-message">
@@ -315,6 +320,10 @@ header {
 
   .enabled {
     width: 100%;
+  }
+
+  ul {
+    margin: 0;
   }
 }
 </style>

@@ -19,6 +19,8 @@ type Test mg.Namespace
 
 // Runs all tests
 func (Test) All() error {
+	mg.Deps(Generate.ProtobufTypescript)
+
 	if testbinNeedsUpdate() {
 		mg.Deps(Test.Bin)
 	}

@@ -12,7 +12,7 @@ func Lint(ctx context.Context) {
 	_, tr := Tracer.Start(ctx, "target.lint")
 	defer tr.End()
 
-	mg.Deps(golangciLint, customLint)
+	mg.Deps(golangciLint, customLint, Generate.ProtobufTypescript)
 }
 
 func golangciLint() error {

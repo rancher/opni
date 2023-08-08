@@ -70,6 +70,7 @@ service Ext {
   }
   rpc ServerStream(FooRequest) returns (stream FooResponse);
   rpc ClientStream(stream FooRequest) returns (FooResponse);
+  rpc BidirectionalStream(stream FooRequest) returns (stream FooResponse);
 }
 
 message Reference {

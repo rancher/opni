@@ -16,7 +16,7 @@ func Lint(ctx context.Context) {
 }
 
 func golangciLint() error {
-	return sh.Run("golangci-lint", "run", "-v", "--fast")
+	return sh.Run(mg.GoCmd(), "run", "github.com/golangci/golangci-lint/cmd/golangci-lint@latest", "run", "-v", "--fast")
 }
 
 func customLint() error {

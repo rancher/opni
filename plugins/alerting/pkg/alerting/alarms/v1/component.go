@@ -132,6 +132,7 @@ func (a *AlarmServerComponent) Sync(ctx context.Context, syncInfo alertingSync.S
 		conds = append(conds, groupConds...)
 	}
 	eg := &util.MultiErrGroup{}
+	a.logger.Infof("syncing %d conditions", len(conds))
 	for _, cond := range conds {
 		cond := cond
 		if syncInfo.ShouldSync {
@@ -178,6 +179,7 @@ func (a *AlarmServerComponent) Sync(ctx context.Context, syncInfo alertingSync.S
 		}
 	}
 	eg.Wait()
+	a.logger.Infof("successfully synced (%d/%d) conditions", len(conds)-len(eg.Errors()), len(conds))
 	if err := eg.Error(); err != nil {
 		return err
 	}

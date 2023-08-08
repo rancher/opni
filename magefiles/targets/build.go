@@ -56,7 +56,7 @@ func (Build) TypescriptServiceGenerator() error {
 	command.Stderr = os.Stderr
 	command.Stdout = os.Stdout
 	command.Stdin = os.Stdin
-	
+
 	return command.Run()
 }
 

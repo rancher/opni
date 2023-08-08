@@ -19,6 +19,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	gsync "github.com/kralicky/gpkg/sync"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/genproto/googleapis/api/annotations"
 	statuspb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -516,7 +517,62 @@ func unknownServiceHandler(director StreamDirector) grpc.StreamHandler {
 
 			return nil
 		case meta.ServerStreaming && meta.ClientStreaming:
-			return status.Errorf(codes.Unimplemented, "bidirectional apiextension streaming not implemented yet")
+			cs, err := meta.Conn.NewStream(outgoingCtx, &grpc.StreamDesc{
+				StreamName:    path.Base(fullMethodName),
+				ServerStreams: true,
+				ClientStreams: true,
+			}, fullMethodName)
+			if err != nil {
+				return err
+			}
+
+			if md, err := cs.Header(); err == nil {
+				stream.SendHeader(md)
+			}
+			var eg errgroup.Group
+			// client -> server
+			eg.Go(func() error {
+				for {
+					reply := dynamic.NewMessage(meta.OutputType)
+					if err := cs.RecvMsg(reply); err != nil {
+						return err
+					}
+					if err := stream.SendMsg(reply); err != nil {
+						return err
+					}
+				}
+			})
+
+			// server -> client
+			eg.Go(func() error {
+				for {
+					toSend := dynamic.NewMessage(meta.InputType)
+					if err := stream.RecvMsg(toSend); err != nil {
+						if errors.Is(err, io.EOF) {
+							break
+						}
+						return err
+					}
+					if err := cs.SendMsg(toSend); err != nil {
+						return err
+					}
+				}
+				if err := cs.CloseSend(); err != nil {
+					return err
+				}
+
+				return io.EOF
+			})
+			err = eg.Wait()
+			if err != nil && !errors.Is(err, io.EOF) {
+				return err
+			}
+
+			if t := cs.Trailer(); t != nil {
+				stream.SetTrailer(t)
+			}
+			return nil
+
 		case !meta.ServerStreaming && !meta.ClientStreaming:
 			fallthrough
 		default:

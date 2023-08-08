@@ -530,7 +530,7 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 		})
 		When("new version is available", func() {
 			BeforeEach(func() {
-				version = "v0.11.0-rc3"
+				version = "v0.11.0-rc4"
 			})
 			When("updating the opni cluster", func() {
 				BeforeEach(func() {
@@ -569,7 +569,7 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					Name:      OpniServicesName,
 					Namespace: namespace,
 				}, cluster)).Should(Succeed())
-				Expect(cluster.Spec.Version).To(Equal("v0.11.0-rc3"))
+				Expect(cluster.Spec.Version).To(Equal("v0.11.0-rc4"))
 			})
 		})
 		When("new version is older", func() {

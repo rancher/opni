@@ -287,7 +287,10 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		WithEnvVariable("GOBIN", "/usr/bin"). // important for cached mage binary
 		WithExec([]string{"go", "install", "github.com/magefile/mage@latest"}).
 		WithoutEnvVariable("GOBIN").
-		WithDirectory(b.workdir, b.sources)
+		WithDirectory(b.workdir, b.sources).
+		WithExec([]string{"ls", "-alhS", "/go/pkg/mod"}).
+		WithExec([]string{"ls", "-alhS", "/root/.cache/go-build"}).
+		WithExec([]string{"ls", "-alhS", "/root/.cache/golangci-lint"})
 
 	nodeBuild := nodeBase.
 		Pipeline("Node Build").

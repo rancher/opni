@@ -548,23 +548,20 @@ func (e *Environment) startJetstream() {
 			return
 		}
 	}
-	os.Setenv("NATS_SERVER_URL", fmt.Sprintf("http://localhost:%d", e.ports.Jetstream))
+
+	natsURL := fmt.Sprintf("nats://localhost:%d", e.ports.Jetstream)
 	authConfigFile := path.Join(e.tempDir, "jetstream", "seed", "nats-auth.conf")
 	err = os.WriteFile(authConfigFile, []byte(seed), 0644)
 	if err != nil {
 		panic("failed to write jetstream auth config")
 	}
-	os.Setenv("NKEY_SEED_FILENAME", authConfigFile)
 	lg.Info("Waiting for jetstream to start...")
 	waitctx.Go(e.ctx, func() {
 		<-e.ctx.Done()
 		session.Wait()
 	})
 	for e.ctx.Err() == nil {
-		natsURL := os.Getenv("NATS_SERVER_URL")
-		natsSeedPath := os.Getenv("NKEY_SEED_FILENAME")
-
-		opt, err := nats.NkeyOptionFromSeed(natsSeedPath)
+		opt, err := nats.NkeyOptionFromSeed(authConfigFile)
 		if err != nil {
 			panic(err)
 		}

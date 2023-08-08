@@ -100,8 +100,22 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		nc  *nats.Conn
 		err error
 	)
+
+	cfg := p.gatewayConfig.Get().Spec.Storage.JetStream
+	natsURL := os.Getenv("NATS_SERVER_URL")
+	natsSeedPath := os.Getenv("NKEY_SEED_FILENAME")
+	if cfg == nil {
+		cfg = &v1beta1.JetStreamStorageSpec{}
+	}
+	if cfg.Endpoint == "" {
+		cfg.Endpoint = natsURL
+	}
+	if cfg.NkeySeedPath == "" {
+		cfg.NkeySeedPath = natsSeedPath
+	}
 	nc, err = natsutil.AcquireNATSConnection(
 		p.ctx,
+		cfg,
 		natsutil.WithLogger(p.logger),
 		natsutil.WithNatsOptions([]nats.Option{
 			nats.ErrorHandler(func(nc *nats.Conn, s *nats.Subscription, err error) {

@@ -48,6 +48,7 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			os.Exit(1)
 		}
 		p.storageBackend.Set(backend)
+		p.gatewayConfig.Set(config)
 		p.configureTopologyManagement()
 	})
 	<-p.ctx.Done()
@@ -71,8 +72,19 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	p.storage.Set(ConfigStorageAPIs{
 		Placeholder: system.NewKVStoreClient[proto.Message](client),
 	})
-
-	nc, err := natsutil.AcquireNATSConnection(p.ctx)
+	cfg := p.gatewayConfig.Get().Spec.Storage.JetStream
+	natsURL := os.Getenv("NATS_SERVER_URL")
+	natsSeedPath := os.Getenv("NKEY_SEED_FILENAME")
+	if cfg == nil {
+		cfg = &v1beta1.JetStreamStorageSpec{}
+	}
+	if cfg.Endpoint == "" {
+		cfg.Endpoint = natsURL
+	}
+	if cfg.NkeySeedPath == "" {
+		cfg.NkeySeedPath = natsSeedPath
+	}
+	nc, err := natsutil.AcquireNATSConnection(p.ctx, cfg)
 	if err != nil {
 		p.logger.With(
 			zap.Error(err),

@@ -11,15 +11,24 @@ import (
 )
 
 type inMemoryKeyValueStore[T any] struct {
-	mu        sync.RWMutex
-	cloneFunc func(T) T
-	keys      art.Tree
+	mu            sync.RWMutex
+	newValueStore func(string) storage.ValueStoreT[T]
+	keys          art.Tree
 }
 
 func NewKeyValueStore[T any](cloneFunc func(T) T) storage.KeyValueStoreT[T] {
 	return &inMemoryKeyValueStore[T]{
-		keys:      art.New(),
-		cloneFunc: cloneFunc,
+		keys: art.New(),
+		newValueStore: func(string) storage.ValueStoreT[T] {
+			return NewValueStore[T](cloneFunc)
+		},
+	}
+}
+
+func NewCustomKeyValueStore[T any](newValueStore func(string) storage.ValueStoreT[T]) storage.KeyValueStoreT[T] {
+	return &inMemoryKeyValueStore[T]{
+		keys:          art.New(),
+		newValueStore: newValueStore,
 	}
 }
 
@@ -91,7 +100,7 @@ func (m *inMemoryKeyValueStore[T]) ListKeys(ctx context.Context, prefix string, 
 	var keys []string
 	m.keys.ForEachPrefix(art.Key([]byte(prefix)), func(node art.Node) (cont bool) {
 		if node.Value() != nil {
-			if _, err := node.Value().(*inMemoryValueStore[T]).Get(ctx); err != nil {
+			if _, err := node.Value().(storage.ValueStoreT[T]).Get(ctx); err != nil {
 				return true
 			}
 			keys = append(keys, string(node.Key()))
@@ -110,7 +119,7 @@ func (m *inMemoryKeyValueStore[T]) Put(ctx context.Context, key string, value T,
 	defer m.mu.Unlock()
 	vs, ok := m.keys.Search(art.Key([]byte(key)))
 	if !ok {
-		vs = NewValueStore(m.cloneFunc)
+		vs = m.newValueStore(key)
 		m.keys.Insert(art.Key([]byte(key)), vs)
 	}
 	return vs.(storage.ValueStoreT[T]).Put(ctx, value, opts...)

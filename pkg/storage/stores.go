@@ -113,7 +113,7 @@ type ValueStoreT[T any] interface {
 	History(ctx context.Context, opts ...HistoryOpt) ([]KeyRevision[T], error)
 }
 
-type KeyValueStore KeyValueStoreT[[]byte]
+type KeyValueStore = KeyValueStoreT[[]byte]
 
 type KeyringStoreBroker interface {
 	KeyringStore(namespace string, ref *corev1.Reference) KeyringStore
@@ -121,6 +121,10 @@ type KeyringStoreBroker interface {
 
 type KeyValueStoreBroker interface {
 	KeyValueStore(namespace string) KeyValueStore
+}
+
+type KeyValueStoreTBroker[T any] interface {
+	KeyValueStore(namespace string) KeyValueStoreT[T]
 }
 
 // A store that can be used to compute subject access rules

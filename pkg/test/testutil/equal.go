@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/onsi/gomega/format"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func ProtoEqual(expected proto.Message) *ProtoMatcher {
@@ -33,18 +35,22 @@ func (matcher *ProtoMatcher) Match(actual any) (success bool, err error) {
 }
 
 func (matcher *ProtoMatcher) FailureMessage(actual any) (message string) {
-	return fmt.Sprintf("Expected\n%s\n%s\n%s",
+	diff := cmp.Diff(actual.(proto.Message), matcher.Expected, protocmp.Transform())
+	return fmt.Sprintf("Expected\n%s\n%s\n%s\ndiff:\n%s",
 		format.IndentString(prototext.Format(actual.(proto.Message)), 1),
 		"to equal",
 		format.IndentString(prototext.Format(matcher.Expected), 1),
+		diff,
 	)
 }
 
 func (matcher *ProtoMatcher) NegatedFailureMessage(actual any) (message string) {
-	return fmt.Sprintf("Expected\n%s\n%s\n%s",
+	diff := cmp.Diff(actual.(proto.Message), matcher.Expected, protocmp.Transform())
+	return fmt.Sprintf("Expected\n%s\n%s\n%s\ndiff:\n%s",
 		format.IndentString(prototext.Format(actual.(proto.Message)), 1),
 		"not to equal",
 		format.IndentString(prototext.Format(matcher.Expected), 1),
+		diff,
 	)
 }
 

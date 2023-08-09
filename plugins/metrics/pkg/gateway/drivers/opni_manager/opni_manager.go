@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strconv"
 
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/storage/kvutil"
+	"github.com/rancher/opni/pkg/storage/crds"
 	"github.com/rancher/opni/pkg/util/flagutil"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
@@ -21,13 +20,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
-	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type OpniManagerClusterDriverOptions struct {
@@ -63,6 +60,31 @@ type OpniManager struct {
 	configTracker *driverutil.DefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec]
 }
 
+type methods struct {
+	controllerRef client.Object
+}
+
+// ControllerReference implements crds.ValueStoreMethods.
+func (m methods) ControllerReference() (client.Object, bool) {
+	return m.controllerRef, true
+}
+
+// FillConfigFromObject implements crds.ValueStoreMethods.
+func (methods) FillConfigFromObject(obj *opnicorev1beta1.MonitoringCluster, conf *cortexops.CapabilityBackendConfigSpec) {
+	conf.Enabled = obj.Spec.Cortex.Enabled
+	conf.CortexConfig = obj.Spec.Cortex.CortexConfig
+	conf.CortexWorkloads = obj.Spec.Cortex.CortexWorkloads
+	conf.Grafana = obj.Spec.Grafana.GrafanaConfig
+}
+
+// FillObjectFromConfig implements crds.ValueStoreMethods.
+func (methods) FillObjectFromConfig(obj *opnicorev1beta1.MonitoringCluster, conf *cortexops.CapabilityBackendConfigSpec) {
+	obj.Spec.Cortex.Enabled = conf.Enabled
+	obj.Spec.Cortex.CortexConfig = conf.CortexConfig
+	obj.Spec.Cortex.CortexWorkloads = conf.CortexWorkloads
+	obj.Spec.Grafana.GrafanaConfig = conf.Grafana
+}
+
 func NewOpniManagerClusterDriver(options OpniManagerClusterDriverOptions) (*OpniManager, error) {
 	if options.K8sClient == nil {
 		s := scheme.Scheme
@@ -78,81 +100,9 @@ func NewOpniManagerClusterDriver(options OpniManagerClusterDriverOptions) (*Opni
 	if options.DefaultConfigStore == nil {
 		return nil, fmt.Errorf("missing required option: DefaultConfigStore")
 	}
-	activeStore := kvutil.ValueStoreAdapter[*cortexops.CapabilityBackendConfigSpec]{
-		PutFunc: func(ctx context.Context, value *cortexops.CapabilityBackendConfigSpec, opts ...storage.PutOpt) error {
-			putOptions := storage.PutOptions{}
-			putOptions.Apply(opts...)
-
-			cluster := options.newMonitoringCluster()
-			err := options.K8sClient.Get(ctx, options.MonitoringCluster, cluster)
-			exists := true
-			if err != nil {
-				if k8serrors.IsNotFound(err) {
-					exists = false
-				} else {
-					return fmt.Errorf("failed to get monitoring cluster: %w", err)
-				}
-			}
-
-			// look up the gateway so we can set it as an owner reference
-			gateway := &opnicorev1beta1.Gateway{}
-			err = options.K8sClient.Get(ctx, options.GatewayRef, gateway)
-			if err != nil {
-				return fmt.Errorf("failed to get gateway: %w", err)
-			}
-
-			if !exists {
-				cluster.Spec.Gateway = v1.LocalObjectReference{
-					Name: gateway.Name,
-				}
-				controllerutil.SetControllerReference(gateway, cluster, options.K8sClient.Scheme())
-			}
-
-			cluster.Spec.Cortex = opnicorev1beta1.CortexSpec{
-				Enabled:         value.Enabled,
-				CortexWorkloads: value.CortexWorkloads,
-				CortexConfig:    value.CortexConfig,
-			}
-			cluster.Spec.Grafana = opnicorev1beta1.GrafanaSpec{
-				GrafanaConfig: value.Grafana,
-			}
-			if !exists {
-				err := options.K8sClient.Create(ctx, cluster)
-				if err != nil {
-					return fmt.Errorf("failed to create monitoring cluster: %w", err)
-				}
-			} else {
-				err := options.K8sClient.Update(ctx, cluster)
-				if err != nil {
-					return fmt.Errorf("failed to update monitoring cluster: %w", err)
-				}
-			}
-			if putOptions.RevisionOut != nil {
-				*putOptions.RevisionOut, _ = strconv.ParseInt(cluster.ResourceVersion, 10, 64)
-			}
-
-			return nil
-		},
-		GetFunc: func(ctx context.Context, opts ...storage.GetOpt) (*cortexops.CapabilityBackendConfigSpec, error) {
-			mc := options.newMonitoringCluster()
-			err := options.K8sClient.Get(ctx, options.MonitoringCluster, mc)
-			if err != nil {
-				if k8serrors.IsNotFound(err) {
-					return nil, storage.ErrNotFound
-				}
-				return nil, fmt.Errorf("failed to get monitoring cluster: %w", err)
-			}
-			return &cortexops.CapabilityBackendConfigSpec{
-				Enabled:         mc.Spec.Cortex.Enabled,
-				CortexWorkloads: mc.Spec.Cortex.CortexWorkloads,
-				CortexConfig:    mc.Spec.Cortex.CortexConfig,
-				Grafana:         mc.Spec.Grafana.GrafanaConfig,
-			}, nil
-		},
-		DeleteFunc: func(ctx context.Context, opts ...storage.DeleteOpt) error {
-			return options.K8sClient.Delete(ctx, options.newMonitoringCluster())
-		},
-	}
+	activeStore := crds.NewCRDValueStore(options.MonitoringCluster, methods{
+		controllerRef: options.newGateway(),
+	}, crds.WithClient(options.K8sClient))
 
 	configTracker := driverutil.NewDefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec](
 		options.DefaultConfigStore, activeStore, flagutil.LoadDefaults[*cortexops.CapabilityBackendConfigSpec])

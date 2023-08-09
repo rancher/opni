@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
+	"time"
 
 	"github.com/mennanov/fmutils"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -13,6 +15,7 @@ import (
 	"github.com/rancher/opni/pkg/util/merge"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type DefaultLoaderFunc[T any] func(T)
@@ -60,7 +63,7 @@ func (ct *DefaultingConfigTracker[T]) GetDefaultConfig(ctx context.Context, atRe
 	}
 
 	def.RedactSecrets()
-	ct.setRevision(def, rev)
+	SetRevision(def, rev)
 	return def, nil
 }
 
@@ -81,7 +84,7 @@ func (ct *DefaultingConfigTracker[T]) SetDefaultConfig(ctx context.Context, newD
 		return err
 	}
 
-	ct.unsetRevision(newDefault)
+	UnsetRevision(newDefault)
 	return ct.defaultStore.Put(ctx, newDefault, storage.WithRevision(newDefaultRevision))
 }
 
@@ -129,7 +132,7 @@ func (ct *DefaultingConfigTracker[T]) GetConfig(ctx context.Context, atRevision 
 		return existing, fmt.Errorf("error looking up config: %w", err)
 	}
 	existing.RedactSecrets()
-	ct.setRevision(existing, revision)
+	SetRevision(existing, revision)
 	return existing, nil
 }
 
@@ -153,6 +156,9 @@ func (ct *DefaultingConfigTracker[T]) ResetConfig(ctx context.Context, keep *fie
 	}
 
 	defaultConfig, _, err := ct.getDefaultConfigLocked(ctx)
+	if err != nil {
+		return err
+	}
 	keep.Normalize()
 	if !keep.IsValid(current) {
 		return fmt.Errorf("invalid field mask: %v", keep.GetPaths())
@@ -178,7 +184,7 @@ func (ct *DefaultingConfigTracker[T]) GetConfigOrDefault(ctx context.Context, at
 	}
 	value.RedactSecrets()
 
-	ct.setRevision(value, rev)
+	SetRevision(value, rev)
 	return value, nil
 }
 
@@ -233,7 +239,7 @@ func (ct *DefaultingConfigTracker[T]) ApplyConfig(ctx context.Context, newConfig
 
 	merge.MergeWithReplace(existing, newConfig)
 
-	ct.unsetRevision(existing)
+	UnsetRevision(existing)
 	return ct.activeStore.Put(ctx, existing, storage.WithRevision(rev))
 }
 
@@ -327,7 +333,7 @@ func (ct *DefaultingConfigTracker[T]) DryRunApplyConfig(ctx context.Context, new
 	// Unset the revision for the modified config. Revisions are not stored
 	// in the actual object inside the kv store, so they should not be included
 	// in the diff.
-	ct.unsetRevision(modified)
+	UnsetRevision(modified)
 	return DryRunResults[T]{
 		Current:  current,
 		Modified: modified,
@@ -400,23 +406,6 @@ func (ct *DefaultingConfigTracker[T]) DryRunResetConfig(ctx context.Context) (Dr
 	}, nil
 }
 
-func (ct *DefaultingConfigTracker[T]) setRevision(t T, value int64) {
-	if rev := t.GetRevision(); rev == nil {
-		field := t.ProtoReflect().Descriptor().Fields().Get(ct.revisionFieldIndex)
-		updatedRev := &corev1.Revision{Revision: &value}
-		t.ProtoReflect().Set(field, protoreflect.ValueOfMessage(updatedRev.ProtoReflect()))
-	} else {
-		rev.Set(value)
-	}
-}
-
-func (ct *DefaultingConfigTracker[T]) unsetRevision(t T) {
-	if rev := t.GetRevision(); rev != nil {
-		field := t.ProtoReflect().Descriptor().Fields().Get(ct.revisionFieldIndex)
-		t.ProtoReflect().Clear(field)
-	}
-}
-
 func getRevisionFieldIndex[T ConfigType[T]]() int {
 	var revision corev1.Revision
 	revisionFqn := revision.ProtoReflect().Descriptor().FullName()
@@ -431,4 +420,43 @@ func getRevisionFieldIndex[T ConfigType[T]]() int {
 		}
 	}
 	panic("revision field not found")
+}
+
+var (
+	indexCacheMu sync.Mutex
+	indexCache   = map[reflect.Type]func() int{}
+)
+
+func UnsetRevision[T ConfigType[T]](t T) {
+	typ := reflect.TypeOf(t)
+	indexCacheMu.Lock()
+	if _, ok := indexCache[typ]; !ok {
+		indexCache[typ] = sync.OnceValue(getRevisionFieldIndex[T])
+	}
+	idx := indexCache[typ]()
+	indexCacheMu.Unlock()
+	if rev := t.GetRevision(); rev != nil {
+		field := t.ProtoReflect().Descriptor().Fields().Get(idx)
+		t.ProtoReflect().Clear(field)
+	}
+}
+
+func SetRevision[T ConfigType[T]](t T, value int64, maybeTimestamp ...time.Time) {
+	typ := reflect.TypeOf(t)
+	indexCacheMu.Lock()
+	if _, ok := indexCache[typ]; !ok {
+		indexCache[typ] = sync.OnceValue(getRevisionFieldIndex[T])
+	}
+	idx := indexCache[typ]()
+	indexCacheMu.Unlock()
+	if rev := t.GetRevision(); rev == nil {
+		field := t.ProtoReflect().Descriptor().Fields().Get(idx)
+		updatedRev := &corev1.Revision{Revision: &value}
+		if len(maybeTimestamp) > 0 && !maybeTimestamp[0].IsZero() {
+			updatedRev.Timestamp = timestamppb.New(maybeTimestamp[0])
+		}
+		t.ProtoReflect().Set(field, protoreflect.ValueOfMessage(updatedRev.ProtoReflect()))
+	} else {
+		rev.Set(value)
+	}
 }

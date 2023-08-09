@@ -1232,6 +1232,43 @@ func (mr *MockKeyValueStoreBrokerMockRecorder) KeyValueStore(namespace interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyValueStore", reflect.TypeOf((*MockKeyValueStoreBroker)(nil).KeyValueStore), namespace)
 }
 
+// MockKeyValueStoreTBroker is a mock of KeyValueStoreTBroker interface.
+type MockKeyValueStoreTBroker[T any] struct {
+	ctrl     *gomock.Controller
+	recorder *MockKeyValueStoreTBrokerMockRecorder[T]
+}
+
+// MockKeyValueStoreTBrokerMockRecorder is the mock recorder for MockKeyValueStoreTBroker.
+type MockKeyValueStoreTBrokerMockRecorder[T any] struct {
+	mock *MockKeyValueStoreTBroker[T]
+}
+
+// NewMockKeyValueStoreTBroker creates a new mock instance.
+func NewMockKeyValueStoreTBroker[T any](ctrl *gomock.Controller) *MockKeyValueStoreTBroker[T] {
+	mock := &MockKeyValueStoreTBroker[T]{ctrl: ctrl}
+	mock.recorder = &MockKeyValueStoreTBrokerMockRecorder[T]{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockKeyValueStoreTBroker[T]) EXPECT() *MockKeyValueStoreTBrokerMockRecorder[T] {
+	return m.recorder
+}
+
+// KeyValueStore mocks base method.
+func (m *MockKeyValueStoreTBroker[T]) KeyValueStore(namespace string) storage.KeyValueStoreT[T] {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "KeyValueStore", namespace)
+	ret0, _ := ret[0].(storage.KeyValueStoreT[T])
+	return ret0
+}
+
+// KeyValueStore indicates an expected call of KeyValueStore.
+func (mr *MockKeyValueStoreTBrokerMockRecorder[T]) KeyValueStore(namespace interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyValueStore", reflect.TypeOf((*MockKeyValueStoreTBroker[T])(nil).KeyValueStore), namespace)
+}
+
 // MockSubjectAccessCapableStore is a mock of SubjectAccessCapableStore interface.
 type MockSubjectAccessCapableStore struct {
 	ctrl     *gomock.Controller

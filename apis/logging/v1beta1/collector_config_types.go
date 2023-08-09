@@ -74,6 +74,22 @@ type CollectorConfigSpec struct {
 	KubeAuditLogs *KubeAuditLogsSpec `json:"kubeAuditLogs,omitempty"`
 }
 
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
+//+kubebuilder:resource:scope=Cluster
+//+kubebuilder:storageversion
+
+type CollectorTraceConfig struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec CollectorTraceConfigSpec `json:"spec,omitempty"`
+}
+
+// CollectorTraceConfigSpec defines the desired state of CollectorConfig
+type CollectorTraceConfigSpec struct {
+}
+
 type SelectorConfig struct {
 	Namespace string   `json:"namespace,omitempty"`
 	PodNames  []string `json:"podNames,omitempty"`

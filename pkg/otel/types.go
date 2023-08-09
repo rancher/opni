@@ -28,7 +28,6 @@ func AgentEndpoint(serviceName string) string {
 type NodeConfig struct {
 	Instance      string
 	Logs          LoggingConfig
-	Traces        TraceConfig
 	Metrics       MetricsConfig
 	Containerized bool
 	LogLevel      string
@@ -73,11 +72,6 @@ type NodeOTELExporters struct {
 }
 
 type LoggingConfig struct {
-	Enabled   bool
-	Receivers []string
-}
-
-type TraceConfig struct {
 	Enabled   bool
 	Receivers []string
 }

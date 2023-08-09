@@ -252,15 +252,6 @@ service:
       processors: ["memory_limiter", "k8sattributes"]
       exporters: ["otlp"]
   {{- end }}
-  {{- if .Traces.Enabled }}
-    traces:
-      receivers:
-      {{- range .Traces.Receivers }}
-      - {{ . }}
-      {{- end }}
-      processors: ["memory_limiter"]
-      exporters: ["otlp"]
-  {{- end }}
   {{ template "metrics-node-pipeline" .}}
 `
 

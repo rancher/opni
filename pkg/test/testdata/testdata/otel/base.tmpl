@@ -75,3 +75,63 @@ service:
   pipelines:
     {{ template "metrics-node-pipeline" .}}
 {{end}}
+
+
+receivers:
+  otlp:
+    protocols:
+      grpc: {}
+      http: {}
+  {{ template "metrics-prometheus-receiver" . }}
+  {{ template "metrics-prometheus-discoverer" . }}
+{{- if .LogsEnabled }}
+  k8s_events:
+    auth_type: serviceAccount
+{{- end }}
+
+processors:
+  batch:
+    send_batch_size: 1000
+    timeout: 15s
+  memory_limiter:
+    limit_mib: 1000
+    spike_limit_mib: 350
+    check_interval: 1s
+  transform:
+    log_statements:
+    - context: log
+      statements:
+      - set(attributes["log_type"], "event") where attributes["k8s.event.uid"] != nil
+  {{ template "metrics-prometheus-processor" .}}
+exporters:
+  otlphttp:
+    endpoint: "{{ .AgentEndpoint }}"
+    tls:
+      insecure: true
+    sending_queue:
+      num_consumers: 4
+      queue_size: 100
+    retry_on_failure:
+      enabled: true
+  {{ template "metrics-remotewrite-exporter" .}}
+service:
+  telemetry:
+    logs:
+      level: {{ .LogLevel }}
+    metrics:
+      level: none
+  pipelines:
+  {{- if .LogsEnabled }}
+    logs:
+      receivers: ["otlp", "k8s_events"]
+      processors: ["transform", "memory_limiter", "batch"]
+      exporters: ["otlphttp"]
+  {{- end }}
+  {{- if .TracesEnabled }}
+    traces:
+      receivers: ["otlp"]
+      processors: ["memory_limiter", "batch"]
+      exporters: ["otlphttp"]
+  {{- end }}
+  {{ template "metrics-remotewrite-pipeline" .}}
+`

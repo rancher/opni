@@ -130,6 +130,15 @@ type CollectorConfigList struct {
 	Items           []CollectorConfig `json:"items"`
 }
 
+//+kubebuilder:object:root=true
+
+// CollectorTraceConfigList contains a list of CollectorTraceConfig
+type CollectorTraceConfigList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []CollectorTraceConfig `json:"items"`
+}
+
 func CollectorConfigCRD() (*crd.CRD, error) {
 	schema, err := openapi.ToOpenAPIFromStruct(CollectorConfig{})
 	if err != nil {
@@ -146,4 +155,5 @@ func CollectorConfigCRD() (*crd.CRD, error) {
 
 func init() {
 	SchemeBuilder.Register(&CollectorConfig{}, &CollectorConfigList{})
+	SchemeBuilder.Register(&CollectorTraceConfig{}, &CollectorTraceConfigList{})
 }

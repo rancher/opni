@@ -107,6 +107,7 @@ steps:
     commands:
       - docker stop --time 60 dagger-engine
       - docker logs dagger-engine
+      - docker rm dagger-engine
     volumes: *volumes
     # run even if pipeline fails
     when:

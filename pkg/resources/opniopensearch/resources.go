@@ -226,7 +226,7 @@ func (r *Reconciler) fetchNatsAuthSecretName() (string, bool, error) {
 }
 
 func calculateImage(repo, version, opensearchVersion string) string {
-	newVersionConstraint, err := semver.NewConstraint(">=0.11.0")
+	newVersionConstraint, err := semver.NewConstraint(">=0.11.0-0")
 	if err != nil {
 		panic(err)
 	}

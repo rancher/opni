@@ -1,0 +1,197 @@
+{{- if not (or (eq .Values.persistence.mode "pvc") (eq .Values.persistence.mode "hostPath")) }}
+{{- fail "persistence mode must be pvc or hostPath" }}
+{{- end }}
+{{- $minimalVersionTag := printf "v%s-minimal" .Chart.AppVersion }}
+{{- $versionTag := printf "v%s" .Chart.AppVersion }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "opni-agent.fullname" . }}
+  namespace: {{ include "opni-agent.namespace" . }}
+  labels:
+    {{- include "opni-agent.labels" . | nindent 4 }}
+    opni.io/app: agent
+spec:
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "opni-agent.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "opni-agent.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: opni-agent
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: agent
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ template "system_default_registry" . }}{{ .Values.image.repository }}:{{ .Values.image.tag | default $minimalVersionTag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - agentv2
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          {{- if .Values.disableUsage }}
+            - name: DO_NOT_TRACK
+              value: "1"
+          {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/opni
+            - name: plugins
+              mountPath: /var/lib/opni-agent/plugins
+          {{- if .Values.volumeMounts }}
+            {{- toYaml .Values.volumeMounts | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+        - name: client
+          args:
+          - client
+          - --health-probe-bind-address=:7081
+          - --metrics-bind-address=127.0.0.1:7080
+          {{- if .Values.bootstrapInCluster.enabled }}
+          - --central
+          {{- end }}
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: OPERATOR_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: NODE_FEATURE_DISCOVERY_IMAGE
+            value: k8s.gcr.io/nfd/node-feature-discovery:v0.7.0
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ template "system_default_registry" . }}{{ .Values.image.repository }}:{{ .Values.image.tag | default $versionTag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 7081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 7081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+        - name: kube-rbac-proxy
+          image: gcr.io/kubebuilder/kube-rbac-proxy:v0.5.0
+          args:
+            - --secure-listen-address=0.0.0.0:8443
+            - --upstream=http://127.0.0.1:7080/
+            - --logtostderr=true
+            - --v=10
+          ports:
+            - containerPort: 8443
+              name: https
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: config
+          secret:
+            secretName: agent-config
+            items:
+              - key: config.yaml
+                path: config.yaml
+            defaultMode: 256
+        - name: plugins
+        {{- if eq .Values.persistence.mode "hostPath" }}
+          hostPath:
+            path: {{ default "/var/lib/opni/plugins" .Values.persistence.hostDirectoryPath }}
+            type: DirectoryOrCreate
+        {{- end }}
+        {{- if eq .Values.persistence.mode "pvc" }}
+          persistentVolumeClaim:
+            claimName: {{ include "opni-agent.fullname" . }}-plugins
+        {{- end }}
+      {{- if .Values.volumes }}
+        {{- toYaml .Values.volumes | nindent 8 }}
+      {{- end }}
+{{- if eq .Values.persistence.mode "pvc" }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "opni-agent.fullname" . }}-plugins
+  namespace: {{ include "opni-agent.namespace" . }}
+  labels:
+    {{- include "opni-agent.labels" . | nindent 4 }}
+    opni.io/app: agent
+spec:
+  accessModes:
+  - ReadWriteOnce
+  {{- if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: 2Gi
+{{- end }}

@@ -258,7 +258,7 @@ service:
       {{- range .Traces.Receivers }}
       - {{ . }}
       {{- end }}
-      processors: ["memory_limiter", "k8sattributes"]
+      processors: ["memory_limiter"]
       exporters: ["otlp"]
   {{- end }}
   {{ template "metrics-node-pipeline" .}}
@@ -318,9 +318,9 @@ service:
       exporters: ["otlphttp"]
   {{- end }}
   {{- if .TracesEnabled }}
-    logs:
+    traces:
       receivers: ["otlp"]
-      processors: ["transform", "memory_limiter", "batch"]
+      processors: ["memory_limiter", "batch"]
       exporters: ["otlphttp"]
   {{- end }}
   {{ template "metrics-remotewrite-pipeline" .}}

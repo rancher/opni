@@ -7,7 +7,8 @@ platform:
   arch: amd64
 steps:
   - name: setup-dagger-engine
-    image: docker
+    image: &image cimg/go:1.21
+    user: root
     commands:
       - |
         docker run \
@@ -28,7 +29,8 @@ steps:
       _EXPERIMENTAL_DAGGER_CACHESERVICE_TOKEN:
         from_secret: dagger_cacheservice_token
   - name: build-and-package
-    image: docker
+    image: *image
+    user: root
     environment: &environment
       _EXPERIMENTAL_DAGGER_CACHESERVICE_TOKEN:
         from_secret: dagger_cacheservice_token
@@ -43,27 +45,26 @@ steps:
         from_secret: github_token
     volumes: *volumes
     commands:
-      - apk add --no-cache go
       - go run ./dagger -c dagger/ci/defaults
     when:
       instance:
         - drone-publish.rancher.io
   - name: build-and-package-pr
-    image: docker
+    image: *image
+    user: root
     environment: *environment
     volumes: *volumes
     commands:
-      - apk add --no-cache go
       - go run ./dagger -c dagger/ci/defaults --coverage.export=true
     when:
       instance:
         - drone-pr.rancher.io
   - name: publish-tag
-    image: docker
+    image: *image
+    user: root
     environment: *environment
     volumes: *volumes
     commands:
-      - apk add --no-cache go
       - go run ./dagger -c dagger/ci/defaults,dagger/ci/push,dagger/ci/push-charts,dagger/ci/tag-latest --lint=false --test=false
     when:
       event:
@@ -75,11 +76,11 @@ steps:
         - refs/heads/release
         - refs/tags/*
   - name: publish-main
-    image: docker
+    image: *image
+    user: root
     environment: *environment
     volumes: *volumes
     commands:
-      - apk add --no-cache go
       - go run ./dagger -c dagger/ci/defaults,dagger/ci/push --lint=false --test=false
     when:
       event:
@@ -101,7 +102,8 @@ steps:
       instance:
         - drone-pr.rancher.io
   - name: cleanup-dagger-engine
-    image: docker
+    image: *image
+    user: root
     commands:
       - docker stop --time 60 dagger-engine
       - docker logs dagger-engine

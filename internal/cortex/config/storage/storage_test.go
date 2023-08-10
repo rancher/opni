@@ -70,6 +70,9 @@ func TestMarshal(t *testing.T) {
 	}
 
 	upstreamYamlData, err := yaml.Marshal(original)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	jsonData, err := protojson.MarshalOptions{
 		Multiline:       true,

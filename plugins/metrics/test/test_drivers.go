@@ -21,6 +21,7 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/inmemory"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/flagutil"
 	"github.com/rancher/opni/pkg/util/notifier"
 	"github.com/rancher/opni/pkg/util/waitctx"
@@ -189,12 +190,12 @@ func NewTestEnvMetricsClusterDriver(env *test.Environment) *TestEnvMetricsCluste
 		Env: env,
 	}
 	d.status.Store(&installStatusLocker{})
-	defaultStore := inmemory.NewProtoValueStore[*cortexops.CapabilityBackendConfigSpec]()
-	activeStore := inmemory.NewProtoValueStore[*cortexops.CapabilityBackendConfigSpec](
+	defaultStore := inmemory.NewValueStore[*cortexops.CapabilityBackendConfigSpec](util.ProtoClone)
+	activeStore := inmemory.NewValueStore[*cortexops.CapabilityBackendConfigSpec](util.ProtoClone, inmemory.OnValueChanged(
 		func(prev, value *cortexops.CapabilityBackendConfigSpec) {
 			go d.onActiveConfigChanged(prev, value)
 		},
-	)
+	))
 	d.configTracker = driverutil.NewDefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec](
 		defaultStore, activeStore, flagutil.LoadDefaults[*cortexops.CapabilityBackendConfigSpec],
 	)

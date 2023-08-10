@@ -8,11 +8,9 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 )
 
 type valueStoreElement[T any] struct {
@@ -23,39 +21,48 @@ type valueStoreElement[T any] struct {
 }
 
 type inMemoryValueStore[T any] struct {
-	lock           sync.RWMutex
-	revision       int64
-	values         *ring.Ring
-	onValueChanged []func(prev, value T)
-	cloneFunc      func(T) T
+	ValueStoreOptions[T]
+	lock      sync.RWMutex
+	revision  int64
+	values    *ring.Ring
+	cloneFunc func(T) T
 }
 
-// Returns a new value store for any type T that can be cloned using the provided
-// clone function.
-//
-// Any listener functions provided will be called when the value is created,
+type ValueStoreOptions[T any] struct {
+	onValueChanged []func(prev, value T)
+}
+
+type ValueStoreOption[T any] func(*ValueStoreOptions[T])
+
+// Adds a listener function which will be called when the value is created,
 // updated, or deleted, with the following considerations:
 // - For create events, the previous value will be the zero value for T.
 // - For delete events, the new value will be the zero value for T.
-func NewValueStore[T any](cloneFunc func(T) T, listeners ...func(prev, value T)) storage.ValueStoreT[T] {
-	return &inMemoryValueStore[T]{
-		values:         ring.New(64),
-		onValueChanged: listeners,
-		cloneFunc:      cloneFunc,
+func OnValueChanged[T any](listener func(prev, value T)) ValueStoreOption[T] {
+	return func(o *ValueStoreOptions[T]) {
+		o.onValueChanged = append(o.onValueChanged, listener)
 	}
 }
 
-// NewProtoValueStore is a convenience function for creating a value store for
-// protobuf message types. See [NewValueStore] for details.
-func NewProtoValueStore[T proto.Message](listeners ...func(prev, value T)) storage.ValueStoreT[T] {
-	return NewValueStore(util.ProtoClone, listeners...)
+// Returns a new value store for any type T that can be cloned using the provided clone function.
+func NewValueStore[T any, O ValueStoreOption[T]](cloneFunc func(T) T, opts ...O) storage.ValueStoreT[T] {
+	options := ValueStoreOptions[T]{}
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	return &inMemoryValueStore[T]{
+		ValueStoreOptions: options,
+		values:            ring.New(64),
+		cloneFunc:         cloneFunc,
+	}
 }
 
 func (s *inMemoryValueStore[T]) isEmptyLocked() bool {
 	return s.revision == 0
 }
 
-func (s *inMemoryValueStore[T]) Put(ctx context.Context, value T, opts ...storage.PutOpt) error {
+func (s *inMemoryValueStore[T]) Put(_ context.Context, value T, opts ...storage.PutOpt) error {
 	options := storage.PutOptions{}
 	options.Apply(opts...)
 
@@ -95,7 +102,7 @@ func (s *inMemoryValueStore[T]) Put(ctx context.Context, value T, opts ...storag
 	return nil
 }
 
-func (s *inMemoryValueStore[T]) Get(ctx context.Context, opts ...storage.GetOpt) (T, error) {
+func (s *inMemoryValueStore[T]) Get(_ context.Context, opts ...storage.GetOpt) (T, error) {
 	options := storage.GetOptions{}
 	options.Apply(opts...)
 
@@ -149,7 +156,7 @@ func (s *inMemoryValueStore[T]) Get(ctx context.Context, opts ...storage.GetOpt)
 	return s.cloneFunc(found.value), nil
 }
 
-func (s *inMemoryValueStore[T]) Delete(ctx context.Context, opts ...storage.DeleteOpt) error {
+func (s *inMemoryValueStore[T]) Delete(_ context.Context, opts ...storage.DeleteOpt) error {
 	options := storage.DeleteOptions{}
 	options.Apply(opts...)
 
@@ -189,7 +196,7 @@ func (s *inMemoryValueStore[T]) Delete(ctx context.Context, opts ...storage.Dele
 	return nil
 }
 
-func (s *inMemoryValueStore[T]) History(ctx context.Context, opts ...storage.HistoryOpt) ([]storage.KeyRevision[T], error) {
+func (s *inMemoryValueStore[T]) History(_ context.Context, opts ...storage.HistoryOpt) ([]storage.KeyRevision[T], error) {
 	options := storage.HistoryOptions{}
 	options.Apply(opts...)
 

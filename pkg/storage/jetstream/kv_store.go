@@ -120,7 +120,7 @@ func (j jetstreamKeyValueStore) ListKeys(ctx context.Context, prefix string, opt
 	return filtered, nil
 }
 
-func (s *jetstreamKeyValueStore) History(ctx context.Context, key string, opts ...storage.HistoryOpt) ([]storage.KeyRevision[[]byte], error) {
+func (j *jetstreamKeyValueStore) History(ctx context.Context, key string, opts ...storage.HistoryOpt) ([]storage.KeyRevision[[]byte], error) {
 	if err := validateKey(key); err != nil {
 		return nil, err
 	}
@@ -135,7 +135,7 @@ func (s *jetstreamKeyValueStore) History(ctx context.Context, key string, opts .
 		clientOptions = append(clientOptions, nats.MetaOnly())
 	}
 
-	entries, err := s.kv.History(key, clientOptions...)
+	entries, err := j.kv.History(key, clientOptions...)
 	if err != nil {
 		return nil, jetstreamGrpcError(err)
 	}

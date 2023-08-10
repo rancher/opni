@@ -2,6 +2,7 @@ package targets
 
 import (
 	"context"
+	"os/exec"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
@@ -16,7 +17,11 @@ func Lint(ctx context.Context) {
 }
 
 func golangciLint() error {
-	return sh.Run(mg.GoCmd(), "run", "github.com/golangci/golangci-lint/cmd/golangci-lint@latest", "run", "-v", "--fast")
+	if lint, err := exec.LookPath("golangci-lint"); err == nil {
+		return sh.RunV(lint, "run", "--fast")
+	} else {
+		return sh.RunV(mg.GoCmd(), "run", "github.com/golangci/golangci-lint/cmd/golangci-lint@latest", "run", "--fast")
+	}
 }
 
 func customLint() error {

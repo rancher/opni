@@ -12,7 +12,6 @@ import (
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var _ = Describe("Value Store", Ordered, Label("unit"), func() {
@@ -28,9 +27,9 @@ var _ = Describe("Value Store", Ordered, Label("unit"), func() {
 		expectedUpdates = nil
 
 		updateC := updateC
-		valueStore = inmemory.NewValueStore(strings.Clone, func(prev, value string) {
+		valueStore = inmemory.NewValueStore(strings.Clone, inmemory.OnValueChanged(func(prev, value string) {
 			updateC <- lo.T2(prev, value)
-		})
+		}))
 		ctx = context.TODO()
 
 	})
@@ -260,16 +259,5 @@ var _ = Describe("Value Store", Ordered, Label("unit"), func() {
 				})
 			})
 		})
-	})
-
-	Specify("NewProtoValueStore should construct a new store with listeners", func() {
-		// todo: this type is a workaround for a bug in the current go 1.21 rc
-		l := func(prev, value *emptypb.Empty) {}
-		_ = inmemory.NewProtoValueStore[*emptypb.Empty](l)
-		_ = inmemory.NewProtoValueStore[*emptypb.Empty](l, l)
-		_ = inmemory.NewProtoValueStore[*emptypb.Empty](l, l, l)
-
-		// the following line does not compile
-		// inmemory.NewValueStore(proto.Clone, l)
 	})
 })

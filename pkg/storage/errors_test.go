@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var _ = Describe("Errors", func() {
+var _ = Describe("Errors", Label("unit"), func() {
 	Specify("ErrNotFound should be equal to grpc NotFound errors", func() {
 		err := status.Errorf(codes.NotFound, "sample text") // important that the message is not "not found"
 		Expect(errors.Is(err, storage.ErrNotFound)).To(BeFalse())

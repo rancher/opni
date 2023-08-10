@@ -26,7 +26,7 @@ func loadAndValidateConfig(yamlData []byte) error {
 	return cfg.Validate(log.NewNopLogger())
 }
 
-var _ = Describe("Config", func() {
+var _ = Describe("Config", Label("unit"), func() {
 	It("should generate a valid default config", func() {
 		appconfig := &cortexops.CortexApplicationConfig{
 			Storage: &v1.Config{

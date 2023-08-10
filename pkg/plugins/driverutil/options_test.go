@@ -12,7 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 )
 
-var _ = Describe("Option", func() {
+var _ = Describe("Options", Label("unit"), func() {
 	type sampleStruct struct {
 		Int       int       `option:"int"`
 		Uint      uint32    `option:"uint"`

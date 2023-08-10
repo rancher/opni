@@ -206,8 +206,7 @@ func jetstreamGrpcError(err error) error {
 	case nats.ErrBucketNotFound, nats.ErrKeyNotFound, nats.ErrKeyDeleted, nats.ErrNoKeysFound:
 		code = codes.NotFound
 	default:
-		switch err := err.(type) {
-		case nats.JetStreamError:
+		if err, ok := err.(nats.JetStreamError); ok {
 			apierror := err.APIError()
 			switch apierror.ErrorCode {
 			case nats.JSErrCodeJetStreamNotEnabledForAccount, nats.JSErrCodeJetStreamNotEnabled:

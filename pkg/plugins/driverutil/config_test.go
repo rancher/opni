@@ -17,12 +17,10 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
-var _ = Describe("DefaultingConfigTracker", Ordered, func() {
+var _ = Describe("DefaultingConfigTracker", Label("unit"), Ordered, func() {
 	var (
 		ctx           context.Context
 		configTracker *driverutil.DefaultingConfigTracker[*ext.SampleConfiguration]
-		// defaultStore  storage.ValueStoreT[*ext.SampleConfiguration]
-		// activeStore   storage.ValueStoreT[*ext.SampleConfiguration]
 	)
 
 	setDefaults := func(s *ext.SampleConfiguration) {
@@ -38,13 +36,13 @@ var _ = Describe("DefaultingConfigTracker", Ordered, func() {
 	BeforeEach(func() {
 		updateC = make(chan *ext.SampleConfiguration, 10)
 
-		defaultStore := inmemory.NewProtoValueStore[*ext.SampleConfiguration]()
-		activeStore := inmemory.NewProtoValueStore[*ext.SampleConfiguration](func(prev, value *ext.SampleConfiguration) {
+		defaultStore := inmemory.NewValueStore[*ext.SampleConfiguration](util.ProtoClone)
+		activeStore := inmemory.NewValueStore(util.ProtoClone, inmemory.OnValueChanged(func(prev, value *ext.SampleConfiguration) {
 			updateC <- value
-		})
+		}))
 		ctx = context.TODO()
 
-		configTracker = driverutil.NewDefaultingConfigTracker[*ext.SampleConfiguration](defaultStore, activeStore, setDefaults)
+		configTracker = driverutil.NewDefaultingConfigTracker(defaultStore, activeStore, setDefaults)
 	})
 	When("getting the default config", func() {
 		It("should return a default config if it is in the store", func() {

@@ -12,7 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/storage/inmemory"
 )
 
-var _ = Describe("InMemoryKeyValueStore", func() {
+var _ = Describe("InMemoryKeyValueStore", Label("unit"), func() {
 	var (
 		keyValueStore storage.KeyValueStoreT[string]
 		ctx           context.Context
@@ -122,10 +122,10 @@ var _ = Describe("InMemoryKeyValueStore", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(history)).To(Equal(1))
 
-				history, err = keyValueStore.History(ctx, "key1", storage.WithRevision(0))
+				_, err = keyValueStore.History(ctx, "key1", storage.WithRevision(0))
 				Expect(err).To(Equal(storage.ErrNotFound))
 
-				history, err = keyValueStore.History(ctx, "key1", storage.WithRevision(-1))
+				_, err = keyValueStore.History(ctx, "key1", storage.WithRevision(-1))
 				Expect(err).To(Equal(storage.ErrNotFound))
 			})
 		})

@@ -12,7 +12,7 @@ import (
 	"github.com/samber/lo"
 )
 
-var _ = Describe("DriverCache", func() {
+var _ = Describe("DriverCache", Label("unit"), func() {
 	type driverStub int
 	var driverCache driverutil.DriverCache[driverStub]
 	var driverBuilders map[string]driverutil.DriverBuilder[driverStub]

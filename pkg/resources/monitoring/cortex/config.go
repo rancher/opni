@@ -98,6 +98,12 @@ func (r *Reconciler) config() ([]resources.Resource, error) {
 		return nil, err
 	}
 	rtConfBytes, err := configutil.MarshalRuntimeConfig(rtConf)
+	if err != nil {
+		r.logger.With(
+			zap.Error(err),
+		).Error("Failed to marshal cortex runtime config (cannot continue)")
+		return nil, err
+	}
 	configSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex",

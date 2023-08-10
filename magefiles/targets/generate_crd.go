@@ -67,8 +67,8 @@ func (CRD) CRDGen(ctx context.Context) error {
 		expr := `del(.. | select(has("description")).description | select(has("type") | not )) | .. style="flow"`
 
 		e1 := lo.Async(func() error {
-			if _, err := exec.LookPath("yq"); err == nil {
-				return sh.Run("yq", "-i", expr, "./packages/opni/opni/charts/crds/crds.yaml")
+			if yq, err := exec.LookPath("yq"); err == nil {
+				return sh.Run(yq, "-i", expr, "./packages/opni/opni/charts/crds/crds.yaml")
 			} else {
 				return sh.Run(mg.GoCmd(), "run", "github.com/mikefarah/yq/v4@latest", "-i", expr, "./packages/opni/opni/charts/crds/crds.yaml")
 			}

@@ -96,43 +96,43 @@ type HistoryOptions struct {
 }
 
 type (
-	revisionOpt      int64
-	revisionOutOpt   struct{ *int64 }
-	limitOpt         int64
-	includeValuesOpt bool
+	RevisionOpt      int64
+	RevisionOutOpt   struct{ *int64 }
+	LimitOpt         int64
+	IncludeValuesOpt bool
 )
 
 // WithRevision can be used for [GetOptions], [PutOptions], or [DeleteOptions]
-func WithRevision(rev int64) revisionOpt {
-	return revisionOpt(rev)
+func WithRevision(rev int64) RevisionOpt {
+	return RevisionOpt(rev)
 }
 
 // WithRevisionOut can be used for [GetOptions] or [PutOptions].
-func WithRevisionOut(out *int64) revisionOutOpt {
-	return revisionOutOpt{out}
+func WithRevisionOut(out *int64) RevisionOutOpt {
+	return RevisionOutOpt{out}
 }
 
 // WithLimit can be used for [ListKeysOptions] or [HistoryOptions].
-func WithLimit(limit int64) limitOpt {
-	return limitOpt(limit)
+func WithLimit(limit int64) LimitOpt {
+	return LimitOpt(limit)
 }
 
 // IncludeValues can be used for [HistoryOptions].
-func IncludeValues(include bool) includeValuesOpt {
-	return includeValuesOpt(include)
+func IncludeValues(include bool) IncludeValuesOpt {
+	return IncludeValuesOpt(include)
 }
 
-func (r revisionOpt) ApplyGetOption(opts *GetOptions)         { opts.Revision = (*int64)(&r) }
-func (r revisionOpt) ApplyPutOption(opts *PutOptions)         { opts.Revision = (*int64)(&r) }
-func (r revisionOpt) ApplyDeleteOption(opts *DeleteOptions)   { opts.Revision = (*int64)(&r) }
-func (r revisionOpt) ApplyHistoryOption(opts *HistoryOptions) { opts.Revision = (*int64)(&r) }
+func (r RevisionOpt) ApplyGetOption(opts *GetOptions)         { opts.Revision = (*int64)(&r) }
+func (r RevisionOpt) ApplyPutOption(opts *PutOptions)         { opts.Revision = (*int64)(&r) }
+func (r RevisionOpt) ApplyDeleteOption(opts *DeleteOptions)   { opts.Revision = (*int64)(&r) }
+func (r RevisionOpt) ApplyHistoryOption(opts *HistoryOptions) { opts.Revision = (*int64)(&r) }
 
-func (r revisionOutOpt) ApplyPutOption(opts *PutOptions) { opts.RevisionOut = r.int64 }
-func (r revisionOutOpt) ApplyGetOption(opts *GetOptions) { opts.RevisionOut = r.int64 }
+func (r RevisionOutOpt) ApplyPutOption(opts *PutOptions) { opts.RevisionOut = r.int64 }
+func (r RevisionOutOpt) ApplyGetOption(opts *GetOptions) { opts.RevisionOut = r.int64 }
 
-func (l limitOpt) ApplyListOption(opts *ListKeysOptions) { opts.Limit = (*int64)(&l) }
+func (l LimitOpt) ApplyListOption(opts *ListKeysOptions) { opts.Limit = (*int64)(&l) }
 
-func (i includeValuesOpt) ApplyHistoryOption(opts *HistoryOptions) { opts.IncludeValues = bool(i) }
+func (i IncludeValuesOpt) ApplyHistoryOption(opts *HistoryOptions) { opts.IncludeValues = bool(i) }
 
 type (
 	GetOpt     interface{ ApplyGetOption(*GetOptions) }

@@ -111,13 +111,13 @@ type DryRunClient struct {
 }
 
 // ResetConfiguration implements CortexOpsClient.
-func (dc *DryRunClient) ResetConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (dc *DryRunClient) ResetConfiguration(ctx context.Context, _ *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	dc.Request = &DryRunRequest{
 		Target: driverutil.Target_ActiveConfiguration,
 		Action: driverutil.Action_Reset,
 	}
 	var err error
-	dc.Response, err = dc.Client.DryRun(ctx, dc.Request)
+	dc.Response, err = dc.Client.DryRun(ctx, dc.Request, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("[dry-run] error: %w", err)
 	}
@@ -125,13 +125,13 @@ func (dc *DryRunClient) ResetConfiguration(ctx context.Context, in *emptypb.Empt
 }
 
 // ResetDefaultConfiguration implements CortexOpsClient.
-func (dc *DryRunClient) ResetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (dc *DryRunClient) ResetDefaultConfiguration(ctx context.Context, _ *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	dc.Request = &DryRunRequest{
 		Target: driverutil.Target_DefaultConfiguration,
 		Action: driverutil.Action_Reset,
 	}
 	var err error
-	dc.Response, err = dc.Client.DryRun(ctx, dc.Request)
+	dc.Response, err = dc.Client.DryRun(ctx, dc.Request, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("[dry-run] error: %w", err)
 	}
@@ -147,7 +147,7 @@ func (dc *DryRunClient) SetConfiguration(ctx context.Context, in *CapabilityBack
 		Spec:   in,
 	}
 	var err error
-	dc.Response, err = dc.Client.DryRun(ctx, dc.Request)
+	dc.Response, err = dc.Client.DryRun(ctx, dc.Request, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("[dry-run] error: %w", err)
 	}
@@ -163,7 +163,7 @@ func (dc *DryRunClient) SetDefaultConfiguration(ctx context.Context, in *Capabil
 		Spec:   in,
 	}
 	var err error
-	dc.Response, err = dc.Client.DryRun(ctx, dc.Request)
+	dc.Response, err = dc.Client.DryRun(ctx, dc.Request, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("[dry-run] error: %w", err)
 	}
@@ -186,16 +186,16 @@ func (dc *DryRunClient) GetDefaultConfiguration(ctx context.Context, in *GetRequ
 }
 
 // DryRun implements CortexOpsClient.
-func (dc *DryRunClient) DryRun(ctx context.Context, in *DryRunRequest, opts ...grpc.CallOption) (*DryRunResponse, error) {
+func (dc *DryRunClient) DryRun(_ context.Context, _ *DryRunRequest, _ ...grpc.CallOption) (*DryRunResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "[dry-run] method DryRun not implemented")
 }
 
-func (dc *DryRunClient) ConfigurationHistory(ctx context.Context, in *ConfigurationHistoryRequest, opts ...grpc.CallOption) (*ConfigurationHistoryResponse, error) {
+func (dc *DryRunClient) ConfigurationHistory(_ context.Context, _ *ConfigurationHistoryRequest, _ ...grpc.CallOption) (*ConfigurationHistoryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "[dry-run] method ConfigurationHistory not implemented")
 }
 
 // Install implements CortexOpsClient.
-func (dc *DryRunClient) Install(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (dc *DryRunClient) Install(ctx context.Context, _ *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	dc.Request = &DryRunRequest{
 		Action: driverutil.Action_Set,
 		Target: driverutil.Target_ActiveConfiguration,
@@ -204,7 +204,7 @@ func (dc *DryRunClient) Install(ctx context.Context, in *emptypb.Empty, opts ...
 		},
 	}
 	var err error
-	dc.Response, err = dc.Client.DryRun(ctx, dc.Request)
+	dc.Response, err = dc.Client.DryRun(ctx, dc.Request, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("[dry-run] error: %w", err)
 	}
@@ -212,12 +212,12 @@ func (dc *DryRunClient) Install(ctx context.Context, in *emptypb.Empty, opts ...
 }
 
 // Status implements CortexOpsClient.
-func (dc *DryRunClient) Status(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error) {
+func (dc *DryRunClient) Status(_ context.Context, _ *emptypb.Empty, _ ...grpc.CallOption) (*InstallStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "[dry-run] method Status not implemented")
 }
 
 // Uninstall implements CortexOpsClient.
-func (dc *DryRunClient) Uninstall(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (dc *DryRunClient) Uninstall(ctx context.Context, _ *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	dc.Request = &DryRunRequest{
 		Action: driverutil.Action_Set,
 		Target: driverutil.Target_ActiveConfiguration,
@@ -226,7 +226,7 @@ func (dc *DryRunClient) Uninstall(ctx context.Context, in *emptypb.Empty, opts .
 		},
 	}
 	var err error
-	dc.Response, err = dc.Client.DryRun(ctx, dc.Request)
+	dc.Response, err = dc.Client.DryRun(ctx, dc.Request, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("[dry-run] error: %w", err)
 	}

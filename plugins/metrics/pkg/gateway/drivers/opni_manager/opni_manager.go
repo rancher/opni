@@ -100,8 +100,14 @@ func NewOpniManagerClusterDriver(options OpniManagerClusterDriverOptions) (*Opni
 	if options.DefaultConfigStore == nil {
 		return nil, fmt.Errorf("missing required option: DefaultConfigStore")
 	}
+
+	gateway := options.newGateway()
+	err := options.K8sClient.Get(context.TODO(), options.GatewayRef, gateway)
+	if err != nil {
+		return nil, err
+	}
 	activeStore := crds.NewCRDValueStore(options.MonitoringCluster, methods{
-		controllerRef: options.newGateway(),
+		controllerRef: gateway,
 	}, crds.WithClient(options.K8sClient))
 
 	configTracker := driverutil.NewDefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec](

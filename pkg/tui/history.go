@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 	"github.com/nsf/jsondiff"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
@@ -89,6 +90,21 @@ func (m historyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		// auto-resize the table
+		sizes := make([]int, 3)
+		for _, row := range m.table.Rows() {
+			for j, col := range row {
+				sizes[j] = max(sizes[j], lipgloss.Width(col))
+			}
+		}
+		sizes[0] = max(sizes[0], lipgloss.Width("Rev"))
+		sizes[1] = max(sizes[1], lipgloss.Width("Diff"))
+		sizes[2] = max(sizes[2], lipgloss.Width("Timestamp"))
+		m.table.SetColumns([]table.Column{
+			{Title: "Rev", Width: sizes[0] + 1},
+			{Title: "Diff", Width: sizes[1] + 1},
+			{Title: "Timestamp", Width: sizes[2] + 1},
+		})
 		m.help.Width = msg.Width
 		for i := range m.entries {
 			m.entries[i].diffView.Width = msg.Width - m.table.Width() - 4
@@ -164,7 +180,7 @@ func (m *historyModel) renderTableView() string {
 	} else {
 		border = lipgloss.HiddenBorder()
 	}
-	return BaseStyle.Copy().BorderStyle(border).BorderForeground(lipgloss.Color("#8fbcbb")).Render(m.table.View())
+	return BaseStyle.Copy().BorderStyle(border).BorderForeground(BorderOutlineColor).Render(m.table.View())
 }
 
 func (m *historyModel) renderJsonView() string {
@@ -181,16 +197,15 @@ func (m *historyModel) renderJsonView() string {
 		model = &m.selectedEntry.jsonView
 		title = "JSON View"
 	}
-	style := lipgloss.NewStyle().Background(lipgloss.Color("#5e81ac")).Bold(true)
 	line := fmt.Sprintf(" %s%s", title, strings.Repeat(" ", max(0, model.Width-lipgloss.Width(title)-1)))
 	lineCount := model.TotalLineCount()
 	scrollPercent := fmt.Sprintf("%d:%d/%d • %.f%%", model.YOffset, min(lineCount, model.YOffset+model.Height), lineCount, model.ScrollPercent()*100)
 
 	footerLine := fmt.Sprintf(" %s%s", scrollPercent, strings.Repeat(" ", max(0, model.Width-lipgloss.Width(scrollPercent)-1)))
 
-	renderedHeader := style.Render(line)
+	renderedHeader := HeaderStyle.Render(line)
 	renderedContent := model.View()
-	renderedFooter := lipgloss.NewStyle().Background(lipgloss.Color("#3B4252")).Inline(true).Render(footerLine)
+	renderedFooter := HeaderStyle.Inline(true).Render(footerLine)
 
 	var border lipgloss.Border
 	if m.table.Focused() {
@@ -199,12 +214,16 @@ func (m *historyModel) renderJsonView() string {
 		border = lipgloss.NormalBorder()
 	}
 
-	return lipgloss.NewStyle().BorderStyle(border).BorderForeground(lipgloss.Color("#8fbcbb")).Render(
+	return lipgloss.NewStyle().BorderStyle(border).BorderForeground(BorderOutlineColor).Render(
 		fmt.Sprintf("%s\n%s\n%s", renderedHeader, renderedContent, renderedFooter),
 	)
 }
 
 func NewHistoryUI[T driverutil.ConfigType[T]](ts []T) *HistoryUI {
+	if lipgloss.ColorProfile() > termenv.ANSI256 {
+		lipgloss.SetColorProfile(termenv.ANSI256)
+	}
+
 	var entries []entry
 	for i, e := range ts {
 		entry := entry{
@@ -244,9 +263,9 @@ func NewHistoryUI[T driverutil.ConfigType[T]](ts []T) *HistoryUI {
 		entries = append(entries, entry)
 	}
 	columns := []table.Column{
-		{Title: "Rev", Width: 5},
-		{Title: "Diff", Width: 10},
-		{Title: "Timestamp", Width: 17},
+		{Title: "Rev"},
+		{Title: "Diff"},
+		{Title: "Timestamp"},
 	}
 
 	rows := make([]table.Row, len(entries))
@@ -259,7 +278,8 @@ func NewHistoryUI[T driverutil.ConfigType[T]](ts []T) *HistoryUI {
 		}
 	}
 
-	table := NewTable(columns, table.WithRows(rows), table.WithHeight(30), table.WithWidth(38))
+	table := NewTable(columns, table.WithRows(rows), table.WithHeight(30))
+	// table.WithWidth(columns[0].Width+columns[1].Width+columns[2].Width+4))
 	table.GotoBottom()
 	help := help.New()
 	return &HistoryUI{

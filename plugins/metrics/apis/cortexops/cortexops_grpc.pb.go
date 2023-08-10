@@ -124,8 +124,9 @@ type CortexOpsClient interface {
 	//     Set action with an empty spec.
 	//   - Configurations returned by DryRun will always have an empty revision field.
 	DryRun(ctx context.Context, in *DryRunRequest, opts ...grpc.CallOption) (*DryRunResponse, error)
-	// Returns a list of past revisions of the configuration, for either the
-	// active or default configuration depending on the specified target.
+	// Get a list of all past revisions of the configuration.
+	// Will return the history for either the active or default configuration
+	// depending on the specified target.
 	// The entries are ordered from oldest to newest, where the last entry is
 	// the current configuration.
 	ConfigurationHistory(ctx context.Context, in *ConfigurationHistoryRequest, opts ...grpc.CallOption) (*ConfigurationHistoryResponse, error)
@@ -337,8 +338,9 @@ type CortexOpsServer interface {
 	//     Set action with an empty spec.
 	//   - Configurations returned by DryRun will always have an empty revision field.
 	DryRun(context.Context, *DryRunRequest) (*DryRunResponse, error)
-	// Returns a list of past revisions of the configuration, for either the
-	// active or default configuration depending on the specified target.
+	// Get a list of all past revisions of the configuration.
+	// Will return the history for either the active or default configuration
+	// depending on the specified target.
 	// The entries are ordered from oldest to newest, where the last entry is
 	// the current configuration.
 	ConfigurationHistory(context.Context, *ConfigurationHistoryRequest) (*ConfigurationHistoryResponse, error)

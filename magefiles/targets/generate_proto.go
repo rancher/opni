@@ -87,10 +87,6 @@ func (Generate) ProtobufPython(ctx context.Context) error {
 func (Generate) ProtobufTypescript() error {
 	mg.Deps(Build.TypescriptServiceGenerator)
 	destDir := "web/pkg/opni/generated"
-	esGen, err := exec.LookPath("protoc-gen-es")
-	if err != nil {
-		return fmt.Errorf("cannot generate typescript code: %w", err)
-	}
 
 	targets := []string{
 		"pkg/apis/management/v1/management.proto",
@@ -99,7 +95,7 @@ func (Generate) ProtobufTypescript() error {
 	}
 
 	out, err := ragu.GenerateCode([]ragu.Generator{
-		external.NewGenerator(esGen, external.GeneratorOptions{
+		external.NewGenerator("./web/service-generator/node_modules/.bin/protoc-gen-es", external.GeneratorOptions{
 			Opt: "target=ts,import_extension=none",
 			CodeGeneratorRequestHook: func(req *pluginpb.CodeGeneratorRequest) {
 				for _, f := range req.ProtoFile {
@@ -133,5 +129,10 @@ func (Generate) Protobuf(ctx context.Context) {
 	ctx, tr := Tracer.Start(ctx, "target.generate.protobuf")
 	defer tr.End()
 
-	mg.CtxDeps(ctx, Generate.ProtobufGo, Generate.ProtobufPython)
+	_, err := exec.LookPath("yarn")
+	if err == nil {
+		mg.CtxDeps(ctx, Generate.ProtobufGo, Generate.ProtobufPython, Generate.ProtobufTypescript)
+	} else {
+		mg.CtxDeps(ctx, Generate.ProtobufGo, Generate.ProtobufPython)
+	}
 }

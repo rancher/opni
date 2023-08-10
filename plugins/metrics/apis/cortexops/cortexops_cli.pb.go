@@ -485,9 +485,10 @@ func BuildCortexOpsConfigurationHistoryCmd() *cobra.Command {
 	in := &ConfigurationHistoryRequest{}
 	cmd := &cobra.Command{
 		Use:   "config history",
-		Short: "Returns a list of past revisions of the configuration, for either the",
+		Short: "Get a list of all past revisions of the configuration.",
 		Long: `
-active or default configuration depending on the specified target.
+Will return the history for either the active or default configuration
+depending on the specified target.
 The entries are ordered from oldest to newest, where the last entry is
 the current configuration.
 

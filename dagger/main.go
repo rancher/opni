@@ -276,12 +276,10 @@ func (b *Builder) run(ctx context.Context) error {
 }
 
 func (b *Builder) runInTreeBuilds(ctx context.Context) error {
-	goBase := b.goBase()
-	nodeBase := b.nodeBase()
 	alpineBase := b.alpineBase()
 
-	goBuild := goBase.
-		Pipeline("Go Build").
+	builder := b.base().
+		Pipeline("Builder Setup").
 		With(installTools).
 		WithEnvVariable("CGO_ENABLED", "0").
 		WithEnvVariable("GOBIN", "/usr/bin"). // important for cached mage binary
@@ -289,17 +287,16 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		WithoutEnvVariable("GOBIN").
 		WithDirectory(b.workdir, b.sources)
 
-	nodeBuild := nodeBase.
-		Pipeline("Node Build").
-		WithDirectory(filepath.Join(b.workdir, "web"), b.sources.Directory("web")).
-		WithExec([]string{"ln", "-s", "/cache/node_modules", filepath.Join(b.workdir, "web", "node_modules")}).
-		WithExec([]string{"ls", "-halL", "node_modules"}).
-		WithExec(yarn([]string{"install", "--frozen-lockfile"})).
-		WithExec(yarn("build"))
-
-	generated := goBuild.
+	generated := builder.
 		Pipeline("Generate").
 		WithExec(mage("generate:all"))
+
+	nodeBuild := generated.
+		Pipeline("Node Build").
+		WithWorkdir(filepath.Join(b.workdir, "web")).
+		WithExec([]string{"ln", "-s", "/cache/node_modules", filepath.Join(b.workdir, "web", "node_modules")}).
+		WithExec(yarn([]string{"install", "--frozen-lockfile"})).
+		WithExec(yarn("build"))
 
 	archives := generated.
 		Pipeline("Build Archives").
@@ -387,7 +384,7 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		WithFile("/usr/bin/opni", minimal.File(b.bin("opni-minimal"))).
 		WithEntrypoint([]string{"opni"})
 
-	charts := goBuild.
+	charts := builder.
 		Pipeline("Charts").
 		WithFile(b.ciTarget("charts")).
 		WithExec(mage("charts"))

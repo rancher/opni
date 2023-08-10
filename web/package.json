@@ -3,7 +3,7 @@
   "version": "0.1.1",
   "private": false,
   "engines": {
-    "node": ">=12"
+    "node": "18"
   },
   "dependencies": {
     "@rancher/shell": "^0.3.16",
@@ -23,8 +23,8 @@
     "vue-fragment": "^1.6.0"
   },
   "resolutions": {
-    "**/webpack": "4",
-    "@types/node": "^16"
+    "@types/node": "^18",
+    "@achrinza/node-ipc": "^9.2"
   },
   "scripts": {
     "dev": "NODE_ENV=dev ./node_modules/.bin/vue-cli-service serve",

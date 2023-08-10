@@ -1,3 +1,9 @@
+// https://github.com/webpack/webpack/issues/13572#issuecomment-923736472
+const crypto = require('crypto');
+const cryptoOrigCreateHash = crypto.createHash;
+
+crypto.createHash = algorithm => cryptoOrigCreateHash(algorithm === 'md4' ? 'sha256' : algorithm);
+
 const config = require('@rancher/shell/vue.config');
 const webpack = require('webpack');
 

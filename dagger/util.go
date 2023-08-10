@@ -13,21 +13,16 @@ func (b *Builder) bin(paths ...string) string {
 	return filepath.Join(append([]string{b.workdir, "bin"}, paths...)...)
 }
 
-func (b *Builder) nodeBase() *dagger.Container {
-	return images.NodeBase(b.client).
-		With(b.caches.Yarn).
-		WithEnvVariable("YARN_CACHE_FOLDER", "/cache/yarn").
-		With(b.caches.NodeModules).
-		WithEnvVariable("NODE_PATH", "/cache/node_modules").
-		WithWorkdir(filepath.Join(b.workdir, "web"))
-}
-
-func (b *Builder) goBase() *dagger.Container {
-	return images.GoBase(b.client).
+func (b *Builder) base() *dagger.Container {
+	return images.Base(b.client).
 		With(b.caches.Mage).
 		With(b.caches.GoBuild).
 		With(b.caches.GoMod).
 		With(b.caches.GoBin).
+		With(b.caches.Yarn).
+		WithEnvVariable("YARN_CACHE_FOLDER", "/cache/yarn").
+		With(b.caches.NodeModules).
+		WithEnvVariable("NODE_PATH", "/cache/node_modules").
 		WithWorkdir(b.workdir)
 }
 
@@ -76,13 +71,11 @@ func must(err error) {
 
 func installTools(ctr *dagger.Container) *dagger.Container {
 	for _, tool := range []string{
-		"github.com/golangci/golangci-lint/cmd/golangci-lint@latest",
-		"github.com/mikefarah/yq/v4@latest",
 		"go.uber.org/mock/mockgen@latest",
 		"sigs.k8s.io/controller-tools/cmd/controller-gen@latest",
 		"sigs.k8s.io/kustomize/kustomize/v5@latest",
 	} {
-		ctr = ctr.WithExec([]string{"go", "install", tool})
+		ctr = ctr.WithExec([]string{"go", "install", "-v", "-x", tool})
 	}
 	return ctr
 }

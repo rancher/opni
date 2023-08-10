@@ -60,11 +60,29 @@ func (c CompositeAlertingClientSet) Incidents() spec.IncidentStorage {
 	return c.incidents
 }
 
-func (c *CompositeAlertingClientSet) GetHash(_ context.Context, key string) string {
-	if _, ok := c.hashes[key]; !ok {
-		return ""
+func (c *CompositeAlertingClientSet) GetHash(ctx context.Context, key string) (string, error) {
+	router, err := c.Routers().Get(ctx, key)
+	if err != nil {
+		if st, ok := status.FromError(err); ok {
+			if st.Code() == codes.NotFound {
+				return "", nil
+			}
+		}
+		return "", err
 	}
-	return c.hashes[key]
+
+	cfg, err := router.BuildConfig()
+	if err != nil {
+		return "", err
+	}
+
+	out, err := yaml.Marshal(cfg)
+	if err != nil {
+		return "", err
+	}
+	hash := sha256.New()
+	hash.Write(out)
+	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 func (c *CompositeAlertingClientSet) CalculateHash(ctx context.Context, key string, syncOptions *storage_opts.SyncOptions) error {
@@ -223,26 +241,14 @@ func (c *CompositeAlertingClientSet) calculateRouters(ctx context.Context, syncO
 func (c *CompositeAlertingClientSet) ForceSync(ctx context.Context, incomingOpts ...storage_opts.SyncOption) error {
 	syncOpts := storage_opts.NewSyncOptions()
 	syncOpts.Apply(incomingOpts...)
-	if err := c.CalculateHash(ctx, shared.SingleConfigId, syncOpts); err != nil {
-		return err
-	}
-	c.Logger.With("hash", c.GetHash(ctx, shared.SingleConfigId)).Debug("starting force sync")
 
 	_, err := c.calculateRouters(ctx, syncOpts)
-	c.Logger.Debug("finished force sync")
 	return err
 }
 
 func (c *CompositeAlertingClientSet) Sync(ctx context.Context, incomingOpts ...storage_opts.SyncOption) ([]string, error) {
 	syncOpts := storage_opts.NewSyncOptions()
 	syncOpts.Apply(incomingOpts...)
-	key := shared.SingleConfigId
-	curHash := strings.Clone(c.GetHash(ctx, key))
-	c.CalculateHash(ctx, key, syncOpts)
-	newHash := c.GetHash(ctx, key)
-	if curHash == newHash {
-		return []string{}, nil
-	}
 	keys, err := c.calculateRouters(ctx, syncOpts)
 	if err != nil {
 		return nil, err

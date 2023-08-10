@@ -3,9 +3,12 @@ package alerting
 import (
 	"context"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -22,6 +25,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -29,11 +33,23 @@ var (
 	ForceSyncInterval = time.Minute * 15
 )
 
+type RemoteInfo struct {
+	WhoAmI        string
+	LastApplied   *timestamppb.Timestamp
+	LastSyncState alertops.SyncState
+	LastSyncId    string
+}
+
 type SyncController struct {
-	syncPushers     map[string]chan *alertops.SyncRequest
-	syncMu          *sync.RWMutex
+	hashMu          sync.Mutex
+	syncMu          sync.RWMutex
+	remoteMu        sync.RWMutex
 	heartbeatTicker *time.Ticker
 	forceSyncTicker *time.Ticker
+
+	// lifecycleUUid -> vals
+	syncPushers map[string]chan *alertops.SyncRequest
+	remoteInfo  map[string]RemoteInfo
 
 	metricsExporter *SyncMetricsExporter
 }
@@ -50,19 +66,67 @@ func (s *SyncController) RemoveSyncPusher(LifecycleUuid string) {
 	delete(s.syncPushers, LifecycleUuid)
 }
 
-func (s *SyncController) PushSyncReq(req *alertops.SyncRequest) {
-	for _, syncer := range s.syncPushers {
+func (s *SyncController) AddRemoteInfo(LifecycleUuid string, info RemoteInfo) {
+	s.remoteMu.Lock()
+	defer s.remoteMu.Unlock()
+	s.remoteInfo[LifecycleUuid] = info
+}
+
+func (s *SyncController) RemoveRemoteInfo(LifecycleUuid string) {
+	s.remoteMu.Lock()
+	defer s.remoteMu.Unlock()
+	delete(s.remoteInfo, LifecycleUuid)
+}
+
+func (s *SyncController) ListRemoteInfo() map[string]RemoteInfo {
+	s.remoteMu.RLock()
+	defer s.remoteMu.RUnlock()
+	copyM := map[string]RemoteInfo{}
+	for id, info := range s.remoteInfo {
+		copyM[id] = info
+	}
+	return copyM
+}
+
+func (s *SyncController) PushSyncReq(payload *syncPayload) {
+	for id, syncer := range s.syncPushers {
+		id := id
 		syncer := syncer
-		go func() {
-			syncer <- req
-		}()
+		syncer <- &alertops.SyncRequest{
+			LifecycleId: id,
+			SyncId:      payload.syncId,
+			Items: []*alertingv1.PutConfigRequest{
+				{
+					Key:    payload.configKey,
+					Config: payload.data,
+				},
+			},
+		}
+	}
+}
+
+func (s *SyncController) PushOne(lifecycleId string, payload *syncPayload) {
+	if _, ok := s.syncPushers[lifecycleId]; ok {
+		s.syncPushers[lifecycleId] <- &alertops.SyncRequest{
+			LifecycleId: lifecycleId,
+			SyncId:      payload.syncId,
+			Items: []*alertingv1.PutConfigRequest{
+				{
+					Key:    payload.configKey,
+					Config: payload.data,
+				},
+			},
+		}
 	}
 }
 
 func NewSyncController() SyncController {
 	return SyncController{
 		syncPushers:     map[string]chan *alertops.SyncRequest{},
-		syncMu:          &sync.RWMutex{},
+		remoteInfo:      map[string]RemoteInfo{},
+		syncMu:          sync.RWMutex{},
+		remoteMu:        sync.RWMutex{},
+		hashMu:          sync.Mutex{},
 		heartbeatTicker: time.NewTicker(SyncInterval),
 		forceSyncTicker: time.NewTicker(ForceSyncInterval),
 		metricsExporter: NewSyncMetricsExporter(),
@@ -146,82 +210,157 @@ func (p *Plugin) UninstallCluster(ctx context.Context, request *alertops.Uninsta
 	return driver.UninstallCluster(ctx, request)
 }
 
-func (p *Plugin) ConnectRemoteSyncer(request *alertops.ConnectRequest, syncerServer alertops.ConfigReconciler_ConnectRemoteSyncerServer) error {
-	lg := p.logger.With("method", "ConnectRemoteSyncer", "syncer", request.LifecycleUuid)
-	ctxTimeout, ca := context.WithTimeout(p.ctx, time.Second*5)
+func (p *Plugin) Info(ctx context.Context, _ *emptypb.Empty) (*alertops.ComponentInfo, error) {
+	remoteInfo := p.syncController.ListRemoteInfo()
+	ctxTimeout, ca := context.WithTimeout(ctx, 1*time.Second)
+	defer ca()
+	cl, err := p.storageClientSet.GetContext(ctxTimeout)
+	if err != nil {
+		return nil, status.Error(codes.Unavailable, err.Error())
+	}
+	hash, err := cl.GetHash(ctx, shared.SingleConfigId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, fmt.Sprintf("could not find or calculate hash for %s", shared.SingleConfigId))
+	}
+	res := &alertops.ComponentInfo{
+		CurSyncId:  hash,
+		Components: map[string]*alertops.Component{},
+	}
+	for lifecycleId, info := range remoteInfo {
+		res.Components[info.WhoAmI] = &alertops.Component{
+			ConnectInfo: &alertops.ConnectInfo{
+				LifecycleUuid: lifecycleId,
+				Whoami:        info.WhoAmI,
+				State:         info.LastSyncState,
+				SyncId:        info.LastSyncId,
+			},
+			LastHandshake: info.LastApplied,
+		}
+	}
+
+	return res, nil
+}
+
+func (p *Plugin) constructManualSync() (*syncPayload, error) {
+	ctxTimeout, ca := context.WithTimeout(p.ctx, 5*time.Second)
 	defer ca()
 	storageClientSet, err := p.storageClientSet.GetContext(ctxTimeout)
 	if err != nil {
-		return status.Error(codes.Unavailable, fmt.Sprintf("failed to get storage client set: %s", err))
+		return nil, status.Error(codes.Unavailable, fmt.Sprintf("failed to get storage client set: %s", err))
 	}
-	routerKeys, err := storageClientSet.Routers().ListKeys(p.ctx)
-	if err != nil {
-		return status.Error(codes.Internal, "failed to list router keys")
-	}
-	lg.Infof("connected remote syncer, performaing initial sync...")
-	syncReq := p.constructSyncRequest(p.ctx, routerKeys, storageClientSet.Routers())
-	err = syncerServer.Send(syncReq)
-	if err != nil {
-		lg.Error("failed to send initial sync")
-	}
-	lg.Debug("finished performing intial sync")
+	return p.constructPartialSyncRequest(p.ctx, storageClientSet, storageClientSet.Routers())
+}
+
+func (p *Plugin) SyncConfig(server alertops.ConfigReconciler_SyncConfigServer) error {
+	assignedLifecycleUuid := uuid.New().String()
+	lg := p.logger.With("method", "SyncConfig", "assignedId", assignedLifecycleUuid)
+	lg.Infof(" remote syncer connected, performaing initial sync...")
 	syncChan := make(chan *alertops.SyncRequest, 16)
 	defer close(syncChan)
-	p.syncController.AddSyncPusher(request.LifecycleUuid, syncChan)
+	p.syncController.AddSyncPusher(assignedLifecycleUuid, syncChan)
+	defer p.syncController.RemoveRemoteInfo(assignedLifecycleUuid)
+	defer p.syncController.RemoveSyncPusher(assignedLifecycleUuid)
+
+	payload, err := p.constructManualSync()
+	if err != nil {
+		return err
+	}
+	if err := server.Send(&alertops.SyncRequest{
+		LifecycleId: assignedLifecycleUuid,
+		SyncId:      payload.syncId,
+		Items: []*alertingv1.PutConfigRequest{
+			{
+				Key:    payload.configKey,
+				Config: payload.data,
+			},
+		},
+	}); err != nil {
+		return err
+	}
+	connErr := lo.Async(func() error {
+		for {
+			info, err := server.Recv()
+			if err == io.EOF {
+				lg.Debug("remote syncer closed connection")
+				p.syncController.RemoveSyncPusher(assignedLifecycleUuid)
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			p.syncController.AddRemoteInfo(assignedLifecycleUuid, RemoteInfo{
+				WhoAmI:        info.Whoami,
+				LastApplied:   timestamppb.Now(),
+				LastSyncState: info.State,
+				LastSyncId:    info.LifecycleUuid,
+			})
+		}
+	})
+	var mu sync.Mutex
 	for {
 		select {
 		case <-p.ctx.Done():
-			lg.Debug("exiting syncer loop, ops node shutting down")
+			lg.Debug("exiting syncer loop, alerting plugin shutting down")
 			return nil
-		case <-syncerServer.Context().Done():
+		case <-server.Context().Done():
 			lg.Debug("exiting syncer loop, remote syncer shutting down")
-			p.syncController.RemoveSyncPusher(request.LifecycleUuid)
 			return nil
+		case err := <-connErr:
+			return err
 		case syncReq := <-syncChan:
-			go func(req *alertops.SyncRequest) {
-				err := syncerServer.Send(syncReq)
-				if err != nil {
-					lg.Errorf("could not send sync request to remote syncer %s", err)
-				}
-			}(syncReq)
+			mu.Lock()
+			err := server.Send(syncReq)
+			mu.Unlock()
+			if err != nil {
+				lg.Errorf("could not send sync request to remote syncer %s", err)
+			}
 		}
 	}
 }
 
-func (p *Plugin) constructSyncRequest(
+type syncPayload struct {
+	syncId    string
+	configKey string
+	data      []byte
+}
+
+func (p *Plugin) constructPartialSyncRequest(
 	ctx context.Context,
-	routerKeys []string,
+	hashRing spec.HashRing,
 	routers spec.RouterStorage,
-) *alertops.SyncRequest {
+) (*syncPayload, error) {
+	p.syncController.hashMu.Lock()
+	defer p.syncController.hashMu.Unlock()
+
 	lg := p.logger.With("method", "constructSyncRequest")
-	syncReq := &alertops.SyncRequest{
-		Items: []*alertingv1.PutConfigRequest{},
+	hash, err := hashRing.GetHash(ctx, shared.SingleConfigId)
+	if err != nil {
+		lg.Errorf("failed to get hash for %s: %s", shared.SingleConfigId, err)
+		panic(err)
+	}
+	key := shared.SingleConfigId
+	router, err := routers.Get(ctx, key)
+	if err != nil {
+		lg.Errorf("failed to get router %s from storage: %s", key, err)
+		return nil, err
+	}
+	config, err := router.BuildConfig()
+	if err != nil {
+		lg.Errorf("failed to build config for router %s: %s", key, err)
+		return nil, err
 	}
 
-	for _, key := range routerKeys {
-		router, err := routers.Get(ctx, key)
-		if err != nil {
-			lg.Errorf("failed to get router %s from storage: %s", key, err)
-			continue
-		}
-		config, err := router.BuildConfig()
-		if err != nil {
-			lg.Errorf("failed to build config for router %s: %s", key, err)
-			continue
-		}
-
-		data, err := yaml.Marshal(config)
-		if err != nil {
-			lg.Errorf("failed to marshal config for router %s: %s", key, err)
-			continue
-		}
-
-		syncReq.Items = append(syncReq.Items, &alertingv1.PutConfigRequest{
-			Key:    key,
-			Config: data,
-		})
+	data, err := yaml.Marshal(config)
+	if err != nil {
+		lg.Errorf("failed to marshal config for router %s: %s", key, err)
+		return nil, err
 	}
-	return syncReq
+
+	return &syncPayload{
+		syncId:    hash,
+		configKey: key,
+		data:      data,
+	}, nil
 }
 
 func (p *Plugin) doConfigSync(ctx context.Context, syncInfo alertingSync.SyncInfo) error {
@@ -231,6 +370,7 @@ func (p *Plugin) doConfigSync(ctx context.Context, syncInfo alertingSync.SyncInf
 	lg := p.logger.With("method", "doSync")
 	p.syncController.syncMu.Lock()
 	defer p.syncController.syncMu.Unlock()
+
 	ctxTimeout, ca := context.WithTimeout(ctx, 5*time.Second)
 	defer ca()
 	clientSet, err := p.storageClientSet.GetContext(ctxTimeout)
@@ -244,10 +384,34 @@ func (p *Plugin) doConfigSync(ctx context.Context, syncInfo alertingSync.SyncInf
 		lg.Errorf("failed to sync configuration in alerting clientset %s", err)
 		return err
 	}
-	if len(routerKeys) > 0 {
-		lg.Debug("sync change detected, pushing sync request to remote syncers")
-		syncReq := p.constructSyncRequest(ctx, routerKeys, clientSet.Routers())
-		p.syncController.PushSyncReq(syncReq)
+	if len(routerKeys) > 0 { // global configuration has changed and never been applied
+
+		payload, err := p.constructPartialSyncRequest(ctx, clientSet, clientSet.Routers())
+		if err != nil {
+			return err
+		}
+		lg.With("syncId", payload.syncId).Debug("sync change detected, pushing sync request to remote syncers")
+		p.syncController.PushSyncReq(payload)
+		return nil
+	}
+	// check if any sync info is out of date
+	remoteSyncInfo := p.syncController.ListRemoteInfo()
+	queuedSyncs := []string{}
+	for lifecycleId, info := range remoteSyncInfo {
+		if info.LastSyncState == alertops.SyncState_SyncUnknown ||
+			info.LastSyncState == alertops.SyncState_SyncError {
+			queuedSyncs = append(queuedSyncs, lifecycleId)
+		}
+	}
+	if len(queuedSyncs) > 0 {
+		payload, err := p.constructPartialSyncRequest(ctx, clientSet, clientSet.Routers())
+		if err != nil {
+			return err
+		}
+		for _, id := range queuedSyncs {
+			lg.With("syncId", payload.syncId, "lifecycleId", id).Debug("sync id mismatch, pushing sync request to remote syncers")
+			p.syncController.PushOne(id, payload)
+		}
 	}
 	return nil
 }
@@ -270,14 +434,11 @@ func (p *Plugin) doConfigForceSync(ctx context.Context, syncInfo alertingSync.Sy
 		lg.Errorf("failed to force sync configuration in alerting clientset %s", err)
 		return err
 	}
-	routers := clientSet.Routers()
-	routerKeys, err := routers.ListKeys(ctx)
+	payload, err := p.constructPartialSyncRequest(p.ctx, clientSet, clientSet.Routers())
 	if err != nil {
-		lg.Errorf("failed to get router keys during force sync %s", err)
 		return err
 	}
-	syncReq := p.constructSyncRequest(p.ctx, routerKeys, routers)
-	p.syncController.PushSyncReq(syncReq)
+	p.syncController.PushSyncReq(payload)
 	return nil
 }
 
@@ -384,16 +545,21 @@ func (p *Plugin) runSync() {
 
 func (p *Plugin) SendManualSyncRequest(
 	ctx context.Context,
-	routerKeys []string,
+	hashRing spec.HashRing,
 	routers spec.RouterStorage,
-) {
+) error {
 	p.syncController.syncMu.Lock()
 	defer p.syncController.syncMu.Unlock()
 
 	lg := p.logger.With("method", "sendManualSyncRequest")
-	syncReq := p.constructSyncRequest(ctx, routerKeys, routers)
-	p.syncController.PushSyncReq(syncReq)
-	lg.Debug("sent manual sync request")
+	payload, err := p.constructPartialSyncRequest(ctx, hashRing, routers)
+	if err != nil {
+		lg.Errorf("failed to construct sync request: %s", err)
+		return err
+	}
+	p.syncController.PushSyncReq(payload)
+	lg.With("sync-id", payload.syncId).Debug("sent manual sync request")
+	return nil
 }
 
 func (p *Plugin) ready() error {

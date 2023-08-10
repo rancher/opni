@@ -25,6 +25,7 @@ const (
 	AlertingAdmin_GetClusterStatus_FullMethodName        = "/alerting.ops.AlertingAdmin/GetClusterStatus"
 	AlertingAdmin_InstallCluster_FullMethodName          = "/alerting.ops.AlertingAdmin/InstallCluster"
 	AlertingAdmin_UninstallCluster_FullMethodName        = "/alerting.ops.AlertingAdmin/UninstallCluster"
+	AlertingAdmin_Info_FullMethodName                    = "/alerting.ops.AlertingAdmin/Info"
 )
 
 // AlertingAdminClient is the client API for AlertingAdmin service.
@@ -37,6 +38,7 @@ type AlertingAdminClient interface {
 	GetClusterStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error)
 	InstallCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	UninstallCluster(ctx context.Context, in *UninstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Info(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ComponentInfo, error)
 }
 
 type alertingAdminClient struct {
@@ -92,6 +94,15 @@ func (c *alertingAdminClient) UninstallCluster(ctx context.Context, in *Uninstal
 	return out, nil
 }
 
+func (c *alertingAdminClient) Info(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ComponentInfo, error) {
+	out := new(ComponentInfo)
+	err := c.cc.Invoke(ctx, AlertingAdmin_Info_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AlertingAdminServer is the server API for AlertingAdmin service.
 // All implementations must embed UnimplementedAlertingAdminServer
 // for forward compatibility
@@ -102,6 +113,7 @@ type AlertingAdminServer interface {
 	GetClusterStatus(context.Context, *emptypb.Empty) (*InstallStatus, error)
 	InstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	UninstallCluster(context.Context, *UninstallRequest) (*emptypb.Empty, error)
+	Info(context.Context, *emptypb.Empty) (*ComponentInfo, error)
 	mustEmbedUnimplementedAlertingAdminServer()
 }
 
@@ -123,6 +135,9 @@ func (UnimplementedAlertingAdminServer) InstallCluster(context.Context, *emptypb
 }
 func (UnimplementedAlertingAdminServer) UninstallCluster(context.Context, *UninstallRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UninstallCluster not implemented")
+}
+func (UnimplementedAlertingAdminServer) Info(context.Context, *emptypb.Empty) (*ComponentInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Info not implemented")
 }
 func (UnimplementedAlertingAdminServer) mustEmbedUnimplementedAlertingAdminServer() {}
 
@@ -227,6 +242,24 @@ func _AlertingAdmin_UninstallCluster_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AlertingAdmin_Info_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertingAdminServer).Info(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AlertingAdmin_Info_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertingAdminServer).Info(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AlertingAdmin_ServiceDesc is the grpc.ServiceDesc for AlertingAdmin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -254,20 +287,114 @@ var AlertingAdmin_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "UninstallCluster",
 			Handler:    _AlertingAdmin_UninstallCluster_Handler,
 		},
+		{
+			MethodName: "Info",
+			Handler:    _AlertingAdmin_Info_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "github.com/rancher/opni/plugins/alerting/apis/alertops/alertops.proto",
 }
 
 const (
-	ConfigReconciler_ConnectRemoteSyncer_FullMethodName = "/alerting.ops.ConfigReconciler/ConnectRemoteSyncer"
+	AdminInfo_SyncInfo_FullMethodName = "/alerting.ops.AdminInfo/SyncInfo"
+)
+
+// AdminInfoClient is the client API for AdminInfo service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AdminInfoClient interface {
+	SyncInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type adminInfoClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAdminInfoClient(cc grpc.ClientConnInterface) AdminInfoClient {
+	return &adminInfoClient{cc}
+}
+
+func (c *adminInfoClient) SyncInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, AdminInfo_SyncInfo_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AdminInfoServer is the server API for AdminInfo service.
+// All implementations must embed UnimplementedAdminInfoServer
+// for forward compatibility
+type AdminInfoServer interface {
+	SyncInfo(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	mustEmbedUnimplementedAdminInfoServer()
+}
+
+// UnimplementedAdminInfoServer must be embedded to have forward compatible implementations.
+type UnimplementedAdminInfoServer struct {
+}
+
+func (UnimplementedAdminInfoServer) SyncInfo(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SyncInfo not implemented")
+}
+func (UnimplementedAdminInfoServer) mustEmbedUnimplementedAdminInfoServer() {}
+
+// UnsafeAdminInfoServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AdminInfoServer will
+// result in compilation errors.
+type UnsafeAdminInfoServer interface {
+	mustEmbedUnimplementedAdminInfoServer()
+}
+
+func RegisterAdminInfoServer(s grpc.ServiceRegistrar, srv AdminInfoServer) {
+	s.RegisterService(&AdminInfo_ServiceDesc, srv)
+}
+
+func _AdminInfo_SyncInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminInfoServer).SyncInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminInfo_SyncInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminInfoServer).SyncInfo(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AdminInfo_ServiceDesc is the grpc.ServiceDesc for AdminInfo service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AdminInfo_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "alerting.ops.AdminInfo",
+	HandlerType: (*AdminInfoServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "SyncInfo",
+			Handler:    _AdminInfo_SyncInfo_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.com/rancher/opni/plugins/alerting/apis/alertops/alertops.proto",
+}
+
+const (
+	ConfigReconciler_SyncConfig_FullMethodName = "/alerting.ops.ConfigReconciler/SyncConfig"
 )
 
 // ConfigReconcilerClient is the client API for ConfigReconciler service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ConfigReconcilerClient interface {
-	ConnectRemoteSyncer(ctx context.Context, in *ConnectRequest, opts ...grpc.CallOption) (ConfigReconciler_ConnectRemoteSyncerClient, error)
+	SyncConfig(ctx context.Context, opts ...grpc.CallOption) (ConfigReconciler_SyncConfigClient, error)
 }
 
 type configReconcilerClient struct {
@@ -278,31 +405,30 @@ func NewConfigReconcilerClient(cc grpc.ClientConnInterface) ConfigReconcilerClie
 	return &configReconcilerClient{cc}
 }
 
-func (c *configReconcilerClient) ConnectRemoteSyncer(ctx context.Context, in *ConnectRequest, opts ...grpc.CallOption) (ConfigReconciler_ConnectRemoteSyncerClient, error) {
-	stream, err := c.cc.NewStream(ctx, &ConfigReconciler_ServiceDesc.Streams[0], ConfigReconciler_ConnectRemoteSyncer_FullMethodName, opts...)
+func (c *configReconcilerClient) SyncConfig(ctx context.Context, opts ...grpc.CallOption) (ConfigReconciler_SyncConfigClient, error) {
+	stream, err := c.cc.NewStream(ctx, &ConfigReconciler_ServiceDesc.Streams[0], ConfigReconciler_SyncConfig_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &configReconcilerConnectRemoteSyncerClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
+	x := &configReconcilerSyncConfigClient{stream}
 	return x, nil
 }
 
-type ConfigReconciler_ConnectRemoteSyncerClient interface {
+type ConfigReconciler_SyncConfigClient interface {
+	Send(*ConnectInfo) error
 	Recv() (*SyncRequest, error)
 	grpc.ClientStream
 }
 
-type configReconcilerConnectRemoteSyncerClient struct {
+type configReconcilerSyncConfigClient struct {
 	grpc.ClientStream
 }
 
-func (x *configReconcilerConnectRemoteSyncerClient) Recv() (*SyncRequest, error) {
+func (x *configReconcilerSyncConfigClient) Send(m *ConnectInfo) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *configReconcilerSyncConfigClient) Recv() (*SyncRequest, error) {
 	m := new(SyncRequest)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -314,7 +440,7 @@ func (x *configReconcilerConnectRemoteSyncerClient) Recv() (*SyncRequest, error)
 // All implementations must embed UnimplementedConfigReconcilerServer
 // for forward compatibility
 type ConfigReconcilerServer interface {
-	ConnectRemoteSyncer(*ConnectRequest, ConfigReconciler_ConnectRemoteSyncerServer) error
+	SyncConfig(ConfigReconciler_SyncConfigServer) error
 	mustEmbedUnimplementedConfigReconcilerServer()
 }
 
@@ -322,8 +448,8 @@ type ConfigReconcilerServer interface {
 type UnimplementedConfigReconcilerServer struct {
 }
 
-func (UnimplementedConfigReconcilerServer) ConnectRemoteSyncer(*ConnectRequest, ConfigReconciler_ConnectRemoteSyncerServer) error {
-	return status.Errorf(codes.Unimplemented, "method ConnectRemoteSyncer not implemented")
+func (UnimplementedConfigReconcilerServer) SyncConfig(ConfigReconciler_SyncConfigServer) error {
+	return status.Errorf(codes.Unimplemented, "method SyncConfig not implemented")
 }
 func (UnimplementedConfigReconcilerServer) mustEmbedUnimplementedConfigReconcilerServer() {}
 
@@ -338,25 +464,30 @@ func RegisterConfigReconcilerServer(s grpc.ServiceRegistrar, srv ConfigReconcile
 	s.RegisterService(&ConfigReconciler_ServiceDesc, srv)
 }
 
-func _ConfigReconciler_ConnectRemoteSyncer_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(ConnectRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(ConfigReconcilerServer).ConnectRemoteSyncer(m, &configReconcilerConnectRemoteSyncerServer{stream})
+func _ConfigReconciler_SyncConfig_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ConfigReconcilerServer).SyncConfig(&configReconcilerSyncConfigServer{stream})
 }
 
-type ConfigReconciler_ConnectRemoteSyncerServer interface {
+type ConfigReconciler_SyncConfigServer interface {
 	Send(*SyncRequest) error
+	Recv() (*ConnectInfo, error)
 	grpc.ServerStream
 }
 
-type configReconcilerConnectRemoteSyncerServer struct {
+type configReconcilerSyncConfigServer struct {
 	grpc.ServerStream
 }
 
-func (x *configReconcilerConnectRemoteSyncerServer) Send(m *SyncRequest) error {
+func (x *configReconcilerSyncConfigServer) Send(m *SyncRequest) error {
 	return x.ServerStream.SendMsg(m)
+}
+
+func (x *configReconcilerSyncConfigServer) Recv() (*ConnectInfo, error) {
+	m := new(ConnectInfo)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // ConfigReconciler_ServiceDesc is the grpc.ServiceDesc for ConfigReconciler service.
@@ -368,9 +499,10 @@ var ConfigReconciler_ServiceDesc = grpc.ServiceDesc{
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "ConnectRemoteSyncer",
-			Handler:       _ConfigReconciler_ConnectRemoteSyncer_Handler,
+			StreamName:    "SyncConfig",
+			Handler:       _ConfigReconciler_SyncConfig_Handler,
 			ServerStreams: true,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "github.com/rancher/opni/plugins/alerting/apis/alertops/alertops.proto",

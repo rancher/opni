@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -314,7 +313,7 @@ func BuildDebugImportAgentCmd() *cobra.Command {
 			_, err = backend.GetCluster(context.Background(), &corev1.Reference{Id: agentId})
 			if err == nil {
 				return fmt.Errorf("agent %q already exists", agentId)
-			} else if !errors.Is(err, storage.ErrNotFound) {
+			} else if !storage.IsNotFound(err) {
 				return fmt.Errorf("storage backend error: %w", err)
 			}
 

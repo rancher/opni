@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/runtime/protoiface"
 )
 
 const (
@@ -198,6 +199,7 @@ func jetstreamGrpcError(err error) error {
 		return nil
 	}
 	code := codes.Unknown
+	details := []protoiface.MessageV1{}
 	switch err {
 	case nats.ErrKeyValueConfigRequired, nats.ErrInvalidBucketName, nats.ErrInvalidKey, nats.ErrBadBucket, nats.ErrHistoryToLarge:
 		code = codes.InvalidArgument
@@ -219,11 +221,24 @@ func jetstreamGrpcError(err error) error {
 			case nats.JSErrCodeBadRequest:
 				code = codes.InvalidArgument
 			case nats.JSErrCodeStreamWrongLastSequence:
-				code = codes.Aborted
+				if err.Error() == nats.ErrKeyExists.Error() {
+					// this error code is overloaded, only way to differentiate
+					// is by comparing the error message
+					code = codes.AlreadyExists
+				} else {
+					code = codes.Aborted
+					details = append(details, storage.ErrDetailsConflict)
+				}
 			}
 		}
 	}
-	return status.Error(code, err.Error())
+	se := status.New(code, err.Error())
+	if len(details) > 0 {
+		if errWithDetails, err := se.WithDetails(details...); err == nil {
+			se = errWithDetails
+		}
+	}
+	return se.Err()
 }
 
 func init() {

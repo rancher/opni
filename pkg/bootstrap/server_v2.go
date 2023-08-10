@@ -3,7 +3,6 @@ package bootstrap
 import (
 	"context"
 	"crypto"
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -96,7 +95,7 @@ func (h *ServerV2) Auth(ctx context.Context, authReq *bootstrapv2.BootstrapAuthR
 	}
 	bootstrapToken, err := h.storage.GetToken(ctx, token.Reference())
 	if err != nil {
-		if errors.Is(err, storage.ErrNotFound) {
+		if storage.IsNotFound(err) {
 			return nil, util.StatusError(codes.PermissionDenied)
 		}
 		return nil, util.StatusError(codes.Unavailable)
@@ -120,7 +119,7 @@ func (h *ServerV2) Auth(ctx context.Context, authReq *bootstrapv2.BootstrapAuthR
 
 	if cluster, err := h.storage.GetCluster(ctx, existing); err == nil {
 		return nil, status.Errorf(codes.AlreadyExists, "cluster %s already exists", cluster.Id)
-	} else if !errors.Is(err, storage.ErrNotFound) {
+	} else if !storage.IsNotFound(err) {
 		return nil, status.Error(codes.Unavailable, err.Error())
 	}
 

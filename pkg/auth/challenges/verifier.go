@@ -3,7 +3,6 @@ package challenges
 import (
 	"context"
 	"crypto/subtle"
-	"errors"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/keyring"
@@ -44,7 +43,7 @@ func (v *keyringVerifier) Prepare(ctx context.Context, cm ClientMetadata, req *c
 	ks := v.keyringStoreBroker.KeyringStore("gateway", &corev1.Reference{Id: cm.IdAssertion})
 	kr, err := ks.Get(ctx)
 	if err != nil {
-		if errors.Is(err, storage.ErrNotFound) {
+		if storage.IsNotFound(err) {
 			return nil, util.StatusError(codes.Unauthenticated)
 		}
 		v.logger.With(zap.Error(err)).Error("failed to get keyring during cluster auth")

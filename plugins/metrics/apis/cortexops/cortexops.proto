@@ -205,8 +205,9 @@ service CortexOps {
     };
   }
 
-  // Returns a list of past revisions of the configuration, for either the
-  // active or default configuration depending on the specified target.
+  // Get a list of all past revisions of the configuration.
+  // Will return the history for either the active or default configuration
+  // depending on the specified target.
   // The entries are ordered from oldest to newest, where the last entry is
   // the current configuration.
   rpc ConfigurationHistory(ConfigurationHistoryRequest) returns (ConfigurationHistoryResponse) {

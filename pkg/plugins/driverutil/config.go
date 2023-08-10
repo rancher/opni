@@ -2,7 +2,6 @@ package driverutil
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"sync"
@@ -108,7 +107,7 @@ func (ct *DefaultingConfigTracker[T]) getDefaultConfigLocked(ctx context.Context
 	opts = maybeWithRevision(atRevision, opts)
 	def, err := ct.defaultStore.Get(ctx, opts...)
 	if err != nil {
-		if !errors.Is(err, storage.ErrNotFound) {
+		if !storage.IsNotFound(err) {
 			return def, 0, fmt.Errorf("error looking up default config: %w", err)
 		}
 		def = ct.newDefaultSpec()
@@ -196,7 +195,7 @@ func (ct *DefaultingConfigTracker[T]) getConfigOrDefaultLocked(ctx context.Conte
 	opts = maybeWithRevision(atRevision, opts)
 	value, err := ct.activeStore.Get(ctx, opts...)
 	if err != nil {
-		if !errors.Is(err, storage.ErrNotFound) {
+		if !storage.IsNotFound(err) {
 			return value, 0, fmt.Errorf("error looking up config: %w", err)
 		}
 		// NB: we only save the revision from the active store, because the
@@ -206,7 +205,7 @@ func (ct *DefaultingConfigTracker[T]) getConfigOrDefaultLocked(ctx context.Conte
 		// rejected as a default config.
 		value, err = ct.defaultStore.Get(ctx)
 		if err != nil {
-			if !errors.Is(err, storage.ErrNotFound) {
+			if !storage.IsNotFound(err) {
 				return value, 0, fmt.Errorf("error looking up default config: %w", err)
 			}
 			value = ct.newDefaultSpec() // no modifications are made to revision

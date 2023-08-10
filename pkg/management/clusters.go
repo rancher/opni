@@ -2,7 +2,6 @@ package management
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -49,7 +48,7 @@ func (m *Server) DeleteCluster(
 	// delete the cluster's keyring, if it exists
 	store := m.coreDataSource.StorageBackend().KeyringStore("gateway", cluster.Reference())
 	if err := store.Delete(ctx); err != nil {
-		if !errors.Is(err, storage.ErrNotFound) {
+		if !storage.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to delete keyring store for cluster %s: %w", cluster.Id, err)
 		}
 	}
@@ -290,7 +289,7 @@ func (m *Server) resolveClusters(ctx context.Context, refs ...*corev1.Reference)
 	for i, ref := range refs {
 		cluster, err := m.coreDataSource.StorageBackend().GetCluster(ctx, ref)
 		if err != nil {
-			if errors.Is(err, storage.ErrNotFound) {
+			if storage.IsNotFound(err) {
 				continue
 			}
 			return nil, err

@@ -234,7 +234,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		lg.Info("loaded existing keyring")
 		kr = existing
 		loadedExistingKeyring = true
-	} else if errors.Is(err, storage.ErrNotFound) {
+	} else if storage.IsNotFound(err) {
 		lg.Info("no existing keyring found, starting bootstrap process")
 		shouldBootstrap = true
 	} else {

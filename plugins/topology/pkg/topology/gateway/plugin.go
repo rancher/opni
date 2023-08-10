@@ -10,6 +10,7 @@ import (
 	"github.com/nats-io/nats.go"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
@@ -46,6 +47,7 @@ type Plugin struct {
 	mgmtClient future.Future[managementv1.ManagementClient]
 
 	storageBackend      future.Future[storage.Backend]
+	gatewayConfig       future.Future[*v1beta1.GatewayConfig]
 	nodeManagerClient   future.Future[capabilityv1.NodeManagerClient]
 	uninstallController future.Future[*task.Controller]
 	clusterDriver       future.Future[drivers.ClusterDriver]
@@ -63,6 +65,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		uninstallController: future.New[*task.Controller](),
 		clusterDriver:       future.New[drivers.ClusterDriver](),
 		topologyBackend:     backend.TopologyBackend{},
+		gatewayConfig:       future.New[*v1beta1.GatewayConfig](),
 	}
 	future.Wait1(p.nc, func(nc *nats.Conn) {
 		p.topologyRemoteWrite.Initialize(stream.TopologyStreamWriteConfig{

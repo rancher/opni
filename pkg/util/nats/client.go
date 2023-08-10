@@ -3,12 +3,12 @@ package nats
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/cenkalti/backoff"
 	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	"github.com/nats-io/nats.go"
+	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"go.uber.org/zap"
 )
@@ -87,7 +87,11 @@ func WithCreateStreams(streamNames ...*nats.StreamConfig) NatsAcquireOption {
 //	},
 //
 // ),
-func AcquireNATSConnection(ctx context.Context, opts ...NatsAcquireOption) (*nats.Conn, error) {
+func AcquireNATSConnection(
+	ctx context.Context,
+	cfg *v1beta1.JetStreamStorageSpec,
+	opts ...NatsAcquireOption,
+) (*nats.Conn, error) {
 	options := &natsAcquireOptions{
 		lg: logger.NewPluginLogger().Named("nats-conn"),
 		retrier: backoffv2.Exponential(
@@ -105,7 +109,7 @@ func AcquireNATSConnection(ctx context.Context, opts ...NatsAcquireOption) (*nat
 
 	b := options.retrier.Start(ctx)
 	for backoffv2.Continue(b) {
-		nc, err = newNatsConnection(options.lg)
+		nc, err = newNatsConnection(cfg, options.lg)
 		if err == nil {
 			break
 		}
@@ -127,11 +131,8 @@ func AcquireNATSConnection(ctx context.Context, opts ...NatsAcquireOption) (*nat
 }
 
 // until we have a better way to do this
-func newNatsConnection(lg *zap.SugaredLogger, options ...nats.Option) (*nats.Conn, error) {
-	natsURL := os.Getenv("NATS_SERVER_URL")
-	natsSeedPath := os.Getenv("NKEY_SEED_FILENAME")
-
-	opt, err := nats.NkeyOptionFromSeed(natsSeedPath)
+func newNatsConnection(cfg *v1beta1.JetStreamStorageSpec, lg *zap.SugaredLogger, options ...nats.Option) (*nats.Conn, error) {
+	opt, err := nats.NkeyOptionFromSeed(cfg.NkeySeedPath)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +157,7 @@ func newNatsConnection(lg *zap.SugaredLogger, options ...nats.Option) (*nats.Con
 	defaultOps = append(defaultOps, options...)
 
 	return nats.Connect(
-		natsURL,
+		cfg.Endpoint,
 		defaultOps...,
 	)
 }

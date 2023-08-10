@@ -7,7 +7,8 @@ platform:
   arch: amd64
 steps:
   - name: setup-dagger-engine
-    image: docker
+    image: &image cimg/go:1.21
+    user: root
     commands:
       - |
         docker run \
@@ -18,7 +19,7 @@ steps:
         -e _EXPERIMENTAL_DAGGER_CACHESERVICE_TOKEN=$_EXPERIMENTAL_DAGGER_CACHESERVICE_TOKEN \
         -e _EXPERIMENTAL_DAGGER_CACHESERVICE_URL=https://api.dagger.cloud/magicache \
         -v dagger-engine:/var/lib/dagger \
-        registry.dagger.io/engine@sha256:47e385bd6fac5eb35ade38e4c26ada7defb6f412b739808933d09f2dc4ca30d6 || docker start dagger-engine
+        registry.dagger.io/engine:v0.8.1
     volumes: &volumes
       - name: docker-sock
         path: /var/run/docker.sock
@@ -28,7 +29,8 @@ steps:
       _EXPERIMENTAL_DAGGER_CACHESERVICE_TOKEN:
         from_secret: dagger_cacheservice_token
   - name: build-and-package
-    image: docker
+    image: *image
+    user: root
     environment: &environment
       _EXPERIMENTAL_DAGGER_CACHESERVICE_TOKEN:
         from_secret: dagger_cacheservice_token
@@ -43,31 +45,27 @@ steps:
         from_secret: github_token
     volumes: *volumes
     commands:
-      - apk add --no-cache go
-      - go run golang.org/dl/go1.21rc4@latest download
-      - /root/sdk/go1.21rc4/bin/go run ./dagger -c dagger/ci/defaults
+      - go run ./dagger -c dagger/ci/defaults
     when:
       instance:
         - drone-publish.rancher.io
   - name: build-and-package-pr
-    image: docker
+    image: *image
+    user: root
     environment: *environment
     volumes: *volumes
     commands:
-      - apk add --no-cache go
-      - go run golang.org/dl/go1.21rc4@latest download
-      - /root/sdk/go1.21rc4/bin/go run ./dagger -c dagger/ci/defaults --coverage.export=true
+      - go run ./dagger -c dagger/ci/defaults --coverage.export=true
     when:
       instance:
         - drone-pr.rancher.io
   - name: publish-tag
-    image: docker
+    image: *image
+    user: root
     environment: *environment
     volumes: *volumes
     commands:
-      - apk add --no-cache go
-      - go run golang.org/dl/go1.21rc4@latest download
-      - /root/sdk/go1.21rc4/bin/go run ./dagger -c dagger/ci/defaults,dagger/ci/push,dagger/ci/push-charts,dagger/ci/tag-latest --lint=false --test=false
+      - go run ./dagger -c dagger/ci/defaults,dagger/ci/push,dagger/ci/push-charts,dagger/ci/tag-latest --lint=false --test=false
     when:
       event:
         - tag
@@ -78,13 +76,12 @@ steps:
         - refs/heads/release
         - refs/tags/*
   - name: publish-main
-    image: docker
+    image: *image
+    user: root
     environment: *environment
     volumes: *volumes
     commands:
-      - apk add --no-cache go
-      - go run golang.org/dl/go1.21rc4@latest download
-      - /root/sdk/go1.21rc4/bin/go run ./dagger -c dagger/ci/defaults,dagger/ci/push --lint=false --test=false
+      - go run ./dagger -c dagger/ci/defaults,dagger/ci/push --lint=false --test=false
     when:
       event:
         - push
@@ -105,10 +102,12 @@ steps:
       instance:
         - drone-pr.rancher.io
   - name: cleanup-dagger-engine
-    image: docker
+    image: *image
+    user: root
     commands:
       - docker stop --time 60 dagger-engine
       - docker logs dagger-engine
+      - docker rm dagger-engine
     volumes: *volumes
     # run even if pipeline fails
     when:

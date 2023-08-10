@@ -551,7 +551,7 @@ replace (
 	// https://github.com/sryoya/protorand/pull/5
 	github.com/sryoya/protorand => github.com/kralicky/protorand v0.0.0-20230808230310-20efa79bb808
 	go.uber.org/zap => github.com/kralicky/zap v1.24.1-0.20230718165024-a2256218e4cc
-	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20230726215234-ac93df0a29e1
+	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20230809020457-b60fd235fc1d
 )
 
 // Cortex replacements (copied from cortex go.mod)

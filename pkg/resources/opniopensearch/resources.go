@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"text/template"
 
+	"github.com/Masterminds/semver"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/opensearch/certs"
@@ -45,15 +46,10 @@ func (r *Reconciler) buildOpensearchCluster(
 	// Set default image version
 	version := r.instance.Spec.Version
 	if version == "unversioned" {
-		version = "0.11.0-rc3"
+		version = "0.11.0"
 	}
 
-	image := fmt.Sprintf(
-		"%s/opensearch:v%s-%s",
-		r.instance.Spec.ImageRepo,
-		version,
-		r.instance.Spec.OpensearchVersion,
-	)
+	image := calculateImage(r.instance.Spec.ImageRepo, version, r.instance.Spec.OpensearchVersion)
 
 	updatedSecurityConfig := r.instance.Spec.OpensearchSettings.Security.DeepCopy()
 	updatedSecurityConfig.Config = &opsterv1.SecurityConfig{
@@ -227,4 +223,34 @@ func (r *Reconciler) fetchNatsAuthSecretName() (string, bool, error) {
 	}
 
 	return nats.Status.AuthSecretKeyRef.Name, false, nil
+}
+
+func calculateImage(repo, version, opensearchVersion string) string {
+	newVersionConstraint, err := semver.NewConstraint(">=0.11.0-0")
+	if err != nil {
+		panic(err)
+	}
+	opniVersion, err := semver.NewVersion(version)
+	if err != nil {
+		return fmt.Sprintf(
+			"%s/opensearch:v%s-%s",
+			repo,
+			version,
+			opensearchVersion,
+		)
+	}
+	if newVersionConstraint.Check(opniVersion) {
+		return fmt.Sprintf(
+			"%s/opensearch:v%s-%s",
+			repo,
+			version,
+			opensearchVersion,
+		)
+	}
+	return fmt.Sprintf(
+		"%s/opensearch:%s-%s",
+		repo,
+		opensearchVersion,
+		version,
+	)
 }

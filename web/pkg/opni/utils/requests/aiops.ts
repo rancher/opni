@@ -10,8 +10,17 @@ export interface GPUSettings {
     runtimeClass?: string;
 }
 
+export interface S3Settings {
+  endpoint?: string,
+  accessKey?: string,
+  secretKey?: string,
+  nulogBucket?: string,
+  drainBucket?: string,
+}
+
 export interface AISettings {
     gpuSettings?: GPUSettings;
+    s3Settings?: S3Settings;
     drainReplicas?: number;
     controlplane?: PretrainedModel;
     rancher?: PretrainedModel;

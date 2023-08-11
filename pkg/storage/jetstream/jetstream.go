@@ -2,6 +2,7 @@ package jetstream
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -194,6 +195,7 @@ func (s *JetStreamStore) KeyValueStore(prefix string) storage.KeyValueStore {
 	}
 }
 
+// here be dragons
 func jetstreamGrpcError(err error) error {
 	if err == nil {
 		return nil
@@ -206,8 +208,9 @@ func jetstreamGrpcError(err error) error {
 	case nats.ErrBucketNotFound, nats.ErrKeyNotFound, nats.ErrKeyDeleted, nats.ErrNoKeysFound:
 		code = codes.NotFound
 	default:
-		if err, ok := err.(nats.JetStreamError); ok {
-			apierror := err.APIError()
+		var jserr nats.JetStreamError
+		if errors.As(err, &jserr) {
+			apierror := jserr.APIError()
 			switch apierror.ErrorCode {
 			case nats.JSErrCodeJetStreamNotEnabledForAccount, nats.JSErrCodeJetStreamNotEnabled:
 				code = codes.PermissionDenied
@@ -222,7 +225,7 @@ func jetstreamGrpcError(err error) error {
 			case nats.JSErrCodeStreamWrongLastSequence:
 				if err.Error() == nats.ErrKeyExists.Error() {
 					// this error code is overloaded, only way to differentiate
-					// is by comparing the error message
+					// is by comparing the error message on the original wrapped error
 					code = codes.AlreadyExists
 				} else {
 					code = codes.Aborted

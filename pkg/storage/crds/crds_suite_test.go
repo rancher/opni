@@ -151,9 +151,9 @@ var _ = BeforeSuite(func() {
 	})
 })
 
-var _ = Describe("Token Store", Ordered, Label("integration", "slow"), TokenStoreTestSuite(store))
-var _ = Describe("RBAC Store", Ordered, Label("integration", "slow"), RBACStoreTestSuite(store))
-var _ = Describe("Keyring Store", Ordered, Label("integration", "slow"), KeyringStoreTestSuite(store))
-var _ = Describe("Value Store", Ordered, Label("integration", "slow"), KeyValueStoreTestSuite(kvStore, newObject, func(a any) types.GomegaMatcher {
+var _ = Describe("CRD Token Store", Ordered, Label("integration", "slow"), TokenStoreTestSuite(store))
+var _ = Describe("CRD RBAC Store", Ordered, Label("integration", "slow"), RBACStoreTestSuite(store))
+var _ = Describe("CRD Keyring Store", Ordered, Label("integration", "slow"), KeyringStoreTestSuite(store))
+var _ = Describe("CRD Value Store", Ordered, Label("integration", "slow"), KeyValueStoreTestSuite(kvStore, newObject, func(a any) types.GomegaMatcher {
 	return testutil.ProtoEqual(a.(proto.Message))
 }))

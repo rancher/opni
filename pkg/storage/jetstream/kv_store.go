@@ -28,7 +28,13 @@ func (j jetstreamKeyValueStore) Put(_ context.Context, key string, value []byte,
 	var err error
 	var rev uint64
 	if options.Revision != nil {
-		rev, err = j.kv.Update(key, value, uint64(*options.Revision))
+		if *options.Revision > 0 {
+			rev, err = j.kv.Update(key, value, uint64(*options.Revision))
+		} else {
+			// if revision 0 is specified, the key must either not exist, or
+			// have been deleted at its current revision
+			rev, err = j.kv.Create(key, value)
+		}
 	} else {
 		rev, err = j.kv.Put(key, value)
 	}

@@ -101,6 +101,19 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 						Expect(err).To(testutil.MatchStatusCode(codes.InvalidArgument))
 					})
 				})
+				When("the key does not exist", func() {
+					When("revision 0 is provided", func() {
+						It("should only create the key if it does not exist or has been deleted", func() {
+							uniqueKey := uuid.NewString()
+							var revision int64
+							Expect(ts.Put(context.Background(), uniqueKey, newT(1), storage.WithRevisionOut(&revision))).To(Succeed())
+							err := ts.Put(context.Background(), uniqueKey, newT(2), storage.WithRevision(0))
+							Expect(storage.IsConflict(err)).To(BeTrue(), err.Error())
+							Expect(ts.Delete(context.Background(), uniqueKey)).To(Succeed())
+							Expect(ts.Put(context.Background(), uniqueKey, newT(2), storage.WithRevision(0))).To(Succeed())
+						})
+					})
+				})
 				When("putting a nil value", func() {
 					It("should treat it as the zero value for that type", func() {
 						err := ts.Put(context.Background(), "foo", newT())

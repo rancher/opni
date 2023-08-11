@@ -68,8 +68,14 @@ func (s *inMemoryValueStore[T]) Put(_ context.Context, value T, opts ...storage.
 
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	if options.Revision != nil && *options.Revision != s.revision {
-		return fmt.Errorf("%w: revision mismatch: %v (requested) != %v (actual)", storage.ErrConflict, *options.Revision, s.revision)
+	if options.Revision != nil {
+		if *options.Revision == 0 {
+			if s.revision != 0 && !s.values.Value.(*valueStoreElement[T]).deleted {
+				return fmt.Errorf("%w: expected value not to exist (requested revision 0)", storage.ErrConflict)
+			}
+		} else if *options.Revision != s.revision {
+			return fmt.Errorf("%w: revision mismatch: %v (requested) != %v (actual)", storage.ErrConflict, *options.Revision, s.revision)
+		}
 	}
 	previous := s.values.Value
 	s.revision++

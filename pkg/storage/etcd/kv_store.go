@@ -37,26 +37,24 @@ func (s *genericKeyValueStore) Put(ctx context.Context, key string, value []byte
 	}
 	qualifiedKey := path.Join(s.prefix, key)
 	encodedValue := base64.StdEncoding.EncodeToString(value)
-	if options.Revision != nil {
-		resp, err := s.client.Txn(ctx).
-			If(clientv3.Compare(clientv3.ModRevision(qualifiedKey), "=", *options.Revision)).
-			Then(clientv3.OpPut(qualifiedKey, encodedValue)).
-			Commit()
-		if err != nil {
-			return etcdGrpcError(err)
-		}
-		if !resp.Succeeded {
-			return fmt.Errorf("%w: revision mismatch", storage.ErrConflict)
-		}
-		if options.RevisionOut != nil {
-			*options.RevisionOut = resp.Header.Revision
-		}
-		return nil
-	}
 
-	resp, err := s.client.Put(ctx, qualifiedKey, encodedValue)
+	var comparisons []clientv3.Cmp
+	if options.Revision != nil {
+		if *options.Revision > 0 {
+			comparisons = []clientv3.Cmp{clientv3.Compare(clientv3.ModRevision(qualifiedKey), "=", *options.Revision)}
+		} else {
+			comparisons = []clientv3.Cmp{clientv3.Compare(clientv3.Version(qualifiedKey), "=", 0)}
+		}
+	}
+	resp, err := s.client.Txn(ctx).
+		If(comparisons...).
+		Then(clientv3.OpPut(qualifiedKey, encodedValue)).
+		Commit()
 	if err != nil {
 		return etcdGrpcError(err)
+	}
+	if !resp.Succeeded {
+		return fmt.Errorf("%w: revision mismatch", storage.ErrConflict)
 	}
 	if options.RevisionOut != nil {
 		*options.RevisionOut = resp.Header.Revision

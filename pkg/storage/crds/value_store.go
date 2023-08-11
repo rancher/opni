@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strconv"
 	"time"
@@ -125,6 +126,9 @@ func (s *CRDValueStore[O, T]) Put(ctx context.Context, value T, opts ...storage.
 		}
 	} else {
 		if putOptions.Revision != nil {
+			if *putOptions.Revision == 0 {
+				return fmt.Errorf("%w: expected object not to exist (requested revision 0)", storage.ErrConflict)
+			}
 			obj.SetResourceVersion(strconv.FormatInt(*putOptions.Revision, 10))
 		}
 

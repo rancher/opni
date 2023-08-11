@@ -25,4 +25,4 @@ func (t testBroker) KeyValueStore(string) storage.KeyValueStore {
 	return inmemory.NewKeyValueStore(bytes.Clone)
 }
 
-var _ = Describe("KV Store", Ordered, Label("integration"), KeyValueStoreTestSuite(future.Instant(testBroker{}), NewBytes, Equal))
+var _ = Describe("In-memory KV Store", Ordered, Label("integration"), KeyValueStoreTestSuite(future.Instant(testBroker{}), NewBytes, Equal))

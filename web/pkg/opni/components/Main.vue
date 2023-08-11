@@ -95,6 +95,8 @@ export default {
   .opni-root {
     display: grid;
     flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
 
     grid-template-areas:
       "header header"
@@ -179,36 +181,9 @@ export default {
     }
   }
 
-  .opni-container {
-    height: 100%;
-    position: relative;
-  }
-  .opni-layout {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    bottom: 0;
-
-    height: 100%;
-
-    display: grid;
-    flex: 1 1 auto;
-
-    grid-template-areas:
-      "nav main";
-
-    grid-template-columns: var(--nav-width) auto;
-    grid-template-rows: auto var(--wm-height,0);
-
-    nav {
-      height: 100%;
-    }
-  }
-
   .opni-content {
     grid-area: main;
-    overflow: auto;
+    overflow-y: scroll;
 
     display: flex;
     flex-direction: column;

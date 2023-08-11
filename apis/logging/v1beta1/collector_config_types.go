@@ -88,6 +88,7 @@ type CollectorTraceConfig struct {
 
 // CollectorTraceConfigSpec defines the desired state of CollectorConfig
 type CollectorTraceConfigSpec struct {
+	// For now, there aren't any specific trace configs
 }
 
 type SelectorConfig struct {
@@ -147,6 +148,20 @@ func CollectorConfigCRD() (*crd.CRD, error) {
 	return &crd.CRD{
 		GVK:          GroupVersion.WithKind("CollectorConfig"),
 		PluralName:   "collectorconfigs",
+		Status:       true,
+		Schema:       schema,
+		NonNamespace: true,
+	}, nil
+}
+
+func CollectorTraceConfigCRD() (*crd.CRD, error) {
+	schema, err := openapi.ToOpenAPIFromStruct(CollectorTraceConfig{})
+	if err != nil {
+		return nil, err
+	}
+	return &crd.CRD{
+		GVK:          GroupVersion.WithKind("CollectorTraceConfig"),
+		PluralName:   "collectortraceconfigs",
 		Status:       true,
 		Schema:       schema,
 		NonNamespace: true,

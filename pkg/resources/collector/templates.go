@@ -5,12 +5,13 @@ import (
 )
 
 const (
-	logReceiverK8s           = "filelog/k8s"
+	logReceiverK8s      = "filelog/k8s"
 	logReceiverKubeAuditLogs = "filelog/kubeauditlogs"
-	logReceiverRKE           = "filelog/rke"
-	logReceiverK3s           = "journald/k3s"
-	logReceiverRKE2          = "journald/rke2"
-	fileLogReceiverRKE2      = "filelog/rke2"
+	logReceiverRKE      = "filelog/rke"
+	logReceiverK3s      = "journald/k3s"
+	logReceiverRKE2     = "journald/rke2"
+	fileLogReceiverRKE2 = "filelog/rke2"
+	otlpReceiver        = "otlp"
 )
 
 var (

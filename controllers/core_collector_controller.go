@@ -81,7 +81,8 @@ func (r *CoreCollectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&corev1beta1.Collector{}).
 		Watches(&opnimonitoringv1beta1.CollectorConfig{}, requestMapper).
 		Watches(&opniloggingv1beta1.CollectorConfig{}, requestMapper).
-		// for metrics, the we want to watch changes to the spec of objects that drive discovery
+		Watches(&opniloggingv1beta1.CollectorTraceConfig{}, requestMapper).
+		// for metrics, we want to watch changes to the spec of objects that drive discovery
 		Watches(&promoperatorv1.ServiceMonitor{}, watchAllRequestMapper).
 		Watches(&promoperatorv1.PodMonitor{}, watchAllRequestMapper).
 		Watches(&corev1.Service{}, watchAllRequestMapper).
@@ -111,6 +112,15 @@ func reconcileRequestsForCollector(collectors []corev1beta1.Collector, name stri
 				},
 			})
 		}
+		if c.Spec.TracesConfig != nil && c.Spec.TracesConfig.Name == name {
+			reqs = append(reqs, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: c.Namespace,
+					Name:      c.Name,
+				},
+			})
+		}
+
 	}
 	return
 }

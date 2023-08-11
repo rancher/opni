@@ -474,6 +474,15 @@ func MarshalCortexConfig(config *cortex.Config) ([]byte, error) {
 			return s.Value, nil
 		}),
 	)
+	encoder.OverrideMarshalerForType(reflect.TypeOf(flagext.StringSliceCSV{}),
+		newOverrideMarshaler(func(s flagext.StringSliceCSV) (any, error) {
+			// this type incorrectly interprets "" as [""], which causes problems
+			if len(s) == 0 {
+				return nil, nil
+			}
+			return s.MarshalYAML()
+		}),
+	)
 	err := encoder.Encode(config)
 	if err != nil {
 		return nil, err

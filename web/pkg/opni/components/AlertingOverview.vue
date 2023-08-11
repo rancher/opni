@@ -143,60 +143,66 @@ export default {
       return 'Agent Capability Unhealthy';
     },
     async loadContent(event) {
-      const request = {
-        conditionId:  event.conditionId,
-        fingerprints: event.fingerprints,
-        start:        event.startRaw,
-        end:          event.endRaw,
-      };
+      try {
+        const request = {
+          conditionId:  event.conditionId,
+          fingerprints: event.fingerprints,
+          start:        event.startRaw,
+          end:          event.endRaw,
+        };
 
-      const notification = (await getAlarmNotifications(request))?.items?.[0];
+        const notification = (await getAlarmNotifications(request))?.items?.[0];
 
-      if (!notification) {
-        return '<div class="body">Error: Failed to retrieve event data</div>';
-      }
-
-      const renderDetails = (details) => {
-        if (!details) {
-          return '';
+        if (!notification) {
+          throw new Error('No notification returned');
         }
 
-        const elements = Object.entries(details).map(([key, value]) => `<li><strong>${ key }: </strong>${ value }</li>`);
+        const renderDetails = (details) => {
+          if (!details) {
+            return '';
+          }
 
-        return `<ul>${ elements }</ul>`;
-      };
+          const elements = Object.entries(details).map(([key, value]) => `<li><strong>${ key }: </strong>${ value }</li>`);
 
-      const format = 'MM-DD-YY (h:mm:ss a)';
+          return `<ul>${ elements }</ul>`;
+        };
 
-      return `
-      <div class="container">
-        <ul class="row">
-          <li class="col span-4"><strong>Title:</strong> ${ notification.notification.title }</li>
-          <li class="col span-4"><strong>Severity:</strong> ${ notification.notification.properties.opni_severity }</li>
-          <li class="col span-4"><strong>Golden Signal:</strong> ${ notification.notification.properties.opni_goldenSignal }</li>
-        </ul>
-        <div class="row body"><div class="col span-12">${ notification.notification.body }</div></div>
-        <div class="row">
-          <div class="col span-6">
-            <div class="title"><strong>Start</strong> - ${ dayjs(event.startRaw).format(format) }</div>
+        const format = 'MM-DD-YY (h:mm:ss a)';
+
+        return `
+        <div class="container">
+          <ul class="row">
+            <li class="col span-4"><strong>Title:</strong> ${ notification.notification.title }</li>
+            <li class="col span-4"><strong>Severity:</strong> ${ notification.notification.properties.opni_severity }</li>
+            <li class="col span-4"><strong>Golden Signal:</strong> ${ notification.notification.properties.opni_goldenSignal }</li>
+          </ul>
+          <div class="row body"><div class="col span-12">${ notification.notification.body }</div></div>
+          <div class="row">
+            <div class="col span-6">
+              <div class="title"><strong>Start</strong> - ${ dayjs(event.startRaw).format(format) }</div>
+            </div>
+            <div class="col span-6">
+              <div class="title"><strong>End</strong> - ${ dayjs(event.endRaw).format(format) }</div>
+            </div>
           </div>
-          <div class="col span-6">
-            <div class="title"><strong>End</strong> - ${ dayjs(event.endRaw).format(format) }</div>
+          <div class="row details">
+            <div class="col span-6">
+              ${ renderDetails(notification.startDetails) }
+            </div>
+            <div class="col span-6">
+              ${ renderDetails(notification.lastDetails) }
+            </div>
           </div>
         </div>
-        <div class="row details">
-          <div class="col span-6">
-            ${ renderDetails(notification.startDetails) }
-          </div>
-          <div class="col span-6">
-            ${ renderDetails(notification.lastDetails) }
-          </div>
-        </div>
-      </div>
-      `;
+        `;
+      } catch (ex) {
+        console.error(ex);
+
+        return '<div class="body text-error">Error: Failed to retrieve event data</div>';
+      }
     },
     loadingContent() {
-      return `<div class="tooltip-spinner"><i class="icon icon-spinner" /></div>`;
+      return `<div class="tooltip-spinner"><i class="icon icon-spinner icon-spin" /></div>`;
     }
   },
   computed: {

@@ -37,10 +37,11 @@ func NewPlugin(ctx context.Context) *Plugin {
 		ct,
 	)
 
-	priority_order := []string{"default_driver", "test_driver"}
+	priority_order := []string{"k8s_driver", "test_driver"}
 	for _, name := range priority_order {
 		builder, ok := drivers.NodeDrivers.Get(name)
 		if !ok {
+			lg.Debugf("could not find driver : %s", name)
 			continue
 		}
 		driver, err := builder(ctx)
@@ -50,6 +51,9 @@ func NewPlugin(ctx context.Context) *Plugin {
 		p.driver = driver
 		p.node.AddConfigListener(driver)
 		break
+	}
+	if p.driver == nil {
+		panic("no driver set")
 	}
 	p.ruleStreamer = NewRuleStreamer(
 		ctx,

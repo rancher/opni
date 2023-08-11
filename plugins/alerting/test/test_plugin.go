@@ -56,7 +56,7 @@ func init() {
 	alerting.ForceSyncInterval = time.Second * 60
 
 	alarms.DisconnectStreamEvaluateInterval = time.Second * 1
-	alarms.CapabilityStreamEvaluateInterval = time.Second * 1
+	alarms.CapabilityStreamEvaluateInterval = time.Minute * 100
 	alarms.CortexStreamEvaluateInterval = time.Second * 1
 	test.EnablePlugin(meta.ModeAgent, agent.Scheme)
 

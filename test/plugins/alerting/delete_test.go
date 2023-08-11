@@ -195,7 +195,7 @@ var _ = Describe("Invalidated and clean up suite test", Ordered, Label("integrat
 
 	})
 
-	XWhen("we delete an alarm of the metrics type", func() {
+	When("we delete an alarm of the metrics type", func() {
 		It("should successfully submit the alarm for deletion", func() {
 			conditionsClient := env.NewAlertConditionsClient()
 			adminClient := cortexadmin.NewCortexAdminClient(env.ManagementClientConn())

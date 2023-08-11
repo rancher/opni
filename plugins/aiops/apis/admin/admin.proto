@@ -56,6 +56,7 @@ message AISettings {
     optional PretrainedModel controlplane = 3;
     optional PretrainedModel rancher = 4;
     optional PretrainedModel longhorn = 5;
+    optional S3Settings s3Settings = 6;
 }
 
 message UpgradeAvailableResponse {
@@ -64,4 +65,12 @@ message UpgradeAvailableResponse {
 
 message RuntimeClassResponse {
     repeated string RuntimeClasses = 1;
+}
+
+message S3Settings {
+    string endpoint = 1;
+    string accessKey = 2;
+    string secretKey = 3;
+    optional string nulogBucket = 4;
+    optional string drainBucket = 5;
 }

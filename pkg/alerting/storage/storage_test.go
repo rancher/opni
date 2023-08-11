@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -503,18 +502,42 @@ func BuildStorageClientSetSuite(
 		})
 
 		When("initializing the hash ring", func() {
-			syncOpts := opts.NewSyncOptions()
 			Specify("the hash should be empty unless it is explicitly requested to calculate it", func() {
-				hash := s.GetHash(ctx, shared.SingleConfigId)
+				hash, err := s.GetHash(ctx, shared.SingleConfigId)
 				Expect(hash).To(BeEmpty())
-
-				err := s.CalculateHash(ctx, shared.SingleConfigId, syncOpts)
 				Expect(err).To(Succeed())
 			})
 
 			Specify("the hash ring should change its hash when configurations change enough to warrant an update", func() {
 				id1 := uuid.New().String()
 				id2 := uuid.New().String()
+				err := s.Endpoints().Put(ctx, id1, &alertingv1.AlertEndpoint{
+					Name:        "sample endpoint",
+					Description: "sample description",
+					Id:          id1,
+					LastUpdated: timestamppb.Now(),
+					Endpoint: &alertingv1.AlertEndpoint_Slack{
+						Slack: &alertingv1.SlackEndpoint{
+							WebhookUrl: "https://slack.com",
+							Channel:    "#test",
+						},
+					},
+				})
+				Expect(err).To(Succeed())
+				err = s.Endpoints().Put(ctx, id2, &alertingv1.AlertEndpoint{
+					Name:        "sample endpoint",
+					Description: "sample description",
+					Id:          id2,
+					LastUpdated: timestamppb.Now(),
+					Endpoint: &alertingv1.AlertEndpoint_Slack{
+						Slack: &alertingv1.SlackEndpoint{
+							WebhookUrl: "https://slack444.com",
+							Channel:    "#test444",
+						},
+					},
+				})
+				Expect(err).To(Succeed())
+
 				mutateState := []func(){
 					func() { // new
 						err := s.Conditions().Group("").Put(ctx, id1, &alertingv1.AlertCondition{
@@ -523,6 +546,17 @@ func BuildStorageClientSetSuite(
 							Id:          id1,
 							LastUpdated: timestamppb.Now(),
 							Severity:    alertingv1.OpniSeverity_Info,
+							AttachedEndpoints: &alertingv1.AttachedEndpoints{
+								Items: []*alertingv1.AttachedEndpoint{
+									{
+										EndpointId: id1,
+									},
+								},
+								Details: &alertingv1.EndpointImplementation{
+									Title: "test",
+									Body:  "test",
+								},
+							},
 						})
 						Expect(err).To(Succeed())
 					},
@@ -534,52 +568,118 @@ func BuildStorageClientSetSuite(
 							GroupId:     "test-group",
 							LastUpdated: timestamppb.Now(),
 							Severity:    alertingv1.OpniSeverity_Info,
+							AttachedEndpoints: &alertingv1.AttachedEndpoints{
+								Items: []*alertingv1.AttachedEndpoint{
+									{
+										EndpointId: id2,
+									},
+								},
+								Details: &alertingv1.EndpointImplementation{
+									Title: "test",
+									Body:  "test",
+								},
+							},
 						})
 						Expect(err).To(Succeed())
 					},
 					func() { // update timestamp
-						err := s.Conditions().Group("test-group").Put(ctx, id2, &alertingv1.AlertCondition{
+						err := s.Conditions().Group("").Put(ctx, id1, &alertingv1.AlertCondition{
 							Name:        "sample condition",
-							Description: "sample description",
-							Id:          id2,
-							GroupId:     "test-group",
-							LastUpdated: timestamppb.Now(),
-							Severity:    alertingv1.OpniSeverity_Info,
-						})
-						Expect(err).To(Succeed())
-					},
-					func() {
-						err := s.Endpoints().Put(ctx, id1, &alertingv1.AlertEndpoint{
-							Name:        "sample endpoint",
 							Description: "sample description",
 							Id:          id1,
 							LastUpdated: timestamppb.Now(),
+							Severity:    alertingv1.OpniSeverity_Info,
+							AttachedEndpoints: &alertingv1.AttachedEndpoints{
+								Items: []*alertingv1.AttachedEndpoint{
+									{
+										EndpointId: id2,
+									},
+								},
+								Details: &alertingv1.EndpointImplementation{
+									Title: "test",
+									Body:  "test",
+								},
+							},
 						})
 						Expect(err).To(Succeed())
 					},
 					func() {
-						err := s.Endpoints().Put(ctx, id2, &alertingv1.AlertEndpoint{
+						err := s.Conditions().Group("").Put(ctx, id1, &alertingv1.AlertCondition{
+							Name:        "sample condition",
+							Description: "sample description",
+							Id:          id2,
+							LastUpdated: timestamppb.Now(),
+							Severity:    alertingv1.OpniSeverity_Info,
+							AttachedEndpoints: &alertingv1.AttachedEndpoints{
+								Items: []*alertingv1.AttachedEndpoint{
+									{
+										EndpointId: id1,
+									},
+								},
+								Details: &alertingv1.EndpointImplementation{
+									Title: "test",
+									Body:  "test",
+								},
+							},
+						})
+						Expect(err).To(Succeed())
+					},
+					func() {
+						err := s.Conditions().Group("").Put(ctx, id1, &alertingv1.AlertCondition{
+							Name:        "sample condition",
+							Description: "sample description",
+							Id:          id1,
+							LastUpdated: timestamppb.Now(),
+							Severity:    alertingv1.OpniSeverity_Info,
+							AttachedEndpoints: &alertingv1.AttachedEndpoints{
+								Items: []*alertingv1.AttachedEndpoint{
+									{
+										EndpointId: id1,
+									},
+									{
+										EndpointId: id2,
+									},
+								},
+								Details: &alertingv1.EndpointImplementation{
+									Title: "test",
+									Body:  "test",
+								},
+							},
+						})
+						Expect(err).To(Succeed())
+					},
+					func() {
+						err = s.Endpoints().Put(ctx, id2, &alertingv1.AlertEndpoint{
 							Name:        "sample endpoint",
 							Description: "sample description",
 							Id:          id2,
 							LastUpdated: timestamppb.Now(),
+							Endpoint: &alertingv1.AlertEndpoint_Slack{
+								Slack: &alertingv1.SlackEndpoint{
+									WebhookUrl: "https://slack222.com",
+									Channel:    "#test222",
+								},
+							},
 						})
 						Expect(err).To(Succeed())
 					},
 				}
 				for _, f := range mutateState {
-					oldHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
-					f()
-					err := s.CalculateHash(ctx, shared.SingleConfigId, syncOpts)
+					oldHash, err := s.GetHash(ctx, shared.SingleConfigId)
 					Expect(err).To(Succeed())
-					newHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
+					f()
+					_, err = s.Sync(ctx)
+					Expect(err).To(Succeed())
+					newHash, err := s.GetHash(ctx, shared.SingleConfigId)
+					Expect(err).To(Succeed())
 					Expect(newHash).NotTo(Equal(oldHash))
 				}
 			})
 
 			Specify("the default caching endpoint changing should trigger a hash change", func() {
 				for i := 0; i < 10; i++ {
-					oldHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
+					oldHash, err := s.GetHash(ctx, shared.SingleConfigId)
+					Expect(err).To(Succeed())
 					cfg := config.WebhookConfig{
 						NotifierConfig: config.NotifierConfig{
 							VSendResolved: false,
@@ -588,20 +688,21 @@ func BuildStorageClientSetSuite(
 							URL: util.Must(url.Parse(fmt.Sprintf("http://localhost/%s", uuid.New().String()[0:4]))),
 						},
 					}
-					syncOpts.DefaultReceiver = &cfg
-					err := s.CalculateHash(ctx, shared.SingleConfigId, syncOpts)
+					// syncOpts.DefaultReceiver = &cfg
+					_, err = s.Sync(ctx, opts.WithDefaultReceiver(&cfg))
 					Expect(err).To(Succeed())
-					newHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
+					newHash, err := s.GetHash(ctx, shared.SingleConfigId)
+					Expect(err).To(Succeed())
 					Expect(newHash).NotTo(Equal(oldHash))
 				}
 			})
 
 			Specify("the hash should not change when no meaningul configuration change occurs", func() {
 				for i := 0; i < 10; i++ {
-					oldHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
-					err := s.CalculateHash(ctx, shared.SingleConfigId, syncOpts)
+					oldHash, err := s.GetHash(ctx, shared.SingleConfigId)
 					Expect(err).To(Succeed())
-					newHash := strings.Clone(s.GetHash(ctx, shared.SingleConfigId))
+					newHash, err := s.GetHash(ctx, shared.SingleConfigId)
+					Expect(err).To(Succeed())
 					Expect(newHash).To(Equal(oldHash))
 				}
 			})

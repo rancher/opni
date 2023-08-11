@@ -78,7 +78,7 @@ export default {
         this.loading = true;
 
         const status = (await getClusterStatus()).state;
-        const isAlertingEnabled = status === InstallState.Installed;
+        const isAlertingEnabled = status === InstallState.Installed || status === InstallState.Updating;
 
         this.$set(this, 'isAlertingEnabled', isAlertingEnabled);
 

@@ -136,6 +136,26 @@ func BuildAlertingClusterIntegrationTests(
 					},
 				}
 			})
+
+			AfterEach(func() {
+				status, err := alertClusterClient.GetClusterStatus(env.Context(), &emptypb.Empty{})
+				Expect(err).To(BeNil())
+				installed := status.State != alertops.InstallState_NotInstalled && status.State != alertops.InstallState_Uninstalling
+				if installed {
+					info, err := alertClusterClient.Info(env.Context(), &emptypb.Empty{})
+					Expect(err).To(BeNil())
+					Expect(info).NotTo(BeNil())
+					Expect(info.CurSyncId).NotTo(BeEmpty())
+					ts := timestamppb.Now()
+					for _, comp := range info.Components {
+						Expect(comp.LastHandshake.AsTime()).To(BeTemporally("<", ts.AsTime()))
+						if comp.ConnectInfo.SyncId != info.CurSyncId {
+							Expect(comp.LastHandshake.AsTime()).To(BeTemporally(">", ts.AsTime().Add(15*(-time.Second))), "sync is stuttering")
+						}
+					}
+				}
+			})
+
 			for _, clusterConf := range clusterConfigurations {
 				It("should install the alerting cluster", func() {
 					_, err := alertClusterClient.InstallCluster(env.Context(), &emptypb.Empty{})
@@ -224,9 +244,34 @@ func BuildAlertingClusterIntegrationTests(
 						Expect(err).To(Succeed())
 						server.EndpointId = ref.Id
 					}
+
+					By("verifying they are externally persisted")
+
 					endpList, err := alertEndpointsClient.ListAlertEndpoints(env.Context(), &alertingv1.ListAlertEndpointsRequest{})
 					Expect(err).To(Succeed())
 					Expect(endpList.Items).To(HaveLen(numServers))
+
+					By("verifying they are reachable")
+
+					for _, endp := range endpList.GetItems() {
+						_, err := alertEndpointsClient.TestAlertEndpoint(env.Context(), &alertingv1.TestAlertEndpointRequest{
+							Endpoint: endp.GetEndpoint(),
+						})
+						Expect(err).To(Succeed())
+					}
+					Eventually(func() error {
+						for _, server := range servers {
+							if len(server.GetBuffer()) == 0 {
+								return fmt.Errorf("server %s did not receive any alerts", server.Endpoint().Name)
+							}
+						}
+						return nil
+					}, time.Second*30, time.Millisecond*100)
+
+					for _, server := range servers {
+						server.ClearBuffer()
+					}
+
 				})
 
 				It("should create some default conditions when bootstrapping agents", func() {
@@ -289,11 +334,19 @@ func BuildAlertingClusterIntegrationTests(
 
 				It("shoud list conditions by given filters", func() {
 					for _, agent := range agents {
-						filteredByCluster, err := alertConditionsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{
-							Clusters: []string{agent.id},
-						})
-						Expect(err).To(Succeed())
-						Expect(filteredByCluster.Items).To(HaveLen(2))
+						Eventually(func() error {
+							filteredByCluster, err := alertConditionsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{
+								Clusters: []string{agent.id},
+							})
+							if err != nil {
+								return err
+							}
+							if len(filteredByCluster.Items) != 2 {
+								return fmt.Errorf("expected 2 conditions, got %d", len(filteredByCluster.Items))
+							}
+							return nil
+						}, time.Second).Should(Succeed())
+
 					}
 
 					By("verifying all the agents conditions are critical")
@@ -402,7 +455,7 @@ func BuildAlertingClusterIntegrationTests(
 								return err
 							}
 							if status.State != alertingv1.AlertConditionState_Ok {
-								return fmt.Errorf("condition %s is not OK, instead in state %s, %s", cond.AlertCondition.Name, status.State.String(), status.Reason)
+								return fmt.Errorf("condition %s \"%s\" is not OK, instead in state %s, %s", cond.AlertCondition.Id, cond.AlertCondition.Name, status.State.String(), status.Reason)
 							}
 						}
 						return nil

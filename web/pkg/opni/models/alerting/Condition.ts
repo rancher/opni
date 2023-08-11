@@ -299,7 +299,7 @@ export enum AlertConditionState {
   FIRING = 3, // eslint-disable-line no-unused-vars, camelcase
   SILENCED = 4, // eslint-disable-line no-unused-vars, camelcase
   INVALIDATED = 5, // eslint-disable-line no-unused-vars, camelcase
-
+  DELETING = 6 // eslint-disable-line no-unused-vars, camelcase
 }
 
 export interface AlertStatusResponse {
@@ -400,7 +400,7 @@ export class Condition extends Resource {
         state:   'warning'
       },
       [AlertConditionState.UNSPECIFIED]: {
-        message: 'Unspecified',
+        message: 'Unknown',
         state:   'warning'
       },
       [AlertConditionState.INVALIDATED]: {
@@ -410,6 +410,10 @@ export class Condition extends Resource {
       [AlertConditionState.PENDING]: {
         message: 'Pending',
         state:   'warning'
+      },
+      [AlertConditionState.DELETING]: {
+        message: 'Deleting',
+        state:   'warning',
       },
     };
 

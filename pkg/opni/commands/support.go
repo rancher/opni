@@ -10,8 +10,10 @@ import (
 	"os"
 
 	"github.com/AlecAivazis/survey/v2"
+	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
+	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/crypto"
@@ -23,6 +25,9 @@ import (
 	supportagentconfig "github.com/rancher/opni/pkg/supportagent/config"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/trust"
+	"github.com/rancher/opni/pkg/update"
+	"github.com/rancher/opni/pkg/update/noop"
+	"github.com/rancher/opni/pkg/urn"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/spf13/cobra"
@@ -200,6 +205,8 @@ func BuildSupportPingCmd() *cobra.Command {
 				).Fatal("failed to get gateway client")
 			}
 
+			ctx = handleUpdates(ctx, agentlg.Zap(), gatewayClient)
+
 			cc, futureErr := gatewayClient.Connect(ctx)
 			if futureErr.IsSet() {
 				agentlg.With(
@@ -253,6 +260,8 @@ func BuildSupportShipCmd() *cobra.Command {
 					zap.Error(err),
 				).Fatal("failed to get gateway client")
 			}
+
+			ctx = handleUpdates(ctx, agentlg.Zap(), gatewayClient)
 
 			cc, futureErr := gatewayClient.Connect(ctx)
 			if futureErr.IsSet() {
@@ -407,6 +416,55 @@ func getRetrievePassword(_ string) (string, error) {
 		return "", err
 	}
 	return password, nil
+}
+
+func handleUpdates(ctx context.Context, lg *zap.SugaredLogger, client clients.GatewayClient) context.Context {
+	syncClient := controlv1.NewUpdateSyncClient(client.ClientConn())
+	pluginHandler := noop.NewPluginSyncHandler()
+	agentHandler := noop.NewAgentSyncHandler()
+
+	agentSyncConf := update.SyncConfig{
+		Client: syncClient,
+		Syncer: agentHandler,
+		Logger: lg.Named("agent-updater"),
+	}
+	pluginSyncConf := update.SyncConfig{
+		Client: syncClient,
+		Syncer: pluginHandler,
+		Logger: lg.Named("plugin-updater"),
+	}
+
+	for _, conf := range []update.SyncConfig{agentSyncConf, pluginSyncConf} {
+		err := conf.DoSync(ctx)
+		if err != nil {
+			lg.With(
+				zap.Error(err),
+			).Fatal("failed to sync updates")
+		}
+	}
+
+	agentManifest, err := agentSyncConf.Result(ctx)
+	if err != nil {
+		lg.With(
+			zap.Error(err),
+		).Fatal("failed to get updated agent manifest")
+	}
+
+	pluginManifest, err := pluginSyncConf.Result(ctx)
+	if err != nil {
+		lg.With(
+			zap.Error(err),
+		).Fatal("failed to get updated plugin manifest")
+	}
+
+	ctx = metadata.AppendToOutgoingContext(ctx,
+		controlv1.ManifestDigestKeyForType(urn.Agent), agentManifest.Digest(),
+		controlv1.ManifestDigestKeyForType(urn.Plugin), pluginManifest.Digest(),
+		controlv1.UpdateStrategyKeyForType(urn.Agent), agentHandler.Strategy(),
+		controlv1.UpdateStrategyKeyForType(urn.Plugin), pluginHandler.Strategy(),
+	)
+
+	return ctx
 }
 
 func init() {

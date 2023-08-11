@@ -37,6 +37,9 @@ const (
 
 const (
 	OpniServicesName = "opni"
+	OpniS3SecretName = "opni-s3-credentials"
+	AccessKeyKey     = "accessKey"
+	SecretKeyKey     = "secretKey"
 )
 
 var (
@@ -174,6 +177,24 @@ func (s *AIOpsPlugin) GetAISettings(ctx context.Context, _ *emptypb.Empty) (*adm
 		return nil, err
 	}
 
+	var s3Settings *admin.S3Settings
+	if opni.Spec.S3.External != nil {
+		secret := &corev1.Secret{}
+		err := s.k8sClient.Get(ctx, types.NamespacedName{
+			Name:      opni.Spec.S3.External.Credentials.Name,
+			Namespace: opni.Spec.S3.External.Credentials.Namespace,
+		}, secret)
+		if err != nil {
+			s.Logger.Error(err, "failed to get s3 secret")
+		}
+		s3Settings = &admin.S3Settings{
+			Endpoint:    opni.Spec.S3.External.Endpoint,
+			NulogBucket: &opni.Spec.S3.NulogS3Bucket,
+			DrainBucket: &opni.Spec.S3.DrainS3Bucket,
+			AccessKey:   string(secret.Data["accessKey"]),
+		}
+	}
+
 	return &admin.AISettings{
 		GpuSettings: func() *admin.GPUSettings {
 			if !lo.FromPtrOr(opni.Spec.Services.GPUController.Enabled, true) {
@@ -202,6 +223,7 @@ func (s *AIOpsPlugin) GetAISettings(ctx context.Context, _ *emptypb.Empty) (*adm
 			}
 			return nil
 		}(),
+		S3Settings: s3Settings,
 	}, nil
 }
 
@@ -240,6 +262,11 @@ func (s *AIOpsPlugin) PutAISettings(ctx context.Context, settings *admin.AISetti
 		version = versions.Version
 	}
 
+	err := s.createOrUpdateS3Secret(ctx, settings.GetS3Settings())
+	if err != nil {
+		return nil, err
+	}
+
 	exists := true
 	opniCluster := &aiv1beta1.OpniCluster{
 		ObjectMeta: metav1.ObjectMeta{
@@ -259,12 +286,9 @@ func (s *AIOpsPlugin) PutAISettings(ctx context.Context, settings *admin.AISetti
 				},
 			},
 			Opensearch: s.opensearchCluster,
-			S3: aiv1beta1.S3Spec{
-				Internal: &aiv1beta1.InternalSpec{},
-			},
 		},
 	}
-	err := s.k8sClient.Get(ctx, client.ObjectKeyFromObject(opniCluster), opniCluster)
+	err = s.k8sClient.Get(ctx, client.ObjectKeyFromObject(opniCluster), opniCluster)
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
 			return nil, err
@@ -276,6 +300,7 @@ func (s *AIOpsPlugin) PutAISettings(ctx context.Context, settings *admin.AISetti
 		opniCluster.Spec.Version = "v" + strings.TrimPrefix(version, "v")
 		opniCluster.Spec.Services.Inference.PretrainedModels = models
 		gpuSettingsMutator(settings.GetGpuSettings(), opniCluster)
+		s3SettingsMutator(settings.GetS3Settings(), opniCluster)
 
 		return &emptypb.Empty{}, s.k8sClient.Create(ctx, opniCluster)
 	}
@@ -287,6 +312,7 @@ func (s *AIOpsPlugin) PutAISettings(ctx context.Context, settings *admin.AISetti
 		}
 		opniCluster.Spec.Services.Inference.PretrainedModels = models
 		gpuSettingsMutator(settings.GetGpuSettings(), opniCluster)
+		s3SettingsMutator(settings.GetS3Settings(), opniCluster)
 		return s.k8sClient.Update(ctx, opniCluster)
 	})
 	return &emptypb.Empty{}, err
@@ -302,6 +328,17 @@ func (s *AIOpsPlugin) DeleteAISettings(ctx context.Context, _ *emptypb.Empty) (*
 	if err != nil {
 		return nil, err
 	}
+
+	err = s.k8sClient.Delete(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      OpniS3SecretName,
+			Namespace: s.storageNamespace,
+		},
+	})
+	if client.IgnoreNotFound(err) != nil {
+		return nil, err
+	}
+
 	err = s.k8sClient.DeleteAllOf(ctx, &aiv1beta1.PretrainedModel{}, client.InNamespace(s.storageNamespace))
 	if err != nil {
 		return nil, err
@@ -394,6 +431,47 @@ func (s *AIOpsPlugin) GetRuntimeClasses(ctx context.Context, _ *emptypb.Empty) (
 	}, nil
 }
 
+func (s *AIOpsPlugin) createOrUpdateS3Secret(ctx context.Context, settings *admin.S3Settings) error {
+	if settings == nil {
+		return nil
+	}
+	exists := true
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      OpniS3SecretName,
+			Namespace: s.storageNamespace,
+		},
+		StringData: map[string]string{
+			AccessKeyKey: settings.AccessKey,
+			SecretKeyKey: settings.SecretKey,
+		},
+	}
+	err := s.k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+		exists = false
+	}
+
+	if !exists {
+		return s.k8sClient.Create(ctx, secret)
+	}
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := s.k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)
+		if err != nil {
+			return err
+		}
+		secret.Data[AccessKeyKey] = []byte(settings.AccessKey)
+		if settings.SecretKey != "" {
+			secret.Data[SecretKeyKey] = []byte(settings.SecretKey)
+		}
+		return s.k8sClient.Update(ctx, secret)
+	})
+
+}
+
 func updateModelSpec(modelType pretrainedModelType, modelRequest *admin.PretrainedModel, modelObject *aiv1beta1.PretrainedModel) {
 	modelObject.Spec = aiv1beta1.PretrainedModelSpec{
 		Hyperparameters: ModelHyperParameters[modelType],
@@ -445,4 +523,24 @@ func gpuSettingsMutator(settings *admin.GPUSettings, cluster *aiv1beta1.OpniClus
 	cluster.Spec.Services.TrainingController.Enabled = lo.ToPtr(settings != nil)
 	cluster.Spec.Services.Inference.Enabled = lo.ToPtr(settings != nil)
 	cluster.Spec.Services.Drain.Workload.Enabled = lo.ToPtr(settings != nil)
+}
+
+func s3SettingsMutator(settings *admin.S3Settings, cluster *aiv1beta1.OpniCluster) {
+	if settings == nil {
+		cluster.Spec.S3 = aiv1beta1.S3Spec{
+			Internal: &aiv1beta1.InternalSpec{},
+		}
+		return
+	}
+	cluster.Spec.S3 = aiv1beta1.S3Spec{
+		NulogS3Bucket: settings.GetNulogBucket(),
+		DrainS3Bucket: settings.GetDrainBucket(),
+		External: &aiv1beta1.ExternalSpec{
+			Endpoint: settings.GetEndpoint(),
+			Credentials: &corev1.SecretReference{
+				Name:      OpniS3SecretName,
+				Namespace: cluster.Namespace,
+			},
+		},
+	}
 }

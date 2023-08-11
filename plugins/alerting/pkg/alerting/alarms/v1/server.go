@@ -121,7 +121,7 @@ func (a *AlarmServerComponent) UpdateAlertCondition(ctx context.Context, req *al
 		return nil, err
 	}
 	if existing.GetMetadata() != nil && existing.GetMetadata()[metadataReadOnly] != "" {
-		configurationChangeReadOnly := util.ProtoClone(req.UpdateAlert)
+		configurationChangeReadOnly := util.ProtoClone(existing)
 		applyMutableReadOnlyFields(configurationChangeReadOnly, req.UpdateAlert)
 		req.UpdateAlert = configurationChangeReadOnly
 	}

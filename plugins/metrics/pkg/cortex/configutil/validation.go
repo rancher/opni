@@ -320,7 +320,7 @@ func detailedInvalidHostError(host string) *cortexops.ValidationError {
 		return mkwarningf("host cannot start with '.'")
 	}
 	if i := strings.IndexAny(host, "`~!@#$%^&*()+={}[]|\\\"';:><?/"); i >= 0 {
-		return mkwarningf("host contains invalid character '%s'", host[i])
+		return mkwarningf("host contains invalid character '%c'", rune(host[i]))
 	}
 	return nil
 }

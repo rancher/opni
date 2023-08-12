@@ -1,6 +1,8 @@
 package v1beta1
 
 import (
+	"strconv"
+
 	grafanav1alpha1 "github.com/grafana-operator/grafana-operator/v4/api/integreatly/v1alpha1"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
@@ -83,6 +85,45 @@ type CortexStatus struct {
 type WorkloadStatus struct {
 	Ready   bool   `json:"ready,omitempty"`
 	Message string `json:"conditions,omitempty"`
+}
+
+const (
+	MonitoringClusterRevisionAnnotation string = "monitoring.internal.opni.io/revision"
+	MonitoringClusterTargetRevision     int64  = 1
+)
+
+func MonitoringClusterTargetRevisionString() string {
+	return strconv.FormatInt(MonitoringClusterTargetRevision, 10)
+}
+
+func GetMonitoringClusterRevision(t interface {
+	GetAnnotations() map[string]string
+}) int64 {
+	annotations := t.GetAnnotations()
+	if annotations == nil {
+		return 0
+	}
+	revisionStr, ok := annotations[MonitoringClusterRevisionAnnotation]
+	if !ok {
+		return 0
+	}
+	rev, err := strconv.ParseInt(revisionStr, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return rev
+}
+
+func SetMonitoringClusterRevision(t interface {
+	GetAnnotations() map[string]string
+	SetAnnotations(map[string]string)
+}, rev int64) {
+	annotations := t.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations[MonitoringClusterRevisionAnnotation] = strconv.FormatInt(rev, 10)
+	t.SetAnnotations(annotations)
 }
 
 // +kubebuilder:object:root=true

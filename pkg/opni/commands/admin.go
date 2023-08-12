@@ -373,7 +373,8 @@ func BuildCortexStatusCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			status, err := adminClient.GetCortexStatus(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
-				return err
+				fmt.Println(err)
+				// continue, status may contain partial information
 			}
 			switch outputFormat {
 			case "json":
@@ -383,7 +384,7 @@ func BuildCortexStatusCmd() *cobra.Command {
 			default:
 				return fmt.Errorf("unknown output format: %s", outputFormat)
 			}
-			return nil
+			return err
 		},
 	}
 	cmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table|json)")

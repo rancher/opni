@@ -362,6 +362,10 @@ func NewImplementationSpecificOverrides(impl ImplementationSpecificOverridesShap
 			t.FrontendAddress = impl.QueryFrontendAddress
 			return true
 		}),
+		NewOverrider(func(t *querier.Config) bool {
+			t.StoreGatewayAddresses = impl.QueryFrontendAddress
+			return true
+		}),
 		NewOverrider(func(t *memberlist.KVConfig) bool {
 			t.JoinMembers = impl.MemberlistJoinAddrs
 			return true

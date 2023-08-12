@@ -97,6 +97,8 @@ func determineBestEditingLanguage[T proto.Message](spec T) (language, error) {
 	return jsonLanguage{}, nil
 }
 
+var ErrNoEditor = fmt.Errorf("no available editor; please set the EDITOR environment variable and try again")
+
 func EditInteractive[T proto.Message](spec T, id ...string) (T, error) {
 	lang, err := determineBestEditingLanguage(spec)
 	if err != nil {
@@ -113,7 +115,7 @@ func EditInteractive[T proto.Message](spec T, id ...string) (T, error) {
 		var editedSpec T
 		editedSpec, err = tryEdit(spec, lang, extraComments)
 		if err != nil {
-			if errors.Is(err, ErrAborted) {
+			if errors.Is(err, ErrAborted) || errors.Is(err, ErrNoEditor) {
 				return editedSpec, err
 			}
 			continue
@@ -189,7 +191,13 @@ func tryEdit[T proto.Message](spec T, lang language, extraComments []string) (T,
 	// Open the temporary file in the user's preferred editor
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
-		editor = "vim" // Default to 'vim' if no editor is set
+		editors := []string{"nvim", "vim", "vi"}
+		for _, e := range editors {
+			if _, err := exec.LookPath(e); err == nil {
+				editor = e
+				break
+			}
+		}
 	}
 
 	args := []string{tmpFile.Name()}
@@ -201,7 +209,7 @@ func tryEdit[T proto.Message](spec T, lang language, extraComments []string) (T,
 	}
 
 	if _, err := exec.LookPath(editor); err != nil {
-		return nilT, fmt.Errorf("no available editor; please set the EDITOR environment variable and try again")
+		return nilT, ErrNoEditor
 	}
 
 	cmd := exec.Command(editor, args...)

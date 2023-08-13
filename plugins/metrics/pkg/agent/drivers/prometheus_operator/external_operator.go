@@ -7,6 +7,7 @@ import (
 
 	"github.com/lestrrat-go/backoff/v2"
 	monitoringcoreosv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	monitoringcoreosv1alpha1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1alpha1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
@@ -42,6 +43,7 @@ func NewExternalPromOperatorDriver(options ExternalPromOperatorDriverOptions) (*
 	if options.K8sClient == nil {
 		s := scheme.Scheme
 		monitoringcoreosv1.AddToScheme(s)
+		monitoringcoreosv1alpha1.AddToScheme(s)
 		c, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
 			Scheme: s,
 		})
@@ -73,7 +75,8 @@ func (d *ExternalPromOperatorDriver) ConfigureNode(nodeId string, conf *node.Met
 	objList := []reconcilerutil.ReconcileItem{}
 	svcAccount, cr, crb := d.buildRbac()
 	scrapeConfigs := d.buildAdditionalScrapeConfigsSecret()
-	prometheus := d.buildPrometheus(conf.GetSpec().GetPrometheus())
+	prometheus := d.buildPrometheus()
+	prometheusAgent := d.buildPrometheusAgent(conf.GetSpec().GetPrometheus())
 	objList = append(objList, reconcilerutil.ReconcileItem{
 		A: svcAccount,
 		B: deployPrometheus,
@@ -85,6 +88,9 @@ func (d *ExternalPromOperatorDriver) ConfigureNode(nodeId string, conf *node.Met
 		B: deployPrometheus,
 	}, reconcilerutil.ReconcileItem{
 		A: prometheus,
+		B: false,
+	}, reconcilerutil.ReconcileItem{
+		A: prometheusAgent,
 		B: deployPrometheus,
 	}, reconcilerutil.ReconcileItem{
 		A: scrapeConfigs,
@@ -117,7 +123,16 @@ BACKOFF:
 	return nil
 }
 
-func (d *ExternalPromOperatorDriver) buildPrometheus(conf *node.PrometheusSpec) *monitoringcoreosv1.Prometheus {
+func (d *ExternalPromOperatorDriver) buildPrometheus() *monitoringcoreosv1.Prometheus {
+	return &monitoringcoreosv1.Prometheus{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-prometheus-agent",
+			Namespace: d.Namespace,
+		},
+	}
+}
+
+func (d *ExternalPromOperatorDriver) buildPrometheusAgent(conf *node.PrometheusSpec) *monitoringcoreosv1alpha1.PrometheusAgent {
 	image := "quay.io/prometheus/prometheus:latest"
 	if conf.GetImage() != "" {
 		image = conf.GetImage()
@@ -125,26 +140,15 @@ func (d *ExternalPromOperatorDriver) buildPrometheus(conf *node.PrometheusSpec) 
 
 	selector := &metav1.LabelSelector{}
 
-	return &monitoringcoreosv1.Prometheus{
+	return &monitoringcoreosv1alpha1.PrometheusAgent{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-prometheus-agent",
 			Namespace: d.Namespace,
 		},
-		Spec: monitoringcoreosv1.PrometheusSpec{
+		Spec: monitoringcoreosv1alpha1.PrometheusAgentSpec{
 			CommonPrometheusFields: monitoringcoreosv1.CommonPrometheusFields{
-				Image: &image,
-				Containers: []corev1.Container{
-					{
-						Name: "prometheus",
-						Args: []string{
-							"--config.file=/etc/prometheus/config_out/prometheus.env.yaml",
-							"--web.enable-lifecycle",
-							"--storage.agent.path=/prometheus",
-							"--enable-feature=agent",
-							"--log.level=debug",
-						},
-					},
-				},
+				Image:    &image,
+				LogLevel: "debug",
 				RemoteWrite: []monitoringcoreosv1.RemoteWriteSpec{
 					{
 						URL: fmt.Sprintf("http://%s.%s.svc/api/agent/push", d.serviceName(), d.Namespace),
@@ -188,7 +192,6 @@ func (d *ExternalPromOperatorDriver) buildPrometheus(conf *node.PrometheusSpec) 
 					Key: "prometheus.yaml",
 				},
 			},
-			EvaluationInterval: "30s",
 		},
 	}
 }

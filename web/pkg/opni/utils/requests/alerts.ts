@@ -1,7 +1,8 @@
 import axios from 'axios';
+import { Reference } from '../../models/shared';
 
 import {
-  AlertCondition, AlertConditionList, AlertDetailChoicesRequest, AlertStatusResponse, Condition, ListAlarmMessageRequest, ListAlertTypeDetails, ListMessageResponse, ListStatusResponse, SilenceRequest, TimelineRequest, TimelineResponse, UpdateAlertConditionRequest
+  AlertCondition, AlertConditionList, AlertDetailChoicesRequest, AlertStatusResponse, Condition, ConditionReference, ListAlarmMessageRequest, ListAlertTypeDetails, ListMessageResponse, ListStatusResponse, SilenceRequest, TimelineRequest, TimelineResponse, UpdateAlertConditionRequest
 } from '../../models/alerting/Condition';
 import {
   AlertEndpoint, AlertEndpointList, Endpoint, TestAlertEndpointRequest, UpdateAlertEndpointRequest
@@ -40,12 +41,12 @@ export function createAlertCondition(alertCondition: AlertCondition) {
   return axios.post(`opni-api/AlertConditions/configure`, alertCondition);
 }
 
-export async function getAlertCondition(id: string, vue: any): Promise<Condition> {
-  return (await getAlertConditionsWithStatus(vue, [])).find(c => c.id === id) as Condition;
+export async function getAlertCondition(id: ConditionReference, vue: any): Promise<Condition> {
+  return (await getAlertConditionsWithStatus(vue, [], [id.groupId])).find(c => c.id === id.id) as Condition;
 }
 
-export async function getAlertConditionsWithStatus(vue: any, clusters: Cluster[]) {
-  const response = (await axios.post<ListStatusResponse>('opni-api/AlertConditions/list/withStatus')).data;
+export async function getAlertConditionsWithStatus(vue: any, clusters: Cluster[], groupIds: string[]) {
+  const response = (await axios.post<ListStatusResponse>('opni-api/AlertConditions/list/withStatus', { itemFilter: { groupIds } })).data;
 
   return (Object.values(response.alertConditions) || []).map(conditionWithStatus => new Condition(conditionWithStatus, vue, clusters));
 }
@@ -79,8 +80,8 @@ export function silenceAlertCondition(request: SilenceRequest) {
   return axios.post(`opni-api/AlertConditions/silences`, request);
 }
 
-export function deactivateSilenceAlertCondition(id: string) {
-  return axios.delete(`opni-api/AlertConditions/silences`, { data: { id } });
+export function deactivateSilenceAlertCondition(id: ConditionReference) {
+  return axios.delete(`opni-api/AlertConditions/silences`, { data: id });
 }
 
 export async function getConditionTimeline(request: TimelineRequest): Promise<TimelineResponse> {
@@ -89,6 +90,14 @@ export async function getConditionTimeline(request: TimelineRequest): Promise<Ti
 
 export async function getAlarmNotifications(request: ListAlarmMessageRequest): Promise<ListMessageResponse> {
   return (await axios.post<ListMessageResponse>(`opni-api/AlertNotifications/alarms/list`, request)).data;
+}
+
+export async function getAlertConditionGroups(): Promise<Reference[]> {
+  return (await axios.get(`opni-api/AlertConditions/groups`)).data?.items || [];
+}
+
+export async function getAlertConditionGroupIds(): Promise<string[]> {
+  return (await getAlertConditionGroups()).map(g => g.id);
 }
 
 export interface ResourceLimitSpec {

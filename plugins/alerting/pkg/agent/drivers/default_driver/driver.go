@@ -5,23 +5,29 @@ import (
 	"fmt"
 	"time"
 
+	node_drivers "github.com/rancher/opni/plugins/alerting/pkg/agent/drivers"
+
 	promoperatorv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
-	"github.com/rancher/opni/plugins/alerting/pkg/agent/drivers"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/node"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/rules"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/durationpb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/kubectl/pkg/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type DriverOptions struct {
-	k8sClient client.Client
+type NodeDriverOptions struct {
+	K8sClient client.Client      `option:"k8sClient"`
+	Logger    *zap.SugaredLogger `option:"logger"`
 }
 
 type Driver struct {
-	DriverOptions
+	*NodeDriverOptions
 }
 
 func (d *Driver) DiscoverRules(ctx context.Context) (*rules.RuleManifest, error) {
@@ -37,7 +43,7 @@ func (d *Driver) listRules(ctx context.Context) (*promoperatorv1.PrometheusRuleL
 	listOptions := &client.ListOptions{
 		Namespace: metav1.NamespaceAll,
 	}
-	if err := d.k8sClient.List(ctx, rules, listOptions); err != nil {
+	if err := d.K8sClient.List(ctx, rules, listOptions); err != nil {
 		return nil, err
 	}
 	return rules, nil
@@ -82,14 +88,34 @@ func (d *Driver) ConfigureNode(_ string, _ *node.AlertingCapabilityConfig) error
 	return nil
 }
 
-func NewDriver() *Driver {
-	return &Driver{}
+func NewDriver(options *NodeDriverOptions) (*Driver, error) {
+	if options.K8sClient == nil {
+		s := scheme.Scheme
+		promoperatorv1.AddToScheme(s)
+		c, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
+			Scheme: s,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create kubernetes client: %w", err)
+		}
+		options.K8sClient = c
+	}
+	return &Driver{
+		NodeDriverOptions: options,
+	}, nil
 }
 
-var _ drivers.NodeDriver = (*Driver)(nil)
+var _ node_drivers.NodeDriver = (*Driver)(nil)
 
 func init() {
-	drivers.NodeDrivers.Register("default_driver", func(_ context.Context, _ ...driverutil.Option) (drivers.NodeDriver, error) {
-		return NewDriver(), nil
+	node_drivers.NodeDrivers.Register("k8s_driver", func(ctx context.Context, opts ...driverutil.Option) (node_drivers.NodeDriver, error) {
+		driverOptions := &NodeDriverOptions{
+			K8sClient: nil,
+			Logger:    logger.NewPluginLogger().Named("alerting").Named("rule-discovery"),
+		}
+		if err := driverutil.ApplyOptions(driverOptions, opts...); err != nil {
+			return nil, err
+		}
+		return NewDriver(&NodeDriverOptions{})
 	})
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/agent"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 
+	_ "github.com/rancher/opni/plugins/alerting/pkg/agent/drivers/default_driver"
 	_ "github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers/alerting_manager"
 )
 

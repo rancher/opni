@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -259,18 +260,27 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 			})
 		})
 		When("the stream context is canceled while waiting for a challenge response", func() {
-			It("should return a DeadlineExceeded error", func() {
+			It("should return a Cancelled error", func() {
 				addKeyring()
+				acquired := make(chan struct{})
+				cancelled := make(chan struct{})
 				cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 					return listener.Dial()
 				}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+					defer close(cancelled)
 					ctx = outgoingCtx(ctx)
 					clientStream, err := streamer(ctx, desc, cc, method, opts...)
 					if err != nil {
+						if errors.Is(err, ctx.Err()) && strings.Contains(err.Error(), "context deadline exceeded") {
+							// process/goroutine hang, retry test
+							return nil, err
+						}
 						panic("test failed: unexpected error: " + err.Error())
 					}
 					var req corev1.ChallengeRequestList
 					clientStream.RecvMsg(&req)
+					acquired <- struct{}{}
+					<-cancelled
 					time.Sleep(15 * time.Millisecond)
 					// at this point, ctx should have been canceled by us, so sending a
 					// challenge response should fail with a DeadlineExceeded error
@@ -290,12 +300,20 @@ var _ = Describe("Cluster Auth V2", Ordered, Label("unit"), func() {
 				client := testgrpc.NewStreamServiceClient(cc)
 
 				// cancel the context before the server timeout expires
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
+				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
+
+				go func() {
+					defer close(acquired)
+					<-acquired
+					cancel()
+					cancelled <- struct{}{}
+				}()
+
 				_, err = client.Stream(ctx)
 
-				Expect(status.Code(err)).To(Equal(codes.DeadlineExceeded))
-				Expect(err.Error()).To(ContainSubstring("context deadline exceeded"))
+				Expect(status.Code(err)).To(Equal(codes.Canceled))
+				Expect(err.Error()).To(ContainSubstring("context canceled"))
 			})
 		})
 		When("an error occurs reading the challenge response", func() {

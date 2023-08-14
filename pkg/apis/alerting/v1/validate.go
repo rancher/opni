@@ -414,6 +414,9 @@ func (a *AttachedEndpoint) Validate() error {
 }
 
 func (a *AttachedEndpoints) Validate() error {
+	if len(a.GetItems()) == 0 {
+		return nil
+	}
 	if a.Details == nil {
 		return validation.Error("attachedEndpoints details must be set")
 	}

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"emperror.dev/errors"
+	"github.com/google/uuid"
 	amCfg "github.com/prometheus/alertmanager/config"
 
 	"github.com/prometheus/common/model"
@@ -394,10 +395,14 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	}
 }
 
-type TestNodeDriver struct{}
+type TestNodeDriver struct {
+	whoami string
+}
 
 func NewTestNodeDriver() *TestNodeDriver {
-	return &TestNodeDriver{}
+	return &TestNodeDriver{
+		whoami: uuid.New().String(),
+	}
 }
 
 func (n *TestNodeDriver) ConfigureNode(_ string, _ *node.AlertingCapabilityConfig) error {
@@ -409,10 +414,10 @@ func (n *TestNodeDriver) DiscoverRules(_ context.Context) (*rules.RuleManifest, 
 		Rules: []*rules.Rule{
 			{
 				RuleId: &corev1.Reference{
-					Id: "test-rule",
+					Id: fmt.Sprintf("test-rule-%s", n.whoami),
 				},
 				GroupId: &corev1.Reference{
-					Id: "test-group",
+					Id: fmt.Sprintf("test-group-%s", n.whoami),
 				},
 				Name:        "test",
 				Expr:        "sum(up > 0) > 0",

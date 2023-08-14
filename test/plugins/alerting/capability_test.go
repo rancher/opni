@@ -16,6 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/test/testruntime"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -88,15 +89,43 @@ var _ = Describe("agent capability tests", Ordered, Label("integration"), func()
 			}
 		})
 
+		It("should keep track of the downstream synced alerting groups", func() {
+			alertConditionsClient := env.NewAlertConditionsClient()
+			Eventually(func() error {
+				groups, err := alertConditionsClient.ListAlertConditionGroups(env.Context(), &emptypb.Empty{})
+				if err != nil {
+					return err
+				}
+				if len(groups.Items) != 1+len(agents) {
+					return fmt.Errorf("expected same number of groups as agents, got %d", len(groups.Items))
+				}
+
+				return nil
+			}, time.Second*5, time.Millisecond*200).Should(Succeed())
+		})
+
 		It("should have synced downstream prometheus alerting rules", func() {
 			alertConditionsClient := env.NewAlertConditionsClient()
+			groups, err := alertConditionsClient.ListAlertConditionGroups(env.Context(), &emptypb.Empty{})
+			Expect(err).To(Succeed())
+			syncedGroups := lo.Filter(groups.Items, func(c *corev1.Reference, _ int) bool {
+				return c.Id != ""
+			})
+			sGroups := lo.Map(syncedGroups, func(c *corev1.Reference, _ int) string {
+				return c.Id
+			})
+			Expect(len(syncedGroups)).To(Equal(len(agents)))
 			Eventually(func() error {
 				for _, agent := range agents {
 					conds, err := alertConditionsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{
 						Clusters: []string{agent},
-						GroupIds: []string{"test-group"},
+						GroupIds: sGroups,
+						AlertTypes: []alertingv1.AlertType{
+							alertingv1.AlertType_PrometheusQuery,
+						},
 					})
 					Expect(err).To(Succeed())
+					Expect(len(conds.GetItems())).NotTo(Equal(0))
 
 					for _, cond := range conds.Items {
 						Expect(cond.GetAlertCondition().Metadata).NotTo(BeNil())
@@ -108,55 +137,49 @@ var _ = Describe("agent capability tests", Ordered, Label("integration"), func()
 				return nil
 			}, time.Second*5, time.Millisecond*400).Should(Succeed())
 		})
-		It("should keep track of the alerting groups", func() {
-			alertConditionsClient := env.NewAlertConditionsClient()
-			Eventually(func() error {
-				groups, err := alertConditionsClient.ListAlertConditionGroups(env.Context(), &emptypb.Empty{})
-				if err != nil {
-					return err
-				}
-				if len(groups.Items) != 2 {
-					return fmt.Errorf("expected 2 groups, got %d", len(groups.Items))
-				}
-				if groups.Items[0].Id != "" {
-					return fmt.Errorf("expected first group to be the default group")
-				}
-				if groups.Items[1].Id != "test-group" {
-					return fmt.Errorf("expected second group to be test-group")
-				}
-				return nil
-			}, time.Second*5, time.Millisecond*200)
-		})
 
 		It("should be able to manipulate a sub-set of the synced rule configuration", func() {
 			alertConditionsClient := env.NewAlertConditionsClient()
-			conds, err := alertConditionsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{
-				Clusters: agents,
-				GroupIds: []string{"test-group"},
-			})
+			groups, err := alertConditionsClient.ListAlertConditionGroups(env.Context(), &emptypb.Empty{})
 			Expect(err).To(Succeed())
-
-			for _, cond := range conds.Items {
-				newCond := util.ProtoClone(cond)
-				newCond.AlertCondition.AlertType.GetPrometheusQuery().Query = "gibberish"
-				newCond.AlertCondition.Severity = alertingv1.OpniSeverity_Critical
-				_, err := alertConditionsClient.UpdateAlertCondition(env.Context(), &alertingv1.UpdateAlertConditionRequest{
-					Id:          newCond.Id,
-					UpdateAlert: newCond.GetAlertCondition(),
+			Expect(len(groups.Items)).To(Equal(1 + len(agents)))
+			for _, group := range groups.Items {
+				if group.Id == "" {
+					continue
+				}
+				conds, err := alertConditionsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{
+					Clusters: agents,
+					GroupIds: []string{group.Id},
 				})
-				Expect(err).To(HaveOccurred()) // FIXME: requires HA consistency fixes here, errors when trying to apply prom rule
-			}
+				Expect(err).To(Succeed())
+				Expect(len(conds.Items)).To(BeNumerically(">", 0))
 
-			newConds, err := alertConditionsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{
-				Clusters: agents,
-				GroupIds: []string{"test-group"},
-			})
+				for _, cond := range conds.Items {
+					newCond := util.ProtoClone(cond)
+					Expect(newCond.AlertCondition.GetMetadata()).NotTo(BeNil())
+					newCond.AlertCondition.Metadata["readOnly"] = "true"
+					newCond.AlertCondition.AlertType.GetPrometheusQuery().Query = "gibberish"
+					newCond.AlertCondition.Severity = alertingv1.OpniSeverity_Critical
+					_, err := alertConditionsClient.UpdateAlertCondition(env.Context(), &alertingv1.UpdateAlertConditionRequest{
+						Id:          newCond.Id,
+						UpdateAlert: newCond.GetAlertCondition(),
+					})
+					Expect(err).NotTo(HaveOccurred())
+				}
 
-			Expect(err).To(Succeed())
-			Expect(len(newConds.Items)).To(Equal(len(conds.Items)))
-			for _, newCond := range newConds.Items {
-				Expect(newCond.AlertCondition.AlertType.GetPrometheusQuery().Query).NotTo(Equal("gibberish"))
-				Expect(newCond.AlertCondition.Severity).To(Equal(alertingv1.OpniSeverity_Critical))
+				newConds, err := alertConditionsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{
+					Clusters: agents,
+					GroupIds: []string{group.Id},
+				})
+
+				Expect(err).To(Succeed())
+				Expect(len(newConds.Items)).To(Equal(len(conds.Items)))
+				for _, newCond := range newConds.Items {
+					Expect(newCond.AlertCondition.Metadata).NotTo(BeNil())
+					Expect(newCond.AlertCondition.Metadata["readOnly"]).To(Equal("true"))
+					Expect(newCond.AlertCondition.AlertType.GetPrometheusQuery().Query).NotTo(Equal("gibberish"))
+					Expect(newCond.AlertCondition.Severity).To(Equal(alertingv1.OpniSeverity_Critical))
+				}
 			}
 		})
 

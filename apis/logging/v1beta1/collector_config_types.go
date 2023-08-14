@@ -79,15 +79,15 @@ type CollectorConfigSpec struct {
 //+kubebuilder:resource:scope=Cluster
 //+kubebuilder:storageversion
 
-type CollectorTraceConfig struct {
+type TraceCollectorConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec CollectorTraceConfigSpec `json:"spec,omitempty"`
+	Spec TraceCollectorConfigSpec `json:"spec,omitempty"`
 }
 
-// CollectorTraceConfigSpec defines the desired state of CollectorConfig
-type CollectorTraceConfigSpec struct {
+// TraceCollectorConfigSpec defines the desired state of CollectorConfig
+type TraceCollectorConfigSpec struct {
 	// For now, there aren't any specific trace configs
 }
 
@@ -133,11 +133,11 @@ type CollectorConfigList struct {
 
 //+kubebuilder:object:root=true
 
-// CollectorTraceConfigList contains a list of CollectorTraceConfig
+// CollectorTraceConfigList contains a list of TraceCollectorConfig
 type CollectorTraceConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []CollectorTraceConfig `json:"items"`
+	Items           []TraceCollectorConfig `json:"items"`
 }
 
 func CollectorConfigCRD() (*crd.CRD, error) {
@@ -155,12 +155,12 @@ func CollectorConfigCRD() (*crd.CRD, error) {
 }
 
 func CollectorTraceConfigCRD() (*crd.CRD, error) {
-	schema, err := openapi.ToOpenAPIFromStruct(CollectorTraceConfig{})
+	schema, err := openapi.ToOpenAPIFromStruct(TraceCollectorConfig{})
 	if err != nil {
 		return nil, err
 	}
 	return &crd.CRD{
-		GVK:          GroupVersion.WithKind("CollectorTraceConfig"),
+		GVK:          GroupVersion.WithKind("TraceCollectorConfig"),
 		PluralName:   "collectortraceconfigs",
 		Status:       true,
 		Schema:       schema,
@@ -170,5 +170,5 @@ func CollectorTraceConfigCRD() (*crd.CRD, error) {
 
 func init() {
 	SchemeBuilder.Register(&CollectorConfig{}, &CollectorConfigList{})
-	SchemeBuilder.Register(&CollectorTraceConfig{}, &CollectorTraceConfigList{})
+	SchemeBuilder.Register(&TraceCollectorConfig{}, &CollectorTraceConfigList{})
 }

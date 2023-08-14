@@ -81,7 +81,7 @@ func (r *CoreCollectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&corev1beta1.Collector{}).
 		Watches(&opnimonitoringv1beta1.CollectorConfig{}, requestMapper).
 		Watches(&opniloggingv1beta1.CollectorConfig{}, requestMapper).
-		Watches(&opniloggingv1beta1.CollectorTraceConfig{}, requestMapper).
+		Watches(&opniloggingv1beta1.TraceCollectorConfig{}, requestMapper).
 		// for metrics, we want to watch changes to the spec of objects that drive discovery
 		Watches(&promoperatorv1.ServiceMonitor{}, watchAllRequestMapper).
 		Watches(&promoperatorv1.PodMonitor{}, watchAllRequestMapper).

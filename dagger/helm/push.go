@@ -8,6 +8,7 @@ import (
 	"dagger.io/dagger"
 	"github.com/rancher/opni/dagger/config"
 	"github.com/rancher/opni/dagger/images"
+	"github.com/rancher/opni/pkg/oci"
 )
 
 type PushOpts struct {
@@ -16,6 +17,16 @@ type PushOpts struct {
 }
 
 func Push(ctx context.Context, client *dagger.Client, opts PushOpts) error {
+	img, err := oci.Parse(opts.Target.Repo)
+	if err != nil {
+		return fmt.Errorf("failed to parse charts.oci.repo: %w", err)
+	}
+	if img.Registry == "" && img.Repository != "" {
+		img.Registry, img.Repository = img.Repository, img.Registry
+	}
+	if img.Repository == "" {
+		img.Repository = opts.Target.Auth.Username
+	}
 	ctr := images.AlpineBase(client, images.WithPackages("helm")).
 		Pipeline("Push OCI Charts").
 		WithMountedDirectory("/src", opts.Dir).
@@ -23,13 +34,13 @@ func Push(ctx context.Context, client *dagger.Client, opts PushOpts) error {
 		WithSecretVariable("DOCKER_PASSWORD", opts.Target.Auth.Secret).
 		WithExec([]string{
 			"sh", "-c",
-			fmt.Sprintf(`helm registry login --username="%s" --password="$DOCKER_PASSWORD" %s`, opts.Target.Auth.Username, opts.Target.Repo),
+			fmt.Sprintf(`helm registry login --username="%s" --password="$DOCKER_PASSWORD" %s`, opts.Target.Auth.Username, img.Registry),
 		}).
 		WithExec([]string{"sh", "-c",
-			fmt.Sprintf(`find . -type f -name "*.tgz" -exec helm push {} oci://%s/%s \;`, opts.Target.Repo, opts.Target.Auth.Username),
+			fmt.Sprintf(`find . -type f -name "*.tgz" -exec helm push {} oci://%s/%s \;`, img.Registry, img.Repository),
 		})
 
-	_, err := ctr.Sync(ctx)
+	_, err = ctr.Sync(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to push charts: %w", err)
 	}

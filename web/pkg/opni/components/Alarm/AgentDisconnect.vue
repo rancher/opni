@@ -6,12 +6,14 @@ import { AlertType } from '../../models/alerting/Condition';
 import { loadClusters, loadChoices } from './shared';
 
 const TYPE = 'system';
-const CONSTS = {
+
+export const CONSTS = {
   TYPE,
   ENUM:        AlertType.SYSTEM,
   TYPE_OPTION: {
     label: 'Agent Disconnect',
-    value: TYPE
+    value: TYPE,
+    enum:  AlertType.SYSTEM
   },
   DEFAULT_CONFIG: { [TYPE]: { clusterId: { id: '' }, timeout: '30s' } },
 };

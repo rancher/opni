@@ -133,8 +133,8 @@ type CollectorConfigList struct {
 
 //+kubebuilder:object:root=true
 
-// CollectorTraceConfigList contains a list of TraceCollectorConfig
-type CollectorTraceConfigList struct {
+// TraceCollectorConfigList contains a list of TraceCollectorConfig
+type TraceCollectorConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []TraceCollectorConfig `json:"items"`
@@ -154,14 +154,14 @@ func CollectorConfigCRD() (*crd.CRD, error) {
 	}, nil
 }
 
-func CollectorTraceConfigCRD() (*crd.CRD, error) {
+func TraceCollectorConfigCRD() (*crd.CRD, error) {
 	schema, err := openapi.ToOpenAPIFromStruct(TraceCollectorConfig{})
 	if err != nil {
 		return nil, err
 	}
 	return &crd.CRD{
 		GVK:          GroupVersion.WithKind("TraceCollectorConfig"),
-		PluralName:   "collectortraceconfigs",
+		PluralName:   "tracecollectorconfigs",
 		Status:       true,
 		Schema:       schema,
 		NonNamespace: true,
@@ -170,5 +170,5 @@ func CollectorTraceConfigCRD() (*crd.CRD, error) {
 
 func init() {
 	SchemeBuilder.Register(&CollectorConfig{}, &CollectorConfigList{})
-	SchemeBuilder.Register(&TraceCollectorConfig{}, &CollectorTraceConfigList{})
+	SchemeBuilder.Register(&TraceCollectorConfig{}, &TraceCollectorConfigList{})
 }

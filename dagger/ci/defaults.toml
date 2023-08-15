@@ -21,7 +21,7 @@ test = true
 [images.opensearch.build]
 	dashboards-version = "2.8.0"
 	opensearch-version = "2.8.0"
-	plugin-version = "0.11.0"
+	plugin-version = "0.11.1-rc1"
 
 [images.opensearch.dashboards]
 	repo = "docker.io/rancher/opensearch-dashboards"

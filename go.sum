@@ -2029,8 +2029,8 @@ github.com/poy/onpar v0.0.0-20200406201722-06f95a1c68e8/go.mod h1:nSbFQvMj97ZyhF
 github.com/poy/onpar v1.1.2 h1:QaNrNiZx0+Nar5dLgTVp5mXkyoVFIbepjyEoGSnhbAY=
 github.com/poy/onpar v1.1.2/go.mod h1:6X8FLNoxyr9kkmnlqpK6LSoiOtrO6MICtWwEuWkLjzg=
 github.com/pquerna/cachecontrol v0.0.0-20171018203845-0dec1b30a021/go.mod h1:prYjPmNq4d1NPVmpShWobRqXY3q7Vp+80DqgxxUrUIA=
-github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.66.0 h1:PPW01FLVjJHMNcbAL1DDD9EZceSQKMOU/VpK0irrxrI=
-github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.66.0/go.mod h1:KZHvrby65G+rA4V/vMTUXDV22TI+GgLIrCigYClpjzk=
+github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.67.1 h1:u1Mw9irznvsBPxQxjUmCel1ufP3UgzA1CILj7/2tpNw=
+github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.67.1/go.mod h1:KZHvrby65G+rA4V/vMTUXDV22TI+GgLIrCigYClpjzk=
 github.com/prometheus-operator/prometheus-operator/pkg/client v0.66.0 h1:gDJAO9dJbRZ3RAQ7MY+tjz1D3o1x7T4hd8Jbi0Xo854=
 github.com/prometheus-operator/prometheus-operator/pkg/client v0.66.0/go.mod h1:gNFnGtaWQ8SziJCfahdiAUlArtoL1+cm1hAD7l6L14w=
 github.com/prometheus/alertmanager v0.25.1-0.20230505130626-263ca5c9438e h1:bW60vV2VM/YKsXA6dmb3z5XB9+gh/lQBDiZDVrsDhhA=

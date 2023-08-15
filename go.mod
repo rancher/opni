@@ -84,7 +84,7 @@ require (
 	github.com/ory/fosite v0.44.1-0.20230614124936-69300915a423
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.66.0
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.67.1
 	github.com/prometheus-operator/prometheus-operator/pkg/client v0.66.0
 	github.com/prometheus/alertmanager v0.25.1-0.20230505130626-263ca5c9438e
 	github.com/prometheus/client_golang v1.16.0

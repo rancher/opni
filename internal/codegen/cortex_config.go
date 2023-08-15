@@ -128,7 +128,7 @@ func generate[T any](destFilename string, skipFunc ...func(rf reflect.StructFiel
 			if strings.HasPrefix(rf.Name, "Sharding") {
 				return true
 			}
-			if strings.HasSuffix(rf.Name, "Dir") {
+			if strings.HasSuffix(rf.Name, "Dir") || strings.HasSuffix(rf.Name, "Directory") {
 				return true
 			}
 			if _, ok := parseDocTag(rf)["hidden"]; ok {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/cortexproject/cortex/pkg/ring"
 	"github.com/cortexproject/cortex/pkg/ruler"
+	"github.com/cortexproject/cortex/pkg/storage/bucket/filesystem"
 	"github.com/cortexproject/cortex/pkg/storage/tsdb"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
@@ -135,10 +136,8 @@ func (d *TestEnvMetricsClusterDriver) ListPresets(context.Context, *emptypb.Empt
 					CortexConfig: &cortexops.CortexApplicationConfig{
 						LogLevel: lo.ToPtr("warn"),
 						Storage: &storagev1.Config{
-							Backend: lo.ToPtr(storagev1.Filesystem),
-							Filesystem: &storagev1.FilesystemConfig{
-								Dir: lo.ToPtr(path.Join(d.Env.GetTempDirectory(), "cortex", "data")),
-							},
+							Backend:    lo.ToPtr(storagev1.Filesystem),
+							Filesystem: &storagev1.FilesystemConfig{},
 						},
 					},
 				},
@@ -258,6 +257,10 @@ func (d *TestEnvMetricsClusterDriver) onActiveConfigChanged(old, new *cortexops.
 			configutil.NewHostOverrides(cco),
 			configutil.NewImplementationSpecificOverrides(iso),
 			[]configutil.CortexConfigOverrider{
+				configutil.NewOverrider(func(t *filesystem.Config) bool {
+					t.Directory = path.Join(d.Env.GetTempDirectory(), "cortex", "data")
+					return true
+				}),
 				configutil.NewOverrider(func(t *ring.LifecyclerConfig) bool {
 					t.Addr = "localhost"
 					t.JoinAfter = 1 * time.Millisecond

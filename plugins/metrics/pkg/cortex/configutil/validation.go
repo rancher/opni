@@ -202,10 +202,6 @@ func validateRequiredStorageCredentials(cfg *cortexops.CapabilityBackendConfigSp
 			}
 		}
 	case storagev1.Filesystem:
-		conf := cfg.GetCortexConfig().GetStorage().GetFilesystem()
-		if conf.GetDir() == "" {
-			errs = append(errs, mkerrorf("filesystem: dir is required"))
-		}
 	}
 	return errs
 }

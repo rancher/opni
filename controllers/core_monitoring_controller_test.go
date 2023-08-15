@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/cortexproject/cortex/pkg/cortex"
 	grafanav1alpha1 "github.com/grafana-operator/grafana-operator/v4/api/integreatly/v1alpha1"
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
@@ -20,6 +21,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -136,9 +138,6 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 								"swift": map[string]any{
 									"containerName": "test-container",
 								},
-								"filesystem": map[string]any{
-									"dir": "/dev/null",
-								},
 							},
 							"workloads": map[string]any{
 								"distributor": map[string]any{
@@ -200,9 +199,6 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 						},
 						Swift: &storage.SwiftConfig{
 							ContainerName: lo.ToPtr("test-container"),
-						},
-						Filesystem: &storage.FilesystemConfig{
-							Dir: lo.ToPtr("/dev/null"),
 						},
 					},
 				}, &cortexops.CortexWorkloadsConfig{
@@ -337,6 +333,11 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 						},
 						Cortex: corev1beta1.CortexSpec{
 							Enabled: lo.ToPtr(true),
+							CortexConfig: &cortexops.CortexApplicationConfig{
+								Storage: &storage.Config{
+									Backend: lo.ToPtr("filesystem"),
+								},
+							},
 							CortexWorkloads: &cortexops.CortexWorkloadsConfig{
 								Targets: map[string]*cortexops.CortexWorkloadSpec{
 									"all": {},
@@ -396,6 +397,27 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 						HaveImage("grafana/grafana:10.0.0"),
 					)),
 				))
+
+				sec := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cortex",
+						Namespace: aio.Namespace,
+					},
+				}
+				Eventually(Object(sec)).Should(Exist())
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(sec), sec)).To(Succeed())
+
+				var conf cortex.Config
+				if data, ok := sec.Data["cortex.yaml"]; !ok {
+					Fail("cortex.yaml not found in secret")
+				} else {
+					Expect(yaml.Unmarshal(data, &conf)).To(Succeed())
+				}
+
+				// filesystem dir is not available in the api config, it's set by the backend
+				// in an override. make sure it's set correctly so the volumes will work
+				Expect(conf.BlocksStorage.Bucket.Backend).To(Equal("filesystem"))
+				Expect(conf.BlocksStorage.Bucket.Filesystem.Directory).To(Equal("/data"))
 			})
 		})
 		When("using the HighlyAvailable mode", func() {

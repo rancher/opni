@@ -30,10 +30,8 @@ var _ = Describe("Config", Label("unit"), func() {
 	It("should generate a valid default config", func() {
 		appconfig := &cortexops.CortexApplicationConfig{
 			Storage: &v1.Config{
-				Backend: lo.ToPtr(v1.Filesystem),
-				Filesystem: &v1.FilesystemConfig{
-					Dir: lo.ToPtr("/dev/null"),
-				},
+				Backend:    lo.ToPtr(v1.Filesystem),
+				Filesystem: &v1.FilesystemConfig{},
 			},
 		}
 		conf, _, err := configutil.CortexAPISpecToCortexConfig[*cortexops.CortexApplicationConfig](appconfig, configutil.NewTargetsOverride("all")...)

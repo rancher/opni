@@ -32,8 +32,6 @@ message Config {
   FilesystemConfig filesystem = 6;
 }
 message FilesystemConfig {
-  // Local filesystem storage directory.
-  optional string dir = 1;
 }
 message GcsConfig {
   // GCS bucket name

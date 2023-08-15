@@ -374,6 +374,5 @@ func (in *SwiftConfig) UnredactSecrets(unredacted *SwiftConfig) error {
 func (in *FilesystemConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("FilesystemConfig", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.StringPtrValue(nil, &in.Dir), strings.Join(append(prefix, "dir"), "."), "Local filesystem storage directory.")
 	return fs
 }

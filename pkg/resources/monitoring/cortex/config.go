@@ -3,6 +3,7 @@ package cortex
 import (
 	"fmt"
 
+	"github.com/cortexproject/cortex/pkg/storage/bucket/filesystem"
 	"github.com/go-kit/log"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
@@ -64,6 +65,12 @@ func (r *Reconciler) config() ([]resources.Resource, error) {
 
 	conf, rtConf, err := configutil.CortexAPISpecToCortexConfig(r.mc.Spec.Cortex.CortexConfig,
 		configutil.MergeOverrideLists(
+			[]configutil.CortexConfigOverrider{
+				configutil.NewOverrider(func(t *filesystem.Config) bool {
+					t.Directory = "/data"
+					return true
+				}),
+			},
 			configutil.NewHostOverrides(configutil.StandardOverridesShape{
 				HttpListenAddress:      "0.0.0.0",
 				HttpListenPort:         8080,

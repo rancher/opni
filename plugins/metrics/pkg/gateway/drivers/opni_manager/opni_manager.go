@@ -142,10 +142,8 @@ func (k *OpniManager) ListPresets(context.Context, *emptypb.Empty) (*cortexops.P
 					CortexConfig: &cortexops.CortexApplicationConfig{
 						LogLevel: lo.ToPtr("debug"),
 						Storage: &storagev1.Config{
-							Backend: lo.ToPtr(storagev1.Filesystem),
-							Filesystem: &storagev1.FilesystemConfig{
-								Dir: lo.ToPtr("/data"),
-							},
+							Backend:    lo.ToPtr(storagev1.Filesystem),
+							Filesystem: &storagev1.FilesystemConfig{},
 						},
 					},
 				},

@@ -2,6 +2,7 @@ package v1beta1
 
 import (
 	promoperatorv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	promoperatorv1alpha1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1alpha1"
 	"github.com/rancher/wrangler/pkg/crd"
 	"github.com/rancher/wrangler/pkg/schemas/openapi"
 )
@@ -40,6 +41,19 @@ func PrometheusCRD() (*crd.CRD, error) {
 	return &crd.CRD{
 		GVK:        promoperatorv1.SchemeGroupVersion.WithKind("Prometheus"),
 		PluralName: "prometheuses",
+		Status:     true,
+		Schema:     schema,
+	}, nil
+}
+
+func PrometheusAgentCRD() (*crd.CRD, error) {
+	schema, err := openapi.ToOpenAPIFromStruct(promoperatorv1alpha1.PrometheusAgent{})
+	if err != nil {
+		return nil, err
+	}
+	return &crd.CRD{
+		GVK:        promoperatorv1alpha1.SchemeGroupVersion.WithKind("PrometheusAgent"),
+		PluralName: "prometheusagents",
 		Status:     true,
 		Schema:     schema,
 	}, nil

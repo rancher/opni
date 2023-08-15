@@ -49,7 +49,7 @@ gateway:
   s3:
     internal: {}
 
-opni-prometheus-crd:
+prometheus-crds:
   enabled: false # set to false if `opni-agent.kube-prometheus-stack.enabled` is true
 
 opni-agent:

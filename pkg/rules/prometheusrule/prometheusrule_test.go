@@ -13,6 +13,7 @@ import (
 	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/util/notifier"
 	"github.com/rancher/opni/pkg/util/waitctx"
+	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -24,13 +25,13 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("integration"
 	alertGroup := []monitoringv1.RuleGroup{
 		{
 			Name:     "test-0",
-			Interval: "1m",
+			Interval: lo.ToPtr[monitoringv1.Duration]("1m"),
 			Rules: []monitoringv1.Rule{
 				{
 					Record:      "",
 					Alert:       "nothing",
 					Expr:        intstr.FromString("burger"),
-					For:         "5m",
+					For:         lo.ToPtr[monitoringv1.Duration]("5m"),
 					Labels:      map[string]string{},
 					Annotations: map[string]string{},
 				},
@@ -47,7 +48,7 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("integration"
 					Labels: map[string]string{"foo": "bar"},
 				},
 			},
-			Interval: "1m",
+			Interval: lo.ToPtr[monitoringv1.Duration]("1m"),
 		},
 		{
 			Name: "test2",
@@ -58,7 +59,7 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("integration"
 					Labels: map[string]string{"bar": "baz"},
 				},
 			},
-			Interval: "2m",
+			Interval: lo.ToPtr[monitoringv1.Duration]("2m"),
 		},
 	}
 	testGroups2 := make([]monitoringv1.RuleGroup, len(testGroups1))
@@ -74,19 +75,19 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("integration"
 				{
 					Record: "foo",
 					Expr:   intstr.FromString("foo"),
-					For:    "invalid",
+					For:    lo.ToPtr[monitoringv1.Duration]("invalid"),
 				},
 				{
 					Record: "bar",
 					Expr:   intstr.FromString("bar"),
-					For:    "1m", // not allowed in recording rule
+					For:    lo.ToPtr[monitoringv1.Duration]("1m"), // not allowed in recording rule
 				},
 				{
 					Record: "baz",
 					Expr:   intstr.FromString("baz"),
 				},
 			},
-			Interval: "1m",
+			Interval: lo.ToPtr[monitoringv1.Duration]("1m"),
 		},
 		{
 			Name: "test6",
@@ -94,10 +95,10 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("integration"
 				{
 					Record: "baz",
 					Expr:   intstr.FromString("baz"),
-					For:    "2m",
+					For:    lo.ToPtr[monitoringv1.Duration]("2m"),
 				},
 			},
-			Interval: "invalid",
+			Interval: lo.ToPtr[monitoringv1.Duration]("invalid"),
 		},
 	}
 

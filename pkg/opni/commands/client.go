@@ -131,6 +131,7 @@ func BuildClientCmd() *cobra.Command {
 			monitoringv1beta1.PodMonitorCRD,
 			// Need to include Prometheus CRD for deletes even if we're not using prometheus
 			monitoringv1beta1.PrometheusCRD,
+			monitoringv1beta1.PrometheusAgentCRD,
 		} {
 			crd, err := crdFunc()
 			if err != nil {

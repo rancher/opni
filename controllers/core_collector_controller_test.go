@@ -6,6 +6,7 @@ import (
 
 	opnimonitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
 	"github.com/rancher/opni/pkg/otel"
+	"github.com/samber/lo"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/kralicky/kmatch"
@@ -21,14 +22,12 @@ import (
 )
 
 var _ = Describe("Core Collector Controller", Ordered, Label("controller", "slow"), func() {
-	var (
-		ns                  string
-		loggingConfig       *opniloggingv1beta1.CollectorConfig
-		monitoringConfig    *opnimonitoringv1beta1.CollectorConfig
-		metricsCollectorObj *opnicorev1beta1.Collector
-		loggingCollectorObj *opnicorev1beta1.Collector
-	)
-	When("creating a collector resource for monitoring", func() {
+	When("creating a collector resource for monitoring with host metrics", func() {
+		var (
+			ns                  string
+			monitoringConfig    *opnimonitoringv1beta1.CollectorConfig
+			metricsCollectorObj *opnicorev1beta1.Collector
+		)
 		It("should succeed in creating the objects", func() {
 			ns = makeTestNamespace()
 			monitoringConfig = &opnimonitoringv1beta1.CollectorConfig{
@@ -39,6 +38,9 @@ var _ = Describe("Core Collector Controller", Ordered, Label("controller", "slow
 					RemoteWriteEndpoint: "http://test-endpoint",
 					PrometheusDiscovery: opnimonitoringv1beta1.PrometheusDiscovery{
 						NamespaceSelector: []string{ns},
+					},
+					OtelSpec: otel.OTELSpec{
+						HostMetrics: lo.ToPtr(true),
 					},
 				},
 			}
@@ -154,7 +156,121 @@ var _ = Describe("Core Collector Controller", Ordered, Label("controller", "slow
 		})
 	})
 
+	When("creating a collector resource for monitoring without host metrics", func() {
+		var (
+			ns                  string
+			monitoringConfig    *opnimonitoringv1beta1.CollectorConfig
+			metricsCollectorObj *opnicorev1beta1.Collector
+		)
+		It("should succeed in creating the objects", func() {
+			ns = makeTestNamespace()
+			monitoringConfig = &opnimonitoringv1beta1.CollectorConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-monitoring",
+				},
+				Spec: opnimonitoringv1beta1.CollectorConfigSpec{
+					RemoteWriteEndpoint: "http://test-endpoint",
+					PrometheusDiscovery: opnimonitoringv1beta1.PrometheusDiscovery{
+						NamespaceSelector: []string{ns},
+					},
+					OtelSpec: otel.OTELSpec{
+						HostMetrics: lo.ToPtr(false),
+					},
+				},
+			}
+			metricsCollectorObj = &opnicorev1beta1.Collector{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-monitoring2",
+				},
+				Spec: opnicorev1beta1.CollectorSpec{
+					SystemNamespace: ns,
+					AgentEndpoint:   "http://test-endpoint",
+					MetricsConfig: &corev1.LocalObjectReference{
+						Name: "test-monitoring",
+					},
+				},
+			}
+
+			By("creating the otel collector configs for metrics")
+			Expect(k8sClient.Create(context.Background(), monitoringConfig)).To(Succeed())
+			Expect(k8sClient.Create(context.Background(), metricsCollectorObj)).To(Succeed())
+
+			By("creating physical objects for discovery")
+			for _, obj := range promDiscoveryObejcts(ns) {
+				Expect(k8sClient.Create(context.Background(), obj)).To(Succeed())
+			}
+		})
+
+		It("should create the monitoring infra", func() {
+			By("checking the the aggregator config map embeds scrape configs and selectors")
+			By("checking aggregator configmap")
+			Eventually(Object(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-aggregator-config", metricsCollectorObj.Name),
+					Namespace: ns,
+				},
+			})).Should(ExistAnd(
+				HaveData("aggregator.yaml", nil),
+				HaveOwner(metricsCollectorObj),
+			))
+			By("checking daemonset does not exist")
+			Consistently(Object(&appsv1.DaemonSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-collector-agent", metricsCollectorObj.Name),
+					Namespace: ns,
+				},
+			})).ShouldNot(Exist())
+			By("checking aggregator deployment")
+			Eventually(Object(&appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-collector-aggregator", metricsCollectorObj.Name),
+					Namespace: ns,
+				},
+			})).Should(ExistAnd(
+				HaveMatchingContainer(And(
+					HaveName("otel-collector"),
+					HaveVolumeMounts("collector-config"),
+				)),
+				HaveMatchingVolume(And(
+					HaveVolumeSource("ConfigMap"),
+					HaveName("collector-config"),
+				)),
+				HaveOwner(metricsCollectorObj),
+			))
+			By("checking the metrics tls assets secrets exists")
+			Eventually(Object(&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "opni-otel-tls-assets",
+					Namespace: ns,
+				},
+			})).Should(ExistAnd(
+				HaveOwner(metricsCollectorObj),
+			))
+		})
+		// FIXME: this requires the mock k8s instance to set object endpoints or pod ips
+		XIt("should mount required tls assets for service monitors based on prometheus crds", func() {
+			Eventually(Object(&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "opni-otel-tls-assets",
+					Namespace: ns,
+				},
+			})).Should(ExistAnd(
+				HaveOwner(metricsCollectorObj),
+				HaveData(
+					"ca.crt", "test-ca",
+					"tls.crt", "test-cert",
+					"tls.key", "test-key",
+				),
+			))
+		})
+	})
+
 	When("creating a collector resource for logging", func() {
+		var (
+			ns                  string
+			loggingConfig       *opniloggingv1beta1.CollectorConfig
+			loggingCollectorObj *opnicorev1beta1.Collector
+		)
 		It("should succeed in creating the objects", func() {
 			ns = makeTestNamespace()
 			loggingConfig = &opniloggingv1beta1.CollectorConfig{

@@ -59,24 +59,30 @@ func (d *Driver) filterAlertingRules(promRules *promoperatorv1.PrometheusRuleLis
 			ruleGroupId := ruleGroup.Name
 			for _, rule := range ruleGroup.Rules {
 				if rule.Alert != "" {
+					var dur time.Duration
 					id := fmt.Sprintf("%s-%s-%s", parentUuid, ruleGroupId, rule.Alert)
-					dur, err := time.ParseDuration(string(rule.For))
-					if err != nil {
+					if rule.For != nil {
+						var err error
+						dur, err = time.ParseDuration(string(*rule.For))
+						if err != nil {
+							dur = time.Minute
+						}
+						alertingRules.Rules = append(alertingRules.Rules, &rules.Rule{
+							RuleId: &corev1.Reference{
+								Id: id,
+							},
+							GroupId: &corev1.Reference{
+								Id: ruleGroupId,
+							},
+							Name:        rule.Alert,
+							Expr:        rule.Expr.String(),
+							Duration:    durationpb.New(time.Duration(dur)),
+							Labels:      rule.Labels,
+							Annotations: rule.Annotations,
+						})
+					} else {
 						dur = time.Minute
 					}
-					alertingRules.Rules = append(alertingRules.Rules, &rules.Rule{
-						RuleId: &corev1.Reference{
-							Id: id,
-						},
-						GroupId: &corev1.Reference{
-							Id: ruleGroupId,
-						},
-						Name:        rule.Alert,
-						Expr:        rule.Expr.String(),
-						Duration:    durationpb.New(time.Duration(dur)),
-						Labels:      rule.Labels,
-						Annotations: rule.Annotations,
-					})
 				}
 			}
 		}

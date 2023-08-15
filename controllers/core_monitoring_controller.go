@@ -8,6 +8,10 @@ import (
 	"errors"
 	"fmt"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/metadata"
+
 	"github.com/go-logr/logr"
 	"github.com/huandu/xstrings"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
@@ -17,6 +21,7 @@ import (
 	"github.com/ttacon/chalk"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,8 +43,9 @@ import (
 
 type CoreMonitoringReconciler struct {
 	client.Client
-	scheme *runtime.Scheme
-	logger logr.Logger
+	scheme   *runtime.Scheme
+	logger   logr.Logger
+	mdClient metadata.Interface
 }
 
 func (r *CoreMonitoringReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -52,7 +58,7 @@ func (r *CoreMonitoringReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	op, err := r.Upgrade(&umc)
+	op, err := r.Upgrade(ctx, &umc)
 	if err != nil {
 		lg.Error(err, "failed to upgrade monitoring cluster")
 		return ctrl.Result{}, err
@@ -88,6 +94,11 @@ func (r *CoreMonitoringReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.logger = mgr.GetLogger().WithName("monitoring")
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
+	var err error
+	r.mdClient, err = metadata.NewForConfigAndClient(mgr.GetConfig(), mgr.GetHTTPClient())
+	if err != nil {
+		return err
+	}
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1beta1.MonitoringCluster{}).
@@ -125,10 +136,35 @@ func (r *CoreMonitoringReconciler) findMonitoringClusters(ctx context.Context, g
 	return requests
 }
 
-func (r *CoreMonitoringReconciler) Upgrade(umc *unstructured.Unstructured) (k8sutil.RequeueOp, error) {
+func (r *CoreMonitoringReconciler) Upgrade(ctx context.Context, umc *unstructured.Unstructured) (k8sutil.RequeueOp, error) {
 	currentRevision := corev1beta1.GetMonitoringClusterRevision(umc)
 	if currentRevision < 0 {
 		corev1beta1.SetMonitoringClusterRevision(umc, 0)
+	} else if currentRevision == 0 {
+		// we might have the old non-schemaless version of the CRD - if we do, bail out
+		crd, err := r.mdClient.Resource(schema.GroupVersionResource{
+			Group:    "apiextensions.k8s.io",
+			Version:  "v1",
+			Resource: "customresourcedefinitions",
+		}).Get(ctx, "monitoringclusters.core.opni.io", metav1.GetOptions{})
+
+		annotations := map[string]string{}
+		if err != nil {
+			if !k8serrors.IsForbidden(err) {
+				// Ignore forbidden errors, because the rbac rule to allow reading CRDs
+				// was added at the same time as the version of the CRD we are looking for.
+				// Either way, the annotation will not be present.
+				return k8sutil.DoNotRequeue(), err
+			}
+		}
+		if crd != nil {
+			annotations = crd.GetAnnotations()
+		}
+
+		if _, ok := annotations[corev1beta1.InternalSchemalessAnnotation]; !ok {
+			err := fmt.Errorf("MonitoringCluster CRD is out of date, cannot continue")
+			return k8sutil.DoNotRequeue(), err
+		}
 	}
 	lg := r.logger.WithValues(
 		"name", umc.GetName(),
@@ -143,11 +179,11 @@ func (r *CoreMonitoringReconciler) Upgrade(umc *unstructured.Unstructured) (k8su
 					lg.Info(fmt.Sprintf(chalk.Cyan.Color("MonitoringCluster is already compatible with revision %d, no changes required"), i+1))
 					continue
 				}
-				return k8sutil.RequeueOp{}, err
+				return k8sutil.DoNotRequeue(), err
 			}
 		}
 	} else if currentRevision > corev1beta1.MonitoringClusterTargetRevision {
-		return k8sutil.RequeueOp{}, fmt.Errorf("MonitoringCluster %s/%s was created with a newer version of Opni and is incompatible with the current version", umc.GetNamespace(), umc.GetName())
+		return k8sutil.DoNotRequeue(), fmt.Errorf("MonitoringCluster %s/%s was created with a newer version of Opni and is incompatible with the current version", umc.GetNamespace(), umc.GetName())
 	} else {
 		return k8sutil.DoNotRequeue(), nil
 	}

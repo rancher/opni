@@ -57,16 +57,9 @@ type GrafanaSpec struct {
 }
 
 type MonitoringClusterSpec struct {
-	//+kubebuilder:validation:Required
 	Gateway corev1.LocalObjectReference `json:"gateway,omitempty"`
-	//+kubebuilder:validation:Schemaless
-	//+kubebuilder:pruning:PreserveUnknownFields
-	//+kubebuilder:validation:type=object
-	Cortex CortexSpec `json:"cortex,omitempty"`
-	//+kubebuilder:validation:Schemaless
-	//+kubebuilder:pruning:PreserveUnknownFields
-	//+kubebuilder:validation:type=object
-	Grafana GrafanaSpec `json:"grafana,omitempty"`
+	Cortex  CortexSpec                  `json:"cortex,omitempty"`
+	Grafana GrafanaSpec                 `json:"grafana,omitempty"`
 }
 
 type MonitoringClusterStatus struct {
@@ -88,8 +81,9 @@ type WorkloadStatus struct {
 }
 
 const (
-	MonitoringClusterRevisionAnnotation string = "monitoring.internal.opni.io/revision"
-	MonitoringClusterTargetRevision     int64  = 1
+	InternalRevisionAnnotation      string = "internal.opni.io/revision"
+	InternalSchemalessAnnotation    string = "internal.opni.io/schemaless"
+	MonitoringClusterTargetRevision int64  = 1
 )
 
 func MonitoringClusterTargetRevisionString() string {
@@ -103,7 +97,7 @@ func GetMonitoringClusterRevision(t interface {
 	if annotations == nil {
 		return 0
 	}
-	revisionStr, ok := annotations[MonitoringClusterRevisionAnnotation]
+	revisionStr, ok := annotations[InternalRevisionAnnotation]
 	if !ok {
 		return 0
 	}
@@ -122,17 +116,26 @@ func SetMonitoringClusterRevision(t interface {
 	if annotations == nil {
 		annotations = map[string]string{}
 	}
-	annotations[MonitoringClusterRevisionAnnotation] = strconv.FormatInt(rev, 10)
+	annotations[InternalRevisionAnnotation] = strconv.FormatInt(rev, 10)
 	t.SetAnnotations(annotations)
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:metadata:annotations=internal.opni.io/schemaless=true
 type MonitoringCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              MonitoringClusterSpec   `json:"spec,omitempty"`
-	Status            MonitoringClusterStatus `json:"status,omitempty"`
+
+	//+kubebuilder:validation:Schemaless
+	//+kubebuilder:pruning:PreserveUnknownFields
+	//+kubebuilder:validation:Type=object
+	Spec MonitoringClusterSpec `json:"spec,omitempty"`
+
+	//+kubebuilder:validation:Schemaless
+	//+kubebuilder:pruning:PreserveUnknownFields
+	//+kubebuilder:validation:Type=object
+	Status MonitoringClusterStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true

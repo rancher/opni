@@ -4,6 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.1
+    internal.opni.io/schemaless: "true"
   name: monitoringclusters.core.opni.io
 spec:
   group: core.opni.io
@@ -25,45 +26,11 @@ spec:
           metadata:
             type: object
           spec:
-            properties:
-              cortex:
-                x-kubernetes-preserve-unknown-fields: true
-              gateway:
-                properties:
-                  name:
-                    type: string
-                type: object
-                x-kubernetes-map-type: atomic
-              grafana:
-                x-kubernetes-preserve-unknown-fields: true
             type: object
+            x-kubernetes-preserve-unknown-fields: true
           status:
-            properties:
-              cortex:
-                properties:
-                  conditions:
-                    items:
-                      type: string
-                    type: array
-                  version:
-                    type: string
-                  workloadStatus:
-                    additionalProperties:
-                      properties:
-                        conditions:
-                          type: string
-                        ready:
-                          type: boolean
-                      type: object
-                    type: object
-                  workloadsReady:
-                    type: boolean
-                type: object
-              image:
-                type: string
-              imagePullPolicy:
-                type: string
             type: object
+            x-kubernetes-preserve-unknown-fields: true
         type: object
     served: true
     storage: true

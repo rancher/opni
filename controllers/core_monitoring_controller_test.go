@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	grafanav1alpha1 "github.com/grafana-operator/grafana-operator/v4/api/integreatly/v1alpha1"
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,6 +22,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -78,8 +80,8 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 	})
 
 	Context("API Upgrades", func() {
-		It("should upgrade the monitoring cluster from revision 0 to 1", func() {
-			mc := &unstructured.Unstructured{
+		newmcv0 := func() *unstructured.Unstructured {
+			return &unstructured.Unstructured{
 				Object: map[string]any{
 					"apiVersion": "core.opni.io/v1beta1",
 					"kind":       "MonitoringCluster",
@@ -119,23 +121,112 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 									"region":           "test-region",
 									"secretAccessKey":  "test-secret",
 									"signatureVersion": "v4",
-									"sse":              map[string]any{},
+									"sse": map[string]any{
+										"type": "SSE-S3",
+									},
+									"insecure":         false,
+									"bucketLookupType": "auto",
+								},
+								"gcs": map[string]any{
+									"bucketName": "test-bucket",
+								},
+								"azure": map[string]any{
+									"containerName": "test-container",
+								},
+								"swift": map[string]any{
+									"containerName": "test-container",
+								},
+								"filesystem": map[string]any{
+									"dir": "/dev/null",
 								},
 							},
-							"workloads": map[string]any{},
+							"workloads": map[string]any{
+								"distributor": map[string]any{
+									"replicas":            6,
+									"extraArgs":           []string{"--foo", "--bar"},
+									"no-equivalent-in-v1": "foo",
+								},
+							},
 						},
 						"gateway": map[string]any{
 							"name": gateway.Name,
 						},
 						"grafana": map[string]any{
-							"config":   map[string]any{},
+							"config": map[string]any{
+								"auth.generic_oauth": map[string]any{
+									"enabled": true,
+								},
+							},
 							"enabled":  true,
 							"hostname": "x",
 						},
 					},
 				},
 			}
-			Expect(k8sClient.Create(context.Background(), mc)).To(Succeed())
+		}
+		newmcv1 := func() (*cortexops.CortexApplicationConfig, *cortexops.CortexWorkloadsConfig) {
+			return &cortexops.CortexApplicationConfig{
+					Limits: &validation.Limits{
+						CompactorBlocksRetentionPeriod: durationpb.New(2592000 * time.Second),
+					},
+					Storage: &storage.Config{
+						Backend: lo.ToPtr("s3"),
+						S3: &storage.S3Config{
+							AccessKeyId:      lo.ToPtr("test-id"),
+							BucketName:       lo.ToPtr("test-bucket"),
+							Endpoint:         lo.ToPtr("test-endpoint"),
+							Region:           lo.ToPtr("test-region"),
+							SecretAccessKey:  lo.ToPtr("test-secret"),
+							SignatureVersion: lo.ToPtr("v4"),
+							Http: &storage.HttpConfig{
+								ExpectContinueTimeout: durationpb.New(10 * time.Second),
+								IdleConnTimeout:       durationpb.New(90 * time.Second),
+								MaxConnectionsPerHost: lo.ToPtr(int32(100)),
+								MaxIdleConnections:    lo.ToPtr(int32(100)),
+								ResponseHeaderTimeout: durationpb.New(120 * time.Second),
+								TlsHandshakeTimeout:   durationpb.New(10 * time.Second),
+							},
+							Sse: &storage.S3SSEConfig{
+								Type: lo.ToPtr("SSE-S3"),
+							},
+							Insecure:         lo.ToPtr(false),
+							BucketLookupType: lo.ToPtr("auto"),
+						},
+						Gcs: &storage.GcsConfig{
+							BucketName: lo.ToPtr("test-bucket"),
+						},
+						Azure: &storage.AzureConfig{
+							ContainerName: lo.ToPtr("test-container"),
+						},
+						Swift: &storage.SwiftConfig{
+							ContainerName: lo.ToPtr("test-container"),
+						},
+						Filesystem: &storage.FilesystemConfig{
+							Dir: lo.ToPtr("/dev/null"),
+						},
+					},
+				}, &cortexops.CortexWorkloadsConfig{
+					Targets: map[string]*cortexops.CortexWorkloadSpec{
+						"distributor": {
+							Replicas:  lo.ToPtr[int32](6),
+							ExtraArgs: []string{"--foo", "--bar"},
+						},
+						"query-frontend": {Replicas: lo.ToPtr[int32](1)},
+						"purger":         {Replicas: lo.ToPtr[int32](1)},
+						"ruler":          {Replicas: lo.ToPtr[int32](3)},
+						"compactor":      {Replicas: lo.ToPtr[int32](3)},
+						"store-gateway":  {Replicas: lo.ToPtr[int32](3)},
+						"ingester":       {Replicas: lo.ToPtr[int32](3)},
+						"alertmanager":   {Replicas: lo.ToPtr[int32](3)},
+						"querier":        {Replicas: lo.ToPtr[int32](3)},
+					},
+				}
+		}
+
+		It("should upgrade the monitoring cluster from revision 0 to 1", func() {
+			mcv0 := newmcv0()
+			mcv1config, mcv1workloads := newmcv1()
+			Expect(k8sClient.Create(context.Background(), mcv0)).To(Succeed())
 			target := &corev1beta1.MonitoringCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "samplev0",
@@ -146,46 +237,55 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(target), target)).To(Succeed())
 
 			Expect(*target.Spec.Cortex.Enabled).To(BeFalse())
-			Expect(target.Spec.Cortex.CortexConfig).To(testutil.ProtoEqual(&cortexops.CortexApplicationConfig{
-				Limits: &validation.Limits{
-					CompactorBlocksRetentionPeriod: durationpb.New(2592000 * time.Second),
-				},
-				Storage: &storage.Config{
-					Backend: lo.ToPtr("s3"),
-					S3: &storage.S3Config{
-						AccessKeyId:      lo.ToPtr("test-id"),
-						BucketName:       lo.ToPtr("test-bucket"),
-						Endpoint:         lo.ToPtr("test-endpoint"),
-						Region:           lo.ToPtr("test-region"),
-						SecretAccessKey:  lo.ToPtr("test-secret"),
-						SignatureVersion: lo.ToPtr("v4"),
-						Http: &storage.HttpConfig{
-							ExpectContinueTimeout: durationpb.New(10 * time.Second),
-							IdleConnTimeout:       durationpb.New(90 * time.Second),
-							MaxConnectionsPerHost: lo.ToPtr(int32(100)),
-							MaxIdleConnections:    lo.ToPtr(int32(100)),
-							ResponseHeaderTimeout: durationpb.New(120 * time.Second),
-							TlsHandshakeTimeout:   durationpb.New(10 * time.Second),
-						},
-						Sse: &storage.S3SSEConfig{},
-					},
-				},
+			Expect(target.Spec.Cortex.CortexConfig).To(testutil.ProtoEqual(mcv1config))
+			Expect(target.Spec.Cortex.CortexWorkloads).To(testutil.ProtoEqual(mcv1workloads))
+			Expect(target.Spec.Grafana.GrafanaConfig).To(testutil.ProtoEqual(&cortexops.GrafanaConfig{
+				Enabled:  lo.ToPtr(true),
+				Hostname: lo.ToPtr("x"),
 			}))
-			Expect(target.Spec.Cortex.CortexWorkloads).To(testutil.ProtoEqual(&cortexops.CortexWorkloadsConfig{
-				Targets: map[string]*cortexops.CortexWorkloadSpec{
-					"distributor":    {Replicas: lo.ToPtr[int32](1)},
-					"query-frontend": {Replicas: lo.ToPtr[int32](1)},
-					"purger":         {Replicas: lo.ToPtr[int32](1)},
-					"ruler":          {Replicas: lo.ToPtr[int32](3)},
-					"compactor":      {Replicas: lo.ToPtr[int32](3)},
-					"store-gateway":  {Replicas: lo.ToPtr[int32](3)},
-					"ingester":       {Replicas: lo.ToPtr[int32](3)},
-					"alertmanager":   {Replicas: lo.ToPtr[int32](3)},
-					"querier":        {Replicas: lo.ToPtr[int32](3)},
+			Expect(target.Spec.Grafana.GrafanaSpec).To(Equal(grafanav1alpha1.GrafanaSpec{
+				Config: grafanav1alpha1.GrafanaConfig{
+					AuthGenericOauth: &grafanav1alpha1.GrafanaConfigAuthGenericOauth{
+						Enabled: lo.ToPtr(true),
+					},
 				},
 			}))
 			Expect(k8sClient.Delete(context.Background(), target)).To(Succeed())
 			Eventually(Object(target)).ShouldNot(Exist())
+		})
+		When("CRDs are not updated", func() {
+			It("should return an error when attempting to upgrade", func() {
+				mcv0 := newmcv0()
+				crd := &apiextensionsv1.CustomResourceDefinition{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "monitoringclusters.core.opni.io",
+					},
+				}
+				Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(crd), crd)).To(Succeed())
+				Expect(crd.Annotations).To(HaveKey(corev1beta1.InternalSchemalessAnnotation))
+
+				By("patching the CRD to be out of date")
+				delete(crd.Annotations, corev1beta1.InternalSchemalessAnnotation)
+				Expect(k8sClient.Update(context.Background(), crd)).To(Succeed())
+
+				Expect(k8sClient.Create(context.Background(), mcv0)).To(Succeed())
+
+				target := &corev1beta1.MonitoringCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "samplev0",
+						Namespace: gateway.Namespace,
+					},
+				}
+				By("ensuring the object is not upgraded")
+				Consistently(Object(target)).Should(WithTransform(corev1beta1.GetMonitoringClusterRevision, BeEquivalentTo(0)))
+
+				By("reverting the CRD to be up to date")
+				crd.Annotations[corev1beta1.InternalSchemalessAnnotation] = "true"
+				Expect(k8sClient.Update(context.Background(), crd)).To(Succeed())
+
+				By("ensuring the object is upgraded")
+				Eventually(Object(target)).Should(WithTransform(corev1beta1.GetMonitoringClusterRevision, BeEquivalentTo(1)))
+			})
 		})
 		It("should apply a missing revision annotation to an existing v1 object", func() {
 			mc := &corev1beta1.MonitoringCluster{

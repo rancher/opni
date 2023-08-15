@@ -149,21 +149,19 @@ func (r *CoreMonitoringReconciler) Upgrade(ctx context.Context, umc *unstructure
 		}).Get(ctx, "monitoringclusters.core.opni.io", metav1.GetOptions{})
 
 		annotations := map[string]string{}
-		if err != nil {
-			if !k8serrors.IsForbidden(err) {
-				// Ignore forbidden errors, because the rbac rule to allow reading CRDs
-				// was added at the same time as the version of the CRD we are looking for.
-				// Either way, the annotation will not be present.
-				return k8sutil.DoNotRequeue(), err
-			}
+		if err != nil && !k8serrors.IsForbidden(err) {
+			// Ignore forbidden errors, because the rbac rule to allow reading CRDs
+			// was added at the same time as the version of the CRD we are looking for.
+			// Either way, the annotation will not be present.
+			return k8sutil.RequeueErr(err), err
 		}
 		if crd != nil {
 			annotations = crd.GetAnnotations()
 		}
 
 		if _, ok := annotations[corev1beta1.InternalSchemalessAnnotation]; !ok {
-			err := fmt.Errorf("MonitoringCluster CRD is out of date, cannot continue")
-			return k8sutil.DoNotRequeue(), err
+			err := fmt.Errorf("MonitoringCluster CRD is out of date, please upgrade CRDs to the latest version")
+			return k8sutil.RequeueErr(err), err
 		}
 	}
 	lg := r.logger.WithValues(

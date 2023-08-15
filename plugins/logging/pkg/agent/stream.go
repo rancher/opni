@@ -2,6 +2,7 @@ package agent
 
 import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/plugins/logging/apis/node"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
@@ -12,16 +13,19 @@ import (
 func (p *Plugin) StreamServers() []streamext.Server {
 	return []streamext.Server{
 		{
-			Desc: &capabilityv1.Node_ServiceDesc,
-			Impl: p.node,
+			Desc:              &capabilityv1.Node_ServiceDesc,
+			Impl:              p.node,
+			RequireCapability: wellknown.CapabilityLogs,
 		},
 		{
-			Desc: &collogspb.LogsService_ServiceDesc,
-			Impl: p.otelForwarder.LogsForwarder,
+			Desc:              &collogspb.LogsService_ServiceDesc,
+			Impl:              p.otelForwarder.LogsForwarder,
+			RequireCapability: wellknown.CapabilityLogs,
 		},
 		{
-			Desc: &coltracepb.TraceService_ServiceDesc,
-			Impl: p.otelForwarder.TraceForwarder,
+			Desc:              &coltracepb.TraceService_ServiceDesc,
+			Impl:              p.otelForwarder.TraceForwarder,
+			RequireCapability: wellknown.CapabilityLogs,
 		},
 	}
 }

@@ -25,7 +25,7 @@ func (p *Plugin) StreamServers() []streamext.Server {
 		{
 			Desc:              &coltracepb.TraceService_ServiceDesc,
 			Impl:              p.otelForwarder.TraceForwarder,
-			RequireCapability: wellknown.CapabilityTraces,
+			RequireCapability: wellknown.CapabilityLogs,
 		},
 	}
 }

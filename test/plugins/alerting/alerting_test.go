@@ -266,7 +266,7 @@ func BuildAlertingClusterIntegrationTests(
 							}
 						}
 						return nil
-					}, time.Second*30, time.Millisecond*100)
+					}, time.Second*30, time.Millisecond*100).Should(Succeed())
 
 					for _, server := range servers {
 						server.ClearBuffer()
@@ -369,6 +369,14 @@ func BuildAlertingClusterIntegrationTests(
 						},
 					})
 					Expect(err).To(Succeed())
+					disconnectStatusList, err := alertConditionsClient.ListAlertConditionsWithStatus(env.Context(), &alertingv1.ListStatusRequest{
+						ItemFilter: &alertingv1.ListAlertConditionRequest{
+							AlertTypes: []alertingv1.AlertType{
+								alertingv1.AlertType_System,
+							},
+						},
+					})
+					Expect(err).To(Succeed())
 
 					capabilityList, err := alertConditionsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{
 						AlertTypes: []alertingv1.AlertType{
@@ -376,7 +384,18 @@ func BuildAlertingClusterIntegrationTests(
 						},
 					})
 					Expect(err).To(Succeed())
+
+					capabilityStatusList, err := alertConditionsClient.ListAlertConditionsWithStatus(env.Context(), &alertingv1.ListStatusRequest{
+						ItemFilter: &alertingv1.ListAlertConditionRequest{
+							AlertTypes: []alertingv1.AlertType{
+								alertingv1.AlertType_DownstreamCapability,
+							},
+						},
+					})
+
+					Expect(err).To(Succeed())
 					Expect(capabilityList.Items).To(HaveLen(len(disconnectList.Items)))
+					Expect(capabilityStatusList.GetAlertConditions()).To(HaveLen(len(disconnectStatusList.GetAlertConditions())))
 				})
 
 				It("should be able to attach endpoints to conditions", func() {
@@ -576,7 +595,7 @@ func BuildAlertingClusterIntegrationTests(
 							}
 						}
 						return nil
-					}, time.Second*5, time.Second*1)
+					}, time.Second*5, time.Second*1).Should(Succeed())
 				})
 
 				It("should be able to batch list status and filter by status", func() {

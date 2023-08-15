@@ -103,7 +103,7 @@ var _ = Describe("metrics and alerting", Ordered, Label("integration"), func() {
 							PrometheusQuery: &alertingv1.AlertConditionPrometheusQuery{
 								ClusterId: &corev1.Reference{Id: agent},
 								Query:     "sum(up > 0) > 0",
-								For:       durationpb.New(time.Second * 2),
+								For:       durationpb.New(time.Second * 10),
 							},
 						},
 					},
@@ -204,6 +204,19 @@ var _ = Describe("metrics and alerting", Ordered, Label("integration"), func() {
 					if err != nil {
 						return err
 					}
+					for _, cond := range statuses.GetAlertConditions() {
+						status, err := alertConditionsClient.AlertConditionStatus(env.Context(), &alertingv1.ConditionReference{
+							Id:      cond.AlertCondition.Id,
+							GroupId: cond.AlertCondition.GroupId,
+						})
+						if err != nil {
+							return err
+						}
+						if status.State != alertingv1.AlertConditionState_Firing {
+							return fmt.Errorf("condition %s is not firing", cond.AlertCondition.Name)
+						}
+					}
+
 					if len(statuses.GetAlertConditions()) != 3 {
 						return fmt.Errorf("unexpected amount of alert conditions %d, expected %d", len(statuses.GetAlertConditions()), 3)
 					}
@@ -221,7 +234,7 @@ var _ = Describe("metrics and alerting", Ordered, Label("integration"), func() {
 					}
 				}
 				return nil
-			}, time.Second*60, time.Millisecond*500).Should(Succeed())
+			}, time.Second*30, time.Millisecond*500).Should(Succeed())
 		})
 	})
 })

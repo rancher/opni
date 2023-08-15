@@ -136,7 +136,6 @@ export default Vue.extend({
           });
         }
       }
-      console.log('fff', out);
 
       return out;
     },

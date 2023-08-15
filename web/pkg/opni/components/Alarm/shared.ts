@@ -1,5 +1,5 @@
 import Vue from 'vue';
-import { getAlertConditionChoices } from '../../utils/requests/alerts';
+import { getAlertConditionChoices, getAlertCondition } from '../../utils/requests/alerts';
 import { getClusters } from '../../utils/requests/management';
 
 export async function loadChoices(parent: Vue, typeAsString: string, typeAsEnum: number) {
@@ -18,4 +18,8 @@ export async function loadClusters(parent: Vue) {
     label: c.nameDisplay,
     value: c.id
   })));
+}
+
+export function createConditionRequest(route: any) {
+  return route.params.id && route.params.id !== 'create' ? getAlertCondition({ id: route.params.id, groupId: route.query.groupId }, this) : Promise.resolve(false);
 }

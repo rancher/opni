@@ -46,6 +46,11 @@ export enum TimelineType {
   Timeline_Silenced = 2, // eslint-disable-line no-unused-vars, camelcase
 }
 
+export interface ConditionReference {
+  id: string;
+  groupId: string;
+}
+
 export interface AlertConditionComposition {
   action: CompositionAction;
   x: Reference;
@@ -181,6 +186,7 @@ export interface SilenceInfo {
 
 export interface AlertCondition {
   id: string;
+  groupId?: string;
   name: string;
   description: string;
   labels: string[];
@@ -194,6 +200,8 @@ export interface ActiveWindow {
   start: string;
   end: string;
   type: TimelineType;
+  fingerprints: string[];
+  ref: ConditionReference;
 }
 
 export interface ActiveWindows {
@@ -201,7 +209,7 @@ export interface ActiveWindows {
 }
 
 export interface AlertConditionWithId {
-  id: Reference;
+  id: ConditionReference;
   alertCondition: AlertCondition;
 }
 
@@ -255,7 +263,7 @@ export interface ListAlertTypeDetails {
 }
 
 export interface SilenceRequest {
-  conditionId: Reference;
+  conditionId: ConditionReference;
   duration: Duration;
 }
 
@@ -268,7 +276,7 @@ export interface TimelineResponse {
 }
 
 export interface UpdateAlertConditionRequest {
-  id: Reference;
+  id: ConditionReference;
   updateAlert: AlertCondition;
 }
 
@@ -286,7 +294,7 @@ export interface ListMessageResponse {
 }
 
 export interface ListAlarmMessageRequest {
-  conditionId: string;
+  conditionId: ConditionReference;
   fingerprints: string[];
   start: Timestamp;
   end: Timestamp;
@@ -299,7 +307,7 @@ export enum AlertConditionState {
   FIRING = 3, // eslint-disable-line no-unused-vars, camelcase
   SILENCED = 4, // eslint-disable-line no-unused-vars, camelcase
   INVALIDATED = 5, // eslint-disable-line no-unused-vars, camelcase
-
+  DELETING = 6 // eslint-disable-line no-unused-vars, camelcase
 }
 
 export interface AlertStatusResponse {
@@ -334,6 +342,22 @@ export class Condition extends Resource {
 
   get clusterId() {
     return this.alertType.clusterId?.id;
+  }
+
+  get groupId() {
+    return this.base.alertCondition.groupId;
+  }
+
+  get groupDisplay() {
+    if (this.groupId === '') {
+      return 'Default';
+    }
+
+    if (!this.groupId) {
+      return '-';
+    }
+
+    return this.groupId;
   }
 
   get clusterDisplay() {
@@ -400,7 +424,7 @@ export class Condition extends Resource {
         state:   'warning'
       },
       [AlertConditionState.UNSPECIFIED]: {
-        message: 'Unspecified',
+        message: 'Unknown',
         state:   'warning'
       },
       [AlertConditionState.INVALIDATED]: {
@@ -410,6 +434,10 @@ export class Condition extends Resource {
       [AlertConditionState.PENDING]: {
         message: 'Pending',
         state:   'warning'
+      },
+      [AlertConditionState.DELETING]: {
+        message: 'Deleting',
+        state:   'warning',
       },
     };
 
@@ -452,7 +480,8 @@ export class Condition extends Resource {
   edit() {
     this.vue.$router.replace({
       name:   'alarm',
-      params: { id: this.id }
+      params: { id: this.id },
+      query:  { groupId: this.groupId }
     });
   }
 

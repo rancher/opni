@@ -20,3 +20,9 @@ export async function getMetricCapabilities(vue: any): Promise<Capability[]> {
     return new MetricCapability(c, provider, vue);
   });
 }
+
+export async function getAlertingCapabilities(vue: any): Promise<Capability[]> {
+  const clusters = getClusters(vue);
+
+  return (await clusters).map(c => new Capability('alerting', c, vue));
+}

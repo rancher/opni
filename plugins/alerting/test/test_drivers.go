@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"emperror.dev/errors"
+	"github.com/google/uuid"
 	amCfg "github.com/prometheus/alertmanager/config"
 
 	"github.com/prometheus/common/model"
@@ -40,6 +41,8 @@ import (
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/yaml.v2"
@@ -275,6 +278,10 @@ func (l *TestEnvAlertingClusterDriver) UninstallCluster(_ context.Context, _ *al
 	return &emptypb.Empty{}, nil
 }
 
+func (l *TestEnvAlertingClusterDriver) Info(_ context.Context, _ *emptypb.Empty) (*alertops.ComponentInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
 func (l *TestEnvAlertingClusterDriver) Name() string {
 	return "local-alerting"
 }
@@ -388,10 +395,14 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	}
 }
 
-type TestNodeDriver struct{}
+type TestNodeDriver struct {
+	whoami string
+}
 
 func NewTestNodeDriver() *TestNodeDriver {
-	return &TestNodeDriver{}
+	return &TestNodeDriver{
+		whoami: uuid.New().String(),
+	}
 }
 
 func (n *TestNodeDriver) ConfigureNode(_ string, _ *node.AlertingCapabilityConfig) error {
@@ -403,10 +414,10 @@ func (n *TestNodeDriver) DiscoverRules(_ context.Context) (*rules.RuleManifest, 
 		Rules: []*rules.Rule{
 			{
 				RuleId: &corev1.Reference{
-					Id: "test-rule",
+					Id: fmt.Sprintf("test-rule-%s", n.whoami),
 				},
 				GroupId: &corev1.Reference{
-					Id: "test-group",
+					Id: fmt.Sprintf("test-group-%s", n.whoami),
 				},
 				Name:        "test",
 				Expr:        "sum(up > 0) > 0",

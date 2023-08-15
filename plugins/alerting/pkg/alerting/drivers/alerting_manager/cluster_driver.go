@@ -327,6 +327,10 @@ func (a *AlertingClusterManager) UninstallCluster(ctx context.Context, _ *alerto
 	return &emptypb.Empty{}, nil
 }
 
+func (a *AlertingClusterManager) Info(_ context.Context, _ *emptypb.Empty) (*alertops.ComponentInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
 func (a *AlertingClusterManager) notify(replicas int) {
 	for _, sub := range a.Subscribers {
 		sub <- listPeers(replicas)

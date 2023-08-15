@@ -1,0 +1,7 @@
+.vs__dropdown-menu {
+    // Without this the labeled select will have the menu display shifted to the left after the first time it's opened.
+    // This happens because the menu is displayed at the bottom of the page which momentarily causes a scrollbar and forces the
+    // component to get shifted. We don't have the global css that rancher has to fix this
+    position: fixed;
+    border-color: #A453B9;
+}

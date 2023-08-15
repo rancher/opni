@@ -37,13 +37,14 @@ type AlertManagerSyncerV1 struct {
 	alertingv1.UnsafeSyncerServer
 
 	lg           *zap.SugaredLogger
-	uuid         string
 	serverConfig *alertingv1.SyncerConfig
 	lastSynced   *timestamppb.Timestamp
 
-	alertingClient     client.AlertingClient
-	gatewayClient      alertops.ConfigReconcilerClient
-	remoteSyncerClient alertops.ConfigReconciler_ConnectRemoteSyncerClient
+	alertingClient client.AlertingClient
+	gatewayClient  alertops.ConfigReconcilerClient
+	whoami         string
+
+	lastSyncId string
 }
 
 var _ alertingv1.SyncerServer = &AlertManagerSyncerV1{}
@@ -59,10 +60,8 @@ func NewAlertingSyncerV1(
 	server := &AlertManagerSyncerV1{
 		serverConfig: serverConfig,
 		lg:           logger.NewPluginLogger().Named("alerting-syncer"),
-		uuid:         uuid.New().String(),
 	}
 	go func() {
-		server.lg.Infof("starting alerting syncer server as \"%s\"...", server.uuid)
 		server.Initialize(ctx, mgmtClient)
 	}()
 	return server
@@ -74,6 +73,22 @@ func (a *AlertManagerSyncerV1) Initialize(
 ) {
 	var gatewayCc *grpc.ClientConn
 	a.InitOnce(func() {
+		whoami := ""
+		if ns := os.Getenv("POD_NAMESPACE"); ns != "" {
+			whoami += ns
+		}
+		if podName := os.Getenv("POD_NAME"); podName != "" {
+			if len(whoami) > 0 {
+				whoami += "/"
+			}
+			whoami += podName
+		}
+		if len(whoami) == 0 {
+			whoami = uuid.New().String()
+		}
+		a.whoami = whoami
+		a.lg.Infof("starting alerting syncer server as identity %s", a.whoami)
+
 		a.alertingClient = client.NewClient(
 			nil,
 			a.serverConfig.AlertmanagerAddress,
@@ -96,7 +111,7 @@ func (a *AlertManagerSyncerV1) Initialize(
 	go a.recvMsgs(ctx, gatewayCc)
 }
 
-func (a *AlertManagerSyncerV1) connect(ctx context.Context) {
+func (a *AlertManagerSyncerV1) connect(ctx context.Context) alertops.ConfigReconciler_SyncConfigClient {
 	retrier := backoffv2.Exponential(
 		backoffv2.WithMaxRetries(0),
 		backoffv2.WithMinInterval(5*time.Second),
@@ -104,20 +119,19 @@ func (a *AlertManagerSyncerV1) connect(ctx context.Context) {
 		backoffv2.WithMultiplier(1.5),
 	)
 	syncer := retrier.Start(ctx)
-	var syncerClient alertops.ConfigReconciler_ConnectRemoteSyncerClient
+	var syncerClient alertops.ConfigReconciler_SyncConfigClient
 	for backoffv2.Continue(syncer) {
-		client, err := a.gatewayClient.ConnectRemoteSyncer(ctx, &alertops.ConnectRequest{
-			LifecycleUuid: a.uuid,
-		})
-		if err == nil {
-			syncerClient = client
-			break
-		} else {
-			a.lg.Errorf("failed to connect to remote syncer: %s", err)
+		a.lg.Debug("trying to acquire remote syncer stream")
+		stream, err := a.gatewayClient.SyncConfig(ctx)
+		if err != nil {
+			a.lg.Errorf("failed to connect to gateway: %s", err)
+			continue
 		}
+		syncerClient = stream
+		break
 	}
-	a.remoteSyncerClient = syncerClient
 	a.lg.Debug("connected to remote syncer")
+	return syncerClient
 }
 
 func (a *AlertManagerSyncerV1) recvMsgs(
@@ -126,59 +140,75 @@ func (a *AlertManagerSyncerV1) recvMsgs(
 ) {
 	defer cc.Close()
 	reconnectDur := 1 * time.Minute
-	reconnectTimer := time.NewTimer(time.Second)
-
+	reconnectTimer := time.NewTimer(time.Millisecond)
+	a.lg.Debug("starting alerting syncer stream subscription")
 	for { // connect loop
 		select {
 		case <-ctx.Done():
 			return
 		case <-reconnectTimer.C:
 			a.lg.Debug("starting new stream subscription")
-
+			remoteSyncerClient := a.connect(ctx)
 			for { // recv loop
-				syncReq, err := a.remoteSyncerClient.Recv()
+			RECV:
+				syncReq, err := remoteSyncerClient.Recv()
 				if err == io.EOF {
 					a.lg.Warnf("remote syncer disconnected, reconnecting, ...")
-					a.connect(ctx)
 					break
 				}
-
 				if st, ok := status.FromError(err); ok && err != nil {
 					if st.Code() == codes.Unimplemented {
 						panic(err)
 					} else if st.Code() == codes.Unavailable {
 						a.lg.Warnf("remote syncer unavailable, reconnecting, ...")
-						a.connect(ctx)
 						break
 					} else {
 						a.lg.With("code", st.Code()).Errorf("failed to receive sync config message: %s", err)
-						// need to setup a new stream subscription
 						break
 					}
 				} else if err != nil {
-					// need to setup a new stream subscription
 					a.lg.Errorf("failed to receive sync config message: %s", err)
 					break
 				}
-				a.lg.Info("received sync config message")
+				a.lg.Infof("received sync (%s) config message", syncReq.SyncId)
+				if a.lastSyncId == syncReq.SyncId {
+					a.lg.Infof("already up to date")
+					goto RECV
+				}
+				syncState := alertops.SyncState_Synced
 				for _, req := range syncReq.GetItems() {
 					if _, err := a.PutConfig(ctx, req); err != nil {
 						a.lg.Errorf("failed to put config: %s", err)
+						syncState = alertops.SyncState_SyncError
 					}
 				}
+				a.lastSynced = timestamppb.Now()
+				if syncState == alertops.SyncState_Synced {
+					a.lastSyncId = syncReq.SyncId
+				}
+				if err := remoteSyncerClient.Send(&alertops.ConnectInfo{
+					LifecycleUuid: syncReq.LifecycleId,
+					Whoami:        a.whoami,
+					State:         syncState,
+					SyncId:        syncReq.SyncId,
+				}); err != nil {
+					a.lg.Errorf("failed to send sync state: %s", err)
+				}
+			}
+			// close current stream & reconnect
+			if err := remoteSyncerClient.CloseSend(); err != nil {
+				a.lg.Errorf("failed to close stream: %s", err)
 			}
 			reconnectTimer.Reset(reconnectDur)
 		}
 	}
 }
 
-// func (a *AlertManagerSyncerV1) processMsg
-
 func (a *AlertManagerSyncerV1) PutConfig(ctx context.Context, incomingConfig *alertingv1.PutConfigRequest) (*emptypb.Empty, error) {
 	if !a.Initialized() {
 		return nil, status.Error(codes.Unavailable, "alerting syncer is not ready")
 	}
-	lg := a.lg.With("syncer-id", a.uuid, "config-path", a.serverConfig.AlertmanagerConfigPath)
+	lg := a.lg.With("config-path", a.serverConfig.AlertmanagerConfigPath)
 	var c *config.Config
 	if err := yaml.Unmarshal(incomingConfig.Config, &c); err != nil {
 		lg.Errorf("failed to unmarshal config: %s", err)

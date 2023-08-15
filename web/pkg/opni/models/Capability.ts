@@ -65,6 +65,7 @@ export interface ClusterStats {
 }
 
 export interface CapabilityStatuses {
+  alerting?: CapabilityStatus;
   metrics?: CapabilityStatus;
   logs?: CapabilityStatus;
 }
@@ -82,6 +83,12 @@ export class Capability extends Resource {
     this.capLogs = [];
     this.capabilityStatus = {};
     Vue.set(this, 'capabilityStatus', {});
+  }
+
+  get nameDisplay(): string {
+    return {
+      metrics: 'Monitoring', logs: 'Logging', alerting: 'Alerting'
+    }[this.rawType];
   }
 
   get rawCluster() {

@@ -5,6 +5,7 @@ import { Checkbox } from '@components/Form/Checkbox';
 import UnitInput from '@shell/components/form/UnitInput';
 import { Storage } from '@pkg/opni/api/opni';
 import { createComputedTime } from '@pkg/opni/utils/computed';
+import { S3_REGIONS, S3_REGION_TO_ENDPOINT } from '@pkg/opni/utils/storage';
 
 export const SECONDS_IN_DAY = 86400;
 
@@ -38,33 +39,7 @@ export default {
           value: 'v2'
         },
       ],
-      regions: [
-        'us-east-2',
-        'us-east-1',
-        'us-west-1',
-        'us-west-2',
-        'af-south-1',
-        'ap-east-1',
-        'ap-southeast-3',
-        'ap-south-1',
-        'ap-northeast-3',
-        'ap-northeast-2',
-        'ap-southeast-1',
-        'ap-southeast-2',
-        'ap-northeast-1',
-        'ca-central-1',
-        'eu-central-1',
-        'eu-west-1',
-        'eu-west-2',
-        'eu-south-1',
-        'eu-west-3',
-        'eu-north-1',
-        'me-south-1',
-        'me-central-1',
-        'sa-east-1',
-        'us-gov-east-1',
-        'us-gov-west-1',
-      ],
+      regions:  S3_REGIONS,
       sseTypes: [
         { label: 'None', value: '' },
         { label: 'SSE-KMS', value: 'SSE-KMS' },
@@ -96,37 +71,8 @@ export default {
 
   methods: {
     updateEndpoint() {
-      const endpoints = {
-        'us-east-2':      's3.us-east-2.amazonaws.com',
-        'us-east-1':      's3.us-east-1.amazonaws.com',
-        'us-west-1':      's3.us-west-1.amazonaws.com',
-        'us-west-2':      's3.us-west-2.amazonaws.com',
-        'af-south-1':     's3.af-south-1.amazonaws.com',
-        'ap-east-1':      's3.ap-east-1.amazonaws.com',
-        'ap-south-1':     's3.ap-south-1.amazonaws.com',
-        'ap-northeast-3': 's3.ap-northeast-3.amazonaws.com',
-        'ap-northeast-2': 's3.ap-northeast-2.amazonaws.com',
-        'ap-southeast-1': 's3.ap-southeast-1.amazonaws.com',
-        'ap-southeast-2': 's3.ap-southeast-2.amazonaws.com',
-        'ap-northeast-1': 's3.ap-northeast-1.amazonaws.com',
-        'ca-central-1':   's3.ca-central-1.amazonaws.com',
-        'cn-northwest-1': 's3.cn-northwest-1.amazonaws.com.cn',
-        'eu-central-1':   's3.eu-central-1.amazonaws.com',
-        'eu-west-1':      's3.eu-west-1.amazonaws.com',
-        'eu-west-2':      's3.eu-west-2.amazonaws.com',
-        'eu-south-1':     's3.eu-south-1.amazonaws.com',
-        'eu-west-3':      's3.eu-west-3.amazonaws.com',
-        'eu-north-1':     's3.eu-north-1.amazonaws.com',
-        'ap-southeast-3': 's3.ap-southeast-3.amazonaws.com',
-        'me-south-1':     's3.me-south-1.amazonaws.com',
-        'me-central-1':   's3.me-central-1.amazonaws.com',
-        'sa-east-1':      's3.sa-east-1.amazonaws.com',
-        'us-gov-east-1':  's3.us-gov-east-1.amazonaws.com',
-        'us-gov-west-1':  's3.us-gov-west-1.amazonaws.com',
-      };
-
       if (this.value.storage.s3?.region) {
-        return this.$set(this.value.storage.s3, 'endpoint', `${ endpoints[this.value.storage.s3.region] }`);
+        return this.$set(this.value.storage.s3, 'endpoint', `${ S3_REGION_TO_ENDPOINT[this.value.storage.s3.region] }`);
       }
     },
     watch: {

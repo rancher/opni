@@ -2,6 +2,7 @@ syntax = "proto3";
 option go_package = "github.com/rancher/opni/plugins/alerting/apis/alertops";
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
 import "github.com/rancher/opni/pkg/apis/alerting/v1/sidecar.proto";
 import "google/api/annotations.proto";
@@ -40,18 +41,53 @@ service AlertingAdmin {
       post: "/uninstall"
     };
   }
+
+  rpc Info(google.protobuf.Empty) returns (ComponentInfo) {
+    option (google.api.http) = {
+      get: "/info"
+    };
+  }
+}
+
+service AdminInfo {
+  rpc SyncInfo(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      get: "/info/sync"
+    };
+  }
 }
 
 service ConfigReconciler {
-  rpc ConnectRemoteSyncer(ConnectRequest) returns (stream SyncRequest) {}
+  rpc SyncConfig(stream ConnectInfo) returns (stream SyncRequest) {}
 }
 
-message ConnectRequest{
+message ComponentInfo {
+  string curSyncId = 2;
+  map<string,Component> components = 3;
+}
+
+message Component {
+  ConnectInfo connectInfo = 1;
+  google.protobuf.Timestamp lastHandshake = 2;
+}
+
+message ConnectInfo{
   string lifecycleUuid = 1;
+  string whoami = 2;
+  SyncState state = 3;
+  string syncId = 4;
+}
+
+enum SyncState {
+  SyncUnknown = 0;
+  Synced = 1;
+  SyncError = 2;
 }
 
 message SyncRequest {
-  repeated alerting.PutConfigRequest items = 1;
+  string lifecycleId = 1;
+  string syncId = 2;
+  repeated alerting.PutConfigRequest items = 3;
 }
 
 message UninstallRequest {

@@ -180,6 +180,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 			ConditionStorage: s.Conditions(),
 			EndpointStorage:  s.Endpoints(),
 			RouterStorage:    s.Routers(),
+			HashRing:         s,
 			ManualSync:       p.SendManualSyncRequest,
 		})
 

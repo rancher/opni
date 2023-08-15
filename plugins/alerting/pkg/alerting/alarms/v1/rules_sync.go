@@ -34,7 +34,6 @@ func ignoreOpniConfigurations(conf *alertingv1.AlertCondition) {
 }
 
 func applyMutableReadOnlyFields(dest, src *alertingv1.AlertCondition) {
-	dest.Metadata = src.Metadata
 	dest.Name = src.Name
 	dest.Description = src.Description
 	dest.Labels = src.Labels
@@ -73,10 +72,10 @@ func (a *AlarmServerComponent) SyncRules(ctx context.Context, rules *rules.RuleM
 					},
 				},
 			},
-			// these are mutable sync fields
 			Metadata: map[string]string{
 				metadataReadOnly: "true",
 			},
+			// these will be considered mutable
 			Name:              rule.Name,
 			Description:       fmt.Sprintf("Prometheus alerting rule '%s' synced ", rule.Name),
 			Labels:            []string{},

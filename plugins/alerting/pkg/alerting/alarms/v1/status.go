@@ -309,7 +309,7 @@ func statusFromLoadedReceivers(
 	if len(matchers) != 0 && len(matchingReceivers) != len(requiredReceivers) {
 		return &alertingv1.AlertStatusResponse{
 			State:  alertingv1.AlertConditionState_Pending,
-			Reason: "configuration updates are scheduled activation",
+			Reason: "configuration updates are scheduled for activation",
 		}
 	}
 	return &alertingv1.AlertStatusResponse{
@@ -322,9 +322,13 @@ func statusFromAlertGroup(
 	alertInfo *alertingInfo,
 ) *alertingv1.AlertStatusResponse {
 	matchers := alertInfo.router.HasLabels(cond.Id)
+	requiredReceivers := alertInfo.router.HasReceivers(cond.Id)
 	alertGroups := alertInfo.alertGroup
-	if len(matchers) == 0 {
-		return &alertingv1.AlertStatusResponse{
+	defaultState := &alertingv1.AlertStatusResponse{
+		State: alertingv1.AlertConditionState_Ok,
+	}
+	if len(requiredReceivers) == 0 && cond.AttachedEndpoints != nil && len(cond.AttachedEndpoints.Items) > 0 {
+		defaultState = &alertingv1.AlertStatusResponse{
 			State:  alertingv1.AlertConditionState_Pending,
 			Reason: "configuration updates are scheduled for activation",
 		}
@@ -363,9 +367,7 @@ func statusFromAlertGroup(
 			}
 		}
 	}
-	return &alertingv1.AlertStatusResponse{
-		State: alertingv1.AlertConditionState_Ok,
-	}
+	return defaultState
 }
 
 func evaluatePrometheusRuleHealth(ruleList *cortexadmin.RuleGroups, id string) *alertingv1.AlertStatusResponse {

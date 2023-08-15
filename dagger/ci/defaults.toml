@@ -9,7 +9,7 @@ test = true
 	username = "Rancher Bot"
 
 [charts.oci]
-	repo = "docker.io"
+	repo = "docker.io/rancher"
 
 [images.opni]
 	repo = "docker.io/rancher/opni"

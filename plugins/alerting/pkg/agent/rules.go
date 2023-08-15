@@ -85,22 +85,28 @@ func (r *RuleStreamer) configureRuleStreamer(nodeId string, cfg *node.AlertingCa
 	return nil
 }
 
+func (r *RuleStreamer) sync(ctx context.Context) {
+	ruleManifest, err := r.nodeDriver.DiscoverRules(ctx)
+	if err != nil {
+		r.lg.Warnf("failed to discover rules %s", err)
+	}
+	r.lg.Infof("discovered %d rules", len(ruleManifest.Rules))
+	if _, err := r.ruleSyncClient.SyncRules(ctx, ruleManifest); err != nil {
+		r.lg.Warnf("failed to sync rules %s", err)
+	}
+}
+
 func (r *RuleStreamer) run(ctx context.Context) {
-	t := time.NewTicker(RuleSyncInterval)
 	r.lg.Info("waiting for rule sync client...")
 	r.WaitForInitContext(ctx)
 	r.lg.Info("rule sync client acquired")
-
+	r.sync(ctx)
+	t := time.NewTicker(RuleSyncInterval)
 	defer t.Stop()
 	for {
 		select {
 		case <-t.C:
-			ruleManifest, err := r.nodeDriver.DiscoverRules(ctx)
-			if err != nil {
-				r.lg.Warnf("failed to discover rules %s", err)
-			}
-			r.lg.Infof("discovered %d rules", len(ruleManifest.Rules))
-			r.ruleSyncClient.SyncRules(ctx, ruleManifest)
+			r.sync(ctx)
 		case <-ctx.Done():
 			r.lg.Info("Exiting rule sync loop")
 			return

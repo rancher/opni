@@ -341,20 +341,20 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 func (a *Agent) ListenAndServe(ctx context.Context) error {
 	syncClient := controlv1.NewUpdateSyncClient(a.gatewayClient.ClientConn())
 
-	agentSyncConf := syncConfig{
-		client: syncClient,
-		syncer: a.agentSyncer,
-		logger: a.Logger.Named("agent-updater"),
+	agentSyncConf := update.SyncConfig{
+		Client: syncClient,
+		Syncer: a.agentSyncer,
+		Logger: a.Logger.Named("agent-updater"),
 	}
-	pluginSyncConf := syncConfig{
-		client: syncClient,
-		syncer: a.pluginSyncer,
-		logger: a.Logger.Named("plugin-updater"),
+	pluginSyncConf := update.SyncConfig{
+		Client: syncClient,
+		Syncer: a.pluginSyncer,
+		Logger: a.Logger.Named("plugin-updater"),
 	}
 
-	for _, conf := range []syncConfig{agentSyncConf, pluginSyncConf} {
+	for _, conf := range []update.SyncConfig{agentSyncConf, pluginSyncConf} {
 		for ctx.Err() == nil {
-			err := conf.doSync(ctx)
+			err := conf.DoSync(ctx)
 			if err != nil {
 				switch status.Code(err) {
 				case codes.Unauthenticated:
@@ -381,12 +381,12 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 			break
 		}
 	}
-	agentManifest, err := agentSyncConf.result(ctx)
+	agentManifest, err := agentSyncConf.Result(ctx)
 	if err != nil {
 		return fmt.Errorf("error getting updated agent manifest: %w", err)
 	}
 
-	pluginManifest, err := pluginSyncConf.result(ctx)
+	pluginManifest, err := pluginSyncConf.Result(ctx)
 	if err != nil {
 		return fmt.Errorf("error getting updated plugin manifest: %w", err)
 	}
@@ -545,59 +545,4 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 		zap.Error(ctx.Err()),
 	).Warn("shutting down gateway client")
 	return ctx.Err()
-}
-
-type syncConfig struct {
-	client controlv1.UpdateSyncClient
-	syncer update.SyncHandler
-	logger *zap.SugaredLogger
-}
-
-func (conf syncConfig) doSync(ctx context.Context) error {
-	syncer := conf.syncer
-	initialManifest, err := getManifestWithTimeout(ctx, syncer)
-	if err != nil {
-		return err
-	}
-	updateType, err := update.GetType(initialManifest.GetItems())
-	if err != nil {
-		return fmt.Errorf("failed to get manifest update type: %w", err)
-	}
-
-	lg := conf.logger.With(
-		zap.String("type", string(updateType)),
-	)
-	lg.With(
-		"entries", len(initialManifest.GetItems()),
-	).Debug("sending manifest sync request")
-
-	syncResp, err := conf.client.SyncManifest(metadata.AppendToOutgoingContext(ctx,
-		controlv1.UpdateStrategyKeyForType(updateType), syncer.Strategy(),
-	), initialManifest)
-	if err != nil {
-		return fmt.Errorf("failed to sync agent manifest: %w", err)
-	}
-	lg.Info("received sync response")
-	err = syncer.HandleSyncResults(ctx, syncResp)
-	if err != nil {
-		return fmt.Errorf("failed to handle agent sync results: %w", err)
-	}
-	lg.With(
-		"entries", len(initialManifest.GetItems()),
-	).Info("manifest sync complete")
-	return nil
-}
-
-func (conf syncConfig) result(ctx context.Context) (*controlv1.UpdateManifest, error) {
-	return getManifestWithTimeout(ctx, conf.syncer)
-}
-
-func getManifestWithTimeout(ctx context.Context, syncer update.SyncHandler) (*controlv1.UpdateManifest, error) {
-	ctx, ca := context.WithTimeout(ctx, 10*time.Second)
-	m, err := syncer.GetCurrentManifest(ctx)
-	ca()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get current manifest: %w", err)
-	}
-	return m, nil
 }

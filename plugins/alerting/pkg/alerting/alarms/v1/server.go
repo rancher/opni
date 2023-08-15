@@ -275,7 +275,11 @@ func (a *AlarmServerComponent) ListAlertConditionsWithStatus(ctx context.Context
 		if err != nil {
 			return nil, err
 		}
-		allConds = append(allConds, conds...)
+		if req.ItemFilter != nil {
+			allConds = append(allConds, lo.Filter(conds, req.ItemFilter.FilterFunc())...)
+		} else {
+			allConds = append(allConds, conds...)
+		}
 	}
 	res := &alertingv1.ListStatusResponse{
 		AlertConditions: make(map[string]*alertingv1.AlertConditionWithStatus),

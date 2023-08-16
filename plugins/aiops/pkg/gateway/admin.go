@@ -532,11 +532,17 @@ func s3SettingsMutator(settings *admin.S3Settings, cluster *aiv1beta1.OpniCluste
 		}
 		return
 	}
+	endpoint := settings.GetEndpoint()
+	if endpoint != "" {
+		if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
+			endpoint = "https://" + endpoint
+		}
+	}
 	cluster.Spec.S3 = aiv1beta1.S3Spec{
 		NulogS3Bucket: settings.GetNulogBucket(),
 		DrainS3Bucket: settings.GetDrainBucket(),
 		External: &aiv1beta1.ExternalSpec{
-			Endpoint: settings.GetEndpoint(),
+			Endpoint: endpoint,
 			Credentials: &corev1.SecretReference{
 				Name:      OpniS3SecretName,
 				Namespace: cluster.Namespace,

@@ -15,6 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 
+	"github.com/rancher/opni/pkg/agent"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/features"
@@ -57,7 +58,7 @@ type Plugin struct {
 	storageBackend      future.Future[storage.Backend]
 	kv                  future.Future[system.KeyValueStoreClient]
 	mgmtApi             future.Future[managementv1.ManagementClient]
-	nodeManagerClient   future.Future[capabilityv1.NodeManagerClient]
+	delegate            future.Future[streamext.StreamDelegate[agent.ClientSet]]
 	uninstallController future.Future[*task.Controller]
 	alertingServer      *alerting.AlertingManagementServer
 	opensearchManager   *opensearchdata.Manager
@@ -142,7 +143,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 			lg.Named("opensearch-manager"),
 			kv,
 		),
-		nodeManagerClient: future.New[capabilityv1.NodeManagerClient](),
+		delegate: future.New[streamext.StreamDelegate[agent.ClientSet]](),
 		otelForwarder: otel.NewOTELForwarder(
 			otel.WithLogger(lg.Named("otel-forwarder")),
 			otel.WithAddress(fmt.Sprintf(
@@ -154,19 +155,19 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		),
 	}
 
-	future.Wait4(p.storageBackend, p.mgmtApi, p.uninstallController, p.nodeManagerClient,
+	future.Wait4(p.storageBackend, p.mgmtApi, p.uninstallController, p.delegate,
 		func(
 			storageBackend storage.Backend,
 			mgmtClient managementv1.ManagementClient,
 			uninstallController *task.Controller,
-			nodeManagerClient capabilityv1.NodeManagerClient,
+			delegate streamext.StreamDelegate[agent.ClientSet],
 		) {
 			p.logging.Initialize(backend.LoggingBackendConfig{
 				Logger:              p.logger.Named("logging-backend"),
 				StorageBackend:      storageBackend,
 				UninstallController: uninstallController,
 				MgmtClient:          mgmtClient,
-				NodeManagerClient:   nodeManagerClient,
+				Delegate:            delegate,
 				OpensearchManager:   p.opensearchManager,
 				ClusterDriver:       p.backendDriver,
 			})

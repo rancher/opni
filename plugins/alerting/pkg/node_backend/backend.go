@@ -5,12 +5,14 @@ import (
 	"sync"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/rancher/opni/pkg/agent"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/pkg/storage"
 
 	"github.com/rancher/opni/pkg/util"
@@ -44,9 +46,9 @@ type AlertingNodeBackend struct {
 	nodeStatusMu sync.RWMutex
 	nodeStatus   map[string]*capabilityv1.NodeCapabilityStatus
 
-	nodeManagerClient future.Future[capabilityv1.NodeManagerClient]
-	mgmtClient        future.Future[managementv1.ManagementClient]
-	storageBackend    future.Future[storage.Backend]
+	delegate       future.Future[streamext.StreamDelegate[agent.ClientSet]]
+	mgmtClient     future.Future[managementv1.ManagementClient]
+	storageBackend future.Future[storage.Backend]
 
 	capabilityKV future.Future[CapabilitySpecKV]
 }
@@ -55,24 +57,24 @@ func NewAlertingNodeBackend(
 	lg *zap.SugaredLogger,
 ) *AlertingNodeBackend {
 	return &AlertingNodeBackend{
-		lg:                lg,
-		nodeManagerClient: future.New[capabilityv1.NodeManagerClient](),
-		mgmtClient:        future.New[managementv1.ManagementClient](),
-		storageBackend:    future.New[storage.Backend](),
-		capabilityKV:      future.New[CapabilitySpecKV](),
-		nodeStatus:        make(map[string]*capabilityv1.NodeCapabilityStatus),
+		lg:             lg,
+		delegate:       future.New[streamext.StreamDelegate[agent.ClientSet]](),
+		mgmtClient:     future.New[managementv1.ManagementClient](),
+		storageBackend: future.New[storage.Backend](),
+		capabilityKV:   future.New[CapabilitySpecKV](),
+		nodeStatus:     make(map[string]*capabilityv1.NodeCapabilityStatus),
 	}
 }
 
 func (a *AlertingNodeBackend) Initialize(
 	kv CapabilitySpecKV,
 	mgmtClient managementv1.ManagementClient,
-	nodeManagerClient capabilityv1.NodeManagerClient,
+	nodeManagerClient streamext.StreamDelegate[agent.ClientSet],
 	storageBackend storage.Backend,
 ) {
 	a.InitOnce(func() {
 		a.capabilityKV.Set(kv)
-		a.nodeManagerClient.Set(nodeManagerClient)
+		a.delegate.Set(nodeManagerClient)
 		a.mgmtClient.Set(mgmtClient)
 		a.storageBackend.Set(storageBackend)
 	})
@@ -91,11 +93,8 @@ var FallbackDefaultNodeSpec = &node.AlertingCapabilitySpec{
 }
 
 func (a *AlertingNodeBackend) requestNodeSync(ctx context.Context, node *corev1.Reference) {
-	_, err := a.nodeManagerClient.Get().RequestSync(ctx, &capabilityv1.SyncRequest{
-		Cluster: node,
-		Filter: &capabilityv1.Filter{
-			CapabilityNames: []string{wellknown.CapabilityAlerting},
-		},
+	_, err := a.delegate.Get().WithTarget(node).SyncNow(ctx, &capabilityv1.Filter{
+		CapabilityNames: []string{wellknown.CapabilityAlerting},
 	})
 	name := node.GetId()
 	if name == "" {

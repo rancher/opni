@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/rancher/opni/pkg/agent"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -14,6 +15,7 @@ import (
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/machinery/uninstall"
+	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
@@ -29,12 +31,12 @@ import (
 )
 
 type TopologyBackendConfig struct {
-	Logger              *zap.SugaredLogger             `validate:"required"`
-	StorageBackend      storage.Backend                `validate:"required"`
-	MgmtClient          managementv1.ManagementClient  `validate:"required"`
-	NodeManagerClient   capabilityv1.NodeManagerClient `validate:"required"`
-	UninstallController *task.Controller               `validate:"required"`
-	ClusterDriver       drivers.ClusterDriver          `validate:"required"`
+	Logger              *zap.SugaredLogger                        `validate:"required"`
+	StorageBackend      storage.Backend                           `validate:"required"`
+	MgmtClient          managementv1.ManagementClient             `validate:"required"`
+	Delegate            streamext.StreamDelegate[agent.ClientSet] `validate:"required"`
+	UninstallController *task.Controller                          `validate:"required"`
+	ClusterDriver       drivers.ClusterDriver                     `validate:"required"`
 }
 
 type TopologyBackend struct {
@@ -109,11 +111,8 @@ func (t *TopologyBackend) canInstall(ctx context.Context) error {
 }
 
 func (t *TopologyBackend) requestNodeSync(ctx context.Context, cluster *corev1.Reference) {
-	_, err := t.NodeManagerClient.RequestSync(ctx, &capabilityv1.SyncRequest{
-		Cluster: cluster,
-		Filter: &capabilityv1.Filter{
-			CapabilityNames: []string{wellknown.CapabilityTopology},
-		},
+	_, err := t.Delegate.WithTarget(cluster).SyncNow(ctx, &capabilityv1.Filter{
+		CapabilityNames: []string{wellknown.CapabilityTopology},
 	})
 	name := cluster.GetId()
 	if name == "" {

@@ -2,9 +2,11 @@ package backend
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 
+	"github.com/rancher/opni/pkg/agent"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/apis/node"
@@ -22,6 +24,7 @@ import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/storage"
@@ -52,15 +55,19 @@ type MetricsBackend struct {
 var _ node.NodeMetricsCapabilityServer = (*MetricsBackend)(nil)
 var _ remoteread.RemoteReadGatewayServer = (*MetricsBackend)(nil)
 
+type MetricsAgentClientSet interface {
+	agent.ClientSet
+	remoteread.RemoteReadAgentClient
+}
+
 type MetricsBackendConfig struct {
-	Logger              *zap.SugaredLogger                                         `validate:"required"`
-	StorageBackend      storage.Backend                                            `validate:"required"`
-	MgmtClient          managementv1.ManagementClient                              `validate:"required"`
-	NodeManagerClient   capabilityv1.NodeManagerClient                             `validate:"required"`
-	UninstallController *task.Controller                                           `validate:"required"`
-	ClusterDriver       drivers.ClusterDriver                                      `validate:"required"`
-	Delegate            streamext.StreamDelegate[remoteread.RemoteReadAgentClient] `validate:"required"`
-	KV                  *KVClients                                                 `validate:"required"`
+	Logger              *zap.SugaredLogger                              `validate:"required"`
+	StorageBackend      storage.Backend                                 `validate:"required"`
+	MgmtClient          managementv1.ManagementClient                   `validate:"required"`
+	UninstallController *task.Controller                                `validate:"required"`
+	ClusterDriver       drivers.ClusterDriver                           `validate:"required"`
+	Delegate            streamext.StreamDelegate[MetricsAgentClientSet] `validate:"required"`
+	KV                  *KVClients                                      `validate:"required"`
 }
 
 type KVClients struct {
@@ -80,30 +87,36 @@ func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
 	})
 }
 
-func (m *MetricsBackend) requestNodeSync(ctx context.Context, cluster *corev1.Reference) {
-	_, err := m.NodeManagerClient.RequestSync(ctx, &capabilityv1.SyncRequest{
-		Cluster: cluster,
-		Filter: &capabilityv1.Filter{
-			CapabilityNames: []string{wellknown.CapabilityMetrics},
-		},
-	})
+func (m *MetricsBackend) requestNodeSync(ctx context.Context, target *corev1.Reference) error {
+	_, err := m.Delegate.
+		WithTarget(target).
+		SyncNow(ctx, &capabilityv1.Filter{CapabilityNames: []string{wellknown.CapabilityMetrics}})
+	return err
+}
 
-	name := cluster.GetId()
-	if name == "" {
-		name = "(all)"
-	}
-	if err != nil {
+func (m *MetricsBackend) broadcastNodeSync(ctx context.Context) {
+	// keep any metadata in the context, but don't propagate cancellation
+	ctx = context.WithoutCancel(ctx)
+	var errs []error
+	m.Delegate.
+		WithBroadcastSelector(&corev1.ClusterSelector{}, func(reply any, msg *streamv1.BroadcastReplyList) error {
+			for _, resp := range msg.GetResponses() {
+				err := resp.GetReply().GetResponse().GetStatus().Err()
+				if err != nil {
+					target := resp.GetRef()
+					errs = append(errs, status.Errorf(codes.Internal, "failed to sync agent %s: %v", target.GetId(), err))
+				}
+			}
+			return nil
+		}).
+		SyncNow(ctx, &capabilityv1.Filter{
+			CapabilityNames: []string{wellknown.CapabilityMetrics},
+		})
+	if len(errs) > 0 {
 		m.Logger.With(
-			"cluster", name,
-			"capability", wellknown.CapabilityMetrics,
-			zap.Error(err),
-		).Warn("failed to request node sync; nodes may not be updated immediately")
-		return
+			zap.Error(errors.Join(errs...)),
+		).Warn("one or more agents failed to sync; they may not be updated immediately")
 	}
-	m.Logger.With(
-		"cluster", name,
-		"capability", wellknown.CapabilityMetrics,
-	).Info("node sync requested")
 }
 
 // Implements node.NodeMetricsCapabilityServer

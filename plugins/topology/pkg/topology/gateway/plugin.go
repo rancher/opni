@@ -8,7 +8,7 @@ import (
 	"context"
 
 	"github.com/nats-io/nats.go"
-	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	"github.com/rancher/opni/pkg/agent"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
@@ -48,7 +48,7 @@ type Plugin struct {
 
 	storageBackend      future.Future[storage.Backend]
 	gatewayConfig       future.Future[*v1beta1.GatewayConfig]
-	nodeManagerClient   future.Future[capabilityv1.NodeManagerClient]
+	delegate            future.Future[streamext.StreamDelegate[agent.ClientSet]]
 	uninstallController future.Future[*task.Controller]
 	clusterDriver       future.Future[drivers.ClusterDriver]
 }
@@ -61,7 +61,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		storage:             future.New[ConfigStorageAPIs](),
 		mgmtClient:          future.New[managementv1.ManagementClient](),
 		storageBackend:      future.New[storage.Backend](),
-		nodeManagerClient:   future.New[capabilityv1.NodeManagerClient](),
+		delegate:            future.New[streamext.StreamDelegate[agent.ClientSet]](),
 		uninstallController: future.New[*task.Controller](),
 		clusterDriver:       future.New[drivers.ClusterDriver](),
 		topologyBackend:     backend.TopologyBackend{},
@@ -81,18 +81,18 @@ func NewPlugin(ctx context.Context) *Plugin {
 		})
 
 	p.logger.Debug("waiting for async requirements for starting topology backend")
-	future.Wait5(p.storageBackend, p.mgmtClient, p.nodeManagerClient, p.uninstallController, p.clusterDriver,
+	future.Wait5(p.storageBackend, p.mgmtClient, p.delegate, p.uninstallController, p.clusterDriver,
 		func(
 			storageBackend storage.Backend,
 			mgmtClient managementv1.ManagementClient,
-			nodeManagerClient capabilityv1.NodeManagerClient,
+			delegate streamext.StreamDelegate[agent.ClientSet],
 			uninstallController *task.Controller,
 			clusterDriver drivers.ClusterDriver,
 		) {
 			p.logger.With(
 				"storageBackend", storageBackend,
 				"mgmtClient", mgmtClient,
-				"nodeManagerClient", nodeManagerClient,
+				"delegate", delegate,
 				"uninstallController", uninstallController,
 				"clusterDriver", clusterDriver,
 			).Debug("async requirements for starting topology backend are ready")
@@ -100,7 +100,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 				Logger:              p.logger.Named("topology-backend"),
 				StorageBackend:      storageBackend,
 				MgmtClient:          mgmtClient,
-				NodeManagerClient:   nodeManagerClient,
+				Delegate:            delegate,
 				UninstallController: uninstallController,
 				ClusterDriver:       clusterDriver,
 			})

@@ -10,7 +10,6 @@ option go_package = "github.com/rancher/opni/pkg/plugins/apis/system";
 
 service System {
   rpc UseManagementAPI(BrokerID) returns (google.protobuf.Empty);
-  rpc UseNodeManagerClient(BrokerID) returns (google.protobuf.Empty);
   rpc UseKeyValueStore(BrokerID) returns (google.protobuf.Empty);
   rpc UseAPIExtensions(DialAddress) returns (google.protobuf.Empty);
   rpc UseCachingProvider(google.protobuf.Empty) returns (google.protobuf.Empty);

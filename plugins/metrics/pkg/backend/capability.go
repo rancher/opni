@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -73,7 +74,12 @@ func (m *MetricsBackend) Install(ctx context.Context, req *v1.InstallRequest) (*
 		return nil, err
 	}
 
-	m.requestNodeSync(ctx, req.Cluster)
+	if err := m.requestNodeSync(ctx, req.Cluster); err != nil {
+		return &v1.InstallResponse{
+			Status:  v1.InstallResponseStatus_Warning,
+			Message: fmt.Errorf("sync request failed; agent may not be updated immediately: %v", err).Error(),
+		}, nil
+	}
 
 	if warningErr != nil {
 		return &v1.InstallResponse{
@@ -144,7 +150,7 @@ func (m *MetricsBackend) Uninstall(ctx context.Context, req *v1.UninstallRequest
 		break
 	}
 	if !exists {
-		return nil, status.Error(codes.FailedPrecondition, "cluster does not have the reuqested capability")
+		return nil, status.Error(codes.FailedPrecondition, "cluster does not have the requested capability")
 	}
 
 	now := timestamppb.Now()
@@ -159,7 +165,13 @@ func (m *MetricsBackend) Uninstall(ctx context.Context, req *v1.UninstallRequest
 	if err != nil {
 		return nil, fmt.Errorf("failed to update cluster metadata: %v", err)
 	}
-	m.requestNodeSync(ctx, req.Cluster)
+	if err := m.requestNodeSync(ctx, req.Cluster); err != nil {
+		m.Logger.With(
+			zap.Error(err),
+			"agent", req.Cluster,
+		).Warn("sync request failed; agent may not be updated immediately")
+		// continue; this is not a fatal error
+	}
 
 	md := uninstall.TimestampedMetadata{
 		DefaultUninstallOptions: defaultOpts,
@@ -184,7 +196,6 @@ func (m *MetricsBackend) CancelUninstall(ctx context.Context, cluster *corev1.Re
 
 	m.UninstallController.CancelTask(cluster.Id)
 
-	m.requestNodeSync(ctx, cluster)
 	return &emptypb.Empty{}, nil
 }
 

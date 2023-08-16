@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 
-	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -50,13 +49,12 @@ type Plugin struct {
 	config              future.Future[*v1beta1.GatewayConfig]
 	authMw              future.Future[map[string]auth.Middleware]
 	mgmtClient          future.Future[managementv1.ManagementClient]
-	nodeManagerClient   future.Future[capabilityv1.NodeManagerClient]
 	storageBackend      future.Future[storage.Backend]
 	cortexTlsConfig     future.Future[*tls.Config]
 	cortexClientSet     future.Future[cortex.ClientSet]
 	uninstallController future.Future[*task.Controller]
 	clusterDriver       future.Future[drivers.ClusterDriver]
-	delegate            future.Future[streamext.StreamDelegate[remoteread.RemoteReadAgentClient]]
+	delegate            future.Future[streamext.StreamDelegate[backend.MetricsAgentClientSet]]
 	backendKvClients    future.Future[*backend.KVClients]
 }
 
@@ -78,13 +76,12 @@ func NewPlugin(ctx context.Context) *Plugin {
 		config:              future.New[*v1beta1.GatewayConfig](),
 		authMw:              future.New[map[string]auth.Middleware](),
 		mgmtClient:          future.New[managementv1.ManagementClient](),
-		nodeManagerClient:   future.New[capabilityv1.NodeManagerClient](),
 		storageBackend:      future.New[storage.Backend](),
 		cortexTlsConfig:     future.New[*tls.Config](),
 		cortexClientSet:     future.New[cortex.ClientSet](),
 		uninstallController: future.New[*task.Controller](),
 		clusterDriver:       future.New[drivers.ClusterDriver](),
-		delegate:            future.New[streamext.StreamDelegate[remoteread.RemoteReadAgentClient]](),
+		delegate:            future.New[streamext.StreamDelegate[backend.MetricsAgentClientSet]](),
 		backendKvClients:    future.New[*backend.KVClients](),
 	}
 	p.metrics.OpsBackend = &backend.OpsServiceBackend{MetricsBackend: &p.metrics}
@@ -149,21 +146,19 @@ func NewPlugin(ctx context.Context) *Plugin {
 		).Info("initialized cluster driver")
 		p.clusterDriver.Set(driver)
 	})
-	future.Wait7(p.storageBackend, p.mgmtClient, p.nodeManagerClient, p.uninstallController, p.clusterDriver, p.delegate, p.backendKvClients,
+	future.Wait6(p.storageBackend, p.mgmtClient, p.uninstallController, p.clusterDriver, p.delegate, p.backendKvClients,
 		func(
 			storageBackend storage.Backend,
 			mgmtClient managementv1.ManagementClient,
-			nodeManagerClient capabilityv1.NodeManagerClient,
 			uninstallController *task.Controller,
 			clusterDriver drivers.ClusterDriver,
-			delegate streamext.StreamDelegate[remoteread.RemoteReadAgentClient],
+			delegate streamext.StreamDelegate[backend.MetricsAgentClientSet],
 			backendKvClients *backend.KVClients,
 		) {
 			p.metrics.Initialize(backend.MetricsBackendConfig{
 				Logger:              p.logger.Named("metrics-backend"),
 				StorageBackend:      storageBackend,
 				MgmtClient:          mgmtClient,
-				NodeManagerClient:   nodeManagerClient,
 				UninstallController: uninstallController,
 				ClusterDriver:       clusterDriver,
 				Delegate:            delegate,

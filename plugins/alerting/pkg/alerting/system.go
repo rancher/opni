@@ -24,7 +24,6 @@ import (
 	alertingStorage "github.com/rancher/opni/pkg/alerting/storage"
 
 	"github.com/rancher/opni/pkg/alerting/server"
-	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
@@ -193,11 +192,6 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	}
 	p.adminClient.Set(cortexadmin.NewCortexAdminClient(cc))
 	p.cortexOpsClient.Set(cortexops.NewCortexOpsClient(cc))
-}
-
-func (p *Plugin) UseNodeManagerClient(client capabilityv1.NodeManagerClient) {
-	p.capabilityManager.Set(client)
-	<-p.ctx.Done()
 }
 
 func (p *Plugin) handleDriverNotifications() {

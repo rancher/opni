@@ -31,7 +31,6 @@ import (
 
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
 	bootstrapv2 "github.com/rancher/opni/pkg/apis/bootstrap/v2"
-	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
@@ -66,7 +65,6 @@ type Gateway struct {
 
 	storageBackend  storage.Backend
 	capBackendStore capabilities.BackendStore
-	syncRequester   *SyncRequester
 }
 
 type GatewayOptions struct {
@@ -270,10 +268,9 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	// set up stream server
 	listener := health.NewListener()
 	monitor := health.NewMonitor(health.WithLogger(lg.Named("monitor")))
-	sync := NewSyncRequester(lg)
 	delegate := NewDelegateServer(storageBackend, lg)
 	// set up agent connection handlers
-	agentHandler := MultiConnectionHandler(listener, sync, delegate)
+	agentHandler := MultiConnectionHandler(listener, delegate)
 
 	go monitor.Run(ctx, listener)
 	streamSvc := NewStreamServer(agentHandler, storageBackend, httpServer.metricsRegisterer, lg)
@@ -302,7 +299,6 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		httpServer:      httpServer,
 		grpcServer:      grpcServer,
 		statusQuerier:   monitor,
-		syncRequester:   sync,
 	}
 
 	waitctx.Go(ctx, func() {
@@ -365,11 +361,6 @@ func (g *Gateway) TLSConfig() *tls.Config {
 // Implements management.CapabilitiesDataSource
 func (g *Gateway) CapabilitiesStore() capabilities.BackendStore {
 	return g.capBackendStore
-}
-
-// Implements management.CapabilitiesDataSource
-func (g *Gateway) NodeManagerServer() capabilityv1.NodeManagerServer {
-	return g.syncRequester
 }
 
 // Implements management.HealthStatusDataSource

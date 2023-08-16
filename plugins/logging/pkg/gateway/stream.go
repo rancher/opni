@@ -1,10 +1,12 @@
 package gateway
 
 import (
+	"github.com/rancher/opni/pkg/agent"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/plugins/logging/apis/node"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
+	"google.golang.org/grpc"
 )
 
 func (p *Plugin) StreamServers() []streamext.Server {
@@ -20,4 +22,8 @@ func (p *Plugin) StreamServers() []streamext.Server {
 			RequireCapability: wellknown.CapabilityLogs,
 		},
 	}
+}
+
+func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
+	p.delegate.Set(streamext.NewDelegate(cc, agent.NewClientSet))
 }

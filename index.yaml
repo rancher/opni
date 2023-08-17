@@ -4211,23 +4211,4 @@ entries:
     urls:
     - assets/opni-crd/opni-crd-0.6.0.tgz
     version: 0.6.0
-  opni-prometheus-crd:
-  - annotations:
-      catalog.cattle.io/namespace: opni-cluster-system
-      catalog.cattle.io/provides-gvr: prometheuses.monitoring.coreos.com/v1
-      catalog.cattle.io/release-name: opni-prometheus-crd
-    apiVersion: v1
-    created: "2023-08-09T21:06:48.146499841Z"
-    description: Installs the Prometheus CRDs for Opni.
-    digest: b9ec2d62bdae46ba5e7776054ed115d886d5ce8cf5456003bf81707aac544cbe
-    maintainers:
-    - email: joe.kralicky@suse.com
-      name: Joe Kralicky
-    - email: dan.bason@suse.com
-      name: Dan Bason
-    name: opni-prometheus-crd
-    type: application
-    urls:
-    - assets/opni-prometheus-crd/opni-prometheus-crd-0.4.1.tgz
-    version: 0.4.1
 generated: "2022-05-05T11:23:45.5101819+12:00"

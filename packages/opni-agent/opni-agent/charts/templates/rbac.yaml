@@ -110,21 +110,7 @@ rules:
 - apiGroups:
   - monitoring.coreos.com
   resources:
-  - alertmanagers
-  - alertmanagers/finalizers
-  - alertmanagerconfigs
-  - prometheuses
-  - prometheuses/status
-  - prometheuses/finalizers
-  - prometheusagents
-  - prometheusagents/status
-  - prometheusagents/finalizers
-  - thanosrulers
-  - thanosrulers/finalizers
-  - servicemonitors
-  - podmonitors
-  - probes
-  - prometheusrules
+  - "*"
   verbs:
   - "*"
 

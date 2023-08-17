@@ -60,6 +60,7 @@ func SpecialCaseEnvVars(client *dagger.Client) []SpecialCaseEnv {
 			EnvVar: "GH_TOKEN",
 			Keys: []string{
 				"charts.git.auth.secret",
+				"releaser.auth.secret",
 			},
 			Converter: secret,
 		},

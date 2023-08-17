@@ -2,6 +2,7 @@ package targets
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/magefile/mage/mg"
 )
@@ -29,5 +30,19 @@ func (Build) OpniMinimal(ctx context.Context) error {
 		Path:   "./cmd/opni",
 		Output: "bin/opni-minimal",
 		Tags:   []string{"nomsgpack", "minimal"},
+	})
+}
+
+func (Build) OpniReleaseCLI(ctx context.Context, fileSuffix string) error {
+	mg.CtxDeps(ctx, Build.Archives)
+
+	_, tr := Tracer.Start(ctx, "target.build.opni-cli-release")
+	defer tr.End()
+
+	return buildMainPackage(buildOpts{
+		Path:     "./cmd/opni",
+		Output:   fmt.Sprintf("bin/opni_%s", fileSuffix),
+		Tags:     []string{"nomsgpack", "cli"},
+		Compress: true,
 	})
 }

@@ -1,6 +1,11 @@
 lint = true
 test = true
 
+[releaser]
+	repo = "github.com/rancher/opni"
+	os = ["darwin", "linux"]
+	arch = ["amd64"]
+
 [charts.git]
 	repo = "github.com/rancher/opni"
 	branch = "charts-repo"

@@ -15,6 +15,7 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/jhump/protoreflect/desc"
+	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/caching"
@@ -54,9 +55,10 @@ type CapabilitiesDataSource interface {
 	CapabilitiesStore() capabilities.BackendStore
 }
 
-type HealthStatusDataSource interface {
+type AgentControlDataSource interface {
 	GetClusterHealthStatus(ref *corev1.Reference) (*corev1.HealthStatus, error)
 	WatchClusterHealthStatus(ctx context.Context) <-chan *corev1.ClusterHealthStatus
+	GetLogs(ctx context.Context, ref *corev1.Reference, req *controlv1.LogStreamRequest) (*controlv1.StructuredLogRecords, error)
 }
 
 type apiExtension struct {
@@ -85,7 +87,7 @@ var _ managementv1.ManagementServer = (*Server)(nil)
 type managementServerOptions struct {
 	lifecycler             config.Lifecycler
 	capabilitiesDataSource CapabilitiesDataSource
-	healthStatusDataSource HealthStatusDataSource
+	agentControlDataSource AgentControlDataSource
 }
 
 type ManagementServerOption func(*managementServerOptions)
@@ -108,9 +110,9 @@ func WithCapabilitiesDataSource(src CapabilitiesDataSource) ManagementServerOpti
 	}
 }
 
-func WithHealthStatusDataSource(src HealthStatusDataSource) ManagementServerOption {
+func WithAgentControlDataSource(src AgentControlDataSource) ManagementServerOption {
 	return func(o *managementServerOptions) {
-		o.healthStatusDataSource = src
+		o.agentControlDataSource = src
 	}
 }
 

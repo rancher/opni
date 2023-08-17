@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package control;
 
-import "github.com/kralicky/totem/extensions.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/rancher/opni/pkg/apis/control/v1";
 
@@ -18,6 +18,10 @@ service HealthListener {
 
 service UpdateSync {
   rpc SyncManifest(UpdateManifest) returns (SyncResults);
+}
+
+service Log {
+  rpc GetLogs(LogStreamRequest) returns (StructuredLogRecords);
 }
 
 enum PatchOp {
@@ -69,4 +73,33 @@ message PatchSpec {
 
 message PatchList {
   repeated PatchSpec items = 1;
+}
+
+message LogStreamRequest {
+  google.protobuf.Timestamp since = 1;
+  google.protobuf.Timestamp until = 2;
+  LogStreamFilters filters = 3;
+}
+
+message LogStreamFilters {
+  repeated string namePattern = 1;
+  optional int32 level = 2;
+}
+
+message StructuredLogRecord {
+  google.protobuf.Timestamp time = 1;
+  string message = 2;
+  string name = 3;
+  string source = 4;
+  string level = 5;
+  repeated Attr attributes = 6;
+}
+
+message StructuredLogRecords {
+  repeated StructuredLogRecord items = 1;
+}
+
+message Attr {
+  string key = 1;
+  string value = 2;
 }

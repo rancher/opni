@@ -4,6 +4,7 @@ package management;
 
 import "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "github.com/rancher/opni/pkg/apis/control/v1/remote.proto";
 import "google/api/annotations.proto";
 import "google/api/http.proto";
 import "google/protobuf/descriptor.proto";
@@ -205,6 +206,12 @@ service Management {
       body: "*"
     };
   }
+  rpc GetAgentLogs(StreamAgentLogsRequest) returns (control.StructuredLogRecords) {
+    option (google.api.http) = {
+      get: "/clusters/{id}/logs"
+      body: "*"
+    };
+  }
 }
 
 message CreateBootstrapTokenRequest {
@@ -323,4 +330,9 @@ message DashboardGlobalSettings {
   string                   defaultImageRepository = 1;
   google.protobuf.Duration defaultTokenTtl        = 2;
   map<string, string>      defaultTokenLabels     = 3;
+}
+
+message StreamAgentLogsRequest {
+  core.Reference agent = 1;
+  control.LogStreamRequest request = 2;
 }

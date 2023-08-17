@@ -10,9 +10,10 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/slogr"
-	"github.com/kralicky/gpkg/sync"
+	gpkgsync "github.com/kralicky/gpkg/sync"
 	slogmulti "github.com/samber/slog-multi"
 	slogsampling "github.com/samber/slog-sampling"
+	"github.com/spf13/afero"
 )
 
 var (
@@ -24,17 +25,22 @@ var (
     /_/
  Observability + AIOps for Kubernetes
 `
-
 	DefaultLogLevel   = slog.LevelDebug
 	DefaultWriter     io.Writer
 	DefaultAddSource  = true
 	pluginGroupPrefix = "plugin"
 	NoRepeatInterval  = 3600 * time.Hour // arbitrarily long time to denote one-time sampling
+	logFs             afero.Fs
+	logFileName       = "opni-logs"
 	DefaultTimeFormat = "2006 Jan 02 15:04:05"
 	errKey            = "err"
 )
 
 var logSampler = &sampler{}
+
+func init() {
+	logFs = afero.NewMemMapFs()
+}
 
 func AsciiLogo() string {
 	return asciiLogo
@@ -46,10 +52,11 @@ type LoggerOptions struct {
 	ReplaceAttr        func(groups []string, a slog.Attr) slog.Attr
 	Writer             io.Writer
 	ColorEnabled       bool
-	Sampling           *slogsampling.ThresholdSamplingOption
 	TimeFormat         string
 	TotemFormatEnabled bool
+	Sampling           *slogsampling.ThresholdSamplingOption
 	OmitLoggerName     bool
+	RemoteSource       string
 }
 
 func ParseLevel(lvl string) slog.Level {
@@ -82,6 +89,12 @@ func WithLogLevel(l slog.Level) LoggerOption {
 func WithWriter(w io.Writer) LoggerOption {
 	return func(o *LoggerOptions) {
 		o.Writer = w
+	}
+}
+
+func WithRemoteSource(clusterID string) LoggerOption {
+	return func(o *LoggerOptions) {
+		o.RemoteSource = clusterID
 	}
 }
 
@@ -176,7 +189,29 @@ func colorHandlerWithOptions(opts ...LoggerOption) slog.Handler {
 		handler = chain.Handler(handler)
 	}
 
+	// write logs to a file
+	if options.RemoteSource != "" {
+		filename := logFileName + options.RemoteSource
+		f, err := logFs.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0666)
+		if err != nil {
+			panic(err)
+		}
+		// FIXME where to close this file?
+
+		logFileHandler := NewProtoHandler(f, ConfigureProtoOptions(options))
+
+		// distribute logs to handlers in parallel
+		return slogmulti.Fanout(handler, logFileHandler)
+	}
+
 	return handler
+}
+
+func ConfigureProtoOptions(opts *LoggerOptions) *slog.HandlerOptions {
+	return &slog.HandlerOptions{
+		Level:     opts.Level,
+		AddSource: opts.AddSource,
+	}
 }
 
 func New(opts ...LoggerOption) *slog.Logger {
@@ -196,11 +231,15 @@ func NewPluginLogger(opts ...LoggerOption) *slog.Logger {
 }
 
 type sampler struct {
-	dropped sync.Map[string, uint64]
+	dropped gpkgsync.Map[string, uint64]
 }
 
 func (s *sampler) onDroppedHook(_ context.Context, r slog.Record) {
 	key := r.Message
 	count, _ := s.dropped.LoadOrStore(key, 0)
 	s.dropped.Store(key, count+1)
+}
+
+func OpenLogFile(cluster string) (afero.File, error) {
+	return logFs.OpenFile(logFileName+cluster, os.O_RDONLY|os.O_CREATE, 0666)
 }

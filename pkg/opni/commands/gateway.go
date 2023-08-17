@@ -99,7 +99,7 @@ func BuildGatewayCmd() *cobra.Command {
 
 		m := management.NewServer(ctx, &gatewayConfig.Spec.Management, g, pluginLoader,
 			management.WithCapabilitiesDataSource(g),
-			management.WithHealthStatusDataSource(g),
+			management.WithAgentControlDataSource(g),
 			management.WithLifecycler(lifecycler),
 		)
 

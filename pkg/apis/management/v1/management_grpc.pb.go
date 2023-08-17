@@ -9,6 +9,7 @@ package v1
 import (
 	context "context"
 	v11 "github.com/rancher/opni/pkg/apis/capability/v1"
+	v12 "github.com/rancher/opni/pkg/apis/control/v1"
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
@@ -57,6 +58,7 @@ const (
 	Management_CancelCapabilityUninstall_FullMethodName = "/management.Management/CancelCapabilityUninstall"
 	Management_GetDashboardSettings_FullMethodName      = "/management.Management/GetDashboardSettings"
 	Management_UpdateDashboardSettings_FullMethodName   = "/management.Management/UpdateDashboardSettings"
+	Management_GetAgentLogs_FullMethodName              = "/management.Management/GetAgentLogs"
 )
 
 // ManagementClient is the client API for Management service.
@@ -100,6 +102,7 @@ type ManagementClient interface {
 	CancelCapabilityUninstall(ctx context.Context, in *CapabilityUninstallCancelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetDashboardSettings(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DashboardSettings, error)
 	UpdateDashboardSettings(ctx context.Context, in *DashboardSettings, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetAgentLogs(ctx context.Context, in *StreamAgentLogsRequest, opts ...grpc.CallOption) (*v12.StructuredLogRecords, error)
 }
 
 type managementClient struct {
@@ -472,6 +475,15 @@ func (c *managementClient) UpdateDashboardSettings(ctx context.Context, in *Dash
 	return out, nil
 }
 
+func (c *managementClient) GetAgentLogs(ctx context.Context, in *StreamAgentLogsRequest, opts ...grpc.CallOption) (*v12.StructuredLogRecords, error) {
+	out := new(v12.StructuredLogRecords)
+	err := c.cc.Invoke(ctx, Management_GetAgentLogs_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ManagementServer is the server API for Management service.
 // All implementations must embed UnimplementedManagementServer
 // for forward compatibility
@@ -513,6 +525,7 @@ type ManagementServer interface {
 	CancelCapabilityUninstall(context.Context, *CapabilityUninstallCancelRequest) (*emptypb.Empty, error)
 	GetDashboardSettings(context.Context, *emptypb.Empty) (*DashboardSettings, error)
 	UpdateDashboardSettings(context.Context, *DashboardSettings) (*emptypb.Empty, error)
+	GetAgentLogs(context.Context, *StreamAgentLogsRequest) (*v12.StructuredLogRecords, error)
 	mustEmbedUnimplementedManagementServer()
 }
 
@@ -624,6 +637,9 @@ func (UnimplementedManagementServer) GetDashboardSettings(context.Context, *empt
 }
 func (UnimplementedManagementServer) UpdateDashboardSettings(context.Context, *DashboardSettings) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateDashboardSettings not implemented")
+}
+func (UnimplementedManagementServer) GetAgentLogs(context.Context, *StreamAgentLogsRequest) (*v12.StructuredLogRecords, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAgentLogs not implemented")
 }
 func (UnimplementedManagementServer) mustEmbedUnimplementedManagementServer() {}
 
@@ -1274,6 +1290,24 @@ func _Management_UpdateDashboardSettings_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Management_GetAgentLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StreamAgentLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).GetAgentLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Management_GetAgentLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).GetAgentLogs(ctx, req.(*StreamAgentLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Management_ServiceDesc is the grpc.ServiceDesc for Management service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1412,6 +1446,10 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateDashboardSettings",
 			Handler:    _Management_UpdateDashboardSettings_Handler,
+		},
+		{
+			MethodName: "GetAgentLogs",
+			Handler:    _Management_GetAgentLogs_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

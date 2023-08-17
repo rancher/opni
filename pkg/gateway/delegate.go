@@ -170,3 +170,14 @@ func (d *DelegateServer) Broadcast(ctx context.Context, req *streamv1.BroadcastM
 
 	return reply, nil
 }
+
+func (d *DelegateServer) UseClient(target *corev1.Reference, fn func(cc grpc.ClientConnInterface)) error {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	if t, ok := d.activeAgents[target.Id]; ok {
+		fn(t.ClientConnInterface)
+		return nil
+	} else {
+		return status.Error(codes.NotFound, "target not found")
+	}
+}

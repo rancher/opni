@@ -24,6 +24,7 @@ import (
 	"github.com/rancher/opni/pkg/ident/identserver"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/pkg/logger/remotelogs"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
@@ -118,11 +119,25 @@ func WithRebootstrap(rebootstrap bool) AgentOption {
 func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*Agent, error) {
 	options := AgentOptions{}
 	options.apply(opts...)
+
+	initCtx, initCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer initCancel()
+
+	ipBuilder, err := ident.GetProviderBuilder(conf.Spec.IdentityProvider)
+	if err != nil {
+		return nil, fmt.Errorf("configuration error: %w", err)
+	}
+	ip := ipBuilder()
+	id, err := ip.UniqueIdentifier(initCtx)
+	if err != nil {
+		return nil, fmt.Errorf("error getting unique identifier: %w", err)
+	}
+
 	level := logger.DefaultLogLevel.Level()
 	if conf.Spec.LogLevel != "" {
 		level = logger.ParseLevel(conf.Spec.LogLevel)
 	}
-	lg := logger.New(logger.WithLogLevel(level)).WithGroup("agent")
+	lg := logger.New(logger.WithLogLevel(level), logger.WithRemoteSource(id)).WithGroup("agent")
 	lg.Debug(fmt.Sprintf("using log level: %s", level.String()))
 
 	var pl *plugins.PluginLoader
@@ -196,19 +211,6 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	)
 	if err != nil {
 		return nil, fmt.Errorf("agent upgrade configuration error: %w", err)
-	}
-
-	initCtx, initCancel := context.WithTimeout(ctx, 10*time.Second)
-	defer initCancel()
-
-	ipBuilder, err := ident.GetProviderBuilder(conf.Spec.IdentityProvider)
-	if err != nil {
-		return nil, fmt.Errorf("configuration error: %w", err)
-	}
-	ip := ipBuilder()
-	id, err := ip.UniqueIdentifier(initCtx)
-	if err != nil {
-		return nil, fmt.Errorf("error getting unique identifier: %w", err)
 	}
 
 	sb, err := machinery.ConfigureStorageBackend(initCtx, &conf.Spec.Storage)
@@ -310,6 +312,14 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 			"plugin", md.Module,
 		).Debug("loaded stream api extension plugin")
 		gatewayClient.RegisterSplicedStream(cc, md.Filename())
+	}))
+
+	ls := remotelogs.NewLogServer()
+	controlv1.RegisterLogServer(gatewayClient, ls)
+
+	pl.Hook(hooks.OnLoadMC(func(lc controlv1.LogClient, m meta.PluginMeta, cc *grpc.ClientConn) {
+		client := controlv1.NewLogClient(cc)
+		ls.AddClient(m.Filename(), client)
 	}))
 
 	return &Agent{

@@ -8,8 +8,11 @@ on an AlertManager config.
 import (
 	"fmt"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
+
+	"slices"
 
 	amCfg "github.com/prometheus/alertmanager/config"
 	"github.com/prometheus/alertmanager/pkg/labels"
@@ -21,7 +24,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -364,9 +366,7 @@ func (o *OpniRouterV1) BuildConfig() (*config.Config, error) {
 
 		if _, ok := o.DefaultNamespaceConfigs[recvName]; ok {
 			endpIds := lo.Keys(o.DefaultNamespaceConfigs[recvName])
-			slices.SortFunc(endpIds, func(a, b string) bool {
-				return a < b
-			})
+			slices.SortFunc(endpIds, strings.Compare)
 			opniReceivers := make([]config.OpniReceiver, len(endpIds))
 			for i, endpId := range endpIds {
 				opniReceivers[i] = o.DefaultNamespaceConfigs[recvName][endpId]
@@ -386,14 +386,10 @@ func (o *OpniRouterV1) BuildConfig() (*config.Config, error) {
 	opniRoutes := []*config.Route{}
 	opniReceivers := []*config.Receiver{}
 	namespaces := lo.Keys(o.NamespacedSpecs) // needs to be deterministically ordered
-	slices.SortFunc(namespaces, func(a, b string) bool {
-		return a < b
-	})
+	slices.SortFunc(namespaces, strings.Compare)
 	for _, namespace := range namespaces {
 		routeIds := lo.Keys(o.NamespacedSpecs[namespace]) // needs to be deterministically ordered
-		slices.SortFunc(routeIds, func(a, b string) bool {
-			return a < b
-		})
+		slices.SortFunc(routeIds, strings.Compare)
 		namespacedSubTree, _ := NewNamespaceTree(namespace)
 		for _, routeId := range routeIds {
 			if len(o.NamespacedSpecs[namespace][routeId]) == 0 {
@@ -401,9 +397,7 @@ func (o *OpniRouterV1) BuildConfig() (*config.Config, error) {
 				continue
 			}
 			endpointIds := lo.Keys(o.NamespacedSpecs[namespace][routeId]) // needs to be deterministically ordered
-			slices.SortFunc(endpointIds, func(a, b string) bool {
-				return a < b
-			})
+			slices.SortFunc(endpointIds, strings.Compare)
 			endpoints := make([]config.OpniReceiver, len(endpointIds))
 			for i, endpointId := range endpointIds {
 				endpoints[i] = o.NamespacedSpecs[namespace][routeId][endpointId]
@@ -447,8 +441,8 @@ func (o *OpniRouterV1) BuildConfig() (*config.Config, error) {
 			}
 		}
 	}
-	slices.SortFunc(opniReceivers, func(a, b *config.Receiver) bool {
-		return a.Name < b.Name
+	slices.SortFunc(opniReceivers, func(a, b *config.Receiver) int {
+		return strings.Compare(a.Name, b.Name)
 	})
 	//prepend
 	root.Receivers = append(opniReceivers, root.Receivers...)

@@ -3,11 +3,12 @@ package noop
 import (
 	"context"
 
+	"slices"
+
 	"github.com/prometheus/client_golang/prometheus"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/update"
 	"github.com/rancher/opni/pkg/urn"
-	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

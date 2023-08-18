@@ -6,9 +6,10 @@ import (
 	"regexp"
 	"text/template"
 
+	"slices"
+
 	"github.com/prometheus/common/model"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 

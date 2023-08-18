@@ -15,11 +15,12 @@ import (
 	patchserver "github.com/rancher/opni/pkg/update/patch/server"
 	"github.com/spf13/afero"
 
+	"slices"
+
 	"github.com/hashicorp/go-plugin"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
 	"golang.org/x/mod/module"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

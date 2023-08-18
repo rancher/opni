@@ -1,7 +1,10 @@
 package routing
 
 import (
+	"strings"
 	"time"
+
+	"slices"
 
 	"github.com/prometheus/alertmanager/pkg/labels"
 	"github.com/prometheus/common/model"
@@ -11,7 +14,6 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 )
 
 func abs(x int) int {
@@ -35,8 +37,8 @@ func NotificationSubTreeLabel() string {
 func NotificationSubTreeValues() []RouteValues {
 	// sorted by ascending severity
 	severityKey := lo.Keys(alertingv1.OpniSeverity_name)
-	slices.SortFunc(severityKey, func(a, b int32) bool {
-		return a < b
+	slices.SortFunc(severityKey, func(a, b int32) int {
+		return int(a - b)
 	})
 	res := []RouteValues{}
 	n := len(alertingv1.OpniSeverity_name)
@@ -93,8 +95,8 @@ func NewRoutingTree(cfg *config.WebhookConfig) *config.Config {
 	metricsSubtree := NewOpniMetricsSubtree()
 	root.Route.Routes = append(root.Route.Routes, subtree)
 	root.Route.Routes = append(root.Route.Routes, metricsSubtree)
-	slices.SortFunc(recvs, func(a, b *config.Receiver) bool {
-		return a.Name < b.Name
+	slices.SortFunc(recvs, func(a, b *config.Receiver) int {
+		return strings.Compare(a.Name, b.Name)
 	})
 	// !! finalizer route must always be last
 	root.Receivers = append(recvs, root.Receivers...)

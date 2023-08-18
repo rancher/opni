@@ -11,11 +11,12 @@ import (
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 	"google.golang.org/protobuf/encoding/prototext"
 
+	"slices"
+
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 )
 
 func RenderClusterListWithStats(list *corev1.ClusterList, status []*corev1.HealthStatus, stats *cortexadmin.UserIDStatsList) string {

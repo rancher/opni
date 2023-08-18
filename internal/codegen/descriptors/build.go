@@ -6,13 +6,13 @@ import (
 	"net"
 	"path"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/iancoleman/strcase"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/desc/builder"
 	"github.com/rancher/opni/internal/codegen/cli"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/runtime/protoimpl"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -67,8 +67,8 @@ func fixupMessageNames(mainMsg reflect.Type, cache map[reflect.Type]*builder.Mes
 	for k := range cache {
 		sortedCache = append(sortedCache, k)
 	}
-	slices.SortFunc(sortedCache, func(a, b reflect.Type) bool {
-		return path.Join(a.PkgPath(), a.Name()) < path.Join(b.PkgPath(), b.Name())
+	slices.SortFunc(sortedCache, func(a, b reflect.Type) int {
+		return strings.Compare(path.Join(a.PkgPath(), a.Name()), path.Join(b.PkgPath(), b.Name()))
 	})
 
 	result = append(result, cache[mainMsg])

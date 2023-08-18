@@ -8,11 +8,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"slices"
+
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/knadh/koanf/providers/structs"
 	"github.com/knadh/koanf/v2"
-	"golang.org/x/exp/slices"
 )
 
 type answerWriter struct {

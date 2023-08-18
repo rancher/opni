@@ -4,8 +4,9 @@ import (
 	"context"
 	"sync"
 
+	"slices"
+
 	"github.com/google/go-cmp/cmp"
-	"golang.org/x/exp/slices"
 )
 
 type test struct {

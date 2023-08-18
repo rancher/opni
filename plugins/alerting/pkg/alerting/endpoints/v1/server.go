@@ -2,6 +2,7 @@ package endpoints
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/message"
@@ -14,7 +15,8 @@ import (
 	"github.com/samber/lo"
 	lop "github.com/samber/lo/parallel"
 
-	"golang.org/x/exp/slices"
+	"slices"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -177,8 +179,8 @@ func (e *EndpointServerComponent) ListAlertEndpoints(
 	}
 
 	slices.SortFunc(
-		items, func(i, j *alertingv1.AlertEndpointWithId) bool {
-			return i.Endpoint.Name < j.Endpoint.Name
+		items, func(i, j *alertingv1.AlertEndpointWithId) int {
+			return strings.Compare(i.Endpoint.Name, j.Endpoint.Name)
 		},
 	)
 	return &alertingv1.AlertEndpointList{Items: items}, nil

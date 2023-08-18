@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"slices"
+
 	"emperror.dev/errors"
 	"github.com/google/uuid"
 	prommodel "github.com/prometheus/common/model"
@@ -19,7 +21,6 @@ import (
 	sloapi "github.com/rancher/opni/plugins/slo/apis/slo"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

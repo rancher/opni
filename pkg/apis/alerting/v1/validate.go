@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"strings"
 
+	"slices"
+
 	promql "github.com/prometheus/prometheus/promql/parser"
 	"github.com/rancher/opni/pkg/alerting/message"
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -13,7 +15,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 )
 
 func validComparionOperator(op string) error {

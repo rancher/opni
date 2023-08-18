@@ -10,6 +10,8 @@ import (
 	"os"
 	"reflect"
 
+	"slices"
+
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -20,7 +22,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

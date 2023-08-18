@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"slices"
+
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -17,7 +19,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -260,8 +261,8 @@ func logTaskProgress(ctx context.Context, cluster, name string) error {
 		for _, tr := range status.GetTransitions() {
 			allLogs = append(allLogs, tr)
 		}
-		slices.SortFunc(allLogs, func(a, b corev1.TimestampedLog) bool {
-			return a.GetTimestamp().AsTime().Before(b.GetTimestamp().AsTime())
+		slices.SortFunc(allLogs, func(a, b corev1.TimestampedLog) int {
+			return a.GetTimestamp().AsTime().Compare(b.GetTimestamp().AsTime())
 		})
 		allLogs = lo.DropWhile(allLogs, func(t corev1.TimestampedLog) bool {
 			return !t.GetTimestamp().AsTime().After(lastLogTimestamp)

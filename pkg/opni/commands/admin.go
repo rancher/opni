@@ -9,10 +9,11 @@ import (
 	"sync"
 	"time"
 
+	"slices"
+
 	"github.com/araddon/dateparse"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
 
 	"github.com/olebedev/when"

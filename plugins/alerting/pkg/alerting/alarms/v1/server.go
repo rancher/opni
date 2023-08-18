@@ -473,12 +473,16 @@ func (a *AlarmServerComponent) Timeline(ctx context.Context, req *alertingv1.Tim
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	yieldedValues := make(chan lo.Tuple2[string, *alertingv1.ActiveWindows])
+	yieldedValues := make(chan lo.Tuple2[*alertingv1.ConditionReference, *alertingv1.ActiveWindows])
 	go func() {
 		n := int(req.Limit)
 		pool := pond.New(max(25, n/10), n, pond.Strategy(pond.Balanced()))
 		for _, cond := range conditions {
 			cond := cond
+			ref := &alertingv1.ConditionReference{
+				Id:      cond.Id,
+				GroupId: cond.GroupId,
+			}
 			pool.Submit(func() {
 				if alertingv1.IsInternalCondition(cond) {
 					activeWindows, err := a.incidentStorage.Get().GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
@@ -486,9 +490,14 @@ func (a *AlarmServerComponent) Timeline(ctx context.Context, req *alertingv1.Tim
 						a.logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
 						return
 					}
-					yieldedValues <- lo.Tuple2[string, *alertingv1.ActiveWindows]{A: cond.Id, B: &alertingv1.ActiveWindows{
-						Windows: activeWindows,
-					}}
+					for _, w := range activeWindows {
+						w.Ref = ref
+					}
+					yieldedValues <- lo.Tuple2[*alertingv1.ConditionReference, *alertingv1.ActiveWindows]{
+						A: ref,
+						B: &alertingv1.ActiveWindows{
+							Windows: activeWindows,
+						}}
 				}
 
 				if alertingv1.IsMetricsCondition(cond) {
@@ -513,10 +522,17 @@ func (a *AlarmServerComponent) Timeline(ctx context.Context, req *alertingv1.Tim
 						lg.Errorf("expected to get matrix from prometheus response : %s", err)
 						return
 					}
+					windows := cortex.ReducePrometheusMatrix(matrix)
+					for _, w := range windows {
+						w.Ref = ref
+					}
 					lg.With("reduce-matrix", cond.Id).Infof("looking to reduce %d potential causes", len(*matrix))
-					yieldedValues <- lo.Tuple2[string, *alertingv1.ActiveWindows]{A: cond.Id, B: &alertingv1.ActiveWindows{
-						Windows: cortex.ReducePrometheusMatrix(matrix),
-					}}
+					yieldedValues <- lo.Tuple2[*alertingv1.ConditionReference, *alertingv1.ActiveWindows]{
+						A: ref,
+						B: &alertingv1.ActiveWindows{
+							Windows: windows,
+						},
+					}
 				}
 			})
 		}
@@ -532,7 +548,8 @@ func (a *AlarmServerComponent) Timeline(ctx context.Context, req *alertingv1.Tim
 			if !ok {
 				return resp, nil
 			}
-			resp.Items[v.A] = v.B
+			id := v.A.Id
+			resp.Items[id] = v.B
 		}
 	}
 }

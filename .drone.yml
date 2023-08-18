@@ -65,7 +65,7 @@ steps:
     environment: *environment
     volumes: *volumes
     commands:
-      - go run ./dagger -c dagger/ci/defaults,dagger/ci/push,dagger/ci/push-charts,dagger/ci/tag-latest --lint=false --test=false
+      - go run ./dagger -c dagger/ci/defaults,dagger/ci/push,dagger/ci/push-charts,dagger/ci/tag-latest,dagger/ci/tag-release --lint=false --test=false
     when:
       event:
         - tag

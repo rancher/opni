@@ -90,6 +90,15 @@ func (r *Reconciler) hostLoggingVolumes() (
 			},
 		},
 	})
+
+	if config.Spec.KubeAuditLogs != nil && config.Spec.KubeAuditLogs.LogPath != "" {
+		retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
+			Name:      "kubeauditlogs",
+			MountPath: config.Spec.KubeAuditLogs.LogPath,
+			ReadOnly:  true,
+		})
+	}
+
 	switch config.Spec.Provider {
 	case opniloggingv1beta1.LogProviderRKE:
 		retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{

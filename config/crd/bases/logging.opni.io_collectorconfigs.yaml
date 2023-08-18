@@ -39,6 +39,11 @@ spec:
                   logPath:
                     type: string
                 type: object
+              kubeAuditLogs:
+                properties:
+                  logPath:
+                    type: string
+                type: object
               provider:
                 enum:
                 - aks

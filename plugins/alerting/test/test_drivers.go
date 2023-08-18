@@ -25,6 +25,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
+	"github.com/rancher/opni/pkg/alerting/extensions"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
@@ -88,6 +89,8 @@ type TestEnvAlertingClusterDriver struct {
 	alertops.UnsafeAlertingAdminServer
 	client.AlertingClient
 
+	embdServerAddress string
+
 	subscribers []chan []client.AlertingPeer
 }
 
@@ -106,12 +109,17 @@ func NewTestEnvAlertingClusterDriver(env *test.Environment, options TestEnvAlert
 	lg := logger.NewPluginLogger().Named("alerting-test-cluster-driver")
 	lg = lg.With("config-file", configFile)
 
+	initial := &atomic.Bool{}
+	initial.Store(false)
+	ePort := freeport.GetFreePort()
+	opniAddr := fmt.Sprintf("127.0.0.1:%d", ePort)
+	_ = extensions.StartOpniEmbeddedServer(env.Context(), opniAddr, false)
 	rTree := routing.NewRoutingTree(&config.WebhookConfig{
 		NotifierConfig: config.NotifierConfig{
 			VSendResolved: false,
 		},
 		URL: &amCfg.URL{
-			URL: util.Must(url.Parse("http://localhost:6006")),
+			URL: util.Must(url.Parse(fmt.Sprintf("http://%s", opniAddr))),
 		},
 	})
 	rTreeBytes, err := yaml.Marshal(rTree)
@@ -122,8 +130,6 @@ func NewTestEnvAlertingClusterDriver(env *test.Environment, options TestEnvAlert
 	if err != nil {
 		panic(err)
 	}
-	initial := &atomic.Bool{}
-	initial.Store(false)
 
 	return &TestEnvAlertingClusterDriver{
 		env:                    env,
@@ -134,9 +140,10 @@ func NewTestEnvAlertingClusterDriver(env *test.Environment, options TestEnvAlert
 		ClusterConfiguration: &alertops.ClusterConfiguration{
 			ResourceLimits: &alertops.ResourceLimitSpec{},
 		},
-		logger:      lg,
-		subscribers: options.Subscribers,
-		stateMu:     &sync.RWMutex{},
+		logger:            lg,
+		subscribers:       options.Subscribers,
+		stateMu:           &sync.RWMutex{},
+		embdServerAddress: opniAddr,
 	}
 }
 
@@ -179,7 +186,7 @@ func (l *TestEnvAlertingClusterDriver) ConfigureCluster(_ context.Context, confi
 	for _, inst := range l.managedInstances {
 		peers = append(peers, client.AlertingPeer{
 			ApiAddress:      fmt.Sprintf("http://127.0.0.1:%d", inst.AlertManagerPort),
-			EmbeddedAddress: "http://127.0.0.1:6006",
+			EmbeddedAddress: fmt.Sprintf("http://%s", l.embdServerAddress),
 		})
 	}
 	l.AlertingClient.MemberlistClient().SetKnownPeers(peers)
@@ -234,14 +241,14 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(_ context.Context, _ *empt
 	l.AlertingClient = client.NewClient(
 		nil,
 		fmt.Sprintf("http://127.0.0.1:%d", l.managedInstances[0].AlertManagerPort),
-		"http://127.0.0.1:6006",
+		fmt.Sprintf("http://%s", l.embdServerAddress),
 	)
 
 	peers := []client.AlertingPeer{}
 	for _, inst := range l.managedInstances {
 		peers = append(peers, client.AlertingPeer{
 			ApiAddress:      fmt.Sprintf("http://127.0.0.1:%d", inst.AlertManagerPort),
-			EmbeddedAddress: "http://127.0.0.1:6006",
+			EmbeddedAddress: fmt.Sprintf("http://%s", l.embdServerAddress),
 		})
 	}
 	l.AlertingClient.MemberlistClient().SetKnownPeers(peers)

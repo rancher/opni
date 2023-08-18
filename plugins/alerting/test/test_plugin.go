@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/agent"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
+	endpointv1 "github.com/rancher/opni/plugins/alerting/pkg/alerting/endpoints/v1"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -59,6 +60,7 @@ func init() {
 	alarms.CapabilityStreamEvaluateInterval = time.Minute * 100
 	alarms.CortexStreamEvaluateInterval = time.Second * 1
 	test.EnablePlugin(meta.ModeAgent, agent.Scheme)
+	endpointv1.RetryTestEdnpoint = time.Millisecond * 50
 
 	agent.RuleSyncInterval = time.Second * 1
 }

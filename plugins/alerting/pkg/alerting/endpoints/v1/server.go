@@ -6,6 +6,7 @@ import (
 	"time"
 
 	amCfg "github.com/prometheus/alertmanager/config"
+	"github.com/prometheus/alertmanager/pkg/labels"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/message"
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -25,6 +26,10 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+var (
+	RetryTestEdnpoint = 1 * time.Second
 )
 
 var _ alertingv1.AlertEndpointsServer = (*EndpointServerComponent)(nil)
@@ -269,6 +274,32 @@ func (e *EndpointServerComponent) TestAlertEndpoint(ctx context.Context, req *al
 		return nil, err
 	}
 	go func() { // create, trigger, delete
+		ctxTimeout, ca := context.WithTimeout(e.ctx, 30*time.Second)
+		t := time.NewTicker(RetryTestEdnpoint)
+		defer func() {
+			t.Stop()
+			ca()
+			router.SetNamespaceSpec("test", ephemeralId, &alertingv1.FullAttachedEndpoints{
+				Items: []*alertingv1.FullAttachedEndpoint{},
+			})
+		}()
+		e.logger.Warn("Test alert endpoint is running in the background")
+		for {
+			isLoaded := false
+			select {
+			case <-ctxTimeout.Done():
+				e.logger.Errorf("failed to find loaded receiver when testing endpoint")
+				return
+			case <-t.C:
+				if _, err := e.Client.ConfigClient().GetReceiver(ctxTimeout, ephemeralId); err != nil {
+					isLoaded = true
+				}
+			}
+			if isLoaded {
+				break
+			}
+		}
+
 		_, err = e.notifications.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
 			ConditionId: &corev1.Reference{Id: ephemeralId},
 			Namespace:   ns,
@@ -282,13 +313,33 @@ func (e *EndpointServerComponent) TestAlertEndpoint(ctx context.Context, req *al
 		})
 		if err != nil {
 			e.logger.Errorf("Failed to trigger alert %s", err)
-		}
-		// - delete ephemeral dispatcher
-		if err := router.SetNamespaceSpec("test", ephemeralId, &alertingv1.FullAttachedEndpoints{
-			Items: []*alertingv1.FullAttachedEndpoint{},
-		}); err != nil {
 			return
 		}
+		matchers := []*labels.Matcher{
+			{
+				Type:  labels.MatchEqual,
+				Name:  ns,
+				Value: ephemeralId,
+			},
+		}
+
+		for {
+			hasAlerted := false
+			select {
+			case <-ctxTimeout.Done():
+				e.logger.Warn("failed to find alert when testing endpoint")
+				return
+			case <-t.C:
+				if _, err := e.Client.AlertClient().GetAlert(ctxTimeout, matchers); err == nil {
+					hasAlerted = true
+				}
+			}
+			if hasAlerted {
+				break
+			}
+		}
+		e.logger.Debug("successfully tested endpoint")
+
 	}()
 
 	return &alertingv1.TestAlertEndpointResponse{}, nil

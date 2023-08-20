@@ -84,17 +84,6 @@ func Main(args []string) {
 		name += "-" + cfg.Target[0]
 	}
 
-	//////////////////////////////////////////////////////////////////////////////
-	// Opni Custom Logic: Translate jaeger config
-	if os.Getenv("OTEL_TRACES_EXPORTER") == "jaeger" {
-		endpoint := os.Getenv("OTEL_EXPORTER_JAEGER_ENDPOINT")
-		if endpoint == "" {
-			endpoint = "http://localhost:14268/api/traces"
-		}
-		os.Setenv("JAEGER_AGENT_HOST", endpoint)
-	}
-	//////////////////////////////////////////////////////////////////////////////
-
 	if closeTracing, err := tracing.SetupTracing(ctx, name, cfg.Tracing); err != nil {
 		level.Error(util_log.Logger).Log("msg", "Failed to setup tracing", "err", err.Error())
 	} else {

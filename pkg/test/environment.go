@@ -74,6 +74,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/ttacon/chalk"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.opentelemetry.io/otel/sdk/resource"
+	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -1558,7 +1560,12 @@ func (e *Environment) NewStreamConnection(pins []string) (grpc.ClientConnInterfa
 
 	ts, err := totem.NewServer(
 		stream,
-		totem.WithName("gateway-client"),
+		totem.WithName("testenv"),
+		totem.WithTracerOptions(
+			resource.WithAttributes(
+				semconv.ServiceNameKey.String("testenv"),
+			),
+		),
 	)
 	if err != nil {
 		outC <- err

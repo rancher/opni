@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"slices"
+
 	"github.com/golang/mock/gomock"
 	sync2 "github.com/kralicky/gpkg/sync"
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -15,7 +17,6 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
 )

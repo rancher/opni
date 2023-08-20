@@ -3,8 +3,10 @@ package stream
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/hashicorp/go-plugin"
@@ -17,6 +19,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
+	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
 )
@@ -57,7 +60,8 @@ func NewGatewayPlugin(p StreamAPIExtension, opts ...GatewayStreamApiExtensionPlu
 	name := "unknown"
 	if ok {
 		fnName := fn.Name()
-		name = fnName[strings.LastIndex(fnName, "plugins/")+len("plugins/") : strings.LastIndex(fnName, ".")]
+		parts := strings.Split(fnName, "/")
+		name = fmt.Sprintf("plugin_%s", parts[slices.Index(parts, "plugins")+1])
 	}
 
 	ext := &gatewayStreamExtensionServerImpl{
@@ -71,7 +75,8 @@ func NewGatewayPlugin(p StreamAPIExtension, opts ...GatewayStreamApiExtensionPlu
 				metric.WithResource(resource.NewSchemaless(
 					attribute.Key("plugin").String(name),
 					attribute.String("system", "opni_gateway"),
-				)))
+				)),
+			)
 		}
 		servers := p.StreamServers()
 		for _, srv := range servers {
@@ -113,7 +118,16 @@ func (e *gatewayStreamExtensionServerImpl) Connect(stream streamv1.Stream_Connec
 		zap.String("id", id),
 	).Debug("stream connected")
 
-	opts := []totem.ServerOption{totem.WithName("plugin_" + e.name)}
+	opts := []totem.ServerOption{
+		totem.WithName("gateway-apiext"),
+		totem.WithTracerOptions(
+			resource.WithAttributes(
+				semconv.ServiceNameKey.String(e.name),
+				attribute.String("mode", "gateway"),
+				attribute.String("agent", id),
+			),
+		),
+	}
 
 	if e.meterProvider != nil {
 		var labels []attribute.KeyValue
@@ -161,7 +175,16 @@ func (e *gatewayStreamExtensionServerImpl) ConnectInternal(stream apiextensions.
 
 	e.logger.Debug("internal gateway stream connected")
 
-	ts, err := totem.NewServer(stream)
+	ts, err := totem.NewServer(
+		stream,
+		totem.WithName("gateway-internal-client"),
+		totem.WithTracerOptions(
+			resource.WithAttributes(
+				semconv.ServiceNameKey.String("gateway-internal-client"),
+				semconv.ServiceInstanceIDKey.String(e.name),
+			),
+		),
+	)
 	if err != nil {
 		return err
 	}

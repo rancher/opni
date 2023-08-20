@@ -12,6 +12,9 @@ import (
 	authv2 "github.com/rancher/opni/pkg/auth/cluster/v2"
 	"github.com/rancher/opni/pkg/auth/session"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/sdk/resource"
+	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -167,11 +170,17 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 
 	ts, err := totem.NewServer(
 		stream,
-		totem.WithName("gateway-client"),
+		totem.WithName("agent"),
 		totem.WithInterceptors(totem.InterceptorConfig{
 			Incoming: cachingInterceptor.UnaryServerInterceptor(),
 			Outgoing: cachingInterceptor.UnaryClientInterceptor(),
 		}),
+		totem.WithTracerOptions(
+			resource.WithAttributes(
+				semconv.ServiceNameKey.String("agent"),
+				semconv.ServiceInstanceIDKey.String(authorizedId),
+			),
+		),
 	)
 	if err != nil {
 		return nil, future.Instant(fmt.Errorf("failed to create totem server: %w", err))
@@ -184,20 +193,27 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 
 	for _, sc := range gc.spliced {
 		sc := sc
+		name := fmt.Sprintf("agent|%s", sc.name)
 		streamClient := streamv1.NewStreamClient(sc.cc)
 		var headerMd metadata.MD
 		splicedStream, err := streamClient.Connect(ctx, grpc.Header(&headerMd))
 		if err != nil {
 			gc.logger.With(
-				zap.String("name", sc.name),
+				zap.String("name", name),
 				zap.Error(err),
 			).Warn("failed to connect to spliced stream, skipping")
 			continue
 		}
 
-		if err := ts.Splice(splicedStream, totem.WithStreamName(sc.name)); err != nil {
+		if err := ts.Splice(splicedStream,
+			totem.WithName(name),
+			totem.WithTracerOptions(resource.WithAttributes(
+				semconv.ServiceNameKey.String(name),
+				attribute.String("agent", authorizedId),
+			)),
+		); err != nil {
 			gc.logger.With(
-				zap.String("name", sc.name),
+				zap.String("name", name),
 				zap.Error(err),
 			).Warn("failed to splice remote stream, skipping")
 			continue
@@ -216,7 +232,7 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 				CorrelationId: correlationId,
 			}); err != nil {
 				gc.logger.With(
-					zap.String("name", sc.name),
+					zap.String("name", name),
 					zap.Error(err),
 				).Error("failed to notify remote stream")
 			}

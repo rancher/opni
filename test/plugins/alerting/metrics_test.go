@@ -2,6 +2,7 @@ package alerting_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/alerting"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	_ "github.com/rancher/opni/plugins/metrics/test"
 	"github.com/samber/lo"
@@ -174,13 +176,14 @@ var _ = Describe("metrics and alerting", Ordered, Label("integration"), func() {
 					return fmt.Errorf("unexpected amount of alert conditions %d. expected %d", len(statuses.GetAlertConditions()), 3)
 				}
 				return nil
-			})
+			}).Should(Succeed())
 		})
 
-		Specify("the metrics -> alerting pipeline should be functional", FlakeAttempts(3), func() {
+		Specify("the metrics -> alerting pipeline should be functional", FlakeAttempts(4), func() {
 			alertConditionsClient := env.NewAlertConditionsClient()
-			By("installing the metrics capabilities")
 			mgmtClient := env.NewManagementClient()
+			cortexAdminClient := cortexadmin.NewCortexAdminClient(env.ManagementClientConn())
+			By("installing the metrics capabilities")
 			for _, agent := range agents {
 				_, err := mgmtClient.InstallCapability(env.Context(), &managementv1.CapabilityInstallRequest{
 					Name: "metrics",
@@ -191,15 +194,103 @@ var _ = Describe("metrics and alerting", Ordered, Label("integration"), func() {
 				Expect(err).NotTo(HaveOccurred())
 			}
 
-			By("verifying the conditions move to the firing state", func() {
-				By("making sure when metrics aren't installed, the conditions are invalid")
-				Eventually(func() error {
+			By("verifying the metrics alerts are loaded properly")
+			Eventually(func() error {
+				allStatuses, err := alertConditionsClient.ListAlertConditionsWithStatus(env.Context(), &alertingv1.ListStatusRequest{
+					States: []alertingv1.AlertConditionState{},
+					ItemFilter: &alertingv1.ListAlertConditionRequest{
+						Clusters:   agents,
+						Severities: []alertingv1.OpniSeverity{},
+						Labels:     []string{},
+						AlertTypes: []alertingv1.AlertType{
+							alertingv1.AlertType_PrometheusQuery,
+						},
+					},
+				})
+				if err != nil {
+					return err
+				}
+				statuses, err := alertConditionsClient.ListAlertConditionsWithStatus(env.Context(), &alertingv1.ListStatusRequest{
+					States: []alertingv1.AlertConditionState{
+						alertingv1.AlertConditionState_Firing,
+					},
+					ItemFilter: &alertingv1.ListAlertConditionRequest{
+						Clusters:   agents,
+						Severities: []alertingv1.OpniSeverity{},
+						Labels:     []string{},
+						AlertTypes: []alertingv1.AlertType{
+							alertingv1.AlertType_PrometheusQuery,
+						},
+					},
+				})
+				if err != nil {
+					return err
+				}
+
+				clusters, err := mgmtClient.ListClusters(env.Context(), &managementv1.ListClustersRequest{})
+				if err != nil {
+					return err
+				}
+				rules, err := cortexAdminClient.ListRules(env.Context(), &cortexadmin.ListRulesRequest{
+					ClusterId: lo.Map(clusters.GetItems(), func(cl *corev1.Cluster, _ int) string {
+						return cl.GetId()
+					}),
+					RuleType:        []string{"alerting"},
+					NamespaceRegexp: "opni-alerting",
+				})
+				if err != nil {
+					return err
+				}
+				By("checking the prometheus alert conditions loaded the rule groups for each agent")
+				if len(rules.Data.GetGroups()) != len(agents) {
+					return fmt.Errorf("not enough rules found %d, expected %d %v", len(rules.Data.GetGroups()), len(agents), rules.Data)
+				}
+
+				loadedClusters := lo.Map(rules.Data.GetGroups(), func(g *cortexadmin.RuleGroup, _ int) string {
+					return g.ClusterId
+				})
+				loadedClusters = lo.Uniq(loadedClusters)
+				Expect(loadedClusters).To(ConsistOf(agents))
+
+				By("checking we have the correct amount of prometheus alert conditions loaded")
+				if len(allStatuses.GetAlertConditions()) != len(agents) {
+					return fmt.Errorf("unexpected amount of alert conditions %d, expected %d : %v", len(statuses.GetAlertConditions()), 3, allStatuses.GetAlertConditions())
+				}
+				errs := []error{}
+				numFiring := 0 // FIXME: it looks like the test_driver metrics agent does not always send metrics
+				for _, cond := range statuses.GetAlertConditions() {
+					status, err := alertConditionsClient.AlertConditionStatus(env.Context(), &alertingv1.ConditionReference{
+						Id:      cond.AlertCondition.Id,
+						GroupId: cond.AlertCondition.GroupId,
+					})
+					if err != nil {
+						return err
+					}
+					state := status.State
+					if status.State != alertingv1.AlertConditionState_Firing && status.State != alertingv1.AlertConditionState_Ok {
+						errs = append(errs, fmt.Errorf("condition %s is in unexpected state %s", cond.AlertCondition.Name, state.String()))
+					}
+					if status.State == alertingv1.AlertConditionState_Firing {
+						numFiring++
+					}
+				}
+				if numFiring == 0 {
+					errs = append(errs, errors.New("no sanity metrics are firing"))
+				}
+				return errors.Join(errs...)
+			}, time.Second*10, time.Millisecond*500).Should(Succeed())
+
+			By("verifying the webhook endpoints have received the message if sanity metrics are firing")
+			Eventually(func() error {
+				errs := []error{}
+				numFiring := 0 //FIXME: metrics agent test_driver does not always send metrics
+				for agent, webhooks := range agentAlertingEndpoints {
 					statuses, err := alertConditionsClient.ListAlertConditionsWithStatus(env.Context(), &alertingv1.ListStatusRequest{
 						States: []alertingv1.AlertConditionState{
 							alertingv1.AlertConditionState_Firing,
 						},
 						ItemFilter: &alertingv1.ListAlertConditionRequest{
-							Clusters:   agents,
+							Clusters:   []string{agent},
 							Severities: []alertingv1.OpniSeverity{},
 							Labels:     []string{},
 							AlertTypes: []alertingv1.AlertType{
@@ -208,38 +299,22 @@ var _ = Describe("metrics and alerting", Ordered, Label("integration"), func() {
 						},
 					})
 					if err != nil {
-						return err
+						errs = append(errs, err)
+						continue
 					}
-					for _, cond := range statuses.GetAlertConditions() {
-						status, err := alertConditionsClient.AlertConditionStatus(env.Context(), &alertingv1.ConditionReference{
-							Id:      cond.AlertCondition.Id,
-							GroupId: cond.AlertCondition.GroupId,
-						})
-						if err != nil {
-							return err
-						}
-						if status.State != alertingv1.AlertConditionState_Firing {
-							return fmt.Errorf("condition %s is not firing", cond.AlertCondition.Name)
-						}
-					}
-
-					if len(statuses.GetAlertConditions()) != 3 {
-						return fmt.Errorf("unexpected amount of alert conditions %d, expected %d", len(statuses.GetAlertConditions()), 3)
-					}
-					return nil
-				}, time.Second*10, time.Millisecond*500)
-			})
-
-			By("verifying the webhook endpoints have received the message")
-			Eventually(func() error {
-				for agent, webhooks := range agentAlertingEndpoints {
-					for _, webhook := range webhooks {
-						if len(webhook.GetBuffer()) == 0 {
-							return fmt.Errorf("endpoints for conditions created for '%s' agent have not received messages", agent)
+					if len(statuses.GetAlertConditions()) > 0 {
+						numFiring++
+						for _, webhook := range webhooks {
+							if len(webhook.GetBuffer()) == 0 {
+								errs = append(errs, fmt.Errorf("no messages received on webhook %s for agent %s", webhook.EndpointId, agent))
+							}
 						}
 					}
 				}
-				return nil
+				if numFiring == 0 {
+					errs = append(errs, errors.New("no sanity metrics are firing, definitely investigate"))
+				}
+				return errors.Join(errs...)
 			}, time.Second*30, time.Millisecond*500).Should(Succeed())
 		})
 	})

@@ -227,6 +227,8 @@ func (o *OpniRouterV1) HasReceivers(routingId string) []string {
 }
 
 func (o *OpniRouterV1) SetDefaultReceiver(cfg config.WebhookConfig) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
 	o.DefaultReceiver = cfg
 }
 

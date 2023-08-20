@@ -118,7 +118,7 @@ func NewTestEnvAlertingClusterDriver(env *test.Environment, options TestEnvAlert
 			VSendResolved: false,
 		},
 		URL: &amCfg.URL{
-			URL: util.Must(url.Parse(fmt.Sprintf("http://%s", opniAddr))),
+			URL: util.Must(url.Parse(fmt.Sprintf("http://%s%s", opniAddr, shared.AlertingDefaultHookName))),
 		},
 	})
 	rTreeBytes, err := yaml.Marshal(rTree)
@@ -143,6 +143,17 @@ func NewTestEnvAlertingClusterDriver(env *test.Environment, options TestEnvAlert
 		subscribers:       options.Subscribers,
 		stateMu:           &sync.RWMutex{},
 		embdServerAddress: opniAddr,
+	}
+}
+
+func (l *TestEnvAlertingClusterDriver) GetDefaultReceiver() *config.WebhookConfig {
+	return &config.WebhookConfig{
+		NotifierConfig: config.NotifierConfig{
+			VSendResolved: false,
+		},
+		URL: &amCfg.URL{
+			URL: util.Must(url.Parse(fmt.Sprintf("http://%s%s", l.embdServerAddress, shared.AlertingDefaultHookName))),
+		},
 	}
 }
 

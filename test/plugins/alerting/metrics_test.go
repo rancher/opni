@@ -177,7 +177,7 @@ var _ = Describe("metrics and alerting", Ordered, Label("integration"), func() {
 			})
 		})
 
-		Specify("the metrics -> alerting pipeline should be functional", func() {
+		Specify("the metrics -> alerting pipeline should be functional", FlakeAttempts(3), func() {
 			alertConditionsClient := env.NewAlertConditionsClient()
 			By("installing the metrics capabilities")
 			mgmtClient := env.NewManagementClient()

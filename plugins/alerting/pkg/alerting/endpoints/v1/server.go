@@ -238,12 +238,13 @@ func (e *EndpointServerComponent) TestAlertEndpoint(ctx context.Context, req *al
 		return nil, err
 	}
 	go func() { // create, trigger, delete
-		ctxTimeout, ca := context.WithTimeout(e.ctx, 30*time.Second)
+		start := time.Now()
+		ctxTimeout, ca := context.WithTimeout(e.ctx, 120*time.Second)
 		t := time.NewTicker(RetryTestEdnpoint)
 		defer func() {
 			t.Stop()
 			ca()
-			router.SetNamespaceSpec("test", ephemeralId, &alertingv1.FullAttachedEndpoints{
+			router.SetNamespaceSpec(ns, ephemeralId, &alertingv1.FullAttachedEndpoints{
 				Items: []*alertingv1.FullAttachedEndpoint{},
 			})
 		}()
@@ -255,14 +256,17 @@ func (e *EndpointServerComponent) TestAlertEndpoint(ctx context.Context, req *al
 				e.logger.Errorf("failed to find loaded receiver when testing endpoint")
 				return
 			case <-t.C:
+				e.mu.Lock()
 				if _, err := e.Client.ConfigClient().GetReceiver(ctxTimeout, ephemeralId); err != nil {
 					isLoaded = true
 				}
+				e.mu.Unlock()
 			}
 			if isLoaded {
 				break
 			}
 		}
+		e.logger.Warn("Test endpoint is loaded")
 
 		_, err = e.notifications.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
 			ConditionId: &corev1.Reference{Id: ephemeralId},
@@ -275,6 +279,8 @@ func (e *EndpointServerComponent) TestAlertEndpoint(ctx context.Context, req *al
 				ns: ephemeralId,
 			},
 		})
+
+		e.logger.Warn("tried to trigger alert")
 		if err != nil {
 			e.logger.Errorf("Failed to trigger alert %s", err)
 			return
@@ -294,15 +300,33 @@ func (e *EndpointServerComponent) TestAlertEndpoint(ctx context.Context, req *al
 				e.logger.Warn("failed to find alert when testing endpoint")
 				return
 			case <-t.C:
-				if _, err := e.Client.AlertClient().GetAlert(ctxTimeout, matchers); err == nil {
+				_, err = e.notifications.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
+					ConditionId: &corev1.Reference{Id: ephemeralId},
+					Namespace:   ns,
+					Annotations: map[string]string{
+						message.NotificationContentHeader:  "Test notification",
+						message.NotificationContentSummary: "Admin has sent a test notification",
+					},
+					Labels: map[string]string{
+						ns: ephemeralId,
+					},
+				})
+				if err != nil {
+					e.logger.Warnf("failed to trigger alert on test endpoint %s", err)
+				}
+				e.mu.Lock()
+				if ags, err := e.Client.AlertClient().GetAlert(ctxTimeout, matchers); err == nil && len(ags) > 0 {
 					hasAlerted = true
 				}
+				e.mu.Unlock()
 			}
 			if hasAlerted {
 				break
 			}
 		}
-		e.logger.Debug("successfully tested endpoint")
+		end := time.Now()
+		time.Sleep(time.Second * 30)
+		e.logger.Warnf("successfully tested endpoint %s", end.Sub(start))
 
 	}()
 

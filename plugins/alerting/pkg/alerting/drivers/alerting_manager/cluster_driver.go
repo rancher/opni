@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni/apis"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	alertingClient "github.com/rancher/opni/pkg/alerting/client"
+	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
@@ -338,6 +339,10 @@ func (a *AlertingClusterManager) notify(replicas int) {
 }
 
 func (a *AlertingClusterManager) ShouldDisableNode(_ *corev1.Reference) error {
+	return nil
+}
+
+func (a *AlertingClusterManager) GetDefaultReceiver() *config.WebhookConfig {
 	return nil
 }
 

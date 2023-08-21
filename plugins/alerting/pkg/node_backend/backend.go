@@ -84,10 +84,25 @@ var (
 	_ capabilityv1.BackendServer           = (*AlertingNodeBackend)(nil)
 )
 
-var FallbackDefaultNodeSpec = &node.AlertingCapabilitySpec{
-	RuleDiscovery: &node.RuleDiscoverySpec{
-		Enabled: true,
-	},
+var (
+	fallbackDefaultNodeSpec = &node.AlertingCapabilitySpec{
+		RuleDiscovery: &node.RuleDiscoverySpec{
+			Enabled: true,
+		},
+	}
+	specMu sync.RWMutex
+)
+
+func GetFallbackSpec() *node.AlertingCapabilitySpec {
+	specMu.RLock()
+	defer specMu.RUnlock()
+	return fallbackDefaultNodeSpec
+}
+
+func SetFallbackSpec(cfg *node.AlertingCapabilitySpec) {
+	specMu.Lock()
+	defer specMu.Unlock()
+	fallbackDefaultNodeSpec = cfg
 }
 
 func (a *AlertingNodeBackend) requestNodeSync(ctx context.Context, node *corev1.Reference) {
@@ -199,7 +214,7 @@ func (a *AlertingNodeBackend) SetNodeConfiguration(ctx context.Context, req *nod
 func (a *AlertingNodeBackend) getDefaultNodeSpec(ctx context.Context) (*node.AlertingCapabilitySpec, error) {
 	spec, err := a.capabilityKV.Get().DefaultCapabilitySpec.Get(ctx)
 	if status.Code(err) == codes.NotFound {
-		spec = FallbackDefaultNodeSpec
+		spec = GetFallbackSpec()
 	} else if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "failed to get default capability spec : %s", err)
 	}

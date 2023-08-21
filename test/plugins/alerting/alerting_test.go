@@ -149,8 +149,10 @@ func BuildAlertingClusterIntegrationTests(
 					ts := timestamppb.Now()
 					for _, comp := range info.Components {
 						Expect(comp.LastHandshake.AsTime()).To(BeTemporally("<", ts.AsTime()))
-						if comp.ConnectInfo.SyncId != info.CurSyncId {
-							Expect(comp.LastHandshake.AsTime()).To(BeTemporally(">", ts.AsTime().Add(15*(-time.Second))), "sync is stuttering")
+						if comp.ConnectInfo.GetState() != alertops.SyncState_Synced {
+							if comp.ConnectInfo.SyncId != info.CurSyncId {
+								Expect(comp.LastHandshake.AsTime()).To(BeTemporally(">", ts.AsTime().Add(15*(-time.Second))), "sync is stuttering")
+							}
 						}
 					}
 				}
@@ -636,7 +638,7 @@ func BuildAlertingClusterIntegrationTests(
 					}
 				})
 
-				XIt("should be able to push notifications to our notification endpoints", func() {
+				It("should be able to push notifications to our notification endpoints", func() {
 					Expect(len(notificationServers)).To(BeNumerically(">", 0))
 					By("forwarding the message to AlertManager")
 					_, err := alertNotificationsClient.PushNotification(env.Context(), &alertingv1.Notification{
@@ -660,7 +662,7 @@ func BuildAlertingClusterIntegrationTests(
 					}, time.Second*60, time.Second).Should(Succeed())
 				})
 
-				XIt("should be able to list opni messages", func() {
+				It("should be able to list opni messages", func() {
 					Eventually(func() error {
 						list, err := alertNotificationsClient.ListNotifications(env.Context(), &alertingv1.ListNotificationRequest{})
 						if err != nil {
@@ -670,7 +672,7 @@ func BuildAlertingClusterIntegrationTests(
 							return fmt.Errorf("expected to find at least one notification, got 0")
 						}
 						return nil
-					}, time.Second*60, time.Second).Should(BeNil())
+					}, time.Second*60, time.Second).Should(Succeed())
 
 					By("verifying we enforce limits")
 					list, err := alertNotificationsClient.ListNotifications(env.Context(), &alertingv1.ListNotificationRequest{

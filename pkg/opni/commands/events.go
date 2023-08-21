@@ -1,4 +1,4 @@
-//go:build !noevents
+//go:build !noevents && !cli
 
 package commands
 

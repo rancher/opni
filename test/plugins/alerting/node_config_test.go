@@ -130,7 +130,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		}).Should(Succeed())
 
 		// replace the standard default config with the test environment config
-		backend.FallbackDefaultNodeSpec = util.ProtoClone(defaultConfig)
+		backend.SetFallbackSpec(util.ProtoClone(defaultConfig))
 
 		spec, isDefault, err := getConfig("agent1")
 		Expect(err).NotTo(HaveOccurred())

@@ -116,7 +116,7 @@ message Limits {
   optional bool alertmanager_receivers_firewall_block_private_addresses = 54 [(cli.flag) = { default: "false" }];
   // Per-user rate limit for sending notifications from Alertmanager in notifications/sec. 0 = rate limit disabled. Negative value = no notifications are allowed.
   optional double alertmanager_notification_rate_limit = 55 [(cli.flag) = { default: "0" }];
-  // Per-integration notification rate limits. Value is a map, where each key is integration name and value is a rate-limit (float). On command line, this map is given in JSON format. Rate limit has the same meaning as -alertmanager.notification-rate-limit, but only applies for specific integration. Allowed integration names: webhook, email, pagerduty, opsgenie, wechat, slack, victorops, pushover, sns.
+  // Per-integration notification rate limits. Value is a map, where each key is integration name and value is a rate-limit (float). On command line, this map is given in JSON format. Rate limit has the same meaning as -alertmanager.notification-rate-limit, but only applies for specific integration. Allowed integration names: webhook, email, pagerduty, opsgenie, wechat, slack, victorops, pushover, sns, telegram, discord, webex.
   map<string, double> alertmanager_notification_rate_limit_per_integration = 56 [(cli.flag) = { default: "{}" }];
   // Maximum size of configuration file for Alertmanager that tenant can upload via Alertmanager API. 0 = no limit.
   optional int32 alertmanager_max_config_size_bytes = 57 [(cli.flag) = { default: "0" }];

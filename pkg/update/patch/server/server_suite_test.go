@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
+	"github.com/rancher/opni/pkg/config/v1beta1"
 	_ "github.com/rancher/opni/pkg/test/setup"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/update/patch"
@@ -41,8 +42,15 @@ var (
 		"test2": {},
 	}
 
-	test1v1tov2Patch = new(bytes.Buffer)
-	test2v1tov2Patch = new(bytes.Buffer)
+	test1v1tov2Patch = map[v1beta1.PatchEngine]*bytes.Buffer{
+		"bsdiff": new(bytes.Buffer),
+		"zstd":   new(bytes.Buffer),
+	}
+
+	test2v1tov2Patch = map[v1beta1.PatchEngine]*bytes.Buffer{
+		"bsdiff": new(bytes.Buffer),
+		"zstd":   new(bytes.Buffer),
+	}
 )
 
 var osfs = afero.Afero{Fs: afero.NewOsFs()}
@@ -113,24 +121,30 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(eg.Wait()).To(Succeed())
 
-	patcher := patch.BsdiffPatcher{}
+	patchers := map[v1beta1.PatchEngine]patch.BinaryPatcher{
+		v1beta1.PatchEngineBsdiff: patch.BsdiffPatcher{},
+		v1beta1.PatchEngineZstd:   patch.ZstdPatcher{},
+	}
 	eg = errgroup.Group{}
+	for name, patcher := range patchers {
+		name, patcher := name, patcher
 
-	eg.Go(func() error {
-		return patcher.GeneratePatch(
-			bytes.NewReader(testBinaries["test1"]["v1"]),
-			bytes.NewReader(testBinaries["test1"]["v2"]),
-			test1v1tov2Patch,
-		)
-	})
+		eg.Go(func() error {
+			return patcher.GeneratePatch(
+				bytes.NewReader(testBinaries["test1"]["v1"]),
+				bytes.NewReader(testBinaries["test1"]["v2"]),
+				test1v1tov2Patch[name],
+			)
+		})
 
-	eg.Go(func() error {
-		return patcher.GeneratePatch(
-			bytes.NewReader(testBinaries["test2"]["v1"]),
-			bytes.NewReader(testBinaries["test2"]["v2"]),
-			test2v1tov2Patch,
-		)
-	})
+		eg.Go(func() error {
+			return patcher.GeneratePatch(
+				bytes.NewReader(testBinaries["test2"]["v1"]),
+				bytes.NewReader(testBinaries["test2"]["v2"]),
+				test2v1tov2Patch[name],
+			)
+		})
+	}
 
 	Expect(eg.Wait()).To(Succeed())
 

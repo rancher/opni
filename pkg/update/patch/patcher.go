@@ -6,6 +6,7 @@ import (
 
 	"github.com/gabstv/go-bsdiff/pkg/bsdiff"
 	"github.com/gabstv/go-bsdiff/pkg/bspatch"
+	"github.com/klauspost/compress/zstd"
 )
 
 const (
@@ -39,6 +40,7 @@ func (BsdiffPatcher) CheckFormat(reader io.ReaderAt) bool {
 
 var allPatchEngines = []BinaryPatcher{
 	BsdiffPatcher{},
+	ZstdPatcher{},
 }
 
 func NewPatcherFromFormat(reader io.ReaderAt) (BinaryPatcher, bool) {
@@ -48,4 +50,64 @@ func NewPatcherFromFormat(reader io.ReaderAt) (BinaryPatcher, bool) {
 		}
 	}
 	return nil, false
+}
+
+type ZstdPatcher struct{}
+
+func (ZstdPatcher) GeneratePatch(old io.Reader, new io.Reader, patchOut io.Writer) (err error) {
+	dict, err := io.ReadAll(old)
+	if err != nil {
+		return err
+	}
+	enc, err := zstd.NewWriter(nil,
+		zstd.WithEncoderDictRaw(0, dict),
+		zstd.WithWindowSize(zstd.MaxWindowSize),
+		zstd.WithEncoderLevel(zstd.SpeedBestCompression),
+	)
+	defer enc.Close()
+	if err != nil {
+		return err
+	}
+	newBytes, err := io.ReadAll(new)
+	if err != nil {
+		return err
+	}
+	patch := enc.EncodeAll(newBytes, nil)
+	patchOut.Write(patch)
+	return nil
+}
+
+func (ZstdPatcher) ApplyPatch(old io.Reader, patch io.Reader, newOut io.Writer) (err error) {
+	dict, err := io.ReadAll(old)
+	if err != nil {
+		return err
+	}
+	patchBytes, err := io.ReadAll(patch)
+	if err != nil {
+		return err
+	}
+
+	dec, err := zstd.NewReader(nil,
+		zstd.WithDecoderDictRaw(0, dict),
+		zstd.WithDecoderLowmem(true),
+	)
+	if err != nil {
+		return err
+	}
+	defer dec.Close()
+	out, err := dec.DecodeAll(patchBytes, nil)
+	if err != nil {
+		return err
+	}
+	newOut.Write(out)
+	return nil
+}
+
+func (ZstdPatcher) CheckFormat(reader io.ReaderAt) bool {
+	header := "\x28\xb5\x2f\xfd"
+	buf := make([]byte, len(header))
+	if _, err := reader.ReadAt(buf, 0); err == nil {
+		return bytes.Equal(buf, []byte(header))
+	}
+	return false
 }

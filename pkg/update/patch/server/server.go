@@ -72,6 +72,8 @@ func NewFilesystemPluginSyncServer(
 	switch cfg.Binary.Cache.PatchEngine {
 	case v1beta1.PatchEngineBsdiff:
 		patchEngine = patch.BsdiffPatcher{}
+	case v1beta1.PatchEngineZstd:
+		patchEngine = patch.ZstdPatcher{}
 	default:
 		return nil, fmt.Errorf("unknown patch engine: %s", cfg.Binary.Cache.PatchEngine)
 	}

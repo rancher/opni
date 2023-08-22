@@ -50,3 +50,13 @@ mocks:
     dest: pkg/test/mock/update/update.go
     types:
       - UpdateTypeHandler
+  - source: plugins/alerting/apis/alertops/alertops_grpc.pb.go
+    dest: pkg/test/mock/alertops/alertops.go
+    types:
+      - ConfigReconcilerClient
+      - ConfigReconciler_SyncConfigClient
+      - ConfigReconciler_SyncConfigServer
+  - source: pkg/alerting/engn/syncer.go
+    dest: pkg/test/mock/alerting/engn/syncer.go
+    types:
+      - SyncConstructor

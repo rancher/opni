@@ -173,6 +173,13 @@ func (a *AlertManagerSyncerV1) recvMsgs(
 				a.lg.Infof("received sync (%s) config message", syncReq.SyncId)
 				if a.lastSyncId == syncReq.SyncId {
 					a.lg.Infof("already up to date")
+					//TODO : remove me, debugging only
+					data, err := os.ReadFile(a.serverConfig.AlertmanagerConfigPath)
+					if err != nil {
+						panic(err)
+					}
+					a.lg.Debug(string(data))
+					// end TODO
 					goto RECV
 				}
 				syncState := alertops.SyncState_Synced
@@ -218,7 +225,7 @@ func (a *AlertManagerSyncerV1) PutConfig(ctx context.Context, incomingConfig *al
 		return nil, status.Error(codes.Internal, fmt.Sprintf("failed to write config to file: %s", err))
 	}
 	lg.Debug("put config request received")
-
+	lg.Debug(string(incomingConfig.Config))
 	retrier := backoffv2.Exponential(
 		backoffv2.WithMaxRetries(5),
 		backoffv2.WithMinInterval(1*time.Second),

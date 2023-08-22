@@ -3,7 +3,10 @@ package alarms
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
+
+	"slices"
 
 	"github.com/alitto/pond"
 	"github.com/rancher/opni/pkg/alerting/drivers/cortex"
@@ -17,7 +20,6 @@ import (
 	"github.com/rancher/opni/pkg/validation"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -98,8 +100,8 @@ func (a *AlarmServerComponent) ListAlertConditions(ctx context.Context, req *ale
 			AlertCondition: allConds[i],
 		})
 	}
-	slices.SortFunc(res.Items, func(a, b *alertingv1.AlertConditionWithId) bool {
-		return a.AlertCondition.Name < b.AlertCondition.Name
+	slices.SortFunc(res.Items, func(a, b *alertingv1.AlertConditionWithId) int {
+		return strings.Compare(a.AlertCondition.Name, b.AlertCondition.Name)
 	})
 	return res, nil
 }

@@ -1,8 +1,9 @@
 package v1
 
 import (
-	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
+	"slices"
+
+	"maps"
 )
 
 type Comparator[T any] interface {

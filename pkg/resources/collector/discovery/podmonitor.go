@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	"slices"
+
 	promcommon "github.com/prometheus/common/config"
 	promcfg "github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v2"
 
 	promoperatorv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -179,8 +180,8 @@ func (p *podMonitorScrapeConfigRetriever) Yield() (cfg *promCRDOperatorConfig, r
 				}
 			}
 			numTargets += len(targets)
-			slices.SortFunc(targets, func(i, j target) bool {
-				return i.Less(j)
+			slices.SortFunc(targets, func(i, j target) int {
+				return i.Compare(j)
 			})
 			if len(targets) > 0 {
 				//de-dupe discovered targets

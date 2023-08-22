@@ -5,6 +5,8 @@ import (
 	"math"
 	"time"
 
+	"slices"
+
 	"github.com/google/uuid"
 	"github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
@@ -13,7 +15,6 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -157,8 +158,8 @@ func (n *NotificationServerComponent) ListNotifications(ctx context.Context, req
 		return nil, err
 	}
 
-	slices.SortFunc(resp.Items, func(a, b *alertingv1.MessageInstance) bool {
-		return a.ReceivedAt.AsTime().Before(b.ReceivedAt.AsTime())
+	slices.SortFunc(resp.Items, func(a, b *alertingv1.MessageInstance) int {
+		return a.ReceivedAt.AsTime().Compare(b.ReceivedAt.AsTime())
 	})
 	return resp, nil
 }
@@ -183,8 +184,8 @@ func (n *NotificationServerComponent) ListAlarmMessages(ctx context.Context, req
 	if err != nil {
 		return nil, err
 	}
-	slices.SortFunc(resp.Items, func(a, b *alertingv1.MessageInstance) bool {
-		return a.ReceivedAt.AsTime().Before(b.ReceivedAt.AsTime())
+	slices.SortFunc(resp.Items, func(a, b *alertingv1.MessageInstance) int {
+		return a.ReceivedAt.AsTime().Compare(b.ReceivedAt.AsTime())
 	})
 	return resp, nil
 }

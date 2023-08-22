@@ -9,8 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"slices"
+
 	"github.com/rancher/opni/pkg/util"
-	"golang.org/x/exp/slices"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -100,11 +101,11 @@ func (c *CompositeAlertingClientSet) CalculateHash(ctx context.Context, key stri
 		if err != nil {
 			return err
 		}
-		slices.SortFunc(conds, func(a, b *alertingv1.AlertCondition) bool {
+		slices.SortFunc(conds, func(a, b *alertingv1.AlertCondition) int {
 			if a.GroupId != b.GroupId {
-				return a.GroupId < b.GroupId
+				return strings.Compare(a.GroupId, b.GroupId)
 			}
-			return a.Id < b.Id
+			return strings.Compare(a.Id, b.Id)
 		})
 		aggregate += strings.Join(
 			lo.Map(conds, func(a *alertingv1.AlertCondition, _ int) string {
@@ -114,8 +115,8 @@ func (c *CompositeAlertingClientSet) CalculateHash(ctx context.Context, key stri
 		if err != nil {
 			return err
 		}
-		slices.SortFunc(endps, func(a, b *alertingv1.AlertEndpoint) bool {
-			return a.Id < b.Id
+		slices.SortFunc(endps, func(a, b *alertingv1.AlertEndpoint) int {
+			return strings.Compare(a.Id, b.Id)
 		})
 		aggregate += strings.Join(
 			lo.Map(endps, func(a *alertingv1.AlertEndpoint, _ int) string {

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	"slices"
+
 	"github.com/rancher/opni/apis"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/oci"
@@ -12,7 +14,6 @@ import (
 	"github.com/rancher/opni/pkg/update/kubernetes"
 	"github.com/rancher/opni/pkg/urn"
 	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	appsv1 "k8s.io/api/apps/v1"

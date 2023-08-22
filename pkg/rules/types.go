@@ -1,8 +1,9 @@
 package rules
 
 import (
+	"maps"
+
 	"github.com/prometheus/prometheus/model/rulefmt"
-	"golang.org/x/exp/maps"
 	"gopkg.in/yaml.v3"
 )
 

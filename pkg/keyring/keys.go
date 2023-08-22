@@ -3,9 +3,10 @@ package keyring
 import (
 	"crypto/x509"
 
+	"slices"
+
 	"github.com/rancher/opni/pkg/keyring/ephemeral"
 	"github.com/rancher/opni/pkg/pkp"
-	"golang.org/x/exp/slices"
 )
 
 // Key types are used indirectly via an interface, as most key values would

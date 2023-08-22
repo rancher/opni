@@ -47,6 +47,16 @@ func (t target) Less(other target) bool {
 	return t.staticAddress < other.staticAddress
 }
 
+func (t target) Compare(other target) int {
+	if t == other {
+		return 0
+	}
+	if t.Less(other) {
+		return -1
+	}
+	return 1
+}
+
 type PrometheusDiscovery struct {
 	logger     *zap.SugaredLogger
 	retrievers []ScrapeConfigRetriever

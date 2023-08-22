@@ -24,6 +24,7 @@ type BuilderConfig struct {
 	Lint     bool           `koanf:"lint"`
 	Test     bool           `koanf:"test"`
 	Coverage CoverageConfig `koanf:"coverage"`
+	Releaser ReleaseTarget  `koanf:"releaser"`
 }
 
 type ImagesConfig struct {
@@ -66,6 +67,15 @@ type ChartTarget struct {
 	Repo   string     `koanf:"repo" validate:"required_if=Push true"`
 	Branch string     `koanf:"branch" validate:"required_if=Push true"`
 	Auth   AuthConfig `koanf:"auth" validate:"required_if=Push true"`
+}
+
+type ReleaseTarget struct {
+	Push bool       `koanf:"push"`
+	OS   []string   `koanf:"os"`
+	Arch []string   `koanf:"arch"`
+	Repo string     `koanf:"repo" validate:"required_if=Push true"`
+	Tag  string     `koanf:"tag" validate:"required_if=Push true"`
+	Auth AuthConfig `koanf:"auth" validate:"required_if=Push true"`
 }
 
 type OpensearchConfig struct {
@@ -207,6 +217,9 @@ func mergeStrict(src, dest map[string]any) error {
 					reflect.TypeOf(val) == reflect.TypeOf(([]any)(nil)) &&
 					reflect.ValueOf(dest[key]).Len() == 0 {
 					dest[key] = reflect.MakeSlice(reflect.TypeOf(dest[key]), 0, 0).Interface()
+					for _, v := range val.([]any) {
+						dest[key] = reflect.Append(reflect.ValueOf(dest[key]), reflect.ValueOf(v)).Interface()
+					}
 					continue
 				}
 				return fmt.Errorf("incorrect types at key %v, type %T != %T", key, dest[key], val)

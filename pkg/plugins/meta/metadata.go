@@ -69,6 +69,6 @@ func ReadMetadata() PluginMeta {
 	return PluginMeta{
 		BinaryPath: executable,
 		GoVersion:  buildInfo.GoVersion,
-		Module:     buildInfo.Main.Path,
+		Module:     buildInfo.Path,
 	}
 }

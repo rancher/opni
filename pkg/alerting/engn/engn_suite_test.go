@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -18,8 +19,14 @@ import (
 )
 
 func TestEngn(t *testing.T) {
+	SetDefaultEventuallyTimeout(1 * time.Second)
+	// SetDefaultEventuallyTimeout(24 * time.Hour) // For debugging
+	SetDefaultEventuallyPollingInterval(10 * time.Millisecond)
+	SetDefaultConsistentlyDuration(100 * time.Millisecond)
+	SetDefaultConsistentlyPollingInterval(10 * time.Millisecond)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Engn Suite")
+
 }
 
 type testState struct {

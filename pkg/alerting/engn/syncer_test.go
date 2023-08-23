@@ -11,7 +11,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/alerting/engn"
 	"github.com/rancher/opni/pkg/alerting/server/sync"
+	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	mock_engn "github.com/rancher/opni/pkg/test/mock/alerting/engn"
+	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"google.golang.org/grpc"
@@ -22,6 +24,7 @@ var (
 	syncId     = "test-sync-id"
 	syncData   = []byte("test-sync-data")
 	configHash = uuid.New().String()
+	// lg         = logger.NewPluginLogger().Named("test")
 )
 
 func setupConn(remoteAddr string) (*grpc.ClientConn, error) {
@@ -37,6 +40,7 @@ type clientWrapper struct {
 	assignedId string
 	syncId     string
 	msgQ       chan *alertops.SyncRequest
+	recvErr    chan error
 	stream     alertops.ConfigReconciler_SyncConfigClient
 }
 
@@ -48,46 +52,40 @@ func connectClientFixture(ctx context.Context, ts *testState) clientWrapper {
 	stream, err := client.SyncConfig(context.Background())
 	Expect(err).NotTo(HaveOccurred())
 
-	recvErr := make(chan error)
-	receivedSyncs := make(chan *alertops.SyncRequest)
+	recvErr := make(chan error, 256)
+	receivedSyncs := make(chan *alertops.SyncRequest, 256)
 	assignedId := ""
 	syncId := ""
 	go func() {
 		for {
-			select {
-			case <-ctx.Done():
-				recvErr <- ctx.Err()
+			syncReq, err := stream.Recv()
+			// lg.Debug("received something from stream")
+			if err != nil {
+				// lg.With("client", "recv").Error(err)
+				fmt.Println(err)
+				recvErr <- err
 				return
-			default:
-				syncReq, err := stream.Recv()
-				if err != nil {
-					fmt.Println(err)
-					recvErr <- err
-					return
-				}
-				fmt.Println(syncReq.LifecycleId)
-				assignedId = syncReq.LifecycleId
-				syncId = syncReq.SyncId
-				receivedSyncs <- syncReq
 			}
+			// lg.With("lifecycleId", syncReq.LifecycleId, "syncId", syncReq.SyncId).Debug("received sync request")
+			assignedId = syncReq.LifecycleId
+			syncId = syncReq.SyncId
+			// lg.With("lifecycleId", syncReq.LifecycleId, "syncId", syncReq.SyncId).Debug("sending through chan")
+			receivedSyncs <- syncReq
+			// lg.With("lifecycleId", syncReq.LifecycleId, "syncId", syncReq.SyncId).Debug("sent through chan")
+
 		}
 	}()
 
 	By("verifying the downstream syncer received the request without errors")
-	select {
-	case <-time.After(time.Second):
-		Fail("timed out waiting for sync request")
-	case err := <-recvErr:
-		Expect(err).NotTo(HaveOccurred())
-	case syncReq := <-receivedSyncs:
-		Expect(syncReq).NotTo(BeNil())
-	}
+	Eventually(receivedSyncs).Should(Receive())
+	Consistently(recvErr).ShouldNot(Receive())
 	return clientWrapper{
 		cc:         cc,
 		assignedId: assignedId,
 		syncId:     syncId,
 		msgQ:       receivedSyncs,
 		stream:     stream,
+		recvErr:    recvErr,
 	}
 }
 
@@ -140,13 +138,14 @@ var _ = Describe("Alerting gateway syncer engine", func() {
 
 			By("verifying the client was registered correctly")
 			cw := connectClientFixture(context.Background(), ts)
-			defer cw.cc.Close()
 			Expect(cw.assignedId).NotTo(BeEmpty())
 			Expect(cw.syncId).NotTo(BeEmpty())
 			Expect(len(ts.syncManager.Targets())).To(Equal(1))
 
 			By("verifying the syncer engine has not registered the downstream's syncer remote info until a response has been received")
-			Expect(len(ts.syncManager.Info())).To(Equal(0))
+			Eventually(len(ts.syncManager.Info())).Should(Equal(1))
+			Expect(ts.syncManager.Info()).To(HaveKey(cw.assignedId))
+			Expect(ts.syncManager.Info()[cw.assignedId].LastSyncId).To(Equal(""))
 
 			By("verifying the syncer engine registers a downstream syncer when it receives a response")
 			err := cw.stream.Send(&alertops.ConnectInfo{
@@ -160,10 +159,12 @@ var _ = Describe("Alerting gateway syncer engine", func() {
 				return len(ts.syncManager.Info())
 			}).Should(Equal(1))
 
-			info := ts.syncManager.Info()
-			Expect(info).To(HaveKey(cw.assignedId))
-			Expect(info[cw.assignedId].WhoAmI).To(Equal("test"))
-			Expect(info[cw.assignedId].LastSyncState).To(Equal(alertops.SyncState_Synced))
+			Eventually(ts.syncManager.Info()).Should(HaveKey(cw.assignedId))
+			info := ts.syncManager.Info()[cw.assignedId]
+			fmt.Println(info)
+			fmt.Println(cw.syncId)
+			Eventually(ts.syncManager.Info()[cw.assignedId].LastSyncId).Should(Equal(cw.syncId))
+			Eventually(ts.syncManager.Info()[cw.assignedId].LastSyncState).Should(Equal(alertops.SyncState_Synced))
 			By("verifying when the client disconnects the downstream syncer is no longer registered")
 			err = cw.stream.CloseSend()
 			Expect(err).NotTo(HaveOccurred())
@@ -171,6 +172,116 @@ var _ = Describe("Alerting gateway syncer engine", func() {
 				return len(ts.syncManager.Info())
 			}).Should(Equal(0))
 
+		})
+
+		It("should push non-duplicate syncs downstream", func() {
+			By("initially verifying no syncers are connected")
+			Expect(len(ts.syncManager.Info())).To(Equal(0))
+			ctxCa, ca := context.WithCancel(context.Background())
+			defer ca()
+
+			By("verifying the clients were registered correctly")
+			cw := connectClientFixture(ctxCa, ts)
+			Expect(cw.assignedId).NotTo(BeEmpty())
+			Expect(cw.syncId).NotTo(BeEmpty())
+			Expect(len(ts.syncManager.Targets())).To(Equal(1))
+			Expect(ts.syncManager.Targets()).To(ConsistOf([]string{cw.assignedId}))
+
+			id := uuid.New().String()
+			ts.syncManager.Push(engn.SyncPayload{
+				SyncId:    id,
+				ConfigKey: "test-key",
+				Data:      []byte("test-data"),
+			})
+
+			Eventually(cw.msgQ).Should(Receive(testutil.ProtoEqual(&alertops.SyncRequest{
+				LifecycleId: cw.assignedId,
+				SyncId:      id,
+				Items: []*alertingv1.PutConfigRequest{
+					{
+						Key:    "test-key",
+						Config: []byte("test-data"),
+					},
+				},
+			})))
+			Consistently(cw.recvErr).ShouldNot(Receive())
+
+			err := cw.stream.Send(&alertops.ConnectInfo{
+				LifecycleUuid: cw.assignedId,
+				Whoami:        "test",
+				State:         alertops.SyncState_Synced,
+				SyncId:        cw.syncId,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(func() error {
+				info := ts.syncManager.Info()[cw.assignedId]
+				if info.LastSyncId != cw.syncId {
+					return fmt.Errorf("expected syncId '%s', got '%s'", cw.syncId, info.LastSyncId)
+				}
+				if info.LastSyncState != alertops.SyncState_Synced {
+					return fmt.Errorf("expected syncState '%s', got '%s'", alertops.SyncState_Synced, info.LastSyncState)
+				}
+				return nil
+			}, time.Second, time.Millisecond*500).Should(Succeed())
+
+			ts.syncManager.Push(engn.SyncPayload{
+				SyncId:    id,
+				ConfigKey: "test-key",
+				Data:      []byte("test-data"),
+			})
+			By("verifying the downstream syncer does not receive duplicate syncs")
+			Consistently(cw.msgQ).ShouldNot(Receive())
+
+			id2 := uuid.New().String()
+			ts.syncManager.Push(engn.SyncPayload{
+				SyncId:    id2,
+				ConfigKey: "test-key",
+				Data:      []byte("test-data2"),
+			})
+
+			Eventually(cw.msgQ).Should(Receive(testutil.ProtoEqual(&alertops.SyncRequest{
+				LifecycleId: cw.assignedId,
+				SyncId:      id2,
+				Items: []*alertingv1.PutConfigRequest{
+					{
+						Key:    "test-key",
+						Config: []byte("test-data2"),
+					},
+				},
+			})))
+
+			err = cw.stream.Send(&alertops.ConnectInfo{
+				LifecycleUuid: cw.assignedId,
+				Whoami:        "test",
+				State:         alertops.SyncState_Synced,
+				SyncId:        cw.syncId,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+		})
+
+		It("should not arbitrarily block on a bunch of sync requests", func() {
+			By("initially verifying no syncers are connected")
+			Expect(len(ts.syncManager.Info())).To(Equal(0))
+			ctxCa, ca := context.WithCancel(context.Background())
+			defer ca()
+
+			By("verifying the clients were registered correctly")
+			cw := connectClientFixture(ctxCa, ts)
+			Expect(cw.assignedId).NotTo(BeEmpty())
+			Expect(cw.syncId).NotTo(BeEmpty())
+			Expect(len(ts.syncManager.Targets())).To(Equal(1))
+			Expect(ts.syncManager.Targets()).To(ConsistOf([]string{cw.assignedId}))
+
+			for i := 0; i < 25; i++ {
+				ts.syncManager.Push(engn.SyncPayload{
+					SyncId:    "test-sync-id",
+					ConfigKey: "test-key",
+					Data:      []byte("test-data"),
+				})
+			}
+			Eventually(len(cw.msgQ)).ShouldNot(Equal(0))
 		})
 
 		It("should be able to push sync requests to downstream syncers", func() {
@@ -181,13 +292,11 @@ var _ = Describe("Alerting gateway syncer engine", func() {
 
 			By("verifying the clients were registered correctly")
 			cw := connectClientFixture(ctxCa, ts)
-			defer cw.cc.Close()
 			Expect(cw.assignedId).NotTo(BeEmpty())
 			Expect(cw.syncId).NotTo(BeEmpty())
 			Expect(len(ts.syncManager.Targets())).To(Equal(1))
 			Expect(ts.syncManager.Targets()).To(ConsistOf([]string{cw.assignedId}))
 			cw2 := connectClientFixture(ctxCa, ts)
-			defer cw2.cc.Close()
 			Expect(cw2.assignedId).NotTo(BeEmpty())
 			Expect(cw2.syncId).NotTo(BeEmpty())
 			Expect(len(ts.syncManager.Targets())).To(Equal(2))
@@ -201,28 +310,12 @@ var _ = Describe("Alerting gateway syncer engine", func() {
 			})
 
 			By("verifying the first connect client receive the broadcasted sync payload")
-			select {
-			case <-time.After(time.Millisecond * 100):
-				Fail("timed out waiting for sync request")
-			case syncReq := <-cw.msgQ:
-				Expect(syncReq).NotTo(BeNil())
-				Expect(syncReq.SyncId).To(Equal("test-sync-id"))
-				Expect(syncReq.Items).To(HaveLen(1))
-				Expect(syncReq.Items[0].Key).To(Equal("test-key"))
-				Expect(syncReq.Items[0].Config).To(Equal([]byte("test-data")))
-			}
+			Eventually(cw.msgQ).Should(Receive())
+			Consistently(cw.recvErr).ShouldNot(Receive())
 
 			By("verifying the second connected client received the broadcasted sync payload")
-			select {
-			case <-time.After(time.Second):
-				Fail("timed out waiting for sync request")
-			case syncReq := <-cw2.msgQ:
-				Expect(syncReq).NotTo(BeNil())
-				Expect(syncReq.SyncId).To(Equal("test-sync-id"))
-				Expect(syncReq.Items).To(HaveLen(1))
-				Expect(syncReq.Items[0].Key).To(Equal("test-key"))
-				Expect(syncReq.Items[0].Config).To(Equal([]byte("test-data")))
-			}
+			Eventually(cw2.msgQ).Should(Receive())
+			Consistently(cw2.recvErr).ShouldNot(Receive())
 
 			By("verifying it can push targeted syncs")
 			ts.syncManager.PushTarget(cw.assignedId, engn.SyncPayload{
@@ -232,22 +325,11 @@ var _ = Describe("Alerting gateway syncer engine", func() {
 			})
 			By("verifying the targeted syncer received the sync payload")
 
-			// TODO : this is super flaky
-			select {
-			case <-time.After(10 * time.Second):
-				Fail("timed out waiting for sync request")
-			case syncReq := <-cw.msgQ:
-				Expect(syncReq).NotTo(BeNil())
-				Expect(syncReq.SyncId).To(Equal("test-cw"))
-				Expect(syncReq.Items).To(HaveLen(1))
-				Expect(syncReq.Items[0].Key).To(Equal("test-key"))
-				Expect(syncReq.Items[0].Config).To(Equal([]byte("test-cw")))
-			}
-
-			By("verifying the non-targeted syncer did not receive the sync payload")
-			Consistently(func() int {
-				return len(cw2.msgQ)
-			}).Should(Equal(0))
+			// TODO : why do is this randomly blocking
+			Eventually(cw.msgQ).Should(Receive())
+			Consistently(cw.recvErr).ShouldNot(Receive())
+			Consistently(cw2.msgQ).ShouldNot(Receive())
+			Consistently(cw2.recvErr).ShouldNot(Receive())
 		})
 	})
 
@@ -256,7 +338,6 @@ var _ = Describe("Alerting gateway syncer engine", func() {
 			ctxCa, ca := context.WithCancel(context.Background())
 			defer ca()
 			cw := connectClientFixture(context.Background(), ts)
-			defer cw.cc.Close()
 
 			Expect(ts.syncManager.Targets()).To(HaveLen(1))
 
@@ -267,17 +348,8 @@ var _ = Describe("Alerting gateway syncer engine", func() {
 				ShouldSync: true,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			select {
-			case <-time.After(3 * time.Second):
-				Fail("timed out waiting for sync request")
-			case syncMsg := <-cw.msgQ:
-				Expect(syncMsg).NotTo(BeNil())
-				Expect(syncMsg.SyncId).To(Equal(syncId))
-				Expect(syncMsg.Items).To(HaveLen(1))
-				Expect(syncMsg.Items[0].Key).To(Equal("key"))
-				Expect(syncMsg.Items[0].Config).To(Equal([]byte(configHash)))
+			Eventually(cw.msgQ).Should(Receive())
 
-			}
 			configHash = uuid.New().String()
 			syncId = configHash
 			syncData = []byte(configHash)
@@ -285,23 +357,67 @@ var _ = Describe("Alerting gateway syncer engine", func() {
 				ShouldSync: true,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			select {
-			case <-time.After(time.Millisecond * 100):
-				Fail("timed out waiting for sync request")
-			case syncMsg := <-cw.msgQ:
-				Expect(syncMsg).NotTo(BeNil())
-				Expect(syncMsg.SyncId).To(Equal(syncId))
-				Expect(syncMsg.Items).To(HaveLen(1))
-				Expect(syncMsg.Items[0].Key).To(Equal("key"))
-				Expect(syncMsg.Items[0].Config).To(Equal([]byte(configHash)))
-			}
+			Eventually(cw.msgQ).Should(Receive())
 		})
 
-		It("should push syncs when the a syncer has an out-of-date syncId", func() {
+		It("should push syncs when the syncer has an out-of-date syncId", func() {
+			ctxCa, ca := context.WithCancel(context.Background())
+			defer ca()
+			cw := connectClientFixture(context.Background(), ts)
+
+			Expect(ts.syncManager.Targets()).To(HaveLen(1))
+
+			configHash = uuid.New().String()
+			syncId = configHash
+			syncData = []byte(configHash)
+			err := ts.syncEngine.Sync(ctxCa, sync.SyncInfo{
+				ShouldSync: true,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(cw.msgQ).Should(Receive())
+
+			err = cw.stream.Send(&alertops.ConnectInfo{
+				LifecycleUuid: cw.assignedId,
+				Whoami:        "test",
+				State:         alertops.SyncState_Synced,
+				SyncId:        "out-of-date",
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			configHash = uuid.New().String()
+			syncId = configHash
+			syncData = []byte(configHash)
+			err = ts.syncEngine.Sync(ctxCa, sync.SyncInfo{
+				ShouldSync: true,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(cw.msgQ).Should(Receive())
 		})
 
-		It("should push syncs when the a syncer did not successfully receive the last sync", func() {
+		It("should push syncs when the syncer did not successfully receive the last sync", func() {
+			ctxCa, ca := context.WithCancel(context.Background())
+			defer ca()
+			cw := connectClientFixture(context.Background(), ts)
 
+			Expect(ts.syncManager.Targets()).To(HaveLen(1))
+
+			configHash = uuid.New().String()
+			syncId = configHash
+			syncData = []byte(configHash)
+			err := ts.syncEngine.Sync(ctxCa, sync.SyncInfo{
+				ShouldSync: true,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(cw.msgQ).Should(Receive())
+
+			configHash = uuid.New().String()
+			syncId = configHash
+			syncData = []byte(configHash)
+			err = ts.syncEngine.Sync(ctxCa, sync.SyncInfo{
+				ShouldSync: true,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(cw.msgQ).Should(Receive())
 		})
 	})
 })

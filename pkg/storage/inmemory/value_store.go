@@ -162,6 +162,10 @@ func (s *inMemoryValueStore[T]) Get(_ context.Context, opts ...storage.GetOpt) (
 	return s.cloneFunc(found.value), nil
 }
 
+func (s *inMemoryValueStore[T]) Watch(ctx context.Context, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[T]], error) {
+	panic("not implemented")
+}
+
 func (s *inMemoryValueStore[T]) Delete(_ context.Context, opts ...storage.DeleteOpt) error {
 	options := storage.DeleteOptions{}
 	options.Apply(opts...)

@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package system;
 
+import "github.com/rancher/opni/pkg/apis/management/v1/management.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -18,6 +19,7 @@ service System {
 service KeyValueStore {
   rpc Put(PutRequest) returns (PutResponse);
   rpc Get(GetRequest) returns (GetResponse);
+  rpc Watch(WatchRequest) returns (stream WatchResponse);
   rpc Delete(DeleteRequest) returns (DeleteResponse);
   rpc ListKeys(ListKeysRequest) returns (ListKeysResponse);
   rpc History(HistoryRequest) returns (HistoryResponse);
@@ -81,4 +83,21 @@ message KeyRevision {
   optional bytes                     value     = 2;
   int64                              revision  = 3;
   optional google.protobuf.Timestamp timestamp = 4;
+}
+
+message WatchRequest {
+  string         key      = 1;
+  optional int64 revision = 2;
+  bool           prefix   = 3;
+}
+
+message WatchResponse {
+  enum EventType {
+    Create = 0;
+    Update = 1;
+    Delete = 2;
+  }
+  EventType   eventType = 1;
+  KeyRevision current   = 2;
+  KeyRevision previous  = 3;
 }

@@ -67,6 +67,40 @@ func (m *inMemoryKeyValueStore[T]) Get(ctx context.Context, key string, opts ...
 	return vs.Get(ctx, opts...)
 }
 
+// Watch implements storage.KeyValueStoreT.
+func (m *inMemoryKeyValueStore[T]) Watch(ctx context.Context, key string, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[T]], error) {
+	if err := validateKey(key); err != nil {
+		return nil, err
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	matchingStores := []storage.ValueStoreT[T]{}
+	m.keys.ForEachPrefix(art.Key([]byte(key)), func(node art.Node) (cont bool) {
+		matchingStores = append(matchingStores, node.Value().(storage.ValueStoreT[T]))
+		return true
+	})
+	aggregated := make(chan storage.WatchEvent[storage.KeyRevision[T]], len(matchingStores))
+	for _, vs := range matchingStores {
+		ch, err := vs.Watch(ctx, opts...)
+		if err != nil {
+			return nil, err
+		}
+		go func() {
+			for event := range ch {
+				aggregated <- event
+			}
+		}()
+	}
+
+	if ctx != context.Background() && ctx != context.TODO() {
+		context.AfterFunc(ctx, func() {
+			close(aggregated)
+		})
+	}
+	return aggregated, nil
+}
+
 // History implements storage.KeyValueStoreT.
 func (m *inMemoryKeyValueStore[T]) History(ctx context.Context, key string, opts ...storage.HistoryOpt) ([]storage.KeyRevision[T], error) {
 	if err := validateKey(key); err != nil {

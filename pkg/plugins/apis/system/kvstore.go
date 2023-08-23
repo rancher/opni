@@ -56,6 +56,66 @@ func (s *kvStoreServer) Get(ctx context.Context, in *GetRequest) (*GetResponse, 
 	}, nil
 }
 
+func (s *kvStoreServer) Watch(in *WatchRequest, stream KeyValueStore_WatchServer) error {
+	opts := []storage.WatchOpt{}
+	if in.Revision != nil {
+		opts = append(opts, storage.WithRevision(*in.Revision))
+	}
+	if in.Prefix {
+		opts = append(opts, storage.WithPrefix())
+	}
+
+	ch, err := s.store.Watch(stream.Context(), in.GetKey(), opts...)
+	if err != nil {
+		return err
+	}
+	for {
+		select {
+		case <-stream.Context().Done():
+			return nil
+		case event, ok := <-ch:
+			if !ok {
+				return nil
+			}
+			var eventType WatchResponse_EventType
+			switch event.EventType {
+			case storage.WatchEventCreate:
+				eventType = WatchResponse_Create
+			case storage.WatchEventUpdate:
+				eventType = WatchResponse_Update
+			case storage.WatchEventDelete:
+				eventType = WatchResponse_Delete
+			}
+			resp := &WatchResponse{
+				EventType: eventType,
+			}
+			if event.Current != nil {
+				resp.Current = &KeyRevision{
+					Key:      event.Current.Key(),
+					Value:    event.Current.Value(),
+					Revision: event.Current.Revision(),
+				}
+				if ts := event.Current.Timestamp(); !ts.IsZero() {
+					resp.Current.Timestamp = timestamppb.New(ts)
+				}
+			}
+			if event.Previous != nil {
+				resp.Previous = &KeyRevision{
+					Key:      event.Previous.Key(),
+					Value:    event.Previous.Value(),
+					Revision: event.Previous.Revision(),
+				}
+				if ts := event.Previous.Timestamp(); !ts.IsZero() {
+					resp.Previous.Timestamp = timestamppb.New(ts)
+				}
+			}
+			if err := stream.Send(resp); err != nil {
+				return err
+			}
+		}
+	}
+}
+
 func (s *kvStoreServer) Delete(ctx context.Context, in *DeleteRequest) (*DeleteResponse, error) {
 	if err := in.Validate(); err != nil {
 		return nil, err
@@ -166,6 +226,52 @@ func (c *kvStoreClientImpl[T]) Get(ctx context.Context, key string, opts ...stor
 		return t, err
 	}
 	return rt, nil
+}
+
+func (c *kvStoreClientImpl[T]) Watch(ctx context.Context, key string, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[T]], error) {
+	options := storage.WatchOptions{}
+	options.Apply(opts...)
+
+	stream, err := c.client.Watch(ctx, &WatchRequest{
+		Key:      key,
+		Revision: options.Revision,
+		Prefix:   options.Prefix,
+	})
+	if err != nil {
+		return nil, err
+	}
+	ch := make(chan storage.WatchEvent[storage.KeyRevision[T]], 1)
+	go func() {
+		for {
+			resp, err := stream.Recv()
+			if err != nil {
+				return
+			}
+			var eventType storage.WatchEventType
+			switch resp.EventType {
+			case WatchResponse_Create:
+				eventType = storage.WatchEventCreate
+			case WatchResponse_Update:
+				eventType = storage.WatchEventUpdate
+			case WatchResponse_Delete:
+				eventType = storage.WatchEventDelete
+			}
+			var current storage.KeyRevision[T]
+			if resp.Current != nil {
+				current = FromKeyRevisionProto[T](resp.Current)
+			}
+			var previous storage.KeyRevision[T]
+			if resp.Previous != nil {
+				previous = FromKeyRevisionProto[T](resp.Previous)
+			}
+			ch <- storage.WatchEvent[storage.KeyRevision[T]]{
+				EventType: eventType,
+				Current:   current,
+				Previous:  previous,
+			}
+		}
+	}()
+	return ch, nil
 }
 
 func (c *kvStoreClientImpl[T]) Delete(ctx context.Context, key string, opts ...storage.DeleteOpt) error {

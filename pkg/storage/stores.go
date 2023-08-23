@@ -102,6 +102,7 @@ func (k *KeyRevisionImpl[T]) Timestamp() time.Time {
 type KeyValueStoreT[T any] interface {
 	Put(ctx context.Context, key string, value T, opts ...PutOpt) error
 	Get(ctx context.Context, key string, opts ...GetOpt) (T, error)
+	Watch(ctx context.Context, key string, opts ...WatchOpt) (<-chan WatchEvent[KeyRevision[T]], error)
 	Delete(ctx context.Context, key string, opts ...DeleteOpt) error
 	ListKeys(ctx context.Context, prefix string, opts ...ListOpt) ([]string, error)
 	History(ctx context.Context, key string, opts ...HistoryOpt) ([]KeyRevision[T], error)
@@ -110,6 +111,7 @@ type KeyValueStoreT[T any] interface {
 type ValueStoreT[T any] interface {
 	Put(ctx context.Context, value T, opts ...PutOpt) error
 	Get(ctx context.Context, opts ...GetOpt) (T, error)
+	Watch(ctx context.Context, opts ...WatchOpt) (<-chan WatchEvent[KeyRevision[T]], error)
 	Delete(ctx context.Context, opts ...DeleteOpt) error
 	History(ctx context.Context, opts ...HistoryOpt) ([]KeyRevision[T], error)
 }

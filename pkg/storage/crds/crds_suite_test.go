@@ -46,7 +46,7 @@ func (methods) ControllerReference() (client.Object, bool) {
 }
 
 type broker struct {
-	k8sClient  client.Client
+	k8sClient  client.WithWatch
 	namespaces map[string]struct{}
 }
 

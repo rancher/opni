@@ -7,6 +7,7 @@ import (
 	"path"
 	"strings"
 
+	"go.etcd.io/etcd/api/v3/mvccpb"
 	"go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc/codes"
@@ -84,6 +85,72 @@ func (s *genericKeyValueStore) Get(ctx context.Context, key string, opts ...stor
 		*options.RevisionOut = resp.Kvs[0].ModRevision
 	}
 	return base64.StdEncoding.DecodeString(string(resp.Kvs[0].Value))
+}
+
+func (s *genericKeyValueStore) Watch(ctx context.Context, key string, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[[]byte]], error) {
+	options := storage.WatchOptions{}
+	options.Apply(opts...)
+
+	if err := validateKey(key); err != nil {
+		return nil, err
+	}
+
+	clientOptions := []clientv3.OpOption{
+		clientv3.WithPrevKV(),
+	}
+	if options.Revision != nil {
+		clientOptions = append(clientOptions, clientv3.WithRev(*options.Revision))
+	}
+	if options.Prefix {
+		clientOptions = append(clientOptions, clientv3.WithPrefix())
+	}
+
+	eventC := make(chan storage.WatchEvent[storage.KeyRevision[[]byte]], 1)
+
+	wc := s.client.Watch(ctx, key, clientOptions...)
+	go func() {
+		defer close(eventC)
+		for {
+			select {
+			case <-ctx.Done():
+			case event, ok := <-wc:
+				if !ok {
+					return
+				}
+				if err := event.Err(); err != nil {
+					return
+				}
+				if event.IsProgressNotify() {
+					continue
+				}
+				for _, ev := range event.Events {
+					wevent := storage.WatchEvent[storage.KeyRevision[[]byte]]{}
+					switch ev.Type {
+					case clientv3.EventTypePut:
+						wevent.Current = newKeyRevision(ev.Kv)
+						if ev.IsCreate() {
+							wevent.EventType = storage.WatchEventCreate
+						} else {
+							wevent.EventType = storage.WatchEventUpdate
+							wevent.Previous = newKeyRevision(ev.PrevKv)
+						}
+					case clientv3.EventTypeDelete:
+						wevent.EventType = storage.WatchEventDelete
+						wevent.Previous = newKeyRevision(ev.PrevKv)
+					}
+				}
+			}
+		}
+	}()
+	return eventC, nil
+}
+
+func newKeyRevision(kv *mvccpb.KeyValue) storage.KeyRevision[[]byte] {
+	return &storage.KeyRevisionImpl[[]byte]{
+		K:   string(kv.Key),
+		V:   kv.Value,
+		Rev: kv.ModRevision,
+	}
 }
 
 func (s *genericKeyValueStore) Delete(ctx context.Context, key string, opts ...storage.DeleteOpt) error {

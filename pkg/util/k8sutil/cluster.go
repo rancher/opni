@@ -13,7 +13,7 @@ type ClientOptions struct {
 	Scheme     *runtime.Scheme
 }
 
-func NewK8sClient(options ClientOptions) (client.Client, error) {
+func NewK8sClient(options ClientOptions) (client.WithWatch, error) {
 	crOpts := client.Options{
 		Scheme: options.Scheme,
 	}
@@ -21,7 +21,7 @@ func NewK8sClient(options ClientOptions) (client.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return client.New(restConfig, crOpts)
+	return client.NewWithWatch(restConfig, crOpts)
 }
 
 func NewRestConfig(options ClientOptions) (*rest.Config, error) {

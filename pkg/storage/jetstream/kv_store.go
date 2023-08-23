@@ -85,6 +85,99 @@ func (j jetstreamKeyValueStore) Get(_ context.Context, key string, opts ...stora
 	return resp.Value(), nil
 }
 
+func (j jetstreamKeyValueStore) Watch(ctx context.Context, key string, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[[]byte]], error) {
+	options := storage.WatchOptions{}
+	eventC := make(chan storage.WatchEvent[storage.KeyRevision[[]byte]], 1)
+
+	if options.Prefix {
+		key += "*"
+	}
+
+	clientOptions := []nats.WatchOpt{
+		nats.Context(ctx),
+	}
+
+	if options.Revision != nil {
+		clientOptions = append(clientOptions, nats.IncludeHistory())
+	}
+
+	w, err := j.kv.Watch(key, clientOptions...)
+	if err != nil {
+		return nil, jetstreamGrpcError(err)
+	}
+
+	prevEntries := make(map[string]nats.KeyValueEntry)
+	go func() {
+		// read from history until we reach the requested revision, or nil
+		updates := w.Updates()
+		if options.Revision != nil {
+		INITIAL:
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case update := <-updates:
+					if update == nil {
+						break INITIAL
+					}
+					if update.Revision() < uint64(*options.Revision) {
+						prevEntries[update.Key()] = update
+						continue
+					}
+				}
+			}
+		}
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case update := <-updates:
+				switch update.Operation() {
+				case nats.KeyValuePut:
+					isCreate := update.Revision() == 1
+					if isCreate {
+						eventC <- storage.WatchEvent[storage.KeyRevision[[]byte]]{
+							EventType: storage.WatchEventCreate,
+							Current:   newKeyRevision(update),
+						}
+					} else {
+						var prevRevision storage.KeyRevision[[]byte]
+						if prevEntry, ok := prevEntries[update.Key()]; ok {
+							prevRevision = newKeyRevision(prevEntry)
+						}
+						eventC <- storage.WatchEvent[storage.KeyRevision[[]byte]]{
+							EventType: storage.WatchEventUpdate,
+							Current:   newKeyRevision(update),
+							Previous:  prevRevision,
+						}
+					}
+					prevEntries[update.Key()] = update
+				case nats.KeyValueDelete, nats.KeyValuePurge:
+					if prevEntry, ok := prevEntries[update.Key()]; ok {
+						eventC <- storage.WatchEvent[storage.KeyRevision[[]byte]]{
+							EventType: storage.WatchEventDelete,
+							Previous:  newKeyRevision(prevEntry),
+						}
+					}
+					delete(prevEntries, update.Key())
+					continue
+				}
+			}
+		}
+	}()
+
+	return eventC, nil
+}
+
+func newKeyRevision(kv nats.KeyValueEntry) storage.KeyRevision[[]byte] {
+	return &storage.KeyRevisionImpl[[]byte]{
+		K:    kv.Key(),
+		V:    kv.Value(),
+		Rev:  int64(kv.Revision()),
+		Time: kv.Created(),
+	}
+}
+
 func (j jetstreamKeyValueStore) Delete(_ context.Context, key string, opts ...storage.DeleteOpt) error {
 	if err := validateKey(key); err != nil {
 		return err

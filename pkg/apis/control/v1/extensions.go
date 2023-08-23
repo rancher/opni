@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"hash"
 	"strconv"
+	"strings"
+
+	"slices"
 
 	"github.com/rancher/opni/pkg/urn"
 	"golang.org/x/crypto/blake2b"
-	"golang.org/x/exp/slices"
 )
 
 func (m *UpdateManifest) DigestSet() map[string]struct{} {
@@ -42,14 +44,14 @@ func (m *UpdateManifestEntry) DigestHash() hash.Hash {
 }
 
 func (m *UpdateManifest) Sort() {
-	slices.SortFunc(m.Items, func(a, b *UpdateManifestEntry) bool {
-		return a.GetPackage() < b.GetPackage()
+	slices.SortFunc(m.Items, func(a, b *UpdateManifestEntry) int {
+		return strings.Compare(a.GetPackage(), b.GetPackage())
 	})
 }
 
 func (a *PluginArchive) Sort() {
-	slices.SortFunc(a.Items, func(a, b *PluginArchiveEntry) bool {
-		return a.GetMetadata().GetPackage() < b.GetMetadata().GetPackage()
+	slices.SortFunc(a.Items, func(a, b *PluginArchiveEntry) int {
+		return strings.Compare(a.GetMetadata().GetPackage(), b.GetMetadata().GetPackage())
 	})
 }
 
@@ -62,14 +64,14 @@ func (a *PluginArchive) ToManifest() *UpdateManifest {
 }
 
 func (l *PatchList) Sort() {
-	slices.SortFunc(l.Items, func(a, b *PatchSpec) bool {
+	slices.SortFunc(l.Items, func(a, b *PatchSpec) int {
 		if a.GetOp() != b.GetOp() {
-			return a.GetOp() < b.GetOp()
+			return int(a.GetOp() - b.GetOp())
 		}
 		if a.GetPackage() != b.GetPackage() {
-			return a.GetPackage() < b.GetPackage()
+			return strings.Compare(a.GetPackage(), b.GetPackage())
 		}
-		return a.GetPath() < b.GetPath()
+		return strings.Compare(a.GetPath(), b.GetPath())
 	})
 }
 

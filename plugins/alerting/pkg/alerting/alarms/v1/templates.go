@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"slices"
+
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	"github.com/rancher/opni/pkg/alerting/metrics/naming"
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -23,7 +25,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

@@ -20,7 +20,7 @@ import (
 	// "github.com/rancher/opni/pkg/logger"
 	// "github.com/samber/lo"
 	// "go.uber.org/zap"
-	// "golang.org/x/exp/slices"
+	// "slices"
 	// "google.golang.org/protobuf/encoding/protojson"
 	// "google.golang.org/protobuf/proto"
 )

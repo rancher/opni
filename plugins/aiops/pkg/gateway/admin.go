@@ -7,13 +7,14 @@ import (
 	"os"
 	"strings"
 
+	"slices"
+
 	"github.com/Masterminds/semver"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	"github.com/rancher/opni/pkg/util/nats"
 	"github.com/rancher/opni/pkg/versions"
 	"github.com/rancher/opni/plugins/aiops/apis/admin"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -532,11 +533,17 @@ func s3SettingsMutator(settings *admin.S3Settings, cluster *aiv1beta1.OpniCluste
 		}
 		return
 	}
+	endpoint := settings.GetEndpoint()
+	if endpoint != "" {
+		if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
+			endpoint = "https://" + endpoint
+		}
+	}
 	cluster.Spec.S3 = aiv1beta1.S3Spec{
 		NulogS3Bucket: settings.GetNulogBucket(),
 		DrainS3Bucket: settings.GetDrainBucket(),
 		External: &aiv1beta1.ExternalSpec{
-			Endpoint: settings.GetEndpoint(),
+			Endpoint: endpoint,
 			Credentials: &corev1.SecretReference{
 				Name:      OpniS3SecretName,
 				Namespace: cluster.Namespace,

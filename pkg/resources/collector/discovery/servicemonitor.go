@@ -6,9 +6,10 @@ import (
 
 	promcfg "github.com/prometheus/prometheus/config"
 
+	"slices"
+
 	"github.com/prometheus/prometheus/discovery"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 
 	promoperatorv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	promcommon "github.com/prometheus/common/config"
@@ -392,8 +393,8 @@ func (s serviceMonitorScrapeConfigRetriever) Yield() (cfg *promCRDOperatorConfig
 			for _, svc := range svcList.Items {
 				targets := s.resolveServiceTargets(*svcMon, svc, ep)
 				numTargets += len(targets)
-				slices.SortFunc(targets, func(i, j target) bool {
-					return i.Less(j)
+				slices.SortFunc(targets, func(i, j target) int {
+					return i.Compare(j)
 				})
 				for _, t := range targets {
 					if target, ok := dedupedTargets[t.staticAddress]; !ok {
@@ -407,8 +408,8 @@ func (s serviceMonitorScrapeConfigRetriever) Yield() (cfg *promCRDOperatorConfig
 			} // end of target discovery
 			if len(dedupedTargets) > 0 {
 				generatedTargets := lo.Values(dedupedTargets)
-				slices.SortFunc(generatedTargets, func(i, j target) bool {
-					return i.Less(j)
+				slices.SortFunc(generatedTargets, func(i, j target) int {
+					return i.Compare(j)
 				})
 				job, sCfg, secrets := s.generateStaticServiceConfig(svcMon, ep, i, generatedTargets)
 				if _, ok := cfgMap[job]; !ok {

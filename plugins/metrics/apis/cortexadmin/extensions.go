@@ -3,9 +3,10 @@ package cortexadmin
 import (
 	"regexp"
 
+	"slices"
+
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/rancher/opni/pkg/validation"
-	"golang.org/x/exp/slices"
 )
 
 func (in *LoadRuleRequest) Validate() error {

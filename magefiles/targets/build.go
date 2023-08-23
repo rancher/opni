@@ -10,6 +10,7 @@ import (
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
+	"github.com/mholt/archiver/v4"
 )
 
 var verboseFlag = fmt.Sprintf("-v=%t", mg.Verbose())
@@ -61,10 +62,11 @@ func (Build) TypescriptServiceGenerator() error {
 }
 
 type buildOpts struct {
-	Path   string
-	Output string
-	Tags   []string
-	Debug  bool
+	Path     string
+	Output   string
+	Tags     []string
+	Debug    bool
+	Compress bool
 }
 
 func buildMainPackage(opts buildOpts) error {
@@ -99,7 +101,39 @@ func buildMainPackage(opts buildOpts) error {
 
 	args = append(args, opts.Path)
 
-	return sh.RunWith(map[string]string{"CGO_ENABLED": "0"}, args[0], args[1:]...)
+	err = sh.RunWith(map[string]string{"CGO_ENABLED": "0"}, args[0], args[1:]...)
+	if err != nil {
+		return err
+	}
+	if !opts.Compress {
+		return nil
+	}
+
+	files, err := archiver.FilesFromDisk(nil, map[string]string{
+		opts.Output: "opni",
+	})
+	if err != nil {
+		return err
+	}
+
+	out, err := os.Create(opts.Output + ".tar.gz")
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	format := archiver.CompressedArchive{
+		Compression: archiver.Gz{},
+		Archival:    archiver.Tar{},
+	}
+
+	// create the archive
+	err = format.Archive(context.Background(), out, files)
+	if err != nil {
+		return err
+	}
+
+	return err
 }
 
 func buildArchive(path string) error {

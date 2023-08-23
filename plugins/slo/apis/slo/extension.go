@@ -1,7 +1,7 @@
 package slo
 
 import (
-	"golang.org/x/exp/slices"
+	"slices"
 )
 
 func (m *MetricGroupList) ContainsId(id string) bool {

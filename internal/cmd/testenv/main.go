@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"slices"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/mattn/go-tty"
@@ -33,7 +35,6 @@ import (
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/spf13/pflag"
 	"github.com/ttacon/chalk"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 

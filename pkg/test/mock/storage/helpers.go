@@ -3,6 +3,7 @@ package mock_storage
 import (
 	"context"
 	"errors"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -15,7 +16,6 @@ import (
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/samber/lo"
 	"go.uber.org/mock/gomock"
-	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
 )

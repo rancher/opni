@@ -225,7 +225,7 @@ func timeDurationToModelDuration(t time.Duration) model.Duration {
 }
 
 func PostProcessRuleString(inputString string) string {
-	res := strings.ReplaceAll(inputString, "\t", "")
-	res = strings.ReplaceAll(res, "\n", "")
+	res := strings.ReplaceAll(inputString, "\t", " ")
+	//res = strings.ReplaceAll(res, "\n", "")
 	return res
 }

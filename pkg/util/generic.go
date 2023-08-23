@@ -7,11 +7,12 @@ import (
 	"strings"
 	"sync"
 
+	"slices"
+
 	"github.com/iancoleman/strcase"
 	"github.com/mitchellh/mapstructure"
 	"github.com/rancher/opni/pkg/logger"
 	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 )
 

@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"strings"
 
+	"slices"
+
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/message"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -76,8 +77,8 @@ func NewLFUMessageCache(lub int) MessageCache[alertingv1.OpniSeverity, *alerting
 	n := float64(len(alertingv1.OpniSeverity_value))
 
 	sortedKeys := lo.Values(alertingv1.OpniSeverity_value)
-	slices.SortFunc(sortedKeys, func(i, j int32) bool {
-		return i < j
+	slices.SortFunc(sortedKeys, func(i, j int32) int {
+		return int(i - j)
 	})
 	for _, severity := range sortedKeys {
 		recentRatio := (n - i) * (1 / (1 + n))
@@ -186,8 +187,8 @@ func (l LfuMessageCache) Key(msgMeta MessageMetadata) string {
 func (l LfuMessageCache) PartitionedKeys() map[alertingv1.OpniSeverity][]string {
 	traverseMessageKeys := lo.Values(alertingv1.OpniSeverity_value)
 	// traverse by descending severity
-	slices.SortFunc(traverseMessageKeys, func(a, b int32) bool {
-		return a > b
+	slices.SortFunc(traverseMessageKeys, func(a, b int32) int {
+		return int(b - a)
 	})
 	returnKeys := map[alertingv1.OpniSeverity][]string{}
 	for _, severityKey := range traverseMessageKeys {

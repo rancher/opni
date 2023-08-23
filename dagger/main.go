@@ -276,10 +276,11 @@ func (b *Builder) run(ctx context.Context) error {
 }
 
 func (b *Builder) runInTreeBuilds(ctx context.Context) error {
+	base := b.base()
 	alpineBase := b.alpineBase()
 
-	builder := b.base().
-		Pipeline("Builder Setup").
+	goBuild := base.
+		Pipeline("Go Build").
 		With(installTools).
 		WithEnvVariable("CGO_ENABLED", "0").
 		WithEnvVariable("GOBIN", "/usr/bin"). // important for cached mage binary
@@ -287,9 +288,14 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		WithoutEnvVariable("GOBIN").
 		WithDirectory(b.workdir, b.sources)
 
-	generated := builder.
+	generated := goBuild.
 		Pipeline("Generate").
-		WithExec(mage("generate:all"))
+		WithExec(mage([]string{"generate:all"}))
+
+	charts := goBuild.
+		Pipeline("Charts").
+		WithFile(b.ciTarget("charts")).
+		WithExec(mage([]string{"charts"}))
 
 	nodeBuild := generated.
 		Pipeline("Node Build").
@@ -298,32 +304,30 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		WithExec(yarn([]string{"install", "--frozen-lockfile"})).
 		WithExec(yarn("build"))
 
-	archives := generated.
-		Pipeline("Build Archives").
-		WithExec(mage("build:archives"))
+	archives := b.opniArchives(generated, "linux", "amd64")
 
 	plugins := archives.
 		Pipeline("Build Plugins").
-		WithExec(mage("build:plugins"))
+		WithExec(mage([]string{"build:plugins"}))
 
 	webDist := filepath.Join(b.workdir, "web", "dist")
 	opni := archives.
 		Pipeline("Build Opni").
 		WithMountedDirectory(webDist, nodeBuild.Directory(webDist)).
-		WithExec(mage("build:opni")).
+		WithExec(mage([]string{"build:opni"})).
 		WithExec([]string{"bin/opni", "completion", "bash"}, dagger.ContainerWithExecOpts{RedirectStdout: "/etc/bash_completion.d/opni"})
 
 	minimal := archives.
 		Pipeline("Build Opni Minimal").
-		WithExec(mage("build:opniminimal"))
+		WithExec(mage([]string{"build:opniminimal"}))
 
 	lint := archives.
 		Pipeline("Run Linter").
 		With(b.caches.GolangciLint).
-		WithExec(mage("lint"))
+		WithExec(mage([]string{"lint"}))
 
 	test := opni.
-		WithExec(mage("test:binconfig"))
+		WithExec(mage([]string{"test:binconfig"}))
 
 	{ // lint & test
 		var eg errgroup.Group
@@ -355,13 +359,13 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 
 				if b.Coverage.Export {
 					_, err := test.Pipeline("Run Tests").
-						WithExec(mage("test:cover")).
+						WithExec(mage([]string{"test:cover"})).
 						File(filepath.Join(b.workdir, "cover.out")).
 						Export(ctx, "cover.out")
 					return err
 				}
 				_, err = test.Pipeline("Run Tests").
-					WithExec(mage("test")).
+					WithExec(mage([]string{"test"})).
 					Sync(ctx)
 				return err
 			})
@@ -383,11 +387,6 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		Pipeline("Minimal Image").
 		WithFile("/usr/bin/opni", minimal.File(b.bin("opni-minimal"))).
 		WithEntrypoint([]string{"opni"})
-
-	charts := builder.
-		Pipeline("Charts").
-		WithFile(b.ciTarget("charts")).
-		WithExec(mage("charts"))
 
 	// export and push artifacts
 
@@ -451,6 +450,16 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 
 		return nil
 	})
+
+	if b.Releaser.Push {
+		eg.Go(func() error {
+			err := b.releaser(ctx, generated)
+			if err != nil {
+				return fmt.Errorf("failed to upload file to release: %w", err)
+			}
+			return nil
+		})
+	}
 
 	return eg.Wait()
 }
@@ -529,4 +538,50 @@ func (b *Builder) runOutOfTreeBuilds(ctx context.Context) error {
 	}
 
 	return eg.Wait()
+}
+
+func (b *Builder) opniArchives(build *dagger.Container, os, arch string) *dagger.Container {
+	archives := build.
+		Pipeline("Build Archives").
+		WithEnvVariable("GOOS", os).
+		WithEnvVariable("GOARCH", arch).
+		WithExec(mage([]string{"build:archives"}))
+
+	return archives
+}
+
+func (b *Builder) releaser(ctx context.Context, build *dagger.Container) error {
+	gh := helm.GithubCLI(build)
+	fmt.Println("building release files")
+	for _, os := range b.Releaser.OS {
+		for _, arch := range b.Releaser.Arch {
+			platformFileSuffix := fmt.Sprintf("%s_%s", os, arch)
+
+			fmt.Printf("building for: %s %s\n", os, arch)
+
+			archives := b.opniArchives(build, os, arch)
+			opni := archives.
+				Pipeline("Build Opni").
+				WithExec(mage([]string{"build:opnireleasecli", platformFileSuffix}))
+
+			zippedFile := fmt.Sprintf("opni_%s.tar.gz", platformFileSuffix)
+			filePath := b.bin(zippedFile)
+
+			releaser := gh.
+				Pipeline("Upload release file").
+				WithSecretVariable("GH_TOKEN", b.Releaser.Auth.Secret).
+				WithFile(filePath, opni.File(filePath)).
+				WithExec([]string{"gh", "release", "upload",
+					b.Releaser.Tag,
+					filePath,
+					"--repo", b.Releaser.Repo,
+					"--clobber",
+				})
+			_, err := releaser.Sync(ctx)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

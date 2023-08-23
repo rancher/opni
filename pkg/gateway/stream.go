@@ -13,6 +13,7 @@ import (
 	otelprometheus "go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
+	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -104,11 +105,17 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 	id := cluster.StreamAuthorizedID(ctx)
 
 	opts := []totem.ServerOption{
-		totem.WithName("gateway-server"),
+		totem.WithName("gateway"),
+		totem.WithMetrics(s.getProviderForId(id),
+			attribute.Key(metrics.LabelImpersonateAs).String(id),
+		),
+		totem.WithTracerOptions(
+			resource.WithAttributes(
+				semconv.ServiceNameKey.String("gateway"),
+				attribute.String("agent", id),
+			),
+		),
 	}
-	opts = append(opts, totem.WithMetrics(s.getProviderForId(id),
-		attribute.Key(metrics.LabelImpersonateAs).String(id),
-	))
 
 	ts, err := totem.NewServer(stream, opts...)
 	if err != nil {
@@ -137,6 +144,7 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 	for _, r := range s.streamPlugins {
 		streamClient := streamv1.NewStreamClient(r.cc)
 		splicedStream, err := streamClient.Connect(ctx)
+		name := fmt.Sprintf("gateway|%s", r.name)
 		if err != nil {
 			s.logger.With(
 				zap.String("clusterId", c.Id),
@@ -144,7 +152,13 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 			).Warn("failed to connect to remote stream, skipping")
 			continue
 		}
-		if err := ts.Splice(splicedStream, totem.WithStreamName(r.name)); err != nil {
+		if err := ts.Splice(splicedStream,
+			totem.WithName(name),
+			totem.WithTracerOptions(resource.WithAttributes(
+				semconv.ServiceNameKey.String(name),
+				semconv.ServiceInstanceIDKey.String(id),
+			)),
+		); err != nil {
 			s.logger.With(
 				zap.String("clusterId", c.Id),
 				zap.Error(err),
@@ -245,8 +259,16 @@ func (s *StreamServer) OnPluginLoad(ext types.StreamAPIExtensionPlugin, md meta.
 			).Error("failed to connect to internal plugin stream")
 			return
 		}
-
-		ts, err := totem.NewServer(internalStream)
+		ts, err := totem.NewServer(
+			internalStream,
+			totem.WithName("gateway-internal-server"),
+			totem.WithTracerOptions(
+				resource.WithAttributes(
+					semconv.ServiceNameKey.String("gateway-internal-server"),
+					semconv.ServiceInstanceIDKey.String(md.Module),
+				),
+			),
+		)
 		if err != nil {
 			lg.With(
 				zap.Error(err),

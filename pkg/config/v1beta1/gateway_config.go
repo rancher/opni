@@ -234,6 +234,7 @@ const (
 
 const (
 	PatchEngineBsdiff PatchEngine = "bsdiff"
+	PatchEngineZstd   PatchEngine = "zstd"
 )
 
 type BinaryPluginsSpec struct {

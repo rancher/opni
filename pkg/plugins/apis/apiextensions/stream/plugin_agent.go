@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -18,6 +19,9 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/sdk/resource"
+	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -41,7 +45,8 @@ func NewAgentPlugin(p StreamAPIExtension) plugin.Plugin {
 	name := "unknown"
 	if ok {
 		fnName := fn.Name()
-		name = fnName[strings.LastIndex(fnName, "plugins/")+len("plugins/") : strings.LastIndex(fnName, ".")]
+		parts := strings.Split(fnName, "/")
+		name = fmt.Sprintf("plugin_%s", parts[slices.Index(parts, "plugins")+1])
 	}
 
 	ext := &agentStreamExtensionServerImpl{
@@ -100,7 +105,13 @@ func (e *agentStreamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectS
 	}()
 
 	opts := []totem.ServerOption{
-		totem.WithName("plugin_" + e.name),
+		totem.WithName(e.name),
+		totem.WithTracerOptions(
+			resource.WithAttributes(
+				semconv.ServiceNameKey.String(e.name),
+				attribute.String("mode", "agent"),
+			),
+		),
 	}
 	ts, err := totem.NewServer(stream, opts...)
 

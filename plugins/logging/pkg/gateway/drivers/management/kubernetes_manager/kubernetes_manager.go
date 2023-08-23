@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	"slices"
+
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/apis"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
@@ -20,7 +22,6 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/management"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"

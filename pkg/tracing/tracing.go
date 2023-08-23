@@ -9,25 +9,25 @@ import (
 	"go.opentelemetry.io/contrib/propagators/autoprop"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 var log = logger.New(logger.WithLogLevel(zapcore.InfoLevel)).Named("tracing")
 
 func Configure(serviceName string) {
-	res, err := resource.New(context.Background(),
-		resource.WithFromEnv(),
-		resource.WithProcess(),
-		resource.WithAttributes(
-			semconv.ServiceNameKey.String(serviceName),
-		),
-	)
+	res, err := resource.New(context.Background(), resource.WithAttributes(
+		semconv.ServiceNameKey.String(serviceName),
+	))
 	if err != nil {
-		panic(err)
+		log.With(zap.Error(err)).Error("failed to configure tracing")
+		return
 	}
+
 	opts := []tracesdk.TracerProviderOption{
 		tracesdk.WithResource(res),
 	}
@@ -37,10 +37,18 @@ func Configure(serviceName string) {
 		log.Info("using jaeger exporter")
 		exp, err := jaeger.New(jaeger.WithCollectorEndpoint())
 		if err != nil {
-			log.Error(err, "failed to create exporter")
+			log.With(zap.Error(err)).Error("failed to create exporter")
 			return
 		}
 		opts = append(opts, tracesdk.WithBatcher(exp))
+	case "otlp":
+		log.Info("using otel exporter")
+		exporter, err := otlptracegrpc.New(context.Background())
+		if err != nil {
+			log.With(zap.Error(err)).Error("failed to create exporter")
+			return
+		}
+		opts = append(opts, tracesdk.WithBatcher(exporter))
 	default:
 	}
 

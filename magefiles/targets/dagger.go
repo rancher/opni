@@ -5,9 +5,10 @@ import (
 	"os"
 	"os/exec"
 
+	"slices"
+
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
-	"golang.org/x/exp/slices"
 )
 
 type Dagger mg.Namespace

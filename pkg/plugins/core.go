@@ -79,7 +79,7 @@ func (m *Main) Exec() {
 	}
 	scheme := schemeFunc(ctx)
 
-	tracing.Configure(fmt.Sprintf("plugin_%s_%s", moduleBasename, mode))
+	tracing.Configure(fmt.Sprintf("plugin_%s_%s", mode, moduleBasename))
 
 	Serve(scheme)
 	ca()

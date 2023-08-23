@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 
+	"maps"
+
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jws"
 	bootstrapv2 "github.com/rancher/opni/pkg/apis/bootstrap/v2"
@@ -18,7 +20,6 @@ import (
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
-	"golang.org/x/exp/maps"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"

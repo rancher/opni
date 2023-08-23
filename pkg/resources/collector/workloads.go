@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
 	"github.com/rancher/opni/pkg/otel"
 	"github.com/rancher/opni/pkg/resources"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
@@ -15,6 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -207,6 +209,23 @@ func (r *Reconciler) daemonSet() resources.Resource {
 			},
 		},
 	}
+
+	// Short circuit and remove the daemonset if we don't need it
+	if !r.shouldDeployDaemonset() {
+		ds := &appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("%s-collector-agent", r.collector.Name),
+				Namespace: r.collector.Spec.SystemNamespace,
+				Labels: map[string]string{
+					resources.AppNameLabel:  "collector-agent",
+					resources.PartOfLabel:   "opni",
+					resources.InstanceLabel: r.collector.Name,
+				},
+			},
+		}
+		return resources.Absent(ds)
+	}
+
 	if r.collector.Spec.LoggingConfig != nil {
 		hostVolumeMounts, hostVolumes, err := r.hostLoggingVolumes()
 		if err != nil {
@@ -321,6 +340,27 @@ func (r *Reconciler) daemonSet() resources.Resource {
 
 	ctrl.SetControllerReference(r.collector, ds, r.client.Scheme())
 	return resources.Present(ds)
+}
+
+func (r *Reconciler) shouldDeployDaemonset() bool {
+	if r.collector.Spec.LoggingConfig != nil {
+		return true
+	}
+
+	if r.collector.Spec.MetricsConfig == nil {
+		return false
+	}
+
+	metrics := &monitoringv1beta1.CollectorConfig{}
+	err := r.client.Get(r.ctx, client.ObjectKey{
+		Name:      r.collector.Spec.MetricsConfig.Name,
+		Namespace: r.collector.Namespace,
+	}, metrics)
+	if err != nil {
+		return false
+	}
+
+	return lo.FromPtrOr(metrics.Spec.OtelSpec.HostMetrics, false)
 }
 
 func (r *Reconciler) deployment() resources.Resource {

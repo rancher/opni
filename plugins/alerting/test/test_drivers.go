@@ -19,6 +19,8 @@ import (
 	"github.com/google/uuid"
 	amCfg "github.com/prometheus/alertmanager/config"
 
+	"slices"
+
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
@@ -40,7 +42,6 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/rules"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"

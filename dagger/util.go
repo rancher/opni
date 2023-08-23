@@ -41,11 +41,12 @@ func (b *Builder) ciTarget(name string) (string, *dagger.File) {
 		b.sources.File(filepath.Join("magefiles/ci", name+".go"))
 }
 
-func mage(target string, opts ...dagger.ContainerWithExecOpts) ([]string, dagger.ContainerWithExecOpts) {
+func mage(target []string, opts ...dagger.ContainerWithExecOpts) ([]string, dagger.ContainerWithExecOpts) {
 	if len(opts) == 0 {
 		opts = append(opts, dagger.ContainerWithExecOpts{})
 	}
-	return []string{"mage", "-v", target}, opts[0]
+	mageCmd := []string{"mage", "-v"}
+	return append(mageCmd, target...), opts[0]
 }
 
 func yarn[S string | []string](target S, opts ...dagger.ContainerWithExecOpts) ([]string, dagger.ContainerWithExecOpts) {
@@ -75,7 +76,7 @@ func installTools(ctr *dagger.Container) *dagger.Container {
 		"sigs.k8s.io/controller-tools/cmd/controller-gen@latest",
 		"sigs.k8s.io/kustomize/kustomize/v5@latest",
 	} {
-		ctr = ctr.WithExec([]string{"go", "install", "-v", "-x", tool})
+		ctr = ctr.WithExec([]string{"go", "install", tool})
 	}
 	return ctr
 }

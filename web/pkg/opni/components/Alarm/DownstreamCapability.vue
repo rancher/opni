@@ -7,12 +7,14 @@ import { AlertType } from '../../models/alerting/Condition';
 import { loadClusters, loadChoices } from './shared';
 
 const TYPE = 'downstreamCapability';
-const CONSTS = {
+
+export const CONSTS = {
   TYPE,
   ENUM:        AlertType.DOWNSTREAM_CAPABILTIY,
   TYPE_OPTION: {
     label: 'Downstream Capability',
-    value: TYPE
+    value: TYPE,
+    enum:  AlertType.DOWNSTREAM_CAPABILTIY
   },
   DEFAULT_CONFIG: {
     [TYPE]: {

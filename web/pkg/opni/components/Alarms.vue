@@ -1,15 +1,15 @@
 <script>
 import SortableTable from '@shell/components/SortableTable';
 import Loading from '@shell/components/Loading';
-import LabeledSelect from '@shell/components/form/LabeledSelect';
 import { getClusters } from '@pkg/opni/utils/requests/management';
 import CloneToClustersDialog from '@pkg/opni/components/dialogs/CloneToClustersDialog';
-import { InstallState, getClusterStatus, getAlertConditionsWithStatus, getAlertConditionGroups } from '@pkg/opni/utils/requests/alerts';
-import LoadingSpinner from '@pkg/opni/components/LoadingSpinner';
+import { InstallState, getClusterStatus, getAlertConditionsWithStatus } from '@pkg/opni/utils/requests/alerts';
+import LoadingSpinnerOverlay from '@pkg/opni/components/LoadingSpinnerOverlay';
+import ConditionFilter, { createDefaults as createConditionFilterDefaults, loadOptions as loadConditionFilterOptions } from '@pkg/opni/components/ConditionFilter';
 
 export default {
   components: {
-    CloneToClustersDialog, LabeledSelect, Loading, LoadingSpinner, SortableTable
+    CloneToClustersDialog, ConditionFilter, Loading, LoadingSpinnerOverlay, SortableTable
   },
   async fetch() {
     await this.load();
@@ -18,15 +18,14 @@ export default {
 
   data() {
     return {
-      clusters:          [],
-      loading:           false,
-      loadingTable:      false,
-      statsInterval:     null,
-      conditions:        [],
-      isAlertingEnabled: false,
-      groupFilter:       '', // Default group
-      groupOptions:      [],
-      headers:           [
+      conditionFilter:        createConditionFilterDefaults(),
+      clusters:               [],
+      loading:                false,
+      loadingTable:           false,
+      statsInterval:          null,
+      conditions:             [],
+      isAlertingEnabled:      false,
+      headers:                [
         {
           name:          'status',
           labelKey:      'opni.tableHeaders.status',
@@ -96,13 +95,10 @@ export default {
           return;
         }
 
-        const [groups, clusters] = await Promise.all([getAlertConditionGroups(), getClusters(this)]);
+        const [conditionFilterOptions, clusters] = await Promise.all([loadConditionFilterOptions(), getClusters(this)]);
 
-        this.$set(this, 'groupOptions', groups.map(g => ({
-          value: g.id,
-          label: g.id === '' ? 'Default' : g.id
-        })));
         this.$set(this, 'clusters', clusters);
+        this.$set(this.conditionFilter, 'options', conditionFilterOptions);
 
         await this.updateStatuses();
       } finally {
@@ -110,19 +106,19 @@ export default {
       }
     },
     async updateStatuses() {
-      this.$set(this, 'conditions', await getAlertConditionsWithStatus(this, this.clusters, [this.groupFilter]));
-    }
-  },
-  watch: {
-    async groupFilter() {
+      this.$set(this, 'conditions', await getAlertConditionsWithStatus(this, this.clusters, this.conditionFilter.itemFilter));
+    },
+
+    async itemFilterChanged(itemFilter) {
       try {
         this.$set(this, 'loadingTable', true);
+        this.$set(this.conditionFilter, 'itemFilter', itemFilter);
         await this.updateStatuses();
       } finally {
         this.$set(this, 'loadingTable', false);
       }
-    }
-  }
+    },
+  },
 };
 </script>
 <template>
@@ -138,7 +134,7 @@ export default {
         </n-link>
       </div>
     </header>
-    <div v-if="isAlertingEnabled" class="table-container">
+    <LoadingSpinnerOverlay v-if="isAlertingEnabled" :loading="loadingTable">
       <SortableTable
         :rows="conditions"
         :headers="headers"
@@ -154,13 +150,10 @@ export default {
           </div>
         </template>
         <template #header-right>
-          <LabeledSelect v-model="groupFilter" label="Group" :searchable="true" :options="groupOptions" />
+          <ConditionFilter :options="conditionFilter.options" @item-filter-changed="itemFilterChanged" />
         </template>
       </SortableTable>
-      <div v-if="loadingTable" class="loading-spinner-container">
-        <LoadingSpinner />
-      </div>
-    </div>
+    </LoadingSpinnerOverlay>
     <div v-else class="not-enabled">
       <h4>
         Alerting must be enabled to use Alarms. <n-link :to="{name: 'alerting'}">
@@ -178,9 +171,26 @@ export default {
     position: relative;
     text-align: left;
     right: 0;
-    &,.v-select {
-      width: 300px;
-    }
+  }
+
+  .search {
+    align-items: center;
+    justify-content: initial;
+  }
+
+  .group {
+    width: 260px;
+  }
+
+  .type {
+    width: 160px;
+  }
+  .cluster {
+    width: 260px;
+  }
+
+  .btn-sm {
+    height: 40px;
   }
 
   .bulk {
@@ -189,30 +199,10 @@ export default {
     align-items: center;
   }
 
-  .initial-load-spinner {
-      border-color: rgb(219, 136, 240);
-      border-top-color: var(--primary);
-    }
-}
-
-.table-container {
-  position: relative;
-}
-
-.loading-spinner-container {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 81px;
-  bottom: 0;
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  z-index: 100;
-
-  background-color: rgba(242, 242, 242, 0.6);
+  .loading-spinner-container {
+    top: 81px;
+    z-index: 100;
+  }
 }
 
 .not-enabled {

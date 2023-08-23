@@ -6,12 +6,14 @@ import { AlertType } from '../../models/alerting/Condition';
 import { loadClusters, loadChoices } from './shared';
 
 const TYPE = 'monitoringBackend';
-const CONSTS = {
+
+export const CONSTS = {
   TYPE,
   ENUM:        AlertType.MONITORING_BACKEND,
   TYPE_OPTION: {
     label: 'Monitoring Backend',
-    value: TYPE
+    value: TYPE,
+    enum:  AlertType.MONITORING_BACKEND
   },
   DEFAULT_CONFIG: { [TYPE]: { clusterId: { id: '' }, for: '30s' } },
 };

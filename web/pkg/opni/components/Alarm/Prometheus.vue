@@ -7,12 +7,14 @@ import { AlertType } from '../../models/alerting/Condition';
 import { loadClusters, loadChoices } from './shared';
 
 const TYPE = 'prometheusQuery';
-const CONSTS = {
+
+export const CONSTS = {
   TYPE,
   ENUM:        AlertType.PROMETHEUS_QUERY,
   TYPE_OPTION: {
     label: 'Prometheus',
-    value: TYPE
+    value: TYPE,
+    enum:  AlertType.PROMETHEUS_QUERY
   },
   DEFAULT_CONFIG: {
     [TYPE]: {

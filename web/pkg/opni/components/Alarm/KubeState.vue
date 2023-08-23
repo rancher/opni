@@ -7,12 +7,13 @@ import { loadClusters, loadChoices } from './shared';
 
 const TYPE = 'kubeState';
 
-const CONSTS = {
+export const CONSTS = {
   TYPE,
   ENUM:        AlertType.KUBE_STATE,
   TYPE_OPTION: {
     label: 'Kube State',
-    value: 'kubeState'
+    value: 'kubeState',
+    enum:  AlertType.KUBE_STATE
   },
   DEFAULT_CONFIG: {
     [TYPE]: {

@@ -271,6 +271,7 @@ func (d *TestEnvMetricsClusterDriver) onActiveConfigChanged(old, new *cortexops.
 				configutil.NewOverrider(func(t *ruler.Config) bool {
 					t.EvaluationInterval = 1 * time.Second
 					t.PollInterval = 1 * time.Second
+					t.ResendDelay = 1 * time.Second
 					t.Notifier.TLS.ServerName = "127.0.0.1"
 					return true
 				}),

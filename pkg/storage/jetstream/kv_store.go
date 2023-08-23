@@ -87,7 +87,7 @@ func (j jetstreamKeyValueStore) Get(_ context.Context, key string, opts ...stora
 
 func (j jetstreamKeyValueStore) Watch(ctx context.Context, key string, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[[]byte]], error) {
 	options := storage.WatchOptions{}
-	eventC := make(chan storage.WatchEvent[storage.KeyRevision[[]byte]], 1)
+	eventC := make(chan storage.WatchEvent[storage.KeyRevision[[]byte]], 64)
 
 	if options.Prefix {
 		key += "*"

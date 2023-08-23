@@ -64,7 +64,8 @@ type KeyringStore interface {
 type KeyRevision[T any] interface {
 	Key() string
 	// If values were requested, returns the value at this revision. Otherwise,
-	// returns nil. Note that if the value has a revision field, it will *not*
+	// returns the zero value for T.
+	// Note that if the value has a revision field, it will *not*
 	// be populated, and should be set manually if needed using the Revision()
 	// method.
 	Value() T

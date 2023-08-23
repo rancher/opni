@@ -105,7 +105,7 @@ func (s *genericKeyValueStore) Watch(ctx context.Context, key string, opts ...st
 		clientOptions = append(clientOptions, clientv3.WithPrefix())
 	}
 
-	eventC := make(chan storage.WatchEvent[storage.KeyRevision[[]byte]], 1)
+	eventC := make(chan storage.WatchEvent[storage.KeyRevision[[]byte]], 64)
 
 	wc := s.client.Watch(ctx, key, clientOptions...)
 	go func() {

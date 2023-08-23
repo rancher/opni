@@ -190,11 +190,17 @@ func NewTestEnvMetricsClusterDriver(env *test.Environment) *TestEnvMetricsCluste
 	}
 	d.status.Store(&installStatusLocker{})
 	defaultStore := inmemory.NewValueStore[*cortexops.CapabilityBackendConfigSpec](util.ProtoClone)
-	activeStore := inmemory.NewValueStore[*cortexops.CapabilityBackendConfigSpec](util.ProtoClone, inmemory.OnValueChanged(
-		func(prev, value *cortexops.CapabilityBackendConfigSpec) {
-			go d.onActiveConfigChanged(prev, value)
-		},
-	))
+	activeStore := inmemory.NewValueStore[*cortexops.CapabilityBackendConfigSpec](util.ProtoClone)
+	updateC, err := activeStore.Watch(env.Context())
+	if err != nil {
+		panic(err)
+	}
+	go func() {
+		for entry := range updateC {
+			go d.onActiveConfigChanged(entry.Previous.Value(), entry.Current.Value())
+		}
+	}()
+
 	d.configTracker = driverutil.NewDefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec](
 		defaultStore, activeStore, flagutil.LoadDefaults[*cortexops.CapabilityBackendConfigSpec],
 	)

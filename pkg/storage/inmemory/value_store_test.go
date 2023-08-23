@@ -17,37 +17,42 @@ import (
 var _ = Describe("Value Store", Ordered, Label("unit"), func() {
 	var (
 		ctx             context.Context
+		ca              context.CancelFunc
 		valueStore      storage.ValueStoreT[string]
-		updateC         chan lo.Tuple2[string, string]
+		updateC         <-chan storage.WatchEvent[storage.KeyRevision[string]]
 		expectedUpdates []lo.Tuple2[string, string]
 	)
 
 	BeforeEach(func() {
-		updateC = make(chan lo.Tuple2[string, string], 10)
+		ctx, ca = context.WithCancel(context.Background())
+
 		expectedUpdates = nil
+		valueStore = inmemory.NewValueStore(strings.Clone)
 
-		updateC := updateC
-		valueStore = inmemory.NewValueStore(strings.Clone, inmemory.OnValueChanged(func(prev, value string) {
-			updateC <- lo.T2(prev, value)
-		}))
-		ctx = context.TODO()
-
+		var err error
+		updateC, err = valueStore.Watch(ctx)
+		Expect(err).NotTo(HaveOccurred())
 	})
-	AfterEach(func(ctx context.Context) {
-		close(updateC)
+	AfterEach(func() {
+		ca()
+		receivedUpdates := lo.ChannelToSlice(updateC)
+		if len(receivedUpdates) != len(expectedUpdates) {
+			Fail(fmt.Sprintf("received %d updates, expected %d: \nwant: %v\ngot: %v", len(receivedUpdates), len(expectedUpdates), expectedUpdates, receivedUpdates))
+		}
 		for i, pair := range expectedUpdates {
-			select {
-			case t2, ok := <-updateC:
-				if ok {
-					Expect(t2).To(Equal(pair), "for update %d", i)
-				} else {
-					Fail(fmt.Sprintf("received fewer updates than expected: \nwant: %v\ngot: %v", expectedUpdates, expectedUpdates[0:i]))
-				}
-			case <-ctx.Done():
-				Fail("timed out waiting for updates")
+			prev, cur := pair.Unpack()
+			update := receivedUpdates[i]
+			if update.Previous == nil {
+				Expect(prev).To(BeEmpty())
+			} else {
+				Expect(update.Previous.Value()).To(Equal(prev))
+			}
+			if update.Current == nil {
+				Expect(cur).To(BeEmpty())
+			} else {
+				Expect(update.Current.Value()).To(Equal(cur))
 			}
 		}
-		Expect(updateC).NotTo(Receive())
 	})
 
 	expectUpdates := func(pairs ...lo.Tuple2[string, string]) {

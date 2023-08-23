@@ -240,7 +240,7 @@ func (c *kvStoreClientImpl[T]) Watch(ctx context.Context, key string, opts ...st
 	if err != nil {
 		return nil, err
 	}
-	ch := make(chan storage.WatchEvent[storage.KeyRevision[T]], 1)
+	ch := make(chan storage.WatchEvent[storage.KeyRevision[T]], 64)
 	go func() {
 		for {
 			resp, err := stream.Recv()

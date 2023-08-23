@@ -11,10 +11,11 @@ const (
 	ModelGroupName           = "opni-neural-search-model-group"
 	ModelGroupDesc           = "model group for neural search"
 	ModelAccess              = "private"
+	DefaultSearchResultSize  = 10
 )
 
 var (
-	LogEmbedding = LogEmbeddingSpec{
+	LogEmbeddingSettings = LogEmbeddingSpec{
 		Type:      "knn_vector",
 		Dimension: 768,
 		Method: MethodSpec{
@@ -143,4 +144,42 @@ type ModelTaskStatus struct {
 	CreateTime     int      `json:"create_time,omitempty"`
 	LastUpdateTime int      `json:"last_update_time,omitempty"`
 	IsAsync        bool     `json:"is_async,omitempty"`
+}
+
+type LogSearchQuery struct {
+	Size   int          `json:"size,omitempty"`
+	Query  NeuralSearch `json:"query,omitempty"`
+	Source []string     `json:"_source,omitempty"`
+}
+
+type NeuralSearch struct {
+	Neural Neural `json:"neural,omitempty"`
+}
+
+type Neural struct {
+	LogEmbedding LogEmbeddingQuery `json:"log_embedding,omitempty"`
+}
+
+type LogEmbeddingQuery struct {
+	QueryText string `json:"query_text,omitempty"`
+	ModelID   string `json:"model_id,omitempty"`
+	K         int    `json:"k,omitempty"`
+}
+
+type LogSearchResponse struct {
+	LogHits LogHits `json:"hits,omitempty"`
+}
+
+type LogHits struct {
+	Hits []LogResult `json:"hits,omitempty"`
+}
+
+type LogResult struct {
+	Index  string    `json:"_index,omitempty"`
+	ID     string    `json:"_id,omitempty"`
+	Source LogSource `json:"_source,omitempty"`
+}
+
+type LogSource struct {
+	Log string `json:"log,omitempty"`
 }

@@ -296,6 +296,9 @@ var (
 					"anomaly_level": {
 						Type: "keyword",
 					},
+					opensearchtypes.LogEmbeddingName: {
+						Type: "knn_vector",
+					},
 				},
 			},
 		},

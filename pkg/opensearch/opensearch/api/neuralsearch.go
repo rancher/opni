@@ -63,6 +63,16 @@ func generateModelRegisterPath() strings.Builder {
 	return path
 }
 
+func generateGetSearchLogsPath(index string) strings.Builder {
+	var path strings.Builder
+	path.Grow(1 + len(index) + 1 + len("_search"))
+	path.WriteString("/")
+	path.WriteString(index)
+	path.WriteString("/")
+	path.WriteString("_search")
+	return path
+}
+
 func generateModelDeployPath(modelID string) strings.Builder {
 	var path strings.Builder
 	path.Grow(len(modelFrameworkBase) + len("models") + 1 + len(modelID) + 1 + len("_deploy"))
@@ -128,6 +138,24 @@ func generateModelRegisterBody(groupID string) io.Reader {
 	}
 
 	return opensearchutil.NewJSONReader(modelBody)
+}
+
+func generateGetSearchLogsBody(query string, modelID string, results int) io.Reader {
+	queryBody := &opensearchtypes.LogSearchQuery{
+		Size: results,
+		Query: opensearchtypes.NeuralSearch{
+			Neural: opensearchtypes.Neural{
+				LogEmbedding: opensearchtypes.LogEmbeddingQuery{
+					QueryText: query,
+					ModelID:   modelID,
+					K:         results,
+				},
+			},
+		},
+		Source: []string{"log"},
+	}
+
+	return opensearchutil.NewJSONReader(queryBody)
 }
 
 func generateEnableModelAccessControlBody() io.Reader {
@@ -258,10 +286,24 @@ func (a *NeuralSearchAPI) PostDeployModel(ctx context.Context, modelID string) (
 	return (*Response)(res), err
 }
 
-// func (a *NeuralSearchAPI) GetSearchLogs(ctx context.Context, query string) (*Response, error) {
-// 	// todo
-// 	return nil, nil
-// }
+func (a *NeuralSearchAPI) GetSearchLogs(ctx context.Context, index string, query string, modelID string, results int) (*Response, error) {
+	method := http.MethodGet
+	path := generateGetSearchLogsPath(index)
+	body := generateGetSearchLogsBody(query, modelID, results)
+
+	req, err := http.NewRequest(method, path.String(), body)
+	if err != nil {
+		return nil, err
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+	if body != nil {
+		req.Header.Add(headerContentType, jsonContentHeader)
+	}
+	res, err := a.Perform(req)
+	return (*Response)(res), err
+}
 
 func (a *NeuralSearchAPI) MaybeCreateModelGroup(ctx context.Context) (string, error) {
 	resp, err := a.PostSearchExistingModelGroup(ctx)

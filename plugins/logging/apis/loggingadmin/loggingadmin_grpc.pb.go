@@ -31,6 +31,7 @@ const (
 	LoggingAdminV2_GetSnapshotSchedule_FullMethodName             = "/loggingadmin.LoggingAdminV2/GetSnapshotSchedule"
 	LoggingAdminV2_DeleteSnapshotSchedule_FullMethodName          = "/loggingadmin.LoggingAdminV2/DeleteSnapshotSchedule"
 	LoggingAdminV2_ListSnapshotSchedules_FullMethodName           = "/loggingadmin.LoggingAdminV2/ListSnapshotSchedules"
+	LoggingAdminV2_GetSearchLogs_FullMethodName                   = "/loggingadmin.LoggingAdminV2/GetSearchLogs"
 )
 
 // LoggingAdminV2Client is the client API for LoggingAdminV2 service.
@@ -48,6 +49,7 @@ type LoggingAdminV2Client interface {
 	GetSnapshotSchedule(ctx context.Context, in *SnapshotReference, opts ...grpc.CallOption) (*SnapshotSchedule, error)
 	DeleteSnapshotSchedule(ctx context.Context, in *SnapshotReference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListSnapshotSchedules(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SnapshotStatusList, error)
+	GetSearchLogs(ctx context.Context, in *LogSearchRequest, opts ...grpc.CallOption) (*LogSearchResponse, error)
 }
 
 type loggingAdminV2Client struct {
@@ -157,6 +159,15 @@ func (c *loggingAdminV2Client) ListSnapshotSchedules(ctx context.Context, in *em
 	return out, nil
 }
 
+func (c *loggingAdminV2Client) GetSearchLogs(ctx context.Context, in *LogSearchRequest, opts ...grpc.CallOption) (*LogSearchResponse, error) {
+	out := new(LogSearchResponse)
+	err := c.cc.Invoke(ctx, LoggingAdminV2_GetSearchLogs_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LoggingAdminV2Server is the server API for LoggingAdminV2 service.
 // All implementations must embed UnimplementedLoggingAdminV2Server
 // for forward compatibility
@@ -172,6 +183,7 @@ type LoggingAdminV2Server interface {
 	GetSnapshotSchedule(context.Context, *SnapshotReference) (*SnapshotSchedule, error)
 	DeleteSnapshotSchedule(context.Context, *SnapshotReference) (*emptypb.Empty, error)
 	ListSnapshotSchedules(context.Context, *emptypb.Empty) (*SnapshotStatusList, error)
+	GetSearchLogs(context.Context, *LogSearchRequest) (*LogSearchResponse, error)
 	mustEmbedUnimplementedLoggingAdminV2Server()
 }
 
@@ -211,6 +223,9 @@ func (UnimplementedLoggingAdminV2Server) DeleteSnapshotSchedule(context.Context,
 }
 func (UnimplementedLoggingAdminV2Server) ListSnapshotSchedules(context.Context, *emptypb.Empty) (*SnapshotStatusList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListSnapshotSchedules not implemented")
+}
+func (UnimplementedLoggingAdminV2Server) GetSearchLogs(context.Context, *LogSearchRequest) (*LogSearchResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSearchLogs not implemented")
 }
 func (UnimplementedLoggingAdminV2Server) mustEmbedUnimplementedLoggingAdminV2Server() {}
 
@@ -423,6 +438,24 @@ func _LoggingAdminV2_ListSnapshotSchedules_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LoggingAdminV2_GetSearchLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LogSearchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LoggingAdminV2Server).GetSearchLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LoggingAdminV2_GetSearchLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LoggingAdminV2Server).GetSearchLogs(ctx, req.(*LogSearchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LoggingAdminV2_ServiceDesc is the grpc.ServiceDesc for LoggingAdminV2 service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -473,6 +506,10 @@ var LoggingAdminV2_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListSnapshotSchedules",
 			Handler:    _LoggingAdminV2_ListSnapshotSchedules_Handler,
+		},
+		{
+			MethodName: "GetSearchLogs",
+			Handler:    _LoggingAdminV2_GetSearchLogs_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

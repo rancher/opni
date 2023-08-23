@@ -909,7 +909,7 @@ func (r *Reconciler) UpdateNeuralSearchLogEmbeddingForIndex(index string) error 
 		return nil
 	}
 
-	mapping, err := sjson.Set("", "properties."+types.LogEmbeddingName, types.LogEmbedding)
+	mapping, err := sjson.Set("", "properties."+types.LogEmbeddingName, types.LogEmbeddingSettings)
 	if err != nil {
 		return err
 	}

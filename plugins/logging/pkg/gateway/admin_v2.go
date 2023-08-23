@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -9,6 +10,8 @@ import (
 	"time"
 
 	"github.com/lestrrat-go/backoff/v2"
+	"github.com/rancher/opni/pkg/opensearch/opensearch/types"
+	"github.com/rancher/opni/pkg/resources/multiclusterrolebinding"
 	"github.com/rancher/opni/pkg/versions"
 	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
 	loggingerrors "github.com/rancher/opni/plugins/logging/pkg/errors"
@@ -280,6 +283,56 @@ func (m *LoggingManagerV2) ListSnapshotSchedules(ctx context.Context, _ *emptypb
 	}
 
 	return list, nil
+}
+
+func (m *LoggingManagerV2) GetSearchLogs(ctx context.Context, req *loggingadmin.LogSearchRequest) (*loggingadmin.LogSearchResponse, error) {
+	resp, err := m.opensearchManager.NeuralSearch.PostSearchExistingModel(ctx)
+	if err != nil {
+		return nil, grpcstatus.Error(codes.NotFound, err.Error())
+	}
+
+	var modelID string
+	modelSearchResp := types.ModelGroupSearchResp{}
+	err = json.NewDecoder(resp.Body).Decode(&modelSearchResp)
+	if err != nil {
+		return nil, grpcstatus.Error(codes.Internal, err.Error())
+	}
+	modelUploaded := len(modelSearchResp.ModelGroupHits.Hits) > 0
+	if modelUploaded {
+		modelID = modelSearchResp.ModelGroupHits.Hits[0].Source.ModelID
+	} else {
+		return nil, grpcstatus.Error(codes.NotFound, "unable to search logs")
+	}
+	results := types.DefaultSearchResultSize
+	if req.Results != nil {
+		results = int(*req.Results)
+	}
+	query := req.Query
+	index := fmt.Sprintf("%s*", multiclusterrolebinding.LogIndexPrefix)
+	resp, err = m.opensearchManager.NeuralSearch.GetSearchLogs(ctx, index, query, modelID, results)
+	if err != nil {
+		return nil, grpcstatus.Error(codes.Internal, err.Error())
+	}
+
+	searchResp := types.LogSearchResponse{}
+	err = json.NewDecoder(resp.Body).Decode(&searchResp)
+	if err != nil {
+		return nil, grpcstatus.Error(codes.Internal, err.Error())
+	}
+
+	count := len(searchResp.LogHits.Hits)
+	searchResults := make([]*loggingadmin.LogResult, count)
+	for i := 0; i < count; i++ {
+		searchResults[i] = &loggingadmin.LogResult{
+			Index: searchResp.LogHits.Hits[i].Index,
+			Id:    searchResp.LogHits.Hits[i].ID,
+			Log:   searchResp.LogHits.Hits[i].Source.Log,
+		}
+	}
+
+	return &loggingadmin.LogSearchResponse{
+		LogResult: searchResults,
+	}, nil
 }
 
 func (m *LoggingManagerV2) validDurationString(duration string) bool {

@@ -21,6 +21,7 @@ import (
 
 	alertingSync "github.com/rancher/opni/pkg/alerting/server/sync"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -218,7 +219,9 @@ func (p *Plugin) Info(ctx context.Context, _ *emptypb.Empty) (*alertops.Componen
 	if err != nil {
 		return nil, status.Error(codes.Unavailable, err.Error())
 	}
+	p.syncController.hashMu.Lock()
 	hash, err := cl.GetHash(ctx, shared.SingleConfigId)
+	p.syncController.hashMu.Unlock()
 	if err != nil {
 		return nil, status.Error(codes.NotFound, fmt.Sprintf("could not find or calculate hash for %s", shared.SingleConfigId))
 	}
@@ -248,7 +251,11 @@ func (p *Plugin) constructManualSync() (*syncPayload, error) {
 	if err != nil {
 		return nil, status.Error(codes.Unavailable, fmt.Sprintf("failed to get storage client set: %s", err))
 	}
-	return p.constructPartialSyncRequest(p.ctx, storageClientSet, storageClientSet.Routers())
+	driver, err := p.clusterDriver.GetContext(ctxTimeout)
+	if err != nil {
+		return nil, status.Error(codes.Unavailable, fmt.Sprintf("failed to get cluster driver: %s", err))
+	}
+	return p.constructPartialSyncRequest(p.ctx, driver, storageClientSet, storageClientSet.Routers())
 }
 
 func (p *Plugin) SyncConfig(server alertops.ConfigReconciler_SyncConfigServer) error {
@@ -326,6 +333,7 @@ type syncPayload struct {
 
 func (p *Plugin) constructPartialSyncRequest(
 	ctx context.Context,
+	driver drivers.ClusterDriver,
 	hashRing spec.HashRing,
 	routers spec.RouterStorage,
 ) (*syncPayload, error) {
@@ -343,6 +351,9 @@ func (p *Plugin) constructPartialSyncRequest(
 	if err != nil {
 		lg.Errorf("failed to get router %s from storage: %s", key, err)
 		return nil, err
+	}
+	if recv := driver.GetDefaultReceiver(); recv != nil {
+		router.SetDefaultReceiver(*recv)
 	}
 	config, err := router.BuildConfig()
 	if err != nil {
@@ -378,6 +389,11 @@ func (p *Plugin) doConfigSync(ctx context.Context, syncInfo alertingSync.SyncInf
 		lg.Warn("failed to acquire alerting storage clientset, skipping sync...")
 		return err
 	}
+	driver, err := p.clusterDriver.GetContext(ctxTimeout)
+	if err != nil {
+		lg.Warn("failed to acquire cluster driver, skipping sync...")
+		return err
+	}
 
 	routerKeys, err := clientSet.Sync(ctx)
 	if err != nil {
@@ -386,7 +402,7 @@ func (p *Plugin) doConfigSync(ctx context.Context, syncInfo alertingSync.SyncInf
 	}
 	if len(routerKeys) > 0 { // global configuration has changed and never been applied
 
-		payload, err := p.constructPartialSyncRequest(ctx, clientSet, clientSet.Routers())
+		payload, err := p.constructPartialSyncRequest(ctx, driver, clientSet, clientSet.Routers())
 		if err != nil {
 			return err
 		}
@@ -404,7 +420,7 @@ func (p *Plugin) doConfigSync(ctx context.Context, syncInfo alertingSync.SyncInf
 		}
 	}
 	if len(queuedSyncs) > 0 {
-		payload, err := p.constructPartialSyncRequest(ctx, clientSet, clientSet.Routers())
+		payload, err := p.constructPartialSyncRequest(ctx, driver, clientSet, clientSet.Routers())
 		if err != nil {
 			return err
 		}
@@ -430,11 +446,16 @@ func (p *Plugin) doConfigForceSync(ctx context.Context, syncInfo alertingSync.Sy
 		lg.Warn("failed to acquire alerting storage clientset, skipping force sync...")
 		return err
 	}
+	driver, err := p.clusterDriver.GetContext(ctxTimeout)
+	if err != nil {
+		lg.Warn("failed to acquire cluster driver, skipping force sync...")
+		return err
+	}
 	if err := clientSet.ForceSync(ctx); err != nil {
 		lg.Errorf("failed to force sync configuration in alerting clientset %s", err)
 		return err
 	}
-	payload, err := p.constructPartialSyncRequest(p.ctx, clientSet, clientSet.Routers())
+	payload, err := p.constructPartialSyncRequest(p.ctx, driver, clientSet, clientSet.Routers())
 	if err != nil {
 		return err
 	}
@@ -498,7 +519,7 @@ func (p *Plugin) runSyncTasks(tasks []alertingSync.SyncTask) (retErr error) {
 		return err
 	}
 
-	lg.Info("Running periodic sync for alerting")
+	lg.Debug("Running periodic sync for alerting")
 	var eg util.MultiErrGroup
 	for _, task := range tasks {
 		task := task
@@ -507,7 +528,7 @@ func (p *Plugin) runSyncTasks(tasks []alertingSync.SyncTask) (retErr error) {
 		})
 	}
 	eg.Wait()
-	lg.Infof("finished running periodic sync for alerting, sucessfully ran %d/%d sync tasks", len(tasks)-len(eg.Errors()), len(tasks))
+	lg.Debugf("finished running periodic sync for alerting, sucessfully ran %d/%d sync tasks", len(tasks)-len(eg.Errors()), len(tasks))
 	if err := eg.Error(); err != nil {
 		lg.Error(err)
 		retErr = err
@@ -529,7 +550,7 @@ func (p *Plugin) runSync() {
 	for {
 		select {
 		case <-p.ctx.Done():
-			p.logger.Info("exiting main sync loop")
+			p.logger.Debug("exiting main sync loop")
 			return
 		case <-ticker.C:
 			if err := p.runSyncTasks(syncTasks); err != nil {
@@ -551,8 +572,13 @@ func (p *Plugin) SendManualSyncRequest(
 	p.syncController.syncMu.Lock()
 	defer p.syncController.syncMu.Unlock()
 
+	driver, err := p.clusterDriver.GetContext(ctx)
+	if err != nil {
+		return err
+	}
+
 	lg := p.logger.With("method", "sendManualSyncRequest")
-	payload, err := p.constructPartialSyncRequest(ctx, hashRing, routers)
+	payload, err := p.constructPartialSyncRequest(ctx, driver, hashRing, routers)
 	if err != nil {
 		lg.Errorf("failed to construct sync request: %s", err)
 		return err

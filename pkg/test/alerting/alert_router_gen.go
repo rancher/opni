@@ -122,7 +122,7 @@ func NewWebhookMemoryServer(e *test.Environment, webHookRoute string) *MockInteg
 		res.WriteBuffer(&msg)
 	})
 	webhookServer := &http.Server{
-		Addr:           fmt.Sprintf("127.0.0.1:%d", port),
+		Addr:           fmt.Sprintf("localhost:%d", port),
 		Handler:        mux,
 		ReadTimeout:    30 * time.Second,
 		WriteTimeout:   30 * time.Second,

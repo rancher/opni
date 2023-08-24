@@ -42,7 +42,7 @@ func NewBytes(seed ...int64) []byte {
 func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 	tsF future.Future[B],
 	newT func(seed ...int64) T,
-	equal func(any) types.GomegaMatcher,
+	match func(any) types.GomegaMatcher,
 ) func() {
 	// sanity-check the newT function
 	values := map[string]int64{}
@@ -87,7 +87,7 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 
 					value, err := ts.Get(context.Background(), "foo")
 					Expect(err).NotTo(HaveOccurred())
-					Expect(value).To(equal(newT(1)))
+					Expect(value).To(match(newT(1)))
 				})
 				It("should appear in the list of keys", func() {
 					keys, err := ts.ListKeys(context.Background(), "")
@@ -129,7 +129,7 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 								zero = reflect.Zero(val.Type()).Interface().(T)
 							}
 						}
-						Expect(value).To(equal(zero))
+						Expect(value).To(match(zero))
 					})
 				})
 			})
@@ -177,6 +177,149 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 				})
 			})
 		})
+		Context("Watch", func() {
+			var ts storage.KeyValueStoreT[T]
+			BeforeEach(func() {
+				ts = tsF.Get().KeyValueStore("watch")
+			})
+			matchEvent := func(event storage.WatchEvent[storage.KeyRevision[T]], eventType storage.WatchEventType, key string, prev T, prevRev int64, current T, currentRev int64) {
+				GinkgoHelper()
+				Expect(event.EventType).To(Equal(eventType))
+				note := fmt.Sprintf("type=%s,key=%s,prev=%v,prevRev=%d,current=%v,currentRev=%d", eventType, key, prev, prevRev, current, currentRev)
+				switch eventType {
+				case storage.WatchEventCreate:
+					Expect(event.Current).NotTo(BeNil(), note)
+					Expect(event.Current.Key()).To(Equal(key), note)
+					Expect(event.Current.Value()).To(match(current), note)
+					Expect(event.Current.Revision()).To(Equal(currentRev), note)
+					Expect(event.Previous).To(BeNil())
+				case storage.WatchEventUpdate:
+					Expect(event.Current).NotTo(BeNil(), note)
+					Expect(event.Current.Key()).To(Equal(key), note)
+					Expect(event.Current.Value()).To(match(current), note)
+					Expect(event.Current.Revision()).To(Equal(currentRev), note)
+					Expect(event.Previous).NotTo(BeNil(), note)
+					Expect(event.Previous.Key()).To(Equal(key), note)
+					Expect(event.Previous.Value()).To(match(prev), note)
+					Expect(event.Previous.Revision()).To(Equal(prevRev), note)
+				case storage.WatchEventDelete:
+					Expect(event.Current).To(BeNil(), note)
+					Expect(event.Previous).NotTo(BeNil(), note)
+					Expect(event.Previous.Key()).To(Equal(key), note)
+					Expect(event.Previous.Value()).To(match(prev), note)
+					Expect(event.Previous.Revision()).To(Equal(prevRev), note)
+				}
+			}
+			var none T
+			var noRev int64 = -1
+
+			It("should watch for changes to keys", SpecTimeout(5*time.Second), func(ctx SpecContext) {
+				updateC, err := ts.Watch(ctx, "key")
+				Expect(err).NotTo(HaveOccurred())
+
+				By("creating the key")
+				Expect(ts.Put(ctx, "key", newT(1))).To(Succeed())
+				matchEvent(<-updateC, storage.WatchEventCreate, "key", none, noRev, newT(1), 1)
+
+				By("updating the key")
+				Expect(ts.Put(ctx, "key", newT(2))).To(Succeed())
+				matchEvent(<-updateC, storage.WatchEventUpdate, "key", newT(1), 1, newT(2), 2)
+
+				By("deleting the key")
+				Expect(ts.Delete(ctx, "key")).To(Succeed())
+				matchEvent(<-updateC, storage.WatchEventDelete, "key", newT(2), 2, none, noRev)
+
+				By("recreating the key")
+				Expect(ts.Put(ctx, "key", newT(4))).To(Succeed())
+				matchEvent(<-updateC, storage.WatchEventCreate, "key", none, noRev, newT(4), 4)
+
+				By("updating the key")
+				Expect(ts.Put(ctx, "key", newT(5))).To(Succeed())
+				matchEvent(<-updateC, storage.WatchEventUpdate, "key", newT(4), 4, newT(5), 5)
+			})
+
+			It("should watch for changes to keys by prefix", SpecTimeout(5*time.Second), func(ctx SpecContext) {
+				// Watch for keys with prefix "prefix"
+				updateC, err := ts.Watch(ctx, "prefix")
+				Expect(err).NotTo(HaveOccurred())
+
+				// Create a key with the specified prefix
+				Expect(ts.Put(ctx, "prefix_key1", newT(1))).To(Succeed())
+				matchEvent(<-updateC, storage.WatchEventCreate, "prefix_key1", none, noRev, newT(1), 1)
+
+				// Update the key with the specified prefix
+				Expect(ts.Put(ctx, "prefix_key1", newT(2))).To(Succeed())
+				matchEvent(<-updateC, storage.WatchEventUpdate, "prefix_key1", newT(1), 1, newT(2), 2)
+
+				// Delete the key with the specified prefix
+				Expect(ts.Delete(ctx, "prefix_key1")).To(Succeed())
+				matchEvent(<-updateC, storage.WatchEventDelete, "prefix_key1", newT(2), 2, none, noRev)
+
+				// Create another key with the specified prefix
+				Expect(ts.Put(ctx, "prefix_key2", newT(3))).To(Succeed())
+				matchEvent(<-updateC, storage.WatchEventCreate, "prefix_key2", none, noRev, newT(3), 1)
+			})
+
+			It("should watch for changes to keys with a starting revision", SpecTimeout(5*time.Second), func(ctx SpecContext) {
+				By("creating the key")
+				var rev int64
+				Expect(ts.Put(ctx, "revision_key", newT(1), storage.WithRevisionOut(&rev))).To(Succeed())
+				Expect(ts.Put(ctx, "revision_key", newT(2))).To(Succeed())
+
+				By("watching for changes starting from a previous revision")
+				updateC, err := ts.Watch(ctx, "revision_key", storage.WithRevision(rev))
+				Expect(err).NotTo(HaveOccurred())
+				matchEvent(<-updateC, storage.WatchEventCreate, "revision_key", none, noRev, newT(1), 1)
+				matchEvent(<-updateC, storage.WatchEventUpdate, "revision_key", newT(1), 1, newT(2), 2)
+			})
+
+			It("should watch for changes to keys with a starting revision by prefix", func() {
+				By("creating the key")
+				var rev int64
+				Expect(ts.Put(context.Background(), "prefix_key", newT(1), storage.WithRevisionOut(&rev))).To(Succeed())
+				Expect(ts.Put(context.Background(), "prefix_key", newT(2))).To(Succeed())
+
+				By("watching for changes starting from a previous revision")
+				updateC, err := ts.Watch(context.Background(), "prefix", storage.WithRevision(rev), storage.WithPrefix())
+				Expect(err).NotTo(HaveOccurred())
+				matchEvent(<-updateC, storage.WatchEventCreate, "prefix_key", none, noRev, newT(1), 1)
+				matchEvent(<-updateC, storage.WatchEventUpdate, "prefix_key", newT(1), 1, newT(2), 2)
+			})
+
+			It("should duplicate events to multiple watchers with mixed options", func() {
+				By("creating the key")
+				var rev int64
+				Expect(ts.Put(context.Background(), "key", newT(1), storage.WithRevisionOut(&rev))).To(Succeed())
+				Expect(ts.Put(context.Background(), "key", newT(2))).To(Succeed())
+
+				By("watching for changes starting from a previous revision")
+				updateC1, err := ts.Watch(context.Background(), "key", storage.WithRevision(rev))
+				Expect(err).NotTo(HaveOccurred())
+				updateC2, err := ts.Watch(context.Background(), "key", storage.WithRevision(rev))
+				Expect(err).NotTo(HaveOccurred())
+
+				By("watching for changes without a starting revision")
+				updateC3, err := ts.Watch(context.Background(), "key")
+
+				By("ensuring that the first two watchers see all events")
+				matchEvent(<-updateC1, storage.WatchEventCreate, "key", none, noRev, newT(1), 1)
+				matchEvent(<-updateC2, storage.WatchEventCreate, "key", none, noRev, newT(1), 1)
+				matchEvent(<-updateC1, storage.WatchEventUpdate, "key", newT(1), 1, newT(2), 2)
+				matchEvent(<-updateC2, storage.WatchEventUpdate, "key", newT(1), 1, newT(2), 2)
+
+				By("ensuring that the third watcher only sees the latest event")
+				matchEvent(<-updateC3, storage.WatchEventUpdate, "key", newT(1), 1, newT(2), 2)
+			})
+
+			It("should stop watching when the context is canceled", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				updateC, err := ts.Watch(ctx, "key")
+				Expect(err).NotTo(HaveOccurred())
+				cancel()
+				_, ok := <-updateC
+				Expect(ok).To(BeFalse())
+			})
+		})
 		Context("key revisions", func() {
 			var ts storage.KeyValueStoreT[T]
 
@@ -205,14 +348,14 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 
 					value, err := ts.Get(context.Background(), "key1")
 					Expect(err).NotTo(HaveOccurred())
-					Expect(value).To(equal(newT(2)))
+					Expect(value).To(match(newT(2)))
 
 					// Check with correct revision
 					Expect(ts.Put(context.Background(), "key1", newT(3), storage.WithRevision(revision2))).To(Succeed())
 
 					value, err = ts.Get(context.Background(), "key1")
 					Expect(err).NotTo(HaveOccurred())
-					Expect(value).To(equal(newT(3)))
+					Expect(value).To(match(newT(3)))
 				})
 				When("specifying future revisions", func() {
 					It("should return a conflict error", func() {
@@ -233,7 +376,7 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 					for i := 0; i < 10; i++ {
 						value, err := ts.Get(context.Background(), "key1", storage.WithRevision(revisions[i]))
 						Expect(err).NotTo(HaveOccurred())
-						Expect(value).To(equal(newT(int64(i))))
+						Expect(value).To(match(newT(int64(i))))
 					}
 				})
 				When("the revision does not exist", func() {
@@ -254,7 +397,7 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 							v, err := ts.Get(context.Background(), "key1", storage.WithRevision(revision), storage.WithRevisionOut(&sameRevision))
 							Expect(err).NotTo(HaveOccurred())
 							Expect(sameRevision).To(Equal(revision))
-							Expect(v).To(equal(newT(1)))
+							Expect(v).To(match(newT(1)))
 							_, err = ts.Get(context.Background(), "key1", storage.WithRevision(revision-1))
 							Expect(err).To(testutil.MatchStatusCode(codes.NotFound))
 						})
@@ -267,7 +410,7 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 
 						value, err := ts.Get(context.Background(), "key1")
 						Expect(err).NotTo(HaveOccurred())
-						Expect(value).To(equal(newT(2)))
+						Expect(value).To(match(newT(2)))
 					})
 				})
 			})
@@ -284,7 +427,7 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 
 					value, err := ts.Get(context.Background(), "key1")
 					Expect(err).NotTo(HaveOccurred())
-					Expect(value).To(equal(newT(2)))
+					Expect(value).To(match(newT(2)))
 
 					Expect(ts.Delete(context.Background(), "key1", storage.WithRevision(revision2))).To(Succeed())
 
@@ -355,7 +498,7 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 								Expect(revs).To(HaveLen(j + 1))
 								for k := 0; k <= j; k++ {
 									Expect(revs[k].Key()).To(Equal(fmt.Sprintf("history/key%d", i)))
-									Expect(revs[k].Value()).To(equal(newT(int64(k))))
+									Expect(revs[k].Value()).To(match(newT(int64(k))))
 									Expect(revs[k].Revision()).To(Equal(revisions[k]))
 									if k > 0 {
 										Expect(revs[k].Timestamp()).To(Or(
@@ -373,6 +516,29 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 						close(done)
 					}()
 					Eventually(ctx, done).Should(BeClosed())
+				})
+				When("no revision is specified", func() {
+					It("should return the history up to the current revision", func() {
+						Expect(ts.Put(context.Background(), "key1", newT(1))).To(Succeed())
+						Expect(ts.Put(context.Background(), "key1", newT(2))).To(Succeed())
+						Expect(ts.Put(context.Background(), "key1", newT(3))).To(Succeed())
+
+						revs, err := ts.History(context.Background(), "key1", storage.IncludeValues(true))
+						Expect(err).NotTo(HaveOccurred())
+						Expect(revs).To(HaveLen(3))
+
+						Expect(revs[0].Key()).To(Equal("key1"))
+						Expect(revs[0].Value()).To(match(newT(1)))
+						Expect(revs[0].Revision()).To(Equal(int64(1)))
+
+						Expect(revs[1].Key()).To(Equal("key1"))
+						Expect(revs[1].Value()).To(match(newT(2)))
+						Expect(revs[1].Revision()).To(Equal(int64(2)))
+
+						Expect(revs[2].Key()).To(Equal("key1"))
+						Expect(revs[2].Value()).To(match(newT(3)))
+						Expect(revs[2].Revision()).To(Equal(int64(3)))
+					})
 				})
 				When("the key is not found", func() {
 					It("should return a NotFound error", func() {
@@ -400,9 +566,9 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 						}
 						Expect(err).NotTo(HaveOccurred())
 						Expect(revs).To(HaveLen(3))
-						Expect(revs[0].Value()).To(equal(newT(1)))
-						Expect(revs[1].Value()).To(equal(newT(2)))
-						Expect(revs[2].Value()).To(equal(newT(3)))
+						Expect(revs[0].Value()).To(match(newT(1)))
+						Expect(revs[1].Value()).To(match(newT(2)))
+						Expect(revs[2].Value()).To(match(newT(3)))
 					})
 				})
 			})

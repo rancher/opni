@@ -2,6 +2,7 @@ package inmemory
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	art "github.com/plar/go-adaptive-radix-tree"
@@ -14,11 +15,21 @@ type inMemoryKeyValueStore[T any] struct {
 	mu            sync.RWMutex
 	newValueStore func(string) storage.ValueStoreT[T]
 	keys          art.Tree
+	watches       map[string]*activeWatch[T]
+}
+
+type activeWatch[T any] struct {
+	ctx           context.Context
+	watchedStores map[string]storage.ValueStoreT[T]
+	ch            chan storage.WatchEvent[storage.KeyRevision[T]]
+	wg            sync.WaitGroup
+	addWatch      func(string, storage.ValueStoreT[T])
 }
 
 func NewKeyValueStore[T any](cloneFunc func(T) T) storage.KeyValueStoreT[T] {
 	return &inMemoryKeyValueStore[T]{
-		keys: art.New(),
+		keys:    art.New(),
+		watches: map[string]*activeWatch[T]{},
 		newValueStore: func(string) storage.ValueStoreT[T] {
 			return NewValueStore[T](cloneFunc)
 		},
@@ -29,6 +40,7 @@ func NewCustomKeyValueStore[T any](newValueStore func(string) storage.ValueStore
 	return &inMemoryKeyValueStore[T]{
 		keys:          art.New(),
 		newValueStore: newValueStore,
+		watches:       map[string]*activeWatch[T]{},
 	}
 }
 
@@ -72,29 +84,63 @@ func (m *inMemoryKeyValueStore[T]) Watch(ctx context.Context, key string, opts .
 	if err := validateKey(key); err != nil {
 		return nil, err
 	}
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
-	matchingStores := []storage.ValueStoreT[T]{}
+	matchingStores := map[string]storage.ValueStoreT[T]{}
 	m.keys.ForEachPrefix(art.Key([]byte(key)), func(node art.Node) (cont bool) {
-		matchingStores = append(matchingStores, node.Value().(storage.ValueStoreT[T]))
+		if node.Value() != nil {
+			matchingStores[string(node.Key())] = node.Value().(storage.ValueStoreT[T])
+		}
 		return true
 	})
-	aggregated := make(chan storage.WatchEvent[storage.KeyRevision[T]], len(matchingStores))
-	for _, vs := range matchingStores {
+
+	aggregated := make(chan storage.WatchEvent[storage.KeyRevision[T]], 128)
+	watch := activeWatch[T]{
+		ctx:           ctx,
+		watchedStores: matchingStores,
+		ch:            aggregated,
+	}
+	addWatch := func(key string, vs storage.ValueStoreT[T]) {
+		watch.wg.Add(1)
 		ch, err := vs.Watch(ctx, opts...)
 		if err != nil {
-			return nil, err
+			return
 		}
 		go func() {
-			for event := range ch {
-				aggregated <- event
+			defer watch.wg.Done()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case event := <-ch:
+					if event.Current != nil {
+						event.Current.(*storage.KeyRevisionImpl[T]).K = key
+					}
+					if event.Previous != nil {
+						event.Previous.(*storage.KeyRevisionImpl[T]).K = key
+					}
+
+					aggregated <- event
+				}
 			}
 		}()
 	}
+	watch.addWatch = addWatch
+
+	for key, vs := range matchingStores {
+		addWatch(key, vs)
+	}
+
+	m.watches[key] = &watch
 
 	if ctx != context.Background() && ctx != context.TODO() {
 		context.AfterFunc(ctx, func() {
+			m.mu.Lock()
+			delete(m.watches, key)
+			m.mu.Unlock()
+
+			watch.wg.Wait()
 			close(aggregated)
 		})
 	}
@@ -152,11 +198,19 @@ func (m *inMemoryKeyValueStore[T]) Put(ctx context.Context, key string, value T,
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	vs, ok := m.keys.Search(art.Key([]byte(key)))
+	var vst storage.ValueStoreT[T]
 	if !ok {
-		vs = m.newValueStore(key)
-		m.keys.Insert(art.Key([]byte(key)), vs)
+		vst = m.newValueStore(key)
+		m.keys.Insert(art.Key([]byte(key)), vst)
+		for prefix, watch := range m.watches {
+			if strings.HasPrefix(key, prefix) {
+				watch.addWatch(key, vst)
+			}
+		}
+	} else {
+		vst = vs.(storage.ValueStoreT[T])
 	}
-	return vs.(storage.ValueStoreT[T]).Put(ctx, value, opts...)
+	return vst.Put(ctx, value, opts...)
 }
 
 func validateKey(key string) error {

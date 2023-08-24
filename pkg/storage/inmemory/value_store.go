@@ -73,11 +73,11 @@ func (s *inMemoryValueStore[T]) Put(_ context.Context, value T, opts ...storage.
 
 	var prevValue *valueStoreElement[T]
 	var eventType storage.WatchEventType
-	if previous != nil {
+	if previous == nil || previous.(*valueStoreElement[T]).deleted {
+		eventType = storage.WatchEventCreate
+	} else {
 		eventType = storage.WatchEventUpdate
 		prevValue = previous.(*valueStoreElement[T])
-	} else {
-		eventType = storage.WatchEventCreate
 	}
 	var wg sync.WaitGroup
 	s.watches.Range(func(_ string, listener func(storage.WatchEvent[storage.KeyRevision[T]])) bool {
@@ -175,24 +175,77 @@ func (s *inMemoryValueStore[T]) Watch(ctx context.Context, opts ...storage.Watch
 	updateC := make(chan storage.WatchEvent[storage.KeyRevision[T]], 64)
 	buffer := make(chan storage.WatchEvent[storage.KeyRevision[T]], 8)
 
+	s.lock.RLock()
+	current := s.values
 	if options.Revision != nil {
-		// write historical entries >= opts.revision and <= s.revision
-		revs, err := s.History(ctx, storage.WithRevision(*options.Revision), storage.IncludeValues(true))
-		if err != nil {
-			return nil, err
-		}
-		for _, rev := range revs {
-			select {
-			case updateC <- storage.WatchEvent[storage.KeyRevision[T]]{
-				EventType: storage.WatchEventCreate,
-				Current:   rev,
-			}:
-			default:
-				panic("bug: wrong buffer size in Watch update channel")
+		// walk back until we find the starting revision
+		if options.Revision != nil {
+			for ; current != s.values.Next(); current = current.Prev() {
+				if current.Value == nil {
+					return nil, storage.ErrNotFound
+				}
+				curElem := current.Value.(*valueStoreElement[T])
+				if curElem.deleted {
+					continue
+				}
+				if curElem.revision == *options.Revision {
+					break
+				}
 			}
 		}
 	}
 
+	// if there is a previous value for the target revision, keep track of it
+	var previous storage.KeyRevision[T]
+	if current.Prev().Value != nil {
+		prevValue := current.Prev().Value.(*valueStoreElement[T])
+		if !prevValue.deleted {
+			previous = &storage.KeyRevisionImpl[T]{
+				V:    s.cloneFunc(prevValue.value),
+				Rev:  prevValue.revision,
+				Time: prevValue.timestamp,
+			}
+		} else {
+			previous = nil
+		}
+	}
+
+	// walk forward until we reach the current value and write the events
+	for ; current != s.values.Next(); current = current.Next() {
+		if current.Value == nil {
+			continue
+		}
+		curElem := current.Value.(*valueStoreElement[T])
+		if curElem.deleted {
+			updateC <- storage.WatchEvent[storage.KeyRevision[T]]{
+				EventType: storage.WatchEventDelete,
+				Previous:  previous,
+			}
+			previous = nil
+			continue
+		}
+		current := &storage.KeyRevisionImpl[T]{
+			V:    s.cloneFunc(curElem.value),
+			Rev:  curElem.revision,
+			Time: curElem.timestamp,
+		}
+		if previous == nil {
+			updateC <- storage.WatchEvent[storage.KeyRevision[T]]{
+				EventType: storage.WatchEventCreate,
+				Current:   current,
+			}
+		} else {
+			updateC <- storage.WatchEvent[storage.KeyRevision[T]]{
+				EventType: storage.WatchEventUpdate,
+				Current:   current,
+				Previous:  previous,
+			}
+		}
+		previous = current
+	}
+	s.lock.RUnlock()
+
+	// watch for future updates
 	id := uuid.NewString()
 
 	s.watches.Store(id, func(ev storage.WatchEvent[storage.KeyRevision[T]]) {

@@ -3,6 +3,7 @@ package node_backend
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	"github.com/google/go-cmp/cmp"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -85,24 +86,18 @@ var (
 )
 
 var (
-	fallbackDefaultNodeSpec = &node.AlertingCapabilitySpec{
-		RuleDiscovery: &node.RuleDiscoverySpec{
-			Enabled: true,
-		},
-	}
-	specMu sync.RWMutex
+	// The "default" default node spec. Exported for testing purposes.
+	FallbackDefaultNodeSpec atomic.Pointer[node.AlertingCapabilitySpec]
 )
 
-func GetFallbackSpec() *node.AlertingCapabilitySpec {
-	specMu.RLock()
-	defer specMu.RUnlock()
-	return fallbackDefaultNodeSpec
-}
-
-func SetFallbackSpec(cfg *node.AlertingCapabilitySpec) {
-	specMu.Lock()
-	defer specMu.Unlock()
-	fallbackDefaultNodeSpec = cfg
+func init() {
+	FallbackDefaultNodeSpec.Store(
+		&node.AlertingCapabilitySpec{
+			RuleDiscovery: &node.RuleDiscoverySpec{
+				Enabled: true,
+			},
+		},
+	)
 }
 
 func (a *AlertingNodeBackend) requestNodeSync(ctx context.Context, node *corev1.Reference) {
@@ -214,7 +209,7 @@ func (a *AlertingNodeBackend) SetNodeConfiguration(ctx context.Context, req *nod
 func (a *AlertingNodeBackend) getDefaultNodeSpec(ctx context.Context) (*node.AlertingCapabilitySpec, error) {
 	spec, err := a.capabilityKV.Get().DefaultCapabilitySpec.Get(ctx)
 	if status.Code(err) == codes.NotFound {
-		spec = GetFallbackSpec()
+		spec = FallbackDefaultNodeSpec.Load()
 	} else if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "failed to get default capability spec : %s", err)
 	}

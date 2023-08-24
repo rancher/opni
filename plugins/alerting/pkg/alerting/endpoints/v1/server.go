@@ -274,7 +274,6 @@ func (e *EndpointServerComponent) TestAlertEndpoint(ctx context.Context, req *al
 		return nil, err
 	}
 	go func() { // create, trigger, delete
-		start := time.Now()
 		ctxTimeout, ca := context.WithTimeout(e.ctx, 120*time.Second)
 		t := time.NewTicker(RetryTestEdnpoint)
 		defer func() {
@@ -284,7 +283,6 @@ func (e *EndpointServerComponent) TestAlertEndpoint(ctx context.Context, req *al
 				Items: []*alertingv1.FullAttachedEndpoint{},
 			})
 		}()
-		e.logger.Warn("Test alert endpoint is running in the background")
 		for {
 			isLoaded := false
 			select {
@@ -302,7 +300,6 @@ func (e *EndpointServerComponent) TestAlertEndpoint(ctx context.Context, req *al
 				break
 			}
 		}
-		e.logger.Warn("Test endpoint is loaded")
 
 		_, err = e.notifications.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
 			ConditionId: &corev1.Reference{Id: ephemeralId},
@@ -316,10 +313,9 @@ func (e *EndpointServerComponent) TestAlertEndpoint(ctx context.Context, req *al
 			},
 		})
 
-		e.logger.Warn("tried to trigger alert")
 		if err != nil {
+			// errors can represent partial successes, however it is unusual
 			e.logger.Errorf("Failed to trigger alert %s", err)
-			return
 		}
 		matchers := []*labels.Matcher{
 			{
@@ -348,6 +344,7 @@ func (e *EndpointServerComponent) TestAlertEndpoint(ctx context.Context, req *al
 					},
 				})
 				if err != nil {
+					// errors can represent partial successes, however it is unusual
 					e.logger.Warnf("failed to trigger alert on test endpoint %s", err)
 				}
 				e.mu.Lock()
@@ -360,10 +357,6 @@ func (e *EndpointServerComponent) TestAlertEndpoint(ctx context.Context, req *al
 				break
 			}
 		}
-		end := time.Now()
-		time.Sleep(time.Second * 30)
-		e.logger.Warnf("successfully tested endpoint %s", end.Sub(start))
-
 	}()
 
 	return &alertingv1.TestAlertEndpointResponse{}, nil

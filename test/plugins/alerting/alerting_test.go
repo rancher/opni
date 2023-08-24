@@ -494,9 +494,15 @@ func BuildAlertingClusterIntegrationTests(
 						return nil
 					}, time.Second*30, time.Second).Should(Succeed())
 					By("verifying the routing relationships are correctly loaded")
+					Eventually(func() int {
+						relationships, err := alertNotificationsClient.ListRoutingRelationships(env.Context(), &emptypb.Empty{})
+						if err != nil {
+							return -1
+						}
+						return len(relationships.RoutingRelationships)
+					}).Should(Equal(len(expectedRouting)))
 					relationships, err := alertNotificationsClient.ListRoutingRelationships(env.Context(), &emptypb.Empty{})
 					Expect(err).To(Succeed())
-					Expect(len(relationships.RoutingRelationships)).To(Equal(len(expectedRouting)))
 
 					for endpId, rel := range relationships.RoutingRelationships {
 						slices.SortFunc(rel.Items, func(a, b *alertingv1.ConditionReference) bool {

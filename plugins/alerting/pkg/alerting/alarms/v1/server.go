@@ -493,11 +493,11 @@ func (a *AlarmServerComponent) Timeline(ctx context.Context, req *alertingv1.Tim
 					for _, w := range activeWindows {
 						w.Ref = ref
 					}
-					yieldedValues <- lo.Tuple2[*alertingv1.ConditionReference, *alertingv1.ActiveWindows]{
-						A: ref,
-						B: &alertingv1.ActiveWindows{
+					yieldedValues <- lo.T2(
+						ref,
+						&alertingv1.ActiveWindows{
 							Windows: activeWindows,
-						}}
+						})
 				}
 
 				if alertingv1.IsMetricsCondition(cond) {
@@ -527,12 +527,12 @@ func (a *AlarmServerComponent) Timeline(ctx context.Context, req *alertingv1.Tim
 						w.Ref = ref
 					}
 					lg.With("reduce-matrix", cond.Id).Infof("looking to reduce %d potential causes", len(*matrix))
-					yieldedValues <- lo.Tuple2[*alertingv1.ConditionReference, *alertingv1.ActiveWindows]{
-						A: ref,
-						B: &alertingv1.ActiveWindows{
+					yieldedValues <- lo.T2(
+						ref,
+						&alertingv1.ActiveWindows{
 							Windows: windows,
 						},
-					}
+					)
 				}
 			})
 		}

@@ -43,10 +43,14 @@ func (r *Reconciler) generateDistributionReceiver(config *opniloggingv1beta1.Col
 }
 
 func (r *Reconciler) generateKubeAuditLogsReceiver(config *opniloggingv1beta1.CollectorConfig) (string, []byte, error) {
-	if config.Spec.KubeAuditLogs != nil && config.Spec.KubeAuditLogs.LogPath != "" {
-		var receiver bytes.Buffer
+	if config.Spec.KubeAuditLogs != nil {
 
-		auditLogPath := config.Spec.KubeAuditLogs.LogPath
+		auditLogPath := "/var/log/kube-audit"
+		if config.Spec.KubeAuditLogs.LogPath != "" {
+			auditLogPath = config.Spec.KubeAuditLogs.LogPath
+		}
+
+		var receiver bytes.Buffer
 		err := templateKubeAuditLogs.Execute(&receiver, auditLogPath)
 		if err != nil {
 			return "", nil, err

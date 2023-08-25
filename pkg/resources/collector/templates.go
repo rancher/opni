@@ -5,11 +5,12 @@ import (
 )
 
 const (
-	logReceiverK8s      = "filelog/k8s"
-	logReceiverRKE      = "filelog/rke"
-	logReceiverK3s      = "journald/k3s"
-	logReceiverRKE2     = "journald/rke2"
-	fileLogReceiverRKE2 = "filelog/rke2"
+	logReceiverK8s       = "filelog/k8s"
+	logReceiverKubeAudit = "filelog/kubeauditlogs"
+	logReceiverRKE       = "filelog/rke"
+	logReceiverK3s       = "journald/k3s"
+	logReceiverRKE2      = "journald/rke2"
+	fileLogReceiverRKE2  = "filelog/rke2"
 )
 
 var (
@@ -100,6 +101,23 @@ filelog/rke:
 journald/k3s:
   units: [ "k3s" ]
   directory: {{ . }}
+`))
+
+	templateKubeAuditLogs = template.Must(template.New("kubeauditlogsreceiver").Parse(`
+filelog/kubeauditlogs:
+  include: [ /var/log/kube-audit/*.log ]
+  start_at: beginning
+  include_file_path: true
+  operators:
+  - type: move
+    from: body
+    to: attributes.message
+  - type: add
+    field: attributes.log_type
+    value: controlplane
+  - type: add
+    field: attributes.kubernetes_component
+    value: apiserver
 `))
 	templateLogAgentRKE2 = template.Must(template.New("rke2receiver").Parse(`
 journald/rke2:

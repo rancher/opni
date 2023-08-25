@@ -74,17 +74,6 @@ type WatchOptions struct {
 	// Care should be taken when using this option, especially in combination
 	// with a past revision, as it could cause performance issues.
 	Prefix bool
-
-	// A list of functions which will be called when the value is created,
-	// updated, or deleted, until the watch is cancelled.
-	// When the watch starts:
-	// - If prefix mode is enabled, the listener will be called for all keys
-	//   matching the prefix, with each key and current value.
-	// - If prefix mode is disabled, the listener will be called once only
-	//   for the key specified in the request, with the current value.
-	// - If the key does not exist, the listener will not be called. However,
-	//   it will be called if the key is created later.
-	// Listeners []func(key string, event WatchEvent[KeyRevisionImpl[T]])
 }
 
 type PutOptions struct {

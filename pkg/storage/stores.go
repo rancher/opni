@@ -109,6 +109,30 @@ func (k *KeyRevisionImpl[T]) Timestamp() time.Time {
 type KeyValueStoreT[T any] interface {
 	Put(ctx context.Context, key string, value T, opts ...PutOpt) error
 	Get(ctx context.Context, key string, opts ...GetOpt) (T, error)
+
+	// Starts a watch on the specified key. The returned channel will receive
+	// events for the key until the context is canceled, after which the
+	// channel will be closed. This function does not block. An error will only
+	// be returned if the key is invalid or the watch fails to start.
+	//
+	// When the watch is started, the current value of the key will be sent
+	// if and only if both of the following conditions are met:
+	// 1. A revision is explicitly set in the watch options. If no revision is
+	//    specified, only future events will be sent.
+	// 2. The key exists; or in prefix mode, there is at least one key matching
+	//    the prefix.
+	//
+	// In most cases a starting revision should be specified, as this will
+	// ensure no events are missed.
+	//
+	// This function can be called multiple times for the same key, prefix, or
+	// overlapping prefixes. Each call will initiate a separate watch, and events
+	// are always replicated to all active watches.
+	//
+	// The channels are buffered to hold at least 64 events. Ensure that events
+	// are read from the channel in a timely manner if a large volume of events
+	// are expected; otherwise it will block and events may be delayed, or be
+	// dropped by the backend.
 	Watch(ctx context.Context, key string, opts ...WatchOpt) (<-chan WatchEvent[KeyRevision[T]], error)
 	Delete(ctx context.Context, key string, opts ...DeleteOpt) error
 	ListKeys(ctx context.Context, prefix string, opts ...ListOpt) ([]string, error)

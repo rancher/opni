@@ -197,7 +197,14 @@ func NewTestEnvMetricsClusterDriver(env *test.Environment) *TestEnvMetricsCluste
 	}
 	go func() {
 		for entry := range updateC {
-			go d.onActiveConfigChanged(entry.Previous.Value(), entry.Current.Value())
+			var prevValue, curValue *cortexops.CapabilityBackendConfigSpec
+			if entry.Previous != nil {
+				prevValue = entry.Previous.Value()
+			}
+			if entry.Current != nil {
+				curValue = entry.Current.Value()
+			}
+			go d.onActiveConfigChanged(prevValue, curValue)
 		}
 	}()
 

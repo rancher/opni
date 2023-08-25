@@ -147,7 +147,7 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 					found = true
 					if observedCluster.GetResourceVersion() != cluster.GetResourceVersion() {
 						eventC <- storage.WatchEvent[*v1.Cluster]{
-							EventType: storage.WatchEventUpdate,
+							EventType: storage.WatchEventPut,
 							Current:   observedCluster,
 							Previous:  cluster,
 						}
@@ -179,13 +179,13 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 							if observedCluster.GetId() == cluster.GetId() {
 								if currentState == nil {
 									eventC <- storage.WatchEvent[*v1.Cluster]{
-										EventType: storage.WatchEventCreate,
+										EventType: storage.WatchEventPut,
 										Current:   observedCluster,
 										Previous:  nil,
 									}
 								} else if observedCluster.GetResourceVersion() != currentState.GetResourceVersion() {
 									eventC <- storage.WatchEvent[*v1.Cluster]{
-										EventType: storage.WatchEventUpdate,
+										EventType: storage.WatchEventPut,
 										Current:   observedCluster,
 										Previous:  currentState,
 									}
@@ -218,13 +218,13 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 			for _, cluster := range clusters {
 				if knownCluster, ok := knownClusterMap[cluster.GetId()]; !ok {
 					initialEvents = append(initialEvents, storage.WatchEvent[*v1.Cluster]{
-						EventType: storage.WatchEventCreate,
+						EventType: storage.WatchEventPut,
 						Current:   cluster,
 						Previous:  nil,
 					})
 				} else if knownCluster.GetResourceVersion() != cluster.GetResourceVersion() {
 					initialEvents = append(initialEvents, storage.WatchEvent[*v1.Cluster]{
-						EventType: storage.WatchEventUpdate,
+						EventType: storage.WatchEventPut,
 						Current:   cluster,
 						Previous:  knownCluster,
 					})
@@ -259,7 +259,7 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 						for _, newCl := range observedClusters {
 							if _, ok := knownClusterMap[newCl.GetId()]; !ok {
 								eventC <- storage.WatchEvent[*v1.Cluster]{
-									EventType: storage.WatchEventCreate,
+									EventType: storage.WatchEventPut,
 									Current:   newCl,
 									Previous:  nil,
 								}
@@ -278,7 +278,7 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 								delete(knownClusterMap, oldCl.GetId())
 							} else if knownCluster.GetResourceVersion() != oldCl.GetResourceVersion() {
 								eventC <- storage.WatchEvent[*v1.Cluster]{
-									EventType: storage.WatchEventUpdate,
+									EventType: storage.WatchEventPut,
 									Current:   knownCluster,
 									Previous:  oldCopyCluster,
 								}

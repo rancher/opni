@@ -93,16 +93,12 @@ func (m *Server) WatchClusters(
 		var c, o *corev1.Cluster
 		var eventType managementv1.WatchEventType
 		switch event.EventType {
-		case storage.WatchEventCreate:
-			eventType = managementv1.WatchEventType_Created
-			c = event.Current
-			o = event.Previous
-		case storage.WatchEventUpdate:
-			eventType = managementv1.WatchEventType_Updated
+		case storage.WatchEventPut:
+			eventType = managementv1.WatchEventType_Put
 			c = event.Current
 			o = event.Previous
 		case storage.WatchEventDelete:
-			eventType = managementv1.WatchEventType_Deleted
+			eventType = managementv1.WatchEventType_Delete
 			c = event.Previous
 			o = event.Previous
 		}

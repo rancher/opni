@@ -47,9 +47,10 @@ func (p *Plugin) newClusterWatcherHooks(ctx context.Context, ingressStream *nats
 }
 
 func createClusterEvent(event *managementv1.WatchEvent) bool {
-	return event.Type == managementv1.WatchEventType_Created
+	return event.Type == managementv1.WatchEventType_Put &&
+		event.Previous == nil
 }
 
 func deleteClusterEvent(event *managementv1.WatchEvent) bool {
-	return event.Type == managementv1.WatchEventType_Deleted
+	return event.Type == managementv1.WatchEventType_Delete
 }

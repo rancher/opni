@@ -12,14 +12,15 @@ import (
 	"github.com/golang/snappy"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -35,6 +36,8 @@ type CRDValueStore[O client.Object, T driverutil.ConfigType[T]] struct {
 	CRDValueStoreOptions
 	objectRef client.ObjectKey
 	methods   ValueStoreMethods[O, T]
+	gvk       schema.GroupVersionKind
+	listType  reflect.Type
 }
 
 type CRDValueStoreOptions struct {
@@ -71,19 +74,47 @@ func NewCRDValueStore[O client.Object, T driverutil.ConfigType[T]](
 		}
 	}
 
+	var obj O
+	obj = reflect.New(reflect.TypeOf(obj).Elem()).Interface().(O)
+	gvks, _, err := options.client.Scheme().ObjectKinds(obj)
+	if err != nil {
+		panic(fmt.Sprintf("bug: failed to get object kind for %T: %v", obj, err))
+	}
+	if len(gvks) == 0 {
+		panic(fmt.Sprintf("bug: no object kind for %T available in scheme", obj))
+	}
+	if len(gvks) > 1 {
+		panic(fmt.Sprintf("bug: %T has multiple object kinds in scheme: %v", obj, gvks))
+	}
+	// look up the associated list type
+	types := options.client.Scheme().KnownTypes(gvks[0].GroupVersion())
+	listType, ok := types[gvks[0].Kind+"List"]
+	if !ok {
+		panic(fmt.Sprintf("bug: no list type for %T available in scheme", obj))
+	}
+
 	return &CRDValueStore[O, T]{
 		objectRef:            objectRef,
 		methods:              methods,
 		CRDValueStoreOptions: options,
+		gvk:                  gvks[0],
+		listType:             listType,
 	}
 }
 
 func (s *CRDValueStore[O, T]) newEmptyObject() O {
 	var obj O // nil pointer of type O
 	obj = reflect.New(reflect.TypeOf(obj).Elem()).Interface().(O)
+	obj.GetObjectKind().SetGroupVersionKind(s.gvk)
 	obj.SetName(s.objectRef.Name)
 	obj.SetNamespace(s.objectRef.Namespace)
 	return obj
+}
+
+func (s *CRDValueStore[O, T]) newEmptyObjectList() client.ObjectList {
+	objList := reflect.New(s.listType).Interface().(client.ObjectList)
+	objList.GetObjectKind().SetGroupVersionKind(s.gvk.GroupVersion().WithKind(s.gvk.Kind + "List"))
+	return objList
 }
 
 func (s *CRDValueStore[O, T]) newEmptyConfig() T {
@@ -200,32 +231,103 @@ func (s *CRDValueStore[O, T]) Get(ctx context.Context, opts ...storage.GetOpt) (
 func (s *CRDValueStore[O, T]) Watch(ctx context.Context, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[T]], error) {
 	watchOpts := storage.WatchOptions{}
 	watchOpts.Apply(opts...)
-
-	obj := s.newEmptyObject()
-	gvk := obj.GetObjectKind().GroupVersionKind()
-	gvk.Kind += "List"
-
-	objList := unstructured.UnstructuredList{}
-	objList.SetGroupVersionKind(gvk)
-
-	if watchOpts.Revision != nil {
-		revStr := strconv.FormatInt(*watchOpts.Revision, 10)
-		objList.SetResourceVersion(revStr)
+	if watchOpts.Prefix {
+		return nil, status.Errorf(codes.Unimplemented, "prefix watches are not supported by this storage backend")
 	}
 
-	watcher, err := s.client.Watch(ctx, &objList, &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector("metadata.name", s.objectRef.Name),
+	objList := s.newEmptyObjectList()
+
+	// https://kubernetes.io/docs/reference/using-api/api-concepts/#the-resourceversion-parameter
+	listOpts := &client.ListOptions{
 		Namespace:     s.objectRef.Namespace,
-	})
+		FieldSelector: fields.OneTermEqualSelector("metadata.name", s.objectRef.Name),
+	}
+	var latestVersion string
+	{
+		obj := s.newEmptyObject()
+		s.client.Get(ctx, s.objectRef, obj) // ok if this fails, version will be empty
+		latestVersion = obj.GetResourceVersion()
+	}
+	watcher, err := s.client.Watch(ctx, objList, listOpts)
 	if err != nil {
 		return nil, toGrpcError(err)
 	}
-	context.AfterFunc(ctx, watcher.Stop)
 
-	eventC := make(chan storage.WatchEvent[storage.KeyRevision[T]])
+	eventC := make(chan storage.WatchEvent[storage.KeyRevision[T]], 64)
 	go func() {
+		defer func() {
+			watcher.Stop()
+			close(eventC)
+		}()
+
 		rc := watcher.ResultChan()
-		var previous storage.KeyRevisionImpl[T]
+		var previous *storage.KeyRevisionImpl[T]
+	INITIAL:
+		select {
+		case <-ctx.Done():
+			return
+		case res, ok := <-rc:
+			if !ok {
+				return
+			}
+			var eventType storage.WatchEventType
+			switch res.Type {
+			case watch.Added, watch.Modified:
+				eventType = storage.WatchEventPut
+			case watch.Deleted:
+				eventType = storage.WatchEventDelete
+			default:
+				break INITIAL
+			}
+			obj := res.Object.DeepCopyObject().(O)
+			currentRevision, _ := strconv.ParseInt(obj.GetResourceVersion(), 10, 64)
+
+			if watchOpts.Revision != nil {
+				var history historyFormat[T]
+				s.readHistory(obj, &history)
+				for _, entry := range history.Entries {
+					rev := entry.Config.GetRevision()
+					if rev.GetRevision() == currentRevision {
+						break
+					}
+					driverutil.UnsetRevision(entry.Config)
+					kr := &storage.KeyRevisionImpl[T]{
+						V:    entry.Config,
+						Rev:  rev.GetRevision(),
+						Time: rev.GetTimestamp().AsTime(),
+					}
+					if rev.Revision != nil && *rev.Revision >= *watchOpts.Revision && *rev.Revision < currentRevision {
+						eventC <- storage.WatchEvent[storage.KeyRevision[T]]{
+							EventType: eventType,
+							Current:   s.cloneKeyRevision(kr),
+							Previous:  s.cloneKeyRevision(previous),
+						}
+					}
+					previous = kr
+				}
+			}
+			// send the current value
+			conf := s.newEmptyConfig()
+			s.methods.FillConfigFromObject(obj, conf)
+			driverutil.UnsetRevision(conf)
+			current := &storage.KeyRevisionImpl[T]{
+				V:   conf,
+				Rev: currentRevision,
+			}
+			currentEvent := storage.WatchEvent[storage.KeyRevision[T]]{
+				EventType: eventType,
+				Current:   s.cloneKeyRevision(current),
+				Previous:  s.cloneKeyRevision(previous),
+			}
+			// we only want to send the current revision in the following cases:
+			// 1. The revision option is set
+			// 2. The revision option is not set, but the object was created after
+			//    the watch started
+			if watchOpts.Revision != nil || obj.GetResourceVersion() != latestVersion {
+				eventC <- currentEvent
+			}
+			previous = current
+		}
 		for {
 			select {
 			case <-ctx.Done():
@@ -235,42 +337,38 @@ func (s *CRDValueStore[O, T]) Watch(ctx context.Context, opts ...storage.WatchOp
 					return
 				}
 				var ev storage.WatchEvent[storage.KeyRevision[T]]
-				var current storage.KeyRevisionImpl[T]
+				obj := res.Object.DeepCopyObject().(O)
+				conf := s.newEmptyConfig()
+				s.methods.FillConfigFromObject(obj, conf)
+				revisionNumber, _ := strconv.ParseInt(obj.GetResourceVersion(), 10, 64)
+				driverutil.UnsetRevision(conf)
+
 				switch res.Type {
-				case watch.Added:
-					ev.EventType = storage.WatchEventCreate
-					conf := s.newEmptyConfig()
-					s.methods.FillConfigFromObject(res.Object.(O), conf)
-					revisionNumber, _ := strconv.ParseInt(res.Object.(O).GetResourceVersion(), 10, 64)
-					driverutil.UnsetRevision(conf)
-					current = storage.KeyRevisionImpl[T]{
+				case watch.Added, watch.Modified:
+					ev.EventType = storage.WatchEventPut
+					current := &storage.KeyRevisionImpl[T]{
 						Rev: revisionNumber,
 						V:   conf,
 					}
-					ev.Current = &current
-				case watch.Modified:
-					ev.EventType = storage.WatchEventUpdate
-					conf := s.newEmptyConfig()
-					s.methods.FillConfigFromObject(res.Object.(O), conf)
-					revisionNumber, _ := strconv.ParseInt(res.Object.(O).GetResourceVersion(), 10, 64)
-					driverutil.UnsetRevision(conf)
-					current = storage.KeyRevisionImpl[T]{
-						Rev: revisionNumber,
-						V:   conf,
+					ev.Current = s.cloneKeyRevision(current)
+					if previous != nil {
+						ev.Previous = s.cloneKeyRevision(previous)
 					}
-					ev.Current = &current
-					ev.Previous = &previous
 					previous = current
 				case watch.Deleted:
 					ev.EventType = storage.WatchEventDelete
-					conf := s.newEmptyConfig()
-					s.methods.FillConfigFromObject(res.Object.(O), conf)
-					revisionNumber, _ := strconv.ParseInt(res.Object.(O).GetResourceVersion(), 10, 64)
-					driverutil.UnsetRevision(conf)
-					ev.Previous = &storage.KeyRevisionImpl[T]{
-						Rev: revisionNumber,
-						V:   conf,
+					var previousRevision int64
+					if previous == nil {
+						previousRevision = s.getPreviousRevisionSlow(obj)
+						continue
+					} else {
+						previousRevision = previous.Revision()
 					}
+					ev.Previous = &storage.KeyRevisionImpl[T]{
+						Rev: previousRevision,
+						V:   util.ProtoClone(conf),
+					}
+					previous = nil
 				default:
 					continue
 				}
@@ -280,6 +378,41 @@ func (s *CRDValueStore[O, T]) Watch(ctx context.Context, opts ...storage.WatchOp
 	}()
 
 	return eventC, nil
+}
+
+func (s *CRDValueStore[O, T]) cloneKeyRevision(kr *storage.KeyRevisionImpl[T]) storage.KeyRevision[T] {
+	if kr == nil {
+		// it is important that the return value is the interface type, otherwise
+		// we would end up with a non-nil interface containing a nil pointer
+		return nil
+	}
+	rev := &storage.KeyRevisionImpl[T]{
+		K:    kr.K,
+		Rev:  kr.Rev,
+		Time: kr.Time,
+	}
+	if kr.V.ProtoReflect().IsValid() {
+		rev.V = util.ProtoClone(kr.V)
+	}
+	return rev
+}
+
+func (s *CRDValueStore[O, T]) getPreviousRevisionSlow(obj O) int64 {
+	// The resource revision sent by k8s ends up being the revision of the
+	// actual deleted object. For API consistency, we want to return the
+	// revision of the last put/create operation on the object. This info
+	// will be stored in the history.
+	var history historyFormat[T]
+	if str, ok := obj.GetAnnotations()["opni.io/history"]; ok {
+		decodeHistory(str, &history)
+	}
+	if len(history.Entries) == 0 {
+		// something went wrong, just return the deleted revision
+		// (it should still work for most operations)
+		rev, _ := strconv.ParseInt(obj.GetResourceVersion(), 10, 64)
+		return rev
+	}
+	return history.Entries[len(history.Entries)-1].Config.GetRevision().GetRevision()
 }
 
 func (s *CRDValueStore[O, T]) Delete(ctx context.Context, opts ...storage.DeleteOpt) error {

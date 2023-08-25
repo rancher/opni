@@ -72,11 +72,7 @@ func (s *inMemoryValueStore[T]) Put(_ context.Context, value T, opts ...storage.
 	s.values = next
 
 	var prevValue *valueStoreElement[T]
-	var eventType storage.WatchEventType
-	if previous == nil || previous.(*valueStoreElement[T]).deleted {
-		eventType = storage.WatchEventCreate
-	} else {
-		eventType = storage.WatchEventUpdate
+	if previous != nil && !previous.(*valueStoreElement[T]).deleted {
 		prevValue = previous.(*valueStoreElement[T])
 	}
 	var wg sync.WaitGroup
@@ -89,23 +85,21 @@ func (s *inMemoryValueStore[T]) Put(_ context.Context, value T, opts ...storage.
 				Rev:  s.revision,
 				Time: timestamp,
 			}
-			switch eventType {
-			case storage.WatchEventCreate:
-				listener(storage.WatchEvent[storage.KeyRevision[T]]{
-					EventType: eventType,
-					Current:   current,
-				})
-			case storage.WatchEventUpdate:
-				listener(storage.WatchEvent[storage.KeyRevision[T]]{
-					EventType: eventType,
-					Current:   current,
-					Previous: &storage.KeyRevisionImpl[T]{
-						V:    s.cloneFunc(prevValue.value),
-						Rev:  prevValue.revision,
-						Time: prevValue.timestamp,
-					},
-				})
+
+			var prev storage.KeyRevision[T]
+			if prevValue != nil {
+				prev = &storage.KeyRevisionImpl[T]{
+					V:    s.cloneFunc(prevValue.value),
+					Rev:  prevValue.revision,
+					Time: prevValue.timestamp,
+				}
 			}
+
+			listener(storage.WatchEvent[storage.KeyRevision[T]]{
+				EventType: storage.WatchEventPut,
+				Current:   current,
+				Previous:  prev,
+			})
 		}()
 		return true
 	})
@@ -176,6 +170,7 @@ func (s *inMemoryValueStore[T]) Watch(ctx context.Context, opts ...storage.Watch
 	buffer := make(chan storage.WatchEvent[storage.KeyRevision[T]], 8)
 
 	s.lock.RLock()
+	defer s.lock.RUnlock()
 	current := s.values
 	if options.Revision != nil {
 		// walk back until we find the starting revision
@@ -193,6 +188,8 @@ func (s *inMemoryValueStore[T]) Watch(ctx context.Context, opts ...storage.Watch
 				}
 			}
 		}
+	} else {
+		current = current.Next()
 	}
 
 	// if there is a previous value for the target revision, keep track of it
@@ -229,21 +226,22 @@ func (s *inMemoryValueStore[T]) Watch(ctx context.Context, opts ...storage.Watch
 			Rev:  curElem.revision,
 			Time: curElem.timestamp,
 		}
-		if previous == nil {
-			updateC <- storage.WatchEvent[storage.KeyRevision[T]]{
-				EventType: storage.WatchEventCreate,
-				Current:   current,
-			}
-		} else {
-			updateC <- storage.WatchEvent[storage.KeyRevision[T]]{
-				EventType: storage.WatchEventUpdate,
-				Current:   current,
-				Previous:  previous,
-			}
+		ev := storage.WatchEvent[storage.KeyRevision[T]]{
+			EventType: storage.WatchEventPut,
+			Current:   current,
 		}
-		previous = current
+		if previous != nil {
+			ev.Previous = previous
+		}
+
+		updateC <- ev
+
+		previous = &storage.KeyRevisionImpl[T]{
+			V:    curElem.value,
+			Rev:  curElem.revision,
+			Time: curElem.timestamp,
+		}
 	}
-	s.lock.RUnlock()
 
 	// watch for future updates
 	id := uuid.NewString()
@@ -312,7 +310,7 @@ func (s *inMemoryValueStore[T]) Delete(_ context.Context, opts ...storage.Delete
 			listener(storage.WatchEvent[storage.KeyRevision[T]]{
 				EventType: storage.WatchEventDelete,
 				Previous: &storage.KeyRevisionImpl[T]{
-					V:    prevValue.value,
+					V:    s.cloneFunc(prevValue.value),
 					Rev:  prevValue.revision,
 					Time: prevValue.timestamp,
 				},

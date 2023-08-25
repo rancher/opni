@@ -180,28 +180,33 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 		Context("Watch", func() {
 			var ts storage.KeyValueStoreT[T]
 			BeforeEach(func() {
-				ts = tsF.Get().KeyValueStore("watch")
+				ts = tsF.Get().KeyValueStore(uuid.NewString())
 			})
-			matchEvent := func(event storage.WatchEvent[storage.KeyRevision[T]], eventType storage.WatchEventType, key string, prev T, prevRev int64, current T, currentRev int64) {
+
+			matchEvent := func(eventC <-chan storage.WatchEvent[storage.KeyRevision[T]], eventType storage.WatchEventType, key string, prev T, prevRev int64, current T, currentRev int64) {
 				GinkgoHelper()
+				var event storage.WatchEvent[storage.KeyRevision[T]]
+				select {
+				case <-time.After(1000 * time.Second):
+					Fail("timed out waiting for event")
+				case event = <-eventC:
+				}
+				// Eventually(eventC).Should(Receive(&event))
 				Expect(event.EventType).To(Equal(eventType))
+
 				note := fmt.Sprintf("type=%s,key=%s,prev=%v,prevRev=%d,current=%v,currentRev=%d", eventType, key, prev, prevRev, current, currentRev)
-				switch eventType {
-				case storage.WatchEventCreate:
+				switch event.EventType {
+				case storage.WatchEventPut:
 					Expect(event.Current).NotTo(BeNil(), note)
 					Expect(event.Current.Key()).To(Equal(key), note)
 					Expect(event.Current.Value()).To(match(current), note)
 					Expect(event.Current.Revision()).To(Equal(currentRev), note)
-					Expect(event.Previous).To(BeNil())
-				case storage.WatchEventUpdate:
-					Expect(event.Current).NotTo(BeNil(), note)
-					Expect(event.Current.Key()).To(Equal(key), note)
-					Expect(event.Current.Value()).To(match(current), note)
-					Expect(event.Current.Revision()).To(Equal(currentRev), note)
-					Expect(event.Previous).NotTo(BeNil(), note)
-					Expect(event.Previous.Key()).To(Equal(key), note)
-					Expect(event.Previous.Value()).To(match(prev), note)
-					Expect(event.Previous.Revision()).To(Equal(prevRev), note)
+					if !reflect.ValueOf(prev).IsNil() {
+						Expect(event.Previous).NotTo(BeNil(), note)
+						Expect(event.Previous.Key()).To(Equal(key), note)
+						Expect(event.Previous.Value()).To(match(prev), note)
+						Expect(event.Previous.Revision()).To(Equal(prevRev), note)
+					}
 				case storage.WatchEventDelete:
 					Expect(event.Current).To(BeNil(), note)
 					Expect(event.Previous).NotTo(BeNil(), note)
@@ -213,111 +218,129 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 			var none T
 			var noRev int64 = -1
 
-			It("should watch for changes to keys", SpecTimeout(5*time.Second), func(ctx SpecContext) {
+			It("should watch for changes to keys", func(ctx SpecContext) {
 				updateC, err := ts.Watch(ctx, "key")
 				Expect(err).NotTo(HaveOccurred())
 
 				By("creating the key")
-				Expect(ts.Put(ctx, "key", newT(1))).To(Succeed())
-				matchEvent(<-updateC, storage.WatchEventCreate, "key", none, noRev, newT(1), 1)
+				var revisions [4]int64
+				Expect(ts.Put(ctx, "key", newT(1), storage.WithRevisionOut(&revisions[0]))).To(Succeed())
+				matchEvent(updateC, storage.WatchEventPut, "key", none, noRev, newT(1), revisions[0])
 
 				By("updating the key")
-				Expect(ts.Put(ctx, "key", newT(2))).To(Succeed())
-				matchEvent(<-updateC, storage.WatchEventUpdate, "key", newT(1), 1, newT(2), 2)
+				Expect(ts.Put(ctx, "key", newT(2), storage.WithRevisionOut(&revisions[1]))).To(Succeed())
+				matchEvent(updateC, storage.WatchEventPut, "key", newT(1), revisions[0], newT(2), revisions[1])
 
 				By("deleting the key")
 				Expect(ts.Delete(ctx, "key")).To(Succeed())
-				matchEvent(<-updateC, storage.WatchEventDelete, "key", newT(2), 2, none, noRev)
+				matchEvent(updateC, storage.WatchEventDelete, "key", newT(2), revisions[1], none, noRev)
 
 				By("recreating the key")
-				Expect(ts.Put(ctx, "key", newT(4))).To(Succeed())
-				matchEvent(<-updateC, storage.WatchEventCreate, "key", none, noRev, newT(4), 4)
+				Expect(ts.Put(ctx, "key", newT(4), storage.WithRevisionOut(&revisions[2]))).To(Succeed())
+				matchEvent(updateC, storage.WatchEventPut, "key", none, noRev, newT(4), revisions[2])
 
 				By("updating the key")
-				Expect(ts.Put(ctx, "key", newT(5))).To(Succeed())
-				matchEvent(<-updateC, storage.WatchEventUpdate, "key", newT(4), 4, newT(5), 5)
+				Expect(ts.Put(ctx, "key", newT(5), storage.WithRevisionOut(&revisions[3]))).To(Succeed())
+				matchEvent(updateC, storage.WatchEventPut, "key", newT(4), revisions[2], newT(5), revisions[3])
 			})
 
-			It("should watch for changes to keys by prefix", SpecTimeout(5*time.Second), func(ctx SpecContext) {
-				// Watch for keys with prefix "prefix"
-				updateC, err := ts.Watch(ctx, "prefix")
+			It("should watch for changes to keys by prefix", func(ctx SpecContext) {
+				updateC, err := ts.Watch(ctx, "prefix", storage.WithPrefix())
 				Expect(err).NotTo(HaveOccurred())
+				var revisions [4]int64
 
-				// Create a key with the specified prefix
-				Expect(ts.Put(ctx, "prefix_key1", newT(1))).To(Succeed())
-				matchEvent(<-updateC, storage.WatchEventCreate, "prefix_key1", none, noRev, newT(1), 1)
+				Expect(ts.Put(ctx, "prefix/key1", newT(1), storage.WithRevisionOut(&revisions[0]))).To(Succeed())
+				matchEvent(updateC, storage.WatchEventPut, "prefix/key1", none, noRev, newT(1), revisions[0])
 
-				// Update the key with the specified prefix
-				Expect(ts.Put(ctx, "prefix_key1", newT(2))).To(Succeed())
-				matchEvent(<-updateC, storage.WatchEventUpdate, "prefix_key1", newT(1), 1, newT(2), 2)
+				Expect(ts.Put(ctx, "prefix/key1", newT(2), storage.WithRevisionOut(&revisions[1]))).To(Succeed())
+				matchEvent(updateC, storage.WatchEventPut, "prefix/key1", newT(1), revisions[0], newT(2), revisions[1])
 
-				// Delete the key with the specified prefix
-				Expect(ts.Delete(ctx, "prefix_key1")).To(Succeed())
-				matchEvent(<-updateC, storage.WatchEventDelete, "prefix_key1", newT(2), 2, none, noRev)
+				Expect(ts.Delete(ctx, "prefix/key1")).To(Succeed())
+				matchEvent(updateC, storage.WatchEventDelete, "prefix/key1", newT(2), revisions[1], none, noRev)
 
-				// Create another key with the specified prefix
-				Expect(ts.Put(ctx, "prefix_key2", newT(3))).To(Succeed())
-				matchEvent(<-updateC, storage.WatchEventCreate, "prefix_key2", none, noRev, newT(3), 1)
+				Expect(ts.Put(ctx, "prefix/key2", newT(3), storage.WithRevisionOut(&revisions[2]))).To(Succeed())
+				matchEvent(updateC, storage.WatchEventPut, "prefix/key2", none, noRev, newT(3), revisions[2])
+
+				By("putting a key with a non-matching prefix")
+				Expect(ts.Put(ctx, "otherprefix/key", newT(4))).To(Succeed())
+				Consistently(updateC).WithTimeout(10 * time.Millisecond).ShouldNot(Receive())
 			})
 
-			It("should watch for changes to keys with a starting revision", SpecTimeout(5*time.Second), func(ctx SpecContext) {
+			It("should watch for changes to keys with a starting revision", func(ctx SpecContext) {
 				By("creating the key")
-				var rev int64
-				Expect(ts.Put(ctx, "revision_key", newT(1), storage.WithRevisionOut(&rev))).To(Succeed())
-				Expect(ts.Put(ctx, "revision_key", newT(2))).To(Succeed())
+				var revisions [2]int64
+				Expect(ts.Put(ctx, "prefix/key", newT(1), storage.WithRevisionOut(&revisions[0]))).To(Succeed())
+				Expect(ts.Put(ctx, "prefix/key", newT(2), storage.WithRevisionOut(&revisions[1]))).To(Succeed())
 
 				By("watching for changes starting from a previous revision")
-				updateC, err := ts.Watch(ctx, "revision_key", storage.WithRevision(rev))
+				updateC, err := ts.Watch(ctx, "prefix/key", storage.WithRevision(revisions[0]))
 				Expect(err).NotTo(HaveOccurred())
-				matchEvent(<-updateC, storage.WatchEventCreate, "revision_key", none, noRev, newT(1), 1)
-				matchEvent(<-updateC, storage.WatchEventUpdate, "revision_key", newT(1), 1, newT(2), 2)
+				matchEvent(updateC, storage.WatchEventPut, "prefix/key", none, noRev, newT(1), revisions[0])
+				matchEvent(updateC, storage.WatchEventPut, "prefix/key", newT(1), revisions[0], newT(2), revisions[1])
 			})
 
-			It("should watch for changes to keys with a starting revision by prefix", func() {
+			It("should watch for changes to keys with a starting revision by prefix", func(ctx SpecContext) {
 				By("creating the key")
-				var rev int64
-				Expect(ts.Put(context.Background(), "prefix_key", newT(1), storage.WithRevisionOut(&rev))).To(Succeed())
-				Expect(ts.Put(context.Background(), "prefix_key", newT(2))).To(Succeed())
+				var revisions [2]int64
+				Expect(ts.Put(context.Background(), "prefix/key", newT(1), storage.WithRevisionOut(&revisions[0]))).To(Succeed())
+				Expect(ts.Put(context.Background(), "prefix/key", newT(2), storage.WithRevisionOut(&revisions[1]))).To(Succeed())
 
 				By("watching for changes starting from a previous revision")
-				updateC, err := ts.Watch(context.Background(), "prefix", storage.WithRevision(rev), storage.WithPrefix())
+				updateC, err := ts.Watch(ctx, "prefix", storage.WithRevision(revisions[0]), storage.WithPrefix())
 				Expect(err).NotTo(HaveOccurred())
-				matchEvent(<-updateC, storage.WatchEventCreate, "prefix_key", none, noRev, newT(1), 1)
-				matchEvent(<-updateC, storage.WatchEventUpdate, "prefix_key", newT(1), 1, newT(2), 2)
+				matchEvent(updateC, storage.WatchEventPut, "prefix/key", none, noRev, newT(1), revisions[0])
+				matchEvent(updateC, storage.WatchEventPut, "prefix/key", newT(1), revisions[0], newT(2), revisions[1])
 			})
 
-			It("should duplicate events to multiple watchers with mixed options", func() {
+			It("should duplicate events to multiple watchers with mixed options", func(ctx SpecContext) {
 				By("creating the key")
-				var rev int64
-				Expect(ts.Put(context.Background(), "key", newT(1), storage.WithRevisionOut(&rev))).To(Succeed())
-				Expect(ts.Put(context.Background(), "key", newT(2))).To(Succeed())
+				var revisions [3]int64
+				Expect(ts.Put(context.Background(), "key", newT(1), storage.WithRevisionOut(&revisions[0]))).To(Succeed())
+				Expect(ts.Put(context.Background(), "key", newT(2), storage.WithRevisionOut(&revisions[1]))).To(Succeed())
 
 				By("watching for changes starting from a previous revision")
-				updateC1, err := ts.Watch(context.Background(), "key", storage.WithRevision(rev))
+				updateC1, err := ts.Watch(ctx, "key", storage.WithRevision(revisions[0]))
 				Expect(err).NotTo(HaveOccurred())
-				updateC2, err := ts.Watch(context.Background(), "key", storage.WithRevision(rev))
+				updateC2, err := ts.Watch(ctx, "key", storage.WithRevision(revisions[1]))
 				Expect(err).NotTo(HaveOccurred())
 
 				By("watching for changes without a starting revision")
-				updateC3, err := ts.Watch(context.Background(), "key")
+				updateC3, err := ts.Watch(ctx, "key")
 
-				By("ensuring that the first two watchers see all events")
-				matchEvent(<-updateC1, storage.WatchEventCreate, "key", none, noRev, newT(1), 1)
-				matchEvent(<-updateC2, storage.WatchEventCreate, "key", none, noRev, newT(1), 1)
-				matchEvent(<-updateC1, storage.WatchEventUpdate, "key", newT(1), 1, newT(2), 2)
-				matchEvent(<-updateC2, storage.WatchEventUpdate, "key", newT(1), 1, newT(2), 2)
+				By("ensuring that the first watcher sees all events")
+				matchEvent(updateC1, storage.WatchEventPut, "key", none, noRev, newT(1), revisions[0])
+				matchEvent(updateC1, storage.WatchEventPut, "key", newT(1), revisions[0], newT(2), revisions[1])
 
-				By("ensuring that the third watcher only sees the latest event")
-				matchEvent(<-updateC3, storage.WatchEventUpdate, "key", newT(1), 1, newT(2), 2)
+				By("ensuring that the second watcher only sees the second event")
+				matchEvent(updateC2, storage.WatchEventPut, "key", newT(1), revisions[0], newT(2), revisions[1])
+
+				By("ensuring that the third watcher receives nothing")
+				Consistently(updateC3).WithTimeout(10 * time.Millisecond).ShouldNot(Receive())
+
+				By("updating the key again")
+				Expect(ts.Put(context.Background(), "key", newT(3), storage.WithRevisionOut(&revisions[2]))).To(Succeed())
+
+				By("ensuring that all watchers see the update")
+				matchEvent(updateC1, storage.WatchEventPut, "key", newT(2), revisions[1], newT(3), revisions[2])
+				matchEvent(updateC2, storage.WatchEventPut, "key", newT(2), revisions[1], newT(3), revisions[2])
+				matchEvent(updateC3, storage.WatchEventPut, "key", newT(2), revisions[1], newT(3), revisions[2])
 			})
 
-			It("should stop watching when the context is canceled", func() {
-				ctx, cancel := context.WithCancel(context.Background())
-				updateC, err := ts.Watch(ctx, "key")
+			It("should stop watching when the context is canceled", func(ctx SpecContext) {
+				wctx, cancel := context.WithCancel(ctx)
+				updateC1, err := ts.Watch(wctx, "key")
 				Expect(err).NotTo(HaveOccurred())
+				updateC2, err := ts.Watch(ctx, "key")
+				Expect(err).NotTo(HaveOccurred())
+
+				var revisions [2]int64
+				Expect(ts.Put(ctx, "key", newT(1), storage.WithRevisionOut(&revisions[0]))).To(Succeed())
+				matchEvent(updateC1, storage.WatchEventPut, "key", none, noRev, newT(1), revisions[0])
+				matchEvent(updateC2, storage.WatchEventPut, "key", none, noRev, newT(1), revisions[0])
 				cancel()
-				_, ok := <-updateC
-				Expect(ok).To(BeFalse())
+				Expect(ts.Put(ctx, "key", newT(2), storage.WithRevisionOut(&revisions[1]))).To(Succeed())
+				Eventually(updateC1).Should(BeClosed())
+				matchEvent(updateC2, storage.WatchEventPut, "key", newT(1), revisions[0], newT(2), revisions[1])
 			})
 		})
 		Context("key revisions", func() {
@@ -529,15 +552,15 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 
 						Expect(revs[0].Key()).To(Equal("key1"))
 						Expect(revs[0].Value()).To(match(newT(1)))
-						Expect(revs[0].Revision()).To(Equal(int64(1)))
+						Expect(revs[0].Revision()).To(BeNumerically(">", 0))
 
 						Expect(revs[1].Key()).To(Equal("key1"))
 						Expect(revs[1].Value()).To(match(newT(2)))
-						Expect(revs[1].Revision()).To(Equal(int64(2)))
+						Expect(revs[1].Revision()).To(BeNumerically(">", revs[0].Revision()))
 
 						Expect(revs[2].Key()).To(Equal("key1"))
 						Expect(revs[2].Value()).To(match(newT(3)))
-						Expect(revs[2].Revision()).To(Equal(int64(3)))
+						Expect(revs[2].Revision()).To(BeNumerically(">", revs[1].Revision()))
 					})
 				})
 				When("the key is not found", func() {

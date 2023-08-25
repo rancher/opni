@@ -63,6 +63,8 @@ type KeyringStore interface {
 
 type KeyRevision[T any] interface {
 	Key() string
+	SetKey(string)
+
 	// If values were requested, returns the value at this revision. Otherwise,
 	// returns the zero value for T.
 	// Note that if the value has a revision field, it will *not*
@@ -86,6 +88,10 @@ type KeyRevisionImpl[T any] struct {
 
 func (k *KeyRevisionImpl[T]) Key() string {
 	return k.K
+}
+
+func (k *KeyRevisionImpl[T]) SetKey(key string) {
+	k.K = key
 }
 
 func (k *KeyRevisionImpl[T]) Value() T {
@@ -196,9 +202,30 @@ type LockManager interface {
 }
 
 const (
-	WatchEventCreate WatchEventType = "PUT"
-	WatchEventUpdate WatchEventType = "UPDATE"
-	WatchEventDelete WatchEventType = "DELETE"
+	// An operation that creates a new key OR modifies an existing key.
+	//
+	// NB: The Watch API does not distinguish between create and modify events.
+	// It is not practical (nor desired, in most cases) to provide this info
+	// to the caller, because it cannot be guaranteed to be accurate in all cases.
+	// Because of the inability to make this guarantee, any client code that
+	// relies on this distinction would be highly likely to end up in an invalid
+	// state after a sufficient amount of time, or after issuing a watch request
+	// on a key that has a complex and/or truncated history. However, in certain
+	// cases, clients may be able to correlate events with out-of-band information
+	// to reliably disambiguate Put events. This is necessarily an implementation
+	// detail and may not always be possible.
+	WatchEventPut WatchEventType = "Put"
+
+	// An operation that removes an existing key.
+	//
+	// Delete events make few guarantees, as different backends handle deletes
+	// differently. Backends are not required to discard revision history, or
+	// to stop sending events for a key after it has been deleted. Keys may
+	// be recreated after a delete event, in which case a Put event will follow.
+	// Such events may or may not contain a previous revision value, depending
+	// on implementation details of the backend (they will always contain a
+	// current revision value, though).
+	WatchEventDelete WatchEventType = "Delete"
 )
 
 type WatchEvent[T any] struct {

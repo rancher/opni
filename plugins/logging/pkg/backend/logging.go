@@ -55,7 +55,7 @@ func (b *LoggingBackend) Initialize(conf LoggingBackendConfig) {
 
 		b.watcher = management.NewManagementWatcherHooks[*managementv1.WatchEvent](context.TODO())
 		b.watcher.RegisterHook(func(event *managementv1.WatchEvent) bool {
-			return event.Type == managementv1.WatchEventType_Updated && slices.ContainsFunc(event.Cluster.Metadata.Capabilities, func(c *opnicorev1.ClusterCapability) bool {
+			return event.Type == managementv1.WatchEventType_Put && slices.ContainsFunc(event.Cluster.Metadata.Capabilities, func(c *opnicorev1.ClusterCapability) bool {
 				return c.Name == wellknown.CapabilityLogs
 			})
 		}, b.updateClusterMetadata)

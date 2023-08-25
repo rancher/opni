@@ -2,9 +2,11 @@ package inmemory
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 
+	"github.com/google/uuid"
 	art "github.com/plar/go-adaptive-radix-tree"
 	"github.com/rancher/opni/pkg/storage"
 	"google.golang.org/grpc/codes"
@@ -19,11 +21,13 @@ type inMemoryKeyValueStore[T any] struct {
 }
 
 type activeWatch[T any] struct {
+	matchesKey    func(string) bool
 	ctx           context.Context
+	cancel        context.CancelFunc
 	watchedStores map[string]storage.ValueStoreT[T]
 	ch            chan storage.WatchEvent[storage.KeyRevision[T]]
 	wg            sync.WaitGroup
-	addWatch      func(string, storage.ValueStoreT[T])
+	addWatch      func(string, storage.ValueStoreT[T]) error
 }
 
 func NewKeyValueStore[T any](cloneFunc func(T) T) storage.KeyValueStoreT[T] {
@@ -84,62 +88,102 @@ func (m *inMemoryKeyValueStore[T]) Watch(ctx context.Context, key string, opts .
 	if err := validateKey(key); err != nil {
 		return nil, err
 	}
+	options := storage.WatchOptions{}
+	options.Apply(opts...)
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	matchingStores := map[string]storage.ValueStoreT[T]{}
-	m.keys.ForEachPrefix(art.Key([]byte(key)), func(node art.Node) (cont bool) {
-		if node.Value() != nil {
-			matchingStores[string(node.Key())] = node.Value().(storage.ValueStoreT[T])
+	if options.Prefix {
+		m.keys.ForEachPrefix(art.Key([]byte(key)), func(node art.Node) (cont bool) {
+			if node.Value() != nil {
+				matchingStores[string(node.Key())] = node.Value().(storage.ValueStoreT[T])
+			}
+			return true
+		})
+	} else {
+		value, ok := m.keys.Search(art.Key([]byte(key)))
+		if ok {
+			matchingStores[key] = value.(storage.ValueStoreT[T])
 		}
-		return true
-	})
+	}
+
+	var vsOpts []storage.WatchOpt
+	if options.Revision != nil {
+		vsOpts = append(vsOpts, storage.WithRevision(*options.Revision))
+	}
 
 	aggregated := make(chan storage.WatchEvent[storage.KeyRevision[T]], 128)
 	watch := activeWatch[T]{
-		ctx:           ctx,
 		watchedStores: matchingStores,
 		ch:            aggregated,
 	}
-	addWatch := func(key string, vs storage.ValueStoreT[T]) {
-		watch.wg.Add(1)
-		ch, err := vs.Watch(ctx, opts...)
-		if err != nil {
-			return
+	if options.Prefix {
+		watch.matchesKey = func(k string) bool {
+			return strings.HasPrefix(k, key)
 		}
+	} else {
+		watch.matchesKey = func(k string) bool {
+			return k == key
+		}
+	}
+	watch.ctx, watch.cancel = context.WithCancel(context.WithoutCancel(ctx))
+
+	addWatch := func(key string, vs storage.ValueStoreT[T]) error {
+		ch, err := vs.Watch(watch.ctx, vsOpts...)
+		if err != nil {
+			return err
+		}
+		watch.wg.Add(1)
 		go func() {
 			defer watch.wg.Done()
 			for {
 				select {
-				case <-ctx.Done():
+				case <-watch.ctx.Done():
 					return
-				case event := <-ch:
+				case event, ok := <-ch:
+					if !ok {
+						return
+					}
 					if event.Current != nil {
-						event.Current.(*storage.KeyRevisionImpl[T]).K = key
+						event.Current.SetKey(key)
 					}
 					if event.Previous != nil {
-						event.Previous.(*storage.KeyRevisionImpl[T]).K = key
+						event.Previous.SetKey(key)
 					}
 
 					aggregated <- event
 				}
 			}
 		}()
+		return nil
 	}
 	watch.addWatch = addWatch
 
+	var errs []error
 	for key, vs := range matchingStores {
-		addWatch(key, vs)
+		if err := addWatch(key, vs); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(matchingStores) > 0 && len(errs) == len(matchingStores) {
+		// only bail out if we know none of the watches started successfully,
+		// otherwise it's not safe to close the channel
+		close(aggregated)
+		return nil, errors.Join(errs...)
 	}
 
-	m.watches[key] = &watch
+	watchId := uuid.NewString()
+	m.watches[watchId] = &watch
 
 	if ctx != context.Background() && ctx != context.TODO() {
 		context.AfterFunc(ctx, func() {
 			m.mu.Lock()
-			delete(m.watches, key)
+			delete(m.watches, watchId)
 			m.mu.Unlock()
 
+			watch.cancel()
 			watch.wg.Wait()
 			close(aggregated)
 		})
@@ -202,9 +246,11 @@ func (m *inMemoryKeyValueStore[T]) Put(ctx context.Context, key string, value T,
 	if !ok {
 		vst = m.newValueStore(key)
 		m.keys.Insert(art.Key([]byte(key)), vst)
-		for prefix, watch := range m.watches {
-			if strings.HasPrefix(key, prefix) {
-				watch.addWatch(key, vst)
+		for _, watch := range m.watches {
+			if watch.matchesKey(key) {
+				if err := watch.addWatch(key, vst); err != nil {
+					return err
+				}
 			}
 		}
 	} else {

@@ -79,10 +79,8 @@ func (s *kvStoreServer) Watch(in *WatchRequest, stream KeyValueStore_WatchServer
 			}
 			var eventType WatchResponse_EventType
 			switch event.EventType {
-			case storage.WatchEventCreate:
-				eventType = WatchResponse_Create
-			case storage.WatchEventUpdate:
-				eventType = WatchResponse_Update
+			case storage.WatchEventPut:
+				eventType = WatchResponse_Put
 			case storage.WatchEventDelete:
 				eventType = WatchResponse_Delete
 			}
@@ -249,10 +247,8 @@ func (c *kvStoreClientImpl[T]) Watch(ctx context.Context, key string, opts ...st
 			}
 			var eventType storage.WatchEventType
 			switch resp.EventType {
-			case WatchResponse_Create:
-				eventType = storage.WatchEventCreate
-			case WatchResponse_Update:
-				eventType = storage.WatchEventUpdate
+			case WatchResponse_Put:
+				eventType = storage.WatchEventPut
 			case WatchResponse_Delete:
 				eventType = storage.WatchEventDelete
 			}

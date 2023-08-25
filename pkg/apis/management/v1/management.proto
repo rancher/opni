@@ -88,7 +88,7 @@ service Management {
   }
   rpc UpdateRole(core.Role) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      put: "/roles"
+      put:  "/roles"
       body: "*"
     };
   }
@@ -110,7 +110,7 @@ service Management {
   }
   rpc UpdateRoleBinding(core.RoleBinding) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      put: "/rolebindings"
+      put:  "/rolebindings"
       body: "*"
     };
   }
@@ -234,9 +234,8 @@ message WatchClustersRequest {
 }
 
 enum WatchEventType {
-  Created = 0;
-  Updated = 1;
-  Deleted = 2;
+  Put    = 0;
+  Delete = 2;
 }
 
 message WatchEvent {

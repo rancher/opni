@@ -93,9 +93,8 @@ message WatchRequest {
 
 message WatchResponse {
   enum EventType {
-    Create = 0;
-    Update = 1;
-    Delete = 2;
+    Put    = 0;
+    Delete = 1;
   }
   EventType   eventType = 1;
   KeyRevision current   = 2;

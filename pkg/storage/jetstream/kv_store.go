@@ -87,10 +87,18 @@ func (j jetstreamKeyValueStore) Get(_ context.Context, key string, opts ...stora
 
 func (j jetstreamKeyValueStore) Watch(ctx context.Context, key string, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[[]byte]], error) {
 	options := storage.WatchOptions{}
+	options.Apply(opts...)
+
 	eventC := make(chan storage.WatchEvent[storage.KeyRevision[[]byte]], 64)
 
+	watchPattern := key
 	if options.Prefix {
-		key += "*"
+		if strings.Contains(key, ".") {
+			idx := strings.LastIndex(key, ".")
+			watchPattern = key[:idx] + ".>"
+		} else {
+			watchPattern = ">"
+		}
 	}
 
 	clientOptions := []nats.WatchOpt{
@@ -101,43 +109,50 @@ func (j jetstreamKeyValueStore) Watch(ctx context.Context, key string, opts ...s
 		clientOptions = append(clientOptions, nats.IncludeHistory())
 	}
 
-	w, err := j.kv.Watch(key, clientOptions...)
+	w, err := j.kv.Watch(watchPattern, clientOptions...)
 	if err != nil {
 		return nil, jetstreamGrpcError(err)
 	}
 
 	prevEntries := make(map[string]nats.KeyValueEntry)
 	go func() {
-		// read from history until we reach the requested revision, or nil
+		defer close(eventC)
+
 		updates := w.Updates()
-		if options.Revision != nil {
-		INITIAL:
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case update := <-updates:
-					if update == nil {
-						break INITIAL
-					}
-					if update.Revision() < uint64(*options.Revision) {
-						prevEntries[update.Key()] = update
-						continue
-					}
-				}
-			}
-		}
+		replaying := true
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case update := <-updates:
+			case update, ok := <-updates:
+				if !ok {
+					return
+				}
+				if replaying {
+					if update == nil {
+						replaying = false
+						continue
+					}
+					// If the revision option is not set, don't send history.
+					// For API consistency, only send the current value if the revision
+					// option is set (to any value <= the current revision)
+					if options.Revision == nil || update.Revision() < uint64(*options.Revision) {
+						prevEntries[update.Key()] = update
+						continue
+					}
+				}
+				if options.Prefix && !strings.HasPrefix(update.Key(), key) {
+					continue
+				}
 				switch update.Operation() {
 				case nats.KeyValuePut:
-					isCreate := update.Revision() == 1
+					var isCreate bool
+					if prev := prevEntries[update.Key()]; prev == nil || prev.Operation()&(nats.KeyValueDelete|nats.KeyValuePurge) != 0 {
+						isCreate = true
+					}
 					if isCreate {
 						eventC <- storage.WatchEvent[storage.KeyRevision[[]byte]]{
-							EventType: storage.WatchEventCreate,
+							EventType: storage.WatchEventPut,
 							Current:   newKeyRevision(update),
 						}
 					} else {
@@ -146,22 +161,21 @@ func (j jetstreamKeyValueStore) Watch(ctx context.Context, key string, opts ...s
 							prevRevision = newKeyRevision(prevEntry)
 						}
 						eventC <- storage.WatchEvent[storage.KeyRevision[[]byte]]{
-							EventType: storage.WatchEventUpdate,
+							EventType: storage.WatchEventPut,
 							Current:   newKeyRevision(update),
 							Previous:  prevRevision,
 						}
 					}
-					prevEntries[update.Key()] = update
 				case nats.KeyValueDelete, nats.KeyValuePurge:
-					if prevEntry, ok := prevEntries[update.Key()]; ok {
-						eventC <- storage.WatchEvent[storage.KeyRevision[[]byte]]{
-							EventType: storage.WatchEventDelete,
-							Previous:  newKeyRevision(prevEntry),
-						}
+					event := storage.WatchEvent[storage.KeyRevision[[]byte]]{
+						EventType: storage.WatchEventDelete,
 					}
-					delete(prevEntries, update.Key())
-					continue
+					if prevEntry, ok := prevEntries[update.Key()]; ok {
+						event.Previous = newKeyRevision(prevEntry)
+					}
+					eventC <- event
 				}
+				prevEntries[update.Key()] = update
 			}
 		}
 	}()

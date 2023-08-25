@@ -126,9 +126,6 @@ export default {
         }
       }
 
-      // Dry runs fail unless this is set even though the backend doesn't expect to use this
-      this.$set(this.config.cortexConfig.storage.filesystem, 'dir', '/dev/null');
-
       const newConfig = CortexOps.types.CapabilityBackendConfigSpec.fromJson(this.config);
       const activeConfig = await CortexOps.service.GetConfiguration(CortexOps.types.GetRequest.fromJson({}));
       const shouldSetConfig = activeConfig.revision.revision === 0n;

@@ -12,7 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/test"
 )
 
-var _ = XDescribe("Agents", Ordered, Label("web"), func() {
+var _ = Describe("Agents", Ordered, Label("web"), func() {
 	var mgmtClient managementv1.ManagementClient
 	BeforeAll(func() {
 		mgmtClient = env.NewManagementClient()

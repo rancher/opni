@@ -333,6 +333,14 @@ func (w *WebhookEndpoint) Validate() error {
 	if _, err := url.Parse(w.GetUrl()); err != nil {
 		return validation.Errorf("url must be a valid url : %s", err)
 	}
+
+	if hc := w.GetHttpConfig(); hc != nil {
+		if hc.GetProxyUrl() != "" {
+			if _, err := url.Parse(hc.GetProxyUrl()); err != nil {
+				return validation.Errorf("proxy url must be a valid url : %s", err)
+			}
+		}
+	}
 	return nil
 }
 

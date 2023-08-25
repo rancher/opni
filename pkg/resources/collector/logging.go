@@ -8,16 +8,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (r *Reconciler) generateDistributionReceiver() (receiver []string, retBytes []byte, retErr error) {
-	config := &opniloggingv1beta1.CollectorConfig{}
-	retErr = r.client.Get(r.ctx, types.NamespacedName{
-		Name:      r.collector.Spec.LoggingConfig.Name,
-		Namespace: r.collector.Spec.SystemNamespace,
-	}, config)
-	if retErr != nil {
-		return
-	}
+func (r *Reconciler) generateDistributionReceiver(config *opniloggingv1beta1.CollectorConfig) (receiver []string, retBytes []byte, retErr error) {
 	var providerReceiver bytes.Buffer
+
 	switch config.Spec.Provider {
 	case opniloggingv1beta1.LogProviderRKE:
 		return []string{logReceiverRKE}, []byte(templateLogAgentRKE), nil
@@ -47,6 +40,22 @@ func (r *Reconciler) generateDistributionReceiver() (receiver []string, retBytes
 	default:
 		return
 	}
+}
+
+func (r *Reconciler) generateKubeAuditLogsReceiver(config *opniloggingv1beta1.CollectorConfig) (string, []byte, error) {
+	if config.Spec.KubeAuditLogs != nil && config.Spec.KubeAuditLogs.LogPath != "" {
+		var receiver bytes.Buffer
+
+		auditLogPath := config.Spec.KubeAuditLogs.LogPath
+		err := templateKubeAuditLogs.Execute(&receiver, auditLogPath)
+		if err != nil {
+			return "", nil, err
+		}
+
+		return logReceiverKubeAudit, receiver.Bytes(), nil
+	}
+
+	return "", nil, nil
 }
 
 func (r *Reconciler) hostLoggingVolumes() (

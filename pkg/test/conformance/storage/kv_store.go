@@ -186,12 +186,7 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 			matchEvent := func(eventC <-chan storage.WatchEvent[storage.KeyRevision[T]], eventType storage.WatchEventType, key string, prev T, prevRev int64, current T, currentRev int64) {
 				GinkgoHelper()
 				var event storage.WatchEvent[storage.KeyRevision[T]]
-				select {
-				case <-time.After(1000 * time.Second):
-					Fail("timed out waiting for event")
-				case event = <-eventC:
-				}
-				// Eventually(eventC).Should(Receive(&event))
+				Eventually(eventC).Should(Receive(&event))
 				Expect(event.EventType).To(Equal(eventType))
 
 				note := fmt.Sprintf("type=%s,key=%s,prev=%v,prevRev=%d,current=%v,currentRev=%d", eventType, key, prev, prevRev, current, currentRev)
@@ -306,6 +301,7 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 
 				By("watching for changes without a starting revision")
 				updateC3, err := ts.Watch(ctx, "key")
+				Expect(err).NotTo(HaveOccurred())
 
 				By("ensuring that the first watcher sees all events")
 				matchEvent(updateC1, storage.WatchEventPut, "key", none, noRev, newT(1), revisions[0])
@@ -538,7 +534,7 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 						wg.Wait()
 						close(done)
 					}()
-					Eventually(ctx, done).Should(BeClosed())
+					Eventually(ctx, done).WithTimeout(1 * time.Minute).Should(BeClosed())
 				})
 				When("no revision is specified", func() {
 					It("should return the history up to the current revision", func() {

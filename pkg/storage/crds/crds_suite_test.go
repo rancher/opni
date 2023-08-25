@@ -33,7 +33,7 @@ import (
 
 func TestCrds(t *testing.T) {
 	RegisterFailHandler(Fail)
-	SetDefaultEventuallyTimeout(1 * time.Hour)
+	SetDefaultEventuallyTimeout(1 * time.Minute)
 	RunSpecs(t, "CRDs Storage Suite")
 }
 

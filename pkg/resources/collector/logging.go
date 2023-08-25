@@ -43,8 +43,7 @@ func (r *Reconciler) generateDistributionReceiver(config *opniloggingv1beta1.Col
 }
 
 func (r *Reconciler) generateKubeAuditLogsReceiver(config *opniloggingv1beta1.CollectorConfig) (string, []byte, error) {
-	if config.Spec.KubeAuditLogs != nil {
-
+	if config.Spec.KubeAuditLogs != nil && config.Spec.KubeAuditLogs.Enabled {
 		auditLogPath := "/var/log/kube-audit"
 		if config.Spec.KubeAuditLogs.LogPath != "" {
 			auditLogPath = config.Spec.KubeAuditLogs.LogPath
@@ -104,13 +103,24 @@ func (r *Reconciler) hostLoggingVolumes() (
 		},
 	})
 
+	kubeAuditLogsDir := "/var/log/kube-audit"
 	if config.Spec.KubeAuditLogs != nil && config.Spec.KubeAuditLogs.LogPath != "" {
-		retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
-			Name:      "kubeauditlogs",
-			MountPath: config.Spec.KubeAuditLogs.LogPath,
-			ReadOnly:  true,
-		})
+		kubeAuditLogsDir = config.Spec.KubeAuditLogs.LogPath
 	}
+
+	retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
+		Name:      "kubeauditlogs",
+		MountPath: kubeAuditLogsDir,
+		ReadOnly:  true,
+	})
+	retVolumes = append(retVolumes, corev1.Volume{
+		Name: "kubeauditlogs",
+		VolumeSource: corev1.VolumeSource{
+			HostPath: &corev1.HostPathVolumeSource{
+				Path: kubeAuditLogsDir,
+			},
+		},
+	})
 
 	switch config.Spec.Provider {
 	case opniloggingv1beta1.LogProviderRKE:

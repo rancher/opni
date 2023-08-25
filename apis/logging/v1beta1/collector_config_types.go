@@ -50,6 +50,7 @@ type RKE2Spec struct {
 }
 
 type KubeAuditLogsSpec struct {
+	Enabled bool   `json:"enabled,omitempty"`
 	LogPath string `json:"logPath,omitempty"`
 }
 

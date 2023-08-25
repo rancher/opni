@@ -107,7 +107,7 @@ journald/k3s:
 filelog/kubeauditlogs:
   include: [ /var/log/kube-audit/*.log ]
   start_at: beginning
-  include_file_path: true
+  include_file_path: false
   operators:
   - type: move
     from: body

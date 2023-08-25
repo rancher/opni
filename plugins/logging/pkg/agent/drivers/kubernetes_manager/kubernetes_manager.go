@@ -152,6 +152,9 @@ func (m *KubernetesManagerDriver) buildLoggingCollectorConfig() *opniloggingv1be
 		},
 		Spec: opniloggingv1beta1.CollectorConfigSpec{
 			Provider: opniloggingv1beta1.LogProvider(m.provider),
+			KubeAuditLogs: &opniloggingv1beta1.KubeAuditLogsSpec{
+				Enabled: true,
+			},
 		},
 	}
 	return collectorConfig

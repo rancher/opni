@@ -41,6 +41,8 @@ spec:
                 type: object
               kubeAuditLogs:
                 properties:
+                  enabled:
+                    type: boolean
                   logPath:
                     type: string
                 type: object

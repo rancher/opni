@@ -102,12 +102,6 @@ export default {
 
         font-size: 1.5em;
       }
-
-      .middle {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-      }
     }
   }
 </style>

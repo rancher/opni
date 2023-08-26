@@ -122,15 +122,15 @@ export const NAVIGATION = {
           display:   true,
           routes:    [
             {
-              name:      'endpoint',
-              path:      '/:id',
+              name:      'endpoint-create',
+              path:      '/create',
               labelKey:  'opni.nav.endpoints',
               component: Endpoint,
               display:   false
             },
             {
-              name:      'endpoint-create',
-              path:      '/create',
+              name:      'endpoint',
+              path:      '/:id',
               labelKey:  'opni.nav.endpoints',
               component: Endpoint,
               display:   false
@@ -145,15 +145,15 @@ export const NAVIGATION = {
           display:   true,
           routes:    [
             {
-              name:      'alarm',
-              path:      '/:id',
+              name:      'alarm-create',
+              path:      '/create',
               labelKey:  'opni.nav.alarms',
               component: Alarm,
               display:   false
             },
             {
-              name:      'alarm-create',
-              path:      '/create',
+              name:      'alarm',
+              path:      '/:id',
               labelKey:  'opni.nav.alarms',
               component: Alarm,
               display:   false

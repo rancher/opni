@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -14,6 +15,7 @@ import (
 	"github.com/rancher/opni/pkg/opensearch/dashboards"
 	"github.com/rancher/opni/pkg/opensearch/opensearch"
 	"github.com/rancher/opni/pkg/opensearch/opensearch/api"
+	oserrors "github.com/rancher/opni/pkg/opensearch/opensearch/errors"
 	"github.com/rancher/opni/pkg/opensearch/opensearch/types"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
@@ -1007,6 +1009,148 @@ func (r *Reconciler) MaybeDeleteRepository(name string) error {
 	defer resp.Body.Close()
 	if resp.IsError() {
 		return fmt.Errorf("failed to delete repository: %s", resp.String())
+	}
+	return nil
+}
+
+func (r *Reconciler) snapshotExists(name, repository string) (bool, error) {
+	resp, err := r.osClient.Snapshot.GetSnapshot(r.ctx, name, repository)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return false, nil
+	} else if resp.IsError() {
+		return false, fmt.Errorf("response from API is %s", resp.String())
+	}
+
+	return true, nil
+}
+
+func (r *Reconciler) CreateSnapshotAsync(name, repository string, settings types.SnapshotRequest) error {
+	exists, err := r.snapshotExists(name, repository)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return oserrors.ErrSnapshotAlreadyExsts
+	}
+
+	resp, err := r.osClient.Snapshot.CreateSnapshot(r.ctx, name, repository, opensearchutil.NewJSONReader(settings))
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.IsError() {
+		return fmt.Errorf("failed to create snapshot: %s", resp.String())
+	}
+	return nil
+}
+
+func (r *Reconciler) GetSnapshotState(name, repository string) (types.SnapshotState, string, error) {
+	resp, err := r.osClient.Snapshot.GetSnapshot(r.ctx, name, repository)
+	if err != nil {
+		return "", "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return "", "", fmt.Errorf("snapshot %s missing in repo %s: %w", name, repository, oserrors.ErrNotFound)
+	} else if resp.IsError() {
+		return "", "", fmt.Errorf("response from API is %s", resp.String())
+	}
+
+	snapshot := types.SnapshotResponse{}
+	err = json.NewDecoder(resp.Body).Decode(&snapshot)
+	if err != nil {
+		return "", "", err
+	}
+
+	switch snapshot.State {
+	case types.SnapshotStateFailed, types.SnapshotStatePartial:
+		return snapshot.State, strings.Join(snapshot.Failures, "\n"), nil
+	default:
+		return snapshot.State, "", nil
+	}
+
+}
+
+func (r *Reconciler) GetSnapshotPolicy(name string) (types.SnapshotManagementResponse, error) {
+	policy := types.SnapshotManagementResponse{}
+
+	resp, err := r.osClient.Snapshot.GetSnapshotPolicy(r.ctx, name)
+	if err != nil {
+		return policy, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return policy, fmt.Errorf("could not find policy %s: %w", name, oserrors.ErrNotFound)
+	} else if resp.IsError() {
+		return policy, fmt.Errorf("response from API is %s", resp.String())
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&policy)
+	return policy, err
+}
+
+func (r *Reconciler) MaybeUpdateSnapshotPolicy(name string, policy types.SnapshotManagementRequest) error {
+	oldPolicy, err := r.GetSnapshotPolicy(name)
+	if err != nil {
+		if !errors.Is(err, oserrors.ErrNotFound) {
+			return err
+		}
+		resp, err := r.osClient.Snapshot.CreateSnapshotPolicy(r.ctx, name, opensearchutil.NewJSONReader(policy))
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		if resp.IsError() {
+			return fmt.Errorf("response from API is %s", resp.String())
+		}
+		return nil
+	}
+
+	if reflect.DeepEqual(policy, oldPolicy.Policy) {
+		return nil
+	}
+
+	resp, err := r.osClient.Snapshot.UpdateSnapshotPolicy(
+		r.ctx,
+		name,
+		oldPolicy.SeqNo,
+		oldPolicy.PrimaryTerm,
+		opensearchutil.NewJSONReader(policy),
+	)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.IsError() {
+		return fmt.Errorf("response from API is %s", resp.String())
+	}
+	return nil
+}
+
+func (r *Reconciler) MaybeDeleteSnapshotPolicy(name string) error {
+	_, err := r.GetSnapshotPolicy(name)
+	if err != nil {
+		if !errors.Is(err, oserrors.ErrNotFound) {
+			return fmt.Errorf("failed to check policy: %w", err)
+		}
+		return nil
+	}
+
+	resp, err := r.osClient.Snapshot.DeleteSnapshotPolicy(r.ctx, name)
+	if err != nil {
+		return fmt.Errorf("failed to delete policy: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.IsError() {
+		return fmt.Errorf("failed to delete policy: %s", resp.String())
 	}
 	return nil
 }

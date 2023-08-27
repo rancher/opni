@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/jarcoal/httpmock"
 	. "github.com/onsi/ginkgo/v2"
@@ -13,8 +14,10 @@ import (
 	"github.com/opensearch-project/opensearch-go/opensearchapi"
 	"github.com/rancher/opni/pkg/opensearch/dashboards"
 	"github.com/rancher/opni/pkg/opensearch/opensearch"
+	"github.com/rancher/opni/pkg/opensearch/opensearch/errors"
 	"github.com/rancher/opni/pkg/opensearch/opensearch/types"
 	"github.com/rancher/opni/pkg/opensearch/reconciler"
+	"github.com/samber/lo"
 )
 
 var _ = Describe("Opensearch", Ordered, Label("unit"), func() {
@@ -824,7 +827,7 @@ var _ = Describe("Opensearch", Ordered, Label("unit"), func() {
 			})
 		})
 	})
-	Context("reconciling snapshot objects", func() {
+	Context("reconciling repository objects", func() {
 		var (
 			repositoryName string
 			settings       = types.RepositoryRequest{
@@ -938,6 +941,235 @@ var _ = Describe("Opensearch", Ordered, Label("unit"), func() {
 					}
 					return err
 				}()).To(BeNil())
+				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+			})
+		})
+	})
+	Context("working with snapshots", func() {
+		var (
+			repositoryName = "test-repo"
+			snapshotName   = "test"
+			indices        = []string{"logs", "test"}
+			request        = types.SnapshotRequest{
+				Indices: strings.Join(indices, ","),
+			}
+
+			snapshotState types.SnapshotState
+		)
+		When("snapshot does not exist", func() {
+			BeforeEach(func() {
+				transport.RegisterResponder(
+					"GET",
+					fmt.Sprintf("%s/_snapshot/%s/%s", opensearchURL, repositoryName, snapshotName),
+					httpmock.NewStringResponder(404, "Not found").Once(),
+				)
+				transport.RegisterResponder(
+					"PUT",
+					fmt.Sprintf("%s/_snapshot/%s/%s", opensearchURL, repositoryName, snapshotName),
+					httpmock.NewStringResponder(200, "OK").Once(),
+				)
+			})
+			It("should create the snapshot", func() {
+				Expect(func() error {
+					err := rec.CreateSnapshotAsync(snapshotName, repositoryName, request)
+					if err != nil {
+						GinkgoWriter.Println(err.Error())
+					}
+					return err
+				}()).To(BeNil())
+				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+			})
+			It("should error when getting the snapshot", func() {
+				Expect(func() error {
+					_, _, err := rec.GetSnapshotState(snapshotName, repositoryName)
+					return err
+				}()).To(MatchError(errors.ErrNotFound))
+				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders() - 1))
+			})
+		})
+		When("snapshot does exist", func() {
+			JustBeforeEach(func() {
+				response := types.SnapshotResponse{
+					State: snapshotState,
+					Failures: []string{
+						"This is a generic failure",
+					},
+				}
+				transport.RegisterResponder(
+					"GET",
+					fmt.Sprintf("%s/_snapshot/%s/%s", opensearchURL, repositoryName, snapshotName),
+					httpmock.NewJsonResponderOrPanic(200, response).Once(),
+				)
+			})
+			It("should error when creating the snapshot", func() {
+				Expect(rec.CreateSnapshotAsync(snapshotName, repositoryName, request)).To(MatchError(errors.ErrSnapshotAlreadyExsts))
+				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+			})
+
+			When("state is completed", func() {
+				BeforeEach(func() {
+					snapshotState = types.SnapshotStateSuccess
+				})
+				It("should return success and no failures", func() {
+					state, failures, err := rec.GetSnapshotState(snapshotName, repositoryName)
+					Expect(err).To(BeNil())
+					Expect(failures).To(BeEmpty())
+					Expect(state).To(Equal(types.SnapshotStateSuccess))
+					Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+				})
+			})
+			When("state is in progress", func() {
+				BeforeEach(func() {
+					snapshotState = types.SnapshotStateInProgress
+				})
+				It("should return success and no failures", func() {
+					state, failures, err := rec.GetSnapshotState(snapshotName, repositoryName)
+					Expect(err).To(BeNil())
+					Expect(failures).To(BeEmpty())
+					Expect(state).To(Equal(types.SnapshotStateInProgress))
+					Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+				})
+			})
+			When("state is failed", func() {
+				BeforeEach(func() {
+					snapshotState = types.SnapshotStateFailed
+				})
+				It("should return failed and include failures", func() {
+					state, failures, err := rec.GetSnapshotState(snapshotName, repositoryName)
+					Expect(err).To(BeNil())
+					Expect(failures).To(ContainSubstring("This is a generic failure"))
+					Expect(state).To(Equal(types.SnapshotStateFailed))
+					Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+				})
+			})
+			When("state is partial", func() {
+				BeforeEach(func() {
+					snapshotState = types.SnapshotStatePartial
+				})
+				It("should return failed and include failures", func() {
+					state, failures, err := rec.GetSnapshotState(snapshotName, repositoryName)
+					Expect(err).To(BeNil())
+					Expect(failures).To(ContainSubstring("This is a generic failure"))
+					Expect(state).To(Equal(types.SnapshotStatePartial))
+					Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+				})
+			})
+		})
+	})
+	Context("working with snapshot policies", func() {
+		var (
+			policyName    = "test-policy"
+			policyRequest types.SnapshotManagementRequest
+		)
+		BeforeEach(func() {
+			policyRequest = types.SnapshotManagementRequest{
+				Description: "test policy",
+				Enabled:     lo.ToPtr(true),
+				SnapshotConfig: types.SnapshotConfig{
+					SnapshotRequest: types.SnapshotRequest{
+						Indices: "test",
+					},
+				},
+				Creation: types.SnapshotCreation{
+					Schedule: "00 1 * * *",
+				},
+			}
+		})
+		When("policy does not exist", func() {
+			JustBeforeEach(func() {
+				transport.RegisterResponder(
+					"GET",
+					fmt.Sprintf("%s/_plugins/_sm/policies/%s", opensearchURL, policyName),
+					httpmock.NewStringResponder(404, "Not found").Once(),
+				)
+				transport.RegisterResponder(
+					"POST",
+					fmt.Sprintf("%s/_plugins/_sm/policies/%s", opensearchURL, policyName),
+					httpmock.NewStringResponder(200, "OK").Once(),
+				)
+			})
+			It("should create the policy", func() {
+				Expect(rec.MaybeUpdateSnapshotPolicy(policyName, policyRequest)).To(Succeed())
+				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+			})
+			It("should not delete the policy", func() {
+				Expect(rec.MaybeDeleteSnapshotPolicy(policyName)).To(Succeed())
+			})
+		})
+		When("policy exists but is different", func() {
+			JustBeforeEach(func() {
+				response := types.SnapshotManagementResponse{
+					Version:     1,
+					SeqNo:       1,
+					PrimaryTerm: 1,
+					Policy: types.SnapshotManagementRequest{
+						Description: "test policy",
+						Enabled:     lo.ToPtr(true),
+						SnapshotConfig: types.SnapshotConfig{
+							SnapshotRequest: types.SnapshotRequest{
+								Indices: "test",
+							},
+						},
+						Creation: types.SnapshotCreation{
+							Schedule: "00 * * * *",
+						},
+					},
+				}
+				transport.RegisterResponder(
+					"GET",
+					fmt.Sprintf("%s/_plugins/_sm/policies/%s", opensearchURL, policyName),
+					httpmock.NewJsonResponderOrPanic(200, response).Once(),
+				)
+				transport.RegisterResponderWithQuery(
+					"PUT",
+					fmt.Sprintf("%s/_plugins/_sm/policies/%s", opensearchURL, policyName),
+					map[string]string{
+						"if_seq_no":       "1",
+						"if_primary_term": "1",
+					},
+					httpmock.NewStringResponder(200, "OK").Once(),
+				)
+			})
+			It("should update the policy", func() {
+				Expect(rec.MaybeUpdateSnapshotPolicy(policyName, policyRequest)).To(Succeed())
+				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+			})
+		})
+		When("policy exists and is the same", func() {
+			JustBeforeEach(func() {
+				response := types.SnapshotManagementResponse{
+					Version:     1,
+					SeqNo:       1,
+					PrimaryTerm: 1,
+					Policy: types.SnapshotManagementRequest{
+						Description: "test policy",
+						Enabled:     lo.ToPtr(true),
+						SnapshotConfig: types.SnapshotConfig{
+							SnapshotRequest: types.SnapshotRequest{
+								Indices: "test",
+							},
+						},
+						Creation: types.SnapshotCreation{
+							Schedule: "00 1 * * *",
+						},
+					},
+				}
+				transport.RegisterResponder(
+					"GET",
+					fmt.Sprintf("%s/_plugins/_sm/policies/%s", opensearchURL, policyName),
+					httpmock.NewJsonResponderOrPanic(200, response).Once(),
+				)
+				transport.RegisterResponder(
+					"DELETE",
+					fmt.Sprintf("%s/_plugins/_sm/policies/%s", opensearchURL, policyName),
+					httpmock.NewJsonResponderOrPanic(200, response).Once(),
+				)
+			})
+			It("should not update the policy", func() {
+				Expect(rec.MaybeUpdateSnapshotPolicy(policyName, policyRequest)).To(Succeed())
+			})
+			It("should delete the policy", func() {
+				Expect(rec.MaybeDeleteSnapshotPolicy(policyName)).To(Succeed())
 				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
 			})
 		})

@@ -22,6 +22,15 @@ console.log(`IS STANDALONE`, isStandalone); // eslint-disable-line no-console
 
 const baseConfig = config(__dirname, {
   excludes: [],
+  proxies:  {
+    '/opni-api': {
+      secure:       false,
+      target:       opniApi,
+      pathRewrite:  { '^/opni-api': '' },
+      ws:           true,
+      changeOrigin: true,
+    }
+  }
   // excludes: ['fleet', 'example']
 });
 
@@ -29,9 +38,11 @@ const baseConfigureWebpack = baseConfig.configureWebpack;
 
 baseConfig.devServer.proxy = {
   '/opni-api': {
-    secure:      false,
-    target:      opniApi,
-    pathRewrite: { '^/opni-api': '' }
+    secure:       false,
+    target:       opniApi,
+    pathRewrite:  { '^/opni-api': '' },
+    ws:           true,
+    changeOrigin: true,
   },
 };
 

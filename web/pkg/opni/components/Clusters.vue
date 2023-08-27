@@ -5,7 +5,7 @@ import { Banner } from '@components/Banner';
 import { isEmpty } from 'lodash';
 import { InstallState, getClusterStatus as getMonitoringBackendStatus } from '../utils/requests/monitoring';
 import { getOpensearchCluster } from '../utils/requests/loggingv2';
-import { getClusters } from '../utils/requests/management';
+import { watchClusters } from '../utils/requests/management';
 import { getClusterStats } from '../utils/requests';
 import CapabilityButton from './CapabilityButton';
 import EditClusterDialog from './dialogs/EditClusterDialog';
@@ -21,7 +21,6 @@ export default {
     Banner,
   },
   async fetch() {
-    await this.load();
     await this.loadStats();
   },
 
@@ -32,6 +31,7 @@ export default {
       isMonitoringBackendInstalled: false,
       isLoggingBackendInstalled:    false,
       clusters:                     [],
+      closeStreams:                 null,
       headers:                      [
         {
           name:          'status',
@@ -95,6 +95,7 @@ export default {
     this.$on('copy', this.copyClusterID);
     this.$on('cantDeleteCluster', this.openCantDeleteClusterDialog);
     this.statsInterval = setInterval(this.loadStats, 10000);
+    this.closeStreams = watchClusters(this, this.clusters);
   },
 
   beforeDestroy() {
@@ -105,12 +106,15 @@ export default {
     if (this.statsInterval) {
       clearInterval(this.statsInterval);
     }
+    if (this.closeStreams) {
+      this.closeStreams();
+    }
   },
 
   methods: {
-    onClusterDelete() {
-      this.load();
-    },
+    // onClusterDelete() {
+    //   this.load();
+    // },
 
     openEditDialog(cluster) {
       this.$refs.dialog.open(cluster);
@@ -136,13 +140,14 @@ export default {
       cluster.clearCapabilityStatus(capabilities);
     },
 
-    async load() {
-      try {
-        this.loading = true;
-        this.$set(this, 'clusters', await getClusters(this));
-      } finally {
-        this.loading = false;
-      }
+    load() {
+    //   try {
+    //     this.loading = true;
+    //   } catch (ex) {
+    //     console.error(ex);
+    //   } finally {
+      this.loading = false;
+    //   }
     },
     async loadStats() {
       try {
@@ -167,7 +172,7 @@ export default {
     },
 
     async onDialogSave() {
-      this.$set(this, 'clusters', await getClusters(this));
+      // this.$set(this, 'clusters', await getClusters(this));
       await this.loadStats();
 
       this.$refs.capabilitiesDialog.close(false);

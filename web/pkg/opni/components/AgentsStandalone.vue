@@ -2,7 +2,7 @@
 import Loading from '@shell/components/Loading';
 import { isEmpty } from 'lodash';
 import SortableTable from '@shell/components/SortableTable';
-import { getClusters } from '../utils/requests/management';
+import { getClusters, watchClusters } from '../utils/requests/management';
 import { getClusterStats } from '../utils/requests';
 import { InstallState, getClusterStatus as getMonitoringBackendStatus } from '../utils/requests/monitoring';
 import { getLoggingCluster } from '../utils/requests/logging';
@@ -86,6 +86,7 @@ export default {
     this.$on('copy', this.copyClusterID);
     this.$on('cantDeleteCluster', this.openCantDeleteClusterDialog);
     this.statsInterval = setInterval(this.loadStats, 10000);
+    this.closeStreams = watchClusters(this, this.clusters);
   },
 
   beforeDestroy() {
@@ -95,6 +96,9 @@ export default {
     this.$off('cantDeleteCluster');
     if (this.statsInterval) {
       clearInterval(this.statsInterval);
+    }
+    if (this.closeStreams) {
+      this.closeStreams();
     }
   },
 
@@ -127,13 +131,15 @@ export default {
       cluster.clearCapabilityStatus(capabilities);
     },
 
-    async load() {
-      try {
-        this.loading = true;
-        this.$set(this, 'clusters', await getClusters(this));
-      } finally {
-        this.loading = false;
-      }
+    load() {
+      // try {
+      //   this.loading = true;
+      //   await watchClusters(this, this.clusters);
+      // } catch (e) {
+      //   this.$dispatch('growl/fromError', e);
+      // } finally {
+      this.loading = false;
+      // }
     },
     async loadStats() {
       try {
@@ -158,7 +164,7 @@ export default {
     },
 
     async onDialogSave() {
-      this.$set(this, 'clusters', await getClusters(this));
+      // this.$set(this, 'clusters', await getClusters(this));
       await this.loadStats();
 
       this.$refs.capabilitiesDialog.close(false);

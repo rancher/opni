@@ -673,6 +673,12 @@ func (in *GrafanaConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	return fs
 }
 
+func (in *ResetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("ResetRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	return fs
+}
+
 func (in *CapabilityBackendConfigSpec) DeepCopyInto(out *CapabilityBackendConfigSpec) {
 	out.Reset()
 	proto.Merge(out, in)

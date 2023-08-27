@@ -136,9 +136,9 @@ export class Capability extends Resource {
     return this.capLogs;
   }
 
-  updateCapabilities(): Promise<void> {
-    return this.cluster.updateCapabilities();
-  }
+  // updateCapabilities(): Promise<void> {
+  //   return this.cluster.updateCapabilities();
+  // }
 
   async updateCabilityLogs(): Promise<void> {
     const logs: CapabilityLog[] = [];
@@ -201,7 +201,7 @@ export class Capability extends Resource {
 
     this.capLogs = logs;
 
-    await this.updateCapabilities();
+    // await this.updateCapabilities();
   }
 
   get availableActions(): any[] {
@@ -252,7 +252,7 @@ export class Capability extends Resource {
         message:      result.message,
       });
 
-      await this.updateCapabilities();
+      // await this.updateCapabilities();
     } catch (ex) {
       Vue.set(this.capabilityStatus, this.type, {
         state:        'error',

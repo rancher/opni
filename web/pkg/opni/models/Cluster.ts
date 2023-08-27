@@ -1,4 +1,5 @@
-import { deleteCluster, getCluster } from '../utils/requests/management';
+import { deleteCluster } from '../utils/requests/management';
+import * as Core from '../generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
 import { LABEL_KEYS, Status } from './shared';
 import { Resource } from './Resource';
 import { TaskState } from './Capability';
@@ -80,15 +81,13 @@ export interface CapabilityStatuses {
 }
 
 export class Cluster extends Resource {
-  private base: ClusterResponse;
-  private healthBase: HealthResponse;
+  private base?: Core.Cluster;
+  private healthStatus?: Core.HealthStatus;
   private clusterStats: ClusterStats;
   private capLogs: CapabilityLog[];
 
-  constructor(base: ClusterResponse, healthBase: HealthResponse, vue: any) {
+  constructor(vue: any) {
     super(vue);
-    this.base = base;
-    this.healthBase = healthBase;
     this.clusterStats = {
       ingestionRate: 0,
       numSeries:     0,
@@ -97,18 +96,24 @@ export class Cluster extends Resource {
   }
 
   get status() {
-    if (!this.healthBase.status.connected) {
+    if (!this.healthStatus) {
+      return {
+        state:   '',
+        message: 'Unknown'
+      };
+    }
+    if (!this.healthStatus?.status?.connected) {
       return {
         state:   'error',
         message: 'Disconnected'
       };
     }
 
-    if (!this.healthBase.health.ready) {
+    if (!this.healthStatus?.health?.ready) {
       return {
         state:        'warning',
         shortMessage: 'Degraded',
-        message:      this.healthBase.health.conditions.join(', ')
+        message:      this.healthStatus?.health?.conditions.join(', ')
       };
     }
 
@@ -119,7 +124,7 @@ export class Cluster extends Resource {
   }
 
   get isLocal(): boolean {
-    return this.healthBase.status?.sessionAttributes?.includes('local');
+    return this.healthStatus?.status?.sessionAttributes?.includes('local') || false;
   }
 
   get localIcon(): string {
@@ -131,25 +136,25 @@ export class Cluster extends Resource {
   }
 
   get nameDisplay(): string {
-    return this.name || this.base.id;
+    return this.name || this.base?.id || '';
   }
 
   get name(): string {
-    return this.base.metadata.labels[LABEL_KEYS.NAME];
+    return this.base?.metadata?.labels[LABEL_KEYS.NAME] || '';
   }
 
   get id(): string {
-    return this.base.id;
+    return this.base?.id || '';
   }
 
-  get labels(): any {
-    return this.base.metadata.labels;
+  get labels(): { [key: string]: string } {
+    return this.base?.metadata?.labels || {};
   }
 
   get visibleLabels(): { [key: string]: string } {
     const labels: any = {};
 
-    Object.entries(this.base.metadata.labels)
+    Object.entries(this.base?.metadata?.labels || {})
       .filter(([key]) => !key.includes('opni.io'))
       .forEach(([key, value]) => {
         labels[key] = value;
@@ -161,7 +166,7 @@ export class Cluster extends Resource {
   get hiddenLabels(): any {
     const labels: any = {};
 
-    Object.entries(this.base.metadata.labels)
+    Object.entries(this.base?.metadata?.labels || {})
       .filter(([key]) => key.includes('opni.io'))
       .forEach(([key, value]) => {
         labels[key] = value;
@@ -179,8 +184,8 @@ export class Cluster extends Resource {
     return this.base?.metadata?.capabilities?.map(capability => capability.name) || [];
   }
 
-  get capabilitiesRaw() {
-    return this.base.metadata.capabilities;
+  get capabilitiesRaw(): Core.ClusterCapability[] {
+    return this.base?.metadata?.capabilities || [];
   }
 
   isCapabilityInstalled(type: string) {
@@ -215,10 +220,12 @@ export class Cluster extends Resource {
     return this.capLogs;
   }
 
-  async updateCapabilities(): Promise<void> {
-    const newCluster = await getCluster(this.id, this.vue);
+  onClusterUpdated(cluster: Core.Cluster) {
+    this.vue.$set(this, 'base', cluster);
+  }
 
-    this.base.metadata.capabilities = newCluster.base.metadata.capabilities;
+  onHealthStatusUpdated(healthStatus: Core.HealthStatus) {
+    this.vue.$set(this, 'healthStatus', healthStatus);
   }
 
   get availableActions(): any[] {
@@ -255,6 +262,9 @@ export class Cluster extends Resource {
   }
 
   async remove() {
+    if (!this.base?.id) {
+      return;
+    }
     await deleteCluster(this.base.id);
     super.remove();
   }

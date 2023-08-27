@@ -9,6 +9,7 @@ import (
 	"path"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/golang/protobuf/jsonpb"
 	dpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
@@ -302,7 +303,7 @@ func newHandler(
 			return
 		}
 
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, methodDesc.GetFullyQualifiedName(), runtime.WithHTTPPathPattern(path))
+		ctx, err := runtime.AnnotateContext(ctx, mux, req, methodDesc.GetFullyQualifiedName(), runtime.WithHTTPPathPattern(path))
 		if err != nil {
 			lg.Error(err)
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err) // already a grpc error
@@ -393,22 +394,29 @@ func newHandler(
 				w.WriteHeader(http.StatusUpgradeRequired)
 				return
 			}
-			conn, err := (&websocket.Upgrader{}).Upgrade(w, req, nil)
+			conn, err := (&websocket.Upgrader{
+				CheckOrigin: func(r *http.Request) bool {
+					// only allow localhost
+					// host, _, _ := net.SplitHostPort(r.Host)
+					// return host == "localhost"
+					return true
+				},
+			}).Upgrade(w, req, nil)
 			if err != nil {
-				runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
-					status.Errorf(codes.Internal, "failed to upgrade connection: %v", err))
+				lg.With(zap.Error(err)).Error("failed to upgrade connection")
 				return
 			}
 			defer conn.Close()
 
 			if err := handleWebsocketStream(ctx, conn, stub, methodDesc, reqMsg); err != nil {
-				runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+				lg.With(zap.Error(err)).Error("websocket stream error")
+				// can't send http errors after the connection has been hijacked
 			}
 			return
 		}
 
 		var metadata runtime.ServerMetadata
-		resp, err := stub.InvokeRpc(rctx, methodDesc, reqMsg,
+		resp, err := stub.InvokeRpc(ctx, methodDesc, reqMsg,
 			grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 		if err != nil {
 			lg.With(
@@ -446,6 +454,11 @@ func newHandler(
 	}
 }
 
+const (
+	heartbeatTimeout  = 35 * time.Second
+	heartbeatInterval = 11 * time.Second
+)
+
 func handleWebsocketStream(ctx context.Context, conn *websocket.Conn, stub grpcdynamic.Stub, methodDesc *desc.MethodDescriptor, reqMsg *dynamic.Message) error {
 	isClientStreaming := methodDesc.IsClientStreaming()
 	isServerStreaming := methodDesc.IsServerStreaming()
@@ -472,104 +485,147 @@ func handleWebsocketStream(ctx context.Context, conn *websocket.Conn, stub grpcd
 }
 
 func handleWebsocketClientStream(ctx context.Context, conn *websocket.Conn, backendStream *grpcdynamic.ClientStream, methodDesc *desc.MethodDescriptor) error {
-	for {
-		msgType, data, err := conn.ReadMessage()
-		if err != nil {
-			return err
-		}
-		if msgType == websocket.CloseMessage {
-			break
-		}
+	return fmt.Errorf("not implemented")
+	// for {
+	// 	msgType, data, err := conn.ReadMessage()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	if msgType == websocket.CloseMessage {
+	// 		break
+	// 	}
 
-		msg := dynamic.NewMessage(methodDesc.GetInputType())
-		if err := msg.UnmarshalJSONPB(&jsonpb.Unmarshaler{}, data); err != nil {
-			return err
-		}
+	// 	msg := dynamic.NewMessage(methodDesc.GetInputType())
+	// 	if err := msg.UnmarshalJSONPB(&jsonpb.Unmarshaler{}, data); err != nil {
+	// 		return err
+	// 	}
 
-		if err := backendStream.SendMsg(msg); err != nil {
-			return err
-		}
-	}
-	resp, err := backendStream.CloseAndReceive()
+	// 	if err := backendStream.SendMsg(msg); err != nil {
+	// 		return err
+	// 	}
+	// }
+	// resp, err := backendStream.CloseAndReceive()
 
-	respMsg, _ := dynamic.AsDynamicMessage(resp)
-	if err != nil {
-		return err
-	}
-	jsonData, _ := respMsg.MarshalJSONPB(legacyJsonpbMarshaler)
-	if err := conn.WriteMessage(websocket.TextMessage, jsonData); err != nil {
-		return err
-	}
-	return nil
+	// respMsg, _ := dynamic.AsDynamicMessage(resp)
+	// if err != nil {
+	// 	return err
+	// }
+	// jsonData, _ := respMsg.MarshalJSONPB(legacyJsonpbMarshaler)
+	// if err := conn.WriteMessage(websocket.TextMessage, jsonData); err != nil {
+	// 	return err
+	// }
+	// return nil
 }
 
 func handleWebsocketServerStream(ctx context.Context, conn *websocket.Conn, backendStream *grpcdynamic.ServerStream, methodDesc *desc.MethodDescriptor) error {
-	respMsg := dynamic.NewMessage(methodDesc.GetOutputType())
+	send := make(chan *dynamic.Message, 1)
+	backendErr := make(chan error, 1)
+	go func() {
+		defer close(backendErr)
+		defer close(send)
+		for ctx.Err() == nil {
+			if resp, err := backendStream.RecvMsg(); err == io.EOF {
+				return
+			} else if err != nil {
+				backendErr <- err
+				return
+			} else {
+				dm, _ := dynamic.AsDynamicMessage(resp)
+				send <- dm
+			}
+		}
+	}()
+	go func() {
+		for ctx.Err() == nil {
+			if _, _, err := conn.NextReader(); err != nil {
+				return
+			}
+		}
+	}()
+
+	timeout := time.NewTimer(heartbeatTimeout)
+	heartbeat := time.NewTicker(heartbeatInterval)
+	defer heartbeat.Stop()
+	defer timeout.Stop()
+	conn.SetPongHandler(func(appData string) error {
+		if timeout.Stop() {
+			timeout.Reset(heartbeatTimeout)
+		}
+		return nil
+	})
+
 	for {
-		if resp, err := backendStream.RecvMsg(); err == io.EOF {
-			break
-		} else if err != nil {
-			return err
-		} else {
-			respMsg, _ = dynamic.AsDynamicMessage(resp)
-		}
-
-		data, err := respMsg.MarshalJSONPB(legacyJsonpbMarshaler)
-		if err != nil {
-			return err
-		}
-
-		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func handleWebsocketBidiStream(ctx context.Context, conn *websocket.Conn, backendStream *grpcdynamic.BidiStream, methodDesc *desc.MethodDescriptor) error {
-	var eg errgroup.Group
-	eg.Go(func() error {
-		for {
-			msgType, data, err := conn.ReadMessage()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case msg, ok := <-send:
+			if !ok {
+				return nil
+			}
+			data, err := msg.MarshalJSONPB(legacyJsonpbMarshaler)
 			if err != nil {
 				return err
 			}
-			if msgType == websocket.CloseMessage {
-				return backendStream.CloseSend()
-			}
-
-			msg := dynamic.NewMessage(methodDesc.GetInputType())
-			if err := msg.UnmarshalJSONPB(legacyJsonpbUnmarshaler, data); err != nil {
+			if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
 				return err
 			}
-
-			if err := backendStream.SendMsg(msg); err != nil {
+		case <-heartbeat.C:
+			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return err
 			}
-		}
-	})
-
-	respMsg := dynamic.NewMessage(methodDesc.GetOutputType())
-	for {
-		if resp, err := backendStream.RecvMsg(); err == io.EOF {
-			break
-		} else if err != nil {
-			return err
-		} else {
-			respMsg, _ = dynamic.AsDynamicMessage(resp)
-		}
-
-		data, err := respMsg.MarshalJSONPB(legacyJsonpbMarshaler)
-		if err != nil {
-			return err
-		}
-
-		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-			return err
+		case <-timeout.C:
+			return fmt.Errorf("socket timed out after %v", heartbeatTimeout)
+		case err := <-backendErr:
+			return fmt.Errorf("backend stream error: %w", err)
 		}
 	}
+}
 
-	return eg.Wait()
+func handleWebsocketBidiStream(ctx context.Context, conn *websocket.Conn, backendStream *grpcdynamic.BidiStream, methodDesc *desc.MethodDescriptor) error {
+	return fmt.Errorf("not implemented")
+	// var eg errgroup.Group
+	// eg.Go(func() error {
+	// 	for {
+	// 		msgType, data, err := conn.ReadMessage()
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		if msgType == websocket.CloseMessage {
+	// 			return backendStream.CloseSend()
+	// 		}
+
+	// 		msg := dynamic.NewMessage(methodDesc.GetInputType())
+	// 		if err := msg.UnmarshalJSONPB(legacyJsonpbUnmarshaler, data); err != nil {
+	// 			return err
+	// 		}
+
+	// 		if err := backendStream.SendMsg(msg); err != nil {
+	// 			return err
+	// 		}
+	// 	}
+	// })
+
+	// respMsg := dynamic.NewMessage(methodDesc.GetOutputType())
+	// for {
+	// 	if resp, err := backendStream.RecvMsg(); err == io.EOF {
+	// 		break
+	// 	} else if err != nil {
+	// 		return err
+	// 	} else {
+	// 		respMsg, _ = dynamic.AsDynamicMessage(resp)
+	// 	}
+
+	// 	data, err := respMsg.MarshalJSONPB(legacyJsonpbMarshaler)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+
+	// 	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+	// 		return err
+	// 	}
+	// }
+
+	// return eg.Wait()
 }
 
 func unknownServiceHandler(director StreamDirector) grpc.StreamHandler {

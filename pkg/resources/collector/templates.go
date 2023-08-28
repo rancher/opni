@@ -109,9 +109,8 @@ filelog/kubeauditlogs:
   start_at: beginning
   include_file_path: false
   operators:
-  - type: move
-    from: body
-    to: attributes.message
+  - type: json_parser
+    if: '$matches "^{.*}$"' 
   - type: add
     field: attributes.log_type
     value: controlplane
@@ -145,9 +144,6 @@ filelog/rke2:
         warn: W
         error: E
         fatal: F
-  - type: move
-    from: body
-    to: attributes.message
   - type: add
     field: attributes.log_type
     value: controlplane

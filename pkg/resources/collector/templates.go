@@ -108,6 +108,7 @@ filelog/kubeauditlogs:
   include: [ /var/log/kube-audit/*.log ]
   start_at: beginning
   include_file_path: false
+  include_file_name: false
   operators:
   - type: json_parser
     id: parse-body

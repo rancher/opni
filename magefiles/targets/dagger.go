@@ -11,8 +11,6 @@ import (
 	"os/exec"
 	"path"
 
-	"slices"
-
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 )
@@ -36,7 +34,7 @@ const (
 
 // Invokes 'go run ./dagger' with all arguments
 func (ns Dagger) Run(arg0 string) error {
-	return ns.run(dagger, ns.takeArgv(arg0)...)
+	return ns.run(dagger, takeArgv(arg0)...)
 }
 
 func (Dagger) run(pkg daggerPackage, args ...string) error {
@@ -50,12 +48,6 @@ func (Dagger) do(outputDir string, args ...string) error {
 		return fmt.Errorf("could not find dagger: %w", err)
 	}
 	return sh.Run(daggerBinary, append([]string{"do", "--output", outputDir, "--project", string(daggerx), "--workdir", string(dagger)}, args...)...)
-}
-
-func (Dagger) takeArgv(arg0 string) (rest []string) {
-	idx := slices.Index(os.Args, arg0)
-	rest, os.Args = os.Args[idx:], os.Args[:idx]
-	return
 }
 
 // Invokes 'go run ./dagger --help'

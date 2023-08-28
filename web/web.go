@@ -8,7 +8,7 @@ import (
 //go:embed all:dist
 var DistFS embed.FS
 
-func EmbeddedAssetsAvailable(fs fs.FS) bool {
+func WebAssetsAvailable(fs fs.FS) bool {
 	f, err := fs.Open("dist")
 	if err != nil {
 		return false

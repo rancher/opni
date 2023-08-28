@@ -72,8 +72,8 @@ func NewServer(config *v1beta1.ManagementSpec, opts ...ServerOption) (*Server, e
 	}
 	options.apply(opts...)
 
-	if !web.EmbeddedAssetsAvailable(options.assetsFS) {
-		return nil, errors.New("embedded assets not available")
+	if !web.WebAssetsAvailable(options.assetsFS) {
+		return nil, errors.New("web assets not available")
 	}
 
 	if config.WebListenAddress == "" {

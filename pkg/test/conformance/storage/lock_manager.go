@@ -14,14 +14,12 @@ import (
 )
 
 func LockManagerTestSuite[T storage.LockManager](
-	lmsF future.Future[[]T],
-
+	lmF future.Future[T],
 ) func() {
 	return func() {
 		var lm T
 		BeforeAll(func() {
-			arr := lmsF.Get()
-			lm = arr[0]
+			lm = lmF.Get()
 		})
 
 		When("using distributed locks ", func() {

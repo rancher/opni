@@ -53,7 +53,9 @@ func (e *EtcdLock) Lock() error {
 		ctxca, ca := context.WithCancel(e.client.Ctx())
 		signalAcquired := make(chan struct{})
 		defer close(signalAcquired)
-		defer e.session.Orphan()
+		if !e.options.Keepalive {
+			defer e.session.Orphan()
+		}
 		var lockErr error
 		var mu sync.Mutex
 		go func() {

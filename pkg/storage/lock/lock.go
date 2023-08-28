@@ -37,6 +37,10 @@ var (
 	}
 )
 
+func Compat(req, existing AccessType) bool {
+	return (req & BitMasks[existing]) == req
+}
+
 var (
 	ErrAcquireLockTimeout        = errors.New("acquiring lock error : timeout")
 	ErrAcquireLockRetryExceeded  = errors.New("acquiring lock error : retry limit exceeded")
@@ -100,22 +104,19 @@ func (l *LockPrimitive) doSlow(f func() error) error {
 }
 
 type LockOptions struct {
-	MaxRetries     int
 	AcquireTimeout time.Duration
 	LockValidity   time.Duration
 	RetryDelay     time.Duration
 	Ctx            context.Context
-	AccessType     AccessType
+	Keepalive      bool
 }
 
 func NewLockOptions(ctx context.Context) *LockOptions {
 	return &LockOptions{
-		MaxRetries:     DefaultMaxRetries,
 		RetryDelay:     DefaultRetryDelay,
 		AcquireTimeout: DefaultAcquireTimeout,
 		LockValidity:   DefaultTimeout,
 		Ctx:            ctx,
-		AccessType:     EX,
 	}
 }
 
@@ -126,12 +127,6 @@ func (o *LockOptions) Apply(opts ...LockOption) {
 }
 
 type LockOption func(o *LockOptions)
-
-func WithMaxRetries(retries int) LockOption {
-	return func(o *LockOptions) {
-		o.MaxRetries = retries
-	}
-}
 
 func WithRetryDelay(delay time.Duration) LockOption {
 	return func(o *LockOptions) {
@@ -157,42 +152,8 @@ func WithContext(ctx context.Context) LockOption {
 	}
 }
 
-func WithExclusiveLock() LockOption {
+func WithKeepalive(keepalive bool) LockOption {
 	return func(o *LockOptions) {
-		o.AccessType = EX
+		o.Keepalive = keepalive
 	}
-}
-
-func WithProtectedWrite() LockOption {
-	return func(o *LockOptions) {
-		o.AccessType = PW
-	}
-}
-
-func WithProtectedRead() LockOption {
-	return func(o *LockOptions) {
-		o.AccessType = PR
-	}
-}
-
-func WithConcurrentRead() LockOption {
-	return func(o *LockOptions) {
-		o.AccessType = CR
-	}
-}
-
-func WithConcurrentWrite() LockOption {
-	return func(o *LockOptions) {
-		o.AccessType = CW
-	}
-}
-
-func WithAccessType(at AccessType) LockOption {
-	return func(o *LockOptions) {
-		o.AccessType = at
-	}
-}
-
-func Compat(req, existing AccessType) bool {
-	return (req & BitMasks[existing]) == req
 }

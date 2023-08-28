@@ -111,5 +111,5 @@ func NewLockManager(ctx context.Context, conf *v1beta1.JetStreamStorageSpec) (*J
 func (l *JetstreamLockManager) Locker(key string, opts ...lock.LockOption) storage.Lock {
 	options := lock.NewLockOptions(l.ctx)
 	options.Apply(opts...)
-	return NewJetstreamLock(l.ctx, l.lg, l.kv, key, options, l.clientPool, l.uuid)
+	return NewJetstreamLock(l.ctx, l.lg, l.kv, key, options, l.clientPool, l.uuid, lock.EX)
 }

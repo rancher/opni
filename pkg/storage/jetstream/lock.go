@@ -44,6 +44,8 @@ type JetstreamLock struct {
 
 	startLock   lock.LockPrimitive
 	startUnlock lock.LockPrimitive
+
+	AccessType lock.AccessType
 }
 
 func (j *JetstreamLock) lockToken() *big.Int {
@@ -58,10 +60,11 @@ func NewJetstreamLock(
 	options *lock.LockOptions,
 	lockPool *lock.LockPool,
 	managerUuid string,
+	accessType lock.AccessType,
 ) *JetstreamLock {
 	GlobalLockId++
 	return &JetstreamLock{
-		lg:            lg.With("id", GlobalLockId, "type", lock.AccessTypeToString(options.AccessType)),
+		lg:            lg.With("id", GlobalLockId, "type", lock.AccessTypeToString(accessType)),
 		kvCtx:         ctx,
 		kv:            kv,
 		key:           key,
@@ -76,17 +79,12 @@ func NewJetstreamLock(
 	}
 }
 
-func (j *JetstreamLock) jitter() time.Duration {
-	return time.Duration(j.MaxRetries) * time.Duration(j.RetryDelay) / 2
-}
-
 func (j *JetstreamLock) Lock() error {
 	return j.startLock.Do(func() error {
 		lg := j.lg.With("transaction", "lock")
 		lg.Debug("REQ init")
 		lg.Debugf("WITH ACQQUISITION TIMEOUT %s", j.AcquireTimeout.String())
 		j.lockRequestTs.Set(time.Now().UnixNano())
-		maxRetries := j.MaxRetries
 
 		cancelAcquire := make(chan struct{})
 		lockAcquired := make(chan error)
@@ -116,10 +114,10 @@ func (j *JetstreamLock) Lock() error {
 		go func() {
 			// defer watcher.Stop()
 			defer close(lockAcquired)
-			for retries := 0; retries < maxRetries; retries++ {
+			for {
 				select {
 				case <-cancelAcquire:
-				case <-time.After(j.RetryDelay + j.jitter()):
+				case <-time.After(j.RetryDelay):
 					//retry
 					lg.Debug("REQ")
 					err := j.lock(j.kvCtx)
@@ -134,7 +132,6 @@ func (j *JetstreamLock) Lock() error {
 					}
 				}
 			}
-			lockAcquired <- lock.ErrAcquireLockRetryExceeded
 		}()
 
 		err := <-lockErr
@@ -191,7 +188,6 @@ func (j *JetstreamLock) Unlock() error {
 			return nil
 		}
 
-		maxRetries := j.MaxRetries
 		cancelAcquire := make(chan struct{})
 		unlockAcquired := make(chan error)
 		unlockErr := make(chan error)
@@ -219,21 +215,18 @@ func (j *JetstreamLock) Unlock() error {
 		}()
 
 		go func() {
-			for retries := 0; retries < maxRetries; retries++ {
+			for {
 				select {
 				case <-cancelAcquire:
 					return
-				case <-time.After(j.RetryDelay + j.jitter()):
+				case <-time.After(j.RetryDelay):
 					err := j.release()
 					if err == nil {
-						// lg.Debug("ACK")
 						unlockAcquired <- nil
 						return
 					}
 				}
 			}
-			// lg.Debug("TIMEOUT retry")
-			unlockErr <- lock.ErrAcquireUnlockTimeout
 		}()
 
 		err := <-unlockErr
@@ -255,22 +248,18 @@ func (j *JetstreamLock) lock(ctx context.Context) error {
 	found := err == nil
 	notFound := errors.Is(err, nats.ErrKeyNotFound)
 	if notFound {
-		j.lg.Debug("CRT new")
 		return j.tryAcquireNewLock(ctx)
 	}
 	if found && j.isCompat(lockMd) {
-		j.lg.Debug("CRT existing")
 		return j.tryAcquireLock(ctx, lockMd)
 	}
 	if found && j.isExpired(lockMd) {
-		j.lg.Debug("RLS : expired")
 		if err := j.forceRelease(lockMd.Revision()); err != nil {
 			return err
 		}
 		return lock.ErrAcquireLockConflict
 	}
 	if found {
-		j.lg.Debug("WAIT")
 		return lock.ErrAcquireLockConflict
 	}
 	return err

@@ -34,7 +34,8 @@ function printMethod(f: GeneratedFile, method: DescMethod) {
   const _axios = f.import('axios', 'axios');
   const _Socket = f.import('Socket', '@pkg/opni/utils/socket');
   const _EVENT_CONNECTED = f.import('EVENT_CONNECTED', '@shell/utils/socket');
-  // const _EVENT_CONNECT_ERROR = f.import('EVENT_CONNECT_ERROR', '@shell/utils/socket');
+  const _EVENT_CONNECT_ERROR = f.import('EVENT_CONNECT_ERROR', '@shell/utils/socket');
+  const _EVENT_DISCONNECT_ERROR = f.import('EVENT_DISCONNECT_ERROR', '@shell/utils/socket');
   const _EVENT_MESSAGE = f.import('EVENT_MESSAGE', '@shell/utils/socket');
 
   const inputName = input.name === 'Empty' ? '' : 'input: ';
@@ -71,8 +72,14 @@ function printMethod(f: GeneratedFile, method: DescMethod) {
       }
     });
     socket.addEventListener(`, _EVENT_CONNECTED, `, () => {
-      socket.send(input.toJson());
+      socket.send(input.toJsonString());
     }, { once: true });
+    socket.addEventListener(`, _EVENT_CONNECT_ERROR, `, (e) => {
+      console.error(e);
+    })
+    socket.addEventListener(`, _EVENT_DISCONNECT_ERROR, `, (e) => {
+      console.error(e);
+    })
     socket.connect();
     return () => {
       return socket.disconnect(null);

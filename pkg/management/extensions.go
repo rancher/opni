@@ -310,6 +310,36 @@ func newHandler(
 			return
 		}
 
+		if methodDesc.IsClientStreaming() || methodDesc.IsServerStreaming() {
+			if !websocket.IsWebSocketUpgrade(req) {
+				w.WriteHeader(http.StatusUpgradeRequired)
+				return
+			}
+			// cookie := make([]byte, 32)
+			// rand.Read(cookie)
+
+			conn, err := (&websocket.Upgrader{
+				ReadBufferSize:  1024,
+				WriteBufferSize: 1024,
+				CheckOrigin: func(r *http.Request) bool {
+					// only allow localhost
+					// host, _, _ := net.SplitHostPort(r.Host)
+					// return host == "localhost"
+					return true
+				},
+			}).Upgrade(w, req, http.Header{})
+			if err != nil {
+				lg.With(zap.Error(err)).Error("failed to upgrade connection")
+				return
+			}
+
+			if err := handleWebsocketStream(ctx, conn, stub, methodDesc, lg); err != nil {
+				lg.With(zap.Error(err)).Error("websocket stream error")
+				// can't send http errors after the connection has been hijacked
+			}
+			return
+		}
+
 		reqMsg := dynamic.NewMessage(methodDesc.GetInputType())
 		for k, v := range pathParams {
 			if err := decodeAndSetField(reqMsg, k, v); err != nil {
@@ -389,32 +419,6 @@ func newHandler(
 			}
 		}
 
-		if methodDesc.IsClientStreaming() || methodDesc.IsServerStreaming() {
-			if !websocket.IsWebSocketUpgrade(req) {
-				w.WriteHeader(http.StatusUpgradeRequired)
-				return
-			}
-			conn, err := (&websocket.Upgrader{
-				CheckOrigin: func(r *http.Request) bool {
-					// only allow localhost
-					// host, _, _ := net.SplitHostPort(r.Host)
-					// return host == "localhost"
-					return true
-				},
-			}).Upgrade(w, req, nil)
-			if err != nil {
-				lg.With(zap.Error(err)).Error("failed to upgrade connection")
-				return
-			}
-			defer conn.Close()
-
-			if err := handleWebsocketStream(ctx, conn, stub, methodDesc, reqMsg); err != nil {
-				lg.With(zap.Error(err)).Error("websocket stream error")
-				// can't send http errors after the connection has been hijacked
-			}
-			return
-		}
-
 		var metadata runtime.ServerMetadata
 		resp, err := stub.InvokeRpc(ctx, methodDesc, reqMsg,
 			grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
@@ -459,32 +463,36 @@ const (
 	heartbeatInterval = 11 * time.Second
 )
 
-func handleWebsocketStream(ctx context.Context, conn *websocket.Conn, stub grpcdynamic.Stub, methodDesc *desc.MethodDescriptor, reqMsg *dynamic.Message) error {
+func handleWebsocketStream(
+	ctx context.Context,
+	conn *websocket.Conn,
+	stub grpcdynamic.Stub,
+	methodDesc *desc.MethodDescriptor,
+	lg *zap.SugaredLogger,
+) error {
 	isClientStreaming := methodDesc.IsClientStreaming()
 	isServerStreaming := methodDesc.IsServerStreaming()
 	if isClientStreaming && isServerStreaming {
 		backendStream, err := stub.InvokeRpcBidiStream(ctx, methodDesc)
 		if err != nil {
+			lg.With(zap.Error(err)).Error("backend rpc error")
 			return err
 		}
 		return handleWebsocketBidiStream(ctx, conn, backendStream, methodDesc)
 	}
 
 	if isServerStreaming {
-		backendStream, err := stub.InvokeRpcServerStream(ctx, methodDesc, reqMsg)
-		if err != nil {
-			return err
-		}
-		return handleWebsocketServerStream(ctx, conn, backendStream, methodDesc)
+		return handleWebsocketServerStream(ctx, conn, stub, methodDesc, lg)
 	}
 	backendStream, err := stub.InvokeRpcClientStream(ctx, methodDesc)
 	if err != nil {
+		lg.With(zap.Error(err)).Error("backend rpc error")
 		return err
 	}
-	return handleWebsocketClientStream(ctx, conn, backendStream, methodDesc)
+	return handleWebsocketClientStream(ctx, conn, backendStream, methodDesc, lg)
 }
 
-func handleWebsocketClientStream(ctx context.Context, conn *websocket.Conn, backendStream *grpcdynamic.ClientStream, methodDesc *desc.MethodDescriptor) error {
+func handleWebsocketClientStream(ctx context.Context, conn *websocket.Conn, backendStream *grpcdynamic.ClientStream, methodDesc *desc.MethodDescriptor, lg *zap.SugaredLogger) error {
 	return fmt.Errorf("not implemented")
 	// for {
 	// 	msgType, data, err := conn.ReadMessage()
@@ -517,34 +525,80 @@ func handleWebsocketClientStream(ctx context.Context, conn *websocket.Conn, back
 	// return nil
 }
 
-func handleWebsocketServerStream(ctx context.Context, conn *websocket.Conn, backendStream *grpcdynamic.ServerStream, methodDesc *desc.MethodDescriptor) error {
+func handleWebsocketServerStream(
+	ctx context.Context,
+	conn *websocket.Conn,
+	stub grpcdynamic.Stub,
+	methodDesc *desc.MethodDescriptor,
+	lg *zap.SugaredLogger,
+) error {
+	lg.Debug("handling websocket server stream")
+
+	// messages from the backend to forward to the websocket
 	send := make(chan *dynamic.Message, 1)
-	backendErr := make(chan error, 1)
-	go func() {
-		defer close(backendErr)
-		defer close(send)
-		for ctx.Err() == nil {
-			if resp, err := backendStream.RecvMsg(); err == io.EOF {
-				return
-			} else if err != nil {
-				backendErr <- err
-				return
-			} else {
-				dm, _ := dynamic.AsDynamicMessage(resp)
-				send <- dm
+	// messages from the websocket to forward to the backend
+	recv := make(chan *dynamic.Message, 1)
+
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		var backendStream *grpcdynamic.ServerStream
+		select {
+		case <-ctx.Done():
+			lg.Debug("socket closed before initial request was received")
+			return ctx.Err()
+		case msg := <-recv:
+			var err error
+			backendStream, err = stub.InvokeRpcServerStream(ctx, methodDesc, msg)
+			if err != nil {
+				return fmt.Errorf("failed to invoke backend stream: %w", err)
 			}
 		}
-	}()
-	go func() {
 		for ctx.Err() == nil {
-			if _, _, err := conn.NextReader(); err != nil {
-				return
+			resp, err := backendStream.RecvMsg()
+			if err != nil {
+				return err
+			}
+			dm, err := dynamic.AsDynamicMessage(resp)
+			if err != nil {
+				lg.With(zap.Error(err)).Warn("could not convert message to dynamic message")
+				continue
+			}
+			send <- dm
+		}
+		return ctx.Err()
+	})
+
+	eg.Go(func() error {
+		var recvOnce bool
+		for ctx.Err() == nil {
+			msgType, data, err := conn.ReadMessage()
+			if err != nil {
+				lg.With(zap.Error(err)).Error("error reading from websocket")
+				return err
+			}
+			switch msgType {
+			case websocket.CloseMessage:
+				return io.EOF
+			case websocket.TextMessage:
+				if !recvOnce {
+					recvOnce = true
+				} else {
+					lg.Warn("skipping additional text messages in server stream")
+					continue
+				}
+				reqMsg := dynamic.NewMessage(methodDesc.GetInputType())
+				if err := reqMsg.UnmarshalJSONPB(legacyJsonpbUnmarshaler, data); err != nil {
+					return fmt.Errorf("failed to unmarshal websocket message: %w", err)
+				}
+				recv <- reqMsg
 			}
 		}
-	}()
+		return ctx.Err()
+	})
 
 	timeout := time.NewTimer(heartbeatTimeout)
 	heartbeat := time.NewTicker(heartbeatInterval)
+
 	defer heartbeat.Stop()
 	defer timeout.Stop()
 	conn.SetPongHandler(func(appData string) error {
@@ -554,31 +608,37 @@ func handleWebsocketServerStream(ctx context.Context, conn *websocket.Conn, back
 		return nil
 	})
 
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case msg, ok := <-send:
-			if !ok {
-				return nil
+	eg.Go(func() error {
+		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case msg := <-send:
+				data, err := msg.MarshalJSONPB(legacyJsonpbMarshaler)
+				if err != nil {
+					return err
+				}
+				if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+					return err
+				}
+			case <-heartbeat.C:
+				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					return err
+				}
+			case <-timeout.C:
+				return fmt.Errorf("socket timed out after %v", heartbeatTimeout)
 			}
-			data, err := msg.MarshalJSONPB(legacyJsonpbMarshaler)
-			if err != nil {
-				return err
-			}
-			if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-				return err
-			}
-		case <-heartbeat.C:
-			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				return err
-			}
-		case <-timeout.C:
-			return fmt.Errorf("socket timed out after %v", heartbeatTimeout)
-		case err := <-backendErr:
-			return fmt.Errorf("backend stream error: %w", err)
 		}
+	})
+
+	err := eg.Wait()
+	if err != nil {
+		lg.With(zap.Error(err)).Error("error occurred handling websocket")
 	}
+	if err := conn.Close(); err != nil {
+		lg.With(zap.Error(err)).Error("error occurred while closing websocket")
+	}
+	return err
 }
 
 func handleWebsocketBidiStream(ctx context.Context, conn *websocket.Conn, backendStream *grpcdynamic.BidiStream, methodDesc *desc.MethodDescriptor) error {

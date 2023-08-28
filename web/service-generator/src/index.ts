@@ -31,7 +31,7 @@ function printMethod(f: GeneratedFile, method: DescMethod) {
   const input = f.import(method.input);
   const output = f.import(method.output);
 
-  const _axios = f.import('axios', 'axios');
+  const _axios = f.import('axios', '@pkg/opni/utils/axios');
   const _Socket = f.import('Socket', '@pkg/opni/utils/socket');
   const _EVENT_CONNECTED = f.import('EVENT_CONNECTED', '@shell/utils/socket');
   const _EVENT_CONNECT_ERROR = f.import('EVENT_CONNECT_ERROR', '@shell/utils/socket');

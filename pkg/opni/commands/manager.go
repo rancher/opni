@@ -116,6 +116,11 @@ func BuildManagerCmd() *cobra.Command {
 			return err
 		}
 
+		if err = (&controllers.LoggingSnapshotReconciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Logging Snapshot")
+			return err
+		}
+
 		if err = (&controllers.CoreGatewayReconciler{}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Core Gateway")
 			return err

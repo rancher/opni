@@ -70,7 +70,7 @@ func ExpectCancellable(lm storage.LockManager) error {
 
 type LockWithTransaction lo.Tuple3[storage.Lock, *Transaction, chan struct{}]
 
-func ExpectLockToBlock(lm storage.LockManager, blockAccess, otherAccess lock.AccessType) error {
+func ExpectLockToBlock(lm storage.LockManager) error {
 	lock1 := lm.Locker("foo")
 	err := lock1.Lock()
 	Expect(err).NotTo(HaveOccurred())
@@ -126,7 +126,7 @@ func ExpectLockToBlock(lm storage.LockManager, blockAccess, otherAccess lock.Acc
 	return nil
 }
 
-func ExpectLockNotToBlock(lm storage.LockManager, firstType, otherType lock.AccessType) error {
+func ExpectLockNotToBlock(lm storage.LockManager) error {
 	mainLock := lm.Locker("foo")
 
 	otherLocks := []storage.Lock{

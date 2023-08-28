@@ -56,4 +56,3 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("Etcd lock manager", Ordered, Serial, Label("integration", "slow"), LockManagerBenchmark("etcd", lmsEtcdF))
-var _ = Describe("Jetstream (old) lock manager", Ordered, Serial, Label("integration", "slow"), LockManagerBenchmark("jetstream (old)", lmsJetstreamOldF))

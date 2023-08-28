@@ -5,6 +5,7 @@ internal/linter/*.so
 *.test
 **/__debug_bin
 *.out
+*.pprof
 .vscode
 .idea
 *.swp

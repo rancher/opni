@@ -30,12 +30,14 @@ func LockManagerBenchmark[T storage.LockManager](
 		})
 
 		Context(fmt.Sprintf("Acquiring and releasing %s exclusive locks should be efficient", name), func() {
-			f, perr := os.Create("cpu.pprof")
+			// == comment out this block for more accurate benchmarks
+			f, perr := os.Create(fmt.Sprintf("%s-single.pprof", name))
 			if perr != nil {
 				panic(perr)
 			}
 			pprof.StartCPUProfile(f)
 			defer pprof.StopCPUProfile()
+			// ==
 			Specify("within the same process", func() {
 				lm := lms[0]
 				expirement := gmeasure.NewExperiment("single process conflicting")
@@ -66,6 +68,14 @@ func LockManagerBenchmark[T storage.LockManager](
 			})
 
 			Specify("accross multiple processes", func() {
+				// == comment out this block for more accurate benchmarks
+				f, perr := os.Create(fmt.Sprintf("%s-multiple.pprof", name))
+				if perr != nil {
+					panic(perr)
+				}
+				pprof.StartCPUProfile(f)
+				defer pprof.StopCPUProfile()
+				// ==
 				expirement := gmeasure.NewExperiment("multiple process conflicting")
 				AddReportEntry(expirement.Name, expirement)
 
@@ -75,12 +85,13 @@ func LockManagerBenchmark[T storage.LockManager](
 						n int // number of locks per process
 					}
 					tcs := []Testcase{
-						{N: 3, n: 10},
-						{N: 5, n: 10},
-						{N: 7, n: 10},
-						// {N: 3, n: 100},
-						// {N: 5, n: 100},
-						// {N: 7, n: 100},
+						{N: 3, n: 3},
+						{N: 5, n: 3},
+						{N: 7, n: 3},
+						// 100 distributed evenly per process
+						{N: 3, n: 100 / 3},
+						{N: 5, n: 100 / 5},
+						{N: 7, n: 100 / 7},
 					}
 					for _, tc := range tcs {
 						if len(lms) < tc.N {
@@ -107,7 +118,7 @@ func LockManagerBenchmark[T storage.LockManager](
 							Expect(err).NotTo(HaveOccurred())
 						})
 					}
-				}, gmeasure.SamplingConfig{N: 20, Duration: time.Minute})
+				}, gmeasure.SamplingConfig{N: 10, Duration: time.Minute})
 			})
 		})
 	}

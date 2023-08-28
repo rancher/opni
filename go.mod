@@ -470,6 +470,7 @@ require (
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	github.com/ulikunitz/xz v0.5.10 // indirect
 	github.com/vimeo/galaxycache v0.0.0-20210323154928-b7e5d71c067a // indirect
+	github.com/viney-shih/go-lock v1.1.2 // indirect
 	github.com/wayneashleyberry/terminal-dimensions v1.1.0 // indirect
 	github.com/weaveworks/promrus v1.2.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect

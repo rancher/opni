@@ -21,6 +21,8 @@ func TestEtcd(t *testing.T) {
 
 var store = future.New[*etcd.EtcdStore]()
 
+var lmF = future.New[*etcd.EtcdLockManager]()
+
 var _ = BeforeSuite(func() {
 	testruntime.IfIntegration(func() {
 		env := test.Environment{}
@@ -35,7 +37,11 @@ var _ = BeforeSuite(func() {
 		)
 		Expect(err).NotTo(HaveOccurred())
 		store.Set(client)
-
+		l, err := etcd.NewEtcdLockManager(context.Background(), env.EtcdConfig(),
+			etcd.WithPrefix("test-lock"),
+		)
+		Expect(err).NotTo(HaveOccurred())
+		lmF.Set(l)
 		DeferCleanup(env.Stop)
 	})
 })
@@ -45,3 +51,4 @@ var _ = Describe("Cluster Store", Ordered, Label("integration", "slow"), Cluster
 var _ = Describe("RBAC Store", Ordered, Label("integration", "slow"), RBACStoreTestSuite(store))
 var _ = Describe("Keyring Store", Ordered, Label("integration", "slow"), KeyringStoreTestSuite(store))
 var _ = Describe("KV Store", Ordered, Label("integration", "slow"), KeyValueStoreTestSuite(store))
+var _ = Describe("Lock Manager", Ordered, Label("integration", "slow"), LockManagerTestSuite(lmF))

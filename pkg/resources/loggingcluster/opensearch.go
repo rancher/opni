@@ -125,6 +125,11 @@ func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchClu
 		if err != nil {
 			return err
 		}
+
+		err = osReconciler.DeleteNeuralSearchModel()
+		if err != nil {
+			return err
+		}
 	}
 
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {

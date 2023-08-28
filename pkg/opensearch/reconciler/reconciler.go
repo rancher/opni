@@ -1014,6 +1014,34 @@ func (r *Reconciler) MaybeUpdateIngestPipelineForNeuralSearch(pipelineName strin
 	return nil
 }
 
+func (r *Reconciler) DeleteNeuralSearchModel() error {
+	resp, err := r.osClient.NeuralSearch.PostSearchExistingModel(r.ctx)
+	if err != nil {
+		return err
+	}
+
+	modelResp := types.ModelGroupSearchResp{}
+	err = json.NewDecoder(resp.Body).Decode(&modelResp)
+	if err != nil {
+		return err
+	}
+	modelUploaded := len(modelResp.ModelGroupHits.Hits) > 0
+	if !modelUploaded {
+		return nil // model already deleted, do nothing
+	}
+
+	modelID := modelResp.ModelGroupHits.Hits[0].Source.ModelID
+	_, err = r.osClient.NeuralSearch.PostUnDeployModel(r.ctx, modelID)
+	if err != nil {
+		return err
+	}
+	_, err = r.osClient.NeuralSearch.PostDeleteModel(r.ctx, modelID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (r *Reconciler) UpsertClusterMetadata(id, name, index string) error {
 	if name == "" {
 		return r.DeleteClusterMetadata(id, index)

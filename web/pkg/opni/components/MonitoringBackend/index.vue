@@ -12,9 +12,13 @@ import Grafana from './Grafana';
 import { default as StorageComponent } from './Storage';
 
 export async function isEnabled() {
-  const state = (await CortexOps.service.Status()).installState;
+  try {
+    const state = (await CortexOps.service.Status()).installState;
 
-  return state !== CortexOps.types.InstallState.NotInstalled;
+    return state !== CortexOps.types.InstallState.NotInstalled;
+  } catch (ex) {
+    return false;
+  }
 }
 
 export default {
@@ -99,7 +103,7 @@ export default {
 
     async disable() {
       await CortexOps.service.Uninstall();
-      if (this.config?.cortexConfig?.storage.s3?.secretAccessKey) {
+      if (this.config?.cortexConfig?.storage?.s3?.secretAccessKey) {
         this.$set(this.config.cortexConfig.storage.s3, 'secretAccessKey', '');
       }
     },
@@ -185,8 +189,8 @@ export default {
 
     isEnabled,
 
-    async isUpgradeAvailable() {
-      return await false;
+    isUpgradeAvailable() {
+      return false;
     },
 
     async getStatus() {
@@ -203,12 +207,22 @@ export default {
           list:     status.warnings
         };
       } catch (ex) {
-        return null;
+        return {
+          state:   'error',
+          message: 'Unable to get status',
+          list:     []
+        };
       }
     },
 
     async getConfig() {
-      const presets = (await CortexOps.service.ListPresets()).items;
+      let presets = [];
+
+      try {
+        presets = (await CortexOps.service.ListPresets())?.items || [];
+      } catch (e) {
+        console.error(e);
+      }
 
       this.$set(this, 'presets', presets);
       this.$set(this, 'presetOptions', presets.map((p, i) => ({
@@ -227,8 +241,8 @@ export default {
       this.$set(this, 'config', { ...clone, ...config });
       this.$set(this.config.cortexConfig, 'storage', { ...(clone.cortexConfig.storage || {}), ...(config.cortexConfig.storage || {}) });
       this.$set(this.config.cortexConfig.storage, backendField, { ...(clone.cortexConfig.storage?.[backendField] || {}), ...(config.cortexConfig.storage?.[backendField] || {}) });
-      this.$set(this.config.cortexConfig.storage, 'backend', config.cortexConfig.storage.backend || 'filesystem');
-      this.$set(this.config, 'grafana', config.grafana || { enabled: true });
+      this.$set(this.config.cortexConfig.storage, 'backend', config.cortexConfig.storage?.backend || 'filesystem');
+      this.$set(this.config, 'grafana', config.grafana || { enabled: true, hostname: '' });
 
       if (this.config.revision.revision === '0') {
         this.$set(this.config.grafana, 'enabled', true);
@@ -247,7 +261,7 @@ export default {
     presetIndex() {
       this.setPresetAsConfig(this.presetIndex);
     }
-  }
+  },
 };
 </script>
 <template>
@@ -268,10 +282,10 @@ export default {
       </div>
       <Tabbed :side-tabs="true">
         <Tab :weight="4" name="storage" label="Storage">
-          <StorageComponent v-model="config.cortexConfig" />
+          <StorageComponent v-model="config.cortexConfig.storage" />
         </Tab>
         <Tab :weight="3" name="grafana" label="Grafana">
-          <Grafana v-model="config.grafana" :status="status" />
+          <Grafana v-model="config.grafana" />
         </Tab>
       </Tabbed>
     </template>

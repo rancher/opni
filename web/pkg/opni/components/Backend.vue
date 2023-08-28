@@ -123,9 +123,9 @@ export default {
       this.$set(this, 'editing', true);
     },
 
-    loadStatus() {
+    async loadStatus() {
       if (this.enabled || this.editing) {
-        this.getStatus().then((status) => {
+        await this.getStatus().then((status) => {
           this.$set(this, 'status', status);
         });
       }

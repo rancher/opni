@@ -1454,7 +1454,7 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 			MetricsListenAddress: fmt.Sprintf("localhost:%d", e.ports.GatewayMetrics),
 			Management: v1beta1.ManagementSpec{
 				GRPCListenAddress: fmt.Sprintf("tcp://localhost:%d", e.ports.ManagementGRPC),
-				HTTPListenAddress: fmt.Sprintf("localhost:%d", e.ports.ManagementHTTP),
+				HTTPListenAddress: fmt.Sprintf(":%d", e.ports.ManagementHTTP),
 				WebListenAddress:  fmt.Sprintf("localhost:%d", e.ports.ManagementWeb),
 				// WebCerts: v1beta1.CertsSpec{
 				// 	CACertData:      dashboardCertData,

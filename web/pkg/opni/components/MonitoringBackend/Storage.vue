@@ -22,7 +22,7 @@ export default {
   },
 
   created() {
-    if (!this.value.storage.s3?.endpoint) {
+    if (!this.value.storage?.s3?.endpoint) {
       this.updateEndpoint();
     }
   },

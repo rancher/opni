@@ -110,7 +110,7 @@ filelog/kubeauditlogs:
   include_file_path: false
   operators:
   - type: json_parser
-    if: '$matches "^{.*}$"' 
+    id: parse-body
   - type: add
     field: attributes.log_type
     value: controlplane

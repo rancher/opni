@@ -50,6 +50,22 @@ func generateSnapshotPolicyPath(name string) strings.Builder {
 	return path
 }
 
+func generateSnapshotPolicyExplainPath(name string) strings.Builder {
+	var path strings.Builder
+	path.Grow(1 + len("_plugins") + 1 + len("_sm") + 1 + len("policies") + 1 + len(name) + 1 + len("_explain"))
+	path.WriteString("/")
+	path.WriteString("_plugins")
+	path.WriteString("/")
+	path.WriteString("_sm")
+	path.WriteString("/")
+	path.WriteString("policies")
+	path.WriteString("/")
+	path.WriteString(name)
+	path.WriteString("/")
+	path.WriteString("_explain")
+	return path
+}
+
 func (a *SnapshotAPI) GetRepository(ctx context.Context, name string) (*Response, error) {
 	method := http.MethodGet
 	path := generateRepositoryPath(name)
@@ -219,6 +235,22 @@ func (a *SnapshotAPI) GetSnapshotPolicy(ctx context.Context, name string) (*Resp
 func (a *SnapshotAPI) DeleteSnapshotPolicy(ctx context.Context, name string) (*Response, error) {
 	method := http.MethodDelete
 	path := generateSnapshotPolicyPath(name)
+
+	req, err := http.NewRequest(method, path.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	res, err := a.Perform(req)
+	return (*Response)(res), err
+}
+
+func (a *SnapshotAPI) ExplainSnapshotPolicy(ctx context.Context, name string) (*Response, error) {
+	method := http.MethodGet
+	path := generateSnapshotPolicyExplainPath(name)
 
 	req, err := http.NewRequest(method, path.String(), nil)
 	if err != nil {

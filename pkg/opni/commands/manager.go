@@ -121,6 +121,11 @@ func BuildManagerCmd() *cobra.Command {
 			return err
 		}
 
+		if err = (&controllers.LoggingRecurringSnapshotReconciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Logging RecurringSnapshot")
+			return err
+		}
+
 		if err = (&controllers.CoreGatewayReconciler{}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Core Gateway")
 			return err

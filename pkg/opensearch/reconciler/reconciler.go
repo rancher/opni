@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/opensearch-project/opensearch-go/opensearchutil"
 	"github.com/rancher/opni/pkg/opensearch/certs"
@@ -1153,4 +1154,52 @@ func (r *Reconciler) MaybeDeleteSnapshotPolicy(name string) error {
 		return fmt.Errorf("failed to delete policy: %s", resp.String())
 	}
 	return nil
+}
+
+func (r *Reconciler) NextSnapshotPolicyTrigger(name string) (time.Duration, error) {
+	resp, err := r.osClient.Snapshot.ExplainSnapshotPolicy(r.ctx, name)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	if resp.IsError() {
+		return 0, fmt.Errorf("response from API is %s", resp.String())
+	}
+
+	explain := types.SnapshotPolicyExplain{}
+	err = json.NewDecoder(resp.Body).Decode(&explain)
+	if err != nil {
+		return 0, err
+	}
+
+	if len(explain.Policies) != 1 {
+		return 0, errors.New("did not get exactly 1 policy")
+	}
+
+	return time.Until(explain.Policies[0].Creation.Trigger.Time.Time), nil
+}
+
+func (r *Reconciler) GetSnapshotPolicyLastExecution(name string) (*types.SnapshotPolicyExecution, error) {
+	resp, err := r.osClient.Snapshot.ExplainSnapshotPolicy(r.ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.IsError() {
+		return nil, fmt.Errorf("response from API is %s", resp.String())
+	}
+
+	explain := types.SnapshotPolicyExplain{}
+	err = json.NewDecoder(resp.Body).Decode(&explain)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(explain.Policies) != 1 {
+		return nil, errors.New("did not get exactly 1 policy")
+	}
+
+	return &explain.Policies[0].Creation.LatestExecution, nil
 }

@@ -25,6 +25,7 @@ resources:
 - bases/logging.opni.io_opniopensearches.yaml
 - bases/logging.opni.io_opensearchrepositories.yaml
 - bases/logging.opni.io_snapshots.yaml
+- bases/logging.opni.io_recurringsnapshots.yaml
 #- bases/logging.opni.io_collectorconfigs.yaml
 - bases/monitoring.opni.io_rolebindings.yaml
 - bases/monitoring.opni.io_roles.yaml

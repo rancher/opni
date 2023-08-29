@@ -1,5 +1,10 @@
 package types
 
+import (
+	"encoding/binary"
+	"time"
+)
+
 type RepositoryType string
 
 const (
@@ -61,11 +66,11 @@ type SnapshotShardStatus struct {
 }
 
 type SnapshotManagementRequest struct {
-	Description    string           `json:"description,omitempty"`
-	Enabled        *bool            `json:"enabled,omitempty"`
-	SnapshotConfig SnapshotConfig   `json:"snapshot_config"`
-	Creation       SnapshotCreation `json:"creation"`
-	Deletion       SnapshotDeletion `json:"deletion,omitempty"`
+	Description    string            `json:"description,omitempty"`
+	Enabled        *bool             `json:"enabled,omitempty"`
+	SnapshotConfig SnapshotConfig    `json:"snapshot_config"`
+	Creation       SnapshotCreation  `json:"creation"`
+	Deletion       *SnapshotDeletion `json:"deletion,omitempty"`
 	//TODO: Add notification options
 }
 
@@ -90,9 +95,9 @@ type SnapshotDeletion struct {
 }
 
 type SnapshotDeleteCondition struct {
-	MaxCount int    `json:"max_count,omitempty"`
+	MaxCount *int   `json:"max_count,omitempty"`
 	MaxAge   string `json:"max_age,omitempty"`
-	MinCount int    `json:"min_count,omitempty"`
+	MinCount *int   `json:"min_count,omitempty"`
 }
 
 type SnapshotManagementResponse struct {
@@ -100,4 +105,70 @@ type SnapshotManagementResponse struct {
 	SeqNo       int                       `json:"_seq_no"`
 	PrimaryTerm int                       `json:"_primary_term"`
 	Policy      SnapshotManagementRequest `json:"sm_policy"`
+}
+
+type SnapshotPolicyExplain struct {
+	Policies []SnapshotPolicyExplainResponse `json:"policies"`
+}
+
+type SnapshotPolicyExplainResponse struct {
+	Creation          SnapshotPolicyStateMachine `json:"creation,omitempty"`
+	Deletion          SnapshotPolicyStateMachine `json:"deletion,omitempty"`
+	PolicySeqNo       *int                       `json:"policy_seq_no,omitempty"`
+	PolicyPrimaryTerm *int                       `json:"policy_primary_term,omitempty"`
+	Enabled           *bool                      `json:"enabled,omitempty"`
+}
+
+type SnapshotPolicyStateMachine struct {
+	CurrentState    string                  `json:"current_state,omitempty"`
+	Trigger         SnapshotPolicyTrigger   `json:"trigger,omitempty"`
+	LatestExecution SnapshotPolicyExecution `json:"latest_execution,omitempty"`
+	Retry           SnapshotPolicyRetry     `json:"retry,omitempty"`
+}
+
+type SnapshotPolicyTrigger struct {
+	Time Time `json:"time,omitempty"`
+}
+
+type SnapshotPolicyExecutionStatus string
+
+const (
+	SnapshotPolicyExecutionStatusInProgress SnapshotPolicyExecutionStatus = "IN_PROGRESS"
+	SnapshotPolicyExecutionStatusSuccess    SnapshotPolicyExecutionStatus = "SUCCESS"
+	SnapshotPolicyExecutionStatusRetrying   SnapshotPolicyExecutionStatus = "RETRYING"
+	SnapshotPolicyExecutionStatusFailed     SnapshotPolicyExecutionStatus = "FAILED"
+	SnapshotPolicyExecutionStatusTimedOut   SnapshotPolicyExecutionStatus = "TIME_LIMIT_EXCEEDED"
+)
+
+type SnapshotPolicyExecution struct {
+	Status    SnapshotPolicyExecutionStatus `json:"status,omitempty"`
+	StartTime Time                          `json:"start_time,omitempty"`
+	EndTime   Time                          `json:"end_time,omitempty"`
+	Info      SnapshotPolicyExecuitonInfo   `json:"info,omitempty"`
+}
+
+type SnapshotPolicyExecuitonInfo struct {
+	Message string `json:"message,omitempty"`
+	Cause   string `json:"cause,omitempty"`
+}
+
+type SnapshotPolicyRetry struct {
+	Count *int `json:"count,omitempty"`
+}
+
+type Time struct {
+	time.Time
+}
+
+func (t Time) MarshalJSON() ([]byte, error) {
+	stamp := t.UnixMilli()
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, uint64(stamp))
+	return b, nil
+}
+
+func (t *Time) UnmarshalJSON(b []byte) error {
+	i := int64(binary.LittleEndian.Uint64(b))
+	t.Time = time.UnixMilli(i)
+	return nil
 }

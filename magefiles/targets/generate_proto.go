@@ -96,7 +96,7 @@ func (Generate) ProtobufTypescript() error {
 
 	out, err := ragu.GenerateCode([]ragu.Generator{
 		external.NewGenerator("./web/service-generator/node_modules/.bin/protoc-gen-es", external.GeneratorOptions{
-			Opt: "target=ts,import_extension=none",
+			Opt: "target=ts,import_extension=none,ts_nocheck=false",
 			CodeGeneratorRequestHook: func(req *pluginpb.CodeGeneratorRequest) {
 				for _, f := range req.ProtoFile {
 					if !slices.Contains(targets, f.GetName()) && !strings.HasPrefix(f.GetName(), "google/protobuf") {
@@ -106,7 +106,7 @@ func (Generate) ProtobufTypescript() error {
 			},
 		}),
 		external.NewGenerator([]string{"./web/service-generator/generate"}, external.GeneratorOptions{
-			Opt: "target=ts,import_extension=none",
+			Opt: "target=ts,import_extension=none,ts_nocheck=false",
 		}),
 	}, targets...)
 	if err != nil {

@@ -84,7 +84,7 @@ export default {
       error:            '',
       upgradeable:      false,
       status:           null,
-
+      config:           null,
       statsInterval:    null,
       statusInterval:   null,
       loadingConfig:    false,

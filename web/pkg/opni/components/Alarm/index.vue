@@ -102,7 +102,7 @@ export default {
 
   methods: {
     async load() {
-      const conditionRequest = createConditionRequest(this.$route);
+      const conditionRequest = createConditionRequest(this, this.$route);
       const clusters = await getClusters(this);
       const hasOneMonitoring = clusters.some(c => c.isCapabilityInstalled('metrics'));
       const groups = await getAlertConditionGroups();

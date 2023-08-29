@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
 	dpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/gorilla/websocket"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -270,12 +269,6 @@ func loadHttpRuleDescriptors(svc *desc.ServiceDescriptor) []*managementv1.HTTPRu
 	return httpRule
 }
 
-var legacyJsonpbMarshaler = &jsonpb.Marshaler{
-	EmitDefaults: true,
-	EnumsAsInts:  true,
-}
-var legacyJsonpbUnmarshaler = &jsonpb.Unmarshaler{}
-
 func newHandler(
 	stub grpcdynamic.Stub,
 	svcDesc *desc.ServiceDescriptor,
@@ -294,7 +287,7 @@ func newHandler(
 		lg.Debug("handling http request")
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
-		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 
 		methodDesc := svcDesc.FindMethodByName(rule.Method.GetName())
 		if methodDesc == nil {
@@ -361,14 +354,14 @@ func newHandler(
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
 				status.Errorf(codes.InvalidArgument, err.Error()))
 			return
-		} else if len(body) > 0 {
+		} else if len(body) > 0 && reqMsg.GetMessageDescriptor().GetFullyQualifiedName() != "google.protobuf.Empty" {
 			var err error
 			bodyFieldPath := rule.GetHttp().GetBody()
 			if bodyFieldPath == "" {
 				bodyFieldPath = "*"
 			}
 			if bodyFieldPath == "*" {
-				err = reqMsg.UnmarshalMergeJSON(body)
+				err = inboundMarshaler.Unmarshal(body, reqMsg)
 			} else {
 				// unmarshal the request into a specific field
 				fd := reqMsg.FindFieldDescriptorByJSONName(bodyFieldPath)
@@ -390,7 +383,7 @@ func newHandler(
 							panic("bug: request is not a *dynamic.Message")
 						}
 					}
-					err = dynamicBodyField.UnmarshalMergeJSON(body)
+					err = inboundMarshaler.Unmarshal(body, dynamicBodyField)
 				} else {
 					if err := decodeAndSetField(reqMsg, bodyFieldPath, string(body)); err != nil {
 						if _, ok := status.FromError(err); ok {
@@ -406,7 +399,6 @@ func newHandler(
 			if err != nil {
 				lg.With(
 					zap.Error(err),
-					zap.String("body", string(body)),
 				).Errorf("failed to unmarshal request body into %q", bodyFieldPath)
 				// special case here, make empty string errors more obvious
 				if strings.HasSuffix(err.Error(), "named ") { // note the trailing space
@@ -437,7 +429,7 @@ func newHandler(
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
 				status.Errorf(codes.Internal, "internal error: bad response message: %v", err))
 		}
-		jsonData, err := d.MarshalJSONPB(legacyJsonpbMarshaler)
+		respData, err := outboundMarshaler.Marshal(d)
 		if err != nil {
 			lg.With(
 				zap.Error(err),
@@ -447,10 +439,7 @@ func newHandler(
 				status.Errorf(codes.Internal, "internal error: failed to marshal response: %v", err))
 			return
 		}
-		if w.Header().Get("Content-Type") == "" {
-			w.Header().Set("Content-Type", "application/json")
-		}
-		if _, err := w.Write(jsonData); err != nil {
+		if _, err := w.Write(respData); err != nil {
 			lg.With(
 				zap.Error(err),
 			).Error("failed to write response")
@@ -579,15 +568,15 @@ func handleWebsocketServerStream(
 			switch msgType {
 			case websocket.CloseMessage:
 				return io.EOF
-			case websocket.TextMessage:
+			case websocket.BinaryMessage:
 				if !recvOnce {
 					recvOnce = true
 				} else {
-					lg.Warn("skipping additional text messages in server stream")
+					lg.Warn("skipping additional messages in server stream")
 					continue
 				}
 				reqMsg := dynamic.NewMessage(methodDesc.GetInputType())
-				if err := reqMsg.UnmarshalJSONPB(legacyJsonpbUnmarshaler, data); err != nil {
+				if err := reqMsg.Unmarshal(data); err != nil {
 					return fmt.Errorf("failed to unmarshal websocket message: %w", err)
 				}
 				recv <- reqMsg
@@ -614,11 +603,11 @@ func handleWebsocketServerStream(
 			case <-ctx.Done():
 				return ctx.Err()
 			case msg := <-send:
-				data, err := msg.MarshalJSONPB(legacyJsonpbMarshaler)
+				data, err := msg.Marshal()
 				if err != nil {
 					return err
 				}
-				if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+				if err := conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
 					return err
 				}
 			case <-heartbeat.C:

@@ -35,6 +35,9 @@
       ],
       "@components/*": [
         "@rancher/components/*"
+      ],
+      "@pkg/*": [
+        "../../pkg/*"
       ]
     }
   },

@@ -4,6 +4,7 @@ import Tab from '@shell/components/Tabbed/Tab';
 import Tabbed from '@shell/components/Tabbed';
 import { cloneDeep } from 'lodash';
 import { CortexOps, DryRun } from '@pkg/opni/api/opni';
+import { toPlainMessage } from '@bufbuild/protobuf';
 import Backend from '../Backend';
 import CapabilityTable from '../CapabilityTable';
 import { getMetricCapabilities } from '../../utils/requests/capability';
@@ -38,7 +39,7 @@ export default {
       presetOptions: [],
       presetIndex:   0,
       capabilities:  [],
-      config:        {},
+      config:        null,
     };
   },
 
@@ -130,8 +131,8 @@ export default {
         }
       }
 
-      const newConfig = CortexOps.types.CapabilityBackendConfigSpec.fromJson(this.config);
-      const activeConfig = await CortexOps.service.GetConfiguration(CortexOps.types.GetRequest.fromJson({}));
+      const newConfig = new CortexOps.types.CapabilityBackendConfigSpec(structuredClone(this.config));
+      const activeConfig = await CortexOps.service.GetConfiguration(new CortexOps.types.GetRequest());
       const shouldSetConfig = activeConfig.revision.revision === 0n;
 
       const dryRunRequest = new CortexOps.types.DryRunRequest({
@@ -149,7 +150,7 @@ export default {
       await CortexOps.service.SetDefaultConfiguration(newConfig);
 
       if (shouldSetConfig) {
-        await CortexOps.service.SetConfiguration(CortexOps.types.CapabilityBackendConfigSpec.fromJson({}));
+        await CortexOps.service.SetConfiguration(new CortexOps.types.CapabilityBackendConfigSpec());
       } else {
         await CortexOps.service.ResetConfiguration();
       }
@@ -231,7 +232,7 @@ export default {
       })));
       this.setPresetAsConfig(this.presetIndex);
 
-      const config = JSON.parse((await CortexOps.service.GetDefaultConfiguration(new CortexOps.types.GetRequest({}))).toJsonString());
+      const config = await CortexOps.service.GetDefaultConfiguration(new CortexOps.types.GetRequest());
 
       config.cortexWorkloads.targets = !config.cortexWorkloads.targets || Object.keys(config.cortexWorkloads.targets).length === 0 ? this.config.cortexWorkloads.targets : config.cortexWorkloads.targets;
       config.cortexConfig.storage = config.cortexConfig.storage || { backend: 's3' };
@@ -282,7 +283,7 @@ export default {
       </div>
       <Tabbed :side-tabs="true">
         <Tab :weight="4" name="storage" label="Storage">
-          <StorageComponent v-model="config.cortexConfig.storage" />
+          <StorageComponent v-model="config" :v-if="!!config" />
         </Tab>
         <Tab :weight="3" name="grafana" label="Grafana">
           <Grafana v-model="config.grafana" />

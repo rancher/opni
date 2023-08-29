@@ -20,6 +20,6 @@ export async function loadClusters(parent: Vue) {
   })));
 }
 
-export function createConditionRequest(route: any) {
+export function createConditionRequest(this: any, route: any) {
   return route.params.id && route.params.id !== 'create' ? getAlertCondition({ id: route.params.id, groupId: route.query.groupId }, this) : Promise.resolve(false);
 }

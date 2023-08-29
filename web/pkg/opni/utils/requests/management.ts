@@ -1,7 +1,7 @@
 import axios, { AxiosResponse } from 'axios';
-import { NodeCapabilityStatus } from 'models/Capability';
-import { ClusterHealthStatus } from 'generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
 import { Empty } from '@bufbuild/protobuf';
+import { ClusterHealthStatus } from '../../generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
+import { NodeCapabilityStatus } from '../../models/Capability';
 import { Management } from '../../api/opni';
 import { WatchClustersRequest, WatchEvent, WatchEventType } from '../../generated/github.com/rancher/opni/pkg/apis/management/v1/management_pb';
 import * as Core from '../../generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
@@ -131,25 +131,9 @@ export async function updateCluster(id: string, name: string, labels: { [key: st
   }));
 }
 
-// export async function getClusters(vue: any): Promise<Cluster[]> {
-//   const clustersResponse = (await axios.get<ClustersResponse>(`opni-api/Management/clusters`)).data.items;
-//   const healthResponses = await Promise.allSettled(clustersResponse.map(clustersResponse => axios.get<HealthResponse>(`opni-api/Management/clusters/${ clustersResponse.id }/health`)));
-
-//   const notConnected: HealthResponse = {
-//     status: {
-//       connected: false, timestamp: '', sessionAttributes: []
-//     },
-//     health: { ready: false, conditions: [] }
-//   };
-
-//   return clustersResponse.map((clusterResponse, i) => {
-//     if (healthResponses[i].status === 'fulfilled') {
-//       return new Cluster(clusterResponse, (healthResponses[i] as PromiseFulfilledResult<AxiosResponse<HealthResponse>>).value.data, vue);
-//     }
-
-//     return new Cluster(clusterResponse, notConnected, vue);
-//   });
-// }
+export async function getClusters(vue: any): Promise<Cluster[]> {
+  return await Promise.resolve([]);
+}
 
 export function watchClusters(vue: any, clustersCache: Cluster[]): () => Promise<void> {
   const initialHealthStatusCache = new Map<string, Core.HealthStatus>();

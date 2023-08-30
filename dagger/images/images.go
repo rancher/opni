@@ -15,6 +15,8 @@ func Base(client *dagger.Client) *dagger.Container {
 		WithUser("root").
 		WithEnvVariable("GOPATH", "/go").
 		WithEnvVariable("PATH", "/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin").
+		WithExec([]string{"apt-get", "update"}).
+		WithExec([]string{"apt-get", "install", "-y", "libnspr4", "libnss3", "libexpat1", "libfontconfig1", "libuuid1"}).
 		WithDirectory("/go", client.Directory(), dagger.ContainerWithDirectoryOpts{Owner: "1777"}).
 		WithDirectory("/go/src", client.Directory(), dagger.ContainerWithDirectoryOpts{Owner: "1777"}).
 		WithDirectory("/go/bin", client.Directory(), dagger.ContainerWithDirectoryOpts{Owner: "1777"})

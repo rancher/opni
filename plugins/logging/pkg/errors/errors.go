@@ -10,11 +10,16 @@ var (
 	ErrInvalidList             = errors.New("list did not return exactly 1 result")
 	ErrLoggingClusterNotFound  = errors.New("logging cluster not found")
 	ErrInvalidPersistence      = errors.New("invalid persistence config")
-	ErrInvalidCluster          = errors.New("invalid opensearch cluster")
 	ErrClusterIDMissing        = errors.New("request does not include cluster ID")
 	ErrOpensearchResponse      = errors.New("opensearch request unsuccessful")
 	ErrNoOpensearchClient      = errors.New("opensearch client is not set")
 	ErrLoggingCapabilityExists = errors.New("at least one cluster has logging capability installed")
+	ErrInvalidDuration         = errors.New("duration must be integer and time unit, e.g 7d")
+	ErrRequestMissingMemory    = errors.New("memory limit must be configured")
+	ErrMissingDataNode         = errors.New("request must contain data nodes")
+	ErrRequestGtLimits         = errors.New("cpu requests must not be more than cpu limits")
+	ErrReplicasZero            = errors.New("replicas must be a positive nonzero integer")
+	ErrAlreadyExists           = errors.New("object with that name already exists")
 )
 
 func ErrCreateNamespaceFailed(clienterr error) error {
@@ -57,26 +62,10 @@ func ErrStoredClusterPersistence() error {
 	return fmt.Errorf("stored opensearch cluster is invalid: %w", ErrInvalidPersistence)
 }
 
-func ErrRequestMissingMemory() error {
-	return fmt.Errorf("memory limit must be configured: %w", ErrInvalidCluster)
-}
-
-func ErrInvalidRetention() error {
-	return fmt.Errorf("duration must be integer and time unit, e.g 7d: %w", ErrInvalidCluster)
-}
-
-func ErrMissingDataNode() error {
-	return fmt.Errorf("request must contain data nodes: %w", ErrInvalidCluster)
-}
-
-func ErrRequestGtLimits() error {
-	return fmt.Errorf("cpu requests must not be more than cpu limits: %w", ErrInvalidCluster)
-}
-
-func ErrReplicasZero(nodeType string) error {
-	return fmt.Errorf("replicas for %s must be a positive nonzero integer: %w", nodeType, ErrInvalidCluster)
-}
-
 func ErrOpensearchRequestFailed(status string) error {
 	return fmt.Errorf("%s: %w", status, ErrOpensearchResponse)
+}
+
+func ErrInvalidCluster(inner error) error {
+	return fmt.Errorf("invalid opensearch cluster: %w", inner)
 }

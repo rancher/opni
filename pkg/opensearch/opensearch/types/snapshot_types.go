@@ -95,9 +95,9 @@ type SnapshotDeletion struct {
 }
 
 type SnapshotDeleteCondition struct {
-	MaxCount *int   `json:"max_count,omitempty"`
+	MaxCount *int32 `json:"max_count,omitempty"`
 	MaxAge   string `json:"max_age,omitempty"`
-	MinCount *int   `json:"min_count,omitempty"`
+	MinCount *int32 `json:"min_count,omitempty"`
 }
 
 type SnapshotManagementResponse struct {

@@ -94,11 +94,11 @@ func (m *LoggingManagerV2) DeleteOpensearchCluster(ctx context.Context, _ *empty
 func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, cluster *loggingadmin.OpensearchClusterV2) (*emptypb.Empty, error) {
 	// Validate retention string
 	if !m.validDurationString(lo.FromPtrOr(cluster.DataRetention, "7d")) {
-		return &emptypb.Empty{}, loggingerrors.ErrInvalidRetention()
+		return &emptypb.Empty{}, loggingerrors.ErrInvalidCluster(loggingerrors.ErrInvalidDuration)
 	}
 	// Input should always have a data nodes field
 	if cluster.GetDataNodes() == nil {
-		return &emptypb.Empty{}, loggingerrors.ErrMissingDataNode()
+		return &emptypb.Empty{}, loggingerrors.ErrInvalidCluster(loggingerrors.ErrMissingDataNode)
 	}
 
 	go m.opensearchManager.SetClient(m.managementDriver.NewOpensearchClientForCluster)
@@ -201,6 +201,46 @@ func (m *LoggingManagerV2) GetOpensearchStatus(ctx context.Context, _ *emptypb.E
 		Status:  int32(status),
 		Details: ClusterStatusDescription(status),
 	}, nil
+}
+
+func (m *LoggingManagerV2) CreateOrUpdateSnapshot(ctx context.Context, snapshot *loggingadmin.Snapshot) (*emptypb.Empty, error) {
+	if snapshot.GetRetention().GetTimeRetention() != "" &&
+		!m.validDurationString(snapshot.GetRetention().GetTimeRetention()) {
+		return nil, loggingerrors.ErrInvalidDuration
+	}
+
+	err := m.managementDriver.CreateOrUpdateSnapshot(ctx, snapshot)
+	if err != nil {
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (m *LoggingManagerV2) GetRecurringSnapshot(ctx context.Context, ref *loggingadmin.SnapshotReference) (*loggingadmin.Snapshot, error) {
+	snapshot, err := m.managementDriver.GetRecurringSnapshot(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+
+	return snapshot, nil
+}
+
+func (m *LoggingManagerV2) DeleteSnapshot(ctx context.Context, ref *loggingadmin.SnapshotReference) (*emptypb.Empty, error) {
+	err := m.managementDriver.DeleteSnapshot(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (m *LoggingManagerV2) ListSnapshots(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.SnapshotStatusList, error) {
+	list, err := m.managementDriver.ListAllSnapshots(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return list, nil
 }
 
 func (m *LoggingManagerV2) validDurationString(duration string) bool {

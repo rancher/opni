@@ -1231,7 +1231,7 @@ func (in *RecurringSnapshotRetention) DeepCopyInto(out *RecurringSnapshotRetenti
 	*out = *in
 	if in.MaxCount != nil {
 		in, out := &in.MaxCount, &out.MaxCount
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 }

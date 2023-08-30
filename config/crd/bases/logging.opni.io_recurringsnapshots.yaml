@@ -47,6 +47,7 @@ spec:
                   maxAge:
                     type: string
                   maxCount:
+                    format: int32
                     type: integer
                 type: object
               snapshot:

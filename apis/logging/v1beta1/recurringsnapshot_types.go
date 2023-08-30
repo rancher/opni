@@ -47,7 +47,7 @@ type RecurringSnapshotCreation struct {
 
 type RecurringSnapshotRetention struct {
 	MaxAge   string `json:"maxAge,omitempty"`
-	MaxCount *int   `json:"maxCount,omitempty"`
+	MaxCount *int32 `json:"maxCount,omitempty"`
 }
 
 type RecurringSnapshotStatus struct {

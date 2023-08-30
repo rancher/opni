@@ -2,6 +2,9 @@ package collector
 
 import (
 	"bytes"
+	"fmt"
+	"path/filepath"
+	"strings"
 
 	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -43,19 +46,22 @@ func (r *Reconciler) generateDistributionReceiver(config *opniloggingv1beta1.Col
 }
 
 func (r *Reconciler) generateKubeAuditLogsReceiver(config *opniloggingv1beta1.CollectorConfig) (string, []byte, error) {
+	var receiver bytes.Buffer
+
 	if config.Spec.KubeAuditLogs != nil && config.Spec.KubeAuditLogs.Enabled {
-		auditLogPath := "/var/log/kube-audit"
+		filelogDir := "/var/log/kube-audit"
+
 		if config.Spec.KubeAuditLogs.LogPath != "" {
-			auditLogPath = config.Spec.KubeAuditLogs.LogPath
+			filelogDir = config.Spec.KubeAuditLogs.LogPath
 		}
 
-		var receiver bytes.Buffer
-		err := templateKubeAuditLogs.Execute(&receiver, auditLogPath)
+		fileGlobPatterns := generateFileGlobPatterns(filelogDir, kubeAuditLogsFileTypes)
+		err := templateKubeAuditLogs.Execute(&receiver, fileGlobPatterns)
 		if err != nil {
 			return "", nil, err
 		}
 
-		return logReceiverKubeAudit, receiver.Bytes(), nil
+		return logReceiverKubeAuditLogs, receiver.Bytes(), nil
 	}
 
 	return "", nil, nil
@@ -215,4 +221,25 @@ func (r *Reconciler) hostLoggingVolumes() (
 		})
 	}
 	return
+}
+
+// generateFileGlobPattern generates a file glob pattern based on the provided path and file type.
+// If the path doesn't end with a slash, it appends one before constructing the pattern.
+//
+// path is the base path for the file glob pattern. fileType is the desired file types to match,
+// e.g., [".log", ".json"].
+//
+// It returns a single string of the format "[ /foo/*.log, /bar/*.json ]".
+func generateFileGlobPatterns(path string, fileTypes []string) string {
+	if len(path) > 0 && path[len(path)-1] != '/' {
+		path += "/"
+	}
+
+	var patterns []string
+	for _, fileType := range fileTypes {
+		pattern := filepath.Join(path, fmt.Sprintf("*%s", fileType))
+		patterns = append(patterns, pattern)
+	}
+
+	return fmt.Sprintf("[%s]", strings.Join(patterns, ","))
 }

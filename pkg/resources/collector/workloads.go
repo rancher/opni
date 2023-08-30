@@ -40,6 +40,8 @@ const (
 
 var (
 	directoryOrCreate = corev1.HostPathDirectoryOrCreate
+
+	kubeAuditLogsFileTypes = []string{".log", ".json"}
 )
 
 func (r *Reconciler) agentConfigMapName() string {
@@ -80,7 +82,7 @@ func (r *Reconciler) receiverConfig() (retData []byte, retReceivers []string, re
 		retData = append(retData, []byte(templateLogAgentK8sReceiver)...)
 		retReceivers = append(retReceivers, logReceiverK8s)
 
-		config, err := r.fetchCollectorConfig()
+		config, err := r.fetchLoggingCollectorConfig()
 		if err != nil {
 			retErr = err
 			return
@@ -579,7 +581,7 @@ func (r *Reconciler) configReloaderImageSpec() opnimeta.ImageSpec {
 	}.Resolve()
 }
 
-func (r *Reconciler) fetchCollectorConfig() (*opniloggingv1beta1.CollectorConfig, error) {
+func (r *Reconciler) fetchLoggingCollectorConfig() (*opniloggingv1beta1.CollectorConfig, error) {
 	config := &opniloggingv1beta1.CollectorConfig{}
 	err := r.client.Get(r.ctx, types.NamespacedName{
 		Name:      r.collector.Spec.LoggingConfig.Name,

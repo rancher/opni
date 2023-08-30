@@ -38,7 +38,7 @@ export default {
       presets:       [],
       presetOptions: [],
       presetIndex:   0,
-      capabilities:  [],
+      // capabilities:  [],
       config:        null,
     };
   },
@@ -52,11 +52,11 @@ export default {
       } catch (ex) {}
     },
 
-    async loadCapabilities(parent) {
-      this.capabilities = await getMetricCapabilities(parent);
+    // async loadCapabilities(parent) {
+    //   this.capabilities = await getMetricCapabilities(parent);
 
-      return this.capabilities;
-    },
+    //   return this.capabilities;
+    // },
 
     headerProvider(headers) {
       const newHeaders = [...headers];
@@ -291,7 +291,7 @@ export default {
       </Tabbed>
     </template>
     <template #details>
-      <CapabilityTable :capability-provider="loadCapabilities" :header-provider="headerProvider" :update-status-provider="updateStatus" />
+      <CapabilityTable name="metrics" :header-provider="headerProvider" :update-status-provider="updateStatus" />
     </template>
   </Backend>
 </template>

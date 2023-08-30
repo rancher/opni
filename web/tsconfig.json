@@ -2,18 +2,20 @@
   "compilerOptions": {
     "target": "ESNext",
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "NodeNext",
+    "rootDir": ".",
+    "incremental": true,
     "lib": [
       "ESNext",
       "ESNext.AsyncIterable",
-      "DOM"
+      "DOM",
+      "ScriptHost"
     ],
     "esModuleInterop": true,
     "allowJs": true,
     "sourceMap": false,
     "strict": true,
     "noEmit": true,
-    "baseUrl": ".",
     "paths": {
       "~/*": [
         "./*"
@@ -26,6 +28,9 @@
       ],
       "@pkg/*": [
         "./pkg/*"
+      ],
+      "@components/*": [
+        "@rancher/components/*"
       ]
     },
     "typeRoots": [

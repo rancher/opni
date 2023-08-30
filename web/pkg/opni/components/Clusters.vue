@@ -3,9 +3,10 @@ import SortableTable from '@shell/components/SortableTable';
 import Loading from '@shell/components/Loading';
 import { Banner } from '@components/Banner';
 import { isEmpty } from 'lodash';
+import { mapGetters } from 'vuex';
+import { Clusters } from '@pkg/opni/store';
 import { InstallState, getClusterStatus as getMonitoringBackendStatus } from '../utils/requests/monitoring';
 import { getOpensearchCluster } from '../utils/requests/loggingv2';
-import { watchClusters } from '../utils/requests/management';
 import { getClusterStats } from '../utils/requests';
 import CapabilityButton from './CapabilityButton';
 import EditClusterDialog from './dialogs/EditClusterDialog';
@@ -24,13 +25,14 @@ export default {
     await this.loadStats();
   },
 
+  computed: { ...mapGetters({ clusters: 'opni/clusters' }) },
+
   data() {
     return {
       loading:                      false,
       statsInterval:                null,
       isMonitoringBackendInstalled: false,
       isLoggingBackendInstalled:    false,
-      clusters:                     [],
       closeStreams:                 null,
       headers:                      [
         {
@@ -95,7 +97,7 @@ export default {
     this.$on('copy', this.copyClusterID);
     this.$on('cantDeleteCluster', this.openCantDeleteClusterDialog);
     this.statsInterval = setInterval(this.loadStats, 10000);
-    this.closeStreams = watchClusters(this, this.clusters);
+    // this.closeStreams = watchClusters(this, this.clusters);
   },
 
   beforeDestroy() {
@@ -106,15 +108,16 @@ export default {
     if (this.statsInterval) {
       clearInterval(this.statsInterval);
     }
-    if (this.closeStreams) {
-      this.closeStreams();
-    }
+    // if (this.closeStreams) {
+    //   this.closeStreams();
+    // }
   },
 
   methods: {
-    // onClusterDelete() {
-    //   this.load();
-    // },
+    // ...mapActions([
+    //   store.HandleClusterWatchEvent,
+    //   store.HandleClusterHealthStatusEvent,
+    // ]),
 
     openEditDialog(cluster) {
       this.$refs.dialog.open(cluster);

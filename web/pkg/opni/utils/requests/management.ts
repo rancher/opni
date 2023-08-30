@@ -1,4 +1,5 @@
 import axios, { AxiosResponse } from 'axios';
+import store, { HandleClusterHealthStatusEvent, HandleClusterWatchEvent } from '@pkg/opni/store';
 import { Empty } from '@bufbuild/protobuf';
 import { ClusterHealthStatus } from '../../generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
 import { NodeCapabilityStatus } from '../../models/Capability';
@@ -131,62 +132,66 @@ export async function updateCluster(id: string, name: string, labels: { [key: st
   }));
 }
 
-export async function getClusters(vue: any): Promise<Cluster[]> {
-  return await Promise.resolve([]);
-}
+// export async function getClusters(vue: any): Promise<Cluster[]> {
+//   return await Promise.resolve([]);
+// }
 
-export function watchClusters(vue: any, clustersCache: Cluster[]): () => Promise<void> {
-  const initialHealthStatusCache = new Map<string, Core.HealthStatus>();
+export function watchClusters(vue: any): () => Promise<void> {
+  // const initialHealthStatusCache = new Map<string, Core.HealthStatus>();
 
-  const closeC = Management.service.WatchClusters(new WatchClustersRequest(), (event: WatchEvent) => {
-    if (!event.cluster?.id) {
-      return;
-    }
+  const request = new WatchClustersRequest({ knownClusters: vue.$store.state.clusters });
+  const closeC = Management.service.WatchClusters(request, e => vue.$store.dispatch(HandleClusterWatchEvent, e));
+  const closeH = Management.service.WatchClusterHealthStatus(new Empty(), e => vue.$store.dispatch(HandleClusterHealthStatusEvent, e));
 
-    const clusterId = event.cluster.id;
-    const clusterIndex = clustersCache.findIndex(c => c.id === clusterId);
+  // const closeC = Management.service.WatchClusters(new WatchClustersRequest(), (event: WatchEvent) => {
+  //   if (!event.cluster?.id) {
+  //     return;
+  //   }
 
-    if (event.type === WatchEventType.Created || event.type === WatchEventType.Updated) {
-    // find the cluster in the cache, or create a new one
-      let c: Cluster;
+  //   const clusterId = event.cluster.id;
+  //   const clusterIndex = clustersCache.findIndex(c => c.id === clusterId);
 
-      if (clusterIndex === -1) {
-        c = new Cluster(vue);
+  //   if (event.type === WatchEventType.Created || event.type === WatchEventType.Updated) {
+  //   // find the cluster in the cache, or create a new one
+  //     let c: Cluster;
 
-        clustersCache.push(c);
-      } else {
-        c = clustersCache[clusterIndex];
-      }
+  //     if (clusterIndex === -1) {
+  //       c = new Cluster(vue);
 
-      c.onClusterUpdated(event.cluster);
+  //       clustersCache.push(c);
+  //     } else {
+  //       c = clustersCache[clusterIndex];
+  //     }
 
-      // check if the cluster has an initial health status that came in out of order
-      const hs = initialHealthStatusCache.get(clusterId);
+  //     c.onClusterUpdated(event.cluster);
 
-      if (hs) {
-        c.onHealthStatusUpdated(hs);
-        initialHealthStatusCache.delete(clusterId);
-      }
-    } else if (event.type === WatchEventType.Deleted) {
-    // remove the cluster from the cache
-      clustersCache.splice(clusterIndex, 1);
-    }
-  });
+  //     // check if the cluster has an initial health status that came in out of order
+  //     const hs = initialHealthStatusCache.get(clusterId);
 
-  const closeH = Management.service.WatchClusterHealthStatus(new Empty(), (hs: ClusterHealthStatus) => {
-    if (!hs.cluster || !hs.healthStatus) {
-      return;
-    }
-    const id = hs.cluster.id;
-    const healthStatus = hs.healthStatus;
-    const c = clustersCache.find(c => c.id === id);
+  //     if (hs) {
+  //       c.onHealthStatusUpdated(hs);
+  //       initialHealthStatusCache.delete(clusterId);
+  //     }
+  //   } else if (event.type === WatchEventType.Deleted) {
+  //   // remove the cluster from the cache
+  //     clustersCache.splice(clusterIndex, 1);
+  //   }
+  // });
 
-    if (!c) {
-      initialHealthStatusCache.set(id, healthStatus);
-    } else {
-      c.onHealthStatusUpdated(healthStatus);
-    }
-  });
+  // const closeH = Management.service.WatchClusterHealthStatus(new Empty(), (hs: ClusterHealthStatus) => {
+  //   if (!hs.cluster || !hs.healthStatus) {
+  //     return;
+  //   }
+  //   const id = hs.cluster.id;
+  //   const healthStatus = hs.healthStatus;
+  //   const c = clustersCache.find(c => c.id === id);
+
+  //   if (!c) {
+  //     initialHealthStatusCache.set(id, healthStatus);
+  //   } else {
+  //     c.onHealthStatusUpdated(healthStatus);
+  //   }
+  // });
 
   return async() => {
     await closeC();

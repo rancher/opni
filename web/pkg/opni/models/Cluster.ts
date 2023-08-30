@@ -1,3 +1,4 @@
+import Vue from 'vue';
 import { deleteCluster } from '../utils/requests/management';
 import * as Core from '../generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
 import { LABEL_KEYS, Status } from './shared';
@@ -221,11 +222,11 @@ export class Cluster extends Resource {
   }
 
   onClusterUpdated(cluster: Core.Cluster) {
-    this.vue.$set(this, 'base', cluster);
+    Vue.set(this, 'base', cluster);
   }
 
   onHealthStatusUpdated(healthStatus: Core.HealthStatus) {
-    this.vue.$set(this, 'healthStatus', healthStatus);
+    Vue.set(this, 'healthStatus', healthStatus);
   }
 
   get availableActions(): any[] {

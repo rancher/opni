@@ -3,9 +3,10 @@ import { Card } from '@components/Card';
 import SortableTable from '@shell/components/SortableTable';
 import { Banner } from '@components/Banner';
 import LoadingSpinner from '@pkg/opni/components/LoadingSpinner';
+import { mapGetters } from 'vuex';
+import { Capability, CapabilityStatuses } from '../models/Capability';
 import UninstallCapabilitiesDialog from './dialogs/UninstallCapabilitiesDialog';
 import CancelUninstallCapabilitiesDialog from './dialogs/CancelUninstallCapabilitiesDialog';
-
 export default {
   components: {
     Banner,
@@ -17,10 +18,14 @@ export default {
   },
 
   props: {
-    capabilityProvider: {
-      type:     Function,
+    name: {
+      type:     String,
       required: true
     },
+    // capabilityProvider: {
+    //   type:     Function,
+    //   required: true
+    // },
 
     updateStatusProvider: {
       type:     Function,
@@ -70,9 +75,15 @@ export default {
     return {
       loading:        false,
       statusInterval: null,
-      capabilities:   [],
       headers:        this.headerProvider(headers)
     };
+  },
+
+  computed: {
+    ...mapGetters({ clusters: 'opni/clusters' }),
+    capabilities() {
+      return this.clusters.map(c => new Capability(this.name, c, this.vue));
+    },
   },
 
   created() {
@@ -110,18 +121,18 @@ export default {
       // cluster.clearCapabilityStatus(capabilities);
     },
 
-    getCapabilities() {
-      return this.capabilityProvider(this);
-    },
+    // getCapabilities() {
+    //   return this.capabilityProvider(this);
+    // },
 
-    async load() {
-      try {
-        this.loading = true;
-        this.$set(this, 'capabilities', await this.getCapabilities());
-      } finally {
-        this.loading = false;
-      }
-    },
+    // async load() {
+    //   try {
+    //     this.loading = true;
+    //     this.$set(this, 'capabilities', await this.getCapabilities());
+    //   } finally {
+    //     this.loading = false;
+    //   }
+    // },
 
     async loadStatus() {
       const status = Promise.all(this.capabilities.map(c => c.updateCabilityLogs()));
@@ -133,7 +144,7 @@ export default {
     },
 
     async onDialogSave() {
-      this.$set(this, 'capabilities', await this.getCapabilities());
+      // this.$set(this, 'capabilities', await this.getCapabilities());
       await this.loadStatus();
       this.$refs.uninstallCapabilitiesDialog.close(false);
       this.$refs.cancelCapabilitiesDialog.close(false);

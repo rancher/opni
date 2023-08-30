@@ -6,6 +6,7 @@ import { NAVIGATION } from './router.js';
 import { flattenNavigation } from './utils/navigation';
 import './styles/app.scss';
 import { isStandalone } from './utils/standalone';
+import store from './store';
 
 // Init the package
 export default function(plugin: IPlugin, context: any) {
@@ -31,4 +32,5 @@ export default function(plugin: IPlugin, context: any) {
 
   plugin.addProduct(require('./product'));
   plugin.addRoutes(flattenNavigation(NAVIGATION));
+  plugin.addDashboardStore(store.config.namespace, store.specifics, store.config);
 }

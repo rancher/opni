@@ -1,6 +1,11 @@
 import Vue from 'vue';
+import { proto3 } from '@bufbuild/protobuf';
 import { getCapabilityStatus, installCapabilityV2, uninstallCapabilityStatus } from '../utils/requests/management';
 import { exceptionToErrorsArray } from '../utils/error';
+import { CortexOps, Management } from '../api/opni';
+import { CapabilityInstallRequest, CapabilityStatusRequest } from '../generated/github.com/rancher/opni/pkg/apis/management/v1/management_pb';
+import { Reference } from '../generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
+import { InstallRequest, InstallResponseStatus } from '../generated/github.com/rancher/opni/pkg/apis/capability/v1/capability_pb';
 import { Cluster } from './Cluster';
 import { Resource } from './Resource';
 
@@ -166,7 +171,10 @@ export class Capability extends Resource {
         }
 
         if (!capMeta.deletionTimestamp) {
-          const apiStatus = await getCapabilityStatus(this.cluster.id, capability, this.vue);
+          const apiStatus = await Management.service.CapabilityStatus(new CapabilityStatusRequest({
+            cluster: new Reference({ id: this.cluster.id }),
+            name:    capability,
+          }));
 
           if (apiStatus.conditions?.length === 0) {
             Vue.set(this.capabilityStatus, capability, {
@@ -244,11 +252,14 @@ export class Capability extends Resource {
 
   async install() {
     try {
-      const result = await installCapabilityV2(this.type, this.cluster.id);
+      const result = await Management.service.InstallCapability(new CapabilityInstallRequest({
+        name:   this.type,
+        target: new InstallRequest({ cluster: new Reference({ id: this.cluster.id }) }),
+      }));
 
       Vue.set(this.capabilityStatus, this.type, {
-        state:        CapabilityStatusState[result.status].toLowerCase(),
-        shortMessage: result.status === CapabilityStatusState.Success ? 'Installed' : CapabilityStatusState[result.status],
+        state:        InstallResponseStatus[result.status].toLowerCase(),
+        shortMessage: result.status === InstallResponseStatus.Success ? 'Installed' : InstallResponseStatus[result.status],
         message:      result.message,
       });
 

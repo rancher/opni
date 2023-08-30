@@ -4,7 +4,7 @@ import { getClusters } from './management';
 import { getNodeConfiguration } from './node-configuration';
 
 export async function getLoggingCapabilities(vue: any): Promise<Capability[]> {
-  const clusters = getClusters(vue);
+  const clusters = vue.$store.getters.clusters;
 
   return (await clusters).map(c => new Capability('logs', c, vue));
 }

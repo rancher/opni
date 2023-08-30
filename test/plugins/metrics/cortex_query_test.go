@@ -57,7 +57,7 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 			},
 		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(resp.Status).To(Equal(capabilityv1.InstallResponseStatus_Success))
+		Expect(resp.Status).To(Equal(capabilityv1.InstallResponseStatus_Success), resp.Message)
 
 		adminClient = cortexadmin.NewCortexAdminClient(environment.ManagementClientConn())
 

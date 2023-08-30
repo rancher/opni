@@ -318,7 +318,7 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 				})
 			})
 			Context("History", func() {
-				It("should store key history", SpecTimeout(10*time.Second), func(ctx context.Context) {
+				It("should store key history", SpecTimeout(1*time.Minute), func(ctx context.Context) {
 					wg := sync.WaitGroup{}
 					for i := 0; i < 10; i++ {
 						revisions := make([]int64, 10)

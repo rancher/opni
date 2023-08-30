@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"strconv"
 	"text/template"
 
 	"github.com/Masterminds/semver"
@@ -91,6 +92,11 @@ func (r *Reconciler) buildOpensearchCluster(
 			Namespace: r.instance.Namespace,
 		},
 		Spec: opsterv1.ClusterSpec{
+			Bootstrap: opsterv1.BootstrapConfig{
+				AdditionalConfig: map[string]string{
+					"plugins.security.ssl.http.clientauth_mode": "OPTIONAL",
+				},
+			},
 			General: opsterv1.GeneralConfig{
 				ImageSpec: &opsterv1.ImageSpec{
 					ImagePullPolicy: lo.ToPtr(corev1.PullAlways),
@@ -129,9 +135,9 @@ func (r *Reconciler) buildOpensearchCluster(
 						},
 					}
 				}(),
-				AdditionalConfig: map[string]string{
-					"plugins.security.ssl.http.clientauth_mode": "OPTIONAL",
-				},
+				AdditionalConfig: r.additionalConfig(),
+				PluginsList:      r.pluginsList(),
+				Keystore:         r.keyStoreList(),
 			},
 			NodePools:  r.instance.Spec.NodePools,
 			Security:   updatedSecurityConfig,
@@ -203,6 +209,28 @@ func (r *Reconciler) buildOTELPreprocessor() runtime.Object {
 	return otel
 }
 
+func (r *Reconciler) buildS3Repository() *loggingv1beta1.OpensearchRepository {
+	repo := &loggingv1beta1.OpensearchRepository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.instance.Name,
+			Namespace: r.instance.Namespace,
+		},
+	}
+	if r.instance.Spec.OpensearchSettings.S3Settings != nil {
+		repo.Spec = loggingv1beta1.OpensearchRepositorySpec{
+			Settings: loggingv1beta1.RepositorySettings{
+				S3: &r.instance.Spec.OpensearchSettings.S3Settings.Repository,
+			},
+			OpensearchClusterRef: &opnimeta.OpensearchClusterRef{
+				Name:      r.instance.Name,
+				Namespace: r.instance.Namespace,
+			},
+		}
+	}
+	ctrl.SetControllerReference(r.instance, repo, r.client.Scheme())
+	return repo
+}
+
 func (r *Reconciler) fetchNatsAuthSecretName() (string, bool, error) {
 	if r.instance.Spec.NatsRef == nil {
 		return "", false, errors.New("missing nats reference")
@@ -253,4 +281,50 @@ func calculateImage(repo, version, opensearchVersion string) string {
 		opensearchVersion,
 		version,
 	)
+}
+
+func (r *Reconciler) pluginsList() []string {
+	plugins := []string{}
+	if r.instance.Spec.S3Settings != nil {
+		plugins = append(plugins, "repository-s3")
+	}
+	return plugins
+}
+
+func (r *Reconciler) keyStoreList() []opsterv1.KeystoreValue {
+	keystores := []opsterv1.KeystoreValue{}
+	if r.instance.Spec.S3Settings != nil {
+		keystores = append(keystores, opsterv1.KeystoreValue{
+			Secret: r.instance.Spec.S3Settings.CredentialSecret,
+			KeyMappings: map[string]string{
+				"accessKey": "s3.client.default.access_key",
+				"secretKey": "s3.client.default.secret_key",
+			},
+		})
+	}
+	return keystores
+}
+
+func (r *Reconciler) additionalConfig() map[string]string {
+	config := map[string]string{
+		"plugins.security.ssl.http.clientauth_mode": "OPTIONAL",
+	}
+	if r.instance.Spec.S3Settings != nil {
+		if r.instance.Spec.S3Settings.Endpoint != "" {
+			config["s3.client.default.endpoint"] = r.instance.Spec.S3Settings.Endpoint
+		}
+		if r.instance.Spec.S3Settings.PathStyleAccess {
+			config["s3.client.default.path_style_access"] = "true"
+		}
+		if r.instance.Spec.S3Settings.Protocol != "" {
+			config["s3.client.default.protocol"] = string(r.instance.Spec.S3Settings.Protocol)
+		}
+		if r.instance.Spec.S3Settings.ProxyHost != "" {
+			config["s3.client.default.proxy.host"] = r.instance.Spec.S3Settings.ProxyHost
+		}
+		if r.instance.Spec.S3Settings.ProxyPort != nil {
+			config["s3.client.default.proxy.port"] = strconv.Itoa(int(lo.FromPtrOr(r.instance.Spec.S3Settings.ProxyPort, 443)))
+		}
+	}
+	return config
 }

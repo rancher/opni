@@ -41,8 +41,9 @@ const (
 	LabelOpniNodeGroup  = "opni.io/node-group"
 	TopologyKeyK8sHost  = "kubernetes.io/hostname"
 
-	opensearchVersion = "2.8.0"
-	defaultRepo       = "docker.io/rancher"
+	opensearchVersion   = "2.8.0"
+	defaultRepo         = "docker.io/rancher"
+	s3CredentialsSecret = "opni-opensearch-s3"
 )
 
 type KubernetesManagerDriver struct {
@@ -213,6 +214,7 @@ func (d *KubernetesManagerDriver) GetCluster(ctx context.Context) (*loggingadmin
 		ControlplaneNodes: controlplane,
 		Dashboards:        convertDashboardsToProtobuf(cluster.Spec.Dashboards),
 		DataRetention:     &cluster.Spec.IndexRetention,
+		S3:                d.s3ToProtobuf(ctx, cluster.Spec.S3Settings),
 	}, nil
 }
 
@@ -222,9 +224,14 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 	opniVersion string,
 	natName string,
 ) error {
+	err := d.storeS3Credentials(ctx, cluster.GetS3().GetCredentials())
+	if err != nil {
+		return err
+	}
+
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 	exists := true
-	err := d.K8sClient.Get(ctx, types.NamespacedName{
+	err = d.K8sClient.Get(ctx, types.NamespacedName{
 		Name:      d.OpensearchCluster.Name,
 		Namespace: d.OpensearchCluster.Namespace,
 	}, k8sOpensearchCluster)
@@ -248,7 +255,7 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 			},
 			Spec: loggingv1beta1.OpniOpensearchSpec{
 				OpensearchSettings: loggingv1beta1.OpensearchSettings{
-					Dashboards: d.convertProtobufToDashboards(cluster.Dashboards, nil, opniVersion),
+					Dashboards: convertProtobufToDashboards(cluster.Dashboards, nil, opniVersion),
 					NodePools:  nodePools,
 					Security: &opsterv1.Security{
 						Tls: &opsterv1.TlsConfig{
@@ -261,6 +268,7 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 							},
 						},
 					},
+					S3Settings: s3ToKubernetes(cluster.GetS3()),
 				},
 				ExternalURL: cluster.ExternalURL,
 				ClusterConfigSpec: &loggingv1beta1.ClusterConfigSpec{
@@ -283,11 +291,12 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 			return err
 		}
 		k8sOpensearchCluster.Spec.OpensearchSettings.NodePools = nodePools
-		k8sOpensearchCluster.Spec.OpensearchSettings.Dashboards = d.convertProtobufToDashboards(
+		k8sOpensearchCluster.Spec.OpensearchSettings.Dashboards = convertProtobufToDashboards(
 			cluster.Dashboards,
 			k8sOpensearchCluster,
 			opniVersion,
 		)
+		k8sOpensearchCluster.Spec.OpensearchSettings.S3Settings = s3ToKubernetes(cluster.GetS3())
 		k8sOpensearchCluster.Spec.ExternalURL = cluster.ExternalURL
 		if cluster.DataRetention != nil {
 			k8sOpensearchCluster.Spec.ClusterConfigSpec = &loggingv1beta1.ClusterConfigSpec{
@@ -630,7 +639,7 @@ func (d *KubernetesManagerDriver) convertControlplaneDetails(details *loggingadm
 	}, nil
 }
 
-func (d *KubernetesManagerDriver) convertProtobufToDashboards(
+func convertProtobufToDashboards(
 	dashboard *loggingadmin.DashboardsDetails,
 	cluster *loggingv1beta1.OpniOpensearch,
 	opniVersion string,
@@ -726,6 +735,126 @@ func (d *KubernetesManagerDriver) convertProtobufToDashboards(
 	}
 }
 
+func (d *KubernetesManagerDriver) storeS3Credentials(ctx context.Context, credentials *loggingadmin.S3Credentials) error {
+	if credentials == nil {
+		return nil
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      s3CredentialsSecret,
+			Namespace: d.OpensearchCluster.Namespace,
+		},
+	}
+
+	err := d.K8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			secret.StringData = map[string]string{
+				"accessKey": credentials.GetAccessKey(),
+				"secretKey": credentials.GetSecretKey(),
+			}
+			return d.K8sClient.Create(ctx, secret)
+		}
+		return err
+	}
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := d.K8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)
+		if err != nil {
+			return err
+		}
+
+		secret.Data["accessKey"] = []byte(credentials.GetAccessKey())
+		if credentials.GetSecretKey() != "" {
+			secret.Data["secretKey"] = []byte(credentials.GetSecretKey())
+		}
+		return d.K8sClient.Update(ctx, secret)
+	})
+}
+
+func (d *KubernetesManagerDriver) getS3Credentials(ctx context.Context) (*loggingadmin.S3Credentials, error) {
+	secret := &corev1.Secret{}
+	err := d.K8sClient.Get(ctx, types.NamespacedName{
+		Name:      s3CredentialsSecret,
+		Namespace: d.OpensearchCluster.Namespace,
+	}, secret)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &loggingadmin.S3Credentials{
+		AccessKey: string(secret.Data["accessKey"]),
+	}, nil
+}
+
+func (d *KubernetesManagerDriver) s3ToProtobuf(
+	ctx context.Context,
+	in *loggingv1beta1.OpensearchS3Settings,
+) *loggingadmin.OpensearchS3Settings {
+	if in == nil {
+		return nil
+	}
+
+	creds, _ := d.getS3Credentials(ctx)
+
+	return &loggingadmin.OpensearchS3Settings{
+		Endpoint:        in.Endpoint,
+		Insecure:        in.Protocol == loggingv1beta1.OpensearchS3ProtocolHTTP,
+		PathStyleAccess: in.PathStyleAccess,
+		Credentials:     creds,
+		Bucket:          in.Repository.Bucket,
+		Folder: func() *string {
+			if in.Repository.Folder == "" {
+				return nil
+			}
+			return lo.ToPtr(in.Repository.Folder)
+		}(),
+		ProxySettings: func() *loggingadmin.ProxySettings {
+			if in.ProxyHost != "" && in.ProxyPort != nil {
+				return &loggingadmin.ProxySettings{
+					ProxyHost: in.ProxyHost,
+					ProxyPort: in.ProxyPort,
+				}
+			}
+			return nil
+		}(),
+	}
+}
+
+func generateIngestDetails(pools []opsterv1.NodePool) *loggingadmin.IngestDetails {
+	var (
+		referencePool opsterv1.NodePool
+		replicas      int32
+		tolerations   []*corev1.Toleration
+	)
+
+	for _, pool := range pools {
+		if slices.Contains(pool.Roles, "ingest") {
+			if slices.Contains(pool.Roles, "data") {
+				return nil
+			}
+			replicas += pool.Replicas
+			referencePool = pool
+		}
+	}
+
+	for _, toleration := range referencePool.Tolerations {
+		tolerations = append(tolerations, &toleration)
+	}
+
+	return &loggingadmin.IngestDetails{
+		Replicas:           &replicas,
+		MemoryLimit:        referencePool.Resources.Limits.Memory().String(),
+		CpuResources:       generateCPU(referencePool),
+		EnableAntiAffinity: antiAffinityEnabled(referencePool),
+		NodeSelector:       referencePool.NodeSelector,
+		Tolerations:        tolerations,
+	}
+}
+
 func generateDataDetails(pools []opsterv1.NodePool) (*loggingadmin.DataDetails, error) {
 	var (
 		referencePool opsterv1.NodePool
@@ -760,37 +889,6 @@ func generateDataDetails(pools []opsterv1.NodePool) (*loggingadmin.DataDetails, 
 		Persistence:        persistence,
 	}, nil
 
-}
-
-func generateIngestDetails(pools []opsterv1.NodePool) *loggingadmin.IngestDetails {
-	var (
-		referencePool opsterv1.NodePool
-		replicas      int32
-		tolerations   []*corev1.Toleration
-	)
-
-	for _, pool := range pools {
-		if slices.Contains(pool.Roles, "ingest") {
-			if slices.Contains(pool.Roles, "data") {
-				return nil
-			}
-			replicas += pool.Replicas
-			referencePool = pool
-		}
-	}
-
-	for _, toleration := range referencePool.Tolerations {
-		tolerations = append(tolerations, &toleration)
-	}
-
-	return &loggingadmin.IngestDetails{
-		Replicas:           &replicas,
-		MemoryLimit:        referencePool.Resources.Limits.Memory().String(),
-		CpuResources:       generateCPU(referencePool),
-		EnableAntiAffinity: antiAffinityEnabled(referencePool),
-		NodeSelector:       referencePool.NodeSelector,
-		Tolerations:        tolerations,
-	}
 }
 
 func generateControlplaneDetails(pools []opsterv1.NodePool) (*loggingadmin.ControlplaneDetails, error) {
@@ -1003,6 +1101,37 @@ func convertDashboardsToProtobuf(dashboard opsterv1.DashboardsConfig) *loggingad
 
 			return resources
 		}(),
+	}
+}
+
+func s3ToKubernetes(in *loggingadmin.OpensearchS3Settings) *loggingv1beta1.OpensearchS3Settings {
+	if in == nil {
+		return nil
+	}
+
+	return &loggingv1beta1.OpensearchS3Settings{
+		Endpoint:        in.Endpoint,
+		PathStyleAccess: in.PathStyleAccess,
+		Protocol: func() loggingv1beta1.OpensearchS3Protocol {
+			if in.Insecure {
+				return loggingv1beta1.OpensearchS3ProtocolHTTP
+			}
+			return loggingv1beta1.OpensearchS3ProtocolHTTPS
+		}(),
+		ProxyHost: in.GetProxySettings().GetProxyHost(),
+		ProxyPort: func() *int32 {
+			if in.GetProxySettings() == nil {
+				return nil
+			}
+			return in.GetProxySettings().ProxyPort
+		}(),
+		CredentialSecret: corev1.LocalObjectReference{
+			Name: s3CredentialsSecret,
+		},
+		Repository: loggingv1beta1.S3PathSettings{
+			Bucket: in.Bucket,
+			Folder: in.GetFolder(),
+		},
 	}
 }
 

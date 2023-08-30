@@ -23,6 +23,7 @@ resources:
 - bases/logging.opni.io_multiclusterrolebindings.yaml
 - bases/logging.opni.io_multiclusterusers.yaml
 - bases/logging.opni.io_opniopensearches.yaml
+- bases/logging.opni.io_opensearchrepositories.yaml
 #- bases/logging.opni.io_collectorconfigs.yaml
 - bases/monitoring.opni.io_rolebindings.yaml
 - bases/monitoring.opni.io_roles.yaml

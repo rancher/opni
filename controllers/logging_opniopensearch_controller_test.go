@@ -3,6 +3,7 @@ package controllers_test
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 
 	. "github.com/kralicky/kmatch"
@@ -12,6 +13,7 @@ import (
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/test/testk8s"
 	"github.com/samber/lo"
+	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -268,6 +270,90 @@ var _ = Describe("Logging OpniOpensearch Controller", Ordered, Label("controller
 					return false
 				}
 				return *cluster.Spec.General.Image == "example.com/override:latest"
+			}).Should(BeTrue())
+		})
+	})
+	When("adding s3 settings", func() {
+		It("should update successfully", func() {
+			Expect(k8sClient.Create(context.Background(), &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-secret",
+					Namespace: testNs,
+				},
+				StringData: map[string]string{
+					"accessKey": "testaccesskey",
+					"secretKey": "testsecretkey",
+				},
+			})).To(Succeed())
+			updateObject(object, func(c *loggingv1beta1.OpniOpensearch) {
+				c.Spec.OpensearchSettings.S3Settings = &loggingv1beta1.OpensearchS3Settings{
+					Endpoint: "s3.example.com",
+					Protocol: loggingv1beta1.OpensearchS3ProtocolHTTPS,
+					CredentialSecret: corev1.LocalObjectReference{
+						Name: "test-secret",
+					},
+					Repository: loggingv1beta1.S3PathSettings{
+						Bucket: "test-bucket",
+						Folder: "backups",
+					},
+				}
+			})
+		})
+		It("should add the s3 settings to opensearch", func() {
+			Eventually(func() bool {
+				cluster := &opsterv1.OpenSearchCluster{}
+				err := k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      object.Name,
+					Namespace: testNs,
+				}, cluster)
+				if err != nil {
+					return false
+				}
+				if !slices.ContainsFunc(cluster.Spec.General.Keystore, func(e opsterv1.KeystoreValue) bool {
+					return reflect.DeepEqual(e, opsterv1.KeystoreValue{
+						Secret: corev1.LocalObjectReference{
+							Name: "test-secret",
+						},
+						KeyMappings: map[string]string{
+							"accessKey": "s3.client.default.access_key",
+							"secretKey": "s3.client.default.secret_key",
+						},
+					})
+				}) {
+					return false
+				}
+				endpoint, ok := cluster.Spec.General.AdditionalConfig["s3.client.default.endpoint"]
+				if !ok || endpoint != "s3.example.com" {
+					return false
+				}
+				protocol, ok := cluster.Spec.General.AdditionalConfig["s3.client.default.protocol"]
+				if !ok || protocol != "https" {
+					return false
+				}
+				return true
+			}).Should(BeTrue())
+		})
+		It("should create the s3 repository", func() {
+			Eventually(func() bool {
+				repo := &loggingv1beta1.OpensearchRepository{}
+				err := k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      object.Name,
+					Namespace: testNs,
+				}, repo)
+				if err != nil {
+					return false
+				}
+
+				if repo.Spec.Settings.S3 == nil {
+					return false
+				}
+				if repo.Spec.Settings.S3.Bucket != "test-bucket" {
+					return false
+				}
+				if repo.Spec.Settings.S3.Folder != "backups" {
+					return false
+				}
+				return true
 			}).Should(BeTrue())
 		})
 	})

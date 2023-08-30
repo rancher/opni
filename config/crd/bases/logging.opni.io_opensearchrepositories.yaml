@@ -1,0 +1,78 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.13.0
+  name: opensearchrepositories.logging.opni.io
+spec:
+  group: logging.opni.io
+  names:
+    kind: OpensearchRepository
+    listKind: OpensearchRepositoryList
+    plural: opensearchrepositories
+    singular: opensearchrepository
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.state
+      name: State
+      type: boolean
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              opensearchClusterRef:
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                type: object
+              settings:
+                properties:
+                  filesystem:
+                    properties:
+                      location:
+                        type: string
+                    required:
+                    - location
+                    type: object
+                  s3:
+                    properties:
+                      bucket:
+                        type: string
+                      folder:
+                        type: string
+                    required:
+                    - bucket
+                    - folder
+                    type: object
+                type: object
+            required:
+            - opensearchClusterRef
+            - settings
+            type: object
+          status:
+            properties:
+              failureMessage:
+                type: string
+              state:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

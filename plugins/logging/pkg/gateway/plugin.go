@@ -52,7 +52,6 @@ type Plugin struct {
 	capabilityv1.UnsafeBackendServer
 	opensearch.UnsafeOpensearchServer
 	system.UnimplementedSystemPluginClient
-	loggingadmin.UnsafeLoggingAdminServer
 	ctx                 context.Context
 	logger              *zap.SugaredLogger
 	storageBackend      future.Future[storage.Backend]

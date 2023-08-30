@@ -24,6 +24,7 @@ type Client struct {
 	Tasks    api.TasksAPI
 	Cluster  api.ClusterAPI
 	Alerting api.AlertingAPI
+	Snapshot api.SnapshotAPI
 }
 
 type ClientConfig struct {
@@ -131,6 +132,9 @@ func NewClient(cfg ClientConfig, opts ...ClientOption) (*Client, error) {
 			AlertAPI: api.AlertAPI{
 				Client: client,
 			},
+		},
+		Snapshot: api.SnapshotAPI{
+			Client: client,
 		},
 	}, nil
 }

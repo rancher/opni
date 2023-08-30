@@ -579,9 +579,9 @@ func (in *CortexApplicationConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 		in.Limits = &validation.Limits{}
 	}
 	fs.AddFlagSet(in.Limits.FlagSet(append(prefix, "limits")...))
-	fs.Lookup(strings.Join(append(prefix, "limits", "ingestion-rate"), ".")).DefValue = "600000"
-	fs.Lookup(strings.Join(append(prefix, "limits", "ingestion-burst-size"), ".")).DefValue = "1000000"
-	fs.Lookup(strings.Join(append(prefix, "limits", "compactor-blocks-retention-period"), ".")).DefValue = "seconds:2592000"
+	flagutil.SetDefValue(fs, strings.Join(append(prefix, "limits", "ingestion-rate"), "."), "600000")
+	flagutil.SetDefValue(fs, strings.Join(append(prefix, "limits", "ingestion-burst-size"), "."), "1000000")
+	flagutil.SetDefValue(fs, strings.Join(append(prefix, "limits", "compactor-blocks-retention-period"), "."), "seconds:2592000")
 	if in.RuntimeConfig == nil {
 		in.RuntimeConfig = &runtimeconfig.RuntimeConfigValues{}
 	}

@@ -11,3 +11,14 @@ func LoadDefaults[T interface {
 	fs.AddFlagSet(obj.FlagSet())
 	fs.Parse(nil)
 }
+
+// Sets DefValue and calls Value.Set for a flag. Must only be used after calling
+// AddFlagSet and before calling Parse.
+func SetDefValue(fs *pflag.FlagSet, name, value string) {
+	f := fs.Lookup(name)
+	if f == nil {
+		panic("flag not found")
+	}
+	f.DefValue = value
+	f.Value.Set(value)
+}

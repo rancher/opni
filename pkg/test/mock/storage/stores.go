@@ -908,6 +908,18 @@ func (mr *MockKeyRevisionMockRecorder[T]) Revision() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revision", reflect.TypeOf((*MockKeyRevision[T])(nil).Revision))
 }
 
+// SetKey mocks base method.
+func (m *MockKeyRevision[T]) SetKey(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetKey", arg0)
+}
+
+// SetKey indicates an expected call of SetKey.
+func (mr *MockKeyRevisionMockRecorder[T]) SetKey(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetKey", reflect.TypeOf((*MockKeyRevision[T])(nil).SetKey), arg0)
+}
+
 // Timestamp mocks base method.
 func (m *MockKeyRevision[T]) Timestamp() time.Time {
 	m.ctrl.T.Helper()

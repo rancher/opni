@@ -742,9 +742,9 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 							return true
 						}
 						if flagSetOpts.NoPrefix {
-							g.P(`fs.Lookup(`, _strings.Ident("Join"), `(append(prefix, "`, formatKebab(fd.Name()), `"), ".")).DefValue = `, fmt.Sprintf("%q", v.String()))
+							g.P(_flagutil.Ident("SetDefValue"), `(fs, `, _strings.Ident("Join"), `(append(prefix, "`, formatKebab(fd.Name()), `"), "."), `, fmt.Sprintf("%q", v.String()), `)`)
 						} else {
-							g.P(`fs.Lookup(`, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `", "`, formatKebab(fd.Name()), `"), ".")).DefValue = `, fmt.Sprintf("%q", v.String()))
+							g.P(_flagutil.Ident("SetDefValue"), `(fs, `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `", "`, formatKebab(fd.Name()), `"), "."), `, fmt.Sprintf("%q", v.String()), `)`)
 						}
 						return true
 					})

@@ -33,27 +33,6 @@ func WithDialOptions(options ...grpc.DialOption) AdminClientOption {
 	}
 }
 
-func NewClient(ctx waitctx.PermissiveContext, opts ...AdminClientOption) (LoggingAdminClient, error) {
-	options := AdminClientOptions{
-		listenAddr: managementv1.DefaultManagementSocket(),
-		dialOptions: []grpc.DialOption{
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor()),
-			grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
-		},
-	}
-	options.apply(opts...)
-	cc, err := grpc.DialContext(ctx, options.listenAddr, options.dialOptions...)
-	if err != nil {
-		return nil, err
-	}
-	waitctx.Permissive.Go(ctx, func() {
-		<-ctx.Done()
-		cc.Close()
-	})
-	return NewLoggingAdminClient(cc), nil
-}
-
 func NewV2Client(ctx waitctx.PermissiveContext, opts ...AdminClientOption) (LoggingAdminV2Client, error) {
 	options := AdminClientOptions{
 		listenAddr: managementv1.DefaultManagementSocket(),

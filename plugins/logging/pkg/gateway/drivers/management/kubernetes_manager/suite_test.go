@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/kralicky/kmatch"
 	"github.com/nats-io/nats.go"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -53,6 +54,7 @@ var _ = BeforeSuite(func() {
 			Scheme: scheme,
 		})
 		Expect(err).NotTo(HaveOccurred())
+		kmatch.SetDefaultObjectClient(k8sClient)
 
 		k8sManager = testk8s.StartManager(ctx, restConfig, scheme)
 

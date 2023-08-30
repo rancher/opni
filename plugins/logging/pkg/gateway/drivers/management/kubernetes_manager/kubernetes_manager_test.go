@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"time"
 
+	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
@@ -150,6 +151,14 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 						err := manager.CreateOrUpdateCluster(context.Background(), request, version, nats)
 						Expect(err).NotTo(HaveOccurred())
 					})
+					It("should not create a credential secret", func() {
+						Consistently(func() error {
+							return k8sClient.Get(context.Background(), types.NamespacedName{
+								Name:      "opni-opensearch-s3",
+								Namespace: namespace,
+							}, &corev1.Secret{})
+						}, timeout, interval).ShouldNot(Succeed())
+					})
 					It("should create a single node pool", func() {
 						Eventually(func() error {
 							return k8sClient.Get(context.Background(), types.NamespacedName{
@@ -191,6 +200,57 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 							},
 						}))
 						Expect(len(object.Spec.NodePools)).To(Equal(1))
+						Expect(object.Spec.OpensearchSettings.S3Settings).To(BeNil())
+					})
+					Specify("cleanup", func() {
+						Expect(k8sClient.Delete(context.Background(), object)).To(Succeed())
+					})
+				})
+				Context("s3 settings are enabled", func() {
+					object := &loggingv1beta1.OpniOpensearch{}
+					request := createRequest()
+					request.S3 = &loggingadmin.OpensearchS3Settings{
+						Endpoint: "s3.example.com",
+						Credentials: &loggingadmin.S3Credentials{
+							AccessKey: "testaccesskey",
+							SecretKey: "testsecretkey",
+						},
+						Bucket: "testbucket",
+						Folder: lo.ToPtr("backups"),
+					}
+					Specify("put should succeed", func() {
+						err := manager.CreateOrUpdateCluster(context.Background(), request, version, nats)
+						Expect(err).NotTo(HaveOccurred())
+					})
+					It("should apply s3 settings", func() {
+						Eventually(Object(&corev1.Secret{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "opni-opensearch-s3",
+								Namespace: namespace,
+							},
+						})).Should(ExistAnd(
+							HaveData(
+								"accessKey", "testaccesskey",
+								"secretKey", "testsecretkey",
+							),
+						))
+						Eventually(func() error {
+							return k8sClient.Get(context.Background(), types.NamespacedName{
+								Name:      "opni",
+								Namespace: namespace,
+							}, object)
+						}, timeout, interval).Should(Succeed())
+						Expect(object.Spec.OpensearchSettings.S3Settings).To(Equal(&loggingv1beta1.OpensearchS3Settings{
+							Endpoint: "s3.example.com",
+							Protocol: loggingv1beta1.OpensearchS3ProtocolHTTPS,
+							CredentialSecret: corev1.LocalObjectReference{
+								Name: "opni-opensearch-s3",
+							},
+							Repository: loggingv1beta1.S3PathSettings{
+								Bucket: "testbucket",
+								Folder: "backups",
+							},
+						}))
 					})
 					Specify("cleanup", func() {
 						Expect(k8sClient.Delete(context.Background(), object)).To(Succeed())

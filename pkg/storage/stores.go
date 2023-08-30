@@ -6,6 +6,7 @@ import (
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/keyring"
+	"github.com/rancher/opni/pkg/storage/lock"
 )
 
 type Backend interface {
@@ -135,6 +136,61 @@ type SubjectAccessCapableStore interface {
 }
 
 type WatchEventType string
+
+// Lock is a distributed lock that can be used to coordinate access to a resource.
+//
+// Locks are single use, and return errors when used more than once. Retry mechanisms are built into\
+// the Lock and can be configured with LockOptions.
+type Lock interface {
+	// Lock acquires a lock on the key. If the lock is already held, it will block until the lock is released.\
+	//
+	// Lock returns an error when acquiring the lock fails.
+	Lock() error
+	// Unlock releases the lock on the key. If the lock was never held, it will return an error.
+	Unlock() error
+}
+
+// LockManager replaces sync.Mutex when a distributed locking mechanism is required.
+//
+// # Usage
+//
+// ## Transient lock (transactions, tasks, ...)
+// ```
+//
+//		func distributedTransation(lm stores.LockManager, key string) error {
+//			keyMu := lm.Locker(key, lock.WithKeepalive(false), lock.WithExpireDuration(1 * time.Second))
+//			if err := keyMu.Lock(); err != nil {
+//			return err
+//			}
+//			defer keyMu.Unlock()
+//	     // do some work
+//		}
+//
+// ```
+//
+// ## Persistent lock (leader election)
+//
+// ```
+//
+//	func serve(lm stores.LockManager, key string, done chan struct{}) error {
+//		keyMu := lm.Locker(key, lock.WithKeepalive(true))
+//		if err := keyMu.Lock(); err != nil {
+//			return err
+//		}
+//		go func() {
+//			<-done
+//			keyMu.Unlock()
+//		}()
+//		// serve a service...
+//	}
+//
+// ```
+type LockManager interface {
+	// Instantiates a new Lock instance for the given key, with the given options.
+	//
+	// Defaults to lock.DefaultOptions if no options are provided.
+	Locker(key string, opts ...lock.LockOption) Lock
+}
 
 const (
 	WatchEventCreate WatchEventType = "PUT"

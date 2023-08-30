@@ -922,3 +922,91 @@ func (r *Reconciler) DeleteClusterMetadata(id, index string) error {
 	}
 	return nil
 }
+
+func (r *Reconciler) shouldUpdateRepository(name string, settings types.RepositoryRequest) (bool, error) {
+	lg := log.FromContext(r.ctx)
+
+	resp, err := r.osClient.Snapshot.GetRepository(r.ctx, name)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return true, nil
+	} else if resp.IsError() {
+		return false, fmt.Errorf("response from API is %s", resp.String())
+	}
+
+	existing := types.RepositoryRequest{}
+	err = json.NewDecoder(resp.Body).Decode(&existing)
+	if err != nil {
+		return false, err
+	}
+
+	if !reflect.DeepEqual(settings, existing) {
+		lg.Info("repository settings exist but are different")
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (r *Reconciler) repositoryExists(name string) (bool, error) {
+	resp, err := r.osClient.Snapshot.GetRepository(r.ctx, name)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return false, nil
+	} else if resp.IsError() {
+		return false, fmt.Errorf("response from API is %s", resp.String())
+	}
+
+	return true, nil
+}
+
+func (r *Reconciler) MaybeUpdateRepository(name string, settings types.RepositoryRequest) error {
+	update, err := r.shouldUpdateRepository(name, settings)
+	if err != nil {
+		return fmt.Errorf("failed to check if repository should be updated: %w", err)
+	}
+
+	if !update {
+		return nil
+	}
+
+	resp, err := r.osClient.Snapshot.PutRepository(r.ctx, name, opensearchutil.NewJSONReader(settings))
+	if err != nil {
+		return fmt.Errorf("failed to register repository: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.IsError() {
+		return fmt.Errorf("failed to register repository: %s", resp.String())
+	}
+	return nil
+}
+
+func (r *Reconciler) MaybeDeleteRepository(name string) error {
+	exists, err := r.repositoryExists(name)
+	if err != nil {
+		return fmt.Errorf("failed to check if repository exists: %w", err)
+	}
+
+	if !exists {
+		return nil
+	}
+
+	resp, err := r.osClient.Snapshot.DeleteRepository(r.ctx, name)
+	if err != nil {
+		return fmt.Errorf("failed to delete repository: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.IsError() {
+		return fmt.Errorf("failed to delete repository: %s", resp.String())
+	}
+	return nil
+}

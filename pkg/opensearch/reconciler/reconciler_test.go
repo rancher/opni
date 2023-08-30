@@ -824,4 +824,122 @@ var _ = Describe("Opensearch", Ordered, Label("unit"), func() {
 			})
 		})
 	})
+	Context("reconciling snapshot objects", func() {
+		var (
+			repositoryName string
+			settings       = types.RepositoryRequest{
+				Type: "s3",
+				Settings: types.RepositorySettings{
+					S3Settings: &types.S3Settings{
+						Bucket: "test-bucket",
+						Path:   "backups",
+					},
+				},
+			}
+		)
+		When("repository doesn't exist", Ordered, func() {
+			BeforeEach(func() {
+				repositoryName = "not-found"
+				transport.RegisterResponder(
+					"GET",
+					fmt.Sprintf("%s/_snapshot/%s", opensearchURL, repositoryName),
+					httpmock.NewStringResponder(404, "Not found").Once(),
+				)
+			})
+			It("should create a new repository", func() {
+				transport.RegisterResponder(
+					"PUT",
+					fmt.Sprintf("%s/_snapshot/%s", opensearchURL, repositoryName),
+					httpmock.NewStringResponder(200, "OK").Once(),
+				)
+				Expect(func() error {
+					err := rec.MaybeUpdateRepository(repositoryName, settings)
+					if err != nil {
+						GinkgoWriter.Println(err.Error())
+					}
+					return err
+				}()).To(BeNil())
+				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+			})
+			It("should not try to delete the repository", func() {
+				Expect(func() error {
+					err := rec.MaybeDeleteRepository(repositoryName)
+					if err != nil {
+						GinkgoWriter.Println(err.Error())
+					}
+					return err
+				}()).To(BeNil())
+				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+			})
+		})
+		When("repository does exist and settings are the same", Ordered, func() {
+			BeforeEach(func() {
+				repositoryName = "found"
+				transport.RegisterResponder(
+					"GET",
+					fmt.Sprintf("%s/_snapshot/%s", opensearchURL, repositoryName),
+					httpmock.NewJsonResponderOrPanic(200, settings).Once(),
+				)
+			})
+			It("should not create a new repository", func() {
+				Expect(func() error {
+					err := rec.MaybeUpdateRepository(repositoryName, settings)
+					if err != nil {
+						GinkgoWriter.Println(err.Error())
+					}
+					return err
+				}()).To(BeNil())
+				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+			})
+			It("should delete the repository", func() {
+				transport.RegisterResponder(
+					"DELETE",
+					fmt.Sprintf("%s/_snapshot/%s", opensearchURL, repositoryName),
+					httpmock.NewStringResponder(200, "OK").Once(),
+				)
+				Expect(func() error {
+					err := rec.MaybeDeleteRepository(repositoryName)
+					if err != nil {
+						GinkgoWriter.Println(err.Error())
+					}
+					return err
+				}()).To(BeNil())
+				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+			})
+		})
+		When("repository does exist and settings are not the same", Ordered, func() {
+			BeforeEach(func() {
+				repositoryName = "found"
+				settingsOld := types.RepositoryRequest{
+					Type: "s3",
+					Settings: types.RepositorySettings{
+						S3Settings: &types.S3Settings{
+							Bucket: "old-bucket",
+							Path:   "backups",
+						},
+					},
+				}
+				transport.RegisterResponder(
+					"GET",
+					fmt.Sprintf("%s/_snapshot/%s", opensearchURL, repositoryName),
+					httpmock.NewJsonResponderOrPanic(200, settingsOld).Once(),
+				)
+			})
+			It("should update the repository", func() {
+				transport.RegisterResponder(
+					"PUT",
+					fmt.Sprintf("%s/_snapshot/%s", opensearchURL, repositoryName),
+					httpmock.NewStringResponder(200, "OK").Once(),
+				)
+				Expect(func() error {
+					err := rec.MaybeUpdateRepository(repositoryName, settings)
+					if err != nil {
+						GinkgoWriter.Println(err.Error())
+					}
+					return err
+				}()).To(BeNil())
+				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+			})
+		})
+	})
 })

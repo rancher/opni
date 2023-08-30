@@ -11,9 +11,10 @@ import dayjs from 'dayjs';
 import {
   createAlertCondition, getAlertConditionGroups, updateAlertCondition, deactivateSilenceAlertCondition, silenceAlertCondition
 } from '@pkg/opni/utils/requests/alerts';
+import { getClusters } from '@pkg/opni/utils/requests/management';
+import { CONDITION_TYPES } from '@pkg/opni/utils/alarms';
 import { exceptionToErrorsArray } from '../../utils/error';
 import { Severity, SeverityResponseToEnum } from '../../models/alerting/Condition';
-import { getClusters } from '../../utils/requests/management';
 import AttachedEndpoints, { createDefaultAttachedEndpoints } from '../AttachedEndpoints';
 import { createConditionRequest } from './shared';
 import AgentDisconnect from './AgentDisconnect';
@@ -62,13 +63,7 @@ export default {
       DownstreamCapability,
       MonitoringBackend,
       Prometheus,
-      conditionTypes: [
-        AgentDisconnect.TYPE_OPTION,
-        KubeState.TYPE_OPTION,
-        DownstreamCapability.TYPE_OPTION,
-        Prometheus.TYPE_OPTION,
-        MonitoringBackend.TYPE_OPTION,
-      ],
+      conditionTypes:    CONDITION_TYPES,
       type:              AgentDisconnect.TYPE,
       ...AgentDisconnect.DEFAULT_CONFIG,
       ...KubeState.DEFAULT_CONFIG,

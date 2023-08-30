@@ -271,8 +271,16 @@ export interface TimelineRequest {
   lookbackWindow: Duration;
 }
 
+export interface ListAlertConditionRequest {
+  clusters?: string[];
+  severities?: Severity[];
+  labels?: string[];
+  alertTypes?: AlertType[];
+}
+
 export interface TimelineResponse {
   items: { [key: string]: ActiveWindows };
+  filters: ListAlertConditionRequest;
 }
 
 export interface UpdateAlertConditionRequest {

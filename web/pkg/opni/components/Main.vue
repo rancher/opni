@@ -188,10 +188,6 @@ export default {
     display: flex;
     flex-direction: column;
     min-height: 100%;
-
-    .overlay-content-mode {
-      top: 0 !important;
-    }
   }
 
   .standalone .opni-content HEADER {

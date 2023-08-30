@@ -8,7 +8,6 @@ import (
 )
 
 var (
-	loggingAdminClient   loggingadmin.LoggingAdminClient
 	loggingAdminV2Client loggingadmin.LoggingAdminV2Client
 )
 
@@ -30,12 +29,6 @@ func loggingAdminPreRunE(cmd *cobra.Command, _ []string) error {
 	if managementListenAddress == "" {
 		panic("bug: managementListenAddress is empty")
 	}
-	ac, err := loggingadmin.NewClient(cmd.Context(),
-		loggingadmin.WithListenAddress(managementListenAddress))
-	if err != nil {
-		return err
-	}
-	loggingAdminClient = ac
 
 	ac2, err := loggingadmin.NewV2Client(cmd.Context(),
 		loggingadmin.WithListenAddress(managementListenAddress))

@@ -139,6 +139,7 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 		reconciler.StatePresent,
 	))
 	result.Combine(r.ReconcileResource(r.buildMulticlusterRoleBinding(), reconciler.StatePresent))
+	result.Combine(r.ReconcileResource(r.buildS3Repository(), s3RepositoryState(r.instance.Spec.OpensearchSettings.S3Settings)))
 	if r.instance.Spec.NatsRef != nil {
 		result.Combine(r.ReconcileResource(r.buildConfigMap(), reconciler.StatePresent))
 	}
@@ -162,4 +163,11 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 		return r.client.Status().Update(r.ctx, r.instance)
 	})
 	return &result.Result, err
+}
+
+func s3RepositoryState(settings *loggingv1beta1.OpensearchS3Settings) reconciler.DesiredState {
+	if settings == nil {
+		return reconciler.StateAbsent
+	}
+	return reconciler.StatePresent
 }

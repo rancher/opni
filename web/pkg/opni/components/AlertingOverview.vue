@@ -1,21 +1,28 @@
 <script>
 import Loading from '@shell/components/Loading';
 import dayjs from 'dayjs';
+import ConditionFilter, { createDefaults as createConditionFilterDefaults, loadOptions as loadConditionFilterOptions } from '@pkg/opni/components/ConditionFilter';
+import LoadingSpinnerOverlay from '@pkg/opni/components/LoadingSpinnerOverlay';
 import { TimelineType } from '../models/alerting/Condition';
 import {
-  getAlertConditionsWithStatus, getConditionTimeline, getClusterStatus, InstallState, getAlarmNotifications, getAlertConditionGroupIds
+  getAlertConditionsWithStatus, getConditionTimeline, getClusterStatus, InstallState, getAlarmNotifications
 } from '../utils/requests/alerts';
 import { getClusters } from '../utils/requests/management';
 
 export default {
-  components: { Loading },
+  components: {
+    ConditionFilter, Loading, LoadingSpinnerOverlay
+  },
   async fetch() {
     await this.load();
   },
 
   data() {
     return {
+      conditionFilter:        createConditionFilterDefaults(),
+      now:               dayjs(),
       loading:             false,
+      loadingTable:      false,
       conditions:          [],
       groups:            [],
       isAlertingEnabled: false,
@@ -59,69 +66,7 @@ export default {
         return;
       }
 
-      const now = dayjs();
-      const clusters = await getClusters(this);
-      const groupIds = await getAlertConditionGroupIds();
-      const [conditions, response] = await Promise.all([getAlertConditionsWithStatus(this, clusters, groupIds), getConditionTimeline({ lookbackWindow: '24h' })]);
-
-      const DEFAULT_CLUSTER_ID = 'default';
-      const UPSTREAM_CLUSTER_ID = 'UPSTREAM_CLUSTER_ID';
-
-      const timelines = Object.entries(response?.items || {})
-        .map(([id, value]) => {
-          const condition = conditions.find(c => c.id === id);
-
-          if (!condition) {
-            return { events: [] };
-          }
-
-          return {
-            name:      condition.nameDisplay.replace(/\(.*\)/g, ''),
-            clusterId: condition.clusterId || DEFAULT_CLUSTER_ID,
-            events:    (value?.windows || [])
-              .filter(w => w.type !== TimelineType.Timeline_Unknown)
-              .map(w => ({
-                start:        now.diff(dayjs(w.start), 'h', true),
-                end:          now.diff(dayjs(w.end), 'h', true),
-                startRaw:     w.start,
-                endRaw:       w.end,
-                fingerprints: w.fingerprints,
-                conditionId:  condition.id,
-                type:         w.type
-              }))
-          };
-        })
-        .filter(t => t.events.length > 0);
-
-      const groups = {
-        [DEFAULT_CLUSTER_ID]: {
-          name:      'Disconnected',
-          timelines: []
-        },
-        [UPSTREAM_CLUSTER_ID]: {
-          name:      'Upstream',
-          timelines: []
-        }
-      };
-
-      clusters.forEach((c) => {
-        groups[c.id] = {
-          name:      c.nameDisplay,
-          timelines: []
-        };
-      });
-
-      timelines.forEach((t) => {
-        groups[t.clusterId].timelines.push(t);
-      });
-
-      Object.entries(groups).forEach(([key, value]) => {
-        if (value.timelines.length === 0) {
-          delete groups[key];
-        }
-      });
-
-      this.$set(this, 'groups', groups);
+      await this.updateTimeline();
     },
 
     computeEventLeft(event) {
@@ -204,7 +149,81 @@ export default {
     },
     loadingContent() {
       return `<div class="tooltip-spinner"><i class="icon icon-spinner icon-spin" /></div>`;
-    }
+    },
+    async updateTimeline() {
+      const clusters = await getClusters(this);
+      const [conditions, response, conditionFilterOptions] = await Promise.all([getAlertConditionsWithStatus(this, clusters, this.conditionFilter.itemFilter), getConditionTimeline({ lookbackWindow: '24h', filters: this.conditionFilter.itemFilter }), loadConditionFilterOptions()]);
+
+      this.$set(this.conditionFilter, 'options', conditionFilterOptions);
+
+      const DEFAULT_CLUSTER_ID = 'default';
+      const UPSTREAM_CLUSTER_ID = 'UPSTREAM_CLUSTER_ID';
+
+      const timelines = Object.entries(response?.items || {})
+        .map(([id, value]) => {
+          const condition = conditions.find(c => c.id === id);
+
+          if (!condition) {
+            return { events: [] };
+          }
+
+          return {
+            name:      condition.nameDisplay.replace(/\(.*\)/g, ''),
+            clusterId: condition.clusterId || DEFAULT_CLUSTER_ID,
+            events:    (value?.windows || [])
+              .filter(w => w.type !== TimelineType.Timeline_Unknown)
+              .map(w => ({
+                start:        this.now.diff(dayjs(w.start), 'h', true),
+                end:          this.now.diff(dayjs(w.end), 'h', true),
+                startRaw:     w.start,
+                endRaw:       w.end,
+                fingerprints: w.fingerprints,
+                conditionId:  { id: condition.id, groupId: condition.groupId },
+                type:         w.type
+              }))
+          };
+        })
+        .filter(t => t.events.length > 0);
+
+      const groups = {
+        [DEFAULT_CLUSTER_ID]: {
+          name:      'Disconnected',
+          timelines: []
+        },
+        [UPSTREAM_CLUSTER_ID]: {
+          name:      'Upstream',
+          timelines: []
+        }
+      };
+
+      clusters.forEach((c) => {
+        groups[c.id] = {
+          name:      c.nameDisplay,
+          timelines: []
+        };
+      });
+
+      timelines.forEach((t) => {
+        groups[t.clusterId].timelines.push(t);
+      });
+
+      Object.entries(groups).forEach(([key, value]) => {
+        if (value.timelines.length === 0) {
+          delete groups[key];
+        }
+      });
+
+      this.$set(this, 'groups', groups);
+    },
+    async itemFilterChanged(itemFilter) {
+      try {
+        this.$set(this, 'loadingTable', true);
+        this.$set(this.conditionFilter, 'itemFilter', itemFilter);
+        await this.updateTimeline();
+      } finally {
+        this.$set(this, 'loadingTable', false);
+      }
+    },
   },
   computed: {
     hasTimelines() {
@@ -221,67 +240,70 @@ export default {
         <h1>Overview</h1>
       </div>
     </header>
-    <table v-if="isAlertingEnabled" class="sortable-table top-divider" width="100%">
-      <thead class="sortable-table top-divider">
-        <tr>
-          <th>Incident</th>
-          <th>24hrs</th>
-          <th>22hrs</th>
-          <th>20hrs</th>
-          <th>18hrs</th>
-          <th>16hrs</th>
-          <th>14hrs</th>
-          <th>12hrs</th>
-          <th>10hrs</th>
-          <th>8hrs</th>
-          <th>6hrs</th>
-          <th>4hrs</th>
-          <th>2hrs</th>
-          <th>0hrs</th>
-        </tr>
-      </thead>
-      <tbody v-for="(group, i) in groups" :key="i" class="group">
-        <tr :key="group.name" class="group-row">
-          <td colspan="14">
-            <div class="group-tab">
-              <div class="cluster">
-                Cluster: {{ group.name }}
+    <ConditionFilter class="mb-10" :options="conditionFilter.options" @item-filter-changed="itemFilterChanged" />
+    <LoadingSpinnerOverlay v-if="isAlertingEnabled" :loading="loadingTable">
+      <table class="sortable-table top-divider" width="100%">
+        <thead class="sortable-table top-divider">
+          <tr>
+            <th>Incident</th>
+            <th>24hrs</th>
+            <th>22hrs</th>
+            <th>20hrs</th>
+            <th>18hrs</th>
+            <th>16hrs</th>
+            <th>14hrs</th>
+            <th>12hrs</th>
+            <th>10hrs</th>
+            <th>8hrs</th>
+            <th>6hrs</th>
+            <th>4hrs</th>
+            <th>2hrs</th>
+            <th>0hrs</th>
+          </tr>
+        </thead>
+        <tbody v-for="(group, i) in groups" :key="i" class="group">
+          <tr :key="group.name" class="group-row">
+            <td colspan="14">
+              <div class="group-tab">
+                <div class="cluster">
+                  Cluster: {{ group.name }}
+                </div>
               </div>
-            </div>
-          </td>
-        </tr>
-        <tr v-for="(timeline, j) in group.timelines" :key="j" class="main-row">
-          <td>{{ timeline.name }}</td>
-          <td colspan="13" class="events">
-            <div v-for="k in 13" :key="'tick'+k" class="tick" :style="{left: computeTickLeft(k)}">
+            </td>
+          </tr>
+          <tr v-for="(timeline, j) in group.timelines" :key="j" class="main-row">
+            <td>{{ timeline.name }}</td>
+            <td colspan="13" class="events">
+              <div v-for="k in 13" :key="'tick'+k" class="tick" :style="{left: computeTickLeft(k)}">
 &nbsp;
-            </div>
-            <div
-              v-for="(event, k) in timeline.events"
-              :key="'event'+k"
-              v-tooltip="{
-                content: () => loadContent(event),
-                loadingContent: loadingContent(),
-                html: true,
-                classes: ['event-tooltip']
-              }"
-              class="event"
-              :class="event.type"
-              :style="{left: computeEventLeft(event), width: computeEventWidth(event), }"
-            >
+              </div>
+              <div
+                v-for="(event, k) in timeline.events"
+                :key="'event'+k"
+                v-tooltip.top="{
+                  content: () => loadContent(event),
+                  loadingContent: loadingContent(),
+                  html: true,
+                  classes: ['event-tooltip']
+                }"
+                class="event"
+                :class="event.type"
+                :style="{left: computeEventLeft(event), width: computeEventWidth(event), }"
+              >
               &nbsp;
-            </div>
-          </td>
-        </tr>
-      </tbody>
-      <tbody v-if="!hasTimelines">
-        <tr class="no-data">
-          <td colspan="14">
-            No events have occurred in the last 24 hours
-          </td>
-        </tr>
-      </tbody>
-    </table>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+        <tbody v-if="!hasTimelines">
+          <tr class="no-data">
+            <td colspan="14">
+              No events have occurred in the last 24 hours
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </LoadingSpinnerOverlay>
     <div v-else class="not-enabled">
       <h4>
         Alerting must be enabled to use Alerting Overview. <n-link :to="{name: 'alerting'}">

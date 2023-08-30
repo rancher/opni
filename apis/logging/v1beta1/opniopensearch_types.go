@@ -14,6 +14,13 @@ const (
 	OpniOpensearchStateReady   OpniOpensearchState = "Ready"
 )
 
+type OpensearchS3Protocol string
+
+const (
+	OpensearchS3ProtocolHTTPS OpensearchS3Protocol = "https"
+	OpensearchS3ProtocolHTTP  OpensearchS3Protocol = "http"
+)
+
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
@@ -50,6 +57,17 @@ type OpensearchSettings struct {
 	NodePools     []opsterv1.NodePool       `json:"nodePools,omitempty"`
 	Dashboards    opsterv1.DashboardsConfig `json:"dashboards,omitempty"`
 	Security      *opsterv1.Security        `json:"security,omitempty"`
+	S3Settings    *OpensearchS3Settings     `json:"s3,omitempty"`
+}
+
+type OpensearchS3Settings struct {
+	Endpoint         string                      `json:"endpoint,omitempty"`
+	PathStyleAccess  bool                        `json:"pathStyleAccess,omitempty"`
+	Protocol         OpensearchS3Protocol        `json:"protocol,omitempty"`
+	ProxyHost        string                      `json:"proxyHost,omitempty"`
+	ProxyPort        *int32                      `json:"proxyPort,omitempty"`
+	CredentialSecret corev1.LocalObjectReference `json:"credentialSecret,omitempty"`
+	Repository       S3PathSettings              `json:"repository,omitempty"`
 }
 
 // +kubebuilder:object:root=true

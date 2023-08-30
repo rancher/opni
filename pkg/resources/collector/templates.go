@@ -5,12 +5,12 @@ import (
 )
 
 const (
-	logReceiverK8s       = "filelog/k8s"
-	logReceiverKubeAudit = "filelog/kubeauditlogs"
-	logReceiverRKE       = "filelog/rke"
-	logReceiverK3s       = "journald/k3s"
-	logReceiverRKE2      = "journald/rke2"
-	fileLogReceiverRKE2  = "filelog/rke2"
+	logReceiverK8s           = "filelog/k8s"
+	logReceiverKubeAuditLogs = "filelog/kubeauditlogs"
+	logReceiverRKE           = "filelog/rke"
+	logReceiverK3s           = "journald/k3s"
+	logReceiverRKE2          = "journald/rke2"
+	fileLogReceiverRKE2      = "filelog/rke2"
 )
 
 var (
@@ -105,20 +105,50 @@ journald/k3s:
 
 	templateKubeAuditLogs = template.Must(template.New("kubeauditlogsreceiver").Parse(`
 filelog/kubeauditlogs:
-  include: [ /var/log/kube-audit/*.log ]
+  include: {{ . }}
   start_at: beginning
   include_file_path: false
   include_file_name: false
   operators:
   - type: json_parser
     id: parse-body
+    timestamp:
+      parse_from: attributes.stageTimestamp
+      layout: '%Y-%m-%dT%H:%M:%S.%LZ'
   - type: add
     field: attributes.log_type
     value: controlplane
   - type: add
     field: attributes.kubernetes_component
-    value: apiserver
+    value: kubeauditlogs
+  - type: move
+    from: attributes.stage
+    to: resource["k8s.auditlog.stage"]
+  - type: move
+    from: attributes.stageTimestamp
+    to: resource["k8s.auditlog.stage_timestamp"]
+  - type: move
+    from: attributes.level
+    to: resource["k8s.auditlog.level"]
+  - type: move
+    from: attributes.auditID
+    to: resource["k8s.auditlog.audit_id"]
+  - type: move
+    from: attributes.objectRef.resource
+    to: resource["k8s.auditlog.resource"]
+  - type: retain
+    fields:
+      - attributes.stage
+      - attributes.stageTimestamp
+      - attributes.level
+      - attributes.auditID
+      - attributes.objectRef.resource
+      - attributes.cluster_id
+      - attributes.time
+      - attributes.log
+      - attributes.log_type
 `))
+
 	templateLogAgentRKE2 = template.Must(template.New("rke2receiver").Parse(`
 journald/rke2:
   units:
@@ -181,6 +211,16 @@ processors:
         name: k8s.pod.name
       - from: resource_attribute
         name: k8s.namespace.name
+      - from: resource_attribute
+        name: k8s.auditlog.stage
+      - from: resource_attribute
+        name: k8s.auditlog.stage_timestamp
+      - from: resource_attribute
+        name: k8s.auditlog.level
+      - from: resource_attribute
+        name: k8s.auditlog.audit_id
+      - from: resource_attribute
+        name: k8s.auditlog.resource
     - sources:
       - from: connection
     extract:

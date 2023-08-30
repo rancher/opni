@@ -175,6 +175,9 @@ filelog/rke2:
         warn: W
         error: E
         fatal: F
+  - type: move
+    from: body
+    to: attributes.message
   - type: add
     field: attributes.log_type
     value: controlplane
@@ -211,16 +214,6 @@ processors:
         name: k8s.pod.name
       - from: resource_attribute
         name: k8s.namespace.name
-      - from: resource_attribute
-        name: k8s.auditlog.stage
-      - from: resource_attribute
-        name: k8s.auditlog.stage_timestamp
-      - from: resource_attribute
-        name: k8s.auditlog.level
-      - from: resource_attribute
-        name: k8s.auditlog.audit_id
-      - from: resource_attribute
-        name: k8s.auditlog.resource
     - sources:
       - from: connection
     extract:

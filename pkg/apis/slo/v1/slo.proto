@@ -1,0 +1,282 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/pkg/apis/slo/v1";
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/api/http.proto";
+import "google/api/annotations.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "google/rpc/status.proto";
+import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
+import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.condition.proto";
+import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.endpoint.proto";
+
+package slo;
+
+service SLO {
+  rpc CreateSLO(CreateSLORequest) returns (core.Reference) {
+    option (google.api.http) = {
+      post: "/slos"
+      body: "*"
+    };
+  }
+  rpc GetSLO(core.Reference) returns (SLOData) {
+    option (google.api.http) = {
+      post: "/slos/{id}"
+    };
+  }
+  rpc ListSLOs(google.protobuf.Empty) returns (ServiceLevelObjectiveList) {
+    option (google.api.http) = {
+      get: "/slos"
+    };
+  }
+  rpc UpdateSLO(SLOData) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/slos/{id}/update"
+      body: "*"
+    };
+  }
+  rpc DeleteSLO(core.Reference) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/slos/{id}"
+    };
+  }
+  rpc CloneSLO(core.Reference) returns (SLOData) {
+    option (google.api.http) = {
+      post: "/slos/{id}/clone"
+    };
+  }
+
+  rpc CloneToClusters(MultiClusterSLO) returns(MultiClusterFailures) {
+    option (google.api.http) = {
+      post: "/slos/{cloneId.id}/cloneToClusters"
+      body: "*"
+    };
+  }
+
+  // Returns a set of metrics with compatible implementations for
+  // a set of services
+  rpc ListMetrics(ListMetricsRequest) returns (MetricGroupList) {
+    option (google.api.http) = {
+      post: "/metrics"
+      body: "*"
+    };
+  }
+
+  // Returns the list of services discovered by the Service Discovery backend
+  rpc ListServices(ListServicesRequest) returns (ServiceList) {
+    option (google.api.http) = {
+      post: "/services"
+      body: "*"
+    };
+  }
+
+  rpc ListEvents(ListEventsRequest) returns (EventList) {
+    option (google.api.http) = {
+      post: "/events"
+
+    };
+  }
+
+   // Returns a status enum badge for a given SLO
+  rpc GetSLOStatus(core.Reference) returns (SLOStatus) {
+    option (google.api.http) = {
+      post: "/slos/{id}/status"
+
+    };
+  }
+
+  rpc Preview(CreateSLORequest) returns (SLOPreviewResponse) {
+    option (google.api.http) = {
+      post : "/slos/preview"
+      body: "*"
+    };
+  }
+
+  rpc ListDatasources(google.protobuf.Empty) returns (DatasourceInfo) {
+    option (google.api.http) = {
+      get: "/datasources"
+    };
+  }
+}
+
+message DatasourceInfo {
+  repeated string items = 1;
+}
+
+
+message MultiClusterSLO {
+  core.Reference cloneId = 1;
+  repeated core.Reference clusters = 2;
+}
+
+message MultiClusterFailures {
+  repeated string failures = 1;
+}
+
+message ListEventsRequest {
+  string datasource = 1;
+  string serviceId = 2;
+  string clusterId = 3;
+  string metricId = 4;
+}
+
+message ListMetricsRequest {
+  string datasource = 1;
+  string clusterId = 2;
+  string serviceId = 3;
+}
+
+message ListServicesRequest{
+  string datasource = 1;
+  string clusterId = 2;
+}
+
+
+message EventList {
+  repeated Event items = 1;
+}
+
+message Event{
+  string key = 1;
+  repeated string vals = 2;
+}
+
+
+message ServiceInfo {
+  string jobId = 1;
+  string clusterId = 5;
+  string metricName = 2;
+  string metricIdGood = 3;
+  string metricIdTotal = 4;
+}
+
+message Service {
+  string serviceId = 1;
+  string clusterId = 2;
+}
+
+message ServiceList {
+  repeated Service items = 1;
+}
+
+message Label {
+  string name = 1;
+}
+
+message Alert {
+  string name = 1;
+  string notificationTarget = 2; // enum of Slack, PagerDuty, Email, SMS, etc..
+  string notificationDescription = 3;
+  string description = 4;
+  string conditionType = 5;
+  string thresholdType = 6;
+  bool onNoData = 7;
+  bool onCreate = 8;
+  bool onBreach = 9;
+  bool onResolved = 10;
+}
+
+message ServiceLevelObjective {
+  string name = 1;
+  string datasource = 2;
+  string clusterId = 3;
+  string serviceId = 4;
+  string goodMetricName = 5;
+  string totalMetricName = 6;
+  repeated Event goodEvents = 7;
+  repeated Event totalEvents = 8;
+  string sloPeriod = 9; // 7d, 28d or 30d
+  google.protobuf.Duration budgetingInterval = 10; // budgeting interval should be between 1m and 60m
+  Target target = 11;
+  repeated Label labels = 12;
+  alerting.AttachedEndpoints attachedEndpoints = 13;
+}
+
+message CreateSLORequest {
+  ServiceLevelObjective slo = 1;
+}
+
+message EventPairList {
+  repeated EventPair items = 1;
+}
+
+message EventPair {
+  string key = 1;
+  repeated string vals = 2;
+}
+
+message SLOData {
+  string id = 1;
+  ServiceLevelObjective SLO = 2;
+  google.protobuf.Timestamp createdAt = 3;
+}
+
+message Target {
+  double value = 1;
+}
+
+message Metric {
+  string id = 1;
+  MetricMetadata metadata = 2;
+}
+
+message MetricMetadata {
+  string description = 1;
+  string type = 2;
+  string unit = 3;
+}
+
+message MetricList {
+  repeated Metric items = 1;
+}
+
+message MetricGroupList {
+  map<string, MetricList> groupNameToMetrics = 1;
+}
+
+message ServiceLevelObjectiveList {
+  repeated SLOData items = 1;
+}
+
+enum SLOStatusState {
+  InProgress = 0;
+  Creating = 1;
+  NoData = 2;
+  Ok = 3;
+  Warning = 4;
+  Breaching = 5;
+  // When budgeting or alerting rules have no data, but the rule has data
+  PartialDataOk = 6;
+  InternalError = 7;
+}
+
+message SLOStatus {
+  SLOStatusState state = 1;
+}
+
+message SLOPreviewResponse {
+  PlotVector plotVector = 1;
+}
+
+message PlotVector {
+  double objective = 1;
+  repeated DataPoint items = 2;
+  repeated AlertFiringWindows windows = 3;
+}
+
+message DataPoint {
+  double sli = 1;
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+message AlertFiringWindows {
+  google.protobuf.Timestamp start = 1;
+  google.protobuf.Timestamp end = 2;
+  string severity = 3;
+}
+
+message ListServiceRequest {
+  string datasource = 1;
+}

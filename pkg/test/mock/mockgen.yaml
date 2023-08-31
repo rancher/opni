@@ -50,3 +50,16 @@ mocks:
     dest: pkg/test/mock/update/update.go
     types:
       - UpdateTypeHandler
+  - source: plugins/metrics/apis/cortexadmin/cortexadmin_grpc.pb.go
+    dest: pkg/test/mock/cortexadmin/cortexadmin.go
+    types:
+      - CortexAdminClient
+  - source: pkg/slo/backend/service.go
+    dest: pkg/test/mock/slo/service.go
+    types:
+      - ServiceBackend
+  - source: pkg/slo/backend/store.go
+    dest : pkg/test/mock/slo/store.go
+    types:
+      - SLOStore
+

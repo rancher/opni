@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	metricsExporter "github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/slo/v1"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	metricsdk "go.opentelemetry.io/otel/sdk/metric"
@@ -31,6 +32,7 @@ import (
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	slov1 "github.com/rancher/opni/pkg/apis/slo/v1"
 	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
@@ -47,6 +49,7 @@ func (p *Plugin) Components() []server.ServerComponent {
 		p.NotificationServerComponent,
 		p.EndpointServerComponent,
 		p.AlarmServerComponent,
+		p.SLOServerComponent,
 	}
 }
 
@@ -73,6 +76,7 @@ type Plugin struct {
 	cortexOpsClient     future.Future[cortexops.CortexOpsClient]
 	natsConn            future.Future[*nats.Conn]
 	js                  future.Future[nats.JetStreamContext]
+	sloStorage          future.Future[slo.StorageAPIs]
 	globalWatchers      management.ConditionWatcher
 
 	gatewayConfig future.Future[*v1beta1.GatewayConfig]
@@ -82,6 +86,7 @@ type Plugin struct {
 	*notifications.NotificationServerComponent
 	*endpoints.EndpointServerComponent
 	*alarms.AlarmServerComponent
+	*slo.SLOServerComponent
 
 	node node_backend.AlertingNodeBackend
 
@@ -120,6 +125,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		cortexOpsClient: future.New[cortexops.CortexOpsClient](),
 		natsConn:        future.New[*nats.Conn](),
 		js:              future.New[nats.JetStreamContext](),
+		sloStorage:      future.New[slo.StorageAPIs](),
 
 		gatewayConfig: future.New[*v1beta1.GatewayConfig](),
 
@@ -154,6 +160,10 @@ func NewPlugin(ctx context.Context) *Plugin {
 		p.ctx,
 		p.logger.With("component", "alarms"),
 		p.NotificationServerComponent,
+	)
+
+	p.SLOServerComponent = slo.NewSLOServerComponent(
+		p.logger.With("component", "slo"),
 	)
 
 	future.Wait4(
@@ -194,6 +204,16 @@ func NewPlugin(ctx context.Context) *Plugin {
 		p.EndpointServerComponent.SetConfig(
 			serverCfg,
 		)
+	})
+
+	future.Wait2(p.mgmtClient, p.sloStorage, func(
+		mgmtClient managementv1.ManagementClient,
+		sloStorage slo.StorageAPIs,
+	) {
+		p.SLOServerComponent.Initialize(slo.SLOServerConfiguration{
+			MgmtClient: mgmtClient,
+			Storage:    sloStorage,
+		})
 	})
 
 	future.Wait5(p.js, p.storageClientSet, p.mgmtClient, p.adminClient, p.cortexOpsClient,
@@ -266,6 +286,10 @@ func Scheme(ctx context.Context) meta.Scheme {
 			util.PackService(
 				&node.NodeAlertingCapability_ServiceDesc,
 				&p.node,
+			),
+			util.PackService(
+				&slov1.SLO_ServiceDesc,
+				p.SLOServerComponent,
 			),
 		),
 	)

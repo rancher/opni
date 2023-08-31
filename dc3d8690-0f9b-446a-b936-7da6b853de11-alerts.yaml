@@ -1,0 +1,37 @@
+name: dc3d8690-0f9b-446a-b936-7da6b853de11-alerts
+interval: 1m
+rules:
+    - record: slo:alert:ticket_window
+      expr: (max(slo:sli_error:ratio_rate5m{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"} > bool (0.000347222 * 5.000000000)) without (slo_window) and max(slo:sli_error:ratio_rate30m{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"} > bool (0.000115741 * 5.000000000)) without (slo_window)) or (max(slo:sli_error:ratio_rate2h{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"} > bool (0.000347222 * 5.000000000)) without (slo_window) and max(slo:sli_error:ratio_rate6h{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"} > bool (0.000115741 * 5.000000000)) without (slo_window))
+      labels:
+        slo_opni_id: dc3d8690-0f9b-446a-b936-7da6b853de11
+        slo_opni_name: slo
+        slo_opni_service: opni-gateway
+        slo_severity: ticket
+    - record: slo:alert:page_window
+      expr: (max(slo:sli_error:ratio_rate5m{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"} > bool (0.001666667 * 5.000000000)) without (slo_window) and max(slo:sli_error:ratio_rate30m{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"} > bool (0.000694444 * 5.000000000)) without (slo_window)) or (max(slo:sli_error:ratio_rate2h{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"} > bool (0.001666667 * 5.000000000)) without (slo_window) and max(slo:sli_error:ratio_rate6h{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"} > bool (0.000694444 * 5.000000000)) without (slo_window))
+      labels:
+        slo_opni_id: dc3d8690-0f9b-446a-b936-7da6b853de11
+        slo_opni_name: slo
+        slo_opni_service: opni-gateway
+        slo_severity: page
+    - alert: dc3d8690-0f9b-446a-b936-7da6b853de11-page-alerts
+      expr: (max(slo:sli_error:ratio_rate5m{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"} > bool (0.001666667 * 5.000000000)) without (slo_window) and max(slo:sli_error:ratio_rate30m{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"} > bool (0.000694444 * 5.000000000)) without (slo_window)) or (max(slo:sli_error:ratio_rate2h{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"} > bool (0.001666667 * 5.000000000)) without (slo_window) and max(slo:sli_error:ratio_rate6h{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"} > bool (0.000694444 * 5.000000000)) without (slo_window))
+      labels:
+        opni_uuid: dc3d8690-0f9b-446a-b936-7da6b853de11-page-alerts
+        slo_opni_id: dc3d8690-0f9b-446a-b936-7da6b853de11
+        slo_opni_name: slo
+        slo_opni_service: opni-gateway
+        slo_severity: page
+      annotations:
+        opni_uuid: dc3d8690-0f9b-446a-b936-7da6b853de11-page-alerts
+    - alert: dc3d8690-0f9b-446a-b936-7da6b853de11-ticket-alerts
+      expr: (max(slo:sli_error:ratio_rate5m{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"} > bool (0.000347222 * 5.000000000)) without (slo_window) and max(slo:sli_error:ratio_rate30m{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"} > bool (0.000115741 * 5.000000000)) without (slo_window)) or (max(slo:sli_error:ratio_rate2h{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"} > bool (0.000347222 * 5.000000000)) without (slo_window) and max(slo:sli_error:ratio_rate6h{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"} > bool (0.000115741 * 5.000000000)) without (slo_window))
+      labels:
+        opni_uuid: dc3d8690-0f9b-446a-b936-7da6b853de11-ticket-alerts
+        slo_opni_id: dc3d8690-0f9b-446a-b936-7da6b853de11
+        slo_opni_name: slo
+        slo_opni_service: opni-gateway
+        slo_severity: ticket
+      annotations:
+        opni_uuid: dc3d8690-0f9b-446a-b936-7da6b853de11-ticket-alerts

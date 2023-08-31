@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/prometheus/common/model"
 	"go.uber.org/zap"
@@ -20,7 +21,7 @@ type QueryResult struct {
 type ErrorType string
 
 // struct for unmarshalling from prometheus api responses
-type apiResponse struct {
+type ApiResponse struct {
 	Status    string          `json:"status"`
 	Data      json.RawMessage `json:"data"`
 	ErrorType ErrorType       `json:"errorType"`
@@ -85,8 +86,61 @@ func (qr *QueryResult) GetMatrix() (*model.Matrix, error) {
 	}
 }
 
+func (qr *QueryResult) GetScalar() (*model.Scalar, error) {
+	switch qr.V.Type() {
+	case model.ValScalar:
+		v := *qr.V.(*model.Scalar)
+		return &v, nil
+	default:
+		return nil, fmt.Errorf("cannot unmarshal prometheus response into scalar type")
+	}
+}
+
+type Sample struct {
+	Value float64
+	// TODO Milliseconds?
+	Timestamp int64
+}
+
+func (qr *QueryResult) MapToSamples() []Sample {
+	res := []Sample{}
+	switch qr.V.Type() {
+	case model.ValVector:
+		v := qr.V.(model.Vector)
+		for _, sample := range v {
+			res = append(res, Sample{
+				Value:     float64(sample.Value),
+				Timestamp: int64(sample.Timestamp),
+			})
+		}
+	case model.ValScalar:
+		v := qr.V.(*model.Scalar)
+		res = append(res, Sample{
+			Value:     float64(v.Value),
+			Timestamp: int64(v.Timestamp),
+		})
+	case model.ValMatrix:
+		sampleStream := qr.V.(model.Matrix)
+		for _, sample := range sampleStream {
+			for _, s := range sample.Values {
+				res = append(res, Sample{
+					Value:     float64(s.Value),
+					Timestamp: int64(s.Timestamp),
+				})
+			}
+		}
+	default:
+		panic("bug: unreachable code")
+	}
+
+	slices.SortFunc(res, func(i, j Sample) int {
+		return int(i.Timestamp - j.Timestamp)
+	})
+	return res
+}
+
 func UnmarshalPrometheusResponse(data []byte) (*QueryResult, error) {
-	var a apiResponse
+	var a ApiResponse
 	var q QueryResult
 
 	if err := json.Unmarshal(data, &a); err != nil {
@@ -128,15 +182,6 @@ type Response struct {
 	ErrorType errorType   `json:"errorType,omitempty"`
 	Error     string      `json:"error,omitempty"`
 	Warnings  []string    `json:"warnings,omitempty"`
-}
-
-func unmarshallPrometheusWebResponseData(data []byte) (*Response, error) {
-	var r Response
-	err := json.Unmarshal(data, &r)
-	if err != nil {
-		return nil, err
-	}
-	return &r, nil
 }
 
 func UnmarshallPrometheusWebResponse(resp *http.Response, _ *zap.SugaredLogger) (*Response, error) {

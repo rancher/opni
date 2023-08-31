@@ -1,0 +1,49 @@
+name: dc3d8690-0f9b-446a-b936-7da6b853de11-metadata
+interval: 1m
+rules:
+    - record: slo:objective:ratio
+      expr: vector(0.950000000)
+      labels:
+        slo_opni_id: dc3d8690-0f9b-446a-b936-7da6b853de11
+        slo_opni_name: slo
+        slo_opni_service: opni-gateway
+    - record: slo:error_budget:ratio
+      expr: vector(1-0.950000000)
+      labels:
+        slo_opni_id: dc3d8690-0f9b-446a-b936-7da6b853de11
+        slo_opni_name: slo
+        slo_opni_service: opni-gateway
+    - record: slo:time_period:days
+      expr: vector(7)
+      labels:
+        slo_opni_id: dc3d8690-0f9b-446a-b936-7da6b853de11
+        slo_opni_name: slo
+        slo_opni_service: opni-gateway
+    - record: slo:current_burn_rate:ratio
+      expr: |-
+        slo:sli_error:ratio_rate5m{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"} / on(slo_opni_id, slo_opni_service, slo_opni_name) group_left
+        slo:error_budget:ratio{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"}
+      labels:
+        slo_opni_id: dc3d8690-0f9b-446a-b936-7da6b853de11
+        slo_opni_name: slo
+        slo_opni_service: opni-gateway
+    - record: slo:period_burn_rate:ratio
+      expr: |-
+        slo:sli_error:ratio_rate7d{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"} / on(slo_opni_id, slo_opni_service, slo_opni_name) group_left
+        slo:error_budget:ratio{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"}
+      labels:
+        slo_opni_id: dc3d8690-0f9b-446a-b936-7da6b853de11
+        slo_opni_name: slo
+        slo_opni_service: opni-gateway
+    - record: slo:period_error_budget_remaining:ratio
+      expr: 1 - slo:period_burn_rate:ratio{slo_opni_id="dc3d8690-0f9b-446a-b936-7da6b853de11", slo_opni_service="opni-gateway", slo_opni_name="slo"}
+      labels:
+        slo_opni_id: dc3d8690-0f9b-446a-b936-7da6b853de11
+        slo_opni_name: slo
+        slo_opni_service: opni-gateway
+    - record: opni_slo_info
+      expr: vector(1)
+      labels:
+        slo_opni_id: dc3d8690-0f9b-446a-b936-7da6b853de11
+        slo_opni_name: slo
+        slo_opni_service: opni-gateway

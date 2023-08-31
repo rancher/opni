@@ -1,0 +1,52 @@
+name: dc3d8690-0f9b-446a-b936-7da6b853de11-recording
+interval: 1m
+rules:
+    - record: slo:sli_error:ratio_rate5m
+      expr: 1 - ((sum(rate(process_max_fds{job="opni-gateway",__tenant_id__=~"0194fdc2-fa2f-4cc0-81d3-ff12045b73c8"}[5m])))/(sum(rate(process_max_fds{job="opni-gateway"}[5m]))))
+      labels:
+        slo_opni_id: dc3d8690-0f9b-446a-b936-7da6b853de11
+        slo_opni_name: slo
+        slo_opni_service: opni-gateway
+        slo_window: 5m
+    - record: slo:sli_error:ratio_rate30m
+      expr: 1 - ((sum(rate(process_max_fds{job="opni-gateway",__tenant_id__=~"0194fdc2-fa2f-4cc0-81d3-ff12045b73c8"}[30m])))/(sum(rate(process_max_fds{job="opni-gateway"}[30m]))))
+      labels:
+        slo_opni_id: dc3d8690-0f9b-446a-b936-7da6b853de11
+        slo_opni_name: slo
+        slo_opni_service: opni-gateway
+        slo_window: 30m
+    - record: slo:sli_error:ratio_rate1h
+      expr: 1 - ((sum(rate(process_max_fds{job="opni-gateway",__tenant_id__=~"0194fdc2-fa2f-4cc0-81d3-ff12045b73c8"}[1h])))/(sum(rate(process_max_fds{job="opni-gateway"}[1h]))))
+      labels:
+        slo_opni_id: dc3d8690-0f9b-446a-b936-7da6b853de11
+        slo_opni_name: slo
+        slo_opni_service: opni-gateway
+        slo_window: 1h
+    - record: slo:sli_error:ratio_rate2h
+      expr: 1 - ((sum(rate(process_max_fds{job="opni-gateway",__tenant_id__=~"0194fdc2-fa2f-4cc0-81d3-ff12045b73c8"}[2h])))/(sum(rate(process_max_fds{job="opni-gateway"}[2h]))))
+      labels:
+        slo_opni_id: dc3d8690-0f9b-446a-b936-7da6b853de11
+        slo_opni_name: slo
+        slo_opni_service: opni-gateway
+        slo_window: 2h
+    - record: slo:sli_error:ratio_rate6h
+      expr: 1 - ((sum(rate(process_max_fds{job="opni-gateway",__tenant_id__=~"0194fdc2-fa2f-4cc0-81d3-ff12045b73c8"}[6h])))/(sum(rate(process_max_fds{job="opni-gateway"}[6h]))))
+      labels:
+        slo_opni_id: dc3d8690-0f9b-446a-b936-7da6b853de11
+        slo_opni_name: slo
+        slo_opni_service: opni-gateway
+        slo_window: 6h
+    - record: slo:sli_error:ratio_rate1d
+      expr: 1 - ((sum(rate(process_max_fds{job="opni-gateway",__tenant_id__=~"0194fdc2-fa2f-4cc0-81d3-ff12045b73c8"}[1d])))/(sum(rate(process_max_fds{job="opni-gateway"}[1d]))))
+      labels:
+        slo_opni_id: dc3d8690-0f9b-446a-b936-7da6b853de11
+        slo_opni_name: slo
+        slo_opni_service: opni-gateway
+        slo_window: 1d
+    - record: slo:sli_error:ratio_rate7d
+      expr: 1 - ((sum(rate(process_max_fds{job="opni-gateway",__tenant_id__=~"0194fdc2-fa2f-4cc0-81d3-ff12045b73c8"}[7d])))/(sum(rate(process_max_fds{job="opni-gateway"}[7d]))))
+      labels:
+        slo_opni_id: dc3d8690-0f9b-446a-b936-7da6b853de11
+        slo_opni_name: slo
+        slo_opni_service: opni-gateway
+        slo_window: 7d

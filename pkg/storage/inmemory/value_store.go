@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+	gsync "github.com/kralicky/gpkg/sync"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
@@ -21,40 +23,18 @@ type valueStoreElement[T any] struct {
 }
 
 type inMemoryValueStore[T any] struct {
-	ValueStoreOptions[T]
 	lock      sync.RWMutex
 	revision  int64
 	values    *ring.Ring
 	cloneFunc func(T) T
-}
-
-type ValueStoreOptions[T any] struct {
-	onValueChanged []func(prev, value T)
-}
-
-type ValueStoreOption[T any] func(*ValueStoreOptions[T])
-
-// Adds a listener function which will be called when the value is created,
-// updated, or deleted, with the following considerations:
-// - For create events, the previous value will be the zero value for T.
-// - For delete events, the new value will be the zero value for T.
-func OnValueChanged[T any](listener func(prev, value T)) ValueStoreOption[T] {
-	return func(o *ValueStoreOptions[T]) {
-		o.onValueChanged = append(o.onValueChanged, listener)
-	}
+	watches   gsync.Map[string, func(storage.WatchEvent[storage.KeyRevision[T]])]
 }
 
 // Returns a new value store for any type T that can be cloned using the provided clone function.
-func NewValueStore[T any, O ValueStoreOption[T]](cloneFunc func(T) T, opts ...O) storage.ValueStoreT[T] {
-	options := ValueStoreOptions[T]{}
-	for _, opt := range opts {
-		opt(&options)
-	}
-
+func NewValueStore[T any](cloneFunc func(T) T) storage.ValueStoreT[T] {
 	return &inMemoryValueStore[T]{
-		ValueStoreOptions: options,
-		values:            ring.New(64),
-		cloneFunc:         cloneFunc,
+		values:    ring.New(64),
+		cloneFunc: cloneFunc,
 	}
 }
 
@@ -80,9 +60,10 @@ func (s *inMemoryValueStore[T]) Put(_ context.Context, value T, opts ...storage.
 	previous := s.values.Value
 	s.revision++
 	next := s.values.Next()
+	timestamp := time.Now()
 	next.Value = &valueStoreElement[T]{
 		revision:  s.revision,
-		timestamp: time.Now(),
+		timestamp: timestamp,
 		value:     value,
 	}
 	if options.RevisionOut != nil {
@@ -90,19 +71,38 @@ func (s *inMemoryValueStore[T]) Put(_ context.Context, value T, opts ...storage.
 	}
 	s.values = next
 
-	var prevValue T
-	if previous != nil {
-		prevValue = s.cloneFunc(previous.(*valueStoreElement[T]).value)
+	var prevValue *valueStoreElement[T]
+	if previous != nil && !previous.(*valueStoreElement[T]).deleted {
+		prevValue = previous.(*valueStoreElement[T])
 	}
 	var wg sync.WaitGroup
-	for _, listener := range s.onValueChanged {
-		listener := listener
+	s.watches.Range(func(_ string, listener func(storage.WatchEvent[storage.KeyRevision[T]])) bool {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			listener(prevValue, value)
+			current := &storage.KeyRevisionImpl[T]{
+				V:    s.cloneFunc(value),
+				Rev:  s.revision,
+				Time: timestamp,
+			}
+
+			var prev storage.KeyRevision[T]
+			if prevValue != nil {
+				prev = &storage.KeyRevisionImpl[T]{
+					V:    s.cloneFunc(prevValue.value),
+					Rev:  prevValue.revision,
+					Time: prevValue.timestamp,
+				}
+			}
+
+			listener(storage.WatchEvent[storage.KeyRevision[T]]{
+				EventType: storage.WatchEventPut,
+				Current:   current,
+				Previous:  prev,
+			})
 		}()
-	}
+		return true
+	})
 	wg.Wait()
 
 	return nil
@@ -162,6 +162,120 @@ func (s *inMemoryValueStore[T]) Get(_ context.Context, opts ...storage.GetOpt) (
 	return s.cloneFunc(found.value), nil
 }
 
+func (s *inMemoryValueStore[T]) Watch(ctx context.Context, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[T]], error) {
+	options := storage.WatchOptions{}
+	options.Apply(opts...)
+
+	updateC := make(chan storage.WatchEvent[storage.KeyRevision[T]], 64)
+	buffer := make(chan storage.WatchEvent[storage.KeyRevision[T]], 8)
+
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	current := s.values
+	if options.Revision != nil {
+		// walk back until we find the starting revision
+		if options.Revision != nil {
+			for ; current != s.values.Next(); current = current.Prev() {
+				if current.Value == nil {
+					return nil, storage.ErrNotFound
+				}
+				curElem := current.Value.(*valueStoreElement[T])
+				if curElem.deleted {
+					continue
+				}
+				if curElem.revision == *options.Revision {
+					break
+				}
+			}
+		}
+	} else {
+		current = current.Next()
+	}
+
+	// if there is a previous value for the target revision, keep track of it
+	var previous storage.KeyRevision[T]
+	if current.Prev().Value != nil {
+		prevValue := current.Prev().Value.(*valueStoreElement[T])
+		if !prevValue.deleted {
+			previous = &storage.KeyRevisionImpl[T]{
+				V:    s.cloneFunc(prevValue.value),
+				Rev:  prevValue.revision,
+				Time: prevValue.timestamp,
+			}
+		} else {
+			previous = nil
+		}
+	}
+
+	// walk forward until we reach the current value and write the events
+	for ; current != s.values.Next(); current = current.Next() {
+		if current.Value == nil {
+			continue
+		}
+		curElem := current.Value.(*valueStoreElement[T])
+		if curElem.deleted {
+			updateC <- storage.WatchEvent[storage.KeyRevision[T]]{
+				EventType: storage.WatchEventDelete,
+				Previous:  previous,
+			}
+			previous = nil
+			continue
+		}
+		current := &storage.KeyRevisionImpl[T]{
+			V:    s.cloneFunc(curElem.value),
+			Rev:  curElem.revision,
+			Time: curElem.timestamp,
+		}
+		ev := storage.WatchEvent[storage.KeyRevision[T]]{
+			EventType: storage.WatchEventPut,
+			Current:   current,
+		}
+		if previous != nil {
+			ev.Previous = previous
+		}
+
+		updateC <- ev
+
+		previous = &storage.KeyRevisionImpl[T]{
+			V:    curElem.value,
+			Rev:  curElem.revision,
+			Time: curElem.timestamp,
+		}
+	}
+
+	// watch for future updates
+	id := uuid.NewString()
+
+	s.watches.Store(id, func(ev storage.WatchEvent[storage.KeyRevision[T]]) {
+		select {
+		case <-ctx.Done():
+		case buffer <- ev:
+		}
+	})
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				s.watches.Delete(id)
+				for {
+					select {
+					case v := <-buffer:
+						updateC <- v
+					default:
+						close(updateC)
+						return
+					}
+				}
+			case ev := <-buffer:
+				updateC <- ev
+			}
+		}
+	}()
+
+	return updateC, nil
+}
+
 func (s *inMemoryValueStore[T]) Delete(_ context.Context, opts ...storage.DeleteOpt) error {
 	options := storage.DeleteOptions{}
 	options.Apply(opts...)
@@ -187,17 +301,23 @@ func (s *inMemoryValueStore[T]) Delete(_ context.Context, opts ...storage.Delete
 	}
 	s.values = next
 
-	prevValue := s.cloneFunc(previous.(*valueStoreElement[T]).value)
+	prevValue := previous.(*valueStoreElement[T])
 	var wg sync.WaitGroup
-	for _, listener := range s.onValueChanged {
-		listener := listener
+	s.watches.Range(func(_ string, listener func(storage.WatchEvent[storage.KeyRevision[T]])) bool {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			var zero T
-			listener(prevValue, zero)
+			listener(storage.WatchEvent[storage.KeyRevision[T]]{
+				EventType: storage.WatchEventDelete,
+				Previous: &storage.KeyRevisionImpl[T]{
+					V:    s.cloneFunc(prevValue.value),
+					Rev:  prevValue.revision,
+					Time: prevValue.timestamp,
+				},
+			})
 		}()
-	}
+		return true
+	})
 	wg.Wait()
 	return nil
 }

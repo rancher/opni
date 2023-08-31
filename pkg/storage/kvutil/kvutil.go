@@ -59,6 +59,10 @@ func (s *kvStorePrefixImpl[T]) Get(ctx context.Context, key string, opts ...stor
 	return s.base.Get(ctx, s.prefix+key, opts...)
 }
 
+func (s *kvStorePrefixImpl[T]) Watch(ctx context.Context, key string, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[T]], error) {
+	return s.base.Watch(ctx, s.prefix+key, opts...)
+}
+
 func (s *kvStorePrefixImpl[T]) Delete(ctx context.Context, key string, opts ...storage.DeleteOpt) error {
 	return s.base.Delete(ctx, s.prefix+key, opts...)
 }
@@ -91,6 +95,10 @@ func (s *singleValueStoreImpl[T]) Get(ctx context.Context, opts ...storage.GetOp
 	return s.base.Get(ctx, s.key, opts...)
 }
 
+func (s *singleValueStoreImpl[T]) Watch(ctx context.Context, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[T]], error) {
+	return s.base.Watch(ctx, s.key, opts...)
+}
+
 func (s *singleValueStoreImpl[T]) Delete(ctx context.Context, opts ...storage.DeleteOpt) error {
 	return s.base.Delete(ctx, s.key, opts...)
 }
@@ -109,6 +117,7 @@ func WithKey[T any](base storage.KeyValueStoreT[T], key string) storage.ValueSto
 type ValueStoreAdapter[T any] struct {
 	PutFunc     func(ctx context.Context, value T, opts ...storage.PutOpt) error
 	GetFunc     func(ctx context.Context, opts ...storage.GetOpt) (T, error)
+	WatchFunc   func(ctx context.Context, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[T]], error)
 	DeleteFunc  func(ctx context.Context, opts ...storage.DeleteOpt) error
 	HistoryFunc func(ctx context.Context, opts ...storage.HistoryOpt) ([]storage.KeyRevision[T], error)
 }
@@ -119,6 +128,10 @@ func (s ValueStoreAdapter[T]) Put(ctx context.Context, value T, opts ...storage.
 
 func (s ValueStoreAdapter[T]) Get(ctx context.Context, opts ...storage.GetOpt) (T, error) {
 	return s.GetFunc(ctx, opts...)
+}
+
+func (s ValueStoreAdapter[T]) Watch(ctx context.Context, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[T]], error) {
+	return s.WatchFunc(ctx, opts...)
 }
 
 func (s ValueStoreAdapter[T]) Delete(ctx context.Context, opts ...storage.DeleteOpt) error {

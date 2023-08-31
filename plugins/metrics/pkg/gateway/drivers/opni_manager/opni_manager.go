@@ -28,7 +28,7 @@ import (
 )
 
 type OpniManagerClusterDriverOptions struct {
-	K8sClient          client.Client                                               `option:"k8sClient"`
+	K8sClient          client.WithWatch                                            `option:"k8sClient"`
 	MonitoringCluster  types.NamespacedName                                        `option:"monitoringCluster"`
 	GatewayRef         types.NamespacedName                                        `option:"gatewayRef"`
 	DefaultConfigStore storage.ValueStoreT[*cortexops.CapabilityBackendConfigSpec] `option:"defaultConfigStore"`

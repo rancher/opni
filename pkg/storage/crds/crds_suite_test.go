@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -32,6 +33,7 @@ import (
 
 func TestCrds(t *testing.T) {
 	RegisterFailHandler(Fail)
+	SetDefaultEventuallyTimeout(1 * time.Minute)
 	RunSpecs(t, "CRDs Storage Suite")
 }
 
@@ -46,7 +48,7 @@ func (methods) ControllerReference() (client.Object, bool) {
 }
 
 type broker struct {
-	k8sClient  client.Client
+	k8sClient  client.WithWatch
 	namespaces map[string]struct{}
 }
 

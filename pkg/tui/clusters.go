@@ -125,23 +125,26 @@ func (m ClusterListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.help.Width = msg.Width
 	case *managementv1.WatchEvent:
 		switch msg.GetType() {
-		case managementv1.WatchEventType_Created:
+		case managementv1.WatchEventType_Put:
 			healthStatus, ok := m.lateJoinHealthStatus[msg.GetCluster().GetId()]
 			if ok {
 				delete(m.lateJoinHealthStatus, msg.GetCluster().GetId())
 			}
-			m.rows = append(m.rows, clusterData{
-				cluster:      msg.GetCluster(),
-				healthStatus: healthStatus,
-			})
-		case managementv1.WatchEventType_Updated:
+			found := false
 			for i, row := range m.rows {
 				if row.cluster.Id == msg.GetCluster().GetId() {
 					m.rows[i].cluster = msg.GetCluster()
+					found = true
 					break
 				}
 			}
-		case managementv1.WatchEventType_Deleted:
+			if !found {
+				m.rows = append(m.rows, clusterData{
+					cluster:      msg.GetCluster(),
+					healthStatus: healthStatus,
+				})
+			}
+		case managementv1.WatchEventType_Delete:
 			ref := msg.GetCluster()
 			for i, row := range m.rows {
 				if row.cluster.Id == ref.GetId() {

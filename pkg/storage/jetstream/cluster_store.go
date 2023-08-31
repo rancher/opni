@@ -124,7 +124,7 @@ func (s *JetStreamStore) WatchCluster(ctx context.Context, cluster *corev1.Clust
 					if e.Current.GetResourceVersion() != cluster.GetResourceVersion() {
 						// only send the initial update if the resource version has changed
 						eventC <- storage.WatchEvent[*corev1.Cluster]{
-							EventType: storage.WatchEventUpdate,
+							EventType: storage.WatchEventPut,
 							Current:   e.Current,
 							Previous:  cluster,
 						}
@@ -142,7 +142,7 @@ func (s *JetStreamStore) WatchCluster(ctx context.Context, cluster *corev1.Clust
 					return
 				}
 				if e, ok := s.translateClusterWatchEvent(update); ok {
-					if e.EventType == storage.WatchEventUpdate {
+					if e.EventType == storage.WatchEventPut {
 						e.Previous = current
 						current = e.Current
 					} else if e.EventType == storage.WatchEventDelete {
@@ -171,7 +171,7 @@ func (s *JetStreamStore) translateClusterWatchEvent(update nats.KeyValueEntry) (
 		}
 		cluster.SetResourceVersion(fmt.Sprint(update.Revision()))
 		return storage.WatchEvent[*corev1.Cluster]{
-			EventType: storage.WatchEventUpdate,
+			EventType: storage.WatchEventPut,
 			Current:   cluster,
 		}, true
 	case nats.KeyValueDelete, nats.KeyValuePurge:
@@ -214,14 +214,14 @@ INITIAL:
 				if knownCluster, ok := knownClusterMap[e.Current.Id]; !ok {
 					// cluster was not known
 					initialEvents = append(initialEvents, storage.WatchEvent[*corev1.Cluster]{
-						EventType: storage.WatchEventCreate,
+						EventType: storage.WatchEventPut,
 						Current:   e.Current,
 					})
 					knownClusterMap[e.Current.Id] = e.Current
 				} else if knownCluster.GetResourceVersion() != e.Current.GetResourceVersion() {
 					// cluster was known, but resource version has changed
 					initialEvents = append(initialEvents, storage.WatchEvent[*corev1.Cluster]{
-						EventType: storage.WatchEventUpdate,
+						EventType: storage.WatchEventPut,
 						Current:   e.Current,
 						Previous:  knownCluster,
 					})
@@ -253,9 +253,9 @@ INITIAL:
 				}
 				if e, ok := s.translateClusterWatchEvent(update); ok {
 					switch e.EventType {
-					case storage.WatchEventUpdate:
+					case storage.WatchEventPut:
 						if prev, ok := knownClusterMap[e.Current.Id]; !ok {
-							e.EventType = storage.WatchEventCreate
+							e.EventType = storage.WatchEventPut
 						} else {
 							e.Previous = prev
 						}

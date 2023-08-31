@@ -326,7 +326,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			By("ensuring an Update update is received")
 			select {
 			case event := <-wc:
-				Expect(event.EventType).To(Equal(storage.WatchEventUpdate))
+				Expect(event.EventType).To(Equal(storage.WatchEventPut))
 				Expect(event.Previous.Metadata.Labels).To(Equal(map[string]string{
 					"foo": "bar",
 				}))
@@ -385,7 +385,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			By("ensuring an Update update is received")
 			select {
 			case event := <-wc:
-				Expect(event.EventType).To(Equal(storage.WatchEventUpdate))
+				Expect(event.EventType).To(Equal(storage.WatchEventPut))
 				Expect(event.Previous.GetResourceVersion()).To(Equal(cluster.GetResourceVersion()))
 				Expect(event.Current.GetResourceVersion()).NotTo(Equal(cluster.GetResourceVersion()))
 				Expect(event.Previous.Metadata.Labels).To(Equal(map[string]string{
@@ -418,7 +418,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			}
 			for i := 0; i < len(allClusters.Items); i++ {
 				event := <-wc
-				Expect(event.EventType).To(Equal(storage.WatchEventCreate))
+				Expect(event.EventType).To(Equal(storage.WatchEventPut))
 				Expect(event.Previous).To(BeNil())
 				Expect(event.Current).NotTo(BeNil())
 				id := event.Current.Id
@@ -463,13 +463,13 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			var event storage.WatchEvent[*corev1.Cluster]
 			var ids []string
 			Eventually(wc).Should(Receive(&event))
-			Expect(event.EventType).To(Equal(storage.WatchEventCreate))
+			Expect(event.EventType).To(Equal(storage.WatchEventPut))
 			Expect(event.Previous).To(BeNil())
 			Expect(event.Current).NotTo(BeNil())
 			ids = append(ids, event.Current.Id)
 
 			Eventually(wc).Should(Receive(&event))
-			Expect(event.EventType).To(Equal(storage.WatchEventCreate))
+			Expect(event.EventType).To(Equal(storage.WatchEventPut))
 			Expect(event.Previous).To(BeNil())
 			Expect(event.Current).NotTo(BeNil())
 			ids = append(ids, event.Current.Id)
@@ -486,7 +486,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 
 			By("ensuring an Update event is received for the first cluster")
 			Eventually(wc).Should(Receive(&event))
-			Expect(event.EventType).To(Equal(storage.WatchEventUpdate))
+			Expect(event.EventType).To(Equal(storage.WatchEventPut))
 			Expect(event.Previous.Id).To(Equal(cluster.Id))
 			Expect(event.Current.Id).To(Equal(cluster.Id))
 			Expect(event.Current.Metadata.Labels).To(Equal(map[string]string{
@@ -548,19 +548,18 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			}
 
 			e1, e2 := <-events, <-events
-			Expect(e1.EventType).NotTo(Equal(e2.EventType))
 			var create, update storage.WatchEvent[*corev1.Cluster]
-			if e1.EventType == storage.WatchEventCreate {
+			if e1.Previous == nil {
 				create, update = e1, e2
 			} else {
 				create, update = e2, e1
 			}
-			Expect(create.EventType).To(Equal(storage.WatchEventCreate))
+			Expect(create.EventType).To(Equal(storage.WatchEventPut))
 			Expect(create.Previous).To(BeNil())
 			Expect(create.Current).NotTo(BeNil())
 			Expect(create.Current.Id).To(Equal(newCluster.Id))
 
-			Expect(update.EventType).To(Equal(storage.WatchEventUpdate))
+			Expect(update.EventType).To(Equal(storage.WatchEventPut))
 			Expect(update.Previous.Id).To(Equal(allClusters.Items[0].Id))
 			Expect(update.Current.Id).To(Equal(allClusters.Items[0].Id))
 			Expect(update.Current.Metadata.Labels).To(HaveKeyWithValue("foo", randomUpdatedLabelValue))
@@ -583,7 +582,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			By("ensuring a Create event is received for the second cluster")
 			var event storage.WatchEvent[*corev1.Cluster]
 			Eventually(wc).Should(Receive(&event))
-			Expect(event.EventType).To(Equal(storage.WatchEventCreate))
+			Expect(event.EventType).To(Equal(storage.WatchEventPut))
 			Expect(event.Previous).To(BeNil())
 			Expect(event.Current).NotTo(BeNil())
 			Expect(event.Current.Id).To(Equal(cluster2.Id))
@@ -598,7 +597,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 
 			By("ensuring an Update event is received for the first cluster")
 			Eventually(wc).Should(Receive(&event))
-			Expect(event.EventType).To(Equal(storage.WatchEventUpdate))
+			Expect(event.EventType).To(Equal(storage.WatchEventPut))
 			Expect(event.Previous.Id).To(Equal(newCluster.Id))
 			Expect(event.Current.Id).To(Equal(newCluster.Id))
 			Expect(event.Current.Metadata.Labels).To(Equal(map[string]string{

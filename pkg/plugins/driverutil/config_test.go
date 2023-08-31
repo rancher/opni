@@ -17,9 +17,17 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
+var transform = func(v storage.WatchEvent[storage.KeyRevision[*ext.SampleConfiguration]]) *ext.SampleConfiguration {
+	if v.Current == nil {
+		return nil
+	}
+	return v.Current.Value()
+}
+
 var _ = Describe("DefaultingConfigTracker", Label("unit"), Ordered, func() {
 	var (
 		ctx           context.Context
+		ca            context.CancelFunc
 		configTracker *driverutil.DefaultingConfigTracker[*ext.SampleConfiguration]
 	)
 
@@ -32,16 +40,15 @@ var _ = Describe("DefaultingConfigTracker", Label("unit"), Ordered, func() {
 		s.SecretField = lo.ToPtr("default-secret")
 	}
 
-	var updateC chan *ext.SampleConfiguration
+	var updateC <-chan storage.WatchEvent[storage.KeyRevision[*ext.SampleConfiguration]]
 	BeforeEach(func() {
-		updateC = make(chan *ext.SampleConfiguration, 10)
-
+		ctx, ca = context.WithCancel(context.Background())
+		DeferCleanup(ca)
 		defaultStore := inmemory.NewValueStore[*ext.SampleConfiguration](util.ProtoClone)
-		activeStore := inmemory.NewValueStore(util.ProtoClone, inmemory.OnValueChanged(func(prev, value *ext.SampleConfiguration) {
-			updateC <- value
-		}))
-		ctx = context.TODO()
-
+		activeStore := inmemory.NewValueStore[*ext.SampleConfiguration](util.ProtoClone)
+		var err error
+		updateC, err = activeStore.Watch(ctx)
+		Expect(err).NotTo(HaveOccurred())
 		configTracker = driverutil.NewDefaultingConfigTracker(defaultStore, activeStore, setDefaults)
 	})
 	When("getting the default config", func() {
@@ -115,7 +122,7 @@ var _ = Describe("DefaultingConfigTracker", Label("unit"), Ordered, func() {
 				setDefaults(defaults)
 				merge.MergeWithReplace(defaults, active)
 
-				Expect(<-updateC).To(testutil.ProtoEqual(defaults))
+				Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(defaults))))
 
 				conf, err := configTracker.GetConfig(ctx)
 				Expect(err).NotTo(HaveOccurred())
@@ -133,7 +140,7 @@ var _ = Describe("DefaultingConfigTracker", Label("unit"), Ordered, func() {
 				setDefaults(defaults)
 				merge.MergeWithReplace(defaults, expected)
 
-				Expect(<-updateC).To(testutil.ProtoEqual(defaults))
+				Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(defaults))))
 
 				conf, err := configTracker.GetConfigOrDefault(ctx)
 				defaults.RedactSecrets()
@@ -186,7 +193,7 @@ var _ = Describe("DefaultingConfigTracker", Label("unit"), Ordered, func() {
 
 				err := configTracker.ApplyConfig(ctx, newActive)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(<-updateC).To(testutil.ProtoEqual(mergedConfig.WithoutRevision()))
+				Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(mergedConfig.WithoutRevision()))))
 
 				mergedConfig.RedactSecrets()
 				Expect(configTracker.GetConfig(ctx)).To(testutil.ProtoEqual(mergedConfig.WithRevision(1)))
@@ -206,7 +213,7 @@ var _ = Describe("DefaultingConfigTracker", Label("unit"), Ordered, func() {
 					setDefaults(newDefaults)
 					merge.MergeWithReplace(newDefaults, newActive)
 
-					Expect(<-updateC).To(testutil.ProtoEqual(newDefaults))
+					Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(newDefaults))))
 
 					newDefaults.RedactSecrets()
 					Expect(configTracker.GetConfig(ctx)).To(testutil.ProtoEqual(newDefaults.WithRevision(1)))
@@ -223,10 +230,10 @@ var _ = Describe("DefaultingConfigTracker", Label("unit"), Ordered, func() {
 						StringField: lo.ToPtr("oldActive"),
 						SecretField: lo.ToPtr("***"),
 					})).To(Succeed())
-					Expect(<-updateC).To(testutil.ProtoEqual(&ext.SampleConfiguration{
+					Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(&ext.SampleConfiguration{
 						StringField: lo.ToPtr("oldActive"),
 						SecretField: lo.ToPtr("default-secret"),
-					}))
+					}))))
 
 					err := configTracker.ApplyConfig(ctx, &ext.SampleConfiguration{
 						Revision:    v1.NewRevision(1),
@@ -234,10 +241,10 @@ var _ = Describe("DefaultingConfigTracker", Label("unit"), Ordered, func() {
 					})
 					Expect(err).NotTo(HaveOccurred())
 
-					Expect(<-updateC).To(testutil.ProtoEqual(&ext.SampleConfiguration{
+					Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(&ext.SampleConfiguration{
 						StringField: lo.ToPtr("newActive"),
 						SecretField: lo.ToPtr("default-secret"),
-					}))
+					}))))
 
 					newerActive := &ext.SampleConfiguration{
 						Revision:    v1.NewRevision(2),
@@ -245,10 +252,10 @@ var _ = Describe("DefaultingConfigTracker", Label("unit"), Ordered, func() {
 						SecretField: lo.ToPtr("***"),
 					}
 					Expect(configTracker.ApplyConfig(ctx, newerActive)).To(Succeed())
-					Expect(<-updateC).To(testutil.ProtoEqual(&ext.SampleConfiguration{
+					Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(&ext.SampleConfiguration{
 						StringField: lo.ToPtr("newerActive"),
 						SecretField: lo.ToPtr("default-secret"),
-					}))
+					}))))
 
 					Expect(configTracker.GetConfig(ctx)).To(testutil.ProtoEqual(&ext.SampleConfiguration{
 						Revision:    v1.NewRevision(3),
@@ -272,14 +279,14 @@ var _ = Describe("DefaultingConfigTracker", Label("unit"), Ordered, func() {
 					RepeatedField: []string{"new", "active"},
 				}
 				Expect(configTracker.ApplyConfig(ctx, existing)).To(Succeed())
-				Expect(<-updateC).To(testutil.ProtoEqual(existing))
+				Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(existing))))
 				mergedConfig := existing
 				merge.MergeWithReplace(mergedConfig, newActive)
 
 				err := configTracker.ApplyConfig(ctx, newActive.WithRevision(1))
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(<-updateC).To(testutil.ProtoEqual(mergedConfig.WithoutRevision()))
+				Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(mergedConfig.WithoutRevision()))))
 				mergedConfig.RedactSecrets()
 				Expect(configTracker.GetConfig(ctx)).To(testutil.ProtoEqual(mergedConfig.WithRevision(2)))
 			})
@@ -298,7 +305,7 @@ var _ = Describe("DefaultingConfigTracker", Label("unit"), Ordered, func() {
 				StringField: lo.ToPtr("newActive"),
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(<-updateC).To(testutil.ProtoEqual(defClone))
+			Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(defClone))))
 			defClone.RedactSecrets()
 			Expect(configTracker.GetConfig(ctx)).To(testutil.ProtoEqual(defClone.WithRevision(1)))
 		})
@@ -311,12 +318,12 @@ var _ = Describe("DefaultingConfigTracker", Label("unit"), Ordered, func() {
 			newActive := &ext.SampleConfiguration{}
 			setDefaults(newActive)
 			newActive.StringField = lo.ToPtr("active")
-			Expect(<-updateC).To(testutil.ProtoEqual(newActive))
+			Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(newActive))))
 
 			err := configTracker.ResetConfig(ctx, nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(<-updateC).To(BeNil())
+			Eventually(updateC).Should(Receive(WithTransform(transform, BeNil())))
 
 			_, err = configTracker.GetConfig(ctx)
 			Expect(err).To(testutil.MatchStatusCode(storage.ErrNotFound))
@@ -337,7 +344,7 @@ var _ = Describe("DefaultingConfigTracker", Label("unit"), Ordered, func() {
 					MapField:      map[string]string{"a": "b", "c": "d"},
 				}
 				Expect(configTracker.ApplyConfig(ctx, conf)).To(Succeed())
-				Expect(<-updateC).To(testutil.ProtoEqual(conf))
+				Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(conf))))
 
 				err := configTracker.ResetConfig(ctx, &fieldmaskpb.FieldMask{
 					Paths: []string{"stringField"},
@@ -348,7 +355,7 @@ var _ = Describe("DefaultingConfigTracker", Label("unit"), Ordered, func() {
 				setDefaults(expected)
 				expected.StringField = lo.ToPtr("foo")
 
-				Expect(<-updateC).To(testutil.ProtoEqual(expected))
+				Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(expected))))
 			})
 		})
 	})

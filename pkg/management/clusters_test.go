@@ -83,7 +83,7 @@ var _ = Describe("Clusters", Ordered, Label("unit"), func() {
 					if event == nil {
 						break
 					}
-					Expect(event.Type).To(Equal(managementv1.WatchEventType_Created))
+					Expect(event.Type).To(Equal(managementv1.WatchEventType_Put))
 					Expect(ids).To(HaveKey(event.Cluster.Id))
 					cluster, err := tv.client.GetCluster(context.Background(), &corev1.Reference{
 						Id: event.Cluster.Id,
@@ -144,7 +144,7 @@ var _ = Describe("Clusters", Ordered, Label("unit"), func() {
 			defer GinkgoRecover()
 
 			for event := range events {
-				Expect(event.Type).To(Equal(managementv1.WatchEventType_Deleted))
+				Expect(event.Type).To(Equal(managementv1.WatchEventType_Delete))
 				Expect(event.Cluster).NotTo(BeNil())
 				Expect(event.Cluster.Id).NotTo(BeNil())
 				Expect(ids).To(HaveKey(event.Cluster.Id))

@@ -5,8 +5,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"path"
+	"slices"
 	"strings"
 
+	"go.etcd.io/etcd/api/v3/mvccpb"
 	"go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc/codes"
@@ -84,6 +86,82 @@ func (s *genericKeyValueStore) Get(ctx context.Context, key string, opts ...stor
 		*options.RevisionOut = resp.Kvs[0].ModRevision
 	}
 	return base64.StdEncoding.DecodeString(string(resp.Kvs[0].Value))
+}
+
+func (s *genericKeyValueStore) Watch(ctx context.Context, key string, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[[]byte]], error) {
+	options := storage.WatchOptions{}
+	options.Apply(opts...)
+
+	if err := validateKey(key); err != nil {
+		return nil, err
+	}
+	qualifiedKey := path.Join(s.prefix, key)
+
+	clientOptions := []clientv3.OpOption{
+		clientv3.WithPrevKV(),
+	}
+	if options.Revision != nil {
+		clientOptions = append(clientOptions, clientv3.WithRev(*options.Revision))
+	}
+	if options.Prefix {
+		clientOptions = append(clientOptions, clientv3.WithPrefix())
+	}
+
+	eventC := make(chan storage.WatchEvent[storage.KeyRevision[[]byte]], 64)
+
+	wc := s.client.Watch(ctx, qualifiedKey, clientOptions...)
+	go func() {
+		defer close(eventC)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case event, ok := <-wc:
+				if !ok {
+					return
+				}
+				if err := event.Err(); err != nil {
+					return
+				}
+				if event.IsProgressNotify() {
+					continue
+				}
+				for _, ev := range event.Events {
+					wevent := storage.WatchEvent[storage.KeyRevision[[]byte]]{}
+					switch ev.Type {
+					case clientv3.EventTypePut:
+						wevent.Current = s.newKeyRevision(ev.Kv)
+						if ev.IsCreate() {
+							wevent.EventType = storage.WatchEventPut
+						} else {
+							wevent.EventType = storage.WatchEventPut
+							wevent.Previous = s.newKeyRevision(ev.PrevKv)
+						}
+					case clientv3.EventTypeDelete:
+						wevent.EventType = storage.WatchEventDelete
+						wevent.Previous = s.newKeyRevision(ev.PrevKv)
+					}
+					eventC <- wevent
+				}
+			}
+		}
+	}()
+	return eventC, nil
+}
+
+func (s *genericKeyValueStore) newKeyRevision(kv *mvccpb.KeyValue) storage.KeyRevision[[]byte] {
+	kr := &storage.KeyRevisionImpl[[]byte]{
+		K:   strings.TrimPrefix(strings.TrimPrefix(string(kv.Key), s.prefix), "/"),
+		Rev: kv.ModRevision,
+	}
+	var err error
+	kr.V, err = base64.StdEncoding.DecodeString(string(kv.Value))
+	if err != nil {
+		// if we can't decode the value, return the raw bytes instead of discarding them.
+		// this obviously shouldn't happen, but it would be more useful for debugging purposes.
+		kr.V = slices.Clone(kv.Value)
+	}
+	return kr
 }
 
 func (s *genericKeyValueStore) Delete(ctx context.Context, key string, opts ...storage.DeleteOpt) error {

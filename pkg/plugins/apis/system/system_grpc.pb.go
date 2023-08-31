@@ -260,6 +260,7 @@ var System_ServiceDesc = grpc.ServiceDesc{
 const (
 	KeyValueStore_Put_FullMethodName      = "/system.KeyValueStore/Put"
 	KeyValueStore_Get_FullMethodName      = "/system.KeyValueStore/Get"
+	KeyValueStore_Watch_FullMethodName    = "/system.KeyValueStore/Watch"
 	KeyValueStore_Delete_FullMethodName   = "/system.KeyValueStore/Delete"
 	KeyValueStore_ListKeys_FullMethodName = "/system.KeyValueStore/ListKeys"
 	KeyValueStore_History_FullMethodName  = "/system.KeyValueStore/History"
@@ -271,6 +272,7 @@ const (
 type KeyValueStoreClient interface {
 	Put(ctx context.Context, in *PutRequest, opts ...grpc.CallOption) (*PutResponse, error)
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
+	Watch(ctx context.Context, in *WatchRequest, opts ...grpc.CallOption) (KeyValueStore_WatchClient, error)
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
 	ListKeys(ctx context.Context, in *ListKeysRequest, opts ...grpc.CallOption) (*ListKeysResponse, error)
 	History(ctx context.Context, in *HistoryRequest, opts ...grpc.CallOption) (*HistoryResponse, error)
@@ -300,6 +302,38 @@ func (c *keyValueStoreClient) Get(ctx context.Context, in *GetRequest, opts ...g
 		return nil, err
 	}
 	return out, nil
+}
+
+func (c *keyValueStoreClient) Watch(ctx context.Context, in *WatchRequest, opts ...grpc.CallOption) (KeyValueStore_WatchClient, error) {
+	stream, err := c.cc.NewStream(ctx, &KeyValueStore_ServiceDesc.Streams[0], KeyValueStore_Watch_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &keyValueStoreWatchClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type KeyValueStore_WatchClient interface {
+	Recv() (*WatchResponse, error)
+	grpc.ClientStream
+}
+
+type keyValueStoreWatchClient struct {
+	grpc.ClientStream
+}
+
+func (x *keyValueStoreWatchClient) Recv() (*WatchResponse, error) {
+	m := new(WatchResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *keyValueStoreClient) Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error) {
@@ -335,6 +369,7 @@ func (c *keyValueStoreClient) History(ctx context.Context, in *HistoryRequest, o
 type KeyValueStoreServer interface {
 	Put(context.Context, *PutRequest) (*PutResponse, error)
 	Get(context.Context, *GetRequest) (*GetResponse, error)
+	Watch(*WatchRequest, KeyValueStore_WatchServer) error
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
 	ListKeys(context.Context, *ListKeysRequest) (*ListKeysResponse, error)
 	History(context.Context, *HistoryRequest) (*HistoryResponse, error)
@@ -350,6 +385,9 @@ func (UnimplementedKeyValueStoreServer) Put(context.Context, *PutRequest) (*PutR
 }
 func (UnimplementedKeyValueStoreServer) Get(context.Context, *GetRequest) (*GetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+}
+func (UnimplementedKeyValueStoreServer) Watch(*WatchRequest, KeyValueStore_WatchServer) error {
+	return status.Errorf(codes.Unimplemented, "method Watch not implemented")
 }
 func (UnimplementedKeyValueStoreServer) Delete(context.Context, *DeleteRequest) (*DeleteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
@@ -407,6 +445,27 @@ func _KeyValueStore_Get_Handler(srv interface{}, ctx context.Context, dec func(i
 		return srv.(KeyValueStoreServer).Get(ctx, req.(*GetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
+}
+
+func _KeyValueStore_Watch_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(WatchRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(KeyValueStoreServer).Watch(m, &keyValueStoreWatchServer{stream})
+}
+
+type KeyValueStore_WatchServer interface {
+	Send(*WatchResponse) error
+	grpc.ServerStream
+}
+
+type keyValueStoreWatchServer struct {
+	grpc.ServerStream
+}
+
+func (x *keyValueStoreWatchServer) Send(m *WatchResponse) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _KeyValueStore_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -491,6 +550,12 @@ var KeyValueStore_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _KeyValueStore_History_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Watch",
+			Handler:       _KeyValueStore_Watch_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "github.com/rancher/opni/pkg/plugins/apis/system/system.proto",
 }

@@ -1058,6 +1058,26 @@ func (mr *MockKeyValueStoreTMockRecorder[T]) Put(ctx, key, value interface{}, op
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockKeyValueStoreT[T])(nil).Put), varargs...)
 }
 
+// Watch mocks base method.
+func (m *MockKeyValueStoreT[T]) Watch(ctx context.Context, key string, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[T]], error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, key}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Watch", varargs...)
+	ret0, _ := ret[0].(<-chan storage.WatchEvent[storage.KeyRevision[T]])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Watch indicates an expected call of Watch.
+func (mr *MockKeyValueStoreTMockRecorder[T]) Watch(ctx, key interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, key}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockKeyValueStoreT[T])(nil).Watch), varargs...)
+}
+
 // MockValueStoreT is a mock of ValueStoreT interface.
 type MockValueStoreT[T any] struct {
 	ctrl     *gomock.Controller
@@ -1157,6 +1177,26 @@ func (mr *MockValueStoreTMockRecorder[T]) Put(ctx, value interface{}, opts ...in
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, value}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockValueStoreT[T])(nil).Put), varargs...)
+}
+
+// Watch mocks base method.
+func (m *MockValueStoreT[T]) Watch(ctx context.Context, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[T]], error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Watch", varargs...)
+	ret0, _ := ret[0].(<-chan storage.WatchEvent[storage.KeyRevision[T]])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Watch indicates an expected call of Watch.
+func (mr *MockValueStoreTMockRecorder[T]) Watch(ctx interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockValueStoreT[T])(nil).Watch), varargs...)
 }
 
 // MockKeyringStoreBroker is a mock of KeyringStoreBroker interface.

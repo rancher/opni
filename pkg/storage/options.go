@@ -60,6 +60,22 @@ type GetOptions struct {
 	RevisionOut *int64
 }
 
+type WatchOptions struct {
+	// Starting revision for the watch. If not specified, will start at the
+	// latest revision.
+	Revision *int64
+
+	// If true, all keys under the same prefix will be watched.
+	// When prefix mode is disabled (default), events will only be sent for
+	// the single key specified in the request.
+	// If used in combination with the revision option, will effectively
+	// "replay" the history of all keys under the prefix starting at the
+	// specified revision.
+	// Care should be taken when using this option, especially in combination
+	// with a past revision, as it could cause performance issues.
+	Prefix bool
+}
+
 type PutOptions struct {
 	// Put only if the latest Revision matches
 	Revision *int64
@@ -100,6 +116,7 @@ type (
 	RevisionOutOpt   struct{ *int64 }
 	LimitOpt         int64
 	IncludeValuesOpt bool
+	PrefixOpt        bool
 )
 
 // WithRevision can be used for [GetOptions], [PutOptions], or [DeleteOptions]
@@ -122,7 +139,12 @@ func IncludeValues(include bool) IncludeValuesOpt {
 	return IncludeValuesOpt(include)
 }
 
+func WithPrefix() WatchOpt {
+	return PrefixOpt(true)
+}
+
 func (r RevisionOpt) ApplyGetOption(opts *GetOptions)         { opts.Revision = (*int64)(&r) }
+func (r RevisionOpt) ApplyWatchOption(opts *WatchOptions)     { opts.Revision = (*int64)(&r) }
 func (r RevisionOpt) ApplyPutOption(opts *PutOptions)         { opts.Revision = (*int64)(&r) }
 func (r RevisionOpt) ApplyDeleteOption(opts *DeleteOptions)   { opts.Revision = (*int64)(&r) }
 func (r RevisionOpt) ApplyHistoryOption(opts *HistoryOptions) { opts.Revision = (*int64)(&r) }
@@ -134,8 +156,11 @@ func (l LimitOpt) ApplyListOption(opts *ListKeysOptions) { opts.Limit = (*int64)
 
 func (i IncludeValuesOpt) ApplyHistoryOption(opts *HistoryOptions) { opts.IncludeValues = bool(i) }
 
+func (p PrefixOpt) ApplyWatchOption(opts *WatchOptions) { opts.Prefix = bool(p) }
+
 type (
 	GetOpt     interface{ ApplyGetOption(*GetOptions) }
+	WatchOpt   interface{ ApplyWatchOption(*WatchOptions) }
 	PutOpt     interface{ ApplyPutOption(*PutOptions) }
 	DeleteOpt  interface{ ApplyDeleteOption(*DeleteOptions) }
 	ListOpt    interface{ ApplyListOption(*ListKeysOptions) }
@@ -151,6 +176,12 @@ func (o *GetOptions) Apply(opts ...GetOpt) {
 func (o *PutOptions) Apply(opts ...PutOpt) {
 	for _, opt := range opts {
 		opt.ApplyPutOption(o)
+	}
+}
+
+func (o *WatchOptions) Apply(opts ...WatchOpt) {
+	for _, opt := range opts {
+		opt.ApplyWatchOption(o)
 	}
 }
 

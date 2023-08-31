@@ -1,6 +1,7 @@
 package recurringsnapshot
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	opensearchv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -48,7 +50,8 @@ func (r *Reconciler) buildSnapshotPolicy() osapi.SnapshotManagementRequest {
 		Description: "Snapshot policy created by Kubernetes",
 		Enabled:     lo.ToPtr(true),
 		SnapshotConfig: osapi.SnapshotConfig{
-			DateFormatTimezone: "utc",
+			Repository: r.snapshot.Spec.Snapshot.Repository.Name,
+			Timezone:   "Etc/UTC",
 			SnapshotRequest: osapi.SnapshotRequest{
 				Indices:            strings.Join(r.snapshot.Spec.Snapshot.Indices, ","),
 				IgnoreUnavailable:  r.snapshot.Spec.Snapshot.IgnoreUnavailable,
@@ -57,7 +60,12 @@ func (r *Reconciler) buildSnapshotPolicy() osapi.SnapshotManagementRequest {
 			},
 		},
 		Creation: osapi.SnapshotCreation{
-			Schedule:  r.snapshot.Spec.Creation.CronSchedule,
+			Schedule: &osapi.SnapshotSchedule{
+				CronSchedule: &osapi.SnapshotCronSchedule{
+					Expression: r.snapshot.Spec.Creation.CronSchedule,
+					Timezone:   "Etc/UTC",
+				},
+			},
 			TimeLimit: r.snapshot.Spec.Creation.TimeLimit,
 		},
 		Deletion: func() *osapi.SnapshotDeletion {
@@ -75,18 +83,13 @@ func (r *Reconciler) buildSnapshotPolicy() osapi.SnapshotManagementRequest {
 }
 
 func (r *Reconciler) updateExecutionStatus(cluster *opensearchv1.OpenSearchCluster) (retResult *reconcile.Result, retErr error) {
+	lg := log.FromContext(r.ctx)
 	reconciler, retErr := r.createOpensearchReconciler(cluster)
 	if retErr != nil {
 		return
 	}
 
 	if r.snapshot.Status.ExecutionStatus == nil {
-		var nextExecution time.Duration
-		nextExecution, retErr = reconciler.NextSnapshotPolicyTrigger(r.snapshot.Name)
-		if retErr != nil {
-			return
-		}
-
 		retErr = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.snapshot), r.snapshot); err != nil {
 				return err
@@ -99,7 +102,7 @@ func (r *Reconciler) updateExecutionStatus(cluster *opensearchv1.OpenSearchClust
 		}
 
 		retResult = &reconcile.Result{
-			RequeueAfter: nextExecution,
+			RequeueAfter: time.Minute,
 		}
 	}
 
@@ -116,7 +119,8 @@ func (r *Reconciler) updateExecutionStatus(cluster *opensearchv1.OpenSearchClust
 		if retErr != nil {
 			return
 		}
-		executionStatus.LastExecution = metav1.Time(status.EndTime)
+		lg.Info(fmt.Sprintf("next execution in %d nanos", nextExecution))
+		executionStatus.LastExecution = metav1.Time{Time: status.EndTime.Time}
 		executionStatus.Status = loggingv1beta1.RecurringSnapshotExecutionStateSuccess
 		executionStatus.Message = status.Info.Message
 		retResult = &reconcile.Result{
@@ -128,7 +132,8 @@ func (r *Reconciler) updateExecutionStatus(cluster *opensearchv1.OpenSearchClust
 		if retErr != nil {
 			return
 		}
-		executionStatus.LastExecution = metav1.Time(status.EndTime)
+		lg.Info(fmt.Sprintf("next execution in %d nanos", nextExecution))
+		executionStatus.LastExecution = metav1.Time{Time: status.EndTime.Time}
 		executionStatus.Status = loggingv1beta1.RecurringSnapshotExecutionStateFailed
 		executionStatus.Message = status.Info.Message
 		executionStatus.Cause = status.Info.Cause
@@ -141,7 +146,8 @@ func (r *Reconciler) updateExecutionStatus(cluster *opensearchv1.OpenSearchClust
 		if retErr != nil {
 			return
 		}
-		executionStatus.LastExecution = metav1.Time(status.EndTime)
+		lg.Info(fmt.Sprintf("next execution in %d nanos", nextExecution))
+		executionStatus.LastExecution = metav1.Time{Time: status.EndTime.Time}
 		executionStatus.Status = loggingv1beta1.RecurringSnapshotExecutionStateTimedOut
 		executionStatus.Message = status.Info.Message
 		executionStatus.Cause = status.Info.Cause
@@ -162,6 +168,14 @@ func (r *Reconciler) updateExecutionStatus(cluster *opensearchv1.OpenSearchClust
 		executionStatus.Cause = status.Info.Cause
 		retResult = &reconcile.Result{
 			RequeueAfter: 10 * time.Second,
+		}
+	default:
+		nextExecution, err := reconciler.NextSnapshotPolicyTrigger(r.snapshot.Name)
+		if err != nil {
+			return nil, err
+		}
+		retResult = &reconcile.Result{
+			RequeueAfter: nextExecution,
 		}
 	}
 

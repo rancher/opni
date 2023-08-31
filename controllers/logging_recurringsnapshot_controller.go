@@ -75,7 +75,7 @@ func (r *LoggingRecurringSnapshotReconciler) SetupWithManager(mgr ctrl.Manager) 
 		return reconcileRecurringSnapshotRequestsForRepositories(recurringSnapshotList.Items, obj.GetName(), obj.GetNamespace())
 	})
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&loggingv1beta1.Snapshot{}).
+		For(&loggingv1beta1.RecurringSnapshot{}).
 		Watches(&loggingv1beta1.OpensearchRepository{}, requestMapper).
 		Complete(r)
 }

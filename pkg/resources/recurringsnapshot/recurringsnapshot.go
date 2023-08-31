@@ -41,6 +41,7 @@ func NewReconciler(
 
 func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	lg := log.FromContext(r.ctx)
+	lg.Info("beginning reccuring snapshot reconciliation")
 
 	defer func() {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {

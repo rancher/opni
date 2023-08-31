@@ -990,9 +990,13 @@ var _ = Describe("Opensearch", Ordered, Label("unit"), func() {
 		When("snapshot does exist", func() {
 			JustBeforeEach(func() {
 				response := types.SnapshotResponse{
-					State: snapshotState,
-					Failures: []string{
-						"This is a generic failure",
+					Snapshots: []types.SnapshotStatus{
+						{
+							State: snapshotState,
+							Failures: []string{
+								"This is a generic failure",
+							},
+						},
 					},
 				}
 				transport.RegisterResponder(
@@ -1071,7 +1075,12 @@ var _ = Describe("Opensearch", Ordered, Label("unit"), func() {
 					},
 				},
 				Creation: types.SnapshotCreation{
-					Schedule: "00 1 * * *",
+					Schedule: &types.SnapshotSchedule{
+						CronSchedule: &types.SnapshotCronSchedule{
+							Expression: "00 1 * * *",
+							Timezone:   "Etc/UTC",
+						},
+					},
 				},
 			}
 		})
@@ -1111,7 +1120,20 @@ var _ = Describe("Opensearch", Ordered, Label("unit"), func() {
 							},
 						},
 						Creation: types.SnapshotCreation{
-							Schedule: "00 * * * *",
+							Schedule: &types.SnapshotSchedule{
+								CronSchedule: &types.SnapshotCronSchedule{
+									Expression: "00 * * * *",
+									Timezone:   "Etc/UTC",
+								},
+							},
+						},
+						Deletion: &types.SnapshotDeletion{
+							Schedule: &types.SnapshotSchedule{
+								CronSchedule: &types.SnapshotCronSchedule{
+									Expression: "00 * * * *",
+									Timezone:   "Etc/UTC",
+								},
+							},
 						},
 					},
 				}
@@ -1150,7 +1172,20 @@ var _ = Describe("Opensearch", Ordered, Label("unit"), func() {
 							},
 						},
 						Creation: types.SnapshotCreation{
-							Schedule: "00 1 * * *",
+							Schedule: &types.SnapshotSchedule{
+								CronSchedule: &types.SnapshotCronSchedule{
+									Expression: "00 1 * * *",
+									Timezone:   "Etc/UTC",
+								},
+							},
+						},
+						Deletion: &types.SnapshotDeletion{
+							Schedule: &types.SnapshotSchedule{
+								CronSchedule: &types.SnapshotCronSchedule{
+									Expression: "00 1 * * *",
+									Timezone:   "Etc/UTC",
+								},
+							},
 						},
 					},
 				}

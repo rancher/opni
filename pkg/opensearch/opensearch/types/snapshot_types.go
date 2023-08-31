@@ -1,7 +1,7 @@
 package types
 
 import (
-	"encoding/binary"
+	"encoding/json"
 	"time"
 )
 
@@ -42,6 +42,10 @@ type SnapshotRequest struct {
 }
 
 type SnapshotResponse struct {
+	Snapshots []SnapshotStatus `json:"snapshots"`
+}
+
+type SnapshotStatus struct {
 	UUID     string              `json:"uuid"`
 	Indices  []string            `json:"indices"`
 	State    SnapshotState       `json:"state"`
@@ -75,21 +79,31 @@ type SnapshotManagementRequest struct {
 }
 
 type SnapshotConfig struct {
-	SnapshotRequest    `json:",inline"`
-	DateFormat         string            `json:"date_format,omitempty"`
-	DateFormatTimezone string            `json:"date_format_timezone,omitempty"`
-	Metadata           map[string]string `json:"metadata,omitempty"`
+	SnapshotRequest `json:",inline"`
+	Repository      string            `json:"repository"`
+	DateFormat      string            `json:"date_format,omitempty"`
+	Timezone        string            `json:"timezone,omitempty"`
+	Metadata        map[string]string `json:"metadata,omitempty"`
 }
 
 type SnapshotCreation struct {
 	// Cron string
-	Schedule  string `json:"schedule"`
-	TimeLimit string `json:"time_limit,omitempty"`
+	Schedule  *SnapshotSchedule `json:"schedule,omitempty"`
+	TimeLimit string            `json:"time_limit,omitempty"`
+}
+
+type SnapshotSchedule struct {
+	CronSchedule *SnapshotCronSchedule `json:"cron,omitempty"`
+}
+
+type SnapshotCronSchedule struct {
+	Expression string `json:"expression,omitempty"`
+	Timezone   string `json:"timezone,omitempty"`
 }
 
 type SnapshotDeletion struct {
 	// Cron string
-	Schedule  string                  `json:"schedule,omitempty"`
+	Schedule  *SnapshotSchedule       `json:"schedule,omitempty"`
 	TimeLimit string                  `json:"time_limit,omitempty"`
 	Condition SnapshotDeleteCondition `json:"condition,omitempty"`
 }
@@ -162,13 +176,15 @@ type Time struct {
 
 func (t Time) MarshalJSON() ([]byte, error) {
 	stamp := t.UnixMilli()
-	b := make([]byte, 8)
-	binary.LittleEndian.PutUint64(b, uint64(stamp))
-	return b, nil
+	return json.Marshal(stamp)
 }
 
 func (t *Time) UnmarshalJSON(b []byte) error {
-	i := int64(binary.LittleEndian.Uint64(b))
-	t.Time = time.UnixMilli(i)
+	var ts int64
+	err := json.Unmarshal(b, &ts)
+	if err != nil {
+		return err
+	}
+	t.Time = time.UnixMilli(ts)
 	return nil
 }

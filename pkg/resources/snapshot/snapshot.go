@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cisco-open/operator-tools/pkg/reconciler"
@@ -108,6 +109,8 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			}
 		}
 		return
+	case loggingv1beta1.SnapshotStateCreated:
+		return
 	default:
 		return nil, errors.New("invalid snapshot state")
 	}
@@ -119,7 +122,7 @@ func (r *Reconciler) generateSnapshotName() error {
 		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.snapshot), r.snapshot); err != nil {
 			return err
 		}
-		r.snapshot.Status.SnapshotAPIName = fmt.Sprintf("%s-%s", r.snapshot.Name, string(suffix))
+		r.snapshot.Status.SnapshotAPIName = fmt.Sprintf("%s-%s", r.snapshot.Name, strings.ToLower(string(suffix)))
 		r.snapshot.Status.State = loggingv1beta1.SnapshotStatePending
 		return r.client.Status().Update(r.ctx, r.snapshot)
 	})

@@ -1064,11 +1064,13 @@ func (r *Reconciler) GetSnapshotState(name, repository string) (types.SnapshotSt
 		return "", "", fmt.Errorf("response from API is %s", resp.String())
 	}
 
-	snapshot := types.SnapshotResponse{}
-	err = json.NewDecoder(resp.Body).Decode(&snapshot)
+	snapshotResp := types.SnapshotResponse{}
+	err = json.NewDecoder(resp.Body).Decode(&snapshotResp)
 	if err != nil {
 		return "", "", err
 	}
+
+	snapshot := snapshotResp.Snapshots[0]
 
 	switch snapshot.State {
 	case types.SnapshotStateFailed, types.SnapshotStatePartial:
@@ -1099,11 +1101,13 @@ func (r *Reconciler) GetSnapshotPolicy(name string) (types.SnapshotManagementRes
 }
 
 func (r *Reconciler) MaybeUpdateSnapshotPolicy(name string, policy types.SnapshotManagementRequest) error {
+	lg := log.FromContext(r.ctx)
 	oldPolicy, err := r.GetSnapshotPolicy(name)
 	if err != nil {
 		if !errors.Is(err, oserrors.ErrNotFound) {
 			return err
 		}
+		lg.Info("snapshot policy does not exist, creating")
 		resp, err := r.osClient.Snapshot.CreateSnapshotPolicy(r.ctx, name, opensearchutil.NewJSONReader(policy))
 		if err != nil {
 			return err
@@ -1115,9 +1119,11 @@ func (r *Reconciler) MaybeUpdateSnapshotPolicy(name string, policy types.Snapsho
 		return nil
 	}
 
-	if reflect.DeepEqual(policy, oldPolicy.Policy) {
+	if !r.snapshotPolicyNeedsUpdate(policy, oldPolicy.Policy) {
 		return nil
 	}
+
+	lg.Info("snapshot policy is different, updating")
 
 	resp, err := r.osClient.Snapshot.UpdateSnapshotPolicy(
 		r.ctx,
@@ -1177,7 +1183,12 @@ func (r *Reconciler) NextSnapshotPolicyTrigger(name string) (time.Duration, erro
 		return 0, errors.New("did not get exactly 1 policy")
 	}
 
-	return time.Until(explain.Policies[0].Creation.Trigger.Time.Time), nil
+	duration := time.Until(explain.Policies[0].Creation.Trigger.Time.Time)
+	if duration <= 0 {
+		duration = time.Minute
+	}
+
+	return duration, nil
 }
 
 func (r *Reconciler) GetSnapshotPolicyLastExecution(name string) (*types.SnapshotPolicyExecution, error) {
@@ -1202,4 +1213,79 @@ func (r *Reconciler) GetSnapshotPolicyLastExecution(name string) (*types.Snapsho
 	}
 
 	return &explain.Policies[0].Creation.LatestExecution, nil
+}
+
+func (r *Reconciler) snapshotPolicyNeedsUpdate(new, current types.SnapshotManagementRequest) bool {
+	lg := log.FromContext(r.ctx)
+	if new.Description != current.Description {
+		lg.Info("description is different", "current", current.Description, "new", new.Description)
+		return true
+	}
+
+	if lo.FromPtrOr(new.Enabled, true) != lo.FromPtrOr(current.Enabled, true) {
+		lg.Info("enabled is different", "current", lo.FromPtrOr(current.Enabled, true), "new", lo.FromPtrOr(new.Enabled, true))
+		return true
+	}
+
+	if !reflect.DeepEqual(new.SnapshotConfig, current.SnapshotConfig) {
+		lg.Info(fmt.Sprintf("config is different; current %+v new %+v", current.Description, new.Description))
+		return true
+	}
+
+	if !reflect.DeepEqual(new.Creation, current.Creation) {
+		lg.Info(fmt.Sprintf("creation is different; current %+v new %+v", current.Creation, new.Creation))
+		return true
+	}
+
+	// Comparing the deletion policy needs some extra logic due to default values
+	if new.Deletion != nil {
+		if current.Deletion == nil {
+			return true
+		}
+
+		if new.Deletion.Schedule == nil {
+			if !reflect.DeepEqual(new.Creation.Schedule, current.Deletion.Schedule) {
+				lg.Info(fmt.Sprintf("deletion schedule is different; current %+v new %+v", current.Deletion.Schedule, new.Creation.Schedule))
+				return true
+			}
+		}
+
+		if lo.FromPtrOr(new.Deletion.Condition.MinCount, 1) != lo.FromPtrOr(current.Deletion.Condition.MinCount, 1) {
+			lg.Info(fmt.Sprintf(
+				"deletion min count is different; current %d new %d",
+				lo.FromPtrOr(current.Deletion.Condition.MinCount, 1),
+				lo.FromPtrOr(new.Deletion.Condition.MinCount, 1),
+			))
+			return true
+		}
+
+		if lo.FromPtr(new.Deletion.Condition.MaxCount) != lo.FromPtr(current.Deletion.Condition.MaxCount) {
+			lg.Info(fmt.Sprintf(
+				"deletion max count is different; current %d new %d",
+				lo.FromPtr(current.Deletion.Condition.MaxCount),
+				lo.FromPtr(new.Deletion.Condition.MaxCount),
+			))
+			return true
+		}
+
+		if new.Deletion.Condition.MaxAge != current.Deletion.Condition.MaxAge {
+			lg.Info(fmt.Sprintf("deletion max ageis different; current %s new %s", current.Deletion.Condition.MaxAge, new.Deletion.Condition.MaxAge))
+			return true
+		}
+
+		if new.Deletion.TimeLimit != current.Deletion.TimeLimit {
+			lg.Info(fmt.Sprintf("deletion time limit is different; current %s new %s", current.Deletion.TimeLimit, new.Deletion.TimeLimit))
+			return true
+		}
+
+		return false
+	}
+
+	lg.Info("new deletion is empty, but current isn't")
+	if !reflect.DeepEqual(new.Creation.Schedule, current.Deletion.Schedule) {
+		lg.Info(fmt.Sprintf("deletion schedule is different; current %+v new %+v", current.Deletion.Schedule, new.Creation.Schedule))
+		return true
+	}
+
+	return false
 }

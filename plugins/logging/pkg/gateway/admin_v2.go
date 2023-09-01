@@ -20,6 +20,7 @@ import (
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	grpcstatus "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	corev1 "k8s.io/api/core/v1"
@@ -67,7 +68,11 @@ type LoggingManagerV2 struct {
 }
 
 func (m *LoggingManagerV2) GetOpensearchCluster(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.OpensearchClusterV2, error) {
-	return m.managementDriver.GetCluster(ctx)
+	cluster, err := m.managementDriver.GetCluster(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return cluster, nil
 }
 
 func (m *LoggingManagerV2) DeleteOpensearchCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
@@ -77,7 +82,7 @@ func (m *LoggingManagerV2) DeleteOpensearchCluster(ctx context.Context, _ *empty
 	// Remove the state tracking the initial admin
 	err := m.opensearchManager.DeleteInitialAdminState()
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	err = m.managementDriver.DeleteCluster(ctx)
@@ -85,7 +90,7 @@ func (m *LoggingManagerV2) DeleteOpensearchCluster(ctx context.Context, _ *empty
 		if errors.Is(err, loggingerrors.ErrLoggingCapabilityExists) {
 			m.logger.Error("can not delete opensearch until logging capability is uninstalled from all clusters")
 		}
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &emptypb.Empty{}, nil
@@ -94,11 +99,11 @@ func (m *LoggingManagerV2) DeleteOpensearchCluster(ctx context.Context, _ *empty
 func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, cluster *loggingadmin.OpensearchClusterV2) (*emptypb.Empty, error) {
 	// Validate retention string
 	if !m.validDurationString(lo.FromPtrOr(cluster.DataRetention, "7d")) {
-		return &emptypb.Empty{}, loggingerrors.ErrInvalidCluster(loggingerrors.ErrInvalidDuration)
+		return &emptypb.Empty{}, status.Errorf(codes.InvalidArgument, "%v", loggingerrors.ErrInvalidCluster(loggingerrors.ErrInvalidDuration))
 	}
 	// Input should always have a data nodes field
 	if cluster.GetDataNodes() == nil {
-		return &emptypb.Empty{}, loggingerrors.ErrInvalidCluster(loggingerrors.ErrMissingDataNode)
+		return &emptypb.Empty{}, status.Errorf(codes.InvalidArgument, "%v", loggingerrors.ErrInvalidCluster(loggingerrors.ErrInvalidDuration))
 	}
 
 	go m.opensearchManager.SetClient(m.managementDriver.NewOpensearchClientForCluster)
@@ -112,11 +117,11 @@ func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, 
 
 	err := m.managementDriver.CreateOrUpdateCluster(ctx, cluster, version, m.natsRef.Name)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	err = m.createInitialAdmin()
-	return &emptypb.Empty{}, err
+	return &emptypb.Empty{}, status.Error(codes.Internal, err.Error())
 }
 
 func (m *LoggingManagerV2) UpgradeAvailable(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.UpgradeAvailableResponse, error) {
@@ -127,7 +132,7 @@ func (m *LoggingManagerV2) UpgradeAvailable(ctx context.Context, _ *emptypb.Empt
 
 	upgrade, err := m.managementDriver.UpgradeAvailable(ctx, version)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &loggingadmin.UpgradeAvailableResponse{
@@ -142,15 +147,18 @@ func (m *LoggingManagerV2) DoUpgrade(ctx context.Context, _ *emptypb.Empty) (*em
 	}
 
 	err := m.managementDriver.DoUpgrade(ctx, version)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
 
-	return &emptypb.Empty{}, err
+	return &emptypb.Empty{}, nil
 }
 
 func (m *LoggingManagerV2) GetStorageClasses(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.StorageClassResponse, error) {
 	storageClassNames, err := m.managementDriver.GetStorageClasses(ctx)
 	if err != nil {
 		m.logger.Errorf("failed to list storageclasses: %v", err)
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &loggingadmin.StorageClassResponse{
@@ -206,12 +214,12 @@ func (m *LoggingManagerV2) GetOpensearchStatus(ctx context.Context, _ *emptypb.E
 func (m *LoggingManagerV2) CreateOrUpdateSnapshot(ctx context.Context, snapshot *loggingadmin.Snapshot) (*emptypb.Empty, error) {
 	if snapshot.GetRetention().GetTimeRetention() != "" &&
 		!m.validDurationString(snapshot.GetRetention().GetTimeRetention()) {
-		return nil, loggingerrors.ErrInvalidDuration
+		return nil, status.Error(codes.InvalidArgument, loggingerrors.ErrInvalidDuration.Error())
 	}
 
 	err := m.managementDriver.CreateOrUpdateSnapshot(ctx, snapshot)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &emptypb.Empty{}, nil
@@ -220,7 +228,7 @@ func (m *LoggingManagerV2) CreateOrUpdateSnapshot(ctx context.Context, snapshot 
 func (m *LoggingManagerV2) GetRecurringSnapshot(ctx context.Context, ref *loggingadmin.SnapshotReference) (*loggingadmin.Snapshot, error) {
 	snapshot, err := m.managementDriver.GetRecurringSnapshot(ctx, ref)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return snapshot, nil
@@ -229,7 +237,7 @@ func (m *LoggingManagerV2) GetRecurringSnapshot(ctx context.Context, ref *loggin
 func (m *LoggingManagerV2) DeleteSnapshot(ctx context.Context, ref *loggingadmin.SnapshotReference) (*emptypb.Empty, error) {
 	err := m.managementDriver.DeleteSnapshot(ctx, ref)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -237,7 +245,7 @@ func (m *LoggingManagerV2) DeleteSnapshot(ctx context.Context, ref *loggingadmin
 func (m *LoggingManagerV2) ListSnapshots(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.SnapshotStatusList, error) {
 	list, err := m.managementDriver.ListAllSnapshots(ctx)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return list, nil

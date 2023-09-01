@@ -812,6 +812,13 @@ spec:
                     type: object
                   imageOverride:
                     type: string
+                  neural_search:
+                    properties:
+                      enabled:
+                        type: boolean
+                      url:
+                        type: string
+                    type: object
                   nodePools:
                     items:
                       properties:

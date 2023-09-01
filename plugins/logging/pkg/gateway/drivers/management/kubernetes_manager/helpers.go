@@ -8,6 +8,7 @@ import (
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/util"
 	k8sutilerrors "github.com/rancher/opni/pkg/util/errors/k8sutil"
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/samber/lo"
@@ -937,5 +938,33 @@ func s3ToKubernetes(in *loggingadmin.OpensearchS3Settings) *loggingv1beta1.Opens
 			Bucket: in.Bucket,
 			Folder: in.GetFolder(),
 		},
+	}
+}
+
+func (d *KubernetesManagerDriver) convertProtobufToNeuralSearch(cluster *loggingadmin.OpensearchClusterV2) *opnimeta.NeuralSearchSettings {
+	if cluster.GetNeuralSearch() == nil {
+		return &opnimeta.NeuralSearchSettings{
+			Enabled:   false,
+			CustomUrl: "",
+		}
+	}
+
+	return &opnimeta.NeuralSearchSettings{
+		Enabled:   cluster.GetNeuralSearch().GetEnabled(),
+		CustomUrl: cluster.GetNeuralSearch().GetUrl(),
+	}
+}
+
+func convertNeuralSearchToProtobuf(ns *opnimeta.NeuralSearchSettings) *loggingadmin.NeuralSearchDetails {
+	if ns == nil {
+		return &loggingadmin.NeuralSearchDetails{
+			Enabled: lo.ToPtr(false),
+			Url:     lo.ToPtr(""),
+		}
+	}
+
+	return &loggingadmin.NeuralSearchDetails{
+		Enabled: &ns.Enabled,
+		Url:     &ns.CustomUrl,
 	}
 }

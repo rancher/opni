@@ -33,6 +33,13 @@ spec:
             type: object
           spec:
             properties:
+              neural_search:
+                properties:
+                  enabled:
+                    type: boolean
+                  url:
+                    type: string
+                type: object
               opensearch:
                 properties:
                   name:

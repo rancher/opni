@@ -36,6 +36,7 @@ type MulticlusterRoleBindingSpec struct {
 	OpensearchCluster     *opnimeta.OpensearchClusterRef `json:"opensearch,omitempty"`
 	OpensearchConfig      *ClusterConfigSpec             `json:"opensearchConfig,omitempty"`
 	OpensearchExternalURL string                         `json:"opensearchExternalURL,omitempty"`
+	NeuralSearchSettings  *opnimeta.NeuralSearchSettings `json:"neural_search,omitempty"`
 }
 
 type ClusterConfigSpec struct {

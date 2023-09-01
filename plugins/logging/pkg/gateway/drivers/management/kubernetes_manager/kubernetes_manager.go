@@ -229,6 +229,7 @@ func (d *KubernetesManagerDriver) GetCluster(ctx context.Context) (*loggingadmin
 		Dashboards:        convertDashboardsToProtobuf(cluster.Spec.Dashboards),
 		DataRetention:     &cluster.Spec.IndexRetention,
 		S3:                d.s3ToProtobuf(ctx, cluster.Spec.S3Settings),
+		NeuralSearch:      convertNeuralSearchToProtobuf(cluster.Spec.NeuralSearchSettings),
 	}, nil
 }
 
@@ -283,7 +284,8 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 							},
 						},
 					},
-					S3Settings: s3ToKubernetes(cluster.GetS3()),
+					S3Settings:           s3ToKubernetes(cluster.GetS3()),
+					NeuralSearchSettings: d.convertProtobufToNeuralSearch(cluster),
 				},
 				ExternalURL: cluster.ExternalURL,
 				ClusterConfigSpec: &loggingv1beta1.ClusterConfigSpec{
@@ -317,6 +319,7 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 			opniVersion,
 		)
 		k8sOpensearchCluster.Spec.OpensearchSettings.S3Settings = s3ToKubernetes(cluster.GetS3())
+		k8sOpensearchCluster.Spec.OpensearchSettings.NeuralSearchSettings = d.convertProtobufToNeuralSearch(cluster)
 		k8sOpensearchCluster.Spec.ExternalURL = cluster.ExternalURL
 		if cluster.DataRetention != nil {
 			k8sOpensearchCluster.Spec.ClusterConfigSpec = &loggingv1beta1.ClusterConfigSpec{

@@ -141,21 +141,24 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 		return
 	}
 
-	modelID, retErr := reconciler.CreateNeuralSearchModel()
-	if retErr != nil {
-		return
-	}
+	if r.multiClusterRoleBinding.Spec.NeuralSearchSettings.Enabled {
+		retErr = reconciler.UpdateIndexMappingsForNeuralSearch(
+			fmt.Sprintf("%s*", LogIndexPrefix),
+		)
+		if retErr != nil {
+			return
+		}
 
-	retErr = reconciler.MaybeUpdateIngestPipelineForNeuralSearch(preProcessingPipelineName, preprocessingPipeline, modelID)
-	if retErr != nil {
-		return
-	}
-
-	retErr = reconciler.UpdateNeuralSearchLogEmbeddingForIndex(
-		fmt.Sprintf("%s*", LogIndexPrefix),
-	)
-	if retErr != nil {
-		return
+		modelUrl := r.multiClusterRoleBinding.Spec.NeuralSearchSettings.CustomUrl
+		var modelID string
+		modelID, retErr = reconciler.CreateNeuralSearchModel(modelUrl)
+		if retErr != nil {
+			return
+		}
+		retErr = reconciler.MaybeUpdateIngestPipelineForNeuralSearch(preProcessingPipelineName, preprocessingPipeline, modelID)
+		if retErr != nil {
+			return
+		}
 	}
 
 	if opensearchCluster.Spec.Dashboards.Enable {

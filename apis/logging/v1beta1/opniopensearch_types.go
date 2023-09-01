@@ -1,6 +1,7 @@
 package v1beta1
 
 import (
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	opsterv1 "opensearch.opster.io/api/v1"
@@ -53,11 +54,12 @@ type OpniOpensearchSpec struct {
 }
 
 type OpensearchSettings struct {
-	ImageOverride *string                   `json:"imageOverride,omitempty"`
-	NodePools     []opsterv1.NodePool       `json:"nodePools,omitempty"`
-	Dashboards    opsterv1.DashboardsConfig `json:"dashboards,omitempty"`
-	Security      *opsterv1.Security        `json:"security,omitempty"`
-	S3Settings    *OpensearchS3Settings     `json:"s3,omitempty"`
+	ImageOverride        *string                        `json:"imageOverride,omitempty"`
+	NodePools            []opsterv1.NodePool            `json:"nodePools,omitempty"`
+	Dashboards           opsterv1.DashboardsConfig      `json:"dashboards,omitempty"`
+	Security             *opsterv1.Security             `json:"security,omitempty"`
+	S3Settings           *OpensearchS3Settings          `json:"s3,omitempty"`
+	NeuralSearchSettings *opnimeta.NeuralSearchSettings `json:"neural_search,omitempty"`
 }
 
 type OpensearchS3Settings struct {

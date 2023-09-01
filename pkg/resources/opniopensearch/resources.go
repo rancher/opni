@@ -162,9 +162,9 @@ func (r *Reconciler) buildMulticlusterRoleBinding() runtime.Object {
 			},
 			OpensearchExternalURL: r.instance.Spec.ExternalURL,
 			OpensearchConfig:      r.instance.Spec.ClusterConfigSpec,
+			NeuralSearchSettings:  r.instance.Spec.OpensearchSettings.NeuralSearchSettings,
 		},
 	}
-
 	ctrl.SetControllerReference(r.instance, binding, r.client.Scheme())
 	return binding
 }

@@ -129,12 +129,16 @@ func generateModelSearchBody() io.Reader {
 	return opensearchutil.NewJSONReader(opensearchtypes.ModelSearchBody)
 }
 
-func generateModelRegisterBody(groupID string) io.Reader {
+func generateModelRegisterBody(groupID string, customUrl string) io.Reader {
 	modelBody := &opensearchtypes.ModelSpec{
 		Name:         opensearchtypes.ModelName,
 		Version:      opensearchtypes.ModelVersion,
 		Format:       opensearchtypes.ModelFormat,
 		ModelGroupID: groupID,
+	}
+
+	if customUrl != "" {
+		modelBody.Url = customUrl
 	}
 
 	return opensearchutil.NewJSONReader(modelBody)
@@ -238,10 +242,10 @@ func (a *NeuralSearchAPI) PostSearchExistingModel(ctx context.Context) (*Respons
 	return (*Response)(res), err
 }
 
-func (a *NeuralSearchAPI) PostRegisterModel(ctx context.Context, groupID string) (*Response, error) {
+func (a *NeuralSearchAPI) PostRegisterModel(ctx context.Context, groupID string, customUrl string) (*Response, error) {
 	method := http.MethodPost
 	path := generateModelRegisterPath()
-	body := generateModelRegisterBody(groupID)
+	body := generateModelRegisterBody(groupID, customUrl)
 
 	req, err := http.NewRequest(method, path.String(), body)
 	if err != nil {
@@ -337,7 +341,7 @@ func (a *NeuralSearchAPI) MaybeCreateModelGroup(ctx context.Context) (string, er
 	return registerModelResp.ModelGroupID, nil
 }
 
-func (a *NeuralSearchAPI) MaybeCreateRegisteredModel(ctx context.Context, groupID string) (string, error) {
+func (a *NeuralSearchAPI) MaybeCreateRegisteredModel(ctx context.Context, groupID string, customUrl string) (string, error) {
 	resp, err := a.PostSearchExistingModel(ctx)
 	if err != nil {
 		return "", err
@@ -352,7 +356,7 @@ func (a *NeuralSearchAPI) MaybeCreateRegisteredModel(ctx context.Context, groupI
 	if modelUploaded {
 		return modelSearchResp.ModelGroupHits.Hits[0].Source.ModelID, nil
 	}
-	resp, err = a.PostRegisterModel(ctx, groupID)
+	resp, err = a.PostRegisterModel(ctx, groupID, customUrl)
 	if err != nil {
 		return "", err
 	}
@@ -366,6 +370,10 @@ func (a *NeuralSearchAPI) MaybeCreateRegisteredModel(ctx context.Context, groupI
 	resp, err = a.GetModelTaskStatus(ctx, uploadTaskID)
 	if err != nil {
 		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.IsError() {
+		return "", fmt.Errorf("failed to register model: %s", resp.String())
 	}
 	modelStatusResp := types.ModelTaskStatus{}
 	err = json.NewDecoder(resp.Body).Decode(&modelStatusResp)

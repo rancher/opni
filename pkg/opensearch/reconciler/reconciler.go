@@ -887,7 +887,7 @@ func (r *Reconciler) UpdateDefaultIngestPipelineForIndex(index string, pipelineN
 	return nil
 }
 
-func (r *Reconciler) UpdateNeuralSearchLogEmbeddingForIndex(index string) error {
+func (r *Reconciler) UpdateIndexMappingsForNeuralSearch(index string) error {
 	var absent bool
 	var err error
 
@@ -909,7 +909,7 @@ func (r *Reconciler) UpdateNeuralSearchLogEmbeddingForIndex(index string) error 
 		return nil
 	}
 
-	mapping, err := sjson.Set("", "properties."+types.LogEmbeddingName, types.LogEmbeddingSettings)
+	mapping, err := sjson.Set("", "properties."+types.LogEmbeddingName, types.LogEmbeddingMappings)
 	if err != nil {
 		return err
 	}
@@ -959,22 +959,19 @@ func (r *Reconciler) shouldUpdateIngestPipelineForNeuralSearch(pipelineName stri
 	return true, nil
 }
 
-func (r *Reconciler) CreateNeuralSearchModel() (string, error) {
+func (r *Reconciler) CreateNeuralSearchModel(customUrl string) (string, error) {
 	resp, err := r.osClient.NeuralSearch.PostEnableModelAccessControl(r.ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to enable model access control: %s", resp.String())
 	}
-
 	modelGroupID, err := r.osClient.NeuralSearch.MaybeCreateModelGroup(r.ctx)
 	if err != nil {
 		return "", err
 	}
-
-	modelID, err := r.osClient.NeuralSearch.MaybeCreateRegisteredModel(r.ctx, modelGroupID)
+	modelID, err := r.osClient.NeuralSearch.MaybeCreateRegisteredModel(r.ctx, modelGroupID, customUrl)
 	if err != nil {
 		return "", err
 	}
-
 	err = r.osClient.NeuralSearch.DeployNeuralSearchModel(r.ctx, modelID)
 	if err != nil {
 		return "", err

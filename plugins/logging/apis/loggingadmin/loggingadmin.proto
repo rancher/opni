@@ -91,6 +91,7 @@ message OpensearchClusterV2 {
     optional string dataRetention = 6;
     optional OpensearchS3Settings s3 = 7;
     optional MlDetails mlNodes = 8;
+    optional NeuralSearchDetails neuralSearch = 9;
 }
 
 message DataPersistence {
@@ -233,6 +234,11 @@ message MlDetails {
     map<string, string> nodeSelector = 6;
     repeated k8s.io.api.core.v1.Toleration tolerations = 7;
     optional DataPersistence persistence = 8;
+}
+
+message NeuralSearchDetails {
+    optional bool enabled = 1;
+    optional string url = 2;
 }
 
 message LogSearchRequest {

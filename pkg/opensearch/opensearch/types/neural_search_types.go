@@ -15,7 +15,7 @@ const (
 )
 
 var (
-	LogEmbeddingSettings = LogEmbeddingSpec{
+	LogEmbeddingMappings = LogEmbeddingSpec{
 		Type:      "knn_vector",
 		Dimension: 768,
 		Method: MethodSpec{
@@ -85,12 +85,12 @@ type SearchParamSpec struct {
 }
 
 type ModelGroupRegisterResp struct {
-	ModelGroupID string `json:"model_group_id"`
-	Status       int    `json:"status"`
+	ModelGroupID string `json:"model_group_id,omitempty"`
+	Status       int    `json:"status,omitempty"`
 }
 
 type ModelSearchQuery struct {
-	Query ModelQuery `json:"query"`
+	Query ModelQuery `json:"query,omitempty"`
 }
 
 type ModelQuery struct {
@@ -101,16 +101,16 @@ type ModelQueryMatch struct {
 	Name string `json:"name,omitempty"`
 }
 type ModelGroupSearchResp struct {
-	ModelGroupHits ModelGroupHits `json:"hits"`
+	ModelGroupHits ModelGroupHits `json:"hits,omitempty"`
 }
 
 type ModelGroupHits struct {
-	Hits []ModelGroup `json:"hits"`
+	Hits []ModelGroup `json:"hits,omitempty"`
 }
 
 type ModelGroup struct {
-	ID     string      `json:"_id"`
-	Source ModelSource `json:"_source"`
+	ID     string      `json:"_id,omitempty"`
+	Source ModelSource `json:"_source,omitempty"`
 }
 
 type ModelSource struct {
@@ -118,21 +118,22 @@ type ModelSource struct {
 }
 
 type GroupBody struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	AccessMode  string `json:"access_mode"`
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+	AccessMode  string `json:"access_mode,omitempty"`
 }
 
 type ModelSpec struct {
-	Name         string `json:"name"`
-	Version      string `json:"version"`
-	Format       string `json:"model_format"`
-	ModelGroupID string `json:"model_group_id"`
+	Name         string `json:"name,omitempty"`
+	Version      string `json:"version,omitempty"`
+	Format       string `json:"model_format,omitempty"`
+	ModelGroupID string `json:"model_group_id,omitempty"`
+	Url          string `json:"url,omitempty"`
 }
 
 type ModelResp struct {
-	TaskId string `json:"task_id"`
-	Status string `json:"status"`
+	TaskId string `json:"task_id,omitempty"`
+	Status string `json:"status,omitempty"`
 }
 
 type ModelTaskStatus struct {

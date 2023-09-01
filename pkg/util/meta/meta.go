@@ -118,6 +118,11 @@ type OpensearchClusterRef struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
+type NeuralSearchSettings struct {
+	Enabled   bool   `json:"enabled,omitempty"`
+	CustomUrl string `json:"url,omitempty"`
+}
+
 func (o *OpensearchClusterRef) ObjectKeyFromRef() types.NamespacedName {
 	return types.NamespacedName{
 		Name:      o.Name,

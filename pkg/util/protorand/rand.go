@@ -38,6 +38,7 @@ func (p *ProtoRand[T]) Gen() (T, error) {
 		var zero T
 		return zero, err
 	}
+	sanitizeLargeNumbers(out)
 	return out.(T), nil
 }
 
@@ -111,4 +112,24 @@ func newPartition(size int, ratio float64) []int {
 		s[i] = 1
 	}
 	return s
+}
+
+func sanitizeLargeNumbers(msg proto.Message) {
+	protorange.Range(msg.ProtoReflect(), func(vs protopath.Values) error {
+		// mask randomly generated uint64s to 53 bits, as larger values are not
+		// representable in json.
+		v := vs.Index(-1)
+		if v.Step.Kind() != protopath.FieldAccessStep {
+			return nil
+		}
+		fd := v.Step.FieldDescriptor()
+		if fd.Kind() == protoreflect.Uint64Kind {
+			u := v.Value.Uint()
+			if masked := u & 0x1FFFFFFFFFFFFF; masked != u {
+				containingMsg := vs.Index(-2).Value.Message()
+				containingMsg.Set(fd, protoreflect.ValueOfUint64(masked))
+			}
+		}
+		return nil
+	})
 }

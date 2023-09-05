@@ -2254,6 +2254,8 @@ github.com/spf13/viper v1.8.1/go.mod h1:o0Pch8wJ9BVSWGQMbra6iw0oQ5oktSIBaujf1rJH
 github.com/spf13/viper v1.13.0/go.mod h1:Icm2xNL3/8uyh/wFuB1jI7TiTNKp8632Nwegu+zgdYw=
 github.com/spf13/viper v1.16.0 h1:rGGH0XDZhdUOryiDWjmIvUSWpbNqisK8Wk0Vyefw8hc=
 github.com/spf13/viper v1.16.0/go.mod h1:yg78JgCJcbrQOvV9YLXgkLaZqUidkY9K+Dd1FofRzQg=
+github.com/sryoya/protorand v0.0.0-20230821135621-5e0808bbd3d8 h1:ycURGtB/l/SlFdlMCQCJbTdln5PgNn+wxba82/8N0pU=
+github.com/sryoya/protorand v0.0.0-20230821135621-5e0808bbd3d8/go.mod h1:9a23nlv6vzBeVlQq6JQCjljZ6sfzsB6aha1m5Ly1W2Y=
 github.com/steveteuber/kubectl-graph v0.6.0 h1:nTjzvfG8KjdVxFuPAlG0+65pLPX1i30grNbfoFkexaI=
 github.com/steveteuber/kubectl-graph v0.6.0/go.mod h1:QjIjxBuM1V8q9giCpsocd9NFdxmoA7ZpEdBqwzw7jYQ=
 github.com/stoewer/go-strcase v1.2.0/go.mod h1:IBiWB2sKIp3wVVQ3Y035++gc+knqhUQag1KpM8ahLw8=

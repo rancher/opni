@@ -14,6 +14,10 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protopath"
+	"google.golang.org/protobuf/reflect/protorange"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 var (
@@ -80,6 +84,22 @@ func DeepCopy[T any](in *T) *T {
 
 func ProtoClone[T proto.Message](msg T) T {
 	return proto.Clone(msg).(T)
+}
+
+func NewMessage[T proto.Message]() T {
+	var t T
+	return t.ProtoReflect().New().Interface().(T)
+}
+
+func NewFieldMaskByPresence[T protoreflect.Message](msg T) *fieldmaskpb.FieldMask {
+	mask := &fieldmaskpb.FieldMask{}
+	protorange.Options{
+		Stable: true,
+	}.Range(msg, func(v protopath.Values) error {
+		mask.Paths = append(mask.Paths, v.Path.String())
+		return nil
+	}, nil)
+	return mask
 }
 
 func ReplaceFirstOccurrence[S ~[]T, T comparable](items S, old T, new T) S {

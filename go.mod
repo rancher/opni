@@ -103,7 +103,7 @@ require (
 	github.com/spf13/afero v1.9.5
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
-	github.com/sryoya/protorand v0.0.0-20230527172419-e5ae2594eadc
+	github.com/sryoya/protorand v0.0.0-20230821135621-5e0808bbd3d8
 	github.com/steveteuber/kubectl-graph v0.6.0
 	github.com/thanos-io/thanos v0.31.1-0.20230717161853-6fda58a6291f
 	github.com/thediveo/enumflag/v2 v2.0.2
@@ -563,8 +563,6 @@ replace (
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza => github.com/dbason/opentelemetry-collector-contrib/pkg/stanza v0.0.0-20230704041503-6f0f267c2d92
 	github.com/opensearch-project/opensearch-go/v2 => github.com/dbason/opensearch-go/v2 v2.0.0-20221202021211-6aec8f80bc41
 	github.com/rancher/charts-build-scripts => github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116
-	// https://github.com/sryoya/protorand/pull/5
-	github.com/sryoya/protorand => github.com/kralicky/protorand v0.0.0-20230808230310-20efa79bb808
 	go.uber.org/zap => github.com/kralicky/zap v1.24.1-0.20230718165024-a2256218e4cc
 	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20230809020457-b60fd235fc1d
 )

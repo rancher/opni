@@ -52,6 +52,8 @@ func StartK8s(ctx waitctx.PermissiveContext, crdDirs []string, scheme *k8sruntim
 		ErrorIfCRDPathMissing: true,
 		ControlPlane: envtest.ControlPlane{
 			APIServer: &envtest.APIServer{
+				StartTimeout: 2 * time.Minute,
+				StopTimeout:  2 * time.Minute,
 				SecureServing: envtest.SecureServing{
 					ListenAddr: envtest.ListenAddr{
 						Address: "127.0.0.1",

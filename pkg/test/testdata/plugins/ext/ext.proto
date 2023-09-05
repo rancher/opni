@@ -134,5 +134,64 @@ message SampleConfiguration {
   optional string     secretField   = 3 [(cli.flag).secret = true];
   map<string, string> mapField      = 4;
   repeated string     repeatedField = 5;
-  SampleConfiguration messageField  = 6;
+  SampleMessage       messageField  = 6;
+}
+
+message SampleMessage {
+  Sample1FieldMsg field1 = 1;
+  Sample2FieldMsg field2 = 2;
+  Sample3FieldMsg field3 = 3;
+  Sample4FieldMsg field4 = 4;
+  Sample5FieldMsg field5 = 5;
+  Sample6FieldMsg field6 = 6;
+
+  SampleMessage2 msg = 7;
+}
+
+message SampleMessage2 {
+  Sample1FieldMsg field1 = 1;
+  Sample2FieldMsg field2 = 2;
+  Sample3FieldMsg field3 = 3;
+  Sample4FieldMsg field4 = 4;
+  Sample5FieldMsg field5 = 5;
+  Sample6FieldMsg field6 = 6;
+}
+
+message Sample1FieldMsg {
+  int32 field1 = 1;
+}
+
+message Sample2FieldMsg {
+  int32 field1 = 1;
+  int32 field2 = 2;
+}
+
+message Sample3FieldMsg {
+  int32 field1 = 1;
+  int32 field2 = 2;
+  int32 field3 = 3;
+}
+
+message Sample4FieldMsg {
+  int32 field1 = 1;
+  int32 field2 = 2;
+  int32 field3 = 3;
+  int32 field4 = 4;
+}
+
+message Sample5FieldMsg {
+  int32 field1 = 1;
+  int32 field2 = 2;
+  int32 field3 = 3;
+  int32 field4 = 4;
+  int32 field5 = 5;
+}
+
+message Sample6FieldMsg {
+  int32 field1 = 1;
+  int32 field2 = 2;
+  int32 field3 = 3;
+  int32 field4 = 4;
+  int32 field5 = 5;
+  int32 field6 = 6;
 }

@@ -459,3 +459,20 @@ func SetRevision[T ConfigType[T]](t T, value int64, maybeTimestamp ...time.Time)
 		rev.Set(value)
 	}
 }
+
+func CopyRevision[T ConfigType[T]](dst, src T) {
+	typ := reflect.TypeOf(dst)
+	indexCacheMu.Lock()
+	if _, ok := indexCache[typ]; !ok {
+		indexCache[typ] = sync.OnceValue(getRevisionFieldIndex[T])
+	}
+	idx := indexCache[typ]()
+	indexCacheMu.Unlock()
+
+	if srcRev := src.GetRevision(); srcRev != nil {
+		field := dst.ProtoReflect().Descriptor().Fields().Get(idx)
+		dst.ProtoReflect().Set(field, protoreflect.ValueOfMessage(srcRev.ProtoReflect()))
+	} else {
+		UnsetRevision(dst)
+	}
+}

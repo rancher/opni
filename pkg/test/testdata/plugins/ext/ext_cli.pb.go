@@ -337,6 +337,10 @@ func (in *SampleConfiguration) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.Var(flagutil.StringPtrValue(nil, &in.SecretField), strings.Join(append(prefix, "secret-field"), "."), "\x1b[31m[secret]\x1b[0m ")
 	fs.StringToStringVar(&in.MapField, strings.Join(append(prefix, "map-field"), "."), nil, "")
 	fs.StringSliceVar(&in.RepeatedField, strings.Join(append(prefix, "repeated-field"), "."), nil, "")
+	if in.MessageField == nil {
+		in.MessageField = &SampleMessage{}
+	}
+	fs.AddFlagSet(in.MessageField.FlagSet(append(prefix, "message-field")...))
 	return fs
 }
 
@@ -360,4 +364,125 @@ func (in *SampleConfiguration) UnredactSecrets(unredacted *SampleConfiguration) 
 		*in.SecretField = *unredacted.SecretField
 	}
 	return nil
+}
+
+func (in *SampleMessage) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SampleMessage", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Field1 == nil {
+		in.Field1 = &Sample1FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field1.FlagSet(append(prefix, "field-1")...))
+	if in.Field2 == nil {
+		in.Field2 = &Sample2FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field2.FlagSet(append(prefix, "field-2")...))
+	if in.Field3 == nil {
+		in.Field3 = &Sample3FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field3.FlagSet(append(prefix, "field-3")...))
+	if in.Field4 == nil {
+		in.Field4 = &Sample4FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field4.FlagSet(append(prefix, "field-4")...))
+	if in.Field5 == nil {
+		in.Field5 = &Sample5FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field5.FlagSet(append(prefix, "field-5")...))
+	if in.Field6 == nil {
+		in.Field6 = &Sample6FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field6.FlagSet(append(prefix, "field-6")...))
+	if in.Msg == nil {
+		in.Msg = &SampleMessage2{}
+	}
+	fs.AddFlagSet(in.Msg.FlagSet(append(prefix, "msg")...))
+	return fs
+}
+
+func (in *Sample1FieldMsg) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Sample1FieldMsg", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Int32Var(&in.Field1, strings.Join(append(prefix, "field-1"), "."), 0, "")
+	return fs
+}
+
+func (in *Sample2FieldMsg) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Sample2FieldMsg", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Int32Var(&in.Field1, strings.Join(append(prefix, "field-1"), "."), 0, "")
+	fs.Int32Var(&in.Field2, strings.Join(append(prefix, "field-2"), "."), 0, "")
+	return fs
+}
+
+func (in *Sample3FieldMsg) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Sample3FieldMsg", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Int32Var(&in.Field1, strings.Join(append(prefix, "field-1"), "."), 0, "")
+	fs.Int32Var(&in.Field2, strings.Join(append(prefix, "field-2"), "."), 0, "")
+	fs.Int32Var(&in.Field3, strings.Join(append(prefix, "field-3"), "."), 0, "")
+	return fs
+}
+
+func (in *Sample4FieldMsg) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Sample4FieldMsg", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Int32Var(&in.Field1, strings.Join(append(prefix, "field-1"), "."), 0, "")
+	fs.Int32Var(&in.Field2, strings.Join(append(prefix, "field-2"), "."), 0, "")
+	fs.Int32Var(&in.Field3, strings.Join(append(prefix, "field-3"), "."), 0, "")
+	fs.Int32Var(&in.Field4, strings.Join(append(prefix, "field-4"), "."), 0, "")
+	return fs
+}
+
+func (in *Sample5FieldMsg) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Sample5FieldMsg", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Int32Var(&in.Field1, strings.Join(append(prefix, "field-1"), "."), 0, "")
+	fs.Int32Var(&in.Field2, strings.Join(append(prefix, "field-2"), "."), 0, "")
+	fs.Int32Var(&in.Field3, strings.Join(append(prefix, "field-3"), "."), 0, "")
+	fs.Int32Var(&in.Field4, strings.Join(append(prefix, "field-4"), "."), 0, "")
+	fs.Int32Var(&in.Field5, strings.Join(append(prefix, "field-5"), "."), 0, "")
+	return fs
+}
+
+func (in *Sample6FieldMsg) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Sample6FieldMsg", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Int32Var(&in.Field1, strings.Join(append(prefix, "field-1"), "."), 0, "")
+	fs.Int32Var(&in.Field2, strings.Join(append(prefix, "field-2"), "."), 0, "")
+	fs.Int32Var(&in.Field3, strings.Join(append(prefix, "field-3"), "."), 0, "")
+	fs.Int32Var(&in.Field4, strings.Join(append(prefix, "field-4"), "."), 0, "")
+	fs.Int32Var(&in.Field5, strings.Join(append(prefix, "field-5"), "."), 0, "")
+	fs.Int32Var(&in.Field6, strings.Join(append(prefix, "field-6"), "."), 0, "")
+	return fs
+}
+
+func (in *SampleMessage2) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SampleMessage2", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Field1 == nil {
+		in.Field1 = &Sample1FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field1.FlagSet(append(prefix, "field-1")...))
+	if in.Field2 == nil {
+		in.Field2 = &Sample2FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field2.FlagSet(append(prefix, "field-2")...))
+	if in.Field3 == nil {
+		in.Field3 = &Sample3FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field3.FlagSet(append(prefix, "field-3")...))
+	if in.Field4 == nil {
+		in.Field4 = &Sample4FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field4.FlagSet(append(prefix, "field-4")...))
+	if in.Field5 == nil {
+		in.Field5 = &Sample5FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field5.FlagSet(append(prefix, "field-5")...))
+	if in.Field6 == nil {
+		in.Field6 = &Sample6FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field6.FlagSet(append(prefix, "field-6")...))
+	return fs
 }

@@ -3,11 +3,11 @@ package conformance_driverutil
 import (
 	"context"
 
+	"github.com/mennanov/fmutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/storage/inmemory"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/merge"
@@ -15,24 +15,9 @@ import (
 	"github.com/samber/lo"
 )
 
-type newValueStore[T any] interface {
-	func(cloneFunc func(T) T) storage.ValueStoreT[T]
-}
-
-type SuiteConfig[
-	T driverutil.ConfigType[T],
-	D newValueStore[D],
-	A newValueStore[A],
-] struct {
-	NewDefaultStore D
-	NewActiveStore  A
-}
-
 func DefaultingConfigTrackerTestSuite[
 	T driverutil.ConfigType[T],
-	D newValueStore[D],
-	A newValueStore[A],
-](config SuiteConfig[T, D, A]) func() {
+](newDefaultStore, newActiveStore func() storage.ValueStoreT[T]) func() {
 	return func() {
 		var transform = func(v storage.WatchEvent[storage.KeyRevision[T]]) T {
 			if lo.IsEmpty(v.Current) {
@@ -55,11 +40,15 @@ func DefaultingConfigTrackerTestSuite[
 			configTracker *driverutil.DefaultingConfigTracker[T]
 		)
 
-		var mustGen func() T
 		rand := protorand.New[T]()
 		rand.Seed(GinkgoRandomSeed())
-		mustGen = func() T {
+		mustGen := func() T {
 			t := rand.MustGen()
+			driverutil.UnsetRevision(t)
+			return t
+		}
+		mustGenPartial := func(p float64) T {
+			t := rand.MustGenPartial(p)
 			driverutil.UnsetRevision(t)
 			return t
 		}
@@ -84,8 +73,8 @@ func DefaultingConfigTrackerTestSuite[
 		BeforeEach(func() {
 			ctx, ca = context.WithCancel(context.Background())
 			DeferCleanup(ca)
-			defaultStore := inmemory.NewValueStore[T](util.ProtoClone)
-			activeStore := inmemory.NewValueStore[T](util.ProtoClone)
+			defaultStore := newDefaultStore()
+			activeStore := newActiveStore()
 			var err error
 			updateC, err = activeStore.Watch(ctx)
 			Expect(err).NotTo(HaveOccurred())
@@ -100,7 +89,7 @@ func DefaultingConfigTrackerTestSuite[
 				Expect(err).NotTo(HaveOccurred())
 
 				expected.RedactSecrets()
-				driverutil.SetRevision(expected, 1)
+				driverutil.CopyRevision(expected, conf)
 				Expect(conf).To(testutil.ProtoEqual(expected))
 			})
 
@@ -108,7 +97,7 @@ func DefaultingConfigTrackerTestSuite[
 				conf, err := configTracker.GetDefaultConfig(ctx)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(conf).To(testutil.ProtoEqual(newDefaultsRedacted()))
+				Expect(conf).To(testutil.ProtoEqual(withRevision(newDefaultsRedacted(), 0)))
 			})
 		})
 
@@ -121,7 +110,10 @@ func DefaultingConfigTrackerTestSuite[
 
 				conf, err := configTracker.GetDefaultConfig(ctx)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(conf).To(testutil.ProtoEqual(withRevision(newDefault, 1)))
+
+				newDefault.RedactSecrets()
+				driverutil.CopyRevision(newDefault, conf)
+				Expect(conf).To(testutil.ProtoEqual(newDefault))
 			})
 			When("applying configurations with secrets", func() {
 				// if T.SecretsRedactor is driverutil.NoopSecretsRedactor[T], skip this test
@@ -139,7 +131,8 @@ func DefaultingConfigTrackerTestSuite[
 					Expect(conf).NotTo(testutil.ProtoEqual(newDefault))
 
 					newDefault.RedactSecrets()
-					Expect(conf).To(testutil.ProtoEqual(withRevision(newDefault, 1)))
+					driverutil.CopyRevision(newDefault, conf)
+					Expect(conf).To(testutil.ProtoEqual(newDefault))
 				})
 			})
 		})
@@ -158,7 +151,8 @@ func DefaultingConfigTrackerTestSuite[
 					conf, err := configTracker.GetConfig(ctx)
 					Expect(err).NotTo(HaveOccurred())
 					defaults.RedactSecrets()
-					Expect(conf).To(testutil.ProtoEqual(withRevision(defaults, 1)))
+					driverutil.CopyRevision(defaults, conf)
+					Expect(conf).To(testutil.ProtoEqual(defaults))
 				})
 				Specify("GetConfigOrDefault should return the active config", func() {
 					expected := mustGen()
@@ -170,15 +164,16 @@ func DefaultingConfigTrackerTestSuite[
 					Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(defaults))))
 
 					conf, err := configTracker.GetConfigOrDefault(ctx)
-					defaults.RedactSecrets()
 					Expect(err).NotTo(HaveOccurred())
-					Expect(conf).To(testutil.ProtoEqual(withRevision(defaults, 1)))
+					defaults.RedactSecrets()
+					driverutil.CopyRevision(defaults, conf)
+					Expect(conf).To(testutil.ProtoEqual(defaults))
 				})
 			})
 			When("there is no active config in the store", func() {
 				Specify("GetConfig should return an error", func() {
 					conf, err := configTracker.GetConfig(ctx)
-					Expect(err).To(MatchError(storage.ErrNotFound))
+					Expect(storage.IsNotFound(err)).To(BeTrue())
 					Expect(conf).To(BeNil())
 				})
 				Specify("GetConfigOrDefault should return a default config", func() {
@@ -188,13 +183,14 @@ func DefaultingConfigTrackerTestSuite[
 
 					Expect(err).NotTo(HaveOccurred())
 					defaultConfig.RedactSecrets()
-					Expect(conf).To(testutil.ProtoEqual(withRevision(defaultConfig, 0)))
+					driverutil.CopyRevision(defaultConfig, conf)
+					Expect(conf).To(testutil.ProtoEqual(defaultConfig))
 				})
 			})
 			When("an error occurs looking up the active config", func() {
 				It("should return the error", func() {
 					_, err := configTracker.GetConfig(ctx)
-					Expect(err).To(MatchError(storage.ErrNotFound))
+					Expect(storage.IsNotFound(err)).To(BeTrue())
 				})
 			})
 		})
@@ -202,7 +198,7 @@ func DefaultingConfigTrackerTestSuite[
 		When("applying the active config", func() {
 			When("there is no existing active config in the store", func() {
 				It("should merge the incoming config with the defaults", func() {
-					newActive := rand.MustGenPartial(0.25)
+					newActive := mustGenPartial(0.25)
 					defaultConfig := newDefaults()
 					Expect(configTracker.SetDefaultConfig(ctx, defaultConfig)).To(Succeed())
 
@@ -213,12 +209,16 @@ func DefaultingConfigTrackerTestSuite[
 					Expect(err).NotTo(HaveOccurred())
 					Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(withoutRevision(mergedConfig)))))
 
+					activeConfig, err := configTracker.GetConfig(ctx)
+					Expect(err).NotTo(HaveOccurred())
 					mergedConfig.RedactSecrets()
-					Expect(configTracker.GetConfig(ctx)).To(testutil.ProtoEqual(withoutRevision(mergedConfig)))
+					driverutil.CopyRevision(mergedConfig, activeConfig)
+
+					Expect(activeConfig).To(testutil.ProtoEqual(mergedConfig))
 				})
 				When("there is no default config in the store", func() {
 					It("should merge the incoming config with new defaults", func() {
-						newActive := rand.MustGenPartial(0.25)
+						newActive := mustGenPartial(0.25)
 
 						err := configTracker.ApplyConfig(ctx, newActive)
 						Expect(err).NotTo(HaveOccurred())
@@ -228,8 +228,12 @@ func DefaultingConfigTrackerTestSuite[
 
 						Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(newDefaults))))
 
+						activeConfig, err := configTracker.GetConfig(ctx)
+						Expect(err).NotTo(HaveOccurred())
+
 						newDefaults.RedactSecrets()
-						Expect(configTracker.GetConfig(ctx)).To(testutil.ProtoEqual(withRevision(newDefaults, 1)))
+						driverutil.CopyRevision(newDefaults, activeConfig)
+						Expect(activeConfig).To(testutil.ProtoEqual(newDefaults))
 					})
 				})
 				When("applying with redacted placeholders", func() {
@@ -263,18 +267,24 @@ func DefaultingConfigTrackerTestSuite[
 				It("should merge with the existing active config", func() {
 					oldActive := mustGen()
 
-					newActive := rand.MustGenPartial(0.5)
+					newActive := mustGenPartial(0.5)
 					Expect(configTracker.ApplyConfig(ctx, oldActive)).To(Succeed())
 					Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(oldActive))))
 					mergedConfig := oldActive
 					merge.MergeWithReplace(mergedConfig, newActive)
 
-					err := configTracker.ApplyConfig(ctx, withRevision(newActive, 1))
+					driverutil.CopyRevision(newActive, mergedConfig)
+					err := configTracker.ApplyConfig(ctx, newActive)
 					Expect(err).NotTo(HaveOccurred())
 
 					Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(withoutRevision(mergedConfig)))))
+
+					activeConfig, err := configTracker.GetConfig(ctx)
+					Expect(err).NotTo(HaveOccurred())
 					mergedConfig.RedactSecrets()
-					Expect(configTracker.GetConfig(ctx)).To(testutil.ProtoEqual(withRevision(mergedConfig, 2)))
+					driverutil.CopyRevision(mergedConfig, activeConfig)
+
+					Expect(activeConfig).To(testutil.ProtoEqual(mergedConfig))
 				})
 			})
 		})
@@ -285,20 +295,25 @@ func DefaultingConfigTrackerTestSuite[
 
 				defClone := util.ProtoClone(def)
 
-				updates := rand.MustGenPartial(0.1)
+				updates := mustGenPartial(0.1)
 
 				merge.MergeWithReplace(defClone, updates)
 
 				err := configTracker.ApplyConfig(ctx, updates)
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(defClone))))
+
+				activeConfig, err := configTracker.GetConfig(ctx)
+				Expect(err).NotTo(HaveOccurred())
 				defClone.RedactSecrets()
-				Expect(configTracker.GetConfig(ctx)).To(testutil.ProtoEqual(withRevision(defClone, 1)))
+				driverutil.CopyRevision(defClone, activeConfig)
+
+				Expect(activeConfig).To(testutil.ProtoEqual(defClone))
 			})
 		})
 		When("resetting the active config", func() {
 			It("should delete the config from the underlying store", func() {
-				updates := rand.MustGenPartial(0.1)
+				updates := mustGenPartial(0.1)
 
 				Expect(configTracker.ApplyConfig(ctx, updates)).To(Succeed())
 				newActive := newDefaults()
@@ -322,19 +337,19 @@ func DefaultingConfigTrackerTestSuite[
 			})
 			When("providing a field mask", func() {
 				It("should preserve the fields in the mask", func() {
-					conf := rand.MustGen()
+					conf := mustGen()
 					Expect(configTracker.ApplyConfig(ctx, conf)).To(Succeed())
 					Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(conf))))
 
 					// generate a random mask
-					updates := rand.MustGenPartial(0.1)
-					mask := util.NewFieldMaskByPresence(updates.ProtoReflect())
+					mask := util.NewFieldMaskByPresence(mustGenPartial(0.25).ProtoReflect())
 
 					err := configTracker.ResetConfig(ctx, mask)
 					Expect(err).NotTo(HaveOccurred())
 
 					expected := newDefaults()
-					merge.MergeWithReplace(expected, updates)
+					fmutils.Filter(conf, mask.GetPaths())
+					merge.MergeWithReplace(expected, conf)
 
 					Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(expected))))
 				})
@@ -345,7 +360,7 @@ func DefaultingConfigTrackerTestSuite[
 				originalDefault, err := configTracker.GetDefaultConfig(ctx)
 				Expect(err).NotTo(HaveOccurred())
 
-				modifiedDefault := rand.MustGenPartial(0.5)
+				modifiedDefault := mustGenPartial(0.5)
 				Expect(configTracker.SetDefaultConfig(ctx, modifiedDefault)).To(Succeed())
 
 				err = configTracker.ResetDefaultConfig(ctx)
@@ -359,7 +374,7 @@ func DefaultingConfigTrackerTestSuite[
 			When("an error occurs deleting the config", func() {
 				It("should return the error", func() {
 					err := configTracker.ResetDefaultConfig(ctx)
-					Expect(err).To(MatchError(storage.ErrNotFound))
+					Expect(storage.IsNotFound(err)).To(BeTrue())
 					Expect(updateC).NotTo(Receive())
 				})
 			})

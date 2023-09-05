@@ -93,12 +93,23 @@ func NewMessage[T proto.Message]() T {
 
 func NewFieldMaskByPresence[T protoreflect.Message](msg T) *fieldmaskpb.FieldMask {
 	mask := &fieldmaskpb.FieldMask{}
-	protorange.Options{
-		Stable: true,
-	}.Range(msg, func(v protopath.Values) error {
-		mask.Paths = append(mask.Paths, v.Path.String())
+	protorange.Range(msg, func(v protopath.Values) error {
+		switch v.Path.Index(-1).Kind() {
+		case protopath.MapIndexStep, protopath.ListIndexStep,
+			protopath.AnyExpandStep, protopath.UnknownAccessStep:
+			return protorange.Break
+		}
+
+		str := v.Path[1:].String()
+		if str == "" {
+			// skip root - if we add an empty string to the paths list, Normalize()
+			// will delete every path after it
+			return nil
+		}
+		mask.Paths = append(mask.Paths, str[1:]) // remove leading dot
 		return nil
-	}, nil)
+	})
+	mask.Normalize()
 	return mask
 }
 

@@ -42,11 +42,11 @@ func (p *ProtoRand[T]) Gen() (T, error) {
 }
 
 func (p *ProtoRand[T]) MustGen() T {
-	out, err := p.ProtoRand.Gen(util.NewMessage[T]())
+	out, err := p.Gen()
 	if err != nil {
 		panic(err)
 	}
-	return out.(T)
+	return out
 }
 
 // Generate a message with a specific ratio of set/unset fields.
@@ -68,38 +68,27 @@ func (p *ProtoRand[T]) GenPartial(ratio float64) (T, error) {
 
 	newGeneratedMsg := p.MustGen()
 
-	options := protorange.Options{
-		Stable: true,
-	}
-	return newGeneratedMsg, options.Range(newGeneratedMsg.ProtoReflect(), func(vs protopath.Values) error {
-		v := vs.Index(0)
-		isMsg := false
-		switch v.Step.Kind() {
-		case protopath.RootStep:
-			isMsg = true
-		case protopath.FieldAccessStep:
-			isMsg = v.Step.FieldDescriptor().Kind() == protoreflect.MessageKind
-		default:
-			return nil
-		}
-		if !isMsg {
-			return nil
-		}
-		msg := v.Value.Message()
+	var walk func(protoreflect.Message)
+	walk = func(msg protoreflect.Message) {
+		md := msg.Descriptor()
 		wire, _ := proto.MarshalOptions{Deterministic: true}.Marshal(msg.Interface())
-		msgFields := msg.Descriptor().Fields()
+		msgFields := md.Fields()
 		partition := newPartition(msgFields.Len(), ratio)
 		rand.New(rand.NewSource(int64(xxh3.Hash(wire)))).
 			Shuffle(len(partition), func(i, j int) {
 				partition[i], partition[j] = partition[j], partition[i]
 			})
 		for i := 0; i < msgFields.Len(); i++ {
+			msgField := msgFields.Get(i)
 			if partition[i] == 0 {
-				msg.Clear(msgFields.Get(i))
+				msg.Clear(msgField)
+			} else if !msgField.IsList() && !msgField.IsMap() && msgField.Kind() == protoreflect.MessageKind {
+				walk(msg.Mutable(msgField).Message())
 			}
 		}
-		return nil
-	}, nil)
+	}
+	walk(newGeneratedMsg.ProtoReflect())
+	return newGeneratedMsg, nil
 }
 
 func (p *ProtoRand[T]) MustGenPartial(ratio float64) T {
@@ -117,7 +106,7 @@ func newPartition(size int, ratio float64) []int {
 		return nil
 	}
 	s := make([]int, size)
-	numOnes := min(1, int(math.Round(ratio*float64(size))))
+	numOnes := max(1, int(math.Round(ratio*float64(size))))
 	for i := 0; i < numOnes; i++ {
 		s[i] = 1
 	}

@@ -130,6 +130,7 @@ func init() {
 	// this is not added in dryrun.go because it is in the wrong order
 	// alphabetically by filename
 	addExtraCortexOpsCmd(BuildDryRunCmd())
+	addExtraCortexOpsCmd(BuildRollbackCmd())
 }
 
 func completeRevisions(ctx context.Context, target driverutil.Target) ([]string, cobra.ShellCompDirective) {

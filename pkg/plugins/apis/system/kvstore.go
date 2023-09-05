@@ -15,6 +15,12 @@ type kvStoreServer struct {
 	store storage.KeyValueStore
 }
 
+func NewKVStoreServer(store storage.KeyValueStore) KeyValueStoreServer {
+	return &kvStoreServer{
+		store: store,
+	}
+}
+
 func (s *kvStoreServer) Put(ctx context.Context, in *PutRequest) (*PutResponse, error) {
 	if err := in.Validate(); err != nil {
 		return nil, err

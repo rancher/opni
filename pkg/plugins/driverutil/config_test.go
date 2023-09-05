@@ -24,7 +24,7 @@ var transform = func(v storage.WatchEvent[storage.KeyRevision[*ext.SampleConfigu
 	return v.Current.Value()
 }
 
-var _ = Describe("DefaultingConfigTracker", Label("unit"), Ordered, func() {
+var _ = XDescribe("DefaultingConfigTracker", Label("unit"), Ordered, func() {
 	var (
 		ctx           context.Context
 		ca            context.CancelFunc

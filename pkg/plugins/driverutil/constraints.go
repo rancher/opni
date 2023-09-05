@@ -23,6 +23,23 @@ type SecretsRedactor[T any] interface {
 
 type ConfigType[T any] interface {
 	proto.Message
-	GetRevision() *corev1.Revision
+	RevisionGetter
 	SecretsRedactor[T]
 }
+
+func WithNoopSecretsRedactor[U interface {
+	proto.Message
+	RevisionGetter
+}, T any](partial U) ConfigType[T] {
+	return struct {
+		proto.Message
+		RevisionGetter
+		SecretsRedactor[T]
+	}{partial, partial, NoopSecretsRedactor[T]{}}
+}
+
+type NoopSecretsRedactor[T any] struct{}
+
+func (NoopSecretsRedactor[T]) RedactSecrets() {}
+
+func (NoopSecretsRedactor[T]) UnredactSecrets(T) error { return nil }

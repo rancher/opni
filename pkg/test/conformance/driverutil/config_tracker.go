@@ -418,7 +418,7 @@ func DefaultingConfigTrackerTestSuite[
 					driverutil.CopyRevision(newActive, conf)
 					Expect(conf).To(testutil.ProtoEqual(newActive))
 
-					conf, err = configTracker.GetConfig(ctx)
+					_, err = configTracker.GetConfig(ctx)
 					Expect(err).To(testutil.MatchStatusCode(storage.ErrNotFound))
 				})
 			})

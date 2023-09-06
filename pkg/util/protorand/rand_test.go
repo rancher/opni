@@ -14,7 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/util/protorand"
 )
 
-var _ = Describe("Protorand", func() {
+var _ = Describe("Protorand", Label("unit"), func() {
 	seed0 := struct {
 		inputs  []float64
 		outputs []*ext.SampleMessage

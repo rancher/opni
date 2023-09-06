@@ -386,5 +386,76 @@ func DefaultingConfigTrackerTestSuite[
 				})
 			})
 		})
+		When("using dry-run mode", func() {
+			When("setting the default config", func() {
+				It("should report changes without persisting them", func() {
+					newDefault := mustGen()
+
+					results, err := configTracker.DryRun(ctx, driverutil.Target_DefaultConfiguration, driverutil.Action_Set, newDefault)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(results.Current).To(testutil.ProtoEqual(newDefaultsRedacted()))
+					conf := results.Modified
+
+					newDefault.RedactSecrets()
+					driverutil.CopyRevision(newDefault, conf)
+					Expect(conf).To(testutil.ProtoEqual(newDefault))
+
+					conf, err = configTracker.GetDefaultConfig(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(conf).To(testutil.ProtoEqual(withRevision(newDefaultsRedacted(), 0)))
+				})
+			})
+			When("applying the active config", func() {
+				It("should report changes without persisting them", func() {
+					newActive := mustGen()
+
+					results, err := configTracker.DryRun(ctx, driverutil.Target_ActiveConfiguration, driverutil.Action_Set, newActive)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(results.Current).To(testutil.ProtoEqual(withoutRevision(newDefaultsRedacted())))
+					conf := results.Modified
+
+					newActive.RedactSecrets()
+					driverutil.CopyRevision(newActive, conf)
+					Expect(conf).To(testutil.ProtoEqual(newActive))
+
+					conf, err = configTracker.GetConfig(ctx)
+					Expect(err).To(testutil.MatchStatusCode(storage.ErrNotFound))
+				})
+			})
+			When("resetting the default config", func() {
+				It("should report changes without persisting them", func() {
+					conf := mustGen()
+					Expect(configTracker.SetDefaultConfig(ctx, conf)).To(Succeed())
+					conf.RedactSecrets()
+
+					results, err := configTracker.DryRun(ctx, driverutil.Target_DefaultConfiguration, driverutil.Action_Reset, lo.Empty[T]())
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(results.Current).To(testutil.ProtoEqual(withoutRevision(conf)))
+					Expect(results.Modified).To(testutil.ProtoEqual(withoutRevision(newDefaultsRedacted())))
+
+					conf, err = configTracker.GetDefaultConfig(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(conf).To(testutil.ProtoEqual(withoutRevision(conf)))
+				})
+			})
+			When("resetting the active config", func() {
+				It("should report changes without persisting them", func() {
+					conf := mustGen()
+					Expect(configTracker.ApplyConfig(ctx, conf)).To(Succeed())
+					conf.RedactSecrets()
+
+					results, err := configTracker.DryRun(ctx, driverutil.Target_ActiveConfiguration, driverutil.Action_Reset, lo.Empty[T]())
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(results.Current).To(testutil.ProtoEqual(withoutRevision(conf)))
+					Expect(results.Modified).To(testutil.ProtoEqual(withoutRevision(newDefaultsRedacted())))
+
+					conf, err = configTracker.GetConfig(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(conf).To(testutil.ProtoEqual(withoutRevision(conf)))
+				})
+			})
+		})
 	}
 }

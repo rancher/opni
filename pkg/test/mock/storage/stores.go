@@ -13,6 +13,7 @@ import (
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	keyring "github.com/rancher/opni/pkg/keyring"
 	storage "github.com/rancher/opni/pkg/storage"
+	lock "github.com/rancher/opni/pkg/storage/lock"
 )
 
 // MockBackend is a mock of Backend interface.
@@ -1078,6 +1079,99 @@ func (m *MockSubjectAccessCapableStore) ListRoleBindings(ctx context.Context) (*
 func (mr *MockSubjectAccessCapableStoreMockRecorder) ListRoleBindings(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRoleBindings", reflect.TypeOf((*MockSubjectAccessCapableStore)(nil).ListRoleBindings), ctx)
+}
+
+// MockLock is a mock of Lock interface.
+type MockLock struct {
+	ctrl     *gomock.Controller
+	recorder *MockLockMockRecorder
+}
+
+// MockLockMockRecorder is the mock recorder for MockLock.
+type MockLockMockRecorder struct {
+	mock *MockLock
+}
+
+// NewMockLock creates a new mock instance.
+func NewMockLock(ctrl *gomock.Controller) *MockLock {
+	mock := &MockLock{ctrl: ctrl}
+	mock.recorder = &MockLockMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockLock) EXPECT() *MockLockMockRecorder {
+	return m.recorder
+}
+
+// Lock mocks base method.
+func (m *MockLock) Lock() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Lock")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Lock indicates an expected call of Lock.
+func (mr *MockLockMockRecorder) Lock() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lock", reflect.TypeOf((*MockLock)(nil).Lock))
+}
+
+// Unlock mocks base method.
+func (m *MockLock) Unlock() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Unlock")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Unlock indicates an expected call of Unlock.
+func (mr *MockLockMockRecorder) Unlock() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unlock", reflect.TypeOf((*MockLock)(nil).Unlock))
+}
+
+// MockLockManager is a mock of LockManager interface.
+type MockLockManager struct {
+	ctrl     *gomock.Controller
+	recorder *MockLockManagerMockRecorder
+}
+
+// MockLockManagerMockRecorder is the mock recorder for MockLockManager.
+type MockLockManagerMockRecorder struct {
+	mock *MockLockManager
+}
+
+// NewMockLockManager creates a new mock instance.
+func NewMockLockManager(ctrl *gomock.Controller) *MockLockManager {
+	mock := &MockLockManager{ctrl: ctrl}
+	mock.recorder = &MockLockManagerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockLockManager) EXPECT() *MockLockManagerMockRecorder {
+	return m.recorder
+}
+
+// Locker mocks base method.
+func (m *MockLockManager) Locker(key string, opts ...lock.LockOption) storage.Lock {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{key}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Locker", varargs...)
+	ret0, _ := ret[0].(storage.Lock)
+	return ret0
+}
+
+// Locker indicates an expected call of Locker.
+func (mr *MockLockManagerMockRecorder) Locker(key interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{key}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Locker", reflect.TypeOf((*MockLockManager)(nil).Locker), varargs...)
 }
 
 // MockHttpTtlCache is a mock of HttpTtlCache interface.

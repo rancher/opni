@@ -1,4 +1,4 @@
-package opensearchrepository
+package recurringsnapshot
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/util/meta"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	opensearchv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -18,42 +19,42 @@ import (
 
 type Reconciler struct {
 	reconciler.ResourceReconciler
-	client      client.Client
-	respository *loggingv1beta1.OpensearchRepository
-	ctx         context.Context
+	client   client.Client
+	snapshot *loggingv1beta1.RecurringSnapshot
+	ctx      context.Context
 }
 
 func NewReconciler(
 	ctx context.Context,
-	instance *loggingv1beta1.OpensearchRepository,
+	instance *loggingv1beta1.RecurringSnapshot,
 	c client.Client,
 	opts ...reconciler.ResourceReconcilerOption,
 ) *Reconciler {
 	return &Reconciler{
 		ResourceReconciler: reconciler.NewReconcilerWith(c,
 			append(opts, reconciler.WithLog(log.FromContext(ctx)))...),
-		client:      c,
-		respository: instance,
-		ctx:         ctx,
+		client:   c,
+		snapshot: instance,
+		ctx:      ctx,
 	}
 }
 
 func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	lg := log.FromContext(r.ctx)
+	lg.Info("beginning reccuring snapshot reconciliation")
 
 	defer func() {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.respository), r.respository); err != nil {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.snapshot), r.snapshot); err != nil {
 				return err
 			}
 			if retErr != nil {
 				// If an error occurred, the state should be set to error
-				r.respository.Status.State = loggingv1beta1.OpensearchRepositoryError
-				r.respository.Status.FailureMessage = retErr.Error()
+				r.snapshot.Status.State = loggingv1beta1.RecurringSnapshotStateError
 			} else {
-				r.respository.Status.State = loggingv1beta1.OpensearchRepositoryCreated
+				r.snapshot.Status.State = loggingv1beta1.RecurringSnapshotStateCreated
 			}
-			return r.client.Status().Update(r.ctx, r.respository)
+			return r.client.Status().Update(r.ctx, r.snapshot)
 		})
 
 		if err != nil {
@@ -62,21 +63,34 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	}()
 
 	opensearch := &opensearchv1.OpenSearchCluster{}
+	repository := &loggingv1beta1.OpensearchRepository{}
+	err := r.client.Get(r.ctx, types.NamespacedName{
+		Name:      r.snapshot.Spec.Snapshot.Repository.Name,
+		Namespace: r.snapshot.Namespace,
+	}, repository)
+
+	if err != nil {
+		retErr = err
+		if !k8serrors.IsNotFound(err) {
+			return
+		}
+		opensearch = nil
+	}
+
 	if err := r.client.Get(
 		r.ctx,
-		r.respository.Spec.OpensearchClusterRef.ObjectKeyFromRef(),
+		repository.Spec.OpensearchClusterRef.ObjectKeyFromRef(),
 		opensearch,
 	); err != nil {
 		retErr = err
 		if !k8serrors.IsNotFound(retErr) {
 			return
 		}
-		// Set opensearch to nil if it doesn't exist for finalizer
 		opensearch = nil
 	}
 
 	// Handle finalizer
-	if r.respository.DeletionTimestamp != nil && controllerutil.ContainsFinalizer(r.respository, meta.OpensearchFinalizer) {
+	if r.snapshot.DeletionTimestamp != nil && controllerutil.ContainsFinalizer(r.snapshot, meta.OpensearchFinalizer) {
 		retErr = r.deleteOpensearchObjects(opensearch)
 		return
 	}
@@ -86,15 +100,17 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		return
 	}
 
-	if opensearch.Status.Phase != opensearchv1.PhaseRunning {
-		lg.Info("opensearch cluster is not ready")
-		retResult = &reconcile.Result{
-			RequeueAfter: 5 * time.Second,
-		}
+	if repository.Status.State != loggingv1beta1.OpensearchRepositoryCreated {
+		lg.Info("waiting for repository to be created")
+		return &reconcile.Result{
+			RequeueAfter: 10 * time.Second,
+		}, nil
+	}
+
+	retErr = r.reconcileOpensearchPolicy(opensearch)
+	if retErr != nil {
 		return
 	}
 
-	retErr = r.reconcileOpensearchObjects(opensearch)
-
-	return
+	return r.updateExecutionStatus(opensearch)
 }

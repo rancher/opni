@@ -13,6 +13,7 @@ import (
 	"github.com/rancher/opni/pkg/util/merge"
 	"github.com/rancher/opni/pkg/util/protorand"
 	"github.com/samber/lo"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 func DefaultingConfigTrackerTestSuite[
@@ -41,6 +42,11 @@ func DefaultingConfigTrackerTestSuite[
 		)
 
 		rand := protorand.New[T]()
+		rand.ExcludeMask(&fieldmaskpb.FieldMask{
+			Paths: []string{
+				"revision",
+			},
+		})
 		rand.Seed(GinkgoRandomSeed())
 		mustGen := func() T {
 			t := rand.MustGen()
@@ -343,6 +349,7 @@ func DefaultingConfigTrackerTestSuite[
 
 					// generate a random mask
 					mask := util.NewFieldMaskByPresence(mustGenPartial(0.25).ProtoReflect())
+					Expect(mask.IsValid(conf)).To(BeTrue(), mask.GetPaths())
 
 					err := configTracker.ResetConfig(ctx, mask)
 					Expect(err).NotTo(HaveOccurred())

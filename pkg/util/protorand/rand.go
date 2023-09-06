@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 
+	"github.com/mennanov/fmutils"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/sryoya/protorand"
 	"github.com/zeebo/xxh3"
@@ -13,11 +14,13 @@ import (
 	"google.golang.org/protobuf/reflect/protopath"
 	"google.golang.org/protobuf/reflect/protorange"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 type ProtoRand[T proto.Message] struct {
 	*protorand.ProtoRand
 
+	mask *fieldmaskpb.FieldMask
 	seed int64
 }
 
@@ -32,11 +35,24 @@ func (p *ProtoRand[T]) Seed(seed int64) {
 	p.ProtoRand.Seed(seed)
 }
 
+// If non-nil, fields listed in the mask will be unset in generated messages.
+// When generating a partial message, listed fields will not be included
+// in the list of possible fields to select from, as if the fields did not
+// exist in the message at all. Paths in the mask are relative to the root
+// of the message and can include nested fields. If nested fields are listed,
+// the mask only applies to "leaf" fields, and not to containing messages.
+func (p *ProtoRand[T]) ExcludeMask(mask *fieldmaskpb.FieldMask) {
+	p.mask = mask
+}
+
 func (p *ProtoRand[T]) Gen() (T, error) {
 	out, err := p.ProtoRand.Gen(util.NewMessage[T]())
 	if err != nil {
 		var zero T
 		return zero, err
+	}
+	if p.mask != nil {
+		fmutils.Prune(out, p.mask.GetPaths())
 	}
 	sanitizeLargeNumbers(out)
 	return out.(T), nil
@@ -69,26 +85,50 @@ func (p *ProtoRand[T]) GenPartial(ratio float64) (T, error) {
 
 	newGeneratedMsg := p.MustGen()
 
-	var walk func(protoreflect.Message)
-	walk = func(msg protoreflect.Message) {
+	var nestedMask fmutils.NestedMask
+	if p.mask != nil {
+		nestedMask = fmutils.NestedMaskFromPaths(p.mask.GetPaths())
+	}
+
+	var walk func(protoreflect.Message, fmutils.NestedMask)
+	walk = func(msg protoreflect.Message, mask fmutils.NestedMask) {
 		md := msg.Descriptor()
 		wire, _ := proto.MarshalOptions{Deterministic: true}.Marshal(msg.Interface())
 		msgFields := md.Fields()
-		partition := newPartition(msgFields.Len(), ratio)
+
+		selectedFields := make([]protoreflect.FieldDescriptor, 0, msgFields.Len())
+		for i := 0; i < msgFields.Len(); i++ {
+			msgField := msgFields.Get(i)
+			included := true
+			if mask != nil {
+				if nested, masked := mask[string(msgField.Name())]; masked {
+					if len(nested) == 0 {
+						// only exclude leaf fields from the mask
+						included = false
+					}
+				}
+			}
+			if included {
+				selectedFields = append(selectedFields, msgField)
+			} else {
+				msg.Clear(msgField)
+			}
+		}
+
+		partition := newPartition(len(selectedFields), ratio)
 		rand.New(rand.NewSource(int64(xxh3.Hash(wire)))).
 			Shuffle(len(partition), func(i, j int) {
 				partition[i], partition[j] = partition[j], partition[i]
 			})
-		for i := 0; i < msgFields.Len(); i++ {
-			msgField := msgFields.Get(i)
+		for i, msgField := range selectedFields {
 			if partition[i] == 0 {
 				msg.Clear(msgField)
 			} else if !msgField.IsList() && !msgField.IsMap() && msgField.Kind() == protoreflect.MessageKind {
-				walk(msg.Mutable(msgField).Message())
+				walk(msg.Mutable(msgField).Message(), nestedMask[string(msgField.Name())])
 			}
 		}
 	}
-	walk(newGeneratedMsg.ProtoReflect())
+	walk(newGeneratedMsg.ProtoReflect(), nestedMask)
 	return newGeneratedMsg, nil
 }
 

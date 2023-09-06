@@ -6,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/rancher/opni/pkg/test/testdata/plugins/ext"
@@ -201,6 +202,32 @@ var _ = Describe("Protorand", func() {
 						}
 					}
 				}
+			}
+		})
+		It("should allow excluding fields from the random selection using a mask", func() {
+			exclude := &fieldmaskpb.FieldMask{
+				Paths: []string{
+					"field1",
+					"field2",
+					"field3",
+					"field4",
+					"field5",
+					"field6",
+				},
+			}
+			rand := protorand.New[*ext.SampleMessage]()
+			rand.Seed(0)
+			rand.ExcludeMask(exclude)
+			out := rand.MustGenPartial(0.999) // this will round up to 1, but not trigger the ratio==1 fast path
+			Expect(out).To(testutil.ProtoEqual(&ext.SampleMessage{
+				Msg: seed0.outputs[0].Msg,
+			}))
+			rand.ExcludeMask(nil)
+
+			By("ensuring subsequent outputs are not affected")
+			for i, input := range seed0.inputs[1:] {
+				out := rand.MustGenPartial(input)
+				Expect(out).To(testutil.ProtoEqual(seed0.outputs[i+1]), fmt.Sprintf("index %d (input %f)", i, input))
 			}
 		})
 	})

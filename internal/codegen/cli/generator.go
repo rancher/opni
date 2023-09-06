@@ -61,22 +61,28 @@ const fileDescriptorProtoPackageFieldNumber = 2
 const fileDescriptorProtoSyntaxFieldNumber = 12
 
 var (
-	_time      = protogen.GoImportPath("time")
-	_fmt       = protogen.GoImportPath("fmt")
-	_context   = protogen.GoImportPath("context")
-	_io        = protogen.GoImportPath("io")
-	_os        = protogen.GoImportPath("os")
-	_strings   = protogen.GoImportPath("strings")
-	_cli       = protogen.GoImportPath("github.com/rancher/opni/internal/codegen/cli")
-	_proto     = protogen.GoImportPath("google.golang.org/protobuf/proto")
-	_protojson = protogen.GoImportPath("google.golang.org/protobuf/encoding/protojson")
-	_cobra     = protogen.GoImportPath("github.com/spf13/cobra")
-	_pflag     = protogen.GoImportPath("github.com/spf13/pflag")
-	_emptypb   = protogen.GoImportPath("google.golang.org/protobuf/types/known/emptypb")
-	_flagutil  = protogen.GoImportPath("github.com/rancher/opni/pkg/util/flagutil")
-	_cliutil   = protogen.GoImportPath("github.com/rancher/opni/pkg/opni/cliutil")
-	_enumflag  = protogen.GoImportPath("github.com/thediveo/enumflag/v2")
-	_errors    = protogen.GoImportPath("errors")
+	_time       = protogen.GoImportPath("time")
+	_fmt        = protogen.GoImportPath("fmt")
+	_context    = protogen.GoImportPath("context")
+	_io         = protogen.GoImportPath("io")
+	_os         = protogen.GoImportPath("os")
+	_lo         = protogen.GoImportPath("github.com/samber/lo")
+	_strings    = protogen.GoImportPath("strings")
+	_cli        = protogen.GoImportPath("github.com/rancher/opni/internal/codegen/cli")
+	_proto      = protogen.GoImportPath("google.golang.org/protobuf/proto")
+	_protojson  = protogen.GoImportPath("google.golang.org/protobuf/encoding/protojson")
+	_protoiface = protogen.GoImportPath("google.golang.org/protobuf/runtime/protoiface")
+	_cobra      = protogen.GoImportPath("github.com/spf13/cobra")
+	_pflag      = protogen.GoImportPath("github.com/spf13/pflag")
+	_emptypb    = protogen.GoImportPath("google.golang.org/protobuf/types/known/emptypb")
+	_flagutil   = protogen.GoImportPath("github.com/rancher/opni/pkg/util/flagutil")
+	_cliutil    = protogen.GoImportPath("github.com/rancher/opni/pkg/opni/cliutil")
+	_enumflag   = protogen.GoImportPath("github.com/thediveo/enumflag/v2")
+	_errors     = protogen.GoImportPath("errors")
+	_status     = protogen.GoImportPath("google.golang.org/grpc/status")
+	_codes      = protogen.GoImportPath("google.golang.org/grpc/codes")
+	_errdetails = protogen.GoImportPath("google.golang.org/genproto/googleapis/rpc/errdetails")
+	_storage    = protogen.GoImportPath("github.com/rancher/opni/pkg/storage")
 )
 
 func genLeadingComments(g *protogen.GeneratedFile, loc protoreflect.SourceLocation) {
@@ -804,24 +810,38 @@ func (cg *Generator) genSecretMethods(g *buffer, fs *flagSet) {
 	g.P("if in == nil {")
 	g.P(" return nil")
 	g.P("}")
+
+	g.P("var details []", _protoiface.Ident("MessageV1"))
 	for _, field := range fs.secretFields {
 		g.P("if in.Get", field.GoName, "() == \"***\" {")
 		g.P(" if unredacted.Get", field.GoName, "() == \"\" {")
-		g.P(`  return `, _errors.Ident("New"), `("cannot unredact: missing value for secret field: `, field.GoName, `")`)
-		g.P(" }")
+		g.P(`  details = append(details, &`, _errdetails.Ident("ErrorInfo"), "{")
+		g.P(`   Reason: "DISCONTINUITY",`)
+		g.P(`   Metadata: map[string]string{"field": "`, field.Desc.Name(), `"},`)
+		g.P(`  })`)
+		g.P(" } else {")
 		if field.Desc.HasPresence() {
 			g.P(" *in.", field.GoName, " = *unredacted.", field.GoName)
 		} else {
 			g.P(" in.", field.GoName, " = unredacted.", field.GoName)
 		}
+		g.P(" }")
 		g.P("}")
 	}
 	for _, dep := range fs.depsWithSecretFields {
-		g.P("if err := in.", dep.GoName, ".UnredactSecrets(unredacted.Get", dep.GoName, "()); err != nil {")
-		g.P(" return err")
+		g.P("if err := in.", dep.GoName, ".UnredactSecrets(unredacted.Get", dep.GoName, "()); ", _storage.Ident("IsDiscontinuity"), "(err) {")
+		g.P(" for _, sd := range ", _status.Ident("Convert"), "(err).Details() {")
+		g.P("  if info, ok := sd.(*", _errdetails.Ident("ErrorInfo"), "); ok {")
+		g.P(`   info.Metadata["field"] = "`, dep.Desc.Name(), `." + info.Metadata["field"]`)
+		g.P("   details = append(details, info)")
+		g.P("  }")
+		g.P(" }")
 		g.P("}")
 	}
-	g.P("return nil")
+	g.P("if len(details) == 0 {")
+	g.P(" return nil")
+	g.P("}")
+	g.P("return ", _lo.Ident("Must"), "(", _status.Ident("New"), `(`, _codes.Ident("InvalidArgument"), `, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()`)
 	g.P("}")
 }
 

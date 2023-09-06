@@ -6,10 +6,15 @@
 package storage
 
 import (
-	errors "errors"
+	storage "github.com/rancher/opni/pkg/storage"
 	flagutil "github.com/rancher/opni/pkg/util/flagutil"
+	lo "github.com/samber/lo"
 	pflag "github.com/spf13/pflag"
+	errdetails "google.golang.org/genproto/googleapis/rpc/errdetails"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	proto "google.golang.org/protobuf/proto"
+	protoiface "google.golang.org/protobuf/runtime/protoiface"
 	strings "strings"
 	time "time"
 )
@@ -127,19 +132,43 @@ func (in *Config) UnredactSecrets(unredacted *Config) error {
 	if in == nil {
 		return nil
 	}
-	if err := in.S3.UnredactSecrets(unredacted.GetS3()); err != nil {
-		return err
+	var details []protoiface.MessageV1
+	if err := in.S3.UnredactSecrets(unredacted.GetS3()); storage.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "s3." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
 	}
-	if err := in.Gcs.UnredactSecrets(unredacted.GetGcs()); err != nil {
-		return err
+	if err := in.Gcs.UnredactSecrets(unredacted.GetGcs()); storage.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "gcs." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
 	}
-	if err := in.Azure.UnredactSecrets(unredacted.GetAzure()); err != nil {
-		return err
+	if err := in.Azure.UnredactSecrets(unredacted.GetAzure()); storage.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "azure." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
 	}
-	if err := in.Swift.UnredactSecrets(unredacted.GetSwift()); err != nil {
-		return err
+	if err := in.Swift.UnredactSecrets(unredacted.GetSwift()); storage.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "swift." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
 	}
-	return nil
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
 }
 
 func (in *S3Config) FlagSet(prefix ...string) *pflag.FlagSet {
@@ -178,16 +207,29 @@ func (in *S3Config) UnredactSecrets(unredacted *S3Config) error {
 	if in == nil {
 		return nil
 	}
+	var details []protoiface.MessageV1
 	if in.GetSecretAccessKey() == "***" {
 		if unredacted.GetSecretAccessKey() == "" {
-			return errors.New("cannot unredact: missing value for secret field: SecretAccessKey")
+			details = append(details, &errdetails.ErrorInfo{
+				Reason:   "DISCONTINUITY",
+				Metadata: map[string]string{"field": "secret_access_key"},
+			})
+		} else {
+			*in.SecretAccessKey = *unredacted.SecretAccessKey
 		}
-		*in.SecretAccessKey = *unredacted.SecretAccessKey
 	}
-	if err := in.Sse.UnredactSecrets(unredacted.GetSse()); err != nil {
-		return err
+	if err := in.Sse.UnredactSecrets(unredacted.GetSse()); storage.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "sse." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
 	}
-	return nil
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
 }
 
 func (in *S3SSEConfig) FlagSet(prefix ...string) *pflag.FlagSet {
@@ -212,13 +254,21 @@ func (in *S3SSEConfig) UnredactSecrets(unredacted *S3SSEConfig) error {
 	if in == nil {
 		return nil
 	}
+	var details []protoiface.MessageV1
 	if in.GetKmsEncryptionContext() == "***" {
 		if unredacted.GetKmsEncryptionContext() == "" {
-			return errors.New("cannot unredact: missing value for secret field: KmsEncryptionContext")
+			details = append(details, &errdetails.ErrorInfo{
+				Reason:   "DISCONTINUITY",
+				Metadata: map[string]string{"field": "kms_encryption_context"},
+			})
+		} else {
+			*in.KmsEncryptionContext = *unredacted.KmsEncryptionContext
 		}
-		*in.KmsEncryptionContext = *unredacted.KmsEncryptionContext
 	}
-	return nil
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
 }
 
 func (in *HttpConfig) FlagSet(prefix ...string) *pflag.FlagSet {
@@ -256,13 +306,21 @@ func (in *GcsConfig) UnredactSecrets(unredacted *GcsConfig) error {
 	if in == nil {
 		return nil
 	}
+	var details []protoiface.MessageV1
 	if in.GetServiceAccount() == "***" {
 		if unredacted.GetServiceAccount() == "" {
-			return errors.New("cannot unredact: missing value for secret field: ServiceAccount")
+			details = append(details, &errdetails.ErrorInfo{
+				Reason:   "DISCONTINUITY",
+				Metadata: map[string]string{"field": "service_account"},
+			})
+		} else {
+			*in.ServiceAccount = *unredacted.ServiceAccount
 		}
-		*in.ServiceAccount = *unredacted.ServiceAccount
 	}
-	return nil
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
 }
 
 func (in *AzureConfig) FlagSet(prefix ...string) *pflag.FlagSet {
@@ -298,19 +356,31 @@ func (in *AzureConfig) UnredactSecrets(unredacted *AzureConfig) error {
 	if in == nil {
 		return nil
 	}
+	var details []protoiface.MessageV1
 	if in.GetAccountKey() == "***" {
 		if unredacted.GetAccountKey() == "" {
-			return errors.New("cannot unredact: missing value for secret field: AccountKey")
+			details = append(details, &errdetails.ErrorInfo{
+				Reason:   "DISCONTINUITY",
+				Metadata: map[string]string{"field": "account_key"},
+			})
+		} else {
+			*in.AccountKey = *unredacted.AccountKey
 		}
-		*in.AccountKey = *unredacted.AccountKey
 	}
 	if in.GetMsiResource() == "***" {
 		if unredacted.GetMsiResource() == "" {
-			return errors.New("cannot unredact: missing value for secret field: MsiResource")
+			details = append(details, &errdetails.ErrorInfo{
+				Reason:   "DISCONTINUITY",
+				Metadata: map[string]string{"field": "msi_resource"},
+			})
+		} else {
+			*in.MsiResource = *unredacted.MsiResource
 		}
-		*in.MsiResource = *unredacted.MsiResource
 	}
-	return nil
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
 }
 
 func (in *SwiftConfig) FlagSet(prefix ...string) *pflag.FlagSet {
@@ -356,19 +426,31 @@ func (in *SwiftConfig) UnredactSecrets(unredacted *SwiftConfig) error {
 	if in == nil {
 		return nil
 	}
+	var details []protoiface.MessageV1
 	if in.GetPassword() == "***" {
 		if unredacted.GetPassword() == "" {
-			return errors.New("cannot unredact: missing value for secret field: Password")
+			details = append(details, &errdetails.ErrorInfo{
+				Reason:   "DISCONTINUITY",
+				Metadata: map[string]string{"field": "password"},
+			})
+		} else {
+			*in.Password = *unredacted.Password
 		}
-		*in.Password = *unredacted.Password
 	}
 	if in.GetApplicationCredentialSecret() == "***" {
 		if unredacted.GetApplicationCredentialSecret() == "" {
-			return errors.New("cannot unredact: missing value for secret field: ApplicationCredentialSecret")
+			details = append(details, &errdetails.ErrorInfo{
+				Reason:   "DISCONTINUITY",
+				Metadata: map[string]string{"field": "application_credential_secret"},
+			})
+		} else {
+			*in.ApplicationCredentialSecret = *unredacted.ApplicationCredentialSecret
 		}
-		*in.ApplicationCredentialSecret = *unredacted.ApplicationCredentialSecret
 	}
-	return nil
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
 }
 
 func (in *FilesystemConfig) FlagSet(prefix ...string) *pflag.FlagSet {

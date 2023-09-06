@@ -15,11 +15,17 @@ import (
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
 	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
+	storage1 "github.com/rancher/opni/pkg/storage"
 	flagutil "github.com/rancher/opni/pkg/util/flagutil"
+	lo "github.com/samber/lo"
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
 	v2 "github.com/thediveo/enumflag/v2"
+	errdetails "google.golang.org/genproto/googleapis/rpc/errdetails"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	proto "google.golang.org/protobuf/proto"
+	protoiface "google.golang.org/protobuf/runtime/protoiface"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	strings "strings"
 )
@@ -560,10 +566,19 @@ func (in *CapabilityBackendConfigSpec) UnredactSecrets(unredacted *CapabilityBac
 	if in == nil {
 		return nil
 	}
-	if err := in.CortexConfig.UnredactSecrets(unredacted.GetCortexConfig()); err != nil {
-		return err
+	var details []protoiface.MessageV1
+	if err := in.CortexConfig.UnredactSecrets(unredacted.GetCortexConfig()); storage1.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "cortexConfig." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
 	}
-	return nil
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
 }
 
 func (in *CortexWorkloadsConfig) FlagSet(prefix ...string) *pflag.FlagSet {
@@ -613,10 +628,19 @@ func (in *CortexApplicationConfig) UnredactSecrets(unredacted *CortexApplication
 	if in == nil {
 		return nil
 	}
-	if err := in.Storage.UnredactSecrets(unredacted.GetStorage()); err != nil {
-		return err
+	var details []protoiface.MessageV1
+	if err := in.Storage.UnredactSecrets(unredacted.GetStorage()); storage1.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "storage." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
 	}
-	return nil
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
 }
 
 func (in *GrafanaConfig) FlagSet(prefix ...string) *pflag.FlagSet {

@@ -9,9 +9,14 @@ import (
 	cli "github.com/rancher/opni/internal/codegen/cli"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
 	flagutil "github.com/rancher/opni/pkg/util/flagutil"
+	lo "github.com/samber/lo"
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
 	v2 "github.com/thediveo/enumflag/v2"
+	errdetails "google.golang.org/genproto/googleapis/rpc/errdetails"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
+	protoiface "google.golang.org/protobuf/runtime/protoiface"
 	strings "strings"
 )
 
@@ -357,13 +362,21 @@ func (in *SampleConfiguration) UnredactSecrets(unredacted *SampleConfiguration) 
 	if in == nil {
 		return nil
 	}
+	var details []protoiface.MessageV1
 	if in.GetSecretField() == "***" {
 		if unredacted.GetSecretField() == "" {
-			return errors.New("cannot unredact: missing value for secret field: SecretField")
+			details = append(details, &errdetails.ErrorInfo{
+				Reason:   "DISCONTINUITY",
+				Metadata: map[string]string{"field": "secretField"},
+			})
+		} else {
+			*in.SecretField = *unredacted.SecretField
 		}
-		*in.SecretField = *unredacted.SecretField
 	}
-	return nil
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
 }
 
 func (in *SampleMessage) FlagSet(prefix ...string) *pflag.FlagSet {

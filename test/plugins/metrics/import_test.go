@@ -7,12 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/golang/snappy"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/prometheus/prometheus/prompb"
-	"github.com/samber/lo"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringclient "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned"
@@ -33,53 +29,6 @@ import (
 )
 
 const testNamespace = "test-ns"
-
-// blockingHttpHandler is only here to keep a remote reader connection open to keep it running indefinitely
-type blockingHttpHandler struct {
-}
-
-func (h blockingHttpHandler) ServeHTTP(w http.ResponseWriter, request *http.Request) {
-	switch request.URL.Path {
-	case "/block":
-		// select {} will block forever without using CPU.
-		select {}
-	case "/large":
-		uncompressed, err := proto.Marshal(&prompb.ReadResponse{
-			Results: []*prompb.QueryResult{
-				{
-					Timeseries: []*prompb.TimeSeries{
-						{
-							Labels: []prompb.Label{
-								{
-									Name:  "__name__",
-									Value: "test_metric",
-								},
-							},
-							// Samples: lo.Map(make([]prompb.Sample, 4194304), func(sample prompb.Sample, i int) prompb.Sample {
-							Samples: lo.Map(make([]prompb.Sample, 65536), func(sample prompb.Sample, i int) prompb.Sample {
-								sample.Timestamp = time.Now().UnixMilli()
-								return sample
-							}),
-						},
-					},
-				},
-			},
-		})
-		if err != nil {
-			panic(err)
-		}
-
-		compressed := snappy.Encode(nil, uncompressed)
-
-		_, err = w.Write(compressed)
-		if err != nil {
-			panic(err)
-		}
-	case "/health":
-	default:
-		panic(fmt.Sprintf("unsupported endpoint: %s", request.URL.Path))
-	}
-}
 
 var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), func() {
 	ctx := context.Background()
@@ -215,7 +164,7 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 
 		server := http.Server{
 			Addr:    addr,
-			Handler: blockingHttpHandler{},
+			Handler: NewReadHandler(),
 		}
 
 		go func() {

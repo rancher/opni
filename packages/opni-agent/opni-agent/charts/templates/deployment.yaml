@@ -59,6 +59,10 @@ spec:
               mountPath: /etc/opni
             - name: plugins
               mountPath: /var/lib/opni-agent/plugins
+          {{- if .Values.import-buffer.enabled }}
+            - name: import-buffer
+              mountPath: /var/lib/opni-agent/import-buffer
+          {{- end }}
           {{- if .Values.volumeMounts }}
             {{- toYaml .Values.volumeMounts | nindent 12 }}
           {{- end }}
@@ -175,6 +179,11 @@ spec:
       {{- if .Values.volumes }}
         {{- toYaml .Values.volumes | nindent 8 }}
       {{- end }}
+      {{- .Values.import-buffer.enabled }}
+      - name: import-buffer
+        persistentVolumeClaim:
+          claimName: {{ include "opni-agent.fullname" .}}-import-buffer
+      {{- end }}
 {{- if eq .Values.persistence.mode "pvc" }}
 ---
 apiVersion: v1
@@ -194,4 +203,23 @@ spec:
   resources:
     requests:
       storage: 2Gi
+{{- end }}
+{{- if .Values.import-buffer.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "onpi-agent.fullname" .}}-import-buffer
+  namespace: {{ include "opni-agent.namespace" . }}
+  labels:
+    {{- include "opni-agent.labels" . | nindent 4 }}
+    opni.io/app: agent
+spec:
+  accessModes:
+  - ReadWriteOnce
+  {{- if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- end }}
+  resources:
+  {{- toYaml .Values.importBuffer.resources | nindent 4 }}
 {{- end }}

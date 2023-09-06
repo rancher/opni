@@ -3,7 +3,10 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -17,6 +20,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/codes"
@@ -24,6 +28,8 @@ import (
 )
 
 var TimeDeltaMillis = time.Minute.Milliseconds()
+
+const BufferDir = "/var/lib/opni-agent/import-buffer"
 
 func toLabelMatchers(rrLabelMatchers []*remoteread.LabelMatcher) []*prompb.LabelMatcher {
 	pbLabelMatchers := make([]*prompb.LabelMatcher, 0, len(rrLabelMatchers))
@@ -54,16 +60,6 @@ func toLabelMatchers(rrLabelMatchers []*remoteread.LabelMatcher) []*prompb.Label
 	return pbLabelMatchers
 }
 
-func dereferenceResultTimeseries(in []*prompb.TimeSeries) []prompb.TimeSeries {
-	dereferenced := make([]prompb.TimeSeries, 0, len(in))
-
-	for _, ref := range in {
-		dereferenced = append(dereferenced, *ref)
-	}
-
-	return dereferenced
-}
-
 func getMessageFromTaskLogs(logs []*corev1.LogEntry) string {
 	if len(logs) == 0 {
 		return ""
@@ -79,9 +75,22 @@ func getMessageFromTaskLogs(logs []*corev1.LogEntry) string {
 	return ""
 }
 
+func dirExists(p string) bool {
+	_, err := os.Stat(p)
+	return err == nil
+}
+
 type TargetRunMetadata struct {
 	Target *remoteread.Target
 	Query  *remoteread.Query
+}
+
+type ChunkMetadata struct {
+	Query      *prompb.Query
+	WriteChunk *prompb.WriteRequest
+
+	// ProgressRatio is the ratio of the progress of this chunk to the total progress of the original request.
+	ProgressRatio float64
 }
 
 type targetStore struct {
@@ -130,15 +139,30 @@ func (store *targetStore) ListKeys(_ context.Context, prefix string) ([]string, 
 type taskRunner struct {
 	remoteWriteClient clients.Locker[remotewrite.RemoteWriteClient]
 
-	remoteReaderMu sync.RWMutex
-	remoteReader   RemoteReader
-
 	backoffPolicy backoff.Policy
 
 	logger *zap.SugaredLogger
+
+	buffer ChunkBuffer
 }
 
-func newTaskRunner(logger *zap.SugaredLogger) *taskRunner {
+func newTaskRunner(logger *zap.SugaredLogger) (*taskRunner, error) {
+	logger = logger.Named("task-runner")
+
+	var buffer ChunkBuffer
+	var err error
+
+	// if buffer volume is not mounted use a simple blocking buffer
+	if !dirExists(BufferDir) {
+		logger.Infof("buffer not enabled, using in memory buffer")
+		buffer = NewMemoryBuffer()
+	} else {
+		buffer, err = NewDiskBuffer(BufferDir)
+		if err != nil {
+			return nil, fmt.Errorf("could not create buffer: %w", err)
+		}
+	}
+
 	return &taskRunner{
 		backoffPolicy: backoff.Exponential(
 			backoff.WithMaxRetries(0),
@@ -146,19 +170,13 @@ func newTaskRunner(logger *zap.SugaredLogger) *taskRunner {
 			backoff.WithMaxInterval(5*time.Minute),
 			backoff.WithMultiplier(1.1),
 		),
-		logger: logger.Named("task-runner"),
-	}
+		logger: logger,
+		buffer: buffer,
+	}, nil
 }
 
 func (tr *taskRunner) SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient]) {
 	tr.remoteWriteClient = client
-}
-
-func (tr *taskRunner) SetRemoteReaderClient(client RemoteReader) {
-	tr.remoteReaderMu.Lock()
-	defer tr.remoteReaderMu.Unlock()
-
-	tr.remoteReader = client
 }
 
 func (tr *taskRunner) OnTaskPending(_ context.Context, _ task.ActiveTask) error {
@@ -203,10 +221,70 @@ func (tr *taskRunner) doPush(ctx context.Context, writeRequest *prompb.WriteRequ
 	}
 }
 
-func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveTask) error {
+func (tr *taskRunner) runPush(ctx context.Context, stopChan chan struct{}, activeTask task.ActiveTask, run *TargetRunMetadata) error {
+	progress := &corev1.Progress{
+		Current: 0,
+		Total:   uint64(run.Query.EndTimestamp.AsTime().UnixMilli() - run.Query.StartTimestamp.AsTime().UnixMilli()),
+	}
+	activeTask.SetProgress(progress)
+
+	for progress.Current < progress.Total {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-stopChan:
+			return nil
+		default: // continue pushing
+		}
+
+		meta, getErr := tr.buffer.Get(ctx, run.Target.Meta.Name)
+		if getErr != nil {
+			if !errors.Is(getErr, ErrBufferNotFound) {
+				activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("could not get chunk from buffer: %s", getErr.Error()))
+			}
+			continue
+		}
+
+		activeTask.AddLogEntry(zapcore.DebugLevel, "received chunk from buffer")
+
+		if err := tr.doPush(ctx, meta.WriteChunk); err != nil {
+			close(stopChan)
+			return err
+		}
+
+		progressDelta := uint64(float64(meta.Query.EndTimestampMs-meta.Query.StartTimestampMs) * meta.ProgressRatio)
+
+		progress.Current += progressDelta
+		activeTask.SetProgress(progress)
+	}
+
+	return nil
+}
+
+func (tr *taskRunner) doRead(ctx context.Context, reader RemoteReader, run *TargetRunMetadata, readRequest *prompb.ReadRequest) (*prompb.ReadResponse, error) {
+	expbackoff := tr.backoffPolicy.Start(ctx)
+
+	for {
+		select {
+		case <-expbackoff.Done():
+			return nil, ctx.Err()
+		case <-expbackoff.Next():
+			readResponse, err := reader.Read(context.Background(), run.Target.Spec.Endpoint, readRequest)
+
+			if err == nil {
+				return readResponse, nil
+			}
+
+			tr.logger.With(
+				zap.Error(err),
+				"endpoint", run.Target.Spec.Endpoint,
+			).Warn("failed to read from target endpoint, retrying...")
+		}
+	}
+}
+
+func (tr *taskRunner) runRead(ctx context.Context, stopChan chan struct{}, activeTask task.ActiveTask, run *TargetRunMetadata) error {
 	limit := util.DefaultWriteLimit()
-	run := &TargetRunMetadata{}
-	activeTask.LoadTaskMetadata(run)
 
 	labelMatchers := toLabelMatchers(run.Query.Matchers)
 
@@ -214,23 +292,15 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 	nextStart := run.Query.StartTimestamp.AsTime().UnixMilli()
 	nextEnd := nextStart
 
-	progressDelta := nextStart
-
-	progress := &corev1.Progress{
-		Current: 0,
-		Total:   uint64(importEnd - progressDelta),
-	}
-
-	activeTask.SetProgress(progress)
-
-	activeTask.AddLogEntry(zapcore.InfoLevel, "import running")
+	reader := NewRemoteReader(&http.Client{})
 
 	for nextStart < importEnd {
 		select {
 		case <-ctx.Done():
-			activeTask.AddLogEntry(zapcore.InfoLevel, "import stopped")
-			return ctx.Err()
-		default: // continue with import
+			return nil
+		case <-stopChan:
+			return nil
+		default: // continue reading
 		}
 
 		nextStart = nextEnd
@@ -254,53 +324,78 @@ func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveT
 			},
 		}
 
-		readResponse, err := tr.remoteReader.Read(context.Background(), run.Target.Spec.Endpoint, readRequest)
-
+		readResponse, err := tr.doRead(ctx, reader, run, readRequest)
 		if err != nil {
-			activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("failed to read from target endpoint: %s", err))
-			return fmt.Errorf("failed to read from target endpoint: %w", err)
+			close(stopChan)
+			return err
 		}
 
-		for _, result := range readResponse.Results {
-			if len(result.Timeseries) == 0 {
-				continue
-			}
-
-			writeRequest := prompb.WriteRequest{
-				Timeseries: dereferenceResultTimeseries(result.Timeseries),
-			}
-
-			chunkedRequests, err := util.SplitChunksWithLimit(&writeRequest, limit)
-			if err != nil {
-				return fmt.Errorf("failed to chunk request: %w", err)
-			}
-
-			if len(chunkedRequests) > 1 {
-				activeTask.AddLogEntry(zapcore.DebugLevel, fmt.Sprintf("split write request into %d chunks", len(chunkedRequests)))
-			}
-
-			for i, request := range chunkedRequests {
-				if err := tr.doPush(ctx, request); err != nil {
-					activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
-					return err
-				}
-				activeTask.AddLogEntry(zapcore.DebugLevel, fmt.Sprintf("pushed chunk %d of %d", i+1, len(chunkedRequests)))
-			}
-
-			progress.Current = uint64(nextEnd - progressDelta)
-			activeTask.SetProgress(progress)
+		writeRequest := &prompb.WriteRequest{
+			Timeseries: lo.Map(readResponse.Results[0].GetTimeseries(), func(t *prompb.TimeSeries, _ int) prompb.TimeSeries {
+				return lo.FromPtr(t)
+			}),
+			Metadata: []prompb.MetricMetadata{},
 		}
+
+		var chunks []*prompb.WriteRequest
+
+		chunks, err = util.SplitChunksWithLimit(writeRequest, limit)
+		if err != nil {
+			close(stopChan)
+			return err
+		}
+
+		activeTask.AddLogEntry(zapcore.InfoLevel, fmt.Sprintf("split request into %d chunks", len(chunks)))
+
+		lo.ForEach(chunks, func(chunk *prompb.WriteRequest, i int) {
+			if err := tr.buffer.Add(ctx, run.Target.Meta.Name, ChunkMetadata{
+				Query:         readRequest.Queries[0],
+				WriteChunk:    chunk,
+				ProgressRatio: 1.0 / float64(len(chunks)),
+			}); err != nil {
+				activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("could not add chunk to buffer: %s", err.Error()))
+			}
+		})
 	}
 
 	return nil
 }
 
-func (tr *taskRunner) OnTaskCompleted(_ context.Context, activeTask task.ActiveTask, state task.State, _ ...any) {
+func (tr *taskRunner) OnTaskRunning(ctx context.Context, activeTask task.ActiveTask) error {
+	run := &TargetRunMetadata{}
+	activeTask.LoadTaskMetadata(run)
+
+	stopChan := make(chan struct{})
+
+	var eg util.MultiErrGroup
+
+	eg.Go(func() error {
+		return tr.runRead(ctx, stopChan, activeTask, run)
+	})
+
+	eg.Go(func() error {
+		return tr.runPush(ctx, stopChan, activeTask, run)
+	})
+
+	eg.Wait()
+
+	if err := eg.Error(); err != nil {
+		activeTask.AddLogEntry(zapcore.ErrorLevel, err.Error())
+		return err
+	}
+
+	return ctx.Err()
+}
+
+func (tr *taskRunner) OnTaskCompleted(ctx context.Context, activeTask task.ActiveTask, state task.State, _ ...any) {
+	if err := tr.buffer.Delete(ctx, activeTask.TaskId()); err != nil {
+		activeTask.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("could not delete task from buffer: %s", err.Error()))
+	}
+
 	switch state {
 	case task.StateCompleted:
 		activeTask.AddLogEntry(zapcore.InfoLevel, "completed")
 	case task.StateFailed:
-		// a log will be added in OnTaskRunning for failed imports so we don't need to log anything here
 	case task.StateCanceled:
 		activeTask.AddLogEntry(zapcore.WarnLevel, "canceled")
 	}
@@ -311,7 +406,6 @@ type TargetRunner interface {
 	Stop(name string) error
 	GetStatus(name string) (*remoteread.TargetStatus, error)
 	SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient])
-	SetRemoteReaderClient(client RemoteReader)
 }
 
 type taskingTargetRunner struct {
@@ -328,7 +422,10 @@ func NewTargetRunner(logger *zap.SugaredLogger) TargetRunner {
 		inner: make(map[string]*corev1.TaskStatus),
 	}
 
-	runner := newTaskRunner(logger)
+	runner, err := newTaskRunner(logger)
+	if err != nil {
+		panic(fmt.Sprintf("bug: failed to create target task runner: %s", err))
+	}
 
 	controller, err := task.NewController(context.Background(), "target-runner", store, runner)
 	if err != nil {
@@ -433,11 +530,13 @@ func (runner *taskingTargetRunner) GetStatus(name string) (*remoteread.TargetSta
 		state = remoteread.TargetState_Canceled
 	}
 
-	return &remoteread.TargetStatus{
+	status := &remoteread.TargetStatus{
 		Progress: statusProgress,
 		Message:  getMessageFromTaskLogs(taskStatus.Logs),
 		State:    state,
-	}, nil
+	}
+
+	return status, nil
 }
 
 func (runner *taskingTargetRunner) SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient]) {
@@ -445,11 +544,4 @@ func (runner *taskingTargetRunner) SetRemoteWriteClient(client clients.Locker[re
 	defer runner.runnerMu.Unlock()
 
 	runner.runner.SetRemoteWriteClient(client)
-}
-
-func (runner *taskingTargetRunner) SetRemoteReaderClient(client RemoteReader) {
-	runner.runnerMu.Lock()
-	defer runner.runnerMu.Unlock()
-
-	runner.runner.SetRemoteReaderClient(client)
 }

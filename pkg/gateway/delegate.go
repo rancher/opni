@@ -88,7 +88,6 @@ func (d *DelegateServer) Request(ctx context.Context, req *streamv1.DelegatedMes
 		"target", targetId,
 		"request", req.GetRequest().QualifiedMethodName(),
 	)
-	lg.Debug("delegating rpc request")
 	target, ok := d.activeAgents[targetId]
 	if ok {
 		fwdResp := &totem.RPC{}

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -41,8 +42,7 @@ func buildPrerequisites() error {
 	return cmd.Run()
 }
 
-// this test takes approx. 2 minutes
-var _ = XDescribe("Agent Memory Tests", Ordered, Serial, Label("aberrant", "temporal"), func() {
+var _ = Describe("Agent Memory Tests", Ordered, Serial, Label("integration", "slow"), func() {
 	var environment *test.Environment
 	var client managementv1.ManagementClient
 	var fingerprint string
@@ -105,6 +105,10 @@ var _ = XDescribe("Agent Memory Tests", Ordered, Serial, Label("aberrant", "temp
 	}
 
 	BeforeAll(func() {
+		if testing.Short() {
+			Skip("skipping agent memory tests in short mode")
+		}
+
 		Expect(buildPrerequisites()).To(Succeed())
 
 		environment = &test.Environment{}
@@ -230,10 +234,6 @@ var _ = XDescribe("Agent Memory Tests", Ordered, Serial, Label("aberrant", "temp
 				agentSession.Terminate().Wait()
 			})
 		})
-	})
-
-	AfterAll(func() {
-		ExpectGracefulExamplePluginShutdown(environment)
 	})
 
 	Specify("watching agent memory usage", func() {

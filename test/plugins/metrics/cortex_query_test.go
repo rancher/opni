@@ -29,6 +29,7 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 	BeforeAll(func() {
 		environment = &test.Environment{}
 		Expect(environment.Start()).To(Succeed())
+		DeferCleanup(environment.Stop)
 		client := environment.NewManagementClient()
 
 		certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
@@ -78,8 +79,6 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 			Subjects: []string{userId},
 		})
 		Expect(err).NotTo(HaveOccurred())
-
-		DeferCleanup(environment.Stop)
 	})
 
 	It("should be able to query metrics from cortex", func() {

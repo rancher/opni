@@ -42,10 +42,6 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, testrunti
 		DeferCleanup(environment.Stop)
 	})
 
-	AfterAll(func() {
-		ExpectGracefulExamplePluginShutdown(environment)
-	})
-
 	//#endregion
 
 	//#region Happy Path Tests

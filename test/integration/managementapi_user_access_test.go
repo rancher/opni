@@ -24,6 +24,7 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 	BeforeAll(func() {
 		environment = &test.Environment{}
 		Expect(environment.Start()).To(Succeed())
+		DeferCleanup(environment.Stop)
 		client = environment.NewManagementClient()
 
 		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
@@ -38,10 +39,6 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 
 		_, errC := environment.StartAgent("test-cluster-id", token, []string{fingerprint})
 		Eventually(errC).Should(Receive(BeNil()))
-	})
-
-	AfterAll(func() {
-		ExpectGracefulExamplePluginShutdown(environment)
 	})
 
 	//#endregion

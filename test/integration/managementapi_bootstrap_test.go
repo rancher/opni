@@ -26,12 +26,10 @@ var _ = Describe("Management API Boostrap Token Management Tests", Ordered, Labe
 	BeforeAll(func() {
 		environment = &test.Environment{}
 		Expect(environment.Start()).To(Succeed())
+		DeferCleanup(environment.Stop)
 		client = environment.NewManagementClient()
 	})
 
-	AfterAll(func() {
-		ExpectGracefulExamplePluginShutdown(environment)
-	})
 	//#endregion
 
 	//#region Happy Path Tests

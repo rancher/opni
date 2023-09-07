@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 
 	"google.golang.org/protobuf/encoding/protojson"
@@ -99,16 +100,13 @@ func determineBestEditingLanguage[T proto.Message](spec T) (language, error) {
 
 var ErrNoEditor = fmt.Errorf("no available editor; please set the EDITOR environment variable and try again")
 
-func EditInteractive[T proto.Message](spec T, id ...string) (T, error) {
+func EditInteractive[T proto.Message](spec T, comments ...string) (T, error) {
 	lang, err := determineBestEditingLanguage(spec)
 	if err != nil {
 		return spec, err
 	}
 	for {
-		var extraComments []string
-		if len(id) > 0 {
-			extraComments = []string{fmt.Sprintf("[id: %s]", id[0])}
-		}
+		extraComments := slices.Clone(comments)
 		if err != nil {
 			extraComments = []string{fmt.Sprintf("error: %v", err)}
 		}

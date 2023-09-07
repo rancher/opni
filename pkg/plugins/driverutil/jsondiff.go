@@ -8,7 +8,9 @@ import (
 
 func MarshalConfigJson(t proto.Message) []byte {
 	bytes, _ := protojson.MarshalOptions{
-		EmitUnpopulated: true,
+		// NB: EmitUnpopulated must be false, otherwise the diff algorithm will not
+		// be able to distinguish removed fields from null (unpopulated) fields.
+		EmitUnpopulated: false,
 		UseProtoNames:   true,
 	}.Marshal(t)
 	return bytes

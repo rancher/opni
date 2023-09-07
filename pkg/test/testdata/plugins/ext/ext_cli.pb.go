@@ -12,7 +12,6 @@ import (
 	lo "github.com/samber/lo"
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
-	v2 "github.com/thediveo/enumflag/v2"
 	errdetails "google.golang.org/genproto/googleapis/rpc/errdetails"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -280,11 +279,7 @@ func (in *BazRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.BoolVar(&in.ParamBool, strings.Join(append(prefix, "param-bool"), "."), false, "")
 	fs.StringVar(&in.ParamString, strings.Join(append(prefix, "param-string"), "."), "", "")
 	fs.BytesHexVar(&in.ParamBytes, strings.Join(append(prefix, "param-bytes"), "."), nil, "")
-	fs.Var(v2.New(&in.ParamEnum, "BazEnum", map[BazRequest_BazEnum][]string{
-		BazRequest_UNKNOWN: {"UNKNOWN"},
-		BazRequest_FOO:     {"FOO"},
-		BazRequest_BAR:     {"BAR"},
-	}, v2.EnumCaseSensitive), strings.Join(append(prefix, "param-enum"), "."), "")
+	fs.Var(flagutil.EnumValue(&in.ParamEnum), strings.Join(append(prefix, "param-enum"), "."), "")
 	fs.Var(flagutil.DurationpbValue(nil, &in.ParamDuration), strings.Join(append(prefix, "param-duration"), "."), "")
 	fs.StringSliceVar(&in.ParamRepeatedString, strings.Join(append(prefix, "param-repeated-string"), "."), nil, "")
 	return fs

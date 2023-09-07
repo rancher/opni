@@ -77,7 +77,6 @@ var (
 	_emptypb    = protogen.GoImportPath("google.golang.org/protobuf/types/known/emptypb")
 	_flagutil   = protogen.GoImportPath("github.com/rancher/opni/pkg/util/flagutil")
 	_cliutil    = protogen.GoImportPath("github.com/rancher/opni/pkg/opni/cliutil")
-	_enumflag   = protogen.GoImportPath("github.com/thediveo/enumflag/v2")
 	_errors     = protogen.GoImportPath("errors")
 	_status     = protogen.GoImportPath("google.golang.org/grpc/status")
 	_codes      = protogen.GoImportPath("google.golang.org/grpc/codes")
@@ -708,11 +707,7 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 
 			switch field.Desc.Kind() {
 			case protoreflect.EnumKind:
-				g.P(`fs.Var(`, _enumflag.Ident("New"), `(&in.`, field.GoName, `, "`, field.Enum.Desc.Name(), `", map[`+g.QualifiedGoIdent(field.Enum.GoIdent)+`][]string{`)
-				for _, v := range field.Enum.Values {
-					g.P(g.QualifiedGoIdent(v.GoIdent), `: {`, fmt.Sprintf("%q", string(v.Desc.Name())), `},`)
-				}
-				g.P("},", _enumflag.Ident("EnumCaseSensitive"), `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
+				g.P(`fs.Var(`, _flagutil.Ident("EnumValue"), `(&in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
 				var allValues []string
 				for _, v := range field.Enum.Values {
 					allValues = append(allValues, strconv.Quote(string(v.Desc.Name())))

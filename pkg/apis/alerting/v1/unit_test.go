@@ -9,7 +9,9 @@ import (
 	. "github.com/onsi/gomega"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -280,6 +282,142 @@ var _ = Describe("Extensions test", Label("unit"), func() {
 			for _, same := range samesies {
 				Expect(HasSameHash(cond, same)).To(Succeed())
 			}
+		})
+	})
+
+	When("we redact endpoint secrets", func() {
+		It("should redact slack secrets", func() {
+			s := &alertingv1.AlertEndpoint{
+				Endpoint: &alertingv1.AlertEndpoint_Slack{
+					Slack: &alertingv1.SlackEndpoint{
+						WebhookUrl: "https://foo.bar",
+					},
+				},
+			}
+			s.RedactSecrets()
+			Expect(s.GetSlack().WebhookUrl).To(Equal(storagev1.Redacted))
+
+			s.UnredactSecrets(&alertingv1.AlertEndpoint{
+				Endpoint: &alertingv1.AlertEndpoint_Slack{
+					Slack: &alertingv1.SlackEndpoint{
+						WebhookUrl: "https://foo.bar",
+					},
+				},
+			})
+			Expect(s.GetSlack().WebhookUrl).To(Equal("https://foo.bar"))
+		})
+
+		It("should redact email secrets", func() {
+			e := &alertingv1.AlertEndpoint{
+				Endpoint: &alertingv1.AlertEndpoint_Email{
+					Email: &alertingv1.EmailEndpoint{
+						SmtpAuthPassword: lo.ToPtr("password"),
+					},
+				},
+			}
+			e.RedactSecrets()
+			Expect(*e.GetEmail().SmtpAuthPassword).To(Equal(storagev1.Redacted))
+
+			e.UnredactSecrets(
+				&alertingv1.AlertEndpoint{
+					Endpoint: &alertingv1.AlertEndpoint_Email{
+						Email: &alertingv1.EmailEndpoint{
+							SmtpAuthPassword: lo.ToPtr("password"),
+						},
+					},
+				},
+			)
+			Expect(*e.GetEmail().SmtpAuthPassword).To(Equal("password"))
+		})
+
+		It("should redact pager duty secrets", func() {
+			pg := &alertingv1.AlertEndpoint{
+				Endpoint: &alertingv1.AlertEndpoint_PagerDuty{
+					PagerDuty: &alertingv1.PagerDutyEndpoint{
+						IntegrationKey: "integrationKey",
+					},
+				},
+			}
+			pg.RedactSecrets()
+			Expect(pg.GetPagerDuty().IntegrationKey).To(Equal(storagev1.Redacted))
+
+			pg.UnredactSecrets(
+				&alertingv1.AlertEndpoint{
+					Endpoint: &alertingv1.AlertEndpoint_PagerDuty{
+						PagerDuty: &alertingv1.PagerDutyEndpoint{
+							IntegrationKey: "integrationKey",
+						},
+					},
+				},
+			)
+			Expect(pg.GetPagerDuty().IntegrationKey).To(Equal("integrationKey"))
+		})
+
+		It("should redact webhook secrets", func() {
+			e1 := &alertingv1.AlertEndpoint{
+				Endpoint: &alertingv1.AlertEndpoint_Webhook{
+					Webhook: &alertingv1.WebhookEndpoint{
+						Url: "https://foo.bar",
+					},
+				},
+			}
+			e1.RedactSecrets()
+			Expect(e1.GetWebhook().Url).To(Equal(storagev1.Redacted))
+
+			e1.UnredactSecrets(
+				&alertingv1.AlertEndpoint{
+					Endpoint: &alertingv1.AlertEndpoint_Webhook{
+						Webhook: &alertingv1.WebhookEndpoint{
+							Url: "https://foo.bar",
+						},
+					},
+				},
+			)
+			Expect(e1.GetWebhook().Url).To(Equal("https://foo.bar"))
+
+			e2 := &alertingv1.AlertEndpoint{
+				Endpoint: &alertingv1.AlertEndpoint_Webhook{
+					Webhook: &alertingv1.WebhookEndpoint{
+						Url: "https://foo.bar",
+						HttpConfig: &alertingv1.HTTPConfig{
+							BasicAuth: &alertingv1.BasicAuth{
+								Password: "password",
+							},
+							Authorization: &alertingv1.Authorization{
+								Credentials: "credentials",
+							},
+							Oauth2: &alertingv1.OAuth2{
+								ClientSecret: "clientSecret",
+							},
+						},
+					},
+				},
+			}
+			e2.RedactSecrets()
+			Expect(e2.GetWebhook().Url).To(Equal(storagev1.Redacted))
+			Expect(e2.GetWebhook().HttpConfig.BasicAuth.Password).To(Equal(storagev1.Redacted))
+			Expect(e2.GetWebhook().HttpConfig.Authorization.Credentials).To(Equal(storagev1.Redacted))
+			Expect(e2.GetWebhook().HttpConfig.Oauth2.ClientSecret).To(Equal(storagev1.Redacted))
+			e2.UnredactSecrets(
+				&alertingv1.AlertEndpoint{
+					Endpoint: &alertingv1.AlertEndpoint_Webhook{
+						Webhook: &alertingv1.WebhookEndpoint{
+							Url: "https://foo.bar",
+							HttpConfig: &alertingv1.HTTPConfig{
+								BasicAuth: &alertingv1.BasicAuth{
+									Password: "password",
+								},
+								Authorization: &alertingv1.Authorization{
+									Credentials: "credentials",
+								},
+								Oauth2: &alertingv1.OAuth2{
+									ClientSecret: "clientSecret",
+								},
+							},
+						},
+					},
+				},
+			)
 		})
 	})
 })

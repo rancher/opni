@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	amCfg "github.com/prometheus/alertmanager/config"
+	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/message"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage/opts"
@@ -14,6 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/validation"
 	"github.com/samber/lo"
 	lop "github.com/samber/lo/parallel"
+	"gopkg.in/yaml.v2"
 
 	"slices"
 
@@ -26,6 +29,24 @@ import (
 
 var _ alertingv1.AlertEndpointsServer = (*EndpointServerComponent)(nil)
 
+func validateFullWebhook(w *alertingv1.WebhookEndpoint) error {
+	// Start serializaing into alertmanager config, because validation is done when marshalling
+	// alertmanager structs
+	webhook := config.ToWebhook(w)
+	out, err := yaml.Marshal(webhook)
+	if err != nil {
+		return err
+	}
+	var amCfg amCfg.WebhookConfig
+	if err := yaml.Unmarshal(out, &amCfg); err != nil {
+		return err
+	}
+	if _, err := yaml.Marshal(&amCfg); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (e *EndpointServerComponent) CreateAlertEndpoint(ctx context.Context, req *alertingv1.AlertEndpoint) (*corev1.Reference, error) {
 	if !e.Initialized() {
 		return nil, status.Error(codes.Unavailable, "Alarm server is not yet available")
@@ -33,6 +54,13 @@ func (e *EndpointServerComponent) CreateAlertEndpoint(ctx context.Context, req *
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
+
+	if req.GetWebhook() != nil {
+		if err := validateFullWebhook(req.GetWebhook()); err != nil {
+			return nil, err
+		}
+	}
+
 	newId := shared.NewAlertingRefId()
 	req.Id = newId
 	req.LastUpdated = timestamppb.Now()
@@ -64,6 +92,12 @@ func (e *EndpointServerComponent) UpdateAlertEndpoint(ctx context.Context, req *
 	}
 	if err := req.Validate(); err != nil {
 		return nil, err
+	}
+
+	if req.GetUpdateAlert().GetWebhook() != nil {
+		if err := validateFullWebhook(req.GetUpdateAlert().GetWebhook()); err != nil {
+			return nil, err
+		}
 	}
 
 	resp, err := e.notifications.ListRoutingRelationships(ctx, &emptypb.Empty{})

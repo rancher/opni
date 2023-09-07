@@ -4,6 +4,8 @@ import (
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 )
 
+// TODO : new proto config logic will abstract away these method implementations
+
 func (e *AlertEndpoint) RedactSecrets() {
 	if slack := e.GetSlack(); slack != nil {
 		slack.WebhookUrl = storagev1.Redacted

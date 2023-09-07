@@ -34,7 +34,6 @@ func ToWebhook(endp *alertingv1.WebhookEndpoint) *WebhookConfig {
 			proxyUrl, err := url.Parse(hc.GetProxyUrl())
 			if err != nil {
 				panic(err)
-				// return validation.Errorf("proxy url must be a valid url : %s", err)
 			}
 			httpConfig.ProxyURL = commoncfg.URL{URL: proxyUrl}
 		}

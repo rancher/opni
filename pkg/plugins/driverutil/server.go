@@ -14,7 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
-type DefaultConfigurableServer[T InstallableConfigType[T], GR RevisionGetter] interface {
+type DefaultConfigurableServer[T InstallableConfigType[T], GR Revisioner] interface {
 	GetDefaultConfiguration(context.Context, GR) (T, error)
 	SetDefaultConfiguration(context.Context, T) (*emptypb.Empty, error)
 	ResetDefaultConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
@@ -50,7 +50,7 @@ type DefaultConfigurableServer[T InstallableConfigType[T], GR RevisionGetter] in
 func NewDefaultConfigurableServer[
 	I DefaultConfigurableServer[T, GR],
 	T InstallableConfigType[T],
-	GR RevisionGetter,
+	GR Revisioner,
 ](tracker *DefaultingConfigTracker[T]) DefaultConfigurableServer[T, GR] {
 	return &defaultConfigurableServer[T, GR]{
 		tracker:             tracker,
@@ -58,7 +58,7 @@ func NewDefaultConfigurableServer[
 	}
 }
 
-type defaultConfigurableServer[T InstallableConfigType[T], GR RevisionGetter] struct {
+type defaultConfigurableServer[T InstallableConfigType[T], GR Revisioner] struct {
 	tracker             *DefaultingConfigTracker[T]
 	indexOfEnabledField protowire.Number
 }

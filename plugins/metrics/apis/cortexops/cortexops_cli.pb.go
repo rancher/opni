@@ -12,7 +12,6 @@ import (
 	runtimeconfig "github.com/rancher/opni/internal/cortex/config/runtimeconfig"
 	storage "github.com/rancher/opni/internal/cortex/config/storage"
 	validation "github.com/rancher/opni/internal/cortex/config/validation"
-	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
 	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
 	storage1 "github.com/rancher/opni/pkg/storage"
@@ -20,7 +19,6 @@ import (
 	lo "github.com/samber/lo"
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
-	v2 "github.com/thediveo/enumflag/v2"
 	errdetails "google.golang.org/genproto/googleapis/rpc/errdetails"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -81,7 +79,7 @@ func addBuildHook_CortexOpsGetDefaultConfiguration(hook func(*cobra.Command)) {
 }
 
 func BuildCortexOpsGetDefaultConfigurationCmd() *cobra.Command {
-	in := &GetRequest{}
+	in := &driverutil.GetRequest{}
 	cmd := &cobra.Command{
 		Use:   "config get-default",
 		Short: "Returns the default implementation-specific configuration, or one previously set.",
@@ -152,7 +150,7 @@ HTTP handlers for this method:
 					cmd.PrintErrln("failed to get client from context")
 					return nil
 				}
-				if curValue, err := client.GetDefaultConfiguration(cmd.Context(), &GetRequest{}); err == nil {
+				if curValue, err := client.GetDefaultConfiguration(cmd.Context(), &driverutil.GetRequest{}); err == nil {
 					in = curValue
 				}
 				if edited, err := cliutil.EditInteractive(in); err != nil {
@@ -219,7 +217,7 @@ func addBuildHook_CortexOpsGetConfiguration(hook func(*cobra.Command)) {
 }
 
 func BuildCortexOpsGetConfigurationCmd() *cobra.Command {
-	in := &GetRequest{}
+	in := &driverutil.GetRequest{}
 	cmd := &cobra.Command{
 		Use:   "config get",
 		Short: "Gets the current configuration of the managed Cortex cluster.",
@@ -298,7 +296,7 @@ HTTP handlers for this method:
 					cmd.PrintErrln("failed to get client from context")
 					return nil
 				}
-				if curValue, err := client.GetConfiguration(cmd.Context(), &GetRequest{}); err == nil {
+				if curValue, err := client.GetConfiguration(cmd.Context(), &driverutil.GetRequest{}); err == nil {
 					in = curValue
 				}
 				if edited, err := cliutil.EditInteractive(in); err != nil {
@@ -488,7 +486,7 @@ HTTP handlers for this method:
 }
 
 func BuildCortexOpsConfigurationHistoryCmd() *cobra.Command {
-	in := &ConfigurationHistoryRequest{}
+	in := &driverutil.ConfigurationHistoryRequest{}
 	cmd := &cobra.Command{
 		Use:   "config history",
 		Short: "Get a list of all past revisions of the configuration.",
@@ -525,16 +523,6 @@ HTTP handlers for this method:
 		return []string{"ActiveConfiguration", "DefaultConfiguration"}, cobra.ShellCompDirectiveDefault
 	})
 	return cmd
-}
-
-func (in *GetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("GetRequest", pflag.ExitOnError)
-	fs.SortFlags = true
-	if in.Revision == nil {
-		in.Revision = &v1.Revision{}
-	}
-	fs.AddFlagSet(in.Revision.FlagSet(prefix...))
-	return fs
 }
 
 func (in *CapabilityBackendConfigSpec) FlagSet(prefix ...string) *pflag.FlagSet {
@@ -652,17 +640,6 @@ func (in *GrafanaConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	return fs
 }
 
-func (in *ConfigurationHistoryRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("ConfigurationHistoryRequest", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.Var(v2.New(&in.Target, "Target", map[driverutil.Target][]string{
-		driverutil.Target_ActiveConfiguration:  {"ActiveConfiguration"},
-		driverutil.Target_DefaultConfiguration: {"DefaultConfiguration"},
-	}, v2.EnumCaseSensitive), strings.Join(append(prefix, "target"), "."), "The configuration type to return history for.")
-	fs.BoolVar(&in.IncludeValues, strings.Join(append(prefix, "include-values"), "."), true, "If set, will include the values of the configuration in the response.")
-	return fs
-}
-
 func (in *InstallStatus) DeepCopyInto(out *InstallStatus) {
 	out.Reset()
 	proto.Merge(out, in)
@@ -753,15 +730,6 @@ func (in *DryRunRequest) DeepCopy() *DryRunRequest {
 	return proto.Clone(in).(*DryRunRequest)
 }
 
-func (in *ValidationError) DeepCopyInto(out *ValidationError) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *ValidationError) DeepCopy() *ValidationError {
-	return proto.Clone(in).(*ValidationError)
-}
-
 func (in *DryRunResponse) DeepCopyInto(out *DryRunResponse) {
 	out.Reset()
 	proto.Merge(out, in)
@@ -769,24 +737,6 @@ func (in *DryRunResponse) DeepCopyInto(out *DryRunResponse) {
 
 func (in *DryRunResponse) DeepCopy() *DryRunResponse {
 	return proto.Clone(in).(*DryRunResponse)
-}
-
-func (in *GetRequest) DeepCopyInto(out *GetRequest) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *GetRequest) DeepCopy() *GetRequest {
-	return proto.Clone(in).(*GetRequest)
-}
-
-func (in *ConfigurationHistoryRequest) DeepCopyInto(out *ConfigurationHistoryRequest) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *ConfigurationHistoryRequest) DeepCopy() *ConfigurationHistoryRequest {
-	return proto.Clone(in).(*ConfigurationHistoryRequest)
 }
 
 func (in *ConfigurationHistoryResponse) DeepCopyInto(out *ConfigurationHistoryResponse) {

@@ -9,7 +9,7 @@ import "github.com/rancher/opni/internal/cortex/config/runtimeconfig/runtimeconf
 import "github.com/rancher/opni/internal/cortex/config/validation/limits.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
-import "github.com/rancher/opni/pkg/plugins/driverutil/dryrun.proto";
+import "github.com/rancher/opni/pkg/plugins/driverutil/types.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 
@@ -30,7 +30,7 @@ service CortexOps {
   // returns that configuration. Otherwise, returns implementation-specific defaults.
   // An optional revision argument can be provided to get a specific historical
   // version of the configuration instead of the current configuration.
-  rpc GetDefaultConfiguration(GetRequest) returns (CapabilityBackendConfigSpec) {
+  rpc GetDefaultConfiguration(driverutil.GetRequest) returns (CapabilityBackendConfigSpec) {
     option (cli.command) = {
       use:          "config get-default"
       enable_hooks: true
@@ -76,7 +76,7 @@ service CortexOps {
   // Gets the current configuration of the managed Cortex cluster.
   // An optional revision argument can be provided to get a specific historical
   // version of the configuration instead of the current configuration.
-  rpc GetConfiguration(GetRequest) returns (CapabilityBackendConfigSpec) {
+  rpc GetConfiguration(driverutil.GetRequest) returns (CapabilityBackendConfigSpec) {
     option (cli.command) = {
       use:          "config get"
       enable_hooks: true
@@ -210,7 +210,7 @@ service CortexOps {
   // depending on the specified target.
   // The entries are ordered from oldest to newest, where the last entry is
   // the current configuration.
-  rpc ConfigurationHistory(ConfigurationHistoryRequest) returns (ConfigurationHistoryResponse) {
+  rpc ConfigurationHistory(driverutil.ConfigurationHistoryRequest) returns (ConfigurationHistoryResponse) {
     option (cli.command) = {
       use: "config history"
     };
@@ -320,39 +320,10 @@ message DryRunRequest {
   CapabilityBackendConfigSpec spec   = 3;
 }
 
-message ValidationError {
-  enum Severity {
-    Unknown = 0;
-    Warning = 1;
-    Error   = 2;
-  }
-  Severity severity = 1;
-  string   message  = 2;
-  string   source   = 3;
-}
-
 message DryRunResponse {
-  CapabilityBackendConfigSpec current          = 1;
-  CapabilityBackendConfigSpec modified         = 2;
-  repeated ValidationError    validationErrors = 3;
-}
-
-message GetRequest {
-  // If set, will return the config at the specified revision instead of
-  // the current config.
-  // This revision value can be obtained from the revision field of a
-  // CapabilityBackendConfigSpec, either from GetConfiguration/GetDefaultConfiguration
-  // or from one of the history entries returned by ConfigurationHistory.
-  core.Revision revision = 1 [(cli.flag_set).no_prefix = true];
-}
-
-message ConfigurationHistoryRequest {
-  // The configuration type to return history for.
-  driverutil.Target target = 1;
-
-  // If set, will include the values of the configuration in the response.
-  // Otherwise, only the revision field of each entry will be populated.
-  bool includeValues = 2 [(cli.flag).default = "true"];
+  CapabilityBackendConfigSpec         current          = 1;
+  CapabilityBackendConfigSpec         modified         = 2;
+  repeated driverutil.ValidationError validationErrors = 3;
 }
 
 message ConfigurationHistoryResponse {

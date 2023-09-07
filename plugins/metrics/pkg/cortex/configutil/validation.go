@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/reflect/protopath"
 
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 )
 
@@ -29,33 +30,33 @@ func (l *errLogger) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func mkwarningf(msg string, args ...any) *cortexops.ValidationError {
-	return &cortexops.ValidationError{
-		Severity: cortexops.ValidationError_Warning,
+func mkwarningf(msg string, args ...any) *driverutil.ValidationError {
+	return &driverutil.ValidationError{
+		Severity: driverutil.ValidationError_Warning,
 		Message:  fmt.Sprintf(msg, args...),
 	}
 }
 
-func mkerrorf(msg string, args ...any) *cortexops.ValidationError {
-	return &cortexops.ValidationError{
-		Severity: cortexops.ValidationError_Error,
+func mkerrorf(msg string, args ...any) *driverutil.ValidationError {
+	return &driverutil.ValidationError{
+		Severity: driverutil.ValidationError_Error,
 		Message:  fmt.Sprintf(msg, args...),
 	}
 }
 
-func requiredFieldError(field protopath.Path) *cortexops.ValidationError {
+func requiredFieldError(field protopath.Path) *driverutil.ValidationError {
 	return mkerrorf("missing required field: %s", field)
 }
 
-func ValidateConfiguration(cfg *cortexops.CapabilityBackendConfigSpec, overriders ...CortexConfigOverrider) []*cortexops.ValidationError {
-	errs := []*cortexops.ValidationError{}
+func ValidateConfiguration(cfg *cortexops.CapabilityBackendConfigSpec, overriders ...CortexConfigOverrider) []*driverutil.ValidationError {
+	errs := []*driverutil.ValidationError{}
 	errs = append(errs, CollectValidationErrorLogs(cfg.GetCortexConfig(), overriders...)...)
 	errs = append(errs, RunCustomValidationRules(cfg)...)
 	return errs
 }
 
-func CollectValidationErrorLogs(cfg *cortexops.CortexApplicationConfig, overriders ...CortexConfigOverrider) []*cortexops.ValidationError {
-	errs := []*cortexops.ValidationError{}
+func CollectValidationErrorLogs(cfg *cortexops.CortexApplicationConfig, overriders ...CortexConfigOverrider) []*driverutil.ValidationError {
+	errs := []*driverutil.ValidationError{}
 	conf, _, err := CortexAPISpecToCortexConfig(cfg, overriders...)
 	if err != nil {
 		errs = append(errs, mkerrorf(err.Error()))
@@ -78,13 +79,13 @@ func CollectValidationErrorLogs(cfg *cortexops.CortexApplicationConfig, override
 	return errs
 }
 
-func RunCustomValidationRules(cfg *cortexops.CapabilityBackendConfigSpec) []*cortexops.ValidationError {
-	rules := []func(*cortexops.CapabilityBackendConfigSpec) []*cortexops.ValidationError{
+func RunCustomValidationRules(cfg *cortexops.CapabilityBackendConfigSpec) []*driverutil.ValidationError {
+	rules := []func(*cortexops.CapabilityBackendConfigSpec) []*driverutil.ValidationError{
 		validateFilesystemStorageModeUsage,
 		validateRequiredStorageCredentials,
 		validateTargets,
 	}
-	errs := []*cortexops.ValidationError{}
+	errs := []*driverutil.ValidationError{}
 	for _, rule := range rules {
 		errs = append(errs, rule(cfg)...)
 	}
@@ -95,14 +96,14 @@ func RunCustomValidationRules(cfg *cortexops.CapabilityBackendConfigSpec) []*cor
 }
 
 // ensures that if the filesystem backend is used, all-in-one mode is also used (only one "all" target present)
-func validateFilesystemStorageModeUsage(cfg *cortexops.CapabilityBackendConfigSpec) []*cortexops.ValidationError {
+func validateFilesystemStorageModeUsage(cfg *cortexops.CapabilityBackendConfigSpec) []*driverutil.ValidationError {
 	if cfg.GetCortexConfig().GetStorage().GetBackend() == storagev1.Filesystem {
 		targets := cfg.GetCortexWorkloads().GetTargets()
 		if len(targets) == 0 {
 			return nil
 		}
 		if len(targets) != 1 || targets["all"] == nil {
-			return []*cortexops.ValidationError{
+			return []*driverutil.ValidationError{
 				mkerrorf(`filesystem storage backend can only be used with a single "all" target`),
 			}
 		}
@@ -111,9 +112,9 @@ func validateFilesystemStorageModeUsage(cfg *cortexops.CapabilityBackendConfigSp
 }
 
 // ensures that the required credentials are present for the selected storage backend
-func validateRequiredStorageCredentials(cfg *cortexops.CapabilityBackendConfigSpec) []*cortexops.ValidationError {
+func validateRequiredStorageCredentials(cfg *cortexops.CapabilityBackendConfigSpec) []*driverutil.ValidationError {
 	backend := cfg.GetCortexConfig().GetStorage().GetBackend()
-	var errs []*cortexops.ValidationError
+	var errs []*driverutil.ValidationError
 	switch backend {
 	case storagev1.S3:
 		conf := cfg.GetCortexConfig().GetStorage().GetS3()
@@ -207,8 +208,8 @@ func validateRequiredStorageCredentials(cfg *cortexops.CapabilityBackendConfigSp
 }
 
 // enforces mutual exclusivity of the "all" target with other targets, and validates target names
-func validateTargets(cfg *cortexops.CapabilityBackendConfigSpec) []*cortexops.ValidationError {
-	var errs []*cortexops.ValidationError
+func validateTargets(cfg *cortexops.CapabilityBackendConfigSpec) []*driverutil.ValidationError {
+	var errs []*driverutil.ValidationError
 	targets := cfg.GetCortexWorkloads().GetTargets()
 	if len(targets) == 0 {
 		errs = append(errs, mkwarningf("no targets specified; cortex will not be deployed"))
@@ -252,7 +253,7 @@ func validateTargets(cfg *cortexops.CapabilityBackendConfigSpec) []*cortexops.Va
 }
 
 // adapted from github.com/minio/minio-go/blob/master/utils.go (used by thanos/cortex)
-func validateEndpointUrl(endpoint string, insecure bool) *cortexops.ValidationError {
+func validateEndpointUrl(endpoint string, insecure bool) *driverutil.ValidationError {
 	if endpoint == "" {
 		return mkwarningf("s3: endpoint url is required")
 	}
@@ -296,7 +297,7 @@ func validateEndpointUrl(endpoint string, insecure bool) *cortexops.ValidationEr
 	}
 	return nil
 }
-func detailedInvalidHostError(host string) *cortexops.ValidationError {
+func detailedInvalidHostError(host string) *driverutil.ValidationError {
 	// See RFC 1035, RFC 3696.
 	host = strings.TrimSpace(host)
 	if len(host) == 0 {

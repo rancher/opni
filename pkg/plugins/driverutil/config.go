@@ -3,18 +3,14 @@ package driverutil
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sync"
-	"time"
 
 	"github.com/mennanov/fmutils"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/merge"
-	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type DefaultLoaderFunc[T any] func(T)
@@ -40,7 +36,7 @@ func NewDefaultingConfigTracker[T ConfigType[T]](
 		defaultStore:       defaultStore,
 		activeStore:        activeStore,
 		defaultLoader:      loadDefaultsFunc,
-		revisionFieldIndex: getRevisionFieldIndex[T](),
+		revisionFieldIndex: GetRevisionFieldIndex[T](),
 	}
 }
 
@@ -403,76 +399,4 @@ func (ct *DefaultingConfigTracker[T]) DryRunResetConfig(ctx context.Context) (Dr
 		Current:  current,
 		Modified: currentDefault,
 	}, nil
-}
-
-func getRevisionFieldIndex[T ConfigType[T]]() int {
-	var revision corev1.Revision
-	revisionFqn := revision.ProtoReflect().Descriptor().FullName()
-	var t T
-	fields := t.ProtoReflect().Descriptor().Fields()
-	for i := 0; i < fields.Len(); i++ {
-		field := fields.Get(i)
-		if field.Kind() == protoreflect.MessageKind {
-			if field.Message().FullName() == revisionFqn {
-				return i
-			}
-		}
-	}
-	panic("revision field not found")
-}
-
-var (
-	indexCacheMu sync.Mutex
-	indexCache   = map[reflect.Type]func() int{}
-)
-
-func UnsetRevision[T ConfigType[T]](t T) {
-	typ := reflect.TypeOf(t)
-	indexCacheMu.Lock()
-	if _, ok := indexCache[typ]; !ok {
-		indexCache[typ] = sync.OnceValue(getRevisionFieldIndex[T])
-	}
-	idx := indexCache[typ]()
-	indexCacheMu.Unlock()
-	if rev := t.GetRevision(); rev != nil {
-		field := t.ProtoReflect().Descriptor().Fields().Get(idx)
-		t.ProtoReflect().Clear(field)
-	}
-}
-
-func SetRevision[T ConfigType[T]](t T, value int64, maybeTimestamp ...time.Time) {
-	typ := reflect.TypeOf(t)
-	indexCacheMu.Lock()
-	if _, ok := indexCache[typ]; !ok {
-		indexCache[typ] = sync.OnceValue(getRevisionFieldIndex[T])
-	}
-	idx := indexCache[typ]()
-	indexCacheMu.Unlock()
-	if rev := t.GetRevision(); rev == nil {
-		field := t.ProtoReflect().Descriptor().Fields().Get(idx)
-		updatedRev := &corev1.Revision{Revision: &value}
-		if len(maybeTimestamp) > 0 && !maybeTimestamp[0].IsZero() {
-			updatedRev.Timestamp = timestamppb.New(maybeTimestamp[0])
-		}
-		t.ProtoReflect().Set(field, protoreflect.ValueOfMessage(updatedRev.ProtoReflect()))
-	} else {
-		rev.Set(value)
-	}
-}
-
-func CopyRevision[T ConfigType[T]](dst, src T) {
-	typ := reflect.TypeOf(dst)
-	indexCacheMu.Lock()
-	if _, ok := indexCache[typ]; !ok {
-		indexCache[typ] = sync.OnceValue(getRevisionFieldIndex[T])
-	}
-	idx := indexCache[typ]()
-	indexCacheMu.Unlock()
-
-	if srcRev := src.GetRevision(); srcRev != nil {
-		field := dst.ProtoReflect().Descriptor().Fields().Get(idx)
-		dst.ProtoReflect().Set(field, protoreflect.ValueOfMessage(srcRev.ProtoReflect()))
-	} else {
-		UnsetRevision(dst)
-	}
 }

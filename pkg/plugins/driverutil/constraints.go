@@ -12,7 +12,8 @@ type InstallableConfigType[T any] interface {
 	GetEnabled() bool
 }
 
-type RevisionGetter interface {
+type Revisioner interface {
+	proto.Message
 	GetRevision() *corev1.Revision
 }
 
@@ -23,19 +24,15 @@ type SecretsRedactor[T any] interface {
 
 type ConfigType[T any] interface {
 	proto.Message
-	RevisionGetter
+	Revisioner
 	SecretsRedactor[T]
 }
 
-func WithNoopSecretsRedactor[U interface {
-	proto.Message
-	RevisionGetter
-}, T any](partial U) ConfigType[T] {
+func WithNoopSecretsRedactor[U Revisioner, T any](partial U) ConfigType[T] {
 	return struct {
-		proto.Message
-		RevisionGetter
+		Revisioner
 		SecretsRedactor[T]
-	}{partial, partial, NoopSecretsRedactor[T]{}}
+	}{partial, NoopSecretsRedactor[T]{}}
 }
 
 type NoopSecretsRedactor[T any] struct{}

@@ -8,6 +8,7 @@ package cortexops
 
 import (
 	context "context"
+	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -43,7 +44,7 @@ type CortexOpsClient interface {
 	// returns that configuration. Otherwise, returns implementation-specific defaults.
 	// An optional revision argument can be provided to get a specific historical
 	// version of the configuration instead of the current configuration.
-	GetDefaultConfiguration(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error)
+	GetDefaultConfiguration(ctx context.Context, in *driverutil.GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error)
 	// Sets the default configuration that will be used as the base for future configuration changes.
 	// If no custom default configuration is set using this method,
 	// implementation-specific defaults may be chosen.
@@ -62,7 +63,7 @@ type CortexOpsClient interface {
 	// Gets the current configuration of the managed Cortex cluster.
 	// An optional revision argument can be provided to get a specific historical
 	// version of the configuration instead of the current configuration.
-	GetConfiguration(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error)
+	GetConfiguration(ctx context.Context, in *driverutil.GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error)
 	// Updates the configuration of the managed Cortex cluster to match the provided configuration.
 	// If the cluster is not installed, it will be configured, but remain disabled.
 	// Otherwise, the already-installed cluster will be reconfigured.
@@ -129,7 +130,7 @@ type CortexOpsClient interface {
 	// depending on the specified target.
 	// The entries are ordered from oldest to newest, where the last entry is
 	// the current configuration.
-	ConfigurationHistory(ctx context.Context, in *ConfigurationHistoryRequest, opts ...grpc.CallOption) (*ConfigurationHistoryResponse, error)
+	ConfigurationHistory(ctx context.Context, in *driverutil.ConfigurationHistoryRequest, opts ...grpc.CallOption) (*ConfigurationHistoryResponse, error)
 }
 
 type cortexOpsClient struct {
@@ -140,7 +141,7 @@ func NewCortexOpsClient(cc grpc.ClientConnInterface) CortexOpsClient {
 	return &cortexOpsClient{cc}
 }
 
-func (c *cortexOpsClient) GetDefaultConfiguration(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
+func (c *cortexOpsClient) GetDefaultConfiguration(ctx context.Context, in *driverutil.GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
 	out := new(CapabilityBackendConfigSpec)
 	err := c.cc.Invoke(ctx, CortexOps_GetDefaultConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -167,7 +168,7 @@ func (c *cortexOpsClient) ResetDefaultConfiguration(ctx context.Context, in *emp
 	return out, nil
 }
 
-func (c *cortexOpsClient) GetConfiguration(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
+func (c *cortexOpsClient) GetConfiguration(ctx context.Context, in *driverutil.GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
 	out := new(CapabilityBackendConfigSpec)
 	err := c.cc.Invoke(ctx, CortexOps_GetConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -239,7 +240,7 @@ func (c *cortexOpsClient) DryRun(ctx context.Context, in *DryRunRequest, opts ..
 	return out, nil
 }
 
-func (c *cortexOpsClient) ConfigurationHistory(ctx context.Context, in *ConfigurationHistoryRequest, opts ...grpc.CallOption) (*ConfigurationHistoryResponse, error) {
+func (c *cortexOpsClient) ConfigurationHistory(ctx context.Context, in *driverutil.ConfigurationHistoryRequest, opts ...grpc.CallOption) (*ConfigurationHistoryResponse, error) {
 	out := new(ConfigurationHistoryResponse)
 	err := c.cc.Invoke(ctx, CortexOps_ConfigurationHistory_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -257,7 +258,7 @@ type CortexOpsServer interface {
 	// returns that configuration. Otherwise, returns implementation-specific defaults.
 	// An optional revision argument can be provided to get a specific historical
 	// version of the configuration instead of the current configuration.
-	GetDefaultConfiguration(context.Context, *GetRequest) (*CapabilityBackendConfigSpec, error)
+	GetDefaultConfiguration(context.Context, *driverutil.GetRequest) (*CapabilityBackendConfigSpec, error)
 	// Sets the default configuration that will be used as the base for future configuration changes.
 	// If no custom default configuration is set using this method,
 	// implementation-specific defaults may be chosen.
@@ -276,7 +277,7 @@ type CortexOpsServer interface {
 	// Gets the current configuration of the managed Cortex cluster.
 	// An optional revision argument can be provided to get a specific historical
 	// version of the configuration instead of the current configuration.
-	GetConfiguration(context.Context, *GetRequest) (*CapabilityBackendConfigSpec, error)
+	GetConfiguration(context.Context, *driverutil.GetRequest) (*CapabilityBackendConfigSpec, error)
 	// Updates the configuration of the managed Cortex cluster to match the provided configuration.
 	// If the cluster is not installed, it will be configured, but remain disabled.
 	// Otherwise, the already-installed cluster will be reconfigured.
@@ -343,7 +344,7 @@ type CortexOpsServer interface {
 	// depending on the specified target.
 	// The entries are ordered from oldest to newest, where the last entry is
 	// the current configuration.
-	ConfigurationHistory(context.Context, *ConfigurationHistoryRequest) (*ConfigurationHistoryResponse, error)
+	ConfigurationHistory(context.Context, *driverutil.ConfigurationHistoryRequest) (*ConfigurationHistoryResponse, error)
 	mustEmbedUnimplementedCortexOpsServer()
 }
 
@@ -351,7 +352,7 @@ type CortexOpsServer interface {
 type UnimplementedCortexOpsServer struct {
 }
 
-func (UnimplementedCortexOpsServer) GetDefaultConfiguration(context.Context, *GetRequest) (*CapabilityBackendConfigSpec, error) {
+func (UnimplementedCortexOpsServer) GetDefaultConfiguration(context.Context, *driverutil.GetRequest) (*CapabilityBackendConfigSpec, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDefaultConfiguration not implemented")
 }
 func (UnimplementedCortexOpsServer) SetDefaultConfiguration(context.Context, *CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
@@ -360,7 +361,7 @@ func (UnimplementedCortexOpsServer) SetDefaultConfiguration(context.Context, *Ca
 func (UnimplementedCortexOpsServer) ResetDefaultConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResetDefaultConfiguration not implemented")
 }
-func (UnimplementedCortexOpsServer) GetConfiguration(context.Context, *GetRequest) (*CapabilityBackendConfigSpec, error) {
+func (UnimplementedCortexOpsServer) GetConfiguration(context.Context, *driverutil.GetRequest) (*CapabilityBackendConfigSpec, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetConfiguration not implemented")
 }
 func (UnimplementedCortexOpsServer) SetConfiguration(context.Context, *CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
@@ -384,7 +385,7 @@ func (UnimplementedCortexOpsServer) ListPresets(context.Context, *emptypb.Empty)
 func (UnimplementedCortexOpsServer) DryRun(context.Context, *DryRunRequest) (*DryRunResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DryRun not implemented")
 }
-func (UnimplementedCortexOpsServer) ConfigurationHistory(context.Context, *ConfigurationHistoryRequest) (*ConfigurationHistoryResponse, error) {
+func (UnimplementedCortexOpsServer) ConfigurationHistory(context.Context, *driverutil.ConfigurationHistoryRequest) (*ConfigurationHistoryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ConfigurationHistory not implemented")
 }
 func (UnimplementedCortexOpsServer) mustEmbedUnimplementedCortexOpsServer() {}
@@ -401,7 +402,7 @@ func RegisterCortexOpsServer(s grpc.ServiceRegistrar, srv CortexOpsServer) {
 }
 
 func _CortexOps_GetDefaultConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetRequest)
+	in := new(driverutil.GetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -413,7 +414,7 @@ func _CortexOps_GetDefaultConfiguration_Handler(srv interface{}, ctx context.Con
 		FullMethod: CortexOps_GetDefaultConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexOpsServer).GetDefaultConfiguration(ctx, req.(*GetRequest))
+		return srv.(CortexOpsServer).GetDefaultConfiguration(ctx, req.(*driverutil.GetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -455,7 +456,7 @@ func _CortexOps_ResetDefaultConfiguration_Handler(srv interface{}, ctx context.C
 }
 
 func _CortexOps_GetConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetRequest)
+	in := new(driverutil.GetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -467,7 +468,7 @@ func _CortexOps_GetConfiguration_Handler(srv interface{}, ctx context.Context, d
 		FullMethod: CortexOps_GetConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexOpsServer).GetConfiguration(ctx, req.(*GetRequest))
+		return srv.(CortexOpsServer).GetConfiguration(ctx, req.(*driverutil.GetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -599,7 +600,7 @@ func _CortexOps_DryRun_Handler(srv interface{}, ctx context.Context, dec func(in
 }
 
 func _CortexOps_ConfigurationHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ConfigurationHistoryRequest)
+	in := new(driverutil.ConfigurationHistoryRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -611,7 +612,7 @@ func _CortexOps_ConfigurationHistory_Handler(srv interface{}, ctx context.Contex
 		FullMethod: CortexOps_ConfigurationHistory_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexOpsServer).ConfigurationHistory(ctx, req.(*ConfigurationHistoryRequest))
+		return srv.(CortexOpsServer).ConfigurationHistory(ctx, req.(*driverutil.ConfigurationHistoryRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

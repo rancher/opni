@@ -98,7 +98,7 @@ func (l *installStatusLocker) Use(f func(*cortexops.InstallStatus)) {
 
 type TestEnvMetricsClusterDriver struct {
 	cortexops.UnsafeCortexOpsServer
-	driverutil.DefaultConfigurableServer[*cortexops.CapabilityBackendConfigSpec, *cortexops.GetRequest]
+	driverutil.DefaultConfigurableServer[*cortexops.CapabilityBackendConfigSpec, *driverutil.GetRequest]
 
 	status     atomic.Pointer[installStatusLocker]
 	configLock sync.RWMutex
@@ -160,7 +160,7 @@ func (d *TestEnvMetricsClusterDriver) DryRun(ctx context.Context, req *cortexops
 }
 
 // ConfigurationHistory implements cortexops.CortexOpsServer.
-func (d *TestEnvMetricsClusterDriver) ConfigurationHistory(ctx context.Context, req *cortexops.ConfigurationHistoryRequest) (*cortexops.ConfigurationHistoryResponse, error) {
+func (d *TestEnvMetricsClusterDriver) ConfigurationHistory(ctx context.Context, req *driverutil.ConfigurationHistoryRequest) (*cortexops.ConfigurationHistoryResponse, error) {
 	revisions, err := d.configTracker.History(ctx, req.GetTarget(), storage.IncludeValues(req.GetIncludeValues()))
 	if err != nil {
 		return nil, err

@@ -7,6 +7,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -20,7 +21,7 @@ type OpsServiceBackend struct {
 
 var _ cortexops.CortexOpsServer = (*OpsServiceBackend)(nil)
 
-func (m *OpsServiceBackend) GetDefaultConfiguration(ctx context.Context, in *cortexops.GetRequest) (*cortexops.CapabilityBackendConfigSpec, error) {
+func (m *OpsServiceBackend) GetDefaultConfiguration(ctx context.Context, in *driverutil.GetRequest) (*cortexops.CapabilityBackendConfigSpec, error) {
 	m.WaitForInit()
 
 	return m.ClusterDriver.GetDefaultConfiguration(ctx, in)
@@ -38,7 +39,7 @@ func (m *OpsServiceBackend) ResetDefaultConfiguration(ctx context.Context, in *e
 	return m.ClusterDriver.ResetDefaultConfiguration(ctx, in)
 }
 
-func (m *OpsServiceBackend) GetConfiguration(ctx context.Context, in *cortexops.GetRequest) (*cortexops.CapabilityBackendConfigSpec, error) {
+func (m *OpsServiceBackend) GetConfiguration(ctx context.Context, in *driverutil.GetRequest) (*cortexops.CapabilityBackendConfigSpec, error) {
 	m.WaitForInit()
 
 	return m.ClusterDriver.GetConfiguration(ctx, in)
@@ -115,7 +116,7 @@ func (m *OpsServiceBackend) DryRun(ctx context.Context, req *cortexops.DryRunReq
 	return m.ClusterDriver.DryRun(ctx, req)
 }
 
-func (m *OpsServiceBackend) ConfigurationHistory(ctx context.Context, req *cortexops.ConfigurationHistoryRequest) (*cortexops.ConfigurationHistoryResponse, error) {
+func (m *OpsServiceBackend) ConfigurationHistory(ctx context.Context, req *driverutil.ConfigurationHistoryRequest) (*cortexops.ConfigurationHistoryResponse, error) {
 	m.WaitForInit()
 
 	return m.ClusterDriver.ConfigurationHistory(ctx, req)

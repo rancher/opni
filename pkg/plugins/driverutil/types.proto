@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package driverutil;
+
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+
+option go_package = "github.com/rancher/opni/pkg/plugins/driverutil";
+option (cli.generator).generate = true;
+
+enum Target {
+  ActiveConfiguration  = 0;
+  DefaultConfiguration = 1;
+}
+
+enum Action {
+  NoAction = 0;
+  Set      = 1;
+  Reset    = 2;
+}
+
+message GetRequest {
+  // If set, will return the config at the specified revision instead of
+  // the current config.
+  // This revision value can be obtained from the revision field of a
+  // typed GetConfiguration/GetDefaultConfiguration response, or from one of
+  // the history entries in a typed ConfigurationHistory response.
+  core.Revision revision = 1 [(cli.flag_set).no_prefix = true];
+}
+
+message ConfigurationHistoryRequest {
+  // The configuration type to return history for.
+  driverutil.Target target = 1;
+
+  // If set, will include the values of the configuration in the response.
+  // Otherwise, only the revision field of each entry will be populated.
+  bool includeValues = 2 [(cli.flag).default = "true"];
+}
+
+message ValidationError {
+  enum Severity {
+    Unknown = 0;
+    Warning = 1;
+    Error   = 2;
+  }
+  Severity severity = 1;
+  string   message  = 2;
+  string   source   = 3;
+}

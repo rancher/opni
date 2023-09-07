@@ -54,7 +54,7 @@ func (k OpniManagerClusterDriverOptions) newGateway() *opnicorev1beta1.Gateway {
 
 type OpniManager struct {
 	cortexops.UnsafeCortexOpsServer
-	driverutil.DefaultConfigurableServer[*cortexops.CapabilityBackendConfigSpec, *cortexops.GetRequest]
+	driverutil.DefaultConfigurableServer[*cortexops.CapabilityBackendConfigSpec, *driverutil.GetRequest]
 	OpniManagerClusterDriverOptions
 
 	configTracker *driverutil.DefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec]
@@ -256,7 +256,7 @@ func (k *OpniManager) DryRun(ctx context.Context, req *cortexops.DryRunRequest) 
 	}, nil
 }
 
-func (k *OpniManager) ConfigurationHistory(ctx context.Context, req *cortexops.ConfigurationHistoryRequest) (*cortexops.ConfigurationHistoryResponse, error) {
+func (k *OpniManager) ConfigurationHistory(ctx context.Context, req *driverutil.ConfigurationHistoryRequest) (*cortexops.ConfigurationHistoryResponse, error) {
 	revisions, err := k.configTracker.History(ctx, req.GetTarget(), storage.IncludeValues(req.GetIncludeValues()))
 	if err != nil {
 		return nil, err

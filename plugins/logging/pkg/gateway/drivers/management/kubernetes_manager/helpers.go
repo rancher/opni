@@ -8,6 +8,7 @@ import (
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
+	k8sutilerrors "github.com/rancher/opni/pkg/util/errors/k8sutil"
 	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/samber/lo"
@@ -58,7 +59,7 @@ func (d *KubernetesManagerDriver) generateNodePools(cluster *loggingadmin.Opense
 	}
 
 	if lo.FromPtrOr(cluster.DataNodes.Replicas, 1) < 1 {
-		retErr = errors.ErrInvalidCluster(errors.ErrReplicasZero)
+		retErr = errors.ErrReplicasZero
 		return
 	}
 
@@ -221,7 +222,7 @@ func (d *KubernetesManagerDriver) convertIngestDetails(details *loggingadmin.Ing
 	}
 
 	if lo.FromPtrOr(details.Replicas, 1) < 1 {
-		return opsterv1.NodePool{}, errors.ErrInvalidCluster(errors.ErrReplicasZero)
+		return opsterv1.NodePool{}, errors.ErrReplicasZero
 	}
 
 	return opsterv1.NodePool{
@@ -267,7 +268,7 @@ func (d *KubernetesManagerDriver) convertControlplaneDetails(details *loggingadm
 	}
 
 	if lo.FromPtrOr(details.Replicas, 1) < 1 {
-		return opsterv1.NodePool{}, errors.ErrInvalidCluster(errors.ErrReplicasZero)
+		return opsterv1.NodePool{}, errors.ErrReplicasZero
 	}
 
 	// Give the controlplane nodes slightly more memory that double the jvm
@@ -423,12 +424,18 @@ func (d *KubernetesManagerDriver) storeS3Credentials(ctx context.Context, creden
 				"accessKey": credentials.GetAccessKey(),
 				"secretKey": credentials.GetSecretKey(),
 			}
-			return d.K8sClient.Create(ctx, secret)
+			err = d.K8sClient.Create(ctx, secret)
+			if err != nil {
+				d.Logger.Errorf("failed to create s3 credentials secret: %v", err)
+				return k8sutilerrors.GRPCFromK8s(err)
+			}
+			return nil
 		}
-		return err
+		d.Logger.Errorf("failed to get existing s3 credentials: %v", err)
+		return k8sutilerrors.GRPCFromK8s(err)
 	}
 
-	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		err := d.K8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)
 		if err != nil {
 			return err
@@ -440,6 +447,11 @@ func (d *KubernetesManagerDriver) storeS3Credentials(ctx context.Context, creden
 		}
 		return d.K8sClient.Update(ctx, secret)
 	})
+	if err != nil {
+		d.Logger.Errorf("failed to update s3 credentials: %v", err)
+		return k8sutilerrors.GRPCFromK8s(err)
+	}
+	return nil
 }
 
 func (d *KubernetesManagerDriver) getS3Credentials(ctx context.Context) (*loggingadmin.S3Credentials, error) {
@@ -452,7 +464,8 @@ func (d *KubernetesManagerDriver) getS3Credentials(ctx context.Context) (*loggin
 		if k8serrors.IsNotFound(err) {
 			return nil, nil
 		}
-		return nil, err
+		d.Logger.Errorf("failed to get s3 credentials: %v", err)
+		return nil, k8sutilerrors.GRPCFromK8s(err)
 	}
 	return &loggingadmin.S3Credentials{
 		AccessKey: string(secret.Data["accessKey"]),
@@ -505,11 +518,13 @@ func (d *KubernetesManagerDriver) createOneOffSnapshot(
 	}, recurring)
 
 	if err == nil {
-		return fmt.Errorf("snapshot name must be unique: %w", errors.ErrAlreadyExists)
+		d.Logger.Error("snapshot name already exists")
+		return errors.ErrAlreadyExists
 	}
 
 	if !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("failed to check for exsisting snapshot: %w", err)
+		d.Logger.Errorf("failed to check for exsisting snapshot: %v", err)
+		return k8sutilerrors.GRPCFromK8s(err)
 	}
 
 	k8sSnapshot := &loggingv1beta1.Snapshot{
@@ -528,7 +543,8 @@ func (d *KubernetesManagerDriver) createOneOffSnapshot(
 
 	err = d.K8sClient.Create(ctx, k8sSnapshot)
 	if err != nil {
-		return fmt.Errorf("failed to create snapshot: %w", err)
+		d.Logger.Errorf("failed to create snapshot: %v", err)
+		return k8sutilerrors.GRPCFromK8s(err)
 	}
 
 	return nil
@@ -546,11 +562,13 @@ func (d *KubernetesManagerDriver) createOrUpdateRecurringSnapshot(
 	}, oneOff)
 
 	if err == nil {
-		return fmt.Errorf("snapshot name must be unique: %w", errors.ErrAlreadyExists)
+		d.Logger.Error("snapshot name must be unique")
+		return errors.ErrAlreadyExists
 	}
 
 	if !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("failed to check for exsisting snapshot: %w", err)
+		d.Logger.Errorf("failed to check for exsisting snapshot: %v", err)
+		return k8sutilerrors.GRPCFromK8s(err)
 	}
 
 	k8sSnapshot := &loggingv1beta1.RecurringSnapshot{
@@ -563,13 +581,15 @@ func (d *KubernetesManagerDriver) createOrUpdateRecurringSnapshot(
 	err = d.K8sClient.Get(ctx, client.ObjectKeyFromObject(k8sSnapshot), k8sSnapshot)
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
-			return fmt.Errorf("failed to check if snapshot exists: %w", err)
+			d.Logger.Errorf("failed to check if snapshot exists: %v", err)
+			return k8sutilerrors.GRPCFromK8s(err)
 		}
 		controllerutil.SetOwnerReference(owner, k8sSnapshot, d.K8sClient.Scheme())
 		d.updateRecurringSnapshot(k8sSnapshot, snapshot)
 		err = d.K8sClient.Create(ctx, k8sSnapshot)
 		if err != nil {
-			return fmt.Errorf("failed to create snapshot: %w", err)
+			d.Logger.Errorf("failed to create snapshot: %v", err)
+			return k8sutilerrors.GRPCFromK8s(err)
 		}
 	}
 
@@ -583,7 +603,8 @@ func (d *KubernetesManagerDriver) createOrUpdateRecurringSnapshot(
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to update snapshot: %w", err)
+		d.Logger.Errorf("failed to update snapshot: %v", err)
+		return k8sutilerrors.GRPCFromK8s(err)
 	}
 	return nil
 }
@@ -616,6 +637,8 @@ func (d *KubernetesManagerDriver) listOneOffSnapshots(ctx context.Context) (retS
 	list := &loggingv1beta1.SnapshotList{}
 	retErr = d.K8sClient.List(ctx, list, client.InNamespace(d.OpensearchCluster.Namespace))
 	if retErr != nil {
+		d.Logger.Errorf("failed to list snapshots: %v", retErr)
+		retErr = k8sutilerrors.GRPCFromK8s(retErr)
 		return
 	}
 
@@ -642,6 +665,8 @@ func (d *KubernetesManagerDriver) listRecurringSnapshots(ctx context.Context) (r
 	list := &loggingv1beta1.RecurringSnapshotList{}
 	retErr = d.K8sClient.List(ctx, list, client.InNamespace(d.OpensearchCluster.Namespace))
 	if retErr != nil {
+		d.Logger.Errorf("failed to list recurring snapshots: %v", retErr)
+		retErr = k8sutilerrors.GRPCFromK8s(retErr)
 		return
 	}
 
@@ -802,7 +827,7 @@ func generatePersistence(pool opsterv1.NodePool) (*loggingadmin.DataPersistence,
 		return persistence, nil
 	}
 
-	return persistence, errors.ErrStoredClusterPersistence()
+	return persistence, errors.ErrInvalidPersistence
 }
 
 func generateCPU(pool opsterv1.NodePool) *loggingadmin.CPUResource {
@@ -835,7 +860,7 @@ func antiAffinityEnabled(pool opsterv1.NodePool) *bool {
 
 func generateK8sResources(memoryLimit string, cpu *loggingadmin.CPUResource) (corev1.ResourceRequirements, string, error) {
 	if memoryLimit == "" {
-		return corev1.ResourceRequirements{}, "", errors.ErrInvalidCluster(errors.ErrRequestMissingMemory)
+		return corev1.ResourceRequirements{}, "", errors.ErrRequestMissingMemory
 	}
 
 	memory, err := resource.ParseQuantity(memoryLimit)
@@ -872,7 +897,7 @@ func generateK8sResources(memoryLimit string, cpu *loggingadmin.CPUResource) (co
 		}
 		if cpu.Request != "" && cpu.Limit != "" {
 			if request.Cmp(limit) > 0 {
-				return corev1.ResourceRequirements{}, "", errors.ErrInvalidCluster(errors.ErrRequestGtLimits)
+				return corev1.ResourceRequirements{}, "", errors.ErrRequestGtLimits
 			}
 		}
 	}

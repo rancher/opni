@@ -292,14 +292,23 @@ func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, target Target,
 }
 
 func (ct *DefaultingConfigTracker[T]) History(ctx context.Context, target Target, opts ...storage.HistoryOpt) ([]storage.KeyRevision[T], error) {
+	var targetStore storage.ValueStoreT[T]
 	switch target {
 	case Target_ActiveConfiguration:
-		return ct.activeStore.History(ctx, opts...)
+		targetStore = ct.activeStore
 	case Target_DefaultConfiguration:
-		return ct.defaultStore.History(ctx, opts...)
+		targetStore = ct.defaultStore
 	default:
 		return nil, fmt.Errorf("invalid target: %s", target)
 	}
+	revisions, err := targetStore.History(ctx, opts...)
+	if err != nil {
+		return nil, err
+	}
+	for _, rev := range revisions {
+		rev.Value().RedactSecrets()
+	}
+	return revisions, nil
 }
 
 func (ct *DefaultingConfigTracker[T]) DryRunApplyConfig(ctx context.Context, newConfig T) (DryRunResults[T], error) {

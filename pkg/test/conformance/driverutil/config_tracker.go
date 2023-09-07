@@ -457,5 +457,44 @@ func DefaultingConfigTrackerTestSuite[
 				})
 			})
 		})
+		When("querying history", func() {
+			When("values are requested", func() {
+				It("should redact secrets", func() {
+					var t driverutil.SecretsRedactor[T] = newDefaults()
+					if _, ok := t.(driverutil.NoopSecretsRedactor[T]); ok {
+						Skip("T is NoopSecretsRedactor")
+					}
+
+					cfg1 := mustGen()
+					Expect(configTracker.SetDefaultConfig(ctx, cfg1)).To(Succeed())
+					cfg1WithRev, err := configTracker.GetDefaultConfig(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					cfg2 := mustGen()
+					cfg2WithRev := util.ProtoClone(cfg2)
+					driverutil.CopyRevision(cfg2WithRev, cfg1WithRev)
+					Expect(configTracker.SetDefaultConfig(ctx, cfg2WithRev)).To(Succeed())
+					Expect(configTracker.ApplyConfig(ctx, cfg1)).To(Succeed())
+					Expect(configTracker.ApplyConfig(ctx, cfg2)).To(Succeed())
+
+					historyDefault, err := configTracker.History(ctx, driverutil.Target_DefaultConfiguration, storage.IncludeValues(true))
+					Expect(err).NotTo(HaveOccurred())
+					historyActive, err := configTracker.History(ctx, driverutil.Target_ActiveConfiguration, storage.IncludeValues(true))
+					Expect(historyDefault).To(HaveLen(2))
+					Expect(historyDefault[0].Value()).NotTo(testutil.ProtoEqual(cfg1))
+					Expect(historyDefault[1].Value()).NotTo(testutil.ProtoEqual(cfg2))
+					Expect(historyActive).To(HaveLen(2))
+					Expect(historyActive[0].Value()).NotTo(testutil.ProtoEqual(cfg1))
+					Expect(historyActive[1].Value()).NotTo(testutil.ProtoEqual(cfg2))
+
+					cfg1.RedactSecrets()
+					cfg2.RedactSecrets()
+
+					Expect(historyDefault[0].Value()).To(testutil.ProtoEqual(cfg1))
+					Expect(historyDefault[1].Value()).To(testutil.ProtoEqual(cfg2))
+					Expect(historyActive[0].Value()).To(testutil.ProtoEqual(cfg1))
+					Expect(historyActive[1].Value()).To(testutil.ProtoEqual(cfg2))
+				})
+			})
+		})
 	}
 }

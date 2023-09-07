@@ -15,6 +15,27 @@ func (e *AlertEndpoint) RedactSecrets() {
 	if pg := e.GetPagerDuty(); pg != nil {
 		pg.IntegrationKey = storagev1.Redacted
 	}
+	if wh := e.GetWebhook(); wh != nil {
+		wh.RedactSecrets()
+	}
+}
+
+func (w *WebhookEndpoint) RedactSecrets() {
+	w.Url = storagev1.Redacted
+	if w.HttpConfig != nil {
+		if w.HttpConfig.BasicAuth != nil {
+			w.HttpConfig.BasicAuth.Password = storagev1.Redacted
+		}
+		if w.HttpConfig.Authorization != nil {
+			w.HttpConfig.Authorization.Credentials = storagev1.Redacted
+		}
+		if w.HttpConfig.Oauth2 != nil {
+			if w.HttpConfig.Oauth2.ClientSecret != "" {
+				w.HttpConfig.Oauth2.ClientSecret = storagev1.Redacted
+			}
+		}
+	}
+
 }
 
 func (a *AlertCondition) RedactSecrets() {}

@@ -296,6 +296,15 @@ var _ = Describe("Extensions test", Label("unit"), func() {
 			}
 			s.RedactSecrets()
 			Expect(s.GetSlack().WebhookUrl).To(Equal(storagev1.Redacted))
+
+			s.UnredactSecrets(&alertingv1.AlertEndpoint{
+				Endpoint: &alertingv1.AlertEndpoint_Slack{
+					Slack: &alertingv1.SlackEndpoint{
+						WebhookUrl: "https://foo.bar",
+					},
+				},
+			})
+			Expect(s.GetSlack().WebhookUrl).To(Equal("https://foo.bar"))
 		})
 
 		It("should redact email secrets", func() {
@@ -308,6 +317,17 @@ var _ = Describe("Extensions test", Label("unit"), func() {
 			}
 			e.RedactSecrets()
 			Expect(*e.GetEmail().SmtpAuthPassword).To(Equal(storagev1.Redacted))
+
+			e.UnredactSecrets(
+				&alertingv1.AlertEndpoint{
+					Endpoint: &alertingv1.AlertEndpoint_Email{
+						Email: &alertingv1.EmailEndpoint{
+							SmtpAuthPassword: lo.ToPtr("password"),
+						},
+					},
+				},
+			)
+			Expect(*e.GetEmail().SmtpAuthPassword).To(Equal("password"))
 		})
 
 		It("should redact pager duty secrets", func() {
@@ -320,6 +340,17 @@ var _ = Describe("Extensions test", Label("unit"), func() {
 			}
 			pg.RedactSecrets()
 			Expect(pg.GetPagerDuty().IntegrationKey).To(Equal(storagev1.Redacted))
+
+			pg.UnredactSecrets(
+				&alertingv1.AlertEndpoint{
+					Endpoint: &alertingv1.AlertEndpoint_PagerDuty{
+						PagerDuty: &alertingv1.PagerDutyEndpoint{
+							IntegrationKey: "integrationKey",
+						},
+					},
+				},
+			)
+			Expect(pg.GetPagerDuty().IntegrationKey).To(Equal("integrationKey"))
 		})
 
 		It("should redact webhook secrets", func() {
@@ -332,6 +363,17 @@ var _ = Describe("Extensions test", Label("unit"), func() {
 			}
 			e1.RedactSecrets()
 			Expect(e1.GetWebhook().Url).To(Equal(storagev1.Redacted))
+
+			e1.UnredactSecrets(
+				&alertingv1.AlertEndpoint{
+					Endpoint: &alertingv1.AlertEndpoint_Webhook{
+						Webhook: &alertingv1.WebhookEndpoint{
+							Url: "https://foo.bar",
+						},
+					},
+				},
+			)
+			Expect(e1.GetWebhook().Url).To(Equal("https://foo.bar"))
 
 			e2 := &alertingv1.AlertEndpoint{
 				Endpoint: &alertingv1.AlertEndpoint_Webhook{
@@ -356,6 +398,26 @@ var _ = Describe("Extensions test", Label("unit"), func() {
 			Expect(e2.GetWebhook().HttpConfig.BasicAuth.Password).To(Equal(storagev1.Redacted))
 			Expect(e2.GetWebhook().HttpConfig.Authorization.Credentials).To(Equal(storagev1.Redacted))
 			Expect(e2.GetWebhook().HttpConfig.Oauth2.ClientSecret).To(Equal(storagev1.Redacted))
+			e2.UnredactSecrets(
+				&alertingv1.AlertEndpoint{
+					Endpoint: &alertingv1.AlertEndpoint_Webhook{
+						Webhook: &alertingv1.WebhookEndpoint{
+							Url: "https://foo.bar",
+							HttpConfig: &alertingv1.HTTPConfig{
+								BasicAuth: &alertingv1.BasicAuth{
+									Password: "password",
+								},
+								Authorization: &alertingv1.Authorization{
+									Credentials: "credentials",
+								},
+								Oauth2: &alertingv1.OAuth2{
+									ClientSecret: "clientSecret",
+								},
+							},
+						},
+					},
+				},
+			)
 		})
 	})
 })

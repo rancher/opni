@@ -330,11 +330,41 @@ HTTP handlers for this method:
 }
 
 func BuildCortexOpsResetConfigurationCmd() *cobra.Command {
+	in := &ResetRequest{}
 	cmd := &cobra.Command{
 		Use:   "config reset",
 		Short: "Resets the configuration of the managed Cortex cluster to the current default configuration.",
 		Long: `
-The value of "enabled" will be preserved if it is set.
+
+The request may optionally contain a field mask to specify which fields should
+be preserved. Furthermore, if a mask is set, the request may also contain a patch
+object used to apply additional changes to the masked fields. These changes are
+applied atomically at the time of reset. Fields present in the patch object, but
+not in the mask, are ignored.
+
+For example, with the following message:
+message Example {
+optional int32 a = 1;
+optional int32 b = 2;
+optional int32 c = 3;
+}
+
+and current state:
+active:  { a: 1, b: 2, c: 3 }
+default: { a: 4, b: 5, c: 6 }
+
+and reset request parameters:
+{
+mask:    { paths: [ "a", "b" ] }
+patch:   { a: 100 }
+}
+
+The resulting active configuration will be:
+active:  {
+a: 100, // masked, set to 100 via patch
+b: 2,   // masked, but not set in patch, so left unchanged
+c: 6,   // not masked, reset to default
+}
 
 HTTP handlers for this method:
 - DELETE /configuration
@@ -347,13 +377,17 @@ HTTP handlers for this method:
 				cmd.PrintErrln("failed to get client from context")
 				return nil
 			}
-			_, err := client.ResetConfiguration(cmd.Context(), &emptypb.Empty{})
+			if in == nil {
+				return errors.New("no input provided")
+			}
+			_, err := client.ResetConfiguration(cmd.Context(), in)
 			if err != nil {
 				return err
 			}
 			return nil
 		},
 	}
+	cmd.Flags().AddFlagSet(in.FlagSet())
 	return cmd
 }
 
@@ -640,13 +674,10 @@ func (in *GrafanaConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	return fs
 }
 
-func (in *InstallStatus) DeepCopyInto(out *InstallStatus) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *InstallStatus) DeepCopy() *InstallStatus {
-	return proto.Clone(in).(*InstallStatus)
+func (in *ResetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("ResetRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	return fs
 }
 
 func (in *CapabilityBackendConfigSpec) DeepCopyInto(out *CapabilityBackendConfigSpec) {
@@ -712,15 +743,6 @@ func (in *Preset) DeepCopy() *Preset {
 	return proto.Clone(in).(*Preset)
 }
 
-func (in *PresetMetadata) DeepCopyInto(out *PresetMetadata) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *PresetMetadata) DeepCopy() *PresetMetadata {
-	return proto.Clone(in).(*PresetMetadata)
-}
-
 func (in *DryRunRequest) DeepCopyInto(out *DryRunRequest) {
 	out.Reset()
 	proto.Merge(out, in)
@@ -746,4 +768,13 @@ func (in *ConfigurationHistoryResponse) DeepCopyInto(out *ConfigurationHistoryRe
 
 func (in *ConfigurationHistoryResponse) DeepCopy() *ConfigurationHistoryResponse {
 	return proto.Clone(in).(*ConfigurationHistoryResponse)
+}
+
+func (in *ResetRequest) DeepCopyInto(out *ResetRequest) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ResetRequest) DeepCopy() *ResetRequest {
+	return proto.Clone(in).(*ResetRequest)
 }

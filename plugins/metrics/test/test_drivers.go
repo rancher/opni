@@ -87,10 +87,10 @@ func init() {
 
 type installStatusLocker struct {
 	mu sync.Mutex
-	s  cortexops.InstallStatus
+	s  driverutil.InstallStatus
 }
 
-func (l *installStatusLocker) Use(f func(*cortexops.InstallStatus)) {
+func (l *installStatusLocker) Use(f func(*driverutil.InstallStatus)) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	f(&l.s)
@@ -98,7 +98,7 @@ func (l *installStatusLocker) Use(f func(*cortexops.InstallStatus)) {
 
 type TestEnvMetricsClusterDriver struct {
 	cortexops.UnsafeCortexOpsServer
-	driverutil.DefaultConfigurableServer[*cortexops.CapabilityBackendConfigSpec, *driverutil.GetRequest]
+	*driverutil.BaseConfigServer[*cortexops.ResetRequest, *cortexops.ConfigurationHistoryResponse, *cortexops.CapabilityBackendConfigSpec]
 
 	status     atomic.Pointer[installStatusLocker]
 	configLock sync.RWMutex
@@ -117,7 +117,7 @@ func (d *TestEnvMetricsClusterDriver) ListPresets(context.Context, *emptypb.Empt
 		Items: []*cortexops.Preset{
 			{
 				Id: &corev1.Reference{Id: "test-environment"},
-				Metadata: &cortexops.PresetMetadata{
+				Metadata: &driverutil.PresetMetadata{
 					DisplayName: "Test Environment",
 					Description: "Runs cortex in single-binary mode from bin/opni",
 					Notes: []string{
@@ -148,7 +148,7 @@ func (d *TestEnvMetricsClusterDriver) ListPresets(context.Context, *emptypb.Empt
 
 // DryRun implements cortexops.CortexOpsServer.
 func (d *TestEnvMetricsClusterDriver) DryRun(ctx context.Context, req *cortexops.DryRunRequest) (*cortexops.DryRunResponse, error) {
-	res, err := d.configTracker.DryRun(ctx, req.Target, req.Action, req.Spec)
+	res, err := d.configTracker.DryRun(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -207,11 +207,13 @@ func NewTestEnvMetricsClusterDriver(env *test.Environment) *TestEnvMetricsCluste
 			go d.onActiveConfigChanged(prevValue, curValue)
 		}
 	}()
+	configSrv := driverutil.NewBaseConfigServer[
+		*cortexops.ResetRequest,
+		*cortexops.ConfigurationHistoryResponse,
+	](defaultStore, activeStore, flagutil.LoadDefaults)
 
-	d.configTracker = driverutil.NewDefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec](
-		defaultStore, activeStore, flagutil.LoadDefaults[*cortexops.CapabilityBackendConfigSpec],
-	)
-	d.DefaultConfigurableServer = driverutil.NewDefaultConfigurableServer[cortexops.CortexOpsServer](d.configTracker)
+	d.BaseConfigServer = configSrv
+	d.configTracker = configSrv.Tracker()
 	return d
 }
 
@@ -252,17 +254,17 @@ func (d *TestEnvMetricsClusterDriver) onActiveConfigChanged(old, new *cortexops.
 		return
 	}
 
-	currentStatus.Use(func(s *cortexops.InstallStatus) {
-		s.ConfigState = cortexops.ConfigurationState_Configured
+	currentStatus.Use(func(s *driverutil.InstallStatus) {
+		s.ConfigState = driverutil.ConfigurationState_Configured
 	})
 
 	if !new.GetEnabled() {
 		return
 	}
 
-	currentStatus.Use(func(s *cortexops.InstallStatus) {
-		s.InstallState = cortexops.InstallState_Installed
-		s.AppState = cortexops.ApplicationState_Pending
+	currentStatus.Use(func(s *driverutil.InstallStatus) {
+		s.InstallState = driverutil.InstallState_Installed
+		s.AppState = driverutil.ApplicationState_Pending
 	})
 
 	cmdCtx, err := d.Env.StartCortex(ctx, func(cco test.CortexConfigOptions, iso test.ImplementationSpecificOverrides) ([]byte, []byte, error) {
@@ -297,7 +299,7 @@ func (d *TestEnvMetricsClusterDriver) onActiveConfigChanged(old, new *cortexops.
 
 		errs := configutil.ValidateConfiguration(new, overriders...)
 		if len(errs) > 0 {
-			currentStatus.Use(func(s *cortexops.InstallStatus) {
+			currentStatus.Use(func(s *driverutil.InstallStatus) {
 				for _, err := range errs {
 					s.Warnings = append(s.Warnings, fmt.Sprintf("%s: %s", strings.ToLower(err.Severity.String()), err.Message))
 				}
@@ -320,8 +322,8 @@ func (d *TestEnvMetricsClusterDriver) onActiveConfigChanged(old, new *cortexops.
 	})
 
 	if err != nil {
-		currentStatus.Use(func(s *cortexops.InstallStatus) {
-			s.AppState = cortexops.ApplicationState_Failed
+		currentStatus.Use(func(s *driverutil.InstallStatus) {
+			s.AppState = driverutil.ApplicationState_Failed
 			s.Warnings = append(s.Warnings, fmt.Sprintf("error: failed to start cortex"))
 		})
 
@@ -331,17 +333,17 @@ func (d *TestEnvMetricsClusterDriver) onActiveConfigChanged(old, new *cortexops.
 	}
 
 	context.AfterFunc(cmdCtx, func() {
-		currentStatus.Use(func(s *cortexops.InstallStatus) {
-			s.AppState = cortexops.ApplicationState_Failed
+		currentStatus.Use(func(s *driverutil.InstallStatus) {
+			s.AppState = driverutil.ApplicationState_Failed
 			s.Warnings = append(s.Warnings, fmt.Sprintf("error: cortex exited unexpectedly"))
 		})
 	})
 
-	currentStatus.Use(func(s *cortexops.InstallStatus) {
+	currentStatus.Use(func(s *driverutil.InstallStatus) {
 		if err != nil {
-			s.AppState = cortexops.ApplicationState_Failed
+			s.AppState = driverutil.ApplicationState_Failed
 		} else {
-			s.AppState = cortexops.ApplicationState_Running
+			s.AppState = driverutil.ApplicationState_Running
 		}
 	})
 }
@@ -363,11 +365,11 @@ func (d *TestEnvMetricsClusterDriver) Name() string {
 }
 
 func (d *TestEnvMetricsClusterDriver) ShouldDisableNode(*corev1.Reference) (err error) {
-	d.status.Load().Use(func(s *cortexops.InstallStatus) {
+	d.status.Load().Use(func(s *driverutil.InstallStatus) {
 		switch s.InstallState {
-		case cortexops.InstallState_NotInstalled, cortexops.InstallState_Uninstalling:
+		case driverutil.InstallState_NotInstalled, driverutil.InstallState_Uninstalling:
 			err = status.Error(codes.Unavailable, fmt.Sprintf("Cortex cluster is not installed"))
-		case cortexops.InstallState_Installed:
+		case driverutil.InstallState_Installed:
 			err = nil
 		default:
 			// can't determine cluster status, so don't disable the node
@@ -377,9 +379,9 @@ func (d *TestEnvMetricsClusterDriver) ShouldDisableNode(*corev1.Reference) (err 
 	return
 }
 
-func (d *TestEnvMetricsClusterDriver) Status(context.Context, *emptypb.Empty) (out *cortexops.InstallStatus, _ error) {
-	d.status.Load().Use(func(s *cortexops.InstallStatus) {
-		out = s.DeepCopy()
+func (d *TestEnvMetricsClusterDriver) Status(context.Context, *emptypb.Empty) (out *driverutil.InstallStatus, _ error) {
+	d.status.Load().Use(func(s *driverutil.InstallStatus) {
+		out = util.ProtoClone(s)
 		out.Version = cortexVersion
 		out.Metadata = map[string]string{"test-environment": "true"}
 	})

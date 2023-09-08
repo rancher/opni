@@ -79,15 +79,48 @@ type CortexOpsClient interface {
 	// keep an existing secret when updating the cluster configuration.
 	SetConfiguration(ctx context.Context, in *CapabilityBackendConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Resets the configuration of the managed Cortex cluster to the current default configuration.
-	// The value of "enabled" will be preserved if it is set.
-	ResetConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	//
+	// The request may optionally contain a field mask to specify which fields should
+	// be preserved. Furthermore, if a mask is set, the request may also contain a patch
+	// object used to apply additional changes to the masked fields. These changes are
+	// applied atomically at the time of reset. Fields present in the patch object, but
+	// not in the mask, are ignored.
+	//
+	// For example, with the following message:
+	//
+	//	message Example {
+	//	  optional int32 a = 1;
+	//	  optional int32 b = 2;
+	//	  optional int32 c = 3;
+	//	}
+	//
+	// and current state:
+	//
+	//	active:  { a: 1, b: 2, c: 3 }
+	//	default: { a: 4, b: 5, c: 6 }
+	//
+	// and reset request parameters:
+	//
+	//	{
+	//	  mask:    { paths: [ "a", "b" ] }
+	//	  patch:   { a: 100 }
+	//	}
+	//
+	// The resulting active configuration will be:
+	//
+	//	active:  {
+	//	  a: 100, // masked, set to 100 via patch
+	//	  b: 2,   // masked, but not set in patch, so left unchanged
+	//	  c: 6,   // not masked, reset to default
+	//	}
+	ResetConfiguration(ctx context.Context, in *ResetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Gets the current status of the managed Cortex cluster.
 	// The status includes the current install state, version, and metadata. If
 	// the cluster is in the process of being reconfigured or uninstalled, it will
 	// be reflected in the install state.
 	// No guarantees are made about the contents of the metadata field; its
 	// contents are strictly informational.
-	Status(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error)
+	Status(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*driverutil.InstallStatus, error)
 	// Installs the managed Cortex cluster.
 	// The cluster will be installed using the current configuration, or the
 	// default configuration if none is explicitly set.
@@ -186,7 +219,7 @@ func (c *cortexOpsClient) SetConfiguration(ctx context.Context, in *CapabilityBa
 	return out, nil
 }
 
-func (c *cortexOpsClient) ResetConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *cortexOpsClient) ResetConfiguration(ctx context.Context, in *ResetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, CortexOps_ResetConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -195,8 +228,8 @@ func (c *cortexOpsClient) ResetConfiguration(ctx context.Context, in *emptypb.Em
 	return out, nil
 }
 
-func (c *cortexOpsClient) Status(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error) {
-	out := new(InstallStatus)
+func (c *cortexOpsClient) Status(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*driverutil.InstallStatus, error) {
+	out := new(driverutil.InstallStatus)
 	err := c.cc.Invoke(ctx, CortexOps_Status_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -293,15 +326,48 @@ type CortexOpsServer interface {
 	// keep an existing secret when updating the cluster configuration.
 	SetConfiguration(context.Context, *CapabilityBackendConfigSpec) (*emptypb.Empty, error)
 	// Resets the configuration of the managed Cortex cluster to the current default configuration.
-	// The value of "enabled" will be preserved if it is set.
-	ResetConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	//
+	// The request may optionally contain a field mask to specify which fields should
+	// be preserved. Furthermore, if a mask is set, the request may also contain a patch
+	// object used to apply additional changes to the masked fields. These changes are
+	// applied atomically at the time of reset. Fields present in the patch object, but
+	// not in the mask, are ignored.
+	//
+	// For example, with the following message:
+	//
+	//	message Example {
+	//	  optional int32 a = 1;
+	//	  optional int32 b = 2;
+	//	  optional int32 c = 3;
+	//	}
+	//
+	// and current state:
+	//
+	//	active:  { a: 1, b: 2, c: 3 }
+	//	default: { a: 4, b: 5, c: 6 }
+	//
+	// and reset request parameters:
+	//
+	//	{
+	//	  mask:    { paths: [ "a", "b" ] }
+	//	  patch:   { a: 100 }
+	//	}
+	//
+	// The resulting active configuration will be:
+	//
+	//	active:  {
+	//	  a: 100, // masked, set to 100 via patch
+	//	  b: 2,   // masked, but not set in patch, so left unchanged
+	//	  c: 6,   // not masked, reset to default
+	//	}
+	ResetConfiguration(context.Context, *ResetRequest) (*emptypb.Empty, error)
 	// Gets the current status of the managed Cortex cluster.
 	// The status includes the current install state, version, and metadata. If
 	// the cluster is in the process of being reconfigured or uninstalled, it will
 	// be reflected in the install state.
 	// No guarantees are made about the contents of the metadata field; its
 	// contents are strictly informational.
-	Status(context.Context, *emptypb.Empty) (*InstallStatus, error)
+	Status(context.Context, *emptypb.Empty) (*driverutil.InstallStatus, error)
 	// Installs the managed Cortex cluster.
 	// The cluster will be installed using the current configuration, or the
 	// default configuration if none is explicitly set.
@@ -367,10 +433,10 @@ func (UnimplementedCortexOpsServer) GetConfiguration(context.Context, *driveruti
 func (UnimplementedCortexOpsServer) SetConfiguration(context.Context, *CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetConfiguration not implemented")
 }
-func (UnimplementedCortexOpsServer) ResetConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (UnimplementedCortexOpsServer) ResetConfiguration(context.Context, *ResetRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResetConfiguration not implemented")
 }
-func (UnimplementedCortexOpsServer) Status(context.Context, *emptypb.Empty) (*InstallStatus, error) {
+func (UnimplementedCortexOpsServer) Status(context.Context, *emptypb.Empty) (*driverutil.InstallStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
 }
 func (UnimplementedCortexOpsServer) Install(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
@@ -492,7 +558,7 @@ func _CortexOps_SetConfiguration_Handler(srv interface{}, ctx context.Context, d
 }
 
 func _CortexOps_ResetConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(ResetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -504,7 +570,7 @@ func _CortexOps_ResetConfiguration_Handler(srv interface{}, ctx context.Context,
 		FullMethod: CortexOps_ResetConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexOpsServer).ResetConfiguration(ctx, req.(*emptypb.Empty))
+		return srv.(CortexOpsServer).ResetConfiguration(ctx, req.(*ResetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

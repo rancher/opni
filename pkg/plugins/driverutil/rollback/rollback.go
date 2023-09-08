@@ -29,8 +29,9 @@ import (
 //
 //	rollback.BuildCmd("rollback", NewXClientFromContext)
 func BuildCmd[
-	C driverutil.ClientInterface[T, D, DR, HR],
+	C driverutil.Client[T, R, D, DR, HR],
 	T driverutil.ConfigType[T],
+	R driverutil.ResetRequestType[T],
 	D driverutil.DryRunRequestType[T],
 	DR driverutil.DryRunResponseType[T],
 	HR driverutil.HistoryResponseType[T],
@@ -40,7 +41,36 @@ func BuildCmd[
 		target   driverutil.Target
 	)
 	cmd := &cobra.Command{
-		Use: use,
+		Use:   use,
+		Short: `Revert the active or default configuration to a previous revision.`,
+		Long: `
+Revert the active or default configuration to a previous revision.
+
+To easily identify the revision you want to rollback to, use the "history" command
+to view a list of previous revisions and their associated diffs. Note that the
+diff displayed alongside each revision is compared to its previous revision,
+not the current configuration; when rolling back to that revision, the changes
+displayed in the diff will be included in the rollback.
+
+Before performing the rollback, you will get a chance to view the pending changes,
+and make edits to the configuration if desired.
+
+If the target revision contains secrets that have since been cleared (referred
+to as a "discontinuity"), you will be prompted to set new values for all secret
+fields that were present in the target revision.
+
+For example, if revision 1 has a stored value for a secret and revision 2 was
+created such that the field containing the secret was cleared or reset, then
+rolling back to revision 1 will cause a discontinuity error. Because secrets are
+only read by the client as redacted placeholder values, there is no way for the
+client to know what the original value of the secret was.
+
+However, because the "rollback" operation is simply applying changes on top of
+the current configuration in a specific way, if both the current and target
+revisions have stored values for all the same secret fields, this does not
+constitute a discontinuity and the rollback will proceed as normal, except that
+the secret values will not change from the current configuration.
+`[1:],
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, ok := newClientFunc(cmd.Context())
 			if !ok {
@@ -84,21 +114,7 @@ func BuildCmd[
 			}
 			driverutil.CopyRevision(targetConfig, currentConfig)
 
-			previousErrors := []string{}
 			for {
-				comments := []string{}
-				for _, e := range previousErrors {
-					comments = append(comments, e)
-				}
-				if len(comments) > 0 {
-					if cfg, err := cliutil.EditInteractive(targetConfig, comments...); err != nil {
-						return err
-					} else {
-						targetConfig = cfg
-					}
-				}
-				previousErrors = []string{}
-
 				dryRunReq := util.NewMessage[D]()
 				{
 					rm := dryRunReq.ProtoReflect()
@@ -164,39 +180,93 @@ func BuildCmd[
 					return fmt.Errorf("dry-run failed: %w", err)
 				}
 
-				if len(dryRunResp.GetValidationErrors()) > 0 {
-					for _, e := range dryRunResp.GetValidationErrors() {
-						previousErrors = append(previousErrors, e.GetMessage())
-					}
-					continue
+				diffStr, anyChanges := driverutil.RenderJsonDiff(dryRunResp.GetCurrent(), dryRunResp.GetModified(), jsondiff.DefaultConsoleOptions())
+				if !anyChanges {
+					cmd.Println(chalk.Green.Color("No changes to apply."))
+					return nil
 				}
-
-				diffStr, _ := driverutil.RenderJsonDiff(dryRunResp.GetCurrent(), dryRunResp.GetModified(), jsondiff.DefaultConsoleOptions())
+				cmd.Printf("The following changes will be applied (%s):\n", driverutil.DiffStat(diffStr))
 				cmd.Println(diffStr)
 
 				// prompt for confirmation
-				confirm := false
-				if err := survey.AskOne(&survey.Confirm{
-					Message: fmt.Sprintf("Rollback the %s configuration to revision %d?",
-						strings.ToLower(strings.TrimSuffix(target.String(), "Configuration")), *revision),
-					Default: false,
+				message := fmt.Sprintf("Rollback the %s configuration to revision %d?",
+					strings.ToLower(strings.TrimSuffix(target.String(), "Configuration")), *revision)
+				yes := "Yes"
+
+				comments := []string{}
+				if len(dryRunResp.GetValidationErrors()) > 0 {
+					yes += " (bypass validation checks)"
+					comments = append(comments, "Validation warnings:")
+				}
+				for _, e := range dryRunResp.GetValidationErrors() {
+					switch e.Severity {
+					case driverutil.ValidationError_Error:
+						comments = append(comments, fmt.Sprintf(" - %s: %s", e.GetSeverity(), e.GetMessage()))
+					case driverutil.ValidationError_Warning:
+						comments = append(comments, fmt.Sprintf(" - %s: %s", e.GetSeverity(), e.GetMessage()))
+					}
+				}
+				for _, comment := range comments {
+					cmd.Println(chalk.Yellow.Color(comment))
+				}
+				var confirm string
+				if err := survey.AskOne(&survey.Select{
+					Message: message,
+					Options: []string{
+						yes,
+						"No",
+						"Edit",
+					},
+					Default: "No",
 				}, &confirm); err != nil {
 					return err
 				}
-				if !confirm {
-					return fmt.Errorf("rollback aborted")
+				switch confirm {
+				case "No":
+					return fmt.Errorf("rollback canceled")
+				case "Edit":
+					if cfg, err := cliutil.EditInteractive(targetConfig, comments...); err != nil {
+						return err
+					} else {
+						targetConfig = cfg
+						continue
+					}
+				case yes:
+					if len(dryRunResp.GetValidationErrors()) > 0 {
+						var confirm bool
+						if err := survey.AskOne(&survey.Confirm{
+							Message: "This will bypass validation checks. The configuration may not function correctly. Are you sure?",
+							Default: false,
+						}, &confirm); err != nil {
+							return err
+						}
+						if !confirm {
+							return fmt.Errorf("rollback canceled")
+						}
+					}
+				default:
+					panic("bug: unexpected response " + confirm)
 				}
 
 				// perform the rollback
 				switch target {
 				case driverutil.Target_ActiveConfiguration:
-					_, err = client.SetConfiguration(cmd.Context(), targetConfig)
+					// reset using a mask that includes all present fields in the target config,
+					// and the target config as the patch.
+					resetReq := util.NewMessage[R]()
+					mask := util.NewFieldMaskByPresence(targetConfig.ProtoReflect())
+
+					rm := resetReq.ProtoReflect()
+					rmd := rm.Descriptor()
+					rm.Set(rmd.Fields().ByName("mask"), protoreflect.ValueOfMessage(mask.ProtoReflect()))
+					rm.Set(rmd.Fields().ByName("patch"), protoreflect.ValueOfMessage(targetConfig.ProtoReflect()))
+
+					_, err = client.ResetConfiguration(cmd.Context(), resetReq)
 				case driverutil.Target_DefaultConfiguration:
 					_, err = client.SetDefaultConfiguration(cmd.Context(), targetConfig)
 				}
 				if err != nil {
-					previousErrors = append(previousErrors, err.Error())
-					continue
+					cmd.PrintErrln("rollback failed:", err)
 				}
 				cmd.Printf("successfully rolled back to revision %d\n", *revision)
 				return nil
@@ -206,7 +276,6 @@ func BuildCmd[
 	cmd.Flags().Var(flagutil.IntPtrValue(nil, &revision), "revision", "revision to rollback to")
 	cmd.Flags().Var(flagutil.EnumValue(&target), "target", "the configuration type to rollback")
 	cmd.MarkFlagRequired("revision")
-	cmd.MarkFlagRequired("target")
 
 	cmd.RegisterFlagCompletionFunc("target", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"ActiveConfiguration", "DefaultConfiguration"}, cobra.ShellCompDirectiveDefault

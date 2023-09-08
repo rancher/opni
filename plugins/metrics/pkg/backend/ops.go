@@ -56,7 +56,7 @@ func (m *OpsServiceBackend) SetConfiguration(ctx context.Context, in *cortexops.
 	return res, nil
 }
 
-func (m *OpsServiceBackend) ResetConfiguration(ctx context.Context, in *emptypb.Empty) (*emptypb.Empty, error) {
+func (m *OpsServiceBackend) ResetConfiguration(ctx context.Context, in *cortexops.ResetRequest) (*emptypb.Empty, error) {
 	m.WaitForInit()
 
 	res, err := m.ClusterDriver.ResetConfiguration(ctx, in)
@@ -67,7 +67,7 @@ func (m *OpsServiceBackend) ResetConfiguration(ctx context.Context, in *emptypb.
 	return res, nil
 }
 
-func (m *OpsServiceBackend) Status(ctx context.Context, in *emptypb.Empty) (*cortexops.InstallStatus, error) {
+func (m *OpsServiceBackend) Status(ctx context.Context, in *emptypb.Empty) (*driverutil.InstallStatus, error) {
 	m.WaitForInit()
 
 	return m.ClusterDriver.Status(ctx, in)

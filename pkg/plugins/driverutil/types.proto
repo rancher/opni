@@ -47,3 +47,42 @@ message ValidationError {
   string   message  = 2;
   string   source   = 3;
 }
+
+enum InstallState {
+  NotInstalled = 0;
+  Installed    = 1;
+  Uninstalling = 2;
+}
+
+enum ConfigurationState {
+  NotConfigured = 0;
+  Configured    = 1;
+}
+
+enum ApplicationState {
+  NotRunning = 0;
+  Pending    = 1;
+  Running    = 2;
+  Failed     = 3;
+}
+
+message InstallStatus {
+  ConfigurationState  configState  = 1;
+  InstallState        installState = 2;
+  ApplicationState    appState     = 3;
+  repeated string     warnings     = 4;
+  string              version      = 5;
+  map<string, string> metadata     = 6;
+}
+
+message PresetMetadata {
+  // A display name for the preset.
+  string displayName = 1;
+  // Longer description of the preset.
+  string description = 2;
+  // Optional list of messages that should be displayed to the user when the
+  // preset is used (determined at the client's discretion).
+  // For example, this may contain additional information about requirements
+  // or next steps that the user should be aware of.
+  repeated string notes = 3;
+}

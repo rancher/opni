@@ -26,6 +26,7 @@ import (
 	"github.com/rancher/opni/pkg/auth/openid"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/metrics/compat"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testbench"
@@ -74,7 +75,7 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 			if err != nil {
 				return err
 			}
-			if installStatus.State != cortexops.InstallState_Installed {
+			if installStatus.State != driverutil.InstallState_Installed {
 				return fmt.Errorf("cortex has not fisnished installing yet")
 			}
 			return nil

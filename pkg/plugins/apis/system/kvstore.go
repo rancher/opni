@@ -173,7 +173,7 @@ func (s *kvStoreServer) History(ctx context.Context, in *HistoryRequest) (*Histo
 		if ts := item.Timestamp(); !ts.IsZero() {
 			rev.Timestamp = timestamppb.New(ts)
 		}
-		revisions = append(revisions)
+		revisions = append(revisions, rev)
 	}
 	return &HistoryResponse{
 		Revisions: revisions,

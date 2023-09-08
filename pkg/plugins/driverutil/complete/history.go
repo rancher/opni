@@ -10,11 +10,10 @@ import (
 )
 
 func Revisions[
+	C driverutil.HistoryClientInterface[T, HR],
 	T driverutil.ConfigType[T],
-	D driverutil.DryRunRequestType[T],
-	DR driverutil.DryRunResponseType[T],
 	HR driverutil.HistoryResponseType[T],
-](ctx context.Context, target driverutil.Target, client driverutil.ClientInterface[T, D, DR, HR]) ([]string, cobra.ShellCompDirective) {
+](ctx context.Context, target driverutil.Target, client C) ([]string, cobra.ShellCompDirective) {
 	history, err := client.ConfigurationHistory(ctx, &driverutil.ConfigurationHistoryRequest{
 		Target:        target,
 		IncludeValues: false,

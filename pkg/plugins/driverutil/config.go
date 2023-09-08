@@ -134,7 +134,7 @@ func (ct *DefaultingConfigTracker[T]) GetConfig(ctx context.Context, atRevision 
 // Restores the active config to match the default config. An optional field mask
 // can be provided to specify which fields to keep from the current config.
 // If no field mask is provided, the active config may be deleted from the store.
-func (ct *DefaultingConfigTracker[T]) ResetConfig(ctx context.Context, keep *fieldmaskpb.FieldMask) error {
+func (ct *DefaultingConfigTracker[T]) ResetConfig(ctx context.Context, mask *fieldmaskpb.FieldMask, patch T) error {
 	ct.lock.Lock()
 	defer ct.lock.Unlock()
 	var revision int64
@@ -142,7 +142,7 @@ func (ct *DefaultingConfigTracker[T]) ResetConfig(ctx context.Context, keep *fie
 	if err != nil {
 		return fmt.Errorf("error looking up config: %w", err)
 	}
-	if len(keep.GetPaths()) == 0 {
+	if len(mask.GetPaths()) == 0 {
 		err := ct.activeStore.Delete(ctx, storage.WithRevision(revision))
 		if err != nil {
 			return fmt.Errorf("error deleting config: %w", err)
@@ -150,20 +150,22 @@ func (ct *DefaultingConfigTracker[T]) ResetConfig(ctx context.Context, keep *fie
 		return nil
 	}
 
-	defaultConfig, _, err := ct.getDefaultConfigLocked(ctx)
+	staging, _, err := ct.getDefaultConfigLocked(ctx)
 	if err != nil {
 		return err
 	}
-	keep.Normalize()
-	if !keep.IsValid(current) {
-		return fmt.Errorf("invalid field mask: %v", keep.GetPaths())
+	mask.Normalize()
+	if !mask.IsValid(current) {
+		return fmt.Errorf("invalid field mask: %v", mask.GetPaths())
 	}
 
-	fmutils.Filter(current, keep.GetPaths())
+	fmutils.Filter(current, mask.GetPaths())
+	fmutils.Filter(patch, mask.GetPaths())
 
-	merge.MergeWithReplace(defaultConfig, current)
+	merge.MergeWithReplace(staging, current)
+	merge.MergeWithReplace(staging, patch)
 
-	return ct.activeStore.Put(ctx, defaultConfig, storage.WithRevision(revision))
+	return ct.activeStore.Put(ctx, staging, storage.WithRevision(revision))
 }
 
 // Returns the active config if it has been set, otherwise returns the default config.
@@ -238,12 +240,12 @@ func (ct *DefaultingConfigTracker[T]) ApplyConfig(ctx context.Context, newConfig
 	return ct.activeStore.Put(ctx, existing, storage.WithRevision(rev))
 }
 
-func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, target Target, action Action, spec T) (*DryRunResults[T], error) {
-	switch target {
+func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, req DryRunRequestType[T]) (*DryRunResults[T], error) {
+	switch req.GetTarget() {
 	case Target_ActiveConfiguration:
-		switch action {
+		switch req.GetAction() {
 		case Action_Set:
-			res, err := ct.DryRunApplyConfig(ctx, spec)
+			res, err := ct.DryRunApplyConfig(ctx, req.GetSpec())
 			if err != nil {
 				return nil, err
 			}
@@ -252,7 +254,7 @@ func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, target Target,
 				Modified: res.Modified,
 			}, nil
 		case Action_Reset:
-			res, err := ct.DryRunResetConfig(ctx)
+			res, err := ct.DryRunResetConfig(ctx, req.GetMask(), req.GetPatch())
 			if err != nil {
 				return nil, err
 			}
@@ -261,12 +263,12 @@ func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, target Target,
 				Modified: res.Modified,
 			}, nil
 		default:
-			return nil, fmt.Errorf("invalid action: %s", action)
+			return nil, fmt.Errorf("invalid action: %s", req.GetAction())
 		}
 	case Target_DefaultConfiguration:
-		switch action {
+		switch req.GetAction() {
 		case Action_Set:
-			res, err := ct.DryRunSetDefaultConfig(ctx, spec)
+			res, err := ct.DryRunSetDefaultConfig(ctx, req.GetSpec())
 			if err != nil {
 				return nil, err
 			}
@@ -284,10 +286,10 @@ func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, target Target,
 				Modified: res.Modified,
 			}, nil
 		default:
-			return nil, fmt.Errorf("invalid action: %s", action)
+			return nil, fmt.Errorf("invalid action: %s", req.GetAction())
 		}
 	default:
-		return nil, fmt.Errorf("invalid target: %s", target)
+		return nil, fmt.Errorf("invalid target: %s", req.GetTarget())
 	}
 }
 
@@ -389,7 +391,7 @@ func (ct *DefaultingConfigTracker[T]) DryRunResetDefaultConfig(ctx context.Conte
 	}, nil
 }
 
-func (ct *DefaultingConfigTracker[T]) DryRunResetConfig(ctx context.Context) (DryRunResults[T], error) {
+func (ct *DefaultingConfigTracker[T]) DryRunResetConfig(ctx context.Context, mask *fieldmaskpb.FieldMask, patch T) (DryRunResults[T], error) {
 	ct.lock.Lock()
 	defer ct.lock.Unlock()
 	current, err := ct.activeStore.Get(ctx)
@@ -397,15 +399,35 @@ func (ct *DefaultingConfigTracker[T]) DryRunResetConfig(ctx context.Context) (Dr
 		return DryRunResults[T]{}, err
 	}
 
-	currentDefault, _, err := ct.getDefaultConfigLocked(ctx)
+	staging, _, err := ct.getDefaultConfigLocked(ctx)
 	if err != nil {
 		return DryRunResults[T]{}, err
 	}
 
+	if len(mask.GetPaths()) == 0 {
+		current.RedactSecrets()
+		staging.RedactSecrets()
+		return DryRunResults[T]{
+			Current:  current,
+			Modified: staging,
+		}, nil
+	}
+
+	mask.Normalize()
+	if !mask.IsValid(current) {
+		return DryRunResults[T]{}, fmt.Errorf("invalid field mask: %v", mask.GetPaths())
+	}
+
+	fmutils.Filter(current, mask.GetPaths())
+	fmutils.Filter(patch, mask.GetPaths())
+
+	merge.MergeWithReplace(staging, current)
+	merge.MergeWithReplace(staging, patch)
+
 	current.RedactSecrets()
-	currentDefault.RedactSecrets()
+	staging.RedactSecrets()
 	return DryRunResults[T]{
 		Current:  current,
-		Modified: currentDefault,
+		Modified: staging,
 	}, nil
 }

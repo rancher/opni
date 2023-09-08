@@ -3,6 +3,7 @@ package util
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"sync"
@@ -111,6 +112,58 @@ func NewFieldMaskByPresence[T protoreflect.Message](msg T) *fieldmaskpb.FieldMas
 	})
 	mask.Normalize()
 	return mask
+}
+
+func NewCompleteFieldMask[T proto.Message]() *fieldmaskpb.FieldMask {
+	var t T
+	desc := t.ProtoReflect().Descriptor()
+	mask := &fieldmaskpb.FieldMask{
+		Paths: rangeMessageFields(desc),
+	}
+	mask.Normalize()
+	return mask
+}
+
+func rangeMessageFields(desc protoreflect.MessageDescriptor) []string {
+	fields := desc.Fields()
+	paths := []string{}
+	for i := 0; i < fields.Len(); i++ {
+		field := fields.Get(i)
+		kind := field.Kind()
+		if kind == protoreflect.MessageKind && !field.IsMap() && !field.IsList() {
+			nestedPaths := rangeMessageFields(field.Message())
+			for _, nestedPath := range nestedPaths {
+				paths = append(paths, fmt.Sprintf("%s.%s", field.Name(), nestedPath))
+			}
+		} else {
+			paths = append(paths, string(field.Name()))
+		}
+	}
+	return paths
+}
+
+func FieldByName[T proto.Message](name string) protoreflect.FieldDescriptor {
+	var t T
+	fields := t.ProtoReflect().Descriptor().Fields()
+	for i, l := 0, fields.Len(); i < l; i++ {
+		field := fields.Get(i)
+		if strings.EqualFold(string(field.Name()), name) {
+			return field
+		}
+	}
+	return nil
+}
+
+func FieldIndexByName[T proto.Message](name string) int {
+	var t T
+	fields := t.ProtoReflect().Descriptor().Fields()
+	for i, l := 0, fields.Len(); i < l; i++ {
+		field := fields.Get(i)
+		if strings.EqualFold(string(field.Name()), name) {
+			return i
+		}
+	}
+	return -1
 }
 
 func ReplaceFirstOccurrence[S ~[]T, T comparable](items S, old T, new T) S {

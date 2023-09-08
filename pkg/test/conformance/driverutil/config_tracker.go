@@ -326,7 +326,7 @@ func DefaultingConfigTrackerTestSuite[
 				merge.MergeWithReplace(newActive, updates)
 				Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(newActive))))
 
-				err := configTracker.ResetConfig(ctx, nil)
+				err := configTracker.ResetConfig(ctx, nil, lo.Empty[T]())
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(updateC).Should(Receive(WithTransform(transform, BeNil())))
@@ -336,7 +336,7 @@ func DefaultingConfigTrackerTestSuite[
 			})
 			When("an error occurs deleting the config", func() {
 				It("should return the error", func() {
-					err := configTracker.ResetConfig(ctx, nil)
+					err := configTracker.ResetConfig(ctx, nil, lo.Empty[T]())
 					Expect(err).To(testutil.MatchStatusCode(storage.ErrNotFound))
 					Expect(updateC).NotTo(Receive())
 				})
@@ -351,7 +351,7 @@ func DefaultingConfigTrackerTestSuite[
 					mask := util.NewFieldMaskByPresence(mustGenPartial(0.25).ProtoReflect())
 					Expect(mask.IsValid(conf)).To(BeTrue(), mask.GetPaths())
 
-					err := configTracker.ResetConfig(ctx, mask)
+					err := configTracker.ResetConfig(ctx, mask, lo.Empty[T]())
 					Expect(err).NotTo(HaveOccurred())
 
 					expected := newDefaults()
@@ -391,7 +391,7 @@ func DefaultingConfigTrackerTestSuite[
 				It("should report changes without persisting them", func() {
 					newDefault := mustGen()
 
-					results, err := configTracker.DryRun(ctx, driverutil.Target_DefaultConfiguration, driverutil.Action_Set, newDefault)
+					results, err := configTracker.DryRunSetDefaultConfig(ctx, newDefault)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(results.Current).To(testutil.ProtoEqual(newDefaultsRedacted()))
 					conf := results.Modified
@@ -409,7 +409,7 @@ func DefaultingConfigTrackerTestSuite[
 				It("should report changes without persisting them", func() {
 					newActive := mustGen()
 
-					results, err := configTracker.DryRun(ctx, driverutil.Target_ActiveConfiguration, driverutil.Action_Set, newActive)
+					results, err := configTracker.DryRunApplyConfig(ctx, newActive)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(results.Current).To(testutil.ProtoEqual(withoutRevision(newDefaultsRedacted())))
 					conf := results.Modified
@@ -428,7 +428,7 @@ func DefaultingConfigTrackerTestSuite[
 					Expect(configTracker.SetDefaultConfig(ctx, conf)).To(Succeed())
 					conf.RedactSecrets()
 
-					results, err := configTracker.DryRun(ctx, driverutil.Target_DefaultConfiguration, driverutil.Action_Reset, lo.Empty[T]())
+					results, err := configTracker.DryRunResetDefaultConfig(ctx)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(results.Current).To(testutil.ProtoEqual(withoutRevision(conf)))
@@ -440,20 +440,28 @@ func DefaultingConfigTrackerTestSuite[
 				})
 			})
 			When("resetting the active config", func() {
-				It("should report changes without persisting them", func() {
-					conf := mustGen()
-					Expect(configTracker.ApplyConfig(ctx, conf)).To(Succeed())
-					conf.RedactSecrets()
+				When("neither mask nor patch are provided", func() {
+					It("should report changes without persisting them", func() {
+						conf := mustGen()
+						Expect(configTracker.ApplyConfig(ctx, conf)).To(Succeed())
+						conf.RedactSecrets()
 
-					results, err := configTracker.DryRun(ctx, driverutil.Target_ActiveConfiguration, driverutil.Action_Reset, lo.Empty[T]())
-					Expect(err).NotTo(HaveOccurred())
+						results, err := configTracker.DryRunResetConfig(ctx, nil, lo.Empty[T]())
+						Expect(err).NotTo(HaveOccurred())
 
-					Expect(results.Current).To(testutil.ProtoEqual(withoutRevision(conf)))
-					Expect(results.Modified).To(testutil.ProtoEqual(withoutRevision(newDefaultsRedacted())))
+						Expect(results.Current).To(testutil.ProtoEqual(withoutRevision(conf)))
+						Expect(results.Modified).To(testutil.ProtoEqual(withoutRevision(newDefaultsRedacted())))
 
-					conf, err = configTracker.GetConfig(ctx)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(conf).To(testutil.ProtoEqual(withoutRevision(conf)))
+						conf, err = configTracker.GetConfig(ctx)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(conf).To(testutil.ProtoEqual(withoutRevision(conf)))
+					})
+				})
+				When("a mask is provided, but no patch", func() {
+
+				})
+				When("both a mask and patch are provided", func() {
+
 				})
 			})
 		})

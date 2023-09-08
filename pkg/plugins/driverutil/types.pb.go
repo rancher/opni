@@ -117,6 +117,153 @@ func (Action) EnumDescriptor() ([]byte, []int) {
 	return file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_rawDescGZIP(), []int{1}
 }
 
+type InstallState int32
+
+const (
+	InstallState_NotInstalled InstallState = 0
+	InstallState_Installed    InstallState = 1
+	InstallState_Uninstalling InstallState = 2
+)
+
+// Enum value maps for InstallState.
+var (
+	InstallState_name = map[int32]string{
+		0: "NotInstalled",
+		1: "Installed",
+		2: "Uninstalling",
+	}
+	InstallState_value = map[string]int32{
+		"NotInstalled": 0,
+		"Installed":    1,
+		"Uninstalling": 2,
+	}
+)
+
+func (x InstallState) Enum() *InstallState {
+	p := new(InstallState)
+	*p = x
+	return p
+}
+
+func (x InstallState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (InstallState) Descriptor() protoreflect.EnumDescriptor {
+	return file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_enumTypes[2].Descriptor()
+}
+
+func (InstallState) Type() protoreflect.EnumType {
+	return &file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_enumTypes[2]
+}
+
+func (x InstallState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use InstallState.Descriptor instead.
+func (InstallState) EnumDescriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_rawDescGZIP(), []int{2}
+}
+
+type ConfigurationState int32
+
+const (
+	ConfigurationState_NotConfigured ConfigurationState = 0
+	ConfigurationState_Configured    ConfigurationState = 1
+)
+
+// Enum value maps for ConfigurationState.
+var (
+	ConfigurationState_name = map[int32]string{
+		0: "NotConfigured",
+		1: "Configured",
+	}
+	ConfigurationState_value = map[string]int32{
+		"NotConfigured": 0,
+		"Configured":    1,
+	}
+)
+
+func (x ConfigurationState) Enum() *ConfigurationState {
+	p := new(ConfigurationState)
+	*p = x
+	return p
+}
+
+func (x ConfigurationState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ConfigurationState) Descriptor() protoreflect.EnumDescriptor {
+	return file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_enumTypes[3].Descriptor()
+}
+
+func (ConfigurationState) Type() protoreflect.EnumType {
+	return &file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_enumTypes[3]
+}
+
+func (x ConfigurationState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ConfigurationState.Descriptor instead.
+func (ConfigurationState) EnumDescriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_rawDescGZIP(), []int{3}
+}
+
+type ApplicationState int32
+
+const (
+	ApplicationState_NotRunning ApplicationState = 0
+	ApplicationState_Pending    ApplicationState = 1
+	ApplicationState_Running    ApplicationState = 2
+	ApplicationState_Failed     ApplicationState = 3
+)
+
+// Enum value maps for ApplicationState.
+var (
+	ApplicationState_name = map[int32]string{
+		0: "NotRunning",
+		1: "Pending",
+		2: "Running",
+		3: "Failed",
+	}
+	ApplicationState_value = map[string]int32{
+		"NotRunning": 0,
+		"Pending":    1,
+		"Running":    2,
+		"Failed":     3,
+	}
+)
+
+func (x ApplicationState) Enum() *ApplicationState {
+	p := new(ApplicationState)
+	*p = x
+	return p
+}
+
+func (x ApplicationState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ApplicationState) Descriptor() protoreflect.EnumDescriptor {
+	return file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_enumTypes[4].Descriptor()
+}
+
+func (ApplicationState) Type() protoreflect.EnumType {
+	return &file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_enumTypes[4]
+}
+
+func (x ApplicationState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ApplicationState.Descriptor instead.
+func (ApplicationState) EnumDescriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_rawDescGZIP(), []int{4}
+}
+
 type ValidationError_Severity int32
 
 const (
@@ -150,11 +297,11 @@ func (x ValidationError_Severity) String() string {
 }
 
 func (ValidationError_Severity) Descriptor() protoreflect.EnumDescriptor {
-	return file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_enumTypes[2].Descriptor()
+	return file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_enumTypes[5].Descriptor()
 }
 
 func (ValidationError_Severity) Type() protoreflect.EnumType {
-	return &file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_enumTypes[2]
+	return &file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_enumTypes[5]
 }
 
 func (x ValidationError_Severity) Number() protoreflect.EnumNumber {
@@ -339,6 +486,162 @@ func (x *ValidationError) GetSource() string {
 	return ""
 }
 
+type InstallStatus struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	ConfigState  ConfigurationState `protobuf:"varint,1,opt,name=configState,proto3,enum=driverutil.ConfigurationState" json:"configState,omitempty"`
+	InstallState InstallState       `protobuf:"varint,2,opt,name=installState,proto3,enum=driverutil.InstallState" json:"installState,omitempty"`
+	AppState     ApplicationState   `protobuf:"varint,3,opt,name=appState,proto3,enum=driverutil.ApplicationState" json:"appState,omitempty"`
+	Warnings     []string           `protobuf:"bytes,4,rep,name=warnings,proto3" json:"warnings,omitempty"`
+	Version      string             `protobuf:"bytes,5,opt,name=version,proto3" json:"version,omitempty"`
+	Metadata     map[string]string  `protobuf:"bytes,6,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+}
+
+func (x *InstallStatus) Reset() {
+	*x = InstallStatus{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_msgTypes[3]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *InstallStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InstallStatus) ProtoMessage() {}
+
+func (x *InstallStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_msgTypes[3]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InstallStatus.ProtoReflect.Descriptor instead.
+func (*InstallStatus) Descriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *InstallStatus) GetConfigState() ConfigurationState {
+	if x != nil {
+		return x.ConfigState
+	}
+	return ConfigurationState_NotConfigured
+}
+
+func (x *InstallStatus) GetInstallState() InstallState {
+	if x != nil {
+		return x.InstallState
+	}
+	return InstallState_NotInstalled
+}
+
+func (x *InstallStatus) GetAppState() ApplicationState {
+	if x != nil {
+		return x.AppState
+	}
+	return ApplicationState_NotRunning
+}
+
+func (x *InstallStatus) GetWarnings() []string {
+	if x != nil {
+		return x.Warnings
+	}
+	return nil
+}
+
+func (x *InstallStatus) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *InstallStatus) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+type PresetMetadata struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// A display name for the preset.
+	DisplayName string `protobuf:"bytes,1,opt,name=displayName,proto3" json:"displayName,omitempty"`
+	// Longer description of the preset.
+	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	// Optional list of messages that should be displayed to the user when the
+	// preset is used (determined at the client's discretion).
+	// For example, this may contain additional information about requirements
+	// or next steps that the user should be aware of.
+	Notes []string `protobuf:"bytes,3,rep,name=notes,proto3" json:"notes,omitempty"`
+}
+
+func (x *PresetMetadata) Reset() {
+	*x = PresetMetadata{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PresetMetadata) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PresetMetadata) ProtoMessage() {}
+
+func (x *PresetMetadata) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PresetMetadata.ProtoReflect.Descriptor instead.
+func (*PresetMetadata) Descriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *PresetMetadata) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *PresetMetadata) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *PresetMetadata) GetNotes() []string {
+	if x != nil {
+		return x.Notes
+	}
+	return nil
+}
+
 var File_github_com_rancher_opni_pkg_plugins_driverutil_types_proto protoreflect.FileDescriptor
 
 var file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_rawDesc = []byte{
@@ -376,18 +679,61 @@ var file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_rawDesc = []
 	0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x22, 0x2f, 0x0a, 0x08,
 	0x53, 0x65, 0x76, 0x65, 0x72, 0x69, 0x74, 0x79, 0x12, 0x0b, 0x0a, 0x07, 0x55, 0x6e, 0x6b, 0x6e,
 	0x6f, 0x77, 0x6e, 0x10, 0x00, 0x12, 0x0b, 0x0a, 0x07, 0x57, 0x61, 0x72, 0x6e, 0x69, 0x6e, 0x67,
-	0x10, 0x01, 0x12, 0x09, 0x0a, 0x05, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x10, 0x02, 0x2a, 0x3b, 0x0a,
+	0x10, 0x01, 0x12, 0x09, 0x0a, 0x05, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x10, 0x02, 0x22, 0x81, 0x03,
+	0x0a, 0x0d, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12,
+	0x40, 0x0a, 0x0b, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x53, 0x74, 0x61, 0x74, 0x65, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x0e, 0x32, 0x1e, 0x2e, 0x64, 0x72, 0x69, 0x76, 0x65, 0x72, 0x75, 0x74, 0x69,
+	0x6c, 0x2e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x53,
+	0x74, 0x61, 0x74, 0x65, 0x52, 0x0b, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x53, 0x74, 0x61, 0x74,
+	0x65, 0x12, 0x3c, 0x0a, 0x0c, 0x69, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x53, 0x74, 0x61, 0x74,
+	0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x18, 0x2e, 0x64, 0x72, 0x69, 0x76, 0x65, 0x72,
+	0x75, 0x74, 0x69, 0x6c, 0x2e, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x53, 0x74, 0x61, 0x74,
+	0x65, 0x52, 0x0c, 0x69, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12,
+	0x38, 0x0a, 0x08, 0x61, 0x70, 0x70, 0x53, 0x74, 0x61, 0x74, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28,
+	0x0e, 0x32, 0x1c, 0x2e, 0x64, 0x72, 0x69, 0x76, 0x65, 0x72, 0x75, 0x74, 0x69, 0x6c, 0x2e, 0x41,
+	0x70, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x53, 0x74, 0x61, 0x74, 0x65, 0x52,
+	0x08, 0x61, 0x70, 0x70, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x1a, 0x0a, 0x08, 0x77, 0x61, 0x72,
+	0x6e, 0x69, 0x6e, 0x67, 0x73, 0x18, 0x04, 0x20, 0x03, 0x28, 0x09, 0x52, 0x08, 0x77, 0x61, 0x72,
+	0x6e, 0x69, 0x6e, 0x67, 0x73, 0x12, 0x18, 0x0a, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e,
+	0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12,
+	0x43, 0x0a, 0x08, 0x6d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0x18, 0x06, 0x20, 0x03, 0x28,
+	0x0b, 0x32, 0x27, 0x2e, 0x64, 0x72, 0x69, 0x76, 0x65, 0x72, 0x75, 0x74, 0x69, 0x6c, 0x2e, 0x49,
+	0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x2e, 0x4d, 0x65, 0x74,
+	0x61, 0x64, 0x61, 0x74, 0x61, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x08, 0x6d, 0x65, 0x74, 0x61,
+	0x64, 0x61, 0x74, 0x61, 0x1a, 0x3b, 0x0a, 0x0d, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61,
+	0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65,
+	0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38,
+	0x01, 0x22, 0x6a, 0x0a, 0x0e, 0x50, 0x72, 0x65, 0x73, 0x65, 0x74, 0x4d, 0x65, 0x74, 0x61, 0x64,
+	0x61, 0x74, 0x61, 0x12, 0x20, 0x0a, 0x0b, 0x64, 0x69, 0x73, 0x70, 0x6c, 0x61, 0x79, 0x4e, 0x61,
+	0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x64, 0x69, 0x73, 0x70, 0x6c, 0x61,
+	0x79, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x20, 0x0a, 0x0b, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70,
+	0x74, 0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x64, 0x65, 0x73, 0x63,
+	0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x14, 0x0a, 0x05, 0x6e, 0x6f, 0x74, 0x65, 0x73,
+	0x18, 0x03, 0x20, 0x03, 0x28, 0x09, 0x52, 0x05, 0x6e, 0x6f, 0x74, 0x65, 0x73, 0x2a, 0x3b, 0x0a,
 	0x06, 0x54, 0x61, 0x72, 0x67, 0x65, 0x74, 0x12, 0x17, 0x0a, 0x13, 0x41, 0x63, 0x74, 0x69, 0x76,
 	0x65, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x10, 0x00,
 	0x12, 0x18, 0x0a, 0x14, 0x44, 0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x43, 0x6f, 0x6e, 0x66, 0x69,
 	0x67, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x10, 0x01, 0x2a, 0x2a, 0x0a, 0x06, 0x41, 0x63,
 	0x74, 0x69, 0x6f, 0x6e, 0x12, 0x0c, 0x0a, 0x08, 0x4e, 0x6f, 0x41, 0x63, 0x74, 0x69, 0x6f, 0x6e,
 	0x10, 0x00, 0x12, 0x07, 0x0a, 0x03, 0x53, 0x65, 0x74, 0x10, 0x01, 0x12, 0x09, 0x0a, 0x05, 0x52,
-	0x65, 0x73, 0x65, 0x74, 0x10, 0x02, 0x42, 0x36, 0x82, 0xc0, 0x0c, 0x02, 0x08, 0x01, 0x5a, 0x2e,
-	0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x61, 0x6e, 0x63, 0x68,
-	0x65, 0x72, 0x2f, 0x6f, 0x70, 0x6e, 0x69, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x70, 0x6c, 0x75, 0x67,
-	0x69, 0x6e, 0x73, 0x2f, 0x64, 0x72, 0x69, 0x76, 0x65, 0x72, 0x75, 0x74, 0x69, 0x6c, 0x62, 0x06,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x65, 0x73, 0x65, 0x74, 0x10, 0x02, 0x2a, 0x41, 0x0a, 0x0c, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c,
+	0x6c, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x10, 0x0a, 0x0c, 0x4e, 0x6f, 0x74, 0x49, 0x6e, 0x73,
+	0x74, 0x61, 0x6c, 0x6c, 0x65, 0x64, 0x10, 0x00, 0x12, 0x0d, 0x0a, 0x09, 0x49, 0x6e, 0x73, 0x74,
+	0x61, 0x6c, 0x6c, 0x65, 0x64, 0x10, 0x01, 0x12, 0x10, 0x0a, 0x0c, 0x55, 0x6e, 0x69, 0x6e, 0x73,
+	0x74, 0x61, 0x6c, 0x6c, 0x69, 0x6e, 0x67, 0x10, 0x02, 0x2a, 0x37, 0x0a, 0x12, 0x43, 0x6f, 0x6e,
+	0x66, 0x69, 0x67, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12,
+	0x11, 0x0a, 0x0d, 0x4e, 0x6f, 0x74, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x75, 0x72, 0x65, 0x64,
+	0x10, 0x00, 0x12, 0x0e, 0x0a, 0x0a, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x75, 0x72, 0x65, 0x64,
+	0x10, 0x01, 0x2a, 0x48, 0x0a, 0x10, 0x41, 0x70, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x0e, 0x0a, 0x0a, 0x4e, 0x6f, 0x74, 0x52, 0x75, 0x6e,
+	0x6e, 0x69, 0x6e, 0x67, 0x10, 0x00, 0x12, 0x0b, 0x0a, 0x07, 0x50, 0x65, 0x6e, 0x64, 0x69, 0x6e,
+	0x67, 0x10, 0x01, 0x12, 0x0b, 0x0a, 0x07, 0x52, 0x75, 0x6e, 0x6e, 0x69, 0x6e, 0x67, 0x10, 0x02,
+	0x12, 0x0a, 0x0a, 0x06, 0x46, 0x61, 0x69, 0x6c, 0x65, 0x64, 0x10, 0x03, 0x42, 0x36, 0x82, 0xc0,
+	0x0c, 0x02, 0x08, 0x01, 0x5a, 0x2e, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d,
+	0x2f, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x72, 0x2f, 0x6f, 0x70, 0x6e, 0x69, 0x2f, 0x70, 0x6b,
+	0x67, 0x2f, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x73, 0x2f, 0x64, 0x72, 0x69, 0x76, 0x65, 0x72,
+	0x75, 0x74, 0x69, 0x6c, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -402,26 +748,36 @@ func file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_rawDescGZIP
 	return file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_rawDescData
 }
 
-var file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
+var file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_goTypes = []interface{}{
 	(Target)(0),                         // 0: driverutil.Target
 	(Action)(0),                         // 1: driverutil.Action
-	(ValidationError_Severity)(0),       // 2: driverutil.ValidationError.Severity
-	(*GetRequest)(nil),                  // 3: driverutil.GetRequest
-	(*ConfigurationHistoryRequest)(nil), // 4: driverutil.ConfigurationHistoryRequest
-	(*ValidationError)(nil),             // 5: driverutil.ValidationError
-	(*v1.Revision)(nil),                 // 6: core.Revision
+	(InstallState)(0),                   // 2: driverutil.InstallState
+	(ConfigurationState)(0),             // 3: driverutil.ConfigurationState
+	(ApplicationState)(0),               // 4: driverutil.ApplicationState
+	(ValidationError_Severity)(0),       // 5: driverutil.ValidationError.Severity
+	(*GetRequest)(nil),                  // 6: driverutil.GetRequest
+	(*ConfigurationHistoryRequest)(nil), // 7: driverutil.ConfigurationHistoryRequest
+	(*ValidationError)(nil),             // 8: driverutil.ValidationError
+	(*InstallStatus)(nil),               // 9: driverutil.InstallStatus
+	(*PresetMetadata)(nil),              // 10: driverutil.PresetMetadata
+	nil,                                 // 11: driverutil.InstallStatus.MetadataEntry
+	(*v1.Revision)(nil),                 // 12: core.Revision
 }
 var file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_depIdxs = []int32{
-	6, // 0: driverutil.GetRequest.revision:type_name -> core.Revision
-	0, // 1: driverutil.ConfigurationHistoryRequest.target:type_name -> driverutil.Target
-	2, // 2: driverutil.ValidationError.severity:type_name -> driverutil.ValidationError.Severity
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	12, // 0: driverutil.GetRequest.revision:type_name -> core.Revision
+	0,  // 1: driverutil.ConfigurationHistoryRequest.target:type_name -> driverutil.Target
+	5,  // 2: driverutil.ValidationError.severity:type_name -> driverutil.ValidationError.Severity
+	3,  // 3: driverutil.InstallStatus.configState:type_name -> driverutil.ConfigurationState
+	2,  // 4: driverutil.InstallStatus.installState:type_name -> driverutil.InstallState
+	4,  // 5: driverutil.InstallStatus.appState:type_name -> driverutil.ApplicationState
+	11, // 6: driverutil.InstallStatus.metadata:type_name -> driverutil.InstallStatus.MetadataEntry
+	7,  // [7:7] is the sub-list for method output_type
+	7,  // [7:7] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_init() }
@@ -466,14 +822,38 @@ func file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_init() {
 				return nil
 			}
 		}
+		file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*InstallStatus); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PresetMetadata); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_github_com_rancher_opni_pkg_plugins_driverutil_types_proto_rawDesc,
-			NumEnums:      3,
-			NumMessages:   3,
+			NumEnums:      6,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

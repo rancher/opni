@@ -2,28 +2,15 @@ package driverutil
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
+	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
-
-type DefaultConfigurableServer[T InstallableConfigType[T], GR Revisioner] interface {
-	GetDefaultConfiguration(context.Context, GR) (T, error)
-	SetDefaultConfiguration(context.Context, T) (*emptypb.Empty, error)
-	ResetDefaultConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	GetConfiguration(context.Context, GR) (T, error)
-	SetConfiguration(context.Context, T) (*emptypb.Empty, error)
-	ResetConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	Install(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	Uninstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-}
 
 // Implements a subset of methods usually required by a driver which uses a DefaultingConfigTracker
 // to manage its configuration. These implementations should not vary between drivers, so they are
@@ -38,44 +25,50 @@ type DefaultConfigurableServer[T InstallableConfigType[T], GR Revisioner] interf
 //		// message GetRequest {
 //		//   core.Revision revision = 1;
 //		// }
-//		driverutil.ConfigurableServerInterface[T, *foo.GetRequest]
+//		*driverutil.BaseConfigServer[*foo.ResetRequest, *foo.HistoryResponse, T]
 //	}
 //
 //	func NewDriver() *Driver {
-//		tracker := driverutil.NewDefaultingConfigTracker[T](...)
+//		defaultStore := ...
+//		activeStore := ...
 //		return &Driver{
-//			ConfigurableServerInterface: driverutil.NewDefaultConfigurableServer[foo.FooServer](tracker),
+//			BaseConfigServer: driverutil.NewBaseConfigServer[*foo.ResetRequest, *foo.HistoryResponse](defaultStore, activeStore, flagutil.LoadDefaults)
 //		}
 //	}
-func NewDefaultConfigurableServer[
-	I DefaultConfigurableServer[T, GR],
+func NewBaseConfigServer[
+	R ResetRequestType[T],
+	HR HistoryResponseType[T],
 	T InstallableConfigType[T],
-	GR Revisioner,
-](tracker *DefaultingConfigTracker[T]) DefaultConfigurableServer[T, GR] {
-	return &defaultConfigurableServer[T, GR]{
-		tracker:             tracker,
-		indexOfEnabledField: getEnabledFieldIndex[T](),
+](
+	defaultStore, activeStore storage.ValueStoreT[T],
+	loadDefaultsFunc DefaultLoaderFunc[T],
+) *BaseConfigServer[R, HR, T] {
+	return &BaseConfigServer[R, HR, T]{
+		tracker: NewDefaultingConfigTracker[T](defaultStore, activeStore, loadDefaultsFunc),
 	}
 }
 
-type defaultConfigurableServer[T InstallableConfigType[T], GR Revisioner] struct {
-	tracker             *DefaultingConfigTracker[T]
-	indexOfEnabledField protowire.Number
+type BaseConfigServer[
+	R ResetRequestType[T],
+	HR HistoryResponseType[T],
+	T InstallableConfigType[T],
+] struct {
+	tracker *DefaultingConfigTracker[T]
 }
 
 // GetConfiguration implements ConfigurableServerInterface.
-func (d *defaultConfigurableServer[T, GR]) GetConfiguration(ctx context.Context, in GR) (T, error) {
+func (d *BaseConfigServer[R, HR, T]) GetConfiguration(ctx context.Context, in *GetRequest) (T, error) {
 	return d.tracker.GetConfigOrDefault(ctx, in.GetRevision())
 
 }
 
 // GetDefaultConfiguration implements ConfigurableServerInterface.
-func (d *defaultConfigurableServer[T, GR]) GetDefaultConfiguration(ctx context.Context, in GR) (T, error) {
+func (d *BaseConfigServer[R, HR, T]) GetDefaultConfiguration(ctx context.Context, in *GetRequest) (T, error) {
 	return d.tracker.GetDefaultConfig(ctx, in.GetRevision())
 }
 
 // Install implements ConfigurableServerInterface.
-func (d *defaultConfigurableServer[T, GR]) Install(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (d *BaseConfigServer[R, HR, T]) Install(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	var t T
 	t = t.ProtoReflect().New().Interface().(T)
 	d.setEnabled(t, lo.ToPtr(true))
@@ -87,7 +80,7 @@ func (d *defaultConfigurableServer[T, GR]) Install(ctx context.Context, _ *empty
 }
 
 // ResetDefaultConfiguration implements ConfigurableServerInterface.
-func (d *defaultConfigurableServer[T, GR]) ResetDefaultConfiguration(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (d *BaseConfigServer[R, HR, T]) ResetDefaultConfiguration(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	if err := d.tracker.ResetDefaultConfig(ctx); err != nil {
 		return nil, err
 	}
@@ -95,20 +88,25 @@ func (d *defaultConfigurableServer[T, GR]) ResetDefaultConfiguration(ctx context
 }
 
 // ResetConfiguration implements ConfigurableServerInterface.
-func (d *defaultConfigurableServer[T, GR]) ResetConfiguration(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	var t T
-	enabledFieldName := t.ProtoReflect().Descriptor().Fields().ByNumber(protowire.Number(d.indexOfEnabledField)).Name()
-	mask := &fieldmaskpb.FieldMask{
-		Paths: []string{string(enabledFieldName)},
+func (d *BaseConfigServer[R, HR, T]) ResetConfiguration(ctx context.Context, in R) (*emptypb.Empty, error) {
+	if in.GetMask() != nil {
+		if enabledField := util.FieldByName[T]("enabled"); enabledField != nil {
+			var t T
+			in.GetMask().Append(t, "enabled")
+			patch := in.GetPatch()
+			if patch.ProtoReflect().Has(enabledField) {
+				patch.ProtoReflect().Clear(enabledField)
+			}
+		}
 	}
-	if err := d.tracker.ResetConfig(ctx, mask); err != nil {
+	if err := d.tracker.ResetConfig(ctx, in.GetMask(), in.GetPatch()); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
 // SetConfiguration implements ConfigurableServerInterface.
-func (d *defaultConfigurableServer[T, GR]) SetConfiguration(ctx context.Context, t T) (*emptypb.Empty, error) {
+func (d *BaseConfigServer[R, HR, T]) SetConfiguration(ctx context.Context, t T) (*emptypb.Empty, error) {
 	d.setEnabled(t, nil)
 	if err := d.tracker.ApplyConfig(ctx, t); err != nil {
 		return nil, err
@@ -117,7 +115,7 @@ func (d *defaultConfigurableServer[T, GR]) SetConfiguration(ctx context.Context,
 }
 
 // SetDefaultConfiguration implements ConfigurableServerInterface.
-func (d *defaultConfigurableServer[T, GR]) SetDefaultConfiguration(ctx context.Context, t T) (*emptypb.Empty, error) {
+func (d *BaseConfigServer[R, HR, T]) SetDefaultConfiguration(ctx context.Context, t T) (*emptypb.Empty, error) {
 	d.setEnabled(t, nil)
 	if err := d.tracker.SetDefaultConfig(ctx, t); err != nil {
 		return nil, err
@@ -126,7 +124,7 @@ func (d *defaultConfigurableServer[T, GR]) SetDefaultConfiguration(ctx context.C
 }
 
 // Uninstall implements ConfigurableServerInterface.
-func (d *defaultConfigurableServer[T, GR]) Uninstall(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (d *BaseConfigServer[R, HR, T]) Uninstall(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	var t T
 	t = t.ProtoReflect().New().Interface().(T)
 	d.setEnabled(t, lo.ToPtr(false))
@@ -137,25 +135,40 @@ func (d *defaultConfigurableServer[T, GR]) Uninstall(ctx context.Context, _ *emp
 	return &emptypb.Empty{}, nil
 }
 
-func (d *defaultConfigurableServer[T, GR]) setEnabled(t T, enabled *bool) T {
-	field := t.ProtoReflect().Descriptor().Fields().ByNumber(d.indexOfEnabledField)
+func (d *BaseConfigServer[R, HR, T]) setEnabled(t T, enabled *bool) {
+	field := util.FieldByName[T]("enabled")
+	if field == nil {
+		return
+	}
 	msg := t.ProtoReflect()
 	if msg.Has(field) && enabled == nil {
 		msg.Clear(field)
 	} else if enabled != nil {
 		msg.Set(field, protoreflect.ValueOfBool(*enabled))
 	}
-	return t
 }
 
-func getEnabledFieldIndex[T ConfigType[T]]() protowire.Number {
-	var t T
-	fields := t.ProtoReflect().Descriptor().Fields()
-	for i := 0; i < fields.Len(); i++ {
-		field := fields.Get(i)
-		if strings.ToLower(string(field.Name())) == "enabled" && field.HasPresence() && field.Kind() == protoreflect.BoolKind {
-			return field.Number()
+func (k *BaseConfigServer[R, HR, T]) ConfigurationHistory(ctx context.Context, req *ConfigurationHistoryRequest) (HR, error) {
+	revisions, err := k.tracker.History(ctx, req.GetTarget(), storage.IncludeValues(req.GetIncludeValues()))
+	resp := util.NewMessage[HR]()
+	if err != nil {
+		return resp, err
+	}
+	entries := resp.ProtoReflect().Mutable(util.FieldByName[HR]("entries")).List()
+	for _, rev := range revisions {
+		if req.IncludeValues {
+			spec := rev.Value()
+			SetRevision(spec, rev.Revision(), rev.Timestamp())
+			entries.Append(protoreflect.ValueOfMessage(spec.ProtoReflect()))
+		} else {
+			newSpec := util.NewMessage[T]()
+			SetRevision(newSpec, rev.Revision(), rev.Timestamp())
+			entries.Append(protoreflect.ValueOfMessage(newSpec.ProtoReflect()))
 		}
 	}
-	panic(fmt.Sprintf("field not found in type %T: `optional bool enabled`", t))
+	return resp, nil
+}
+
+func (k *BaseConfigServer[R, HR, T]) Tracker() *DefaultingConfigTracker[T] {
+	return k.tracker
 }

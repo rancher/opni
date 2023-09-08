@@ -15,6 +15,7 @@ import (
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/metrics/compat"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
@@ -87,7 +88,7 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 
 		status, err := opsClient.Status(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(status.InstallState).To(Equal(cortexops.InstallState_Installed))
+		Expect(status.InstallState).To(Equal(driverutil.InstallState_Installed))
 	})
 
 	It("should show all agents in the Capability Management table", func() {
@@ -390,7 +391,7 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 
 		status, err := opsClient.Status(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(status.InstallState).To(Equal(cortexops.InstallState_NotInstalled))
+		Expect(status.InstallState).To(Equal(driverutil.InstallState_NotInstalled))
 	})
 
 	It("should delete the agents", func() {

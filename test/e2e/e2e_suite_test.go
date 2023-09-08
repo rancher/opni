@@ -16,6 +16,7 @@ import (
 	"github.com/rancher/opni/apis"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/clients"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
@@ -111,7 +112,7 @@ var _ = BeforeSuite(func() {
 
 	startStatus, err := cortexOpsClient.GetClusterStatus(ctx, &emptypb.Empty{})
 	Expect(err).NotTo(HaveOccurred())
-	if startStatus.State != cortexops.InstallState_NotInstalled {
+	if startStatus.State != driverutil.InstallState_NotInstalled {
 		_, err = cortexOpsClient.UninstallCluster(ctx, &emptypb.Empty{})
 		Expect(err).To(Succeed())
 
@@ -120,7 +121,7 @@ var _ = BeforeSuite(func() {
 			if err != nil {
 				return err
 			}
-			if installStatus.State != cortexops.InstallState_NotInstalled {
+			if installStatus.State != driverutil.InstallState_NotInstalled {
 				return fmt.Errorf("cortex is still installed")
 			}
 			return nil

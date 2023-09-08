@@ -343,28 +343,28 @@ applied atomically at the time of reset. Fields present in the patch object, but
 not in the mask, are ignored.
 
 For example, with the following message:
-message Example {
-optional int32 a = 1;
-optional int32 b = 2;
-optional int32 c = 3;
-}
+  message Example {
+    optional int32 a = 1;
+    optional int32 b = 2;
+    optional int32 c = 3;
+  }
 
 and current state:
-active:  { a: 1, b: 2, c: 3 }
-default: { a: 4, b: 5, c: 6 }
+  active:  { a: 1, b: 2, c: 3 }
+  default: { a: 4, b: 5, c: 6 }
 
 and reset request parameters:
 {
-mask:    { paths: [ "a", "b" ] }
-patch:   { a: 100 }
+  mask:    { paths: [ "a", "b" ] }
+  patch:   { a: 100 }
 }
 
 The resulting active configuration will be:
-active:  {
-a: 100, // masked, set to 100 via patch
-b: 2,   // masked, but not set in patch, so left unchanged
-c: 6,   // not masked, reset to default
-}
+ active:  {
+   a: 100, // masked, set to 100 via patch
+   b: 2,   // masked, but not set in patch, so left unchanged
+   c: 6,   // not masked, reset to default
+ }
 
 HTTP handlers for this method:
 - DELETE /configuration
@@ -491,11 +491,11 @@ func BuildCortexOpsListPresetsCmd() *cobra.Command {
 There are several ways to use the presets, depending
 on the desired behavior:
 1. Set the default configuration to a preset spec, then use SetConfiguration
-to fill in any additional required fields (credentials, etc)
+   to fill in any additional required fields (credentials, etc)
 2. Add the required fields to the default configuration, then use
-SetConfiguration with a preset spec.
+   SetConfiguration with a preset spec.
 3. Leave the default configuration as-is, and use SetConfiguration with a
-preset spec plus the required fields.
+   preset spec plus the required fields.
 
 HTTP handlers for this method:
 - GET /presets

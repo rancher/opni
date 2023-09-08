@@ -1018,9 +1018,10 @@ func unparseStringSlice(commaSeparatedStrings string) (tokens []any) {
 }
 
 func formatComments(comments protogen.CommentSet) (leadingComments []string) {
-	lines := strings.Split(strings.TrimSuffix(comments.Leading.String(), "\n"), "\n")
+	lines := strings.Split(strings.TrimSuffix(string(comments.Leading), "\n"), "\n")
 	for _, line := range lines {
-		line := strings.TrimRight(strings.TrimLeft(line, " /"), " ")
+		// remove at most one leading space, and all trailing spaces
+		line := strings.TrimRight(strings.TrimPrefix(line, " "), " ")
 		if strings.HasPrefix(line, "+") {
 			continue // skip directives
 		}

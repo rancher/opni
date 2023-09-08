@@ -4,7 +4,7 @@ import { cloneDeep } from 'lodash';
 import Tab from '@shell/components/Tabbed/Tab';
 import Tabbed from '@shell/components/Tabbed';
 import {
-  getOpensearchCluster, GetOpensearchStatus, createOrUpdateOpensearchCluster, doUpgrade, upgradeAvailable, Status, deleteOpensearchCluster
+  getOpensearchCluster, getOpensearchStatus, createOrUpdateOpensearchCluster, doUpgrade, upgradeAvailable, Status, deleteOpensearchCluster
 } from '@pkg/opni/utils/requests/loggingv2';
 import Backend from '../Backend';
 import CapabilityTable from '../CapabilityTable';
@@ -12,7 +12,14 @@ import DataPods from './DataPods';
 import IngestPods from './IngestPods';
 import ControlplanePods from './ControlplanePods';
 import Dashboard from './Dashboard';
+import Snapshots from './Snapshots';
 import { getStorageClassOptions } from './Storage';
+
+export async function isEnabled() {
+  const cluster = await getOpensearchCluster();
+
+  return cluster && cluster.dataNodes;
+}
 
 export default {
   components: {
@@ -23,6 +30,7 @@ export default {
     ControlplanePods,
     Dashboard,
     LabeledInput,
+    Snapshots,
     Tabbed,
     Tab
   },
@@ -132,11 +140,7 @@ export default {
       await createOrUpdateOpensearchCluster(modifiedConfig);
     },
 
-    async isEnabled() {
-      const cluster = await getOpensearchCluster();
-
-      return cluster && cluster.dataNodes;
-    },
+    isEnabled,
 
     async isUpgradeAvailable() {
       const upgradeable = await upgradeAvailable();
@@ -166,7 +170,7 @@ export default {
 
     async getStatus() {
       try {
-        const status = await GetOpensearchStatus();
+        const status = await getOpensearchStatus();
 
         return {
           state:   this.bannerState(status.status),
@@ -244,6 +248,14 @@ export default {
         </Tab>
         <Tab
           :weight="1"
+          name="snapshots"
+          label="S3 Snapshots"
+          tooltip="S3 Snapshots are used to store backups of your logs at specific times within S3 compatible storage."
+        >
+          <Snapshots v-model="config.s3" />
+        </Tab>
+        <Tab
+          :weight="0"
           name="dashboard"
           label="Dashboard"
           tooltip="This is responsible for running the OpenSearch Dashboard UI."

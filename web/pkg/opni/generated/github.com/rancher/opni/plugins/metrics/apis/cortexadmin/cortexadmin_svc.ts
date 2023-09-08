@@ -9,7 +9,8 @@ import { CortexStatus } from "./status_pb";
 
 export async function AllUserStats(): Promise<UserIDStatsList> {
   try {
-    return (await axios.request({
+    
+    const response = (await axios.request({
     transformResponse: resp => UserIDStatsList.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -19,9 +20,12 @@ export async function AllUserStats(): Promise<UserIDStatsList> {
       },
       url: `/opni-api/CortexAdmin/all_user_stats`
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to CortexAdmin-AllUserStats:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -31,7 +35,12 @@ export async function AllUserStats(): Promise<UserIDStatsList> {
 
 export async function WriteMetrics(input: WriteRequest): Promise<WriteResponse> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to CortexAdmin-WriteMetrics:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => WriteResponse.fromBinary(new Uint8Array(resp)),
       method: 'post',
       responseType: 'arraybuffer',
@@ -42,9 +51,12 @@ export async function WriteMetrics(input: WriteRequest): Promise<WriteResponse> 
       url: `/opni-api/CortexAdmin/write_metrics`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to CortexAdmin-WriteMetrics:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -54,7 +66,12 @@ export async function WriteMetrics(input: WriteRequest): Promise<WriteResponse> 
 
 export async function Query(input: QueryRequest): Promise<QueryResponse> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to CortexAdmin-Query:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => QueryResponse.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -65,9 +82,12 @@ export async function Query(input: QueryRequest): Promise<QueryResponse> {
       url: `/opni-api/CortexAdmin/query`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to CortexAdmin-Query:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -77,7 +97,12 @@ export async function Query(input: QueryRequest): Promise<QueryResponse> {
 
 export async function QueryRange(input: QueryRangeRequest): Promise<QueryResponse> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to CortexAdmin-QueryRange:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => QueryResponse.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -88,9 +113,12 @@ export async function QueryRange(input: QueryRangeRequest): Promise<QueryRespons
       url: `/opni-api/CortexAdmin/query_range`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to CortexAdmin-QueryRange:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -100,7 +128,12 @@ export async function QueryRange(input: QueryRangeRequest): Promise<QueryRespons
 
 export async function GetRule(input: GetRuleRequest): Promise<QueryResponse> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to CortexAdmin-GetRule:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => QueryResponse.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -111,9 +144,12 @@ export async function GetRule(input: GetRuleRequest): Promise<QueryResponse> {
       url: `/opni-api/CortexAdmin/rules/${input.namespace}/${input.groupName}`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to CortexAdmin-GetRule:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -123,7 +159,12 @@ export async function GetRule(input: GetRuleRequest): Promise<QueryResponse> {
 
 export async function GetMetricMetadata(input: MetricMetadataRequest): Promise<MetricMetadata> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to CortexAdmin-GetMetricMetadata:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => MetricMetadata.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -134,9 +175,12 @@ export async function GetMetricMetadata(input: MetricMetadataRequest): Promise<M
       url: `/opni-api/CortexAdmin/metadata`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to CortexAdmin-GetMetricMetadata:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -146,7 +190,12 @@ export async function GetMetricMetadata(input: MetricMetadataRequest): Promise<M
 
 export async function ListRules(input: ListRulesRequest): Promise<ListRulesResponse> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to CortexAdmin-ListRules:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => ListRulesResponse.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -157,9 +206,12 @@ export async function ListRules(input: ListRulesRequest): Promise<ListRulesRespo
       url: `/opni-api/CortexAdmin/rules`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to CortexAdmin-ListRules:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -169,7 +221,12 @@ export async function ListRules(input: ListRulesRequest): Promise<ListRulesRespo
 
 export async function LoadRules(input: LoadRuleRequest): Promise<void> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to CortexAdmin-LoadRules:', input);
+    }
+  
+    const response = (await axios.request({
       method: 'post',
       responseType: 'arraybuffer',
       headers: {
@@ -179,9 +236,12 @@ export async function LoadRules(input: LoadRuleRequest): Promise<void> {
       url: `/opni-api/CortexAdmin/rules`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to CortexAdmin-LoadRules:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -191,7 +251,12 @@ export async function LoadRules(input: LoadRuleRequest): Promise<void> {
 
 export async function DeleteRule(input: DeleteRuleRequest): Promise<void> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to CortexAdmin-DeleteRule:', input);
+    }
+  
+    const response = (await axios.request({
       method: 'delete',
       responseType: 'arraybuffer',
       headers: {
@@ -201,9 +266,12 @@ export async function DeleteRule(input: DeleteRuleRequest): Promise<void> {
       url: `/opni-api/CortexAdmin/rules/${input.groupName}`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to CortexAdmin-DeleteRule:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -213,7 +281,8 @@ export async function DeleteRule(input: DeleteRuleRequest): Promise<void> {
 
 export async function FlushBlocks(): Promise<void> {
   try {
-    return (await axios.request({
+    
+    const response = (await axios.request({
       method: 'post',
       responseType: 'arraybuffer',
       headers: {
@@ -222,9 +291,12 @@ export async function FlushBlocks(): Promise<void> {
       },
       url: `/opni-api/CortexAdmin/flush_blocks`
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to CortexAdmin-FlushBlocks:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -234,7 +306,12 @@ export async function FlushBlocks(): Promise<void> {
 
 export async function GetSeriesMetrics(input: SeriesRequest): Promise<SeriesInfoList> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to CortexAdmin-GetSeriesMetrics:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => SeriesInfoList.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -245,9 +322,12 @@ export async function GetSeriesMetrics(input: SeriesRequest): Promise<SeriesInfo
       url: `/opni-api/CortexAdmin/series/metadata`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to CortexAdmin-GetSeriesMetrics:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -257,7 +337,12 @@ export async function GetSeriesMetrics(input: SeriesRequest): Promise<SeriesInfo
 
 export async function GetMetricLabelSets(input: LabelRequest): Promise<MetricLabels> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to CortexAdmin-GetMetricLabelSets:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => MetricLabels.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -268,9 +353,12 @@ export async function GetMetricLabelSets(input: LabelRequest): Promise<MetricLab
       url: `/opni-api/CortexAdmin/series/labels`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to CortexAdmin-GetMetricLabelSets:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -280,7 +368,8 @@ export async function GetMetricLabelSets(input: LabelRequest): Promise<MetricLab
 
 export async function GetCortexStatus(): Promise<CortexStatus> {
   try {
-    return (await axios.request({
+    
+    const response = (await axios.request({
     transformResponse: resp => CortexStatus.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -290,9 +379,12 @@ export async function GetCortexStatus(): Promise<CortexStatus> {
       },
       url: `/opni-api/CortexAdmin/status`
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to CortexAdmin-GetCortexStatus:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -302,7 +394,12 @@ export async function GetCortexStatus(): Promise<CortexStatus> {
 
 export async function GetCortexConfig(input: ConfigRequest): Promise<ConfigResponse> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to CortexAdmin-GetCortexConfig:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => ConfigResponse.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -313,9 +410,12 @@ export async function GetCortexConfig(input: ConfigRequest): Promise<ConfigRespo
       url: `/opni-api/CortexAdmin/config`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to CortexAdmin-GetCortexConfig:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -325,7 +425,12 @@ export async function GetCortexConfig(input: ConfigRequest): Promise<ConfigRespo
 
 export async function ExtractRawSeries(input: MatcherRequest): Promise<QueryResponse> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to CortexAdmin-ExtractRawSeries:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => QueryResponse.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -336,9 +441,12 @@ export async function ExtractRawSeries(input: MatcherRequest): Promise<QueryResp
       url: `/opni-api/CortexAdmin/series/raw`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to CortexAdmin-ExtractRawSeries:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;

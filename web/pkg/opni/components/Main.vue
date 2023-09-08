@@ -38,15 +38,22 @@ export default {
 
     promptRemove(resources) {
       this.$store.commit('action-menu/togglePromptRemove', resources, { root: true });
+    },
+
+    changeRoute(route) {
+      console.log(route);
+      this.$router.replace(route);
     }
   },
 
   created() {
     GlobalEventBus.$on('promptRemove', this.promptRemove);
+    GlobalEventBus.$on('changeRoute', this.changeRoute);
   },
 
   beforeDestroy() {
     GlobalEventBus.$off('promptRemove');
+    GlobalEventBus.$off('changeRoute');
   },
 
   computed: {

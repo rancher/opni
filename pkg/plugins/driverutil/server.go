@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 // Implements a subset of methods usually required by a driver which uses a DefaultingConfigTracker
@@ -59,7 +60,6 @@ type BaseConfigServer[
 // GetConfiguration implements ConfigurableServerInterface.
 func (d *BaseConfigServer[R, HR, T]) GetConfiguration(ctx context.Context, in *GetRequest) (T, error) {
 	return d.tracker.GetConfigOrDefault(ctx, in.GetRevision())
-
 }
 
 // GetDefaultConfiguration implements ConfigurableServerInterface.
@@ -89,14 +89,22 @@ func (d *BaseConfigServer[R, HR, T]) ResetDefaultConfiguration(ctx context.Conte
 
 // ResetConfiguration implements ConfigurableServerInterface.
 func (d *BaseConfigServer[R, HR, T]) ResetConfiguration(ctx context.Context, in R) (*emptypb.Empty, error) {
-	if in.GetMask() != nil {
-		if enabledField := util.FieldByName[T]("enabled"); enabledField != nil {
-			var t T
-			in.GetMask().Append(t, "enabled")
-			patch := in.GetPatch()
-			if patch.ProtoReflect().Has(enabledField) {
-				patch.ProtoReflect().Clear(enabledField)
-			}
+	// If T contains a field named "enabled", assume it has installation semantics
+	// and ensure a non-nil mask is always passed to ResetConfig. This ensures
+	// the active config is never deleted from the underlying store, and therefore
+	// history is always preserved.
+	if enabledField := util.FieldByName[T]("enabled"); enabledField != nil {
+		if in.GetMask() == nil {
+			in.ProtoReflect().Set(util.FieldByName[R]("mask"), protoreflect.ValueOfMessage(util.NewMessage[*fieldmaskpb.FieldMask]().ProtoReflect()))
+		}
+		var t T
+		if err := in.GetMask().Append(t, "enabled"); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid mask: %s", err.Error())
+		}
+		patch := in.GetPatch()
+		if patch.ProtoReflect().Has(enabledField) {
+			// ensure the enabled field cannot be modified by the patch
+			patch.ProtoReflect().Clear(enabledField)
 		}
 	}
 	if err := d.tracker.ResetConfig(ctx, in.GetMask(), in.GetPatch()); err != nil {
@@ -149,7 +157,13 @@ func (d *BaseConfigServer[R, HR, T]) setEnabled(t T, enabled *bool) {
 }
 
 func (k *BaseConfigServer[R, HR, T]) ConfigurationHistory(ctx context.Context, req *ConfigurationHistoryRequest) (HR, error) {
-	revisions, err := k.tracker.History(ctx, req.GetTarget(), storage.IncludeValues(req.GetIncludeValues()))
+	options := []storage.HistoryOpt{
+		storage.IncludeValues(req.GetIncludeValues()),
+	}
+	if req.Revision != nil {
+		options = append(options, storage.WithRevision(req.GetRevision().GetRevision()))
+	}
+	revisions, err := k.tracker.History(ctx, req.GetTarget(), options...)
 	resp := util.NewMessage[HR]()
 	if err != nil {
 		return resp, err

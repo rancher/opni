@@ -256,7 +256,7 @@ func NewHistoryUI[T driverutil.ConfigType[T]](ts []T) *HistoryUI {
 			diffView.SetContent(str)
 
 			entry.diffView = diffView
-			entry.diffSummary = driverutil.DiffStat(str)
+			entry.diffSummary = driverutil.DiffStat(str, opts)
 
 			opts.SkipMatches = false
 			str, _ = driverutil.RenderJsonDiff(prev.cfg, entry.cfg, opts)

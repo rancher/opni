@@ -4,8 +4,10 @@ package ext;
 
 import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "github.com/rancher/opni/pkg/plugins/driverutil/types.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/field_mask.proto";
 
 option go_package = "github.com/rancher/opni/pkg/test/testdata/plugins/ext";
 option (cli.generator) = {
@@ -129,12 +131,37 @@ message BazRequest {
 }
 
 message SampleConfiguration {
-  core.Revision       revision      = 1 [(cli.flag).skip = true];
-  optional string     stringField   = 2;
-  optional string     secretField   = 3 [(cli.flag).secret = true];
-  map<string, string> mapField      = 4;
-  repeated string     repeatedField = 5;
-  SampleMessage       messageField  = 6;
+  optional bool       enabled       = 1;
+  core.Revision       revision      = 2 [(cli.flag).skip = true];
+  optional string     stringField   = 3;
+  optional string     secretField   = 4 [(cli.flag).secret = true];
+  map<string, string> mapField      = 5;
+  repeated string     repeatedField = 6;
+  SampleMessage       messageField  = 7;
+}
+
+message SampleDryRunRequest {
+  driverutil.Target target = 1;
+  driverutil.Action action = 2;
+
+  SampleConfiguration spec = 3; // Set
+
+  google.protobuf.FieldMask mask  = 4 [(cli.flag).skip = true]; // Reset
+  SampleConfiguration       patch = 5 [(cli.flag).skip = true]; // Reset
+}
+
+message SampleDryRunResponse {
+  SampleConfiguration                 current          = 1;
+  SampleConfiguration                 modified         = 2;
+  repeated driverutil.ValidationError validationErrors = 3;
+}
+message SampleConfigurationHistoryResponse {
+  repeated SampleConfiguration entries = 1;
+}
+
+message SampleResetRequest {
+  google.protobuf.FieldMask mask  = 1 [(cli.flag).skip = true];
+  SampleConfiguration       patch = 2 [(cli.flag).skip = true];
 }
 
 message SampleMessage {

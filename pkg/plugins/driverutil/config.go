@@ -10,6 +10,8 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/merge"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
@@ -133,39 +135,45 @@ func (ct *DefaultingConfigTracker[T]) GetConfig(ctx context.Context, atRevision 
 
 // Restores the active config to match the default config. An optional field mask
 // can be provided to specify which fields to keep from the current config.
-// If no field mask is provided, the active config may be deleted from the store.
+// If a nil mask is given, the active config (potentially including history)
+// is deleted from the underlying store. If a non-nil mask is given, the active
+// config is only modified (preserving history), not deleted.
 func (ct *DefaultingConfigTracker[T]) ResetConfig(ctx context.Context, mask *fieldmaskpb.FieldMask, patch T) error {
 	ct.lock.Lock()
 	defer ct.lock.Unlock()
 	var revision int64
-	current, err := ct.activeStore.Get(ctx, storage.WithRevisionOut(&revision))
+	activeConfig, err := ct.activeStore.Get(ctx, storage.WithRevisionOut(&revision))
 	if err != nil {
 		return fmt.Errorf("error looking up config: %w", err)
 	}
-	if len(mask.GetPaths()) == 0 {
+	if mask == nil {
 		err := ct.activeStore.Delete(ctx, storage.WithRevision(revision))
 		if err != nil {
 			return fmt.Errorf("error deleting config: %w", err)
 		}
 		return nil
 	}
-
-	staging, _, err := ct.getDefaultConfigLocked(ctx)
+	defaultConfig, _, err := ct.getDefaultConfigLocked(ctx)
 	if err != nil {
 		return err
 	}
 	mask.Normalize()
-	if !mask.IsValid(current) {
-		return fmt.Errorf("invalid field mask: %v", mask.GetPaths())
+	if !mask.IsValid(activeConfig) {
+		return status.Errorf(codes.InvalidArgument, "invalid field mask: %v", mask.GetPaths())
+	}
+	for i, path := range mask.GetPaths() {
+		if path == "" {
+			// empty paths in field masks can be destructive and are never intentional
+			return status.Errorf(codes.InvalidArgument, "field mask contains an empty path at index %d", i)
+		}
 	}
 
-	fmutils.Filter(current, mask.GetPaths())
+	fmutils.Filter(activeConfig, mask.GetPaths())
 	fmutils.Filter(patch, mask.GetPaths())
+	merge.MergeWithReplace(activeConfig, patch)
+	merge.MergeWithReplace(defaultConfig, activeConfig)
 
-	merge.MergeWithReplace(staging, current)
-	merge.MergeWithReplace(staging, patch)
-
-	return ct.activeStore.Put(ctx, staging, storage.WithRevision(revision))
+	return ct.activeStore.Put(ctx, defaultConfig, storage.WithRevision(revision))
 }
 
 // Returns the active config if it has been set, otherwise returns the default config.

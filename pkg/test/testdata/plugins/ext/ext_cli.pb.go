@@ -8,6 +8,7 @@ import (
 	errors "errors"
 	cli "github.com/rancher/opni/internal/codegen/cli"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
+	storage "github.com/rancher/opni/pkg/storage"
 	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	lo "github.com/samber/lo"
 	cobra "github.com/spf13/cobra"
@@ -333,6 +334,7 @@ func (in *BarResponse) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *SampleConfiguration) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("SampleConfiguration", pflag.ExitOnError)
 	fs.SortFlags = true
+	fs.Var(flagutil.BoolPtrValue(nil, &in.Enabled), strings.Join(append(prefix, "enabled"), "."), "")
 	fs.Var(flagutil.StringPtrValue(nil, &in.StringField), strings.Join(append(prefix, "string-field"), "."), "")
 	fs.Var(flagutil.StringPtrValue(nil, &in.SecretField), strings.Join(append(prefix, "secret-field"), "."), "\x1b[31m[secret]\x1b[0m ")
 	fs.StringToStringVar(&in.MapField, strings.Join(append(prefix, "map-field"), "."), nil, "")
@@ -492,5 +494,104 @@ func (in *SampleMessage2) FlagSet(prefix ...string) *pflag.FlagSet {
 		in.Field6 = &Sample6FieldMsg{}
 	}
 	fs.AddFlagSet(in.Field6.FlagSet(append(prefix, "field-6")...))
+	return fs
+}
+
+func (in *SampleDryRunRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SampleDryRunRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Var(flagutil.EnumValue(&in.Target), strings.Join(append(prefix, "target"), "."), "")
+	fs.Var(flagutil.EnumValue(&in.Action), strings.Join(append(prefix, "action"), "."), "")
+	if in.Spec == nil {
+		in.Spec = &SampleConfiguration{}
+	}
+	fs.AddFlagSet(in.Spec.FlagSet(append(prefix, "spec")...))
+	return fs
+}
+
+func (in *SampleDryRunRequest) RedactSecrets() {
+	if in == nil {
+		return
+	}
+	in.Spec.RedactSecrets()
+}
+
+func (in *SampleDryRunRequest) UnredactSecrets(unredacted *SampleDryRunRequest) error {
+	if in == nil {
+		return nil
+	}
+	var details []protoiface.MessageV1
+	if err := in.Spec.UnredactSecrets(unredacted.GetSpec()); storage.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "spec." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
+	}
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
+}
+
+func (in *SampleDryRunResponse) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SampleDryRunResponse", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Current == nil {
+		in.Current = &SampleConfiguration{}
+	}
+	fs.AddFlagSet(in.Current.FlagSet(append(prefix, "current")...))
+	if in.Modified == nil {
+		in.Modified = &SampleConfiguration{}
+	}
+	fs.AddFlagSet(in.Modified.FlagSet(append(prefix, "modified")...))
+	return fs
+}
+
+func (in *SampleDryRunResponse) RedactSecrets() {
+	if in == nil {
+		return
+	}
+	in.Current.RedactSecrets()
+	in.Modified.RedactSecrets()
+}
+
+func (in *SampleDryRunResponse) UnredactSecrets(unredacted *SampleDryRunResponse) error {
+	if in == nil {
+		return nil
+	}
+	var details []protoiface.MessageV1
+	if err := in.Current.UnredactSecrets(unredacted.GetCurrent()); storage.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "current." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
+	}
+	if err := in.Modified.UnredactSecrets(unredacted.GetModified()); storage.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "modified." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
+	}
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
+}
+
+func (in *SampleConfigurationHistoryResponse) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SampleConfigurationHistoryResponse", pflag.ExitOnError)
+	fs.SortFlags = true
+	return fs
+}
+
+func (in *SampleResetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SampleResetRequest", pflag.ExitOnError)
+	fs.SortFlags = true
 	return fs
 }

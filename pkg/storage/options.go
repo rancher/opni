@@ -51,7 +51,8 @@ type AlertFilterOptions struct {
 // ================
 
 type GetOptions struct {
-	// Get the value at a specific Revision
+	// If set, will return the config at the specified revision instead of
+	// the current config.
 	Revision *int64
 
 	// If non-nil, will be set to the current revision of the key after the Get

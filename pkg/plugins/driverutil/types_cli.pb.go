@@ -24,6 +24,10 @@ func (in *ConfigurationHistoryRequest) FlagSet(prefix ...string) *pflag.FlagSet 
 	fs := pflag.NewFlagSet("ConfigurationHistoryRequest", pflag.ExitOnError)
 	fs.SortFlags = true
 	fs.Var(flagutil.EnumValue(&in.Target), strings.Join(append(prefix, "target"), "."), "The configuration type to return history for.")
+	if in.Revision == nil {
+		in.Revision = &v1.Revision{}
+	}
+	fs.AddFlagSet(in.Revision.FlagSet(prefix...))
 	fs.BoolVar(&in.IncludeValues, strings.Join(append(prefix, "include-values"), "."), true, "If set, will include the values of the configuration in the response.")
 	return fs
 }

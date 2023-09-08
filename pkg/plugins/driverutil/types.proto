@@ -19,6 +19,7 @@ enum Action {
   Reset    = 2;
 }
 
+// Get request options. See also: [pkg/storage.GetOptions]
 message GetRequest {
   // If set, will return the config at the specified revision instead of
   // the current config.
@@ -28,13 +29,15 @@ message GetRequest {
   core.Revision revision = 1 [(cli.flag_set).no_prefix = true];
 }
 
+// History request options. See also: [pkg/storage.HistoryOptions]
 message ConfigurationHistoryRequest {
   // The configuration type to return history for.
   driverutil.Target target = 1;
-
+  // The latest modification revision to include in the returned history.
+  core.Revision revision = 2 [(cli.flag_set).no_prefix = true];
   // If set, will include the values of the configuration in the response.
   // Otherwise, only the revision field of each entry will be populated.
-  bool includeValues = 2 [(cli.flag).default = "true"];
+  bool includeValues = 3 [(cli.flag).default = "true"];
 }
 
 message ValidationError {

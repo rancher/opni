@@ -5,19 +5,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
-	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/fieldmaskpb"
-
 	"github.com/rancher/opni/pkg/plugins/driverutil"
+	_ "github.com/rancher/opni/pkg/test/setup"
 	"github.com/rancher/opni/pkg/test/testdata/plugins/ext"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/merge"
 	"github.com/rancher/opni/pkg/util/protorand"
+	"github.com/samber/lo"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
-var _ = Describe("Base Config Server", Ordered, func() {
+var _ = Describe("Base Config Server", Label("unit"), Ordered, func() {
 	var server *driverutil.BaseConfigServer[
 		*ext.SampleResetRequest,
 		*ext.SampleConfigurationHistoryResponse,

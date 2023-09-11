@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
-var _ = Describe("Masks", func() {
+var _ = Describe("Masks", Label("unit"), func() {
 	DescribeTable("using a field mask to keep only the specified fields",
 		func(msg *ext.SampleMessage, mask *fieldmaskpb.FieldMask, expected *ext.SampleMessage) {
 			fieldmask.ExclusiveKeep(msg, mask)

@@ -58,21 +58,21 @@ type BaseConfigServer[
 }
 
 // GetConfiguration implements ConfigurableServerInterface.
-func (d *BaseConfigServer[R, HR, T]) GetConfiguration(ctx context.Context, in *GetRequest) (T, error) {
-	return d.tracker.GetConfigOrDefault(ctx, in.GetRevision())
+func (s *BaseConfigServer[R, HR, T]) GetConfiguration(ctx context.Context, in *GetRequest) (T, error) {
+	return s.tracker.GetConfigOrDefault(ctx, in.GetRevision())
 }
 
 // GetDefaultConfiguration implements ConfigurableServerInterface.
-func (d *BaseConfigServer[R, HR, T]) GetDefaultConfiguration(ctx context.Context, in *GetRequest) (T, error) {
-	return d.tracker.GetDefaultConfig(ctx, in.GetRevision())
+func (s *BaseConfigServer[R, HR, T]) GetDefaultConfiguration(ctx context.Context, in *GetRequest) (T, error) {
+	return s.tracker.GetDefaultConfig(ctx, in.GetRevision())
 }
 
 // Install implements ConfigurableServerInterface.
-func (d *BaseConfigServer[R, HR, T]) Install(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (s *BaseConfigServer[R, HR, T]) Install(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	var t T
 	t = t.ProtoReflect().New().Interface().(T)
-	d.setEnabled(t, lo.ToPtr(true))
-	err := d.tracker.ApplyConfig(ctx, t)
+	s.setEnabled(t, lo.ToPtr(true))
+	err := s.tracker.ApplyConfig(ctx, t)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to install monitoring cluster: %s", err.Error())
 	}
@@ -80,15 +80,15 @@ func (d *BaseConfigServer[R, HR, T]) Install(ctx context.Context, _ *emptypb.Emp
 }
 
 // ResetDefaultConfiguration implements ConfigurableServerInterface.
-func (d *BaseConfigServer[R, HR, T]) ResetDefaultConfiguration(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	if err := d.tracker.ResetDefaultConfig(ctx); err != nil {
+func (s *BaseConfigServer[R, HR, T]) ResetDefaultConfiguration(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	if err := s.tracker.ResetDefaultConfig(ctx); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
 // ResetConfiguration implements ConfigurableServerInterface.
-func (d *BaseConfigServer[R, HR, T]) ResetConfiguration(ctx context.Context, in R) (*emptypb.Empty, error) {
+func (s *BaseConfigServer[R, HR, T]) ResetConfiguration(ctx context.Context, in R) (*emptypb.Empty, error) {
 	// If T contains a field named "enabled", assume it has installation semantics
 	// and ensure a non-nil mask is always passed to ResetConfig. This ensures
 	// the active config is never deleted from the underlying store, and therefore
@@ -107,43 +107,43 @@ func (d *BaseConfigServer[R, HR, T]) ResetConfiguration(ctx context.Context, in 
 			patch.ProtoReflect().Clear(enabledField)
 		}
 	}
-	if err := d.tracker.ResetConfig(ctx, in.GetMask(), in.GetPatch()); err != nil {
+	if err := s.tracker.ResetConfig(ctx, in.GetMask(), in.GetPatch()); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
 // SetConfiguration implements ConfigurableServerInterface.
-func (d *BaseConfigServer[R, HR, T]) SetConfiguration(ctx context.Context, t T) (*emptypb.Empty, error) {
-	d.setEnabled(t, nil)
-	if err := d.tracker.ApplyConfig(ctx, t); err != nil {
+func (s *BaseConfigServer[R, HR, T]) SetConfiguration(ctx context.Context, t T) (*emptypb.Empty, error) {
+	s.setEnabled(t, nil)
+	if err := s.tracker.ApplyConfig(ctx, t); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
 // SetDefaultConfiguration implements ConfigurableServerInterface.
-func (d *BaseConfigServer[R, HR, T]) SetDefaultConfiguration(ctx context.Context, t T) (*emptypb.Empty, error) {
-	d.setEnabled(t, nil)
-	if err := d.tracker.SetDefaultConfig(ctx, t); err != nil {
+func (s *BaseConfigServer[R, HR, T]) SetDefaultConfiguration(ctx context.Context, t T) (*emptypb.Empty, error) {
+	s.setEnabled(t, nil)
+	if err := s.tracker.SetDefaultConfig(ctx, t); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
 // Uninstall implements ConfigurableServerInterface.
-func (d *BaseConfigServer[R, HR, T]) Uninstall(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (s *BaseConfigServer[R, HR, T]) Uninstall(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	var t T
 	t = t.ProtoReflect().New().Interface().(T)
-	d.setEnabled(t, lo.ToPtr(false))
-	err := d.tracker.ApplyConfig(ctx, t)
+	s.setEnabled(t, lo.ToPtr(false))
+	err := s.tracker.ApplyConfig(ctx, t)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to uninstall monitoring cluster: %s", err.Error())
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (d *BaseConfigServer[R, HR, T]) setEnabled(t T, enabled *bool) {
+func (s *BaseConfigServer[R, HR, T]) setEnabled(t T, enabled *bool) {
 	field := util.FieldByName[T]("enabled")
 	if field == nil {
 		return
@@ -156,14 +156,14 @@ func (d *BaseConfigServer[R, HR, T]) setEnabled(t T, enabled *bool) {
 	}
 }
 
-func (k *BaseConfigServer[R, HR, T]) ConfigurationHistory(ctx context.Context, req *ConfigurationHistoryRequest) (HR, error) {
+func (s *BaseConfigServer[R, HR, T]) ConfigurationHistory(ctx context.Context, req *ConfigurationHistoryRequest) (HR, error) {
 	options := []storage.HistoryOpt{
 		storage.IncludeValues(req.GetIncludeValues()),
 	}
 	if req.Revision != nil {
 		options = append(options, storage.WithRevision(req.GetRevision().GetRevision()))
 	}
-	revisions, err := k.tracker.History(ctx, req.GetTarget(), options...)
+	revisions, err := s.tracker.History(ctx, req.GetTarget(), options...)
 	resp := util.NewMessage[HR]()
 	if err != nil {
 		return resp, err
@@ -183,6 +183,6 @@ func (k *BaseConfigServer[R, HR, T]) ConfigurationHistory(ctx context.Context, r
 	return resp, nil
 }
 
-func (k *BaseConfigServer[R, HR, T]) Tracker() *DefaultingConfigTracker[T] {
-	return k.tracker
+func (s *BaseConfigServer[R, HR, T]) Tracker() *DefaultingConfigTracker[T] {
+	return s.tracker
 }

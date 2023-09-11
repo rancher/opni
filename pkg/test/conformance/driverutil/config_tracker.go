@@ -487,6 +487,7 @@ func DefaultingConfigTrackerTestSuite[
 					historyDefault, err := configTracker.History(ctx, driverutil.Target_DefaultConfiguration, storage.IncludeValues(true))
 					Expect(err).NotTo(HaveOccurred())
 					historyActive, err := configTracker.History(ctx, driverutil.Target_ActiveConfiguration, storage.IncludeValues(true))
+					Expect(err).NotTo(HaveOccurred())
 					Expect(historyDefault).To(HaveLen(2))
 					Expect(historyDefault[0].Value()).NotTo(testutil.ProtoEqual(cfg1))
 					Expect(historyDefault[1].Value()).NotTo(testutil.ProtoEqual(cfg2))

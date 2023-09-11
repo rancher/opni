@@ -6,8 +6,9 @@ import (
 	"math"
 	"math/rand"
 
-	"github.com/mennanov/fmutils"
+	art "github.com/plar/go-adaptive-radix-tree"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/fieldmask"
 	"github.com/sryoya/protorand"
 	"github.com/zeebo/xxh3"
 	"google.golang.org/protobuf/proto"
@@ -52,7 +53,7 @@ func (p *ProtoRand[T]) Gen() (T, error) {
 		return zero, err
 	}
 	if p.mask != nil {
-		fmutils.Prune(out, p.mask.GetPaths())
+		fieldmask.ExclusiveDiscard(out, p.mask)
 	}
 	sanitizeLargeNumbers(out)
 	return out.(T), nil
@@ -85,27 +86,24 @@ func (p *ProtoRand[T]) GenPartial(ratio float64) (T, error) {
 
 	newGeneratedMsg := p.MustGen()
 
-	var nestedMask fmutils.NestedMask
+	var nestedMask art.Tree
 	if p.mask != nil {
-		nestedMask = fmutils.NestedMaskFromPaths(p.mask.GetPaths())
+		nestedMask = fieldmask.AsTree(p.mask)
 	}
 
-	var walk func(protoreflect.Message, fmutils.NestedMask)
-	walk = func(msg protoreflect.Message, mask fmutils.NestedMask) {
+	var walk func(msg protoreflect.Message, prefix string, mask art.Tree)
+	walk = func(msg protoreflect.Message, prefix string, mask art.Tree) {
 		md := msg.Descriptor()
 		wire, _ := proto.MarshalOptions{Deterministic: true}.Marshal(msg.Interface())
 		msgFields := md.Fields()
-
 		selectedFields := make([]protoreflect.FieldDescriptor, 0, msgFields.Len())
 		for i := 0; i < msgFields.Len(); i++ {
 			msgField := msgFields.Get(i)
 			included := true
 			if mask != nil {
-				if nested, masked := mask[string(msgField.Name())]; masked {
-					if len(nested) == 0 {
-						// only exclude leaf fields from the mask
-						included = false
-					}
+				if _, masked := mask.Search(art.Key(prefix + string(msgField.Name()))); masked {
+					// only exclude leaf fields from the mask
+					included = false
 				}
 			}
 			if included {
@@ -124,11 +122,11 @@ func (p *ProtoRand[T]) GenPartial(ratio float64) (T, error) {
 			if partition[i] == 0 {
 				msg.Clear(msgField)
 			} else if !msgField.IsList() && !msgField.IsMap() && msgField.Kind() == protoreflect.MessageKind {
-				walk(msg.Mutable(msgField).Message(), nestedMask[string(msgField.Name())])
+				walk(msg.Mutable(msgField).Message(), prefix+string(msgField.Name())+".", mask)
 			}
 		}
 	}
-	walk(newGeneratedMsg.ProtoReflect(), nestedMask)
+	walk(newGeneratedMsg.ProtoReflect(), "", nestedMask)
 	return newGeneratedMsg, nil
 }
 

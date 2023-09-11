@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/mennanov/fmutils"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/fieldmask"
 	"github.com/rancher/opni/pkg/util/merge"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -168,8 +168,12 @@ func (ct *DefaultingConfigTracker[T]) ResetConfig(ctx context.Context, mask *fie
 		}
 	}
 
-	fmutils.Filter(activeConfig, mask.GetPaths())
-	fmutils.Filter(patch, mask.GetPaths())
+	fieldmask.ExclusiveKeep(activeConfig, mask)
+	if err := patch.UnredactSecrets(activeConfig); err != nil {
+		return err
+	}
+	fieldmask.ExclusiveKeep(patch, mask)
+
 	merge.MergeWithReplace(activeConfig, patch)
 	merge.MergeWithReplace(defaultConfig, activeConfig)
 
@@ -402,40 +406,48 @@ func (ct *DefaultingConfigTracker[T]) DryRunResetDefaultConfig(ctx context.Conte
 func (ct *DefaultingConfigTracker[T]) DryRunResetConfig(ctx context.Context, mask *fieldmaskpb.FieldMask, patch T) (DryRunResults[T], error) {
 	ct.lock.Lock()
 	defer ct.lock.Unlock()
-	current, err := ct.activeStore.Get(ctx)
+	activeConfig, err := ct.activeStore.Get(ctx)
 	if err != nil {
 		return DryRunResults[T]{}, err
 	}
-
-	staging, _, err := ct.getDefaultConfigLocked(ctx)
+	defaultConfig, _, err := ct.getDefaultConfigLocked(ctx)
 	if err != nil {
 		return DryRunResults[T]{}, err
 	}
-
-	if len(mask.GetPaths()) == 0 {
-		current.RedactSecrets()
-		staging.RedactSecrets()
+	if mask == nil {
+		activeConfig.RedactSecrets()
+		defaultConfig.RedactSecrets()
 		return DryRunResults[T]{
-			Current:  current,
-			Modified: staging,
+			Current:  activeConfig,
+			Modified: defaultConfig,
 		}, nil
 	}
 
 	mask.Normalize()
-	if !mask.IsValid(current) {
+	if !mask.IsValid(activeConfig) {
 		return DryRunResults[T]{}, fmt.Errorf("invalid field mask: %v", mask.GetPaths())
 	}
+	for i, path := range mask.GetPaths() {
+		if path == "" {
+			// empty paths in field masks can be destructive and are never intentional
+			return DryRunResults[T]{}, status.Errorf(codes.InvalidArgument, "field mask contains an empty path at index %d", i)
+		}
+	}
 
-	fmutils.Filter(current, mask.GetPaths())
-	fmutils.Filter(patch, mask.GetPaths())
+	originalCurrent := util.ProtoClone(activeConfig)
+	fieldmask.ExclusiveKeep(activeConfig, mask)
+	if err := patch.UnredactSecrets(activeConfig); err != nil {
+		return DryRunResults[T]{}, err
+	}
+	fieldmask.ExclusiveKeep(patch, mask)
 
-	merge.MergeWithReplace(staging, current)
-	merge.MergeWithReplace(staging, patch)
+	merge.MergeWithReplace(activeConfig, patch)
+	merge.MergeWithReplace(defaultConfig, activeConfig)
 
-	current.RedactSecrets()
-	staging.RedactSecrets()
+	originalCurrent.RedactSecrets()
+	defaultConfig.RedactSecrets()
 	return DryRunResults[T]{
-		Current:  current,
-		Modified: staging,
+		Current:  originalCurrent,
+		Modified: defaultConfig,
 	}, nil
 }

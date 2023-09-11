@@ -1642,8 +1642,6 @@ github.com/kralicky/grafana-operator/v4 v4.2.1-0.20230714191401-f7b79b2f8d98 h1:
 github.com/kralicky/grafana-operator/v4 v4.2.1-0.20230714191401-f7b79b2f8d98/go.mod h1:kaHQSA3VgnXAh2KhXNJIhvXFTAVjo316qL3FHeMQuJM=
 github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c h1:1kKbyl5GtGk/D+6jSIZSl8DD3/p/7IAT7Oxe4PfCNpU=
 github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c/go.mod h1:GXnSgs1TGXa8aX1hO9SUE1o3pLfggl5hkBMXdVWD8dc=
-github.com/kralicky/protorand v0.0.0-20230808230310-20efa79bb808 h1:dYPd+76Bk+qI9xhrMrY3F0B7MJAeGN+YSgRGkB3ZEyk=
-github.com/kralicky/protorand v0.0.0-20230808230310-20efa79bb808/go.mod h1:9a23nlv6vzBeVlQq6JQCjljZ6sfzsB6aha1m5Ly1W2Y=
 github.com/kralicky/ragu v1.0.11-0.20230627162951-2dd00e0cbbf3 h1:UB8Fk6c8Ait8DLtemgT/ItRdUpxJQHMDntqFopFt6/Q=
 github.com/kralicky/ragu v1.0.11-0.20230627162951-2dd00e0cbbf3/go.mod h1:njQGnwU5IHm4Qx6/oOY0ll7Z6WA0apfP0ClpVA0M27Q=
 github.com/kralicky/totem v1.2.0 h1:3pZuqhLrCYVbaxskkvubEm65AC/mquDLRTUZYGUxEEY=
@@ -1781,8 +1779,6 @@ github.com/matttproud/golang_protobuf_extensions v1.0.4 h1:mmDVorXM7PCGKw94cs5zk
 github.com/matttproud/golang_protobuf_extensions v1.0.4/go.mod h1:BSXmuO+STAnVfrANrmjBb36TMTDstsz7MSK+HVaYKv4=
 github.com/maxatome/go-testdeep v1.12.0 h1:Ql7Go8Tg0C1D/uMMX59LAoYK7LffeJQ6X2T04nTH68g=
 github.com/maxatome/go-testdeep v1.12.0/go.mod h1:lPZc/HAcJMP92l7yI6TRz1aZN5URwUBUAfUNvrclaNM=
-github.com/mennanov/fmutils v0.2.0 h1:Hw/iuQPdKtiB2B9YYh+NX8iv7U7eQu1rICPjr8NvxSo=
-github.com/mennanov/fmutils v0.2.0/go.mod h1:DE+qeI9Xy5s1GA4trgq8H26jr5DgJ4a9+0D1DPVCqyk=
 github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b h1:j7+1HpAFS1zy5+Q4qx1fWh90gTKwiN4QCGoY9TWyyO4=
 github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b/go.mod h1:01TrycV0kFyexm33Z7vhZRXopbI8J3TDReVlkTgMUxE=
 github.com/mholt/archiver/v4 v4.0.0-alpha.8 h1:tRGQuDVPh66WCOelqe6LIGh0gwmfwxUrSSDunscGsRM=

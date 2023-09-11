@@ -3,13 +3,13 @@ package conformance_driverutil
 import (
 	"context"
 
-	"github.com/mennanov/fmutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/fieldmask"
 	"github.com/rancher/opni/pkg/util/merge"
 	"github.com/rancher/opni/pkg/util/protorand"
 	"github.com/samber/lo"
@@ -348,14 +348,14 @@ func DefaultingConfigTrackerTestSuite[
 					Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(conf))))
 
 					// generate a random mask
-					mask := util.NewFieldMaskByPresence(mustGenPartial(0.25).ProtoReflect())
+					mask := fieldmask.ByPresence(mustGenPartial(0.25).ProtoReflect())
 					Expect(mask.IsValid(conf)).To(BeTrue(), mask.GetPaths())
 
 					err := configTracker.ResetConfig(ctx, mask, lo.Empty[T]())
 					Expect(err).NotTo(HaveOccurred())
 
 					expected := newDefaults()
-					fmutils.Filter(conf, mask.GetPaths())
+					fieldmask.ExclusiveKeep(conf, mask)
 					merge.MergeWithReplace(expected, conf)
 
 					Eventually(updateC).Should(Receive(WithTransform(transform, testutil.ProtoEqual(expected))))

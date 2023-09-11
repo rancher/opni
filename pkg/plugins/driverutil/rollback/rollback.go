@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/driverutil/complete"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/fieldmask"
 	"github.com/rancher/opni/pkg/util/flagutil"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
@@ -37,8 +38,10 @@ func BuildCmd[
 	HR driverutil.HistoryResponseType[T],
 ](use string, newClientFunc func(context.Context) (C, bool)) *cobra.Command {
 	var (
-		revision *int64
-		target   driverutil.Target
+		revision   *int64
+		target     driverutil.Target
+		diffFull   bool
+		diffFormat string
 	)
 	cmd := &cobra.Command{
 		Use:   use,
@@ -120,8 +123,15 @@ the secret values will not change from the current configuration.
 					rm := dryRunReq.ProtoReflect()
 					rmd := rm.Descriptor()
 					rm.Set(rmd.Fields().ByName("target"), protoreflect.ValueOfEnum(target.Number()))
-					rm.Set(rmd.Fields().ByName("action"), protoreflect.ValueOfEnum(driverutil.Action_Set.Number()))
-					rm.Set(rmd.Fields().ByName("spec"), protoreflect.ValueOfMessage(targetConfig.ProtoReflect()))
+					switch target {
+					case driverutil.Target_ActiveConfiguration:
+						rm.Set(rmd.Fields().ByName("action"), protoreflect.ValueOfEnum(driverutil.Action_Reset.Number()))
+						rm.Set(rmd.Fields().ByName("mask"), protoreflect.ValueOfMessage(fieldmask.ByPresence(targetConfig.ProtoReflect()).ProtoReflect()))
+						rm.Set(rmd.Fields().ByName("patch"), protoreflect.ValueOfMessage(targetConfig.ProtoReflect()))
+					case driverutil.Target_DefaultConfiguration:
+						rm.Set(rmd.Fields().ByName("action"), protoreflect.ValueOfEnum(driverutil.Action_Set.Number()))
+						rm.Set(rmd.Fields().ByName("spec"), protoreflect.ValueOfMessage(targetConfig.ProtoReflect()))
+					}
 				}
 
 				dryRunResp, err := client.DryRun(cmd.Context(), dryRunReq)
@@ -180,7 +190,20 @@ the secret values will not change from the current configuration.
 					return fmt.Errorf("dry-run failed: %w", err)
 				}
 
-				diffStr, anyChanges := driverutil.RenderJsonDiff(dryRunResp.GetCurrent(), dryRunResp.GetModified(), jsondiff.DefaultConsoleOptions())
+				var diffOpts jsondiff.Options
+				switch diffFormat {
+				case "console":
+					diffOpts = jsondiff.DefaultConsoleOptions()
+				case "json":
+					diffOpts = jsondiff.DefaultJSONOptions()
+				case "html":
+					diffOpts = jsondiff.DefaultHTMLOptions()
+				default:
+					return fmt.Errorf("invalid diff format: %s", diffFormat)
+				}
+				diffOpts.SkipMatches = !diffFull
+
+				diffStr, anyChanges := driverutil.RenderJsonDiff(dryRunResp.GetCurrent(), dryRunResp.GetModified(), diffOpts)
 				if !anyChanges {
 					cmd.Println(chalk.Green.Color("No changes to apply."))
 					return nil
@@ -254,11 +277,10 @@ the secret values will not change from the current configuration.
 					// reset using a mask that includes all present fields in the target config,
 					// and the target config as the patch.
 					resetReq := util.NewMessage[R]()
-					mask := util.NewFieldMaskByPresence(targetConfig.ProtoReflect())
 
 					rm := resetReq.ProtoReflect()
 					rmd := rm.Descriptor()
-					rm.Set(rmd.Fields().ByName("mask"), protoreflect.ValueOfMessage(mask.ProtoReflect()))
+					rm.Set(rmd.Fields().ByName("mask"), protoreflect.ValueOfMessage(fieldmask.ByPresence(targetConfig.ProtoReflect()).ProtoReflect()))
 					rm.Set(rmd.Fields().ByName("patch"), protoreflect.ValueOfMessage(targetConfig.ProtoReflect()))
 
 					_, err = client.ResetConfiguration(cmd.Context(), resetReq)
@@ -275,10 +297,16 @@ the secret values will not change from the current configuration.
 	}
 	cmd.Flags().Var(flagutil.IntPtrValue(nil, &revision), "revision", "revision to rollback to")
 	cmd.Flags().Var(flagutil.EnumValue(&target), "target", "the configuration type to rollback")
+	cmd.PersistentFlags().BoolVar(&diffFull, "diff-full", false, "show full diff, including all unchanged fields")
+	cmd.PersistentFlags().StringVar(&diffFormat, "diff-format", "console", "diff format (console, json, html)")
+
 	cmd.MarkFlagRequired("revision")
 
 	cmd.RegisterFlagCompletionFunc("target", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"ActiveConfiguration", "DefaultConfiguration"}, cobra.ShellCompDirectiveDefault
+	})
+	cmd.RegisterFlagCompletionFunc("diff-format", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"console", "json", "html"}, cobra.ShellCompDirectiveDefault
 	})
 	cmd.RegisterFlagCompletionFunc("revision", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		cliutil.BasePreRunE(cmd, args)

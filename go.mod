@@ -66,7 +66,6 @@ require (
 	github.com/longhorn/upgrade-responder v0.1.5
 	github.com/magefile/mage v1.15.0
 	github.com/mattn/go-tty v0.0.4
-	github.com/mennanov/fmutils v0.2.0
 	github.com/mholt/archiver/v4 v4.0.0-alpha.8
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/muesli/termenv v0.15.2

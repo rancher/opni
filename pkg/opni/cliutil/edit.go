@@ -30,7 +30,7 @@ type jsonLanguage struct{}
 var jsonMarshalOpts = protojson.MarshalOptions{
 	Multiline:       true,
 	Indent:          "  ",
-	EmitUnpopulated: true,
+	EmitUnpopulated: false,
 	UseProtoNames:   true,
 }
 

@@ -3,7 +3,6 @@ package util
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"strings"
 	"sync"
@@ -15,10 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protopath"
-	"google.golang.org/protobuf/reflect/protorange"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 var (
@@ -90,56 +86,6 @@ func ProtoClone[T proto.Message](msg T) T {
 func NewMessage[T proto.Message]() T {
 	var t T
 	return t.ProtoReflect().New().Interface().(T)
-}
-
-func NewFieldMaskByPresence[T protoreflect.Message](msg T) *fieldmaskpb.FieldMask {
-	mask := &fieldmaskpb.FieldMask{}
-	protorange.Range(msg, func(v protopath.Values) error {
-		switch v.Path.Index(-1).Kind() {
-		case protopath.MapIndexStep, protopath.ListIndexStep,
-			protopath.AnyExpandStep, protopath.UnknownAccessStep:
-			return protorange.Break
-		}
-
-		str := v.Path[1:].String()
-		if str == "" {
-			// skip root - if we add an empty string to the paths list, Normalize()
-			// will delete every path after it
-			return nil
-		}
-		mask.Paths = append(mask.Paths, str[1:]) // remove leading dot
-		return nil
-	})
-	mask.Normalize()
-	return mask
-}
-
-func NewCompleteFieldMask[T proto.Message]() *fieldmaskpb.FieldMask {
-	var t T
-	desc := t.ProtoReflect().Descriptor()
-	mask := &fieldmaskpb.FieldMask{
-		Paths: rangeMessageFields(desc),
-	}
-	mask.Normalize()
-	return mask
-}
-
-func rangeMessageFields(desc protoreflect.MessageDescriptor) []string {
-	fields := desc.Fields()
-	paths := []string{}
-	for i := 0; i < fields.Len(); i++ {
-		field := fields.Get(i)
-		kind := field.Kind()
-		if kind == protoreflect.MessageKind && !field.IsMap() && !field.IsList() {
-			nestedPaths := rangeMessageFields(field.Message())
-			for _, nestedPath := range nestedPaths {
-				paths = append(paths, fmt.Sprintf("%s.%s", field.Name(), nestedPath))
-			}
-		} else {
-			paths = append(paths, string(field.Name()))
-		}
-	}
-	return paths
 }
 
 func FieldByName[T proto.Message](name string) protoreflect.FieldDescriptor {

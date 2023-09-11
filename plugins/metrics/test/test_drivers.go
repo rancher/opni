@@ -19,7 +19,6 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/rules"
-	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/inmemory"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
@@ -157,29 +156,6 @@ func (d *TestEnvMetricsClusterDriver) DryRun(ctx context.Context, req *cortexops
 		Modified:         res.Modified,
 		ValidationErrors: configutil.ValidateConfiguration(res.Modified),
 	}, nil
-}
-
-// ConfigurationHistory implements cortexops.CortexOpsServer.
-func (d *TestEnvMetricsClusterDriver) ConfigurationHistory(ctx context.Context, req *driverutil.ConfigurationHistoryRequest) (*cortexops.ConfigurationHistoryResponse, error) {
-	revisions, err := d.configTracker.History(ctx, req.GetTarget(), storage.IncludeValues(req.GetIncludeValues()))
-	if err != nil {
-		return nil, err
-	}
-	resp := &cortexops.ConfigurationHistoryResponse{
-		Entries: make([]*cortexops.CapabilityBackendConfigSpec, len(revisions)),
-	}
-	for i, rev := range revisions {
-		if req.IncludeValues {
-			spec := rev.Value()
-			spec.Revision = corev1.NewRevision(rev.Revision(), rev.Timestamp())
-			resp.Entries[i] = spec
-		} else {
-			resp.Entries[i] = &cortexops.CapabilityBackendConfigSpec{
-				Revision: corev1.NewRevision(rev.Revision(), rev.Timestamp()),
-			}
-		}
-	}
-	return resp, nil
 }
 
 var _ cortexops.CortexOpsServer = (*TestEnvMetricsClusterDriver)(nil)

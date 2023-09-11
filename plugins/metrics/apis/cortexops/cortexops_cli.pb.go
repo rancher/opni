@@ -387,7 +387,6 @@ HTTP handlers for this method:
 			return nil
 		},
 	}
-	cmd.Flags().AddFlagSet(in.FlagSet())
 	return cmd
 }
 
@@ -671,12 +670,6 @@ func (in *GrafanaConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.Var(flagutil.BoolPtrValue(flagutil.Ptr(false), &in.Enabled), strings.Join(append(prefix, "enabled"), "."), "Whether to deploy a managed Grafana instance.")
 	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("latest"), &in.Version), strings.Join(append(prefix, "version"), "."), "The version of Grafana to deploy.")
 	fs.Var(flagutil.StringPtrValue(nil, &in.Hostname), strings.Join(append(prefix, "hostname"), "."), "")
-	return fs
-}
-
-func (in *ResetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("ResetRequest", pflag.ExitOnError)
-	fs.SortFlags = true
 	return fs
 }
 

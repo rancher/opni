@@ -312,7 +312,7 @@ message DryRunRequest {
   CapabilityBackendConfigSpec spec = 3; // Set
 
   CapabilityBackendConfigSpec patch = 4; // Reset
-  google.protobuf.FieldMask   mask  = 5; // Reset
+  google.protobuf.FieldMask   mask  = 5 [(cli.flag).skip = true]; // Reset
 }
 
 message DryRunResponse {

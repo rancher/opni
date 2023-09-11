@@ -406,8 +406,10 @@ func (cg *Generator) generateMethodCmd(service *protogen.Service, method *protog
 		flagSet := cg.generateFlagSet(g, method.Input)
 		switch opts.Granularity {
 		case EditScope_EditFields:
-			g.P("cmd.Flags().AddFlagSet(in.FlagSet())")
-			cg.generateFlagCompletionFuncs(g, flagSet)
+			if flagSet.flagCount > 0 {
+				g.P("cmd.Flags().AddFlagSet(in.FlagSet())")
+				cg.generateFlagCompletionFuncs(g, flagSet)
+			}
 		case EditScope_EditMessage:
 			g.P(`cmd.Flags().StringP("file", "f", "", "path to a file containing the config, or - to read from stdin")`)
 			g.P(`cmd.Flags().BoolP("interactive", "i", false, "edit the config interactively in an editor")`)
@@ -496,11 +498,11 @@ type flagCompletion struct {
 }
 
 type flagSet struct {
-	receiver *protogen.Message
-	buf      *buffer
-	deps     map[string]*flagSet
-	wrote    bool
-	usages   int
+	receiver  *protogen.Message
+	buf       *buffer
+	deps      map[string]*flagSet
+	wrote     bool
+	flagCount int
 
 	secretFields         []*protogen.Field
 	depsWithSecretFields []*protogen.Field
@@ -585,6 +587,7 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 			if flagOpts.Skip {
 				continue
 			}
+			fs.flagCount++
 
 			if flagOpts.Default != nil {
 				hasCustomDefault = true

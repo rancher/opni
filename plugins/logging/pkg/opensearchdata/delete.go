@@ -65,7 +65,8 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc 
 		defer resp.Body.Close()
 
 		if resp.IsError() {
-			return loggingerrors.ErrOpensearchRequestFailed(resp.String())
+			m.logger.Errorf("opensearch request failed: %s", resp.String())
+			return loggingerrors.ErrOpensearchResponse
 		}
 
 		respString := util.ReadString(resp.Body)
@@ -136,7 +137,7 @@ func (m *Manager) DeleteTaskStatus(ctx context.Context, id string, readyFunc ...
 	case resp.StatusCode == 404:
 		status = DeleteFinishedWithErrors
 	case resp.IsError():
-		return DeleteError, loggingerrors.ErrOpensearchRequestFailed(resp.String())
+		return DeleteError, loggingerrors.ErrOpensearchResponse
 	case !gjson.Get(body, "completed").Bool():
 		m.logger.Debug(body)
 		return DeleteRunning, nil

@@ -1,10 +1,18 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/example/pkg/example";
-
-import "google/protobuf/empty.proto";
-import "google/api/annotations.proto";
 
 package example;
+
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "github.com/rancher/opni/pkg/plugins/driverutil/types.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+
+option go_package = "github.com/rancher/opni/plugins/example/pkg/example";
+option (cli.generator) = {
+  generate: true;
+};
 
 service ExampleAPIExtension {
   rpc Echo(EchoRequest) returns (EchoResponse) {
@@ -26,4 +34,88 @@ message EchoRequest {
 
 message EchoResponse {
   string message = 1;
+}
+
+service Config {
+  rpc GetDefaultConfiguration(driverutil.GetRequest) returns (ConfigSpec) {
+    option (cli.command) = {
+      use: "get-default"
+    };
+  }
+  rpc SetDefaultConfiguration(ConfigSpec) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "set-default"
+      granularity: EditMessage;
+    };
+  }
+  rpc GetConfiguration(driverutil.GetRequest) returns (ConfigSpec) {
+    option (cli.command) = {
+      use: "get"
+    };
+  }
+  rpc SetConfiguration(ConfigSpec) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "set"
+      granularity: EditMessage;
+    };
+  }
+  rpc ResetDefaultConfiguration(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "reset-default"
+    };
+  }
+  rpc ResetConfiguration(ResetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "reset"
+      granularity: EditMessage;
+    };
+  }
+  rpc DryRun(DryRunRequest) returns (DryRunResponse) {
+    option (cli.command).skip = true;
+  }
+  rpc ConfigurationHistory(driverutil.ConfigurationHistoryRequest) returns (HistoryResponse) {
+    option (cli.command) = {
+      use: "history"
+    };
+  }
+}
+
+message ConfigSpec {
+  optional bool    enabled    = 1 [(cli.flag).skip = true];
+  core.Revision    revision   = 2 [(cli.flag).skip = true];
+  optional string  stringVar  = 3;
+  optional int32   intVar     = 4;
+  optional bool    boolVar    = 5;
+  optional Message messageVar = 6;
+  optional string  secretVar  = 7 [(cli.flag).secret = true];
+}
+
+message ResetRequest {
+  google.protobuf.FieldMask mask  = 1 [(cli.flag).skip = true];
+  ConfigSpec                patch = 2 [(cli.flag).skip = true];
+}
+
+message DryRunRequest {
+  driverutil.Target target = 1;
+  driverutil.Action action = 2;
+
+  ConfigSpec spec = 3; // Set
+
+  ConfigSpec                patch = 4; // Reset
+  google.protobuf.FieldMask mask  = 5 [(cli.flag).skip = true]; // Reset
+}
+
+message DryRunResponse {
+  ConfigSpec                          current          = 1;
+  ConfigSpec                          modified         = 2;
+  repeated driverutil.ValidationError validationErrors = 3;
+}
+
+message HistoryResponse {
+  repeated ConfigSpec entries = 1;
+}
+
+message Message {
+  repeated string     stringSliceVar = 1;
+  map<string, string> stringMapVar   = 2;
 }

@@ -338,10 +338,4 @@ export default {
 
   justify-content: flex-end;
 }
-
-.middle {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-}
 </style>

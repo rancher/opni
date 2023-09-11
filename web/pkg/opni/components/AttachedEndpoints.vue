@@ -188,16 +188,3 @@ export default {
     </div>
   </div>
 </template>
-
-<style lang="scss" scoped>
-.middle {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-}
-
-.bottom {
-  border-bottom: 1px solid var(--header-border);
-  padding-bottom: 20px;
-}
-</style>

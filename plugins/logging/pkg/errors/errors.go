@@ -11,6 +11,7 @@ import (
 var (
 	ErrInvalidList             = utilerrors.New(codes.FailedPrecondition, errors.New("list did not return exactly 1 result"))
 	ErrInvalidPersistence      = utilerrors.New(codes.InvalidArgument, errors.New("invalid persistence config"))
+	ErrInvalidDataPersistence  = utilerrors.New(codes.InvalidArgument, errors.New("minimum of 2 data nodes required if no persistent storage"))
 	ErrClusterIDMissing        = utilerrors.New(codes.InvalidArgument, errors.New("request does not include cluster ID"))
 	ErrOpensearchResponse      = utilerrors.New(codes.Unavailable, errors.New("opensearch request unsuccessful"))
 	ErrNoOpensearchClient      = utilerrors.New(codes.Unavailable, errors.New("opensearch client is not set"))

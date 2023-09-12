@@ -102,7 +102,12 @@ func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, 
 	}
 	// Input should always have a data nodes field
 	if cluster.GetDataNodes() == nil {
-		return &emptypb.Empty{}, loggingerrors.ErrInvalidDuration
+		return &emptypb.Empty{}, loggingerrors.ErrMissingDataNode
+	}
+
+	// Don't allow a single data node with no persistence
+	if err := m.validateStorage(cluster.GetDataNodes()); err != nil {
+		return nil, err
 	}
 
 	go m.opensearchManager.SetClient(m.managementDriver.NewOpensearchClientForCluster)
@@ -257,6 +262,14 @@ func (m *LoggingManagerV2) validDurationString(duration string) bool {
 		return false
 	}
 	return match
+}
+
+func (m *LoggingManagerV2) validateStorage(dataNodes *loggingadmin.DataDetails) error {
+	if dataNodes.GetReplicas() < 2 && !dataNodes.GetPersistence().GetEnabled() {
+		m.logger.Error("minimum of 2 data nodes required if no persistent storage")
+		return loggingerrors.ErrInvalidDataPersistence
+	}
+	return nil
 }
 
 func (m *LoggingManagerV2) opensearchClusterReady() bool {

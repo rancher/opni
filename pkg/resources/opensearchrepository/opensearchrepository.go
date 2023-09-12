@@ -18,9 +18,9 @@ import (
 
 type Reconciler struct {
 	reconciler.ResourceReconciler
-	client     client.Client
-	repository *loggingv1beta1.OpensearchRepository
-	ctx        context.Context
+	client      client.Client
+	respository *loggingv1beta1.OpensearchRepository
+	ctx         context.Context
 }
 
 func NewReconciler(
@@ -32,9 +32,9 @@ func NewReconciler(
 	return &Reconciler{
 		ResourceReconciler: reconciler.NewReconcilerWith(c,
 			append(opts, reconciler.WithLog(log.FromContext(ctx)))...),
-		client:     c,
-		repository: instance,
-		ctx:        ctx,
+		client:      c,
+		respository: instance,
+		ctx:         ctx,
 	}
 }
 
@@ -43,17 +43,17 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 
 	defer func() {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.repository), r.repository); err != nil {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.respository), r.respository); err != nil {
 				return err
 			}
 			if retErr != nil {
 				// If an error occurred, the state should be set to error
-				r.repository.Status.State = loggingv1beta1.OpensearchRepositoryError
-				r.repository.Status.FailureMessage = retErr.Error()
+				r.respository.Status.State = loggingv1beta1.OpensearchRepositoryError
+				r.respository.Status.FailureMessage = retErr.Error()
 			} else {
-				r.repository.Status.State = loggingv1beta1.OpensearchRepositoryCreated
+				r.respository.Status.State = loggingv1beta1.OpensearchRepositoryCreated
 			}
-			return r.client.Status().Update(r.ctx, r.repository)
+			return r.client.Status().Update(r.ctx, r.respository)
 		})
 
 		if err != nil {
@@ -64,7 +64,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	opensearch := &opensearchv1.OpenSearchCluster{}
 	if err := r.client.Get(
 		r.ctx,
-		r.repository.Spec.OpensearchClusterRef.ObjectKeyFromRef(),
+		r.respository.Spec.OpensearchClusterRef.ObjectKeyFromRef(),
 		opensearch,
 	); err != nil {
 		retErr = err
@@ -76,7 +76,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	}
 
 	// Handle finalizer
-	if r.repository.DeletionTimestamp != nil && controllerutil.ContainsFinalizer(r.repository, meta.OpensearchFinalizer) {
+	if r.respository.DeletionTimestamp != nil && controllerutil.ContainsFinalizer(r.respository, meta.OpensearchFinalizer) {
 		retErr = r.deleteOpensearchObjects(opensearch)
 		return
 	}

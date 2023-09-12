@@ -511,9 +511,3 @@ func (in *Message) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.StringToStringVar(&in.StringMapVar, strings.Join(append(prefix, "string-map-var"), "."), nil, "")
 	return fs
 }
-
-func (in *ResetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("ResetRequest", pflag.ExitOnError)
-	fs.SortFlags = true
-	return fs
-}

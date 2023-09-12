@@ -2,6 +2,7 @@ syntax = "proto3";
 option go_package = "github.com/rancher/opni/plugins/logging/apis/loggingadmin";
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 import "google/api/http.proto";
 import "google/api/annotations.proto";
 import "k8s.io/api/core/v1/generated.proto";
@@ -43,6 +44,27 @@ service LoggingAdminV2 {
     rpc GetOpensearchStatus(google.protobuf.Empty) returns(StatusResponse) {
         option (google.api.http) = {
             get: "/logging/status"
+        };
+    }
+    rpc CreateOrUpdateSnapshot(Snapshot) returns(google.protobuf.Empty) {
+        option (google.api.http) = {
+            put: "/snapshot"
+            body: "*"
+        };
+    }
+    rpc GetRecurringSnapshot(SnapshotReference) returns(Snapshot) {
+        option (google.api.http) = {
+            get: "/snapshot/{name}"
+        };
+    }
+    rpc DeleteSnapshot(SnapshotReference) returns(google.protobuf.Empty) {
+        option (google.api.http) = {
+            delete: "/snapshot/{name}"
+        };
+    }
+    rpc ListSnapshots(google.protobuf.Empty) returns(SnapshotStatusList) {
+        option (google.api.http) = {
+            get: "/snapshot"
         };
     }
 }
@@ -154,4 +176,33 @@ message ControlplaneDetails {
     map<string, string> nodeSelector = 2;
     repeated k8s.io.api.core.v1.Toleration tolerations = 3;
     optional DataPersistence persistence = 4;
+}
+
+message Snapshot {
+    SnapshotReference ref = 1;
+    bool recurring = 2;
+    optional string cronSchedule = 3;
+    optional SnapshotRetention retention = 4;
+    repeated string additionalIndices = 5;
+}
+
+message SnapshotReference {
+    string name = 1;
+}
+
+message SnapshotRetention {
+    optional string timeRetention = 1;
+    optional int32 maxSnapshots = 2;
+}
+
+message SnapshotStatusList {
+    repeated SnapshotStatus statuses = 1;
+}
+
+message SnapshotStatus {
+    SnapshotReference ref = 1;
+    string status = 2;
+    optional string statusMessage = 3;
+    google.protobuf.Timestamp lastUpdated = 4;
+    bool recurring = 5;
 }

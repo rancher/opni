@@ -815,7 +815,7 @@ func BuildAlertingClusterIntegrationTests(
 										Url: "http://example.com",
 									},
 								},
-								Id: "id",
+								Id: endp.Id.Id,
 							},
 							ForceUpdate: true,
 						})
@@ -827,7 +827,7 @@ func BuildAlertingClusterIntegrationTests(
 					Expect(endpList.Items).To(HaveLen(numServers + numNotificationServers))
 					updatedList := lo.Filter(endpList.Items, func(item *alertingv1.AlertEndpointWithId, _ int) bool {
 						if item.Endpoint.GetWebhook() != nil {
-							return item.Endpoint.GetWebhook().Url == "http://example.com" && item.Endpoint.GetName() == "update" && item.Endpoint.GetDescription() == "update"
+							return item.Endpoint.GetName() == "update" && item.Endpoint.GetDescription() == "update"
 						}
 						return false
 					})

@@ -22,12 +22,61 @@ export interface PagerDutyEndpoint {
   integrationKey: string;
 }
 
+export interface BasicAuth {
+  username: string;
+  password: string;
+  password_file: string; // eslint-disable-line camelcase
+}
+
+export interface Authorization {
+  type: string;
+  credentialsFile: string;
+  credentials: string;
+}
+
+export interface TLSConfig {
+  caFile: string;
+  certFile: string;
+  keyFile: string;
+  serverName: string;
+  insecureSkipVerify: boolean;
+  minVersion: string;
+  maxVersion: string;
+}
+
+export interface OAuth2 {
+  clientId: string;
+  clientSecret: string;
+  clientSecretFile: string;
+  scopes: string[];
+  tokenUrl: string;
+  proxyUrl: string;
+  tlsConfig: TLSConfig;
+  endpointParams: { [key: string]: string};
+}
+
+export interface HTTPConfig {
+  basicAuth: BasicAuth;
+  authorization: Authorization;
+  oauth2: OAuth2;
+  enabled_http2: boolean; // eslint-disable-line camelcase
+  proxy_url: string; // eslint-disable-line camelcase
+  follow_redirects: boolean; // eslint-disable-line camelcase
+  tls_config: TLSConfig; // eslint-disable-line camelcase
+}
+
+export interface WebhookEndpoint {
+  url: string;
+  httpConfig: HTTPConfig;
+  maxAlerts: number;
+}
 export interface AlertEndpoint {
     name: string;
     description: string;
     slack?: SlackEndpoint;
     email?: EmailEndpoint;
     pagerDuty?: PagerDutyEndpoint;
+    webhook?: WebhookEndpoint;
 }
 
 export interface AlertEndpointWithId {
@@ -80,6 +129,10 @@ export class Endpoint extends Resource {
 
       if (this.base.endpoint.pagerDuty) {
         return 'pagerDuty';
+      }
+
+      if (this.base.endpoint.webhook) {
+        return 'webhook';
       }
 
       return 'unknown';

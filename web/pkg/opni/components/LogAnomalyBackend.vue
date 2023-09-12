@@ -199,10 +199,3 @@ export default {
     </template>
   </Backend>
 </template>
-
-<style lang="scss" scoped>
-.bottom {
-  border-bottom: 1px solid var(--header-border);
-  padding-bottom: 20px;
-}
-</style>

@@ -1,25 +1,31 @@
 <script>
 import { LabeledInput } from '@components/Form/LabeledInput';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
-import { Checkbox } from '@components/Form/Checkbox';
 import AsyncButton from '@shell/components/AsyncButton';
 import Loading from '@shell/components/Loading';
 import Tab from '@shell/components/Tabbed/Tab';
 import Tabbed from '@shell/components/Tabbed';
 import { Banner } from '@components/Banner';
-import { exceptionToErrorsArray } from '../utils/error';
-import { createAlertEndpoint, getAlertEndpoint, testAlertEndpoint, updateAlertEndpoint } from '../utils/requests/alerts';
+import { exceptionToErrorsArray } from '@pkg/opni/utils/error';
+import { createAlertEndpoint, getAlertEndpoint, testAlertEndpoint, updateAlertEndpoint } from '@pkg/opni/utils/requests/alerts';
+import Slack from './Slack';
+import Email from './Email';
+import PagerDuty from './PagerDuty';
+import Webhook from './Webhook';
 
 export default {
   components: {
     AsyncButton,
-    Checkbox,
+    Email,
     LabeledInput,
     LabeledSelect,
     Loading,
+    PagerDuty,
     Tab,
     Tabbed,
     Banner,
+    Webhook,
+    Slack,
   },
 
   async fetch() {
@@ -36,28 +42,35 @@ export default {
   },
 
   data() {
+    const types = [
+      {
+        label: 'Slack',
+        value: 'slack'
+      },
+      {
+        label: 'Email',
+        value: 'email'
+      },
+      {
+        label: 'PagerDuty',
+        value: 'pagerDuty'
+      },
+      {
+        label: 'Webhook',
+        value: 'webhook'
+      }
+    ];
+    const type = types[3].value;
+
     return {
       error:            '',
-      type:             'slack',
-      types:            [
-        {
-          label: 'Slack',
-          value: 'slack'
-        },
-        {
-          label: 'Email',
-          value: 'email'
-        },
-        {
-          label: 'PagerDuty',
-          value: 'pagerDuty'
-        }
-      ],
+      types,
+      type,
       config: {
         name:        '',
         description: '',
         endpoint:    {
-          slack: {}, email: {}, pagerDuty: {}
+          slack: {}, email: {}, pagerDuty: {}, webhook: {}
         }
       }
     };
@@ -159,51 +172,10 @@ export default {
             <LabeledSelect v-model="type" label="Type" :options="types" />
           </div>
         </div>
-        <div v-if="type === 'slack'" class="row mt-20">
-          <div class="col span-6">
-            <LabeledInput v-model="config.endpoint.slack.webhookUrl" label="Webhook URL" :required="true" />
-          </div>
-          <div class="col span-6">
-            <LabeledInput v-model="config.endpoint.slack.channel" label="Channel" :required="true" />
-          </div>
-        </div>
-        <div v-if="type === 'email'">
-          <div class="row mt-20 bottom mb-10">
-            <div class="col span-6">
-              <LabeledInput v-model="config.endpoint.email.to" label="To Email" :required="true" />
-            </div>
-            <div class="col span-6">
-              <LabeledInput v-model="config.endpoint.email.smtpFrom" label="From Email" :required="true" />
-            </div>
-          </div>
-          <h4>SMTP</h4>
-          <div class="row mt-10">
-            <div class="col span-6">
-              <LabeledInput v-model="config.endpoint.email.smtpSmartHost" label="Smart Host" :required="true" />
-            </div>
-            <div class="col span-6">
-              <LabeledInput v-model="config.endpoint.email.smtpAuthIdentity" label="Identity" :required="true" />
-            </div>
-          </div>
-          <div class="row mt-10">
-            <div class="col span-6">
-              <LabeledInput v-model="config.endpoint.email.smtpAuthUsername" label="Username" :required="true" />
-            </div>
-            <div class="col span-6">
-              <LabeledInput v-model="config.endpoint.email.smtpAuthPassword" label="Password" type="password" :required="true" />
-            </div>
-          </div>
-          <div class="row mt-10">
-            <div class="col span-6">
-              <Checkbox v-model="config.endpoint.email.smtpRequireTLS" label="Required TLS" />
-            </div>
-          </div>
-        </div>
-        <div v-if="type === 'pagerDuty'" class="row mt-20">
-          <div class="col span-12">
-            <LabeledInput v-model="config.endpoint.pagerDuty.integrationKey" label="Integration Key" :required="true" />
-          </div>
-        </div>
+        <Slack v-if="type === 'slack'" v-model="config.endpoint.slack" class="mt-20" />
+        <Email v-if="type === 'email'" v-model="config.endpoint.email" class="mt-20" />
+        <PagerDuty v-if="type === 'pagerDuty'" v-model="config.endpoint.pagerDuty" class="mt-20" />
+        <Webhook v-if="type === 'webhook'" v-model="config.endpoint.webhook" class="mt-20" />
       </Tab>
     </Tabbed>
     <div class="resource-footer">
@@ -247,10 +219,5 @@ export default {
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
-}
-
-.bottom {
-  border-bottom: 1px solid var(--header-border);
-  padding-bottom: 20px;
 }
 </style>

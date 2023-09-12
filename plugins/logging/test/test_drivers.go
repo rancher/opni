@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -21,6 +22,8 @@ import (
 type MockManagementDriver struct {
 	status           *util.MockInstallState
 	clusterDetails   *loggingadmin.OpensearchClusterV2
+	snapshots        map[string]*loggingadmin.Snapshot
+	mSnapshots       sync.Mutex
 	upgradeAvailable bool
 }
 
@@ -28,6 +31,7 @@ func NewMockManagementDriver(stateTracker *util.MockInstallState) *MockManagemen
 	return &MockManagementDriver{
 		status:           stateTracker,
 		upgradeAvailable: true,
+		snapshots:        map[string]*loggingadmin.Snapshot{},
 	}
 }
 
@@ -93,6 +97,52 @@ func (d *MockManagementDriver) DoUpgrade(_ context.Context, _ string) error {
 func (d *MockManagementDriver) GetStorageClasses(context.Context) ([]string, error) {
 	return []string{
 		"testclass",
+	}, nil
+}
+
+func (d *MockManagementDriver) CreateOrUpdateSnapshot(_ context.Context, snapshot *loggingadmin.Snapshot) error {
+	d.mSnapshots.Lock()
+	defer d.mSnapshots.Unlock()
+	d.snapshots[snapshot.GetRef().GetName()] = snapshot
+	return nil
+}
+
+func (d *MockManagementDriver) GetRecurringSnapshot(_ context.Context, ref *loggingadmin.SnapshotReference) (*loggingadmin.Snapshot, error) {
+	d.mSnapshots.Lock()
+	defer d.mSnapshots.Unlock()
+
+	s, ok := d.snapshots[ref.GetName()]
+	if !ok {
+		return nil, errors.New("snapshot not found")
+	}
+
+	if !s.Recurring {
+		return nil, errors.New("snapshot not found")
+	}
+
+	return s, nil
+}
+
+func (d *MockManagementDriver) DeleteSnapshot(_ context.Context, ref *loggingadmin.SnapshotReference) error {
+	d.mSnapshots.Lock()
+	defer d.mSnapshots.Unlock()
+
+	delete(d.snapshots, ref.GetName())
+	return nil
+}
+
+func (d *MockManagementDriver) ListAllSnapshots(_ context.Context) (*loggingadmin.SnapshotStatusList, error) {
+	statuses := []*loggingadmin.SnapshotStatus{}
+	d.mSnapshots.Lock()
+	defer d.mSnapshots.Unlock()
+	for _, s := range d.snapshots {
+		statuses = append(statuses, &loggingadmin.SnapshotStatus{
+			Ref:    s.GetRef(),
+			Status: "OK",
+		})
+	}
+	return &loggingadmin.SnapshotStatusList{
+		Statuses: statuses,
 	}, nil
 }
 

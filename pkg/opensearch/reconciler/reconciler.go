@@ -4,16 +4,19 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/opensearch-project/opensearch-go/opensearchutil"
 	"github.com/rancher/opni/pkg/opensearch/certs"
 	"github.com/rancher/opni/pkg/opensearch/dashboards"
 	"github.com/rancher/opni/pkg/opensearch/opensearch"
 	"github.com/rancher/opni/pkg/opensearch/opensearch/api"
+	oserrors "github.com/rancher/opni/pkg/opensearch/opensearch/errors"
 	"github.com/rancher/opni/pkg/opensearch/opensearch/types"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
@@ -1009,4 +1012,280 @@ func (r *Reconciler) MaybeDeleteRepository(name string) error {
 		return fmt.Errorf("failed to delete repository: %s", resp.String())
 	}
 	return nil
+}
+
+func (r *Reconciler) snapshotExists(name, repository string) (bool, error) {
+	resp, err := r.osClient.Snapshot.GetSnapshot(r.ctx, name, repository)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return false, nil
+	} else if resp.IsError() {
+		return false, fmt.Errorf("response from API is %s", resp.String())
+	}
+
+	return true, nil
+}
+
+func (r *Reconciler) CreateSnapshotAsync(name, repository string, settings types.SnapshotRequest) error {
+	exists, err := r.snapshotExists(name, repository)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return oserrors.ErrSnapshotAlreadyExsts
+	}
+
+	resp, err := r.osClient.Snapshot.CreateSnapshot(r.ctx, name, repository, opensearchutil.NewJSONReader(settings))
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.IsError() {
+		return fmt.Errorf("failed to create snapshot: %s", resp.String())
+	}
+	return nil
+}
+
+func (r *Reconciler) GetSnapshotState(name, repository string) (types.SnapshotState, string, error) {
+	resp, err := r.osClient.Snapshot.GetSnapshot(r.ctx, name, repository)
+	if err != nil {
+		return "", "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return "", "", fmt.Errorf("snapshot %s missing in repo %s: %w", name, repository, oserrors.ErrNotFound)
+	} else if resp.IsError() {
+		return "", "", fmt.Errorf("response from API is %s", resp.String())
+	}
+
+	snapshotResp := types.SnapshotResponse{}
+	err = json.NewDecoder(resp.Body).Decode(&snapshotResp)
+	if err != nil {
+		return "", "", err
+	}
+
+	snapshot := snapshotResp.Snapshots[0]
+
+	switch snapshot.State {
+	case types.SnapshotStateFailed, types.SnapshotStatePartial:
+		return snapshot.State, strings.Join(snapshot.Failures, "\n"), nil
+	default:
+		return snapshot.State, "", nil
+	}
+
+}
+
+func (r *Reconciler) GetSnapshotPolicy(name string) (types.SnapshotManagementResponse, error) {
+	policy := types.SnapshotManagementResponse{}
+
+	resp, err := r.osClient.Snapshot.GetSnapshotPolicy(r.ctx, name)
+	if err != nil {
+		return policy, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return policy, fmt.Errorf("could not find policy %s: %w", name, oserrors.ErrNotFound)
+	} else if resp.IsError() {
+		return policy, fmt.Errorf("response from API is %s", resp.String())
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&policy)
+	return policy, err
+}
+
+func (r *Reconciler) MaybeUpdateSnapshotPolicy(name string, policy types.SnapshotManagementRequest) error {
+	lg := log.FromContext(r.ctx)
+	oldPolicy, err := r.GetSnapshotPolicy(name)
+	if err != nil {
+		if !errors.Is(err, oserrors.ErrNotFound) {
+			return err
+		}
+		lg.Info("snapshot policy does not exist, creating")
+		resp, err := r.osClient.Snapshot.CreateSnapshotPolicy(r.ctx, name, opensearchutil.NewJSONReader(policy))
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		if resp.IsError() {
+			return fmt.Errorf("response from API is %s", resp.String())
+		}
+		return nil
+	}
+
+	if !r.snapshotPolicyNeedsUpdate(policy, oldPolicy.Policy) {
+		return nil
+	}
+
+	lg.Info("snapshot policy is different, updating")
+
+	resp, err := r.osClient.Snapshot.UpdateSnapshotPolicy(
+		r.ctx,
+		name,
+		oldPolicy.SeqNo,
+		oldPolicy.PrimaryTerm,
+		opensearchutil.NewJSONReader(policy),
+	)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.IsError() {
+		return fmt.Errorf("response from API is %s", resp.String())
+	}
+	return nil
+}
+
+func (r *Reconciler) MaybeDeleteSnapshotPolicy(name string) error {
+	_, err := r.GetSnapshotPolicy(name)
+	if err != nil {
+		if !errors.Is(err, oserrors.ErrNotFound) {
+			return fmt.Errorf("failed to check policy: %w", err)
+		}
+		return nil
+	}
+
+	resp, err := r.osClient.Snapshot.DeleteSnapshotPolicy(r.ctx, name)
+	if err != nil {
+		return fmt.Errorf("failed to delete policy: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.IsError() {
+		return fmt.Errorf("failed to delete policy: %s", resp.String())
+	}
+	return nil
+}
+
+func (r *Reconciler) NextSnapshotPolicyTrigger(name string) (time.Duration, error) {
+	resp, err := r.osClient.Snapshot.ExplainSnapshotPolicy(r.ctx, name)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	if resp.IsError() {
+		return 0, fmt.Errorf("response from API is %s", resp.String())
+	}
+
+	explain := types.SnapshotPolicyExplain{}
+	err = json.NewDecoder(resp.Body).Decode(&explain)
+	if err != nil {
+		return 0, err
+	}
+
+	if len(explain.Policies) != 1 {
+		return 0, errors.New("did not get exactly 1 policy")
+	}
+
+	duration := time.Until(explain.Policies[0].Creation.Trigger.Time.Time)
+	if duration <= 0 {
+		duration = time.Minute
+	}
+
+	return duration, nil
+}
+
+func (r *Reconciler) GetSnapshotPolicyLastExecution(name string) (*types.SnapshotPolicyExecution, error) {
+	resp, err := r.osClient.Snapshot.ExplainSnapshotPolicy(r.ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.IsError() {
+		return nil, fmt.Errorf("response from API is %s", resp.String())
+	}
+
+	explain := types.SnapshotPolicyExplain{}
+	err = json.NewDecoder(resp.Body).Decode(&explain)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(explain.Policies) != 1 {
+		return nil, errors.New("did not get exactly 1 policy")
+	}
+
+	return &explain.Policies[0].Creation.LatestExecution, nil
+}
+
+func (r *Reconciler) snapshotPolicyNeedsUpdate(new, current types.SnapshotManagementRequest) bool {
+	lg := log.FromContext(r.ctx)
+	if new.Description != current.Description {
+		lg.Info("description is different", "current", current.Description, "new", new.Description)
+		return true
+	}
+
+	if lo.FromPtrOr(new.Enabled, true) != lo.FromPtrOr(current.Enabled, true) {
+		lg.Info("enabled is different", "current", lo.FromPtrOr(current.Enabled, true), "new", lo.FromPtrOr(new.Enabled, true))
+		return true
+	}
+
+	if !reflect.DeepEqual(new.SnapshotConfig, current.SnapshotConfig) {
+		lg.Info(fmt.Sprintf("config is different; current %+v new %+v", current.Description, new.Description))
+		return true
+	}
+
+	if !reflect.DeepEqual(new.Creation, current.Creation) {
+		lg.Info(fmt.Sprintf("creation is different; current %+v new %+v", current.Creation, new.Creation))
+		return true
+	}
+
+	// Comparing the deletion policy needs some extra logic due to default values
+	if new.Deletion != nil {
+		if current.Deletion == nil {
+			return true
+		}
+
+		if new.Deletion.Schedule == nil {
+			if !reflect.DeepEqual(new.Creation.Schedule, current.Deletion.Schedule) {
+				lg.Info(fmt.Sprintf("deletion schedule is different; current %+v new %+v", current.Deletion.Schedule, new.Creation.Schedule))
+				return true
+			}
+		}
+
+		if lo.FromPtrOr(new.Deletion.Condition.MinCount, 1) != lo.FromPtrOr(current.Deletion.Condition.MinCount, 1) {
+			lg.Info(fmt.Sprintf(
+				"deletion min count is different; current %d new %d",
+				lo.FromPtrOr(current.Deletion.Condition.MinCount, 1),
+				lo.FromPtrOr(new.Deletion.Condition.MinCount, 1),
+			))
+			return true
+		}
+
+		if lo.FromPtr(new.Deletion.Condition.MaxCount) != lo.FromPtr(current.Deletion.Condition.MaxCount) {
+			lg.Info(fmt.Sprintf(
+				"deletion max count is different; current %d new %d",
+				lo.FromPtr(current.Deletion.Condition.MaxCount),
+				lo.FromPtr(new.Deletion.Condition.MaxCount),
+			))
+			return true
+		}
+
+		if new.Deletion.Condition.MaxAge != current.Deletion.Condition.MaxAge {
+			lg.Info(fmt.Sprintf("deletion max ageis different; current %s new %s", current.Deletion.Condition.MaxAge, new.Deletion.Condition.MaxAge))
+			return true
+		}
+
+		if new.Deletion.TimeLimit != current.Deletion.TimeLimit {
+			lg.Info(fmt.Sprintf("deletion time limit is different; current %s new %s", current.Deletion.TimeLimit, new.Deletion.TimeLimit))
+			return true
+		}
+
+		return false
+	}
+
+	lg.Info("new deletion is empty, but current isn't")
+	if !reflect.DeepEqual(new.Creation.Schedule, current.Deletion.Schedule) {
+		lg.Info(fmt.Sprintf("deletion schedule is different; current %+v new %+v", current.Deletion.Schedule, new.Creation.Schedule))
+		return true
+	}
+
+	return false
 }

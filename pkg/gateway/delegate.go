@@ -60,6 +60,7 @@ func (d *DelegateServer) HandleAgentConnection(ctx context.Context, clientSet ag
 			"id", id,
 			zap.Error(err),
 		).Error("internal error: failed to look up connecting agent")
+		d.mu.Unlock()
 		return
 	}
 

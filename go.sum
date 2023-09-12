@@ -818,8 +818,8 @@ github.com/dbason/featureflags v0.0.0-20220803034705-b6242a8d72b2 h1:GPBUVhDuyLG
 github.com/dbason/featureflags v0.0.0-20220803034705-b6242a8d72b2/go.mod h1:ew+9wAV4nyz0ZKybKcM4cMosZwggyAkzU3BU/wZxHTA=
 github.com/dbason/opensearch-go/v2 v2.0.0-20221202021211-6aec8f80bc41 h1:YhfKUAl5zCycdjDw8/nFN8wodEbaXzovvtMmaFDmWYE=
 github.com/dbason/opensearch-go/v2 v2.0.0-20221202021211-6aec8f80bc41/go.mod h1:Ny7Xx3xtC8YRYICmolmndYzxD8sTDFhJfgs3UW/IIj4=
-github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20230809020457-b60fd235fc1d h1:/qRYb8EAviWyGXHe258/CjTxURgI0sUncg1Equry5kc=
-github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20230809020457-b60fd235fc1d/go.mod h1:86ddHdDQGnMvWTg/KLD5VMpMuCJTwZXIW0oB9pzGA9U=
+github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20230911044558-c677eb01b26a h1:YTccp0Y/fdW1ot/3KunED3fpM1jsYN79F3/DjiQRwjs=
+github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20230911044558-c677eb01b26a/go.mod h1:86ddHdDQGnMvWTg/KLD5VMpMuCJTwZXIW0oB9pzGA9U=
 github.com/dbason/opentelemetry-collector-contrib/pkg/stanza v0.0.0-20230704041503-6f0f267c2d92 h1:6WUcdWI9zLMuIjGXPuxU0XCsO2S28teXBHEoooBzJFs=
 github.com/dbason/opentelemetry-collector-contrib/pkg/stanza v0.0.0-20230704041503-6f0f267c2d92/go.mod h1:Ah++gPjqLE2u+jVoAplt+dySHThvdXAgWn1se/fDVxw=
 github.com/decred/dcrd/crypto/blake256 v1.0.1/go.mod h1:2OfgNZ5wDpcsFmHmCK5gZTPcCXqlm2ArzUIkw9czNJo=

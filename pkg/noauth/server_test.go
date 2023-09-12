@@ -28,7 +28,7 @@ var _ = Describe("Server", Ordered, Label("integration", "slow"), func() {
 	BeforeAll(func() {
 		env := test.Environment{}
 		Expect(env.Start()).To(Succeed())
-		DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop, "Test Suite Finished")
 
 		client := env.NewManagementClient()
 		client.CreateRole(context.Background(), &corev1.Role{

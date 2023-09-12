@@ -134,7 +134,7 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 		By("starting test environment")
 		env = &test.Environment{}
 		Expect(env.Start()).To(Succeed())
-		DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop, "Test Suite Finished")
 
 		By("adding an agent")
 		managementClient := env.NewManagementClient()
@@ -150,8 +150,9 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 		Eventually(errC).Should(Receive(BeNil()))
 
 		cortexOpsClient := cortexops.NewCortexOpsClient(env.ManagementClientConn())
-		err = cortexops.InstallWithPreset(context.Background(), cortexOpsClient)
+		err = cortexops.InstallWithPreset(env.Context(), cortexOpsClient)
 		Expect(err).NotTo(HaveOccurred())
+		Expect(cortexops.WaitForReady(env.Context(), cortexOpsClient)).To(Succeed())
 
 		By("adding prometheus resources to k8s")
 		k8sctx, ca := context.WithCancel(waitctx.Background())

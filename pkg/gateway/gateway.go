@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 
@@ -326,9 +327,11 @@ func (g *Gateway) ListenAndServe(ctx context.Context) error {
 	e1 := lo.Async(func() error {
 		err := g.httpServer.ListenAndServe(ctx)
 		if err != nil {
-			lg.With(
-				zap.Error(err),
-			).Warn("http server exited with error")
+			if errors.Is(err, context.Canceled) {
+				lg.Info("http server stopped")
+			} else {
+				lg.With(zap.Error(err)).Warn("http server exited with error")
+			}
 		}
 		return err
 	})
@@ -337,9 +340,11 @@ func (g *Gateway) ListenAndServe(ctx context.Context) error {
 	e2 := lo.Async(func() error {
 		err := g.grpcServer.ListenAndServe(ctx)
 		if err != nil {
-			lg.With(
-				zap.Error(err),
-			).Warn("grpc server exited with error")
+			if errors.Is(err, context.Canceled) {
+				lg.Info("grpc server stopped")
+			} else {
+				lg.With(zap.Error(err)).Warn("grpc server exited with error")
+			}
 		}
 		return err
 	})

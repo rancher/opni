@@ -37,7 +37,7 @@ var _ = SynchronizedBeforeSuite(func() {
 }, func(ctx context.Context) {
 	env = &test.Environment{}
 	Expect(env.Start()).To(Succeed())
-	DeferCleanup(env.Stop)
+	DeferCleanup(env.Stop, "Test Suite Finished")
 	b = biloba.ConnectToChrome(GinkgoT())
 	webUrl = "http://" + env.GatewayConfig().Spec.Management.WebListenAddress
 	mgmtClient = env.NewManagementClient()

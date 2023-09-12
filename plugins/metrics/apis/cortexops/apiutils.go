@@ -37,6 +37,24 @@ func InstallWithPreset(ctx context.Context, client CortexOpsClient, presetId ...
 	return err
 }
 
+func WaitForReady(ctx context.Context, client CortexOpsClient) error {
+	var lastErr error
+	for ctx.Err() == nil {
+		var status *driverutil.InstallStatus
+		status, lastErr = client.Status(ctx, &emptypb.Empty{})
+		if lastErr != nil {
+			continue
+		}
+		if status.AppState != driverutil.ApplicationState_Running {
+			lastErr = fmt.Errorf("waiting for application state to be running; current state: %s", status.AppState.String())
+			continue
+		}
+		break
+	}
+
+	return lastErr
+}
+
 type SpecializedConfigServer = driverutil.ConfigServer[
 	*CapabilityBackendConfigSpec,
 	*ResetRequest,

@@ -48,7 +48,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		Eventually(errC).Should(Receive(BeNil()))
 
 		nodeClient = node.NewNodeConfigurationClient(env.ManagementClientConn())
-		DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop, "Test Suite Finished")
 	})
 
 	var getConfig = func(agentId string) (*node.MetricsCapabilitySpec, bool, error) {

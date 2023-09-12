@@ -518,9 +518,12 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 			*a.healthz &^= healthzGatewayNotConnected
 			a.healthzMu.Unlock()
 
-			lg.With(
-				zap.Error(errF.Get()), // this will block until an error is received
-			).Warn("disconnected from gateway")
+			err := errF.Get() // this will block until an error is received
+			if status.Code(err) == codes.Canceled {
+				lg.Info("gateway client stopped")
+			} else {
+				lg.With(zap.Error(errF.Get())).Warn("disconnected from gateway")
+			}
 
 			a.healthzMu.Lock()
 			*a.healthz |= healthzGatewayNotConnected
@@ -541,8 +544,5 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 		}
 		isRetry = true
 	}
-	lg.With(
-		zap.Error(ctx.Err()),
-	).Warn("shutting down gateway client")
 	return ctx.Err()
 }

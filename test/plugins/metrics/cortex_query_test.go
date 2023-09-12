@@ -45,8 +45,9 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 		Eventually(errC).Should(Receive(BeNil()))
 
 		opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
-		err = cortexops.InstallWithPreset(context.Background(), opsClient)
+		err = cortexops.InstallWithPreset(environment.Context(), opsClient)
 		Expect(err).NotTo(HaveOccurred())
+		Expect(cortexops.WaitForReady(environment.Context(), opsClient)).To(Succeed())
 
 		mgmtClient := environment.NewManagementClient()
 		resp, err := mgmtClient.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{

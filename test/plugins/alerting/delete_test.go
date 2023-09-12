@@ -35,7 +35,7 @@ var _ = Describe("Invalidated and clean up suite test", Ordered, Label("integrat
 		env = &test.Environment{}
 		Expect(env).NotTo(BeNil())
 		Expect(env.Start()).To(Succeed())
-		DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop, "Test Suite Finished")
 
 		alertopsClient := alertops.NewAlertingAdminClient(env.ManagementClientConn())
 		cortexOpsClient := cortexops.NewCortexOpsClient(env.ManagementClientConn())
@@ -43,8 +43,10 @@ var _ = Describe("Invalidated and clean up suite test", Ordered, Label("integrat
 		mgmtClient := env.NewManagementClient()
 		_, err := alertopsClient.InstallCluster(env.Context(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
-		err = cortexops.InstallWithPreset(context.Background(), cortexOpsClient)
+		err = cortexops.InstallWithPreset(env.Context(), cortexOpsClient)
 		Expect(err).NotTo(HaveOccurred())
+		Expect(cortexops.WaitForReady(env.Context(), cortexOpsClient)).To(Succeed())
+
 		certsInfo, err := mgmtClient.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
 		fingerprint := certsInfo.Chain[len(certsInfo.Chain)-1].Fingerprint

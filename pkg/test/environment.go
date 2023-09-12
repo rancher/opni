@@ -467,7 +467,19 @@ func (e *Environment) StartEmbeddedJetstream() (*nats.Conn, error) {
 	return nats.Connect(sUrl)
 }
 
-func (e *Environment) Stop() error {
+func (e *Environment) Stop(cause ...string) error {
+	lg := e.Logger
+	if lg == nil {
+		lg = testlog.Log
+	}
+	if len(cause) > 0 {
+		lg.With(
+			"cause", cause[0],
+		).Info("Stopping test environment")
+	} else {
+		lg.Info("Stopping test environment")
+	}
+
 	os.Unsetenv("NATS_SERVER_URL")
 	os.Unsetenv("NKEY_SEED_FILENAME")
 
@@ -921,7 +933,10 @@ func (e *Environment) UnsafeStartPrometheus(ctx waitctx.PermissiveContext, opniA
 
 	agent := e.GetAgent(opniAgentId)
 	if agent.Agent == nil {
-		panic("test bug: agent not found: " + opniAgentId)
+		if e.ctx.Err() != nil {
+			return 0, e.ctx.Err()
+		}
+		return 0, fmt.Errorf("agent %s not found", opniAgentId)
 	}
 
 	if err := t.Execute(configFile, prometheusTemplateOptions{
@@ -946,9 +961,7 @@ func (e *Environment) UnsafeStartPrometheus(ctx waitctx.PermissiveContext, opniA
 	plugins.ConfigureSysProcAttr(cmd)
 	session, err := testutil.StartCmd(cmd)
 	if err != nil {
-		if !errors.Is(ctx.Err(), context.Canceled) {
-			return 0, err
-		}
+		return 0, fmt.Errorf("failed to start prometheus: %w", err)
 	}
 	lg.Info("Waiting for prometheus to start...")
 	for {
@@ -1778,9 +1791,11 @@ func (e *Environment) startGateway() {
 		waitctx.AddOne(e.ctx)
 		defer waitctx.Done(e.ctx)
 		if err := e.managementServer.ListenAndServe(e.ctx); err != nil {
-			lg.With(
-				zap.Error(err),
-			).Warn("management server exited with error")
+			if errors.Is(err, context.Canceled) {
+				lg.Info("management server stopped")
+			} else {
+				lg.With(zap.Error(err)).Warn("management server exited with error")
+			}
 		}
 	}))
 
@@ -1788,9 +1803,11 @@ func (e *Environment) startGateway() {
 		waitctx.AddOne(e.ctx)
 		defer waitctx.Done(e.ctx)
 		if err := g.ListenAndServe(e.ctx); err != nil {
-			lg.With(
-				zap.Error(err),
-			).Warn("gateway server exited with error")
+			if errors.Is(err, context.Canceled) {
+				lg.Info("gateway stopped")
+			} else {
+				lg.With(zap.Error(err)).Warn("gateway server exited with error")
+			}
 		}
 	}))
 
@@ -2055,7 +2072,11 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		mu.Unlock()
 		errC <- nil
 		if err := a.ListenAndServe(options.ctx); err != nil {
-			testlog.Log.Errorf("agent %q exited: %v", id, err)
+			if errors.Is(err, context.Canceled) {
+				testlog.Log.Infof("agent %q stopped", id)
+			} else {
+				testlog.Log.With(zap.Error(err)).Error("agent exited with error")
+			}
 		}
 		e.runningAgentsMu.Lock()
 		delete(e.runningAgents, id)

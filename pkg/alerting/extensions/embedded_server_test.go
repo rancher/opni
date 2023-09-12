@@ -110,7 +110,7 @@ func BuildEmbeddedServerNotificationTests(
 			env = &test.Environment{}
 			Expect(env).NotTo(BeNil())
 			Expect(env.Start()).To(Succeed())
-			DeferCleanup(env.Stop)
+			DeferCleanup(env.Stop, "Test Suite Finished")
 			tmpConfigDir = env.GenerateNewTempDirectory("alertmanager-config")
 			err := os.MkdirAll(tmpConfigDir, 0755)
 			Expect(err).NotTo(HaveOccurred())

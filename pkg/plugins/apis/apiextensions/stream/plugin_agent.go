@@ -166,6 +166,8 @@ func (e *agentStreamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectS
 	err = <-errC
 	if errors.Is(err, io.EOF) {
 		e.logger.Debug("stream disconnected")
+	} else if status.Code(err) == codes.Canceled {
+		e.logger.Debug("stream closed")
 	} else {
 		e.logger.With(
 			zap.Error(err),

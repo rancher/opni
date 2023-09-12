@@ -85,6 +85,10 @@ func NewJetStreamStore(ctx context.Context, conf *v1beta1.JetStreamStorageSpec, 
 		nats.MaxReconnects(-1),
 		nats.RetryOnFailedConnect(true),
 		nats.DisconnectErrHandler(func(c *nats.Conn, err error) {
+			if err == nil {
+				lg.Debug("jetstream client closed")
+				return
+			}
 			lg.With(
 				zap.Error(err),
 			).Warn("disconnected from jetstream")

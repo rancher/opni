@@ -56,9 +56,7 @@ func (s *RuleStreamer) Run(ctx context.Context, config *v1beta1.RulesSpec, finde
 			var docs [][]byte
 			select {
 			case <-ctx.Done():
-				lg.With(
-					zap.Error(ctx.Err()),
-				).Debug("rule discovery stream closing")
+				lg.Debug("rule discovery stream closed")
 				return
 			case docs = <-pending:
 			}
@@ -106,9 +104,7 @@ func (s *RuleStreamer) Run(ctx context.Context, config *v1beta1.RulesSpec, finde
 	for {
 		select {
 		case <-ctx.Done():
-			lg.With(
-				zap.Error(ctx.Err()),
-			).Warn("rule discovery stream closing")
+			lg.Debug("rule discovery stream closed")
 			return nil
 		case yamlDocs, ok := <-updateC:
 			if !ok {

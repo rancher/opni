@@ -40,7 +40,7 @@ var _ = BeforeSuite(func() {
 
 		lmsEtcdF.Set(lmsE)
 		// lmsJetstreamF.Set(lmsJ)
-		DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop, "Test Suite Finished")
 	})
 })
 

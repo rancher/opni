@@ -83,8 +83,9 @@ var _ = Describe("Tenant Impersonation", Ordered, Label("integration"), func() {
 		agent2Port, errC := env.StartAgent("agent2", token, []string{fp}, test.WithAgentVersion("v2"))
 		Eventually(errC).Should(Receive(BeNil()))
 
-		err = cortexops.InstallWithPreset(context.Background(), cortexOpsClient)
+		err = cortexops.InstallWithPreset(env.Context(), cortexOpsClient)
 		Expect(err).NotTo(HaveOccurred())
+		Expect(cortexops.WaitForReady(env.Context(), cortexOpsClient)).To(Succeed())
 
 		_, err = mgmtClient.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
 			Name: "metrics",
@@ -103,18 +104,18 @@ var _ = Describe("Tenant Impersonation", Ordered, Label("integration"), func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		agent1RwClient, err = remote.NewWriteClient("agent1", &remote.ClientConfig{
-			URL:     &config.URL{util.Must(url.Parse(fmt.Sprintf("http://127.0.0.1:%d/api/agent/push", agent1Port)))},
+			URL:     &config.URL{URL: util.Must(url.Parse(fmt.Sprintf("http://127.0.0.1:%d/api/agent/push", agent1Port)))},
 			Timeout: model.Duration(time.Second * 10),
 		})
 		Expect(err).NotTo(HaveOccurred())
 
 		agent2RwClient, err = remote.NewWriteClient("agent2", &remote.ClientConfig{
-			URL:     &config.URL{util.Must(url.Parse(fmt.Sprintf("http://127.0.0.1:%d/api/agent/push", agent2Port)))},
+			URL:     &config.URL{URL: util.Must(url.Parse(fmt.Sprintf("http://127.0.0.1:%d/api/agent/push", agent2Port)))},
 			Timeout: model.Duration(time.Second * 10),
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop, "Test Suite Finished")
 	})
 	When("timeseries are pushed to the remote write service", func() {
 		When("the client has the required session attribute", func() {

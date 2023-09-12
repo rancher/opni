@@ -115,11 +115,12 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 	BeforeAll(func() {
 		env = &test.Environment{}
 		Expect(env.Start()).To(Succeed())
-		DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop, "Test Suite Finished")
 
 		opsClient := cortexops.NewCortexOpsClient(env.ManagementClientConn())
-		err := cortexops.InstallWithPreset(context.Background(), opsClient)
+		err := cortexops.InstallWithPreset(env.Context(), opsClient)
 		Expect(err).NotTo(HaveOccurred())
+		Expect(cortexops.WaitForReady(env.Context(), opsClient)).To(Succeed())
 
 		client := env.NewManagementClient()
 		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{

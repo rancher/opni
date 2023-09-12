@@ -561,10 +561,6 @@ HTTP handlers for this method:
 func (in *CapabilityBackendConfigSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("CapabilityBackendConfigSpec", pflag.ExitOnError)
 	fs.SortFlags = true
-	if in.CortexWorkloads == nil {
-		in.CortexWorkloads = &CortexWorkloadsConfig{}
-	}
-	fs.AddFlagSet(in.CortexWorkloads.FlagSet(append(prefix, "cortex-workloads")...))
 	if in.CortexConfig == nil {
 		in.CortexConfig = &CortexApplicationConfig{}
 	}
@@ -600,12 +596,6 @@ func (in *CapabilityBackendConfigSpec) UnredactSecrets(unredacted *CapabilityBac
 		return nil
 	}
 	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
-}
-
-func (in *CortexWorkloadsConfig) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("CortexWorkloadsConfig", pflag.ExitOnError)
-	fs.SortFlags = true
-	return fs
 }
 
 func (in *CortexApplicationConfig) FlagSet(prefix ...string) *pflag.FlagSet {
@@ -670,12 +660,6 @@ func (in *GrafanaConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.Var(flagutil.BoolPtrValue(flagutil.Ptr(false), &in.Enabled), strings.Join(append(prefix, "enabled"), "."), "Whether to deploy a managed Grafana instance.")
 	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("latest"), &in.Version), strings.Join(append(prefix, "version"), "."), "The version of Grafana to deploy.")
 	fs.Var(flagutil.StringPtrValue(nil, &in.Hostname), strings.Join(append(prefix, "hostname"), "."), "")
-	return fs
-}
-
-func (in *ResetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("ResetRequest", pflag.ExitOnError)
-	fs.SortFlags = true
 	return fs
 }
 

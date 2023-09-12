@@ -53,7 +53,7 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 		return k8sutil.Requeue().ResultPtr()
 	}
 
-	configs, err := r.config()
+	configs, configDigest, err := r.config()
 	if err != nil {
 		return k8sutil.RequeueErr(err).ResultPtr()
 	}
@@ -65,7 +65,7 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 	serviceAccount := r.serviceAccount()
 	allResources = append(allResources, serviceAccount)
 
-	workloads := r.cortexWorkloads()
+	workloads := r.cortexWorkloads(configDigest)
 	allResources = append(allResources, workloads...)
 
 	services := r.services()

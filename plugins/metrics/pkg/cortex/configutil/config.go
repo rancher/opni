@@ -212,6 +212,7 @@ func newAutomaticHAOverrides() []CortexConfigOverrider {
 				in.JoinAfter = 10 * time.Second
 				in.ObservePeriod = 10 * time.Second
 			}
+			in.ID = ""
 			return true
 		}),
 		NewOverrider(func(in *ring.Config) bool {
@@ -234,6 +235,10 @@ func newAutomaticHAOverrides() []CortexConfigOverrider {
 			}
 			return true
 		}),
+		NewOverrider(func(in *ruler.RingConfig) bool {
+			in.InstanceID = ""
+			return true
+		}),
 		NewOverrider(func(in *storegateway.Config) bool {
 			switch detectedMode {
 			case aio:
@@ -252,6 +257,7 @@ func newAutomaticHAOverrides() []CortexConfigOverrider {
 					in.ReplicationFactor = 3
 				}
 			}
+			in.InstanceID = ""
 			return true
 		}),
 		NewOverrider(func(in *alertmanager.RingConfig) bool {
@@ -263,12 +269,25 @@ func newAutomaticHAOverrides() []CortexConfigOverrider {
 					in.ReplicationFactor = 3
 				}
 			}
+			in.InstanceID = ""
+			return true
+		}),
+		NewOverrider(func(in *compactor.RingConfig) bool {
+			in.InstanceID = ""
+			return true
+		}),
+		NewOverrider(func(in *distributor.RingConfig) bool {
+			in.InstanceID = ""
 			return true
 		}),
 		NewOverrider(func(in *alertmanager.MultitenantAlertmanagerConfig) bool {
 			if detectedMode == ha {
 				in.ShardingEnabled = true
 			}
+			return true
+		}),
+		NewOverrider(func(t *worker.Config) bool {
+			t.QuerierID = ""
 			return true
 		}),
 		NewOverrider(func(in *compactor.Config) bool {
@@ -421,8 +440,8 @@ func CortexAPISpecToCortexConfig[T cortexspec](
 		return nil, nil, err
 	}
 	applyCortexConfigOverrides(&config, newStorageOverrides(&storageConfig))
-	applyCortexConfigOverrides(&config, newAutomaticHAOverrides())
 	applyCortexConfigOverrides(&config, overriders)
+	applyCortexConfigOverrides(&config, newAutomaticHAOverrides())
 
 	var rtConfig cortex.RuntimeConfigValues
 	if err := LoadFromAPI(&rtConfig, in.GetRuntimeConfig()); err != nil {

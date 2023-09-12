@@ -17,8 +17,8 @@ type ClusterDriver interface {
 	UpgradeAvailable(ctx context.Context, opniVersion string) (bool, error)
 	DoUpgrade(ctx context.Context, opniVersion string) error
 	GetStorageClasses(context.Context) ([]string, error)
-	CreateOrUpdateSnapshotSchedule(ctx context.Context, snapshot *loggingadmin.SnapshotSchedule) error
-	GetSnapshotSchedule(ctx context.Context, ref *loggingadmin.SnapshotReference) (*loggingadmin.SnapshotSchedule, error)
+	CreateOrUpdateSnapshotSchedule(ctx context.Context, snapshot *loggingadmin.SnapshotSchedule, defaultIndices []string) error
+	GetSnapshotSchedule(ctx context.Context, ref *loggingadmin.SnapshotReference, defaultIndices []string) (*loggingadmin.SnapshotSchedule, error)
 	DeleteSnapshotSchedule(ctx context.Context, ref *loggingadmin.SnapshotReference) error
 	ListAllSnapshotSchedules(ctx context.Context) (*loggingadmin.SnapshotStatusList, error)
 }

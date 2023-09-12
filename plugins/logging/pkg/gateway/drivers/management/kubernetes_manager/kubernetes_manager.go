@@ -20,6 +20,7 @@ import (
 	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
 	loggingerrors "github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/management"
+	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -415,7 +416,11 @@ func (d *KubernetesManagerDriver) GetStorageClasses(ctx context.Context) ([]stri
 	return storageClassNames, nil
 }
 
-func (d *KubernetesManagerDriver) CreateOrUpdateSnapshotSchedule(ctx context.Context, snapshot *loggingadmin.SnapshotSchedule) error {
+func (d *KubernetesManagerDriver) CreateOrUpdateSnapshotSchedule(
+	ctx context.Context,
+	snapshot *loggingadmin.SnapshotSchedule,
+	defaultIndices []string,
+) error {
 	repo := &loggingv1beta1.OpensearchRepository{}
 	err := d.K8sClient.Get(ctx, types.NamespacedName{
 		Name:      d.OpensearchCluster.Name,
@@ -430,12 +435,13 @@ func (d *KubernetesManagerDriver) CreateOrUpdateSnapshotSchedule(ctx context.Con
 		return k8sutilerrors.GRPCFromK8s(err)
 	}
 
-	return d.createOrUpdateRecurringSnapshot(ctx, snapshot, repo)
+	return d.createOrUpdateRecurringSnapshot(ctx, snapshot, defaultIndices, repo)
 }
 
 func (d *KubernetesManagerDriver) GetSnapshotSchedule(
 	ctx context.Context,
 	ref *loggingadmin.SnapshotReference,
+	defaultIndices []string,
 ) (*loggingadmin.SnapshotSchedule, error) {
 	snapshot := &loggingv1beta1.RecurringSnapshot{}
 	err := d.K8sClient.Get(ctx, types.NamespacedName{
@@ -464,7 +470,7 @@ func (d *KubernetesManagerDriver) GetSnapshotSchedule(
 				MaxSnapshots: snapshot.Spec.Retention.MaxCount,
 			}
 		}(),
-		AdditionalIndices: defaultIndices.RemoveFromSlice(snapshot.Spec.Snapshot.Indices),
+		AdditionalIndices: loggingutil.RemoveFromSlice(snapshot.Spec.Snapshot.Indices, defaultIndices),
 	}, nil
 }
 

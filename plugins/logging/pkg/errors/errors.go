@@ -12,6 +12,7 @@ var (
 	ErrInvalidList             = utilerrors.New(codes.FailedPrecondition, errors.New("list did not return exactly 1 result"))
 	ErrInvalidPersistence      = utilerrors.New(codes.InvalidArgument, errors.New("invalid persistence config"))
 	ErrInvalidDataPersistence  = utilerrors.New(codes.InvalidArgument, errors.New("minimum of 2 data nodes required if no persistent storage"))
+	ErrInvalidUpgradeOptions   = utilerrors.New(codes.InvalidArgument, errors.New("upgrade options not valid with current cluster config"))
 	ErrClusterIDMissing        = utilerrors.New(codes.InvalidArgument, errors.New("request does not include cluster ID"))
 	ErrOpensearchResponse      = utilerrors.New(codes.Unavailable, errors.New("opensearch request unsuccessful"))
 	ErrNoOpensearchClient      = utilerrors.New(codes.Unavailable, errors.New("opensearch client is not set"))
@@ -27,4 +28,8 @@ var (
 
 func WrappedGetPrereqFailed(inner error) *utilerrors.GRPCError {
 	return utilerrors.New(codes.FailedPrecondition, fmt.Errorf("failed to get required object: %w", inner))
+}
+
+func WrappedOpensearchFailure(inner error) *utilerrors.GRPCError {
+	return utilerrors.New(codes.Internal, fmt.Errorf("error communicating with opensearch: %w", inner))
 }

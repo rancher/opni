@@ -41,7 +41,7 @@ type LoggingAdminV2Client interface {
 	DeleteOpensearchCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CreateOrUpdateOpensearchCluster(ctx context.Context, in *OpensearchClusterV2, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	UpgradeAvailable(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UpgradeAvailableResponse, error)
-	DoUpgrade(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DoUpgrade(ctx context.Context, in *UpgradeOptions, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetStorageClasses(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*StorageClassResponse, error)
 	GetOpensearchStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*StatusResponse, error)
 	CreateOrUpdateSnapshotSchedule(ctx context.Context, in *SnapshotSchedule, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -94,7 +94,7 @@ func (c *loggingAdminV2Client) UpgradeAvailable(ctx context.Context, in *emptypb
 	return out, nil
 }
 
-func (c *loggingAdminV2Client) DoUpgrade(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *loggingAdminV2Client) DoUpgrade(ctx context.Context, in *UpgradeOptions, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, LoggingAdminV2_DoUpgrade_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -165,7 +165,7 @@ type LoggingAdminV2Server interface {
 	DeleteOpensearchCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	CreateOrUpdateOpensearchCluster(context.Context, *OpensearchClusterV2) (*emptypb.Empty, error)
 	UpgradeAvailable(context.Context, *emptypb.Empty) (*UpgradeAvailableResponse, error)
-	DoUpgrade(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	DoUpgrade(context.Context, *UpgradeOptions) (*emptypb.Empty, error)
 	GetStorageClasses(context.Context, *emptypb.Empty) (*StorageClassResponse, error)
 	GetOpensearchStatus(context.Context, *emptypb.Empty) (*StatusResponse, error)
 	CreateOrUpdateSnapshotSchedule(context.Context, *SnapshotSchedule) (*emptypb.Empty, error)
@@ -191,7 +191,7 @@ func (UnimplementedLoggingAdminV2Server) CreateOrUpdateOpensearchCluster(context
 func (UnimplementedLoggingAdminV2Server) UpgradeAvailable(context.Context, *emptypb.Empty) (*UpgradeAvailableResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpgradeAvailable not implemented")
 }
-func (UnimplementedLoggingAdminV2Server) DoUpgrade(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (UnimplementedLoggingAdminV2Server) DoUpgrade(context.Context, *UpgradeOptions) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DoUpgrade not implemented")
 }
 func (UnimplementedLoggingAdminV2Server) GetStorageClasses(context.Context, *emptypb.Empty) (*StorageClassResponse, error) {
@@ -298,7 +298,7 @@ func _LoggingAdminV2_UpgradeAvailable_Handler(srv interface{}, ctx context.Conte
 }
 
 func _LoggingAdminV2_DoUpgrade_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(UpgradeOptions)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -310,7 +310,7 @@ func _LoggingAdminV2_DoUpgrade_Handler(srv interface{}, ctx context.Context, dec
 		FullMethod: LoggingAdminV2_DoUpgrade_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LoggingAdminV2Server).DoUpgrade(ctx, req.(*emptypb.Empty))
+		return srv.(LoggingAdminV2Server).DoUpgrade(ctx, req.(*UpgradeOptions))
 	}
 	return interceptor(ctx, in, info, handler)
 }

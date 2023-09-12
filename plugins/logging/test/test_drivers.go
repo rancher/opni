@@ -100,7 +100,7 @@ func (d *MockManagementDriver) GetStorageClasses(context.Context) ([]string, err
 	}, nil
 }
 
-func (d *MockManagementDriver) CreateOrUpdateSnapshotSchedule(_ context.Context, snapshot *loggingadmin.SnapshotSchedule) error {
+func (d *MockManagementDriver) CreateOrUpdateSnapshotSchedule(_ context.Context, snapshot *loggingadmin.SnapshotSchedule, _ []string) error {
 	d.mSnapshots.Lock()
 	defer d.mSnapshots.Unlock()
 	d.snapshots[snapshot.GetRef().GetName()] = snapshot
@@ -110,6 +110,7 @@ func (d *MockManagementDriver) CreateOrUpdateSnapshotSchedule(_ context.Context,
 func (d *MockManagementDriver) GetSnapshotSchedule(
 	_ context.Context,
 	ref *loggingadmin.SnapshotReference,
+	_ []string,
 ) (*loggingadmin.SnapshotSchedule, error) {
 	d.mSnapshots.Lock()
 	defer d.mSnapshots.Unlock()

@@ -28,6 +28,13 @@ const (
 	giBytes = 1073741824
 )
 
+var (
+	defaultIndices = []string{
+		"logs*",
+		"some-other-index",
+	}
+)
+
 func createRequest() *loggingadmin.OpensearchClusterV2 {
 	return &loggingadmin.OpensearchClusterV2{
 		ExternalURL:   "https://test.example.com",
@@ -1210,7 +1217,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 						Ref: &loggingadmin.SnapshotReference{
 							Name: "test",
 						},
-					})
+					}, defaultIndices)
 					Expect(err).To(HaveOccurred())
 				})
 			})
@@ -1285,7 +1292,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 							Name: "test-recurring",
 						},
 						CronSchedule: "00 * * * *",
-					})
+					}, defaultIndices)
 					Expect(err).NotTo(HaveOccurred())
 					Eventually(Object(&loggingv1beta1.RecurringSnapshot{
 						ObjectMeta: metav1.ObjectMeta{
@@ -1301,7 +1308,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 				It("should succeed", func() {
 					s, err := manager.GetSnapshotSchedule(context.Background(), &loggingadmin.SnapshotReference{
 						Name: "test-recurring",
-					})
+					}, defaultIndices)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(s.GetCronSchedule()).To(Equal("00 * * * *"))
 				})
@@ -1316,7 +1323,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 						AdditionalIndices: []string{
 							"test",
 						},
-					})
+					}, defaultIndices)
 					Expect(err).NotTo(HaveOccurred())
 					s := &loggingv1beta1.RecurringSnapshot{}
 					Eventually(func() bool {
@@ -1338,7 +1345,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 							"foo",
 							"bar",
 						},
-					})
+					}, defaultIndices)
 					Expect(err).NotTo(HaveOccurred())
 					s := &loggingv1beta1.RecurringSnapshot{}
 					Eventually(func() bool {
@@ -1353,7 +1360,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 				It("should only return the extra indices when fetched", func() {
 					s, err := manager.GetSnapshotSchedule(context.Background(), &loggingadmin.SnapshotReference{
 						Name: "test-recurring",
-					})
+					}, defaultIndices)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(s.GetAdditionalIndices()).To(Equal([]string{"test"}))
 				})

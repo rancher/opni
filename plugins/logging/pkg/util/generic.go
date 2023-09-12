@@ -56,3 +56,17 @@ func (c *AsyncClient[T]) SetClient(client T) {
 		c.initCond.Broadcast()
 	}
 }
+
+func RemoveFromSlice[T comparable](original, toRemove []T) []T {
+	hashRemove := make(map[T]bool, len(toRemove))
+	for _, element := range toRemove {
+		hashRemove[element] = true
+	}
+	retSlice := make([]T, 0, len(original))
+	for _, element := range original {
+		if ok := hashRemove[element]; !ok {
+			retSlice = append(retSlice, element)
+		}
+	}
+	return retSlice
+}

@@ -54,6 +54,11 @@ func ClusterStatusDescription(s ClusterStatus, extraInfo ...string) string {
 	}
 }
 
+var defaultIndices = []string{
+	"logs*",
+	"opni-cluster-metadata",
+}
+
 type LoggingManagerV2 struct {
 	loggingadmin.UnsafeLoggingAdminV2Server
 	managementDriver  management.ClusterDriver
@@ -64,6 +69,7 @@ type LoggingManagerV2 struct {
 	otelForwarder     *otel.OTELForwarder
 	storageNamespace  string
 	natsRef           *corev1.LocalObjectReference
+	k8sObjectsName    string
 }
 
 func (m *LoggingManagerV2) GetOpensearchCluster(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.OpensearchClusterV2, error) {
@@ -144,10 +150,25 @@ func (m *LoggingManagerV2) UpgradeAvailable(ctx context.Context, _ *emptypb.Empt
 	}, nil
 }
 
-func (m *LoggingManagerV2) DoUpgrade(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (m *LoggingManagerV2) DoUpgrade(ctx context.Context, options *loggingadmin.UpgradeOptions) (*emptypb.Empty, error) {
 	version := strings.TrimPrefix(versions.Version, "v")
 	if version == "unversioned" {
 		version = defaultOpniVersion
+	}
+
+	if options.SnapshotCluster {
+		cluster, err := m.managementDriver.GetCluster(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if cluster.GetS3() == nil {
+			return nil, loggingerrors.ErrInvalidUpgradeOptions
+		}
+
+		err = m.opensearchManager.DoSnapshot(ctx, m.k8sObjectsName, defaultIndices)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	err := m.managementDriver.DoUpgrade(ctx, version)
@@ -224,7 +245,7 @@ func (m *LoggingManagerV2) CreateOrUpdateSnapshotSchedule(
 		return nil, loggingerrors.ErrInvalidDuration
 	}
 
-	err := m.managementDriver.CreateOrUpdateSnapshotSchedule(ctx, snapshot)
+	err := m.managementDriver.CreateOrUpdateSnapshotSchedule(ctx, snapshot, defaultIndices)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +257,7 @@ func (m *LoggingManagerV2) GetSnapshotSchedule(
 	ctx context.Context,
 	ref *loggingadmin.SnapshotReference,
 ) (*loggingadmin.SnapshotSchedule, error) {
-	snapshot, err := m.managementDriver.GetSnapshotSchedule(ctx, ref)
+	snapshot, err := m.managementDriver.GetSnapshotSchedule(ctx, ref, defaultIndices)
 	if err != nil {
 		return nil, err
 	}

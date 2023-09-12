@@ -60,7 +60,7 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc 
 
 		resp, err := m.Client.Indices.AsyncDeleteByQuery(ctx, []string{"logs"}, strings.NewReader(query))
 		if err != nil {
-			return err
+			return loggingerrors.WrappedOpensearchFailure(err)
 		}
 		defer resp.Body.Close()
 

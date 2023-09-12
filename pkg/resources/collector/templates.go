@@ -117,7 +117,7 @@ filelog/kubeauditlogs:
       layout: '%Y-%m-%dT%H:%M:%S.%LZ'
   - type: add
     field: attributes.log_type
-    value: controlplane
+    value: auditlog
   - type: add
     field: attributes.kubernetes_component
     value: kubeauditlogs

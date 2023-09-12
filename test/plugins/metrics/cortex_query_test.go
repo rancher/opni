@@ -28,6 +28,7 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 	BeforeAll(func() {
 		environment = &test.Environment{}
 		Expect(environment.Start()).To(Succeed())
+		DeferCleanup(environment.Stop)
 		client := environment.NewManagementClient()
 
 		certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
@@ -54,10 +55,14 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 				Cluster: &corev1.Reference{
 					Id: agentId,
 				},
+				IgnoreWarnings: true,
 			},
 		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(resp.Status).To(Equal(capabilityv1.InstallResponseStatus_Success), resp.Message)
+		Expect(resp.Status).To(Or(
+			Equal(capabilityv1.InstallResponseStatus_Success),
+			Equal(capabilityv1.InstallResponseStatus_Warning),
+		), resp.Message)
 
 		adminClient = cortexadmin.NewCortexAdminClient(environment.ManagementClientConn())
 
@@ -72,8 +77,6 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 			Subjects: []string{userId},
 		})
 		Expect(err).NotTo(HaveOccurred())
-
-		DeferCleanup(environment.Stop)
 	})
 
 	It("should be able to query metrics from cortex", func() {

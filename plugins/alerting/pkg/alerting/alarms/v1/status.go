@@ -17,9 +17,9 @@ import (
 	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
-	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
@@ -58,13 +58,13 @@ func (a *AlarmServerComponent) checkMetricsClusterStatus(
 	coreInfo *coreInfo,
 	metricsInfo *metricsInfo,
 ) *alertingv1.AlertStatusResponse {
-	if metricsInfo.metricsBackendStatus.InstallState == cortexops.InstallState_NotInstalled {
+	if metricsInfo.metricsBackendStatus.InstallState == driverutil.InstallState_NotInstalled {
 		return &alertingv1.AlertStatusResponse{
 			State:  alertingv1.AlertConditionState_Invalidated,
 			Reason: "metrics backend not installed",
 		}
 	}
-	if metricsInfo.metricsBackendStatus.AppState != cortexops.ApplicationState_Running {
+	if metricsInfo.metricsBackendStatus.AppState != driverutil.ApplicationState_Running {
 		return &alertingv1.AlertStatusResponse{
 			State:  alertingv1.AlertConditionState_Pending,
 			Reason: "metrics backend is not yet running",
@@ -221,12 +221,12 @@ func (a *AlarmServerComponent) loadMetricsInfo(ctx context.Context) (*metricsInf
 	}
 	metricsBackendStatus, err := cortexOpsClient.Status(ctx, &emptypb.Empty{})
 	if util.StatusCode(err) == codes.Unavailable || util.StatusCode(err) == codes.Unimplemented {
-		metricsBackendStatus = &cortexops.InstallStatus{}
+		metricsBackendStatus = &driverutil.InstallStatus{}
 	} else if err != nil {
 		return nil, err
 	}
 	var crs *cortexadmin.RuleGroups
-	if metricsBackendStatus.AppState == cortexops.ApplicationState_Running {
+	if metricsBackendStatus.AppState == driverutil.ApplicationState_Running {
 		cortexAdminClient, err := a.adminClient.GetContext(ctx)
 		if err != nil {
 			return nil, err
@@ -281,7 +281,7 @@ type coreInfo struct {
 }
 
 type metricsInfo struct {
-	metricsBackendStatus *cortexops.InstallStatus
+	metricsBackendStatus *driverutil.InstallStatus
 	cortexRules          *cortexadmin.RuleGroups
 }
 

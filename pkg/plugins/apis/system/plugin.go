@@ -208,9 +208,7 @@ func (s *systemPluginHandler) ServeNodeManagerServer(api capabilityv1.NodeManage
 }
 
 func (s *systemPluginHandler) ServeKeyValueStore(store storage.KeyValueStore) {
-	kvStoreSrv := &kvStoreServer{
-		store: store,
-	}
+	kvStoreSrv := NewKVStoreServer(store)
 	s.serveSystemApi(
 		func(srv *grpc.Server) {
 			RegisterKeyValueStoreServer(srv, kvStoreSrv)

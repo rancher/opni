@@ -9,9 +9,16 @@ import (
 	"google.golang.org/protobuf/runtime/protoimpl"
 )
 
-var ErrNotFound = status.Error(codes.NotFound, "not found")
-var ErrAlreadyExists = status.Error(codes.AlreadyExists, "already exists")
-var ErrConflict = lo.Must(status.New(codes.Aborted, "conflict").WithDetails(ErrDetailsConflict)).Err()
+var (
+	ErrNotFound      = status.Error(codes.NotFound, "not found")
+	ErrAlreadyExists = status.Error(codes.AlreadyExists, "already exists")
+	ErrConflict      = lo.Must(status.New(codes.Aborted, "conflict").WithDetails(ErrDetailsConflict)).Err()
+)
+
+var (
+	ErrDetailsConflict      = &errdetails.ErrorInfo{Reason: "CONFLICT"}
+	ErrDetailsDiscontinuity = &errdetails.ErrorInfo{Reason: "DISCONTINUITY"}
+)
 
 // Use this instead of errors.Is(err, ErrNotFound). The implementation of Is()
 // for grpc status errors compares the error message, which can result in false negatives.
@@ -41,4 +48,15 @@ func IsConflict(err error) bool {
 	return false
 }
 
-var ErrDetailsConflict = &errdetails.ErrorInfo{Reason: "CONFLICT"}
+func IsDiscontinuity(err error) bool {
+	stat := status.Convert(err)
+	if stat.Code() == codes.OK {
+		return false
+	}
+	for _, detail := range stat.Details() {
+		if info, ok := detail.(*errdetails.ErrorInfo); ok && info.Reason == "DISCONTINUITY" {
+			return true
+		}
+	}
+	return false
+}

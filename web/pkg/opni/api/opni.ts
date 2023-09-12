@@ -1,7 +1,7 @@
 import * as CortexOpsService from '@pkg/opni/generated/github.com/rancher/opni/plugins/metrics/apis/cortexops/cortexops_svc';
 import * as CortexOpsTypes from '@pkg/opni/generated/github.com/rancher/opni/plugins/metrics/apis/cortexops/cortexops_pb';
 import * as StorageTypes from '@pkg/opni/generated/github.com/rancher/opni/internal/cortex/config/storage/storage_pb';
-import * as DryRunTypes from '@pkg/opni/generated/github.com/rancher/opni/pkg/plugins/driverutil/dryrun_pb';
+import * as DryRunTypes from '@pkg/opni/generated/github.com/rancher/opni/pkg/plugins/driverutil/types_pb';
 
 export const CortexOps = {
   service: CortexOpsService,

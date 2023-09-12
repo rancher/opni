@@ -4,8 +4,10 @@ package ext;
 
 import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "github.com/rancher/opni/pkg/plugins/driverutil/types.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/field_mask.proto";
 
 option go_package = "github.com/rancher/opni/pkg/test/testdata/plugins/ext";
 option (cli.generator) = {
@@ -129,10 +131,94 @@ message BazRequest {
 }
 
 message SampleConfiguration {
-  core.Revision       revision      = 1 [(cli.flag).skip = true];
-  optional string     stringField   = 2;
-  optional string     secretField   = 3 [(cli.flag).secret = true];
-  map<string, string> mapField      = 4;
-  repeated string     repeatedField = 5;
-  SampleConfiguration messageField  = 6;
+  optional bool       enabled       = 1;
+  core.Revision       revision      = 2 [(cli.flag).skip = true];
+  optional string     stringField   = 3;
+  optional string     secretField   = 4 [(cli.flag).secret = true];
+  map<string, string> mapField      = 5;
+  repeated string     repeatedField = 6;
+  SampleMessage       messageField  = 7;
+}
+
+message SampleDryRunRequest {
+  driverutil.Target target = 1;
+  driverutil.Action action = 2;
+
+  SampleConfiguration spec = 3; // Set
+
+  google.protobuf.FieldMask mask  = 4 [(cli.flag).skip = true]; // Reset
+  SampleConfiguration       patch = 5 [(cli.flag).skip = true]; // Reset
+}
+
+message SampleDryRunResponse {
+  SampleConfiguration                 current          = 1;
+  SampleConfiguration                 modified         = 2;
+  repeated driverutil.ValidationError validationErrors = 3;
+}
+message SampleConfigurationHistoryResponse {
+  repeated SampleConfiguration entries = 1;
+}
+
+message SampleResetRequest {
+  google.protobuf.FieldMask mask  = 1 [(cli.flag).skip = true];
+  SampleConfiguration       patch = 2 [(cli.flag).skip = true];
+}
+
+message SampleMessage {
+  Sample1FieldMsg field1 = 1;
+  Sample2FieldMsg field2 = 2;
+  Sample3FieldMsg field3 = 3;
+  Sample4FieldMsg field4 = 4;
+  Sample5FieldMsg field5 = 5;
+  Sample6FieldMsg field6 = 6;
+
+  SampleMessage2 msg = 7;
+}
+
+message SampleMessage2 {
+  Sample1FieldMsg field1 = 1;
+  Sample2FieldMsg field2 = 2;
+  Sample3FieldMsg field3 = 3;
+  Sample4FieldMsg field4 = 4;
+  Sample5FieldMsg field5 = 5;
+  Sample6FieldMsg field6 = 6;
+}
+
+message Sample1FieldMsg {
+  int32 field1 = 1;
+}
+
+message Sample2FieldMsg {
+  int32 field1 = 1;
+  int32 field2 = 2;
+}
+
+message Sample3FieldMsg {
+  int32 field1 = 1;
+  int32 field2 = 2;
+  int32 field3 = 3;
+}
+
+message Sample4FieldMsg {
+  int32 field1 = 1;
+  int32 field2 = 2;
+  int32 field3 = 3;
+  int32 field4 = 4;
+}
+
+message Sample5FieldMsg {
+  int32 field1 = 1;
+  int32 field2 = 2;
+  int32 field3 = 3;
+  int32 field4 = 4;
+  int32 field5 = 5;
+}
+
+message Sample6FieldMsg {
+  int32 field1 = 1;
+  int32 field2 = 2;
+  int32 field3 = 3;
+  int32 field4 = 4;
+  int32 field5 = 5;
+  int32 field6 = 6;
 }

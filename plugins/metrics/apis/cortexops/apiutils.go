@@ -4,6 +4,7 @@ import (
 	context "context"
 	"fmt"
 
+	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -35,3 +36,15 @@ func InstallWithPreset(ctx context.Context, client CortexOpsClient, presetId ...
 	_, err = client.Install(ctx, &emptypb.Empty{})
 	return err
 }
+
+type SpecializedConfigServer = driverutil.ConfigServer[
+	*CapabilityBackendConfigSpec,
+	*ResetRequest,
+	*ConfigurationHistoryResponse,
+]
+
+type SpecializedDryRunServer = driverutil.DryRunServer[
+	*CapabilityBackendConfigSpec,
+	*DryRunRequest,
+	*DryRunResponse,
+]

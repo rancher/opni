@@ -12,14 +12,18 @@ import (
 	runtimeconfig "github.com/rancher/opni/internal/cortex/config/runtimeconfig"
 	storage "github.com/rancher/opni/internal/cortex/config/storage"
 	validation "github.com/rancher/opni/internal/cortex/config/validation"
-	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
 	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
+	storage1 "github.com/rancher/opni/pkg/storage"
 	flagutil "github.com/rancher/opni/pkg/util/flagutil"
+	lo "github.com/samber/lo"
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
-	v2 "github.com/thediveo/enumflag/v2"
+	errdetails "google.golang.org/genproto/googleapis/rpc/errdetails"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	proto "google.golang.org/protobuf/proto"
+	protoiface "google.golang.org/protobuf/runtime/protoiface"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	strings "strings"
 )
@@ -75,7 +79,7 @@ func addBuildHook_CortexOpsGetDefaultConfiguration(hook func(*cobra.Command)) {
 }
 
 func BuildCortexOpsGetDefaultConfigurationCmd() *cobra.Command {
-	in := &GetRequest{}
+	in := &driverutil.GetRequest{}
 	cmd := &cobra.Command{
 		Use:   "config get-default",
 		Short: "Returns the default implementation-specific configuration, or one previously set.",
@@ -146,7 +150,7 @@ HTTP handlers for this method:
 					cmd.PrintErrln("failed to get client from context")
 					return nil
 				}
-				if curValue, err := client.GetDefaultConfiguration(cmd.Context(), &GetRequest{}); err == nil {
+				if curValue, err := client.GetDefaultConfiguration(cmd.Context(), &driverutil.GetRequest{}); err == nil {
 					in = curValue
 				}
 				if edited, err := cliutil.EditInteractive(in); err != nil {
@@ -213,7 +217,7 @@ func addBuildHook_CortexOpsGetConfiguration(hook func(*cobra.Command)) {
 }
 
 func BuildCortexOpsGetConfigurationCmd() *cobra.Command {
-	in := &GetRequest{}
+	in := &driverutil.GetRequest{}
 	cmd := &cobra.Command{
 		Use:   "config get",
 		Short: "Gets the current configuration of the managed Cortex cluster.",
@@ -292,7 +296,7 @@ HTTP handlers for this method:
 					cmd.PrintErrln("failed to get client from context")
 					return nil
 				}
-				if curValue, err := client.GetConfiguration(cmd.Context(), &GetRequest{}); err == nil {
+				if curValue, err := client.GetConfiguration(cmd.Context(), &driverutil.GetRequest{}); err == nil {
 					in = curValue
 				}
 				if edited, err := cliutil.EditInteractive(in); err != nil {
@@ -326,11 +330,41 @@ HTTP handlers for this method:
 }
 
 func BuildCortexOpsResetConfigurationCmd() *cobra.Command {
+	in := &ResetRequest{}
 	cmd := &cobra.Command{
 		Use:   "config reset",
 		Short: "Resets the configuration of the managed Cortex cluster to the current default configuration.",
 		Long: `
-The value of "enabled" will be preserved if it is set.
+
+The request may optionally contain a field mask to specify which fields should
+be preserved. Furthermore, if a mask is set, the request may also contain a patch
+object used to apply additional changes to the masked fields. These changes are
+applied atomically at the time of reset. Fields present in the patch object, but
+not in the mask, are ignored.
+
+For example, with the following message:
+  message Example {
+    optional int32 a = 1;
+    optional int32 b = 2;
+    optional int32 c = 3;
+  }
+
+and current state:
+  active:  { a: 1, b: 2, c: 3 }
+  default: { a: 4, b: 5, c: 6 }
+
+and reset request parameters:
+{
+  mask:    { paths: [ "a", "b" ] }
+  patch:   { a: 100 }
+}
+
+The resulting active configuration will be:
+ active:  {
+   a: 100, // masked, set to 100 via patch
+   b: 2,   // masked, but not set in patch, so left unchanged
+   c: 6,   // not masked, reset to default
+ }
 
 HTTP handlers for this method:
 - DELETE /configuration
@@ -343,7 +377,10 @@ HTTP handlers for this method:
 				cmd.PrintErrln("failed to get client from context")
 				return nil
 			}
-			_, err := client.ResetConfiguration(cmd.Context(), &emptypb.Empty{})
+			if in == nil {
+				return errors.New("no input provided")
+			}
+			_, err := client.ResetConfiguration(cmd.Context(), in)
 			if err != nil {
 				return err
 			}
@@ -453,11 +490,11 @@ func BuildCortexOpsListPresetsCmd() *cobra.Command {
 There are several ways to use the presets, depending
 on the desired behavior:
 1. Set the default configuration to a preset spec, then use SetConfiguration
-to fill in any additional required fields (credentials, etc)
+   to fill in any additional required fields (credentials, etc)
 2. Add the required fields to the default configuration, then use
-SetConfiguration with a preset spec.
+   SetConfiguration with a preset spec.
 3. Leave the default configuration as-is, and use SetConfiguration with a
-preset spec plus the required fields.
+   preset spec plus the required fields.
 
 HTTP handlers for this method:
 - GET /presets
@@ -482,7 +519,7 @@ HTTP handlers for this method:
 }
 
 func BuildCortexOpsConfigurationHistoryCmd() *cobra.Command {
-	in := &ConfigurationHistoryRequest{}
+	in := &driverutil.ConfigurationHistoryRequest{}
 	cmd := &cobra.Command{
 		Use:   "config history",
 		Short: "Get a list of all past revisions of the configuration.",
@@ -521,16 +558,6 @@ HTTP handlers for this method:
 	return cmd
 }
 
-func (in *GetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("GetRequest", pflag.ExitOnError)
-	fs.SortFlags = true
-	if in.Revision == nil {
-		in.Revision = &v1.Revision{}
-	}
-	fs.AddFlagSet(in.Revision.FlagSet(prefix...))
-	return fs
-}
-
 func (in *CapabilityBackendConfigSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("CapabilityBackendConfigSpec", pflag.ExitOnError)
 	fs.SortFlags = true
@@ -560,10 +587,19 @@ func (in *CapabilityBackendConfigSpec) UnredactSecrets(unredacted *CapabilityBac
 	if in == nil {
 		return nil
 	}
-	if err := in.CortexConfig.UnredactSecrets(unredacted.GetCortexConfig()); err != nil {
-		return err
+	var details []protoiface.MessageV1
+	if err := in.CortexConfig.UnredactSecrets(unredacted.GetCortexConfig()); storage1.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "cortexConfig." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
 	}
-	return nil
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
 }
 
 func (in *CortexWorkloadsConfig) FlagSet(prefix ...string) *pflag.FlagSet {
@@ -613,10 +649,19 @@ func (in *CortexApplicationConfig) UnredactSecrets(unredacted *CortexApplication
 	if in == nil {
 		return nil
 	}
-	if err := in.Storage.UnredactSecrets(unredacted.GetStorage()); err != nil {
-		return err
+	var details []protoiface.MessageV1
+	if err := in.Storage.UnredactSecrets(unredacted.GetStorage()); storage1.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "storage." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
 	}
-	return nil
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
 }
 
 func (in *GrafanaConfig) FlagSet(prefix ...string) *pflag.FlagSet {
@@ -626,26 +671,6 @@ func (in *GrafanaConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("latest"), &in.Version), strings.Join(append(prefix, "version"), "."), "The version of Grafana to deploy.")
 	fs.Var(flagutil.StringPtrValue(nil, &in.Hostname), strings.Join(append(prefix, "hostname"), "."), "")
 	return fs
-}
-
-func (in *ConfigurationHistoryRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("ConfigurationHistoryRequest", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.Var(v2.New(&in.Target, "Target", map[driverutil.Target][]string{
-		driverutil.Target_ActiveConfiguration:  {"ActiveConfiguration"},
-		driverutil.Target_DefaultConfiguration: {"DefaultConfiguration"},
-	}, v2.EnumCaseSensitive), strings.Join(append(prefix, "target"), "."), "The configuration type to return history for.")
-	fs.BoolVar(&in.IncludeValues, strings.Join(append(prefix, "include-values"), "."), true, "If set, will include the values of the configuration in the response.")
-	return fs
-}
-
-func (in *InstallStatus) DeepCopyInto(out *InstallStatus) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *InstallStatus) DeepCopy() *InstallStatus {
-	return proto.Clone(in).(*InstallStatus)
 }
 
 func (in *CapabilityBackendConfigSpec) DeepCopyInto(out *CapabilityBackendConfigSpec) {
@@ -711,15 +736,6 @@ func (in *Preset) DeepCopy() *Preset {
 	return proto.Clone(in).(*Preset)
 }
 
-func (in *PresetMetadata) DeepCopyInto(out *PresetMetadata) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *PresetMetadata) DeepCopy() *PresetMetadata {
-	return proto.Clone(in).(*PresetMetadata)
-}
-
 func (in *DryRunRequest) DeepCopyInto(out *DryRunRequest) {
 	out.Reset()
 	proto.Merge(out, in)
@@ -727,15 +743,6 @@ func (in *DryRunRequest) DeepCopyInto(out *DryRunRequest) {
 
 func (in *DryRunRequest) DeepCopy() *DryRunRequest {
 	return proto.Clone(in).(*DryRunRequest)
-}
-
-func (in *ValidationError) DeepCopyInto(out *ValidationError) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *ValidationError) DeepCopy() *ValidationError {
-	return proto.Clone(in).(*ValidationError)
 }
 
 func (in *DryRunResponse) DeepCopyInto(out *DryRunResponse) {
@@ -747,24 +754,6 @@ func (in *DryRunResponse) DeepCopy() *DryRunResponse {
 	return proto.Clone(in).(*DryRunResponse)
 }
 
-func (in *GetRequest) DeepCopyInto(out *GetRequest) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *GetRequest) DeepCopy() *GetRequest {
-	return proto.Clone(in).(*GetRequest)
-}
-
-func (in *ConfigurationHistoryRequest) DeepCopyInto(out *ConfigurationHistoryRequest) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *ConfigurationHistoryRequest) DeepCopy() *ConfigurationHistoryRequest {
-	return proto.Clone(in).(*ConfigurationHistoryRequest)
-}
-
 func (in *ConfigurationHistoryResponse) DeepCopyInto(out *ConfigurationHistoryResponse) {
 	out.Reset()
 	proto.Merge(out, in)
@@ -772,4 +761,13 @@ func (in *ConfigurationHistoryResponse) DeepCopyInto(out *ConfigurationHistoryRe
 
 func (in *ConfigurationHistoryResponse) DeepCopy() *ConfigurationHistoryResponse {
 	return proto.Clone(in).(*ConfigurationHistoryResponse)
+}
+
+func (in *ResetRequest) DeepCopyInto(out *ResetRequest) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ResetRequest) DeepCopy() *ResetRequest {
+	return proto.Clone(in).(*ResetRequest)
 }

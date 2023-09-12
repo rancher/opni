@@ -9,9 +9,10 @@ import "github.com/rancher/opni/internal/cortex/config/runtimeconfig/runtimeconf
 import "github.com/rancher/opni/internal/cortex/config/validation/limits.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
-import "github.com/rancher/opni/pkg/plugins/driverutil/dryrun.proto";
+import "github.com/rancher/opni/pkg/plugins/driverutil/types.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
 
 option go_package = "github.com/rancher/opni/plugins/metrics/apis/cortexops";
 option (cli.generator) = {
@@ -30,7 +31,7 @@ service CortexOps {
   // returns that configuration. Otherwise, returns implementation-specific defaults.
   // An optional revision argument can be provided to get a specific historical
   // version of the configuration instead of the current configuration.
-  rpc GetDefaultConfiguration(GetRequest) returns (CapabilityBackendConfigSpec) {
+  rpc GetDefaultConfiguration(driverutil.GetRequest) returns (CapabilityBackendConfigSpec) {
     option (cli.command) = {
       use:          "config get-default"
       enable_hooks: true
@@ -76,7 +77,7 @@ service CortexOps {
   // Gets the current configuration of the managed Cortex cluster.
   // An optional revision argument can be provided to get a specific historical
   // version of the configuration instead of the current configuration.
-  rpc GetConfiguration(GetRequest) returns (CapabilityBackendConfigSpec) {
+  rpc GetConfiguration(driverutil.GetRequest) returns (CapabilityBackendConfigSpec) {
     option (cli.command) = {
       use:          "config get"
       enable_hooks: true
@@ -112,8 +113,37 @@ service CortexOps {
   }
 
   // Resets the configuration of the managed Cortex cluster to the current default configuration.
-  // The value of "enabled" will be preserved if it is set.
-  rpc ResetConfiguration(google.protobuf.Empty) returns (google.protobuf.Empty) {
+  //
+  // The request may optionally contain a field mask to specify which fields should
+  // be preserved. Furthermore, if a mask is set, the request may also contain a patch
+  // object used to apply additional changes to the masked fields. These changes are
+  // applied atomically at the time of reset. Fields present in the patch object, but
+  // not in the mask, are ignored.
+  //
+  // For example, with the following message:
+  //   message Example {
+  //     optional int32 a = 1;
+  //     optional int32 b = 2;
+  //     optional int32 c = 3;
+  //   }
+  //
+  // and current state:
+  //   active:  { a: 1, b: 2, c: 3 }
+  //   default: { a: 4, b: 5, c: 6 }
+  //
+  // and reset request parameters:
+  // {
+  //   mask:    { paths: [ "a", "b" ] }
+  //   patch:   { a: 100 }
+  // }
+  //
+  // The resulting active configuration will be:
+  //  active:  {
+  //    a: 100, // masked, set to 100 via patch
+  //    b: 2,   // masked, but not set in patch, so left unchanged
+  //    c: 6,   // not masked, reset to default
+  //  }
+  rpc ResetConfiguration(ResetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
       use: "config reset"
     };
@@ -128,7 +158,7 @@ service CortexOps {
   // be reflected in the install state.
   // No guarantees are made about the contents of the metadata field; its
   // contents are strictly informational.
-  rpc Status(google.protobuf.Empty) returns (InstallStatus) {
+  rpc Status(google.protobuf.Empty) returns (driverutil.InstallStatus) {
     option (cli.command) = {
       use: "status";
     };
@@ -210,7 +240,7 @@ service CortexOps {
   // depending on the specified target.
   // The entries are ordered from oldest to newest, where the last entry is
   // the current configuration.
-  rpc ConfigurationHistory(ConfigurationHistoryRequest) returns (ConfigurationHistoryResponse) {
+  rpc ConfigurationHistory(driverutil.ConfigurationHistoryRequest) returns (ConfigurationHistoryResponse) {
     option (cli.command) = {
       use: "config history"
     };
@@ -218,33 +248,6 @@ service CortexOps {
       get: "/configuration/history"
     };
   }
-}
-
-enum InstallState {
-  NotInstalled = 0;
-  Installed    = 1;
-  Uninstalling = 2;
-}
-
-enum ConfigurationState {
-  NotConfigured = 0;
-  Configured    = 1;
-}
-
-enum ApplicationState {
-  NotRunning = 0;
-  Pending    = 1;
-  Running    = 2;
-  Failed     = 3;
-}
-
-message InstallStatus {
-  ConfigurationState  configState  = 1;
-  InstallState        installState = 2;
-  ApplicationState    appState     = 3;
-  repeated string     warnings     = 4;
-  string              version      = 5;
-  map<string, string> metadata     = 6;
 }
 
 message CapabilityBackendConfigSpec {
@@ -298,63 +301,31 @@ message PresetList {
 
 message Preset {
   core.Reference              id       = 1;
-  PresetMetadata              metadata = 2;
+  driverutil.PresetMetadata   metadata = 2;
   CapabilityBackendConfigSpec spec     = 3;
 }
 
-message PresetMetadata {
-  // A display name for the preset.
-  string displayName = 1;
-  // Longer description of the preset.
-  string description = 2;
-  // Optional list of messages that should be displayed to the user when the
-  // preset is used (determined at the client's discretion).
-  // For example, this may contain additional information about requirements
-  // or next steps that the user should be aware of.
-  repeated string notes = 3;
-}
-
 message DryRunRequest {
-  driverutil.Target           target = 1;
-  driverutil.Action           action = 2;
-  CapabilityBackendConfigSpec spec   = 3;
-}
+  driverutil.Target target = 1;
+  driverutil.Action action = 2;
 
-message ValidationError {
-  enum Severity {
-    Unknown = 0;
-    Warning = 1;
-    Error   = 2;
-  }
-  Severity severity = 1;
-  string   message  = 2;
-  string   source   = 3;
+  CapabilityBackendConfigSpec spec = 3; // Set
+
+  CapabilityBackendConfigSpec patch = 4; // Reset
+  google.protobuf.FieldMask   mask  = 5 [(cli.flag).skip = true]; // Reset
 }
 
 message DryRunResponse {
-  CapabilityBackendConfigSpec current          = 1;
-  CapabilityBackendConfigSpec modified         = 2;
-  repeated ValidationError    validationErrors = 3;
-}
-
-message GetRequest {
-  // If set, will return the config at the specified revision instead of
-  // the current config.
-  // This revision value can be obtained from the revision field of a
-  // CapabilityBackendConfigSpec, either from GetConfiguration/GetDefaultConfiguration
-  // or from one of the history entries returned by ConfigurationHistory.
-  core.Revision revision = 1 [(cli.flag_set).no_prefix = true];
-}
-
-message ConfigurationHistoryRequest {
-  // The configuration type to return history for.
-  driverutil.Target target = 1;
-
-  // If set, will include the values of the configuration in the response.
-  // Otherwise, only the revision field of each entry will be populated.
-  bool includeValues = 2 [(cli.flag).default = "true"];
+  CapabilityBackendConfigSpec         current          = 1;
+  CapabilityBackendConfigSpec         modified         = 2;
+  repeated driverutil.ValidationError validationErrors = 3;
 }
 
 message ConfigurationHistoryResponse {
   repeated CapabilityBackendConfigSpec entries = 1;
+}
+
+message ResetRequest {
+  google.protobuf.FieldMask   mask  = 1 [(cli.flag).skip = true];
+  CapabilityBackendConfigSpec patch = 2 [(cli.flag).skip = true];
 }

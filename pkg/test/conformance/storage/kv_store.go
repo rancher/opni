@@ -393,9 +393,11 @@ func KeyValueStoreTestSuite[B storage.KeyValueStoreTBroker[T], T any](
 						Expect(err).NotTo(HaveOccurred())
 					}
 					for i := 0; i < 10; i++ {
-						value, err := ts.Get(context.Background(), "key1", storage.WithRevision(revisions[i]))
+						var revOut int64
+						value, err := ts.Get(context.Background(), "key1", storage.WithRevision(revisions[i]), storage.WithRevisionOut(&revOut))
 						Expect(err).NotTo(HaveOccurred())
 						Expect(value).To(match(newT(int64(i))))
+						Expect(revOut).To(Equal(revisions[i]))
 					}
 				})
 				When("the revision does not exist", func() {

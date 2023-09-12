@@ -23,11 +23,8 @@ var _ = Describe("Management API Roles Management Tests", Ordered, Label("integr
 	BeforeAll(func() {
 		environment = &test.Environment{}
 		Expect(environment.Start()).To(Succeed())
+		DeferCleanup(environment.Stop)
 		client = environment.NewManagementClient()
-	})
-
-	AfterAll(func() {
-		ExpectGracefulExamplePluginShutdown(environment)
 	})
 
 	//#endregion

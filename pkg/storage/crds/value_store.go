@@ -192,6 +192,7 @@ func (s *CRDValueStore[O, T]) Get(ctx context.Context, opts ...storage.GetOpt) (
 	latestRevision, _ := strconv.ParseInt(obj.GetResourceVersion(), 10, 64)
 
 	var conf T
+	var confRevision int64
 	if getOpts.Revision != nil && *getOpts.Revision != latestRevision {
 		var history historyFormat[T]
 		if str, ok := obj.GetAnnotations()["opni.io/history"]; ok {
@@ -204,6 +205,7 @@ func (s *CRDValueStore[O, T]) Get(ctx context.Context, opts ...storage.GetOpt) (
 			rev := entry.Config.GetRevision().GetRevision()
 			if rev == *getOpts.Revision {
 				conf = entry.Config
+				confRevision = rev
 				found = true
 				break
 			}
@@ -217,13 +219,12 @@ func (s *CRDValueStore[O, T]) Get(ctx context.Context, opts ...storage.GetOpt) (
 	} else {
 		conf = s.newEmptyConfig()
 		s.methods.FillConfigFromObject(obj, conf)
+		confRevision, _ = strconv.ParseInt(obj.GetResourceVersion(), 10, 64)
 	}
 
-	revisionNumber, _ := strconv.ParseInt(obj.GetResourceVersion(), 10, 64)
 	driverutil.UnsetRevision(conf)
-
 	if getOpts.RevisionOut != nil {
-		*getOpts.RevisionOut = revisionNumber
+		*getOpts.RevisionOut = confRevision
 	}
 	return conf, nil
 }

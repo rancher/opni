@@ -53,9 +53,9 @@ func BuildDryRunCmd() *cobra.Command {
 				cmd.Println(fmt.Sprintf("validation errors occurred (%d):", len(errs)))
 				for _, e := range errs {
 					switch e.GetSeverity() {
-					case ValidationError_Warning:
+					case driverutil.ValidationError_Warning:
 						cmd.Print("[" + chalk.Yellow.Color("WARN") + "] ")
-					case ValidationError_Error:
+					case driverutil.ValidationError_Error:
 						cmd.Print("[" + chalk.Red.Color("ERROR") + "] ")
 					}
 					cmd.Println(e.GetMessage())
@@ -111,10 +111,12 @@ type DryRunClient struct {
 }
 
 // ResetConfiguration implements CortexOpsClient.
-func (dc *DryRunClient) ResetConfiguration(ctx context.Context, _ *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (dc *DryRunClient) ResetConfiguration(ctx context.Context, req *ResetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	dc.Request = &DryRunRequest{
 		Target: driverutil.Target_ActiveConfiguration,
 		Action: driverutil.Action_Reset,
+		Patch:  req.GetPatch(),
+		Mask:   req.GetMask(),
 	}
 	var err error
 	dc.Response, err = dc.Client.DryRun(ctx, dc.Request, opts...)
@@ -176,12 +178,12 @@ func (dc *DryRunClient) ListPresets(ctx context.Context, in *emptypb.Empty, opts
 }
 
 // GetConfiguration implements CortexOpsClient.
-func (dc *DryRunClient) GetConfiguration(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
+func (dc *DryRunClient) GetConfiguration(ctx context.Context, in *driverutil.GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
 	return dc.Client.GetConfiguration(ctx, in, opts...)
 }
 
 // GetDefaultConfiguration implements CortexOpsClient.
-func (dc *DryRunClient) GetDefaultConfiguration(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
+func (dc *DryRunClient) GetDefaultConfiguration(ctx context.Context, in *driverutil.GetRequest, opts ...grpc.CallOption) (*CapabilityBackendConfigSpec, error) {
 	return dc.Client.GetDefaultConfiguration(ctx, in, opts...)
 }
 
@@ -190,7 +192,7 @@ func (dc *DryRunClient) DryRun(_ context.Context, _ *DryRunRequest, _ ...grpc.Ca
 	return nil, status.Errorf(codes.Unimplemented, "[dry-run] method DryRun not implemented")
 }
 
-func (dc *DryRunClient) ConfigurationHistory(_ context.Context, _ *ConfigurationHistoryRequest, _ ...grpc.CallOption) (*ConfigurationHistoryResponse, error) {
+func (dc *DryRunClient) ConfigurationHistory(_ context.Context, _ *driverutil.ConfigurationHistoryRequest, _ ...grpc.CallOption) (*ConfigurationHistoryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "[dry-run] method ConfigurationHistory not implemented")
 }
 
@@ -212,7 +214,7 @@ func (dc *DryRunClient) Install(ctx context.Context, _ *emptypb.Empty, opts ...g
 }
 
 // Status implements CortexOpsClient.
-func (dc *DryRunClient) Status(_ context.Context, _ *emptypb.Empty, _ ...grpc.CallOption) (*InstallStatus, error) {
+func (dc *DryRunClient) Status(_ context.Context, _ *emptypb.Empty, _ ...grpc.CallOption) (*driverutil.InstallStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "[dry-run] method Status not implemented")
 }
 

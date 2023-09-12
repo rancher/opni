@@ -199,7 +199,12 @@ func (m *historyModel) renderJsonView() string {
 	}
 	line := fmt.Sprintf(" %s%s", title, strings.Repeat(" ", max(0, model.Width-lipgloss.Width(title)-1)))
 	lineCount := model.TotalLineCount()
-	scrollPercent := fmt.Sprintf("%d:%d/%d • %.f%%", model.YOffset, min(lineCount, model.YOffset+model.Height), lineCount, model.ScrollPercent()*100)
+	modelScrollPercent := model.ScrollPercent()
+	if model.Height >= model.TotalLineCount()-1 {
+		// workaround for https://github.com/charmbracelet/bubbles/issues/288
+		modelScrollPercent = 1.0
+	}
+	scrollPercent := fmt.Sprintf("%d:%d/%d • %.f%%", model.YOffset, min(lineCount, model.YOffset+model.Height), lineCount, modelScrollPercent*100)
 
 	footerLine := fmt.Sprintf(" %s%s", scrollPercent, strings.Repeat(" ", max(0, model.Width-lipgloss.Width(scrollPercent)-1)))
 
@@ -251,7 +256,7 @@ func NewHistoryUI[T driverutil.ConfigType[T]](ts []T) *HistoryUI {
 			diffView.SetContent(str)
 
 			entry.diffView = diffView
-			entry.diffSummary = diffSummary(str)
+			entry.diffSummary = driverutil.DiffStat(str, opts)
 
 			opts.SkipMatches = false
 			str, _ = driverutil.RenderJsonDiff(prev.cfg, entry.cfg, opts)
@@ -309,26 +314,4 @@ type entry struct {
 	jsonView     viewport.Model
 	diffView     viewport.Model
 	fullDiffView viewport.Model
-}
-
-func diffSummary(diff string) string {
-	if diff == "" {
-		return ""
-	}
-	numAdded := strings.Count(diff, "\033[0;32m")
-	numRemoved := strings.Count(diff, "\033[0;31m")
-	numChanged := strings.Count(diff, "\033[0;33m")
-
-	parts := []string{}
-	if numAdded > 0 {
-		parts = append(parts, fmt.Sprintf("+%d", numAdded))
-	}
-	if numRemoved > 0 {
-		parts = append(parts, fmt.Sprintf("-%d", numRemoved))
-	}
-	if numChanged > 0 {
-		parts = append(parts, fmt.Sprintf("~%d", numChanged))
-	}
-
-	return strings.Join(parts, "/")
 }

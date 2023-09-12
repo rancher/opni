@@ -8,10 +8,15 @@ import (
 	errors "errors"
 	cli "github.com/rancher/opni/internal/codegen/cli"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
+	storage "github.com/rancher/opni/pkg/storage"
 	flagutil "github.com/rancher/opni/pkg/util/flagutil"
+	lo "github.com/samber/lo"
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
-	v2 "github.com/thediveo/enumflag/v2"
+	errdetails "google.golang.org/genproto/googleapis/rpc/errdetails"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
+	protoiface "google.golang.org/protobuf/runtime/protoiface"
 	strings "strings"
 )
 
@@ -275,11 +280,7 @@ func (in *BazRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.BoolVar(&in.ParamBool, strings.Join(append(prefix, "param-bool"), "."), false, "")
 	fs.StringVar(&in.ParamString, strings.Join(append(prefix, "param-string"), "."), "", "")
 	fs.BytesHexVar(&in.ParamBytes, strings.Join(append(prefix, "param-bytes"), "."), nil, "")
-	fs.Var(v2.New(&in.ParamEnum, "BazEnum", map[BazRequest_BazEnum][]string{
-		BazRequest_UNKNOWN: {"UNKNOWN"},
-		BazRequest_FOO:     {"FOO"},
-		BazRequest_BAR:     {"BAR"},
-	}, v2.EnumCaseSensitive), strings.Join(append(prefix, "param-enum"), "."), "")
+	fs.Var(flagutil.EnumValue(&in.ParamEnum), strings.Join(append(prefix, "param-enum"), "."), "")
 	fs.Var(flagutil.DurationpbValue(nil, &in.ParamDuration), strings.Join(append(prefix, "param-duration"), "."), "")
 	fs.StringSliceVar(&in.ParamRepeatedString, strings.Join(append(prefix, "param-repeated-string"), "."), nil, "")
 	return fs
@@ -333,10 +334,15 @@ func (in *BarResponse) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *SampleConfiguration) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("SampleConfiguration", pflag.ExitOnError)
 	fs.SortFlags = true
+	fs.Var(flagutil.BoolPtrValue(nil, &in.Enabled), strings.Join(append(prefix, "enabled"), "."), "")
 	fs.Var(flagutil.StringPtrValue(nil, &in.StringField), strings.Join(append(prefix, "string-field"), "."), "")
 	fs.Var(flagutil.StringPtrValue(nil, &in.SecretField), strings.Join(append(prefix, "secret-field"), "."), "\x1b[31m[secret]\x1b[0m ")
 	fs.StringToStringVar(&in.MapField, strings.Join(append(prefix, "map-field"), "."), nil, "")
 	fs.StringSliceVar(&in.RepeatedField, strings.Join(append(prefix, "repeated-field"), "."), nil, "")
+	if in.MessageField == nil {
+		in.MessageField = &SampleMessage{}
+	}
+	fs.AddFlagSet(in.MessageField.FlagSet(append(prefix, "message-field")...))
 	return fs
 }
 
@@ -353,11 +359,239 @@ func (in *SampleConfiguration) UnredactSecrets(unredacted *SampleConfiguration) 
 	if in == nil {
 		return nil
 	}
+	var details []protoiface.MessageV1
 	if in.GetSecretField() == "***" {
 		if unredacted.GetSecretField() == "" {
-			return errors.New("cannot unredact: missing value for secret field: SecretField")
+			details = append(details, &errdetails.ErrorInfo{
+				Reason:   "DISCONTINUITY",
+				Metadata: map[string]string{"field": "secretField"},
+			})
+		} else {
+			*in.SecretField = *unredacted.SecretField
 		}
-		*in.SecretField = *unredacted.SecretField
 	}
-	return nil
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
+}
+
+func (in *SampleMessage) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SampleMessage", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Field1 == nil {
+		in.Field1 = &Sample1FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field1.FlagSet(append(prefix, "field-1")...))
+	if in.Field2 == nil {
+		in.Field2 = &Sample2FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field2.FlagSet(append(prefix, "field-2")...))
+	if in.Field3 == nil {
+		in.Field3 = &Sample3FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field3.FlagSet(append(prefix, "field-3")...))
+	if in.Field4 == nil {
+		in.Field4 = &Sample4FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field4.FlagSet(append(prefix, "field-4")...))
+	if in.Field5 == nil {
+		in.Field5 = &Sample5FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field5.FlagSet(append(prefix, "field-5")...))
+	if in.Field6 == nil {
+		in.Field6 = &Sample6FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field6.FlagSet(append(prefix, "field-6")...))
+	if in.Msg == nil {
+		in.Msg = &SampleMessage2{}
+	}
+	fs.AddFlagSet(in.Msg.FlagSet(append(prefix, "msg")...))
+	return fs
+}
+
+func (in *Sample1FieldMsg) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Sample1FieldMsg", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Int32Var(&in.Field1, strings.Join(append(prefix, "field-1"), "."), 0, "")
+	return fs
+}
+
+func (in *Sample2FieldMsg) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Sample2FieldMsg", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Int32Var(&in.Field1, strings.Join(append(prefix, "field-1"), "."), 0, "")
+	fs.Int32Var(&in.Field2, strings.Join(append(prefix, "field-2"), "."), 0, "")
+	return fs
+}
+
+func (in *Sample3FieldMsg) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Sample3FieldMsg", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Int32Var(&in.Field1, strings.Join(append(prefix, "field-1"), "."), 0, "")
+	fs.Int32Var(&in.Field2, strings.Join(append(prefix, "field-2"), "."), 0, "")
+	fs.Int32Var(&in.Field3, strings.Join(append(prefix, "field-3"), "."), 0, "")
+	return fs
+}
+
+func (in *Sample4FieldMsg) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Sample4FieldMsg", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Int32Var(&in.Field1, strings.Join(append(prefix, "field-1"), "."), 0, "")
+	fs.Int32Var(&in.Field2, strings.Join(append(prefix, "field-2"), "."), 0, "")
+	fs.Int32Var(&in.Field3, strings.Join(append(prefix, "field-3"), "."), 0, "")
+	fs.Int32Var(&in.Field4, strings.Join(append(prefix, "field-4"), "."), 0, "")
+	return fs
+}
+
+func (in *Sample5FieldMsg) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Sample5FieldMsg", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Int32Var(&in.Field1, strings.Join(append(prefix, "field-1"), "."), 0, "")
+	fs.Int32Var(&in.Field2, strings.Join(append(prefix, "field-2"), "."), 0, "")
+	fs.Int32Var(&in.Field3, strings.Join(append(prefix, "field-3"), "."), 0, "")
+	fs.Int32Var(&in.Field4, strings.Join(append(prefix, "field-4"), "."), 0, "")
+	fs.Int32Var(&in.Field5, strings.Join(append(prefix, "field-5"), "."), 0, "")
+	return fs
+}
+
+func (in *Sample6FieldMsg) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Sample6FieldMsg", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Int32Var(&in.Field1, strings.Join(append(prefix, "field-1"), "."), 0, "")
+	fs.Int32Var(&in.Field2, strings.Join(append(prefix, "field-2"), "."), 0, "")
+	fs.Int32Var(&in.Field3, strings.Join(append(prefix, "field-3"), "."), 0, "")
+	fs.Int32Var(&in.Field4, strings.Join(append(prefix, "field-4"), "."), 0, "")
+	fs.Int32Var(&in.Field5, strings.Join(append(prefix, "field-5"), "."), 0, "")
+	fs.Int32Var(&in.Field6, strings.Join(append(prefix, "field-6"), "."), 0, "")
+	return fs
+}
+
+func (in *SampleMessage2) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SampleMessage2", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Field1 == nil {
+		in.Field1 = &Sample1FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field1.FlagSet(append(prefix, "field-1")...))
+	if in.Field2 == nil {
+		in.Field2 = &Sample2FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field2.FlagSet(append(prefix, "field-2")...))
+	if in.Field3 == nil {
+		in.Field3 = &Sample3FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field3.FlagSet(append(prefix, "field-3")...))
+	if in.Field4 == nil {
+		in.Field4 = &Sample4FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field4.FlagSet(append(prefix, "field-4")...))
+	if in.Field5 == nil {
+		in.Field5 = &Sample5FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field5.FlagSet(append(prefix, "field-5")...))
+	if in.Field6 == nil {
+		in.Field6 = &Sample6FieldMsg{}
+	}
+	fs.AddFlagSet(in.Field6.FlagSet(append(prefix, "field-6")...))
+	return fs
+}
+
+func (in *SampleDryRunRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SampleDryRunRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Var(flagutil.EnumValue(&in.Target), strings.Join(append(prefix, "target"), "."), "")
+	fs.Var(flagutil.EnumValue(&in.Action), strings.Join(append(prefix, "action"), "."), "")
+	if in.Spec == nil {
+		in.Spec = &SampleConfiguration{}
+	}
+	fs.AddFlagSet(in.Spec.FlagSet(append(prefix, "spec")...))
+	return fs
+}
+
+func (in *SampleDryRunRequest) RedactSecrets() {
+	if in == nil {
+		return
+	}
+	in.Spec.RedactSecrets()
+}
+
+func (in *SampleDryRunRequest) UnredactSecrets(unredacted *SampleDryRunRequest) error {
+	if in == nil {
+		return nil
+	}
+	var details []protoiface.MessageV1
+	if err := in.Spec.UnredactSecrets(unredacted.GetSpec()); storage.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "spec." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
+	}
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
+}
+
+func (in *SampleDryRunResponse) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SampleDryRunResponse", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Current == nil {
+		in.Current = &SampleConfiguration{}
+	}
+	fs.AddFlagSet(in.Current.FlagSet(append(prefix, "current")...))
+	if in.Modified == nil {
+		in.Modified = &SampleConfiguration{}
+	}
+	fs.AddFlagSet(in.Modified.FlagSet(append(prefix, "modified")...))
+	return fs
+}
+
+func (in *SampleDryRunResponse) RedactSecrets() {
+	if in == nil {
+		return
+	}
+	in.Current.RedactSecrets()
+	in.Modified.RedactSecrets()
+}
+
+func (in *SampleDryRunResponse) UnredactSecrets(unredacted *SampleDryRunResponse) error {
+	if in == nil {
+		return nil
+	}
+	var details []protoiface.MessageV1
+	if err := in.Current.UnredactSecrets(unredacted.GetCurrent()); storage.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "current." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
+	}
+	if err := in.Modified.UnredactSecrets(unredacted.GetModified()); storage.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "modified." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
+	}
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
+}
+
+func (in *SampleConfigurationHistoryResponse) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SampleConfigurationHistoryResponse", pflag.ExitOnError)
+	fs.SortFlags = true
+	return fs
+}
+
+func (in *SampleResetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SampleResetRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	return fs
 }

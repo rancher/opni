@@ -19,11 +19,12 @@ import (
 	"github.com/rancher/opni/pkg/test/testk8s"
 	"github.com/rancher/opni/pkg/test/testruntime"
 	"github.com/rancher/opni/pkg/test/testutil"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/pkg/util/k8sutil"
+	"github.com/rancher/opni/pkg/util/protorand"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
-	"github.com/sryoya/protorand"
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -100,35 +101,36 @@ func (methods) FillObjectFromConfig(obj *opnicorev1beta1.MonitoringCluster, conf
 	obj.Spec.Cortex.CortexConfig = conf.CortexConfig
 	obj.Spec.Cortex.CortexWorkloads = conf.CortexWorkloads
 	obj.Spec.Grafana.GrafanaConfig = conf.Grafana
+
 }
 
 func newObject(seed ...int64) *cortexops.CapabilityBackendConfigSpec {
 	if len(seed) == 0 {
 		return nil
 	}
-	rand := protorand.New()
+	rand := protorand.New[*cortexops.CapabilityBackendConfigSpec]()
 	rand.MaxCollectionElements = 1
 	rand.Seed(seed[0])
-	out := &cortexops.CapabilityBackendConfigSpec{}
-	// obtain a seed from valueId[0]
-	v, err := rand.Gen(out)
-	if err != nil {
-		panic(err)
-	}
-	out = v.(*cortexops.CapabilityBackendConfigSpec)
+	out := rand.MustGen()
 	out.Revision = nil
-
-	// prometheus is doing something unholy with this field
-	out.CortexConfig.Limits.MetricRelabelConfigs[0].Modulus = nil
-	for k := range out.CortexConfig.RuntimeConfig.Overrides {
-		out.CortexConfig.RuntimeConfig.Overrides[k].MetricRelabelConfigs[0].Modulus = nil
-	}
 	return out
 }
 
 var _ crds.ValueStoreMethods[*opnicorev1beta1.MonitoringCluster, *cortexops.CapabilityBackendConfigSpec] = methods{}
 
 var _ = BeforeSuite(func() {
+	// sanity-check the valuestoremethods impl
+	conf := protorand.New[*cortexops.CapabilityBackendConfigSpec]().MustGen()
+	conf.Revision = nil
+
+	var obj opnicorev1beta1.MonitoringCluster
+	methods{}.FillObjectFromConfig(&obj, conf.DeepCopy())
+
+	conf2 := util.NewMessage[*cortexops.CapabilityBackendConfigSpec]()
+	methods{}.FillConfigFromObject(obj.DeepCopy(), conf2)
+
+	Expect(conf2).To(testutil.ProtoEqual(conf))
+
 	testruntime.IfLabelFilterMatches(Label("integration", "slow"), func() {
 		ctx, ca := context.WithCancel(waitctx.Background())
 		s := scheme.Scheme

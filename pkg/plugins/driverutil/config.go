@@ -3,18 +3,16 @@ package driverutil
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sync"
-	"time"
 
-	"github.com/mennanov/fmutils"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/fieldmask"
 	"github.com/rancher/opni/pkg/util/merge"
-	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type DefaultLoaderFunc[T any] func(T)
@@ -40,7 +38,7 @@ func NewDefaultingConfigTracker[T ConfigType[T]](
 		defaultStore:       defaultStore,
 		activeStore:        activeStore,
 		defaultLoader:      loadDefaultsFunc,
-		revisionFieldIndex: getRevisionFieldIndex[T](),
+		revisionFieldIndex: GetRevisionFieldIndex[T](),
 	}
 }
 
@@ -137,35 +135,47 @@ func (ct *DefaultingConfigTracker[T]) GetConfig(ctx context.Context, atRevision 
 
 // Restores the active config to match the default config. An optional field mask
 // can be provided to specify which fields to keep from the current config.
-// If no field mask is provided, the active config may be deleted from the store.
-func (ct *DefaultingConfigTracker[T]) ResetConfig(ctx context.Context, keep *fieldmaskpb.FieldMask) error {
+// If a nil mask is given, the active config (potentially including history)
+// is deleted from the underlying store. If a non-nil mask is given, the active
+// config is only modified (preserving history), not deleted.
+func (ct *DefaultingConfigTracker[T]) ResetConfig(ctx context.Context, mask *fieldmaskpb.FieldMask, patch T) error {
 	ct.lock.Lock()
 	defer ct.lock.Unlock()
 	var revision int64
-	current, err := ct.activeStore.Get(ctx, storage.WithRevisionOut(&revision))
+	activeConfig, err := ct.activeStore.Get(ctx, storage.WithRevisionOut(&revision))
 	if err != nil {
 		return fmt.Errorf("error looking up config: %w", err)
 	}
-	if len(keep.GetPaths()) == 0 {
+	if mask == nil {
 		err := ct.activeStore.Delete(ctx, storage.WithRevision(revision))
 		if err != nil {
 			return fmt.Errorf("error deleting config: %w", err)
 		}
 		return nil
 	}
-
 	defaultConfig, _, err := ct.getDefaultConfigLocked(ctx)
 	if err != nil {
 		return err
 	}
-	keep.Normalize()
-	if !keep.IsValid(current) {
-		return fmt.Errorf("invalid field mask: %v", keep.GetPaths())
+	mask.Normalize()
+	if !mask.IsValid(activeConfig) {
+		return status.Errorf(codes.InvalidArgument, "invalid field mask: %v", mask.GetPaths())
+	}
+	for i, path := range mask.GetPaths() {
+		if path == "" {
+			// empty paths in field masks can be destructive and are never intentional
+			return status.Errorf(codes.InvalidArgument, "field mask contains an empty path at index %d", i)
+		}
 	}
 
-	fmutils.Filter(current, keep.GetPaths())
+	fieldmask.ExclusiveKeep(activeConfig, mask)
+	if err := patch.UnredactSecrets(activeConfig); err != nil {
+		return err
+	}
+	fieldmask.ExclusiveKeep(patch, mask)
 
-	merge.MergeWithReplace(defaultConfig, current)
+	merge.MergeWithReplace(activeConfig, patch)
+	merge.MergeWithReplace(defaultConfig, activeConfig)
 
 	return ct.activeStore.Put(ctx, defaultConfig, storage.WithRevision(revision))
 }
@@ -242,12 +252,12 @@ func (ct *DefaultingConfigTracker[T]) ApplyConfig(ctx context.Context, newConfig
 	return ct.activeStore.Put(ctx, existing, storage.WithRevision(rev))
 }
 
-func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, target Target, action Action, spec T) (*DryRunResults[T], error) {
-	switch target {
+func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, req DryRunRequestType[T]) (*DryRunResults[T], error) {
+	switch req.GetTarget() {
 	case Target_ActiveConfiguration:
-		switch action {
+		switch req.GetAction() {
 		case Action_Set:
-			res, err := ct.DryRunApplyConfig(ctx, spec)
+			res, err := ct.DryRunApplyConfig(ctx, req.GetSpec())
 			if err != nil {
 				return nil, err
 			}
@@ -256,7 +266,7 @@ func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, target Target,
 				Modified: res.Modified,
 			}, nil
 		case Action_Reset:
-			res, err := ct.DryRunResetConfig(ctx)
+			res, err := ct.DryRunResetConfig(ctx, req.GetMask(), req.GetPatch())
 			if err != nil {
 				return nil, err
 			}
@@ -265,12 +275,12 @@ func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, target Target,
 				Modified: res.Modified,
 			}, nil
 		default:
-			return nil, fmt.Errorf("invalid action: %s", action)
+			return nil, fmt.Errorf("invalid action: %s", req.GetAction())
 		}
 	case Target_DefaultConfiguration:
-		switch action {
+		switch req.GetAction() {
 		case Action_Set:
-			res, err := ct.DryRunSetDefaultConfig(ctx, spec)
+			res, err := ct.DryRunSetDefaultConfig(ctx, req.GetSpec())
 			if err != nil {
 				return nil, err
 			}
@@ -288,22 +298,31 @@ func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, target Target,
 				Modified: res.Modified,
 			}, nil
 		default:
-			return nil, fmt.Errorf("invalid action: %s", action)
+			return nil, fmt.Errorf("invalid action: %s", req.GetAction())
 		}
 	default:
-		return nil, fmt.Errorf("invalid target: %s", target)
+		return nil, fmt.Errorf("invalid target: %s", req.GetTarget())
 	}
 }
 
 func (ct *DefaultingConfigTracker[T]) History(ctx context.Context, target Target, opts ...storage.HistoryOpt) ([]storage.KeyRevision[T], error) {
+	var targetStore storage.ValueStoreT[T]
 	switch target {
 	case Target_ActiveConfiguration:
-		return ct.activeStore.History(ctx, opts...)
+		targetStore = ct.activeStore
 	case Target_DefaultConfiguration:
-		return ct.defaultStore.History(ctx, opts...)
+		targetStore = ct.defaultStore
 	default:
 		return nil, fmt.Errorf("invalid target: %s", target)
 	}
+	revisions, err := targetStore.History(ctx, opts...)
+	if err != nil {
+		return nil, err
+	}
+	for _, rev := range revisions {
+		rev.Value().RedactSecrets()
+	}
+	return revisions, nil
 }
 
 func (ct *DefaultingConfigTracker[T]) DryRunApplyConfig(ctx context.Context, newConfig T) (DryRunResults[T], error) {
@@ -384,78 +403,51 @@ func (ct *DefaultingConfigTracker[T]) DryRunResetDefaultConfig(ctx context.Conte
 	}, nil
 }
 
-func (ct *DefaultingConfigTracker[T]) DryRunResetConfig(ctx context.Context) (DryRunResults[T], error) {
+func (ct *DefaultingConfigTracker[T]) DryRunResetConfig(ctx context.Context, mask *fieldmaskpb.FieldMask, patch T) (DryRunResults[T], error) {
 	ct.lock.Lock()
 	defer ct.lock.Unlock()
-	current, err := ct.activeStore.Get(ctx)
+	activeConfig, err := ct.activeStore.Get(ctx)
 	if err != nil {
 		return DryRunResults[T]{}, err
 	}
-
-	currentDefault, _, err := ct.getDefaultConfigLocked(ctx)
+	defaultConfig, _, err := ct.getDefaultConfigLocked(ctx)
 	if err != nil {
 		return DryRunResults[T]{}, err
 	}
+	if mask == nil {
+		activeConfig.RedactSecrets()
+		defaultConfig.RedactSecrets()
+		return DryRunResults[T]{
+			Current:  activeConfig,
+			Modified: defaultConfig,
+		}, nil
+	}
 
-	current.RedactSecrets()
-	currentDefault.RedactSecrets()
+	mask.Normalize()
+	if !mask.IsValid(activeConfig) {
+		return DryRunResults[T]{}, fmt.Errorf("invalid field mask: %v", mask.GetPaths())
+	}
+	for i, path := range mask.GetPaths() {
+		if path == "" {
+			// empty paths in field masks can be destructive and are never intentional
+			return DryRunResults[T]{}, status.Errorf(codes.InvalidArgument, "field mask contains an empty path at index %d", i)
+		}
+	}
+
+	originalCurrent := util.ProtoClone(activeConfig)
+	fieldmask.ExclusiveKeep(activeConfig, mask)
+	if err := patch.UnredactSecrets(activeConfig); err != nil {
+		return DryRunResults[T]{}, err
+	}
+	fieldmask.ExclusiveKeep(patch, mask)
+
+	merge.MergeWithReplace(activeConfig, patch)
+	merge.MergeWithReplace(defaultConfig, activeConfig)
+
+	originalCurrent.RedactSecrets()
+	defaultConfig.RedactSecrets()
 	return DryRunResults[T]{
-		Current:  current,
-		Modified: currentDefault,
+		Current:  originalCurrent,
+		Modified: defaultConfig,
 	}, nil
-}
-
-func getRevisionFieldIndex[T ConfigType[T]]() int {
-	var revision corev1.Revision
-	revisionFqn := revision.ProtoReflect().Descriptor().FullName()
-	var t T
-	fields := t.ProtoReflect().Descriptor().Fields()
-	for i := 0; i < fields.Len(); i++ {
-		field := fields.Get(i)
-		if field.Kind() == protoreflect.MessageKind {
-			if field.Message().FullName() == revisionFqn {
-				return i
-			}
-		}
-	}
-	panic("revision field not found")
-}
-
-var (
-	indexCacheMu sync.Mutex
-	indexCache   = map[reflect.Type]func() int{}
-)
-
-func UnsetRevision[T ConfigType[T]](t T) {
-	typ := reflect.TypeOf(t)
-	indexCacheMu.Lock()
-	if _, ok := indexCache[typ]; !ok {
-		indexCache[typ] = sync.OnceValue(getRevisionFieldIndex[T])
-	}
-	idx := indexCache[typ]()
-	indexCacheMu.Unlock()
-	if rev := t.GetRevision(); rev != nil {
-		field := t.ProtoReflect().Descriptor().Fields().Get(idx)
-		t.ProtoReflect().Clear(field)
-	}
-}
-
-func SetRevision[T ConfigType[T]](t T, value int64, maybeTimestamp ...time.Time) {
-	typ := reflect.TypeOf(t)
-	indexCacheMu.Lock()
-	if _, ok := indexCache[typ]; !ok {
-		indexCache[typ] = sync.OnceValue(getRevisionFieldIndex[T])
-	}
-	idx := indexCache[typ]()
-	indexCacheMu.Unlock()
-	if rev := t.GetRevision(); rev == nil {
-		field := t.ProtoReflect().Descriptor().Fields().Get(idx)
-		updatedRev := &corev1.Revision{Revision: &value}
-		if len(maybeTimestamp) > 0 && !maybeTimestamp[0].IsZero() {
-			updatedRev.Timestamp = timestamppb.New(maybeTimestamp[0])
-		}
-		t.ProtoReflect().Set(field, protoreflect.ValueOfMessage(updatedRev.ProtoReflect()))
-	} else {
-		rev.Set(value)
-	}
 }

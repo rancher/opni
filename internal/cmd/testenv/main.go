@@ -44,6 +44,7 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	_ "github.com/rancher/opni/plugins/alerting/test"
+	_ "github.com/rancher/opni/plugins/example/test"
 	_ "github.com/rancher/opni/plugins/logging/test"
 	_ "github.com/rancher/opni/plugins/metrics/test"
 	_ "github.com/rancher/opni/plugins/slo/test"

@@ -15,6 +15,12 @@ type kvStoreServer struct {
 	store storage.KeyValueStore
 }
 
+func NewKVStoreServer(store storage.KeyValueStore) KeyValueStoreServer {
+	return &kvStoreServer{
+		store: store,
+	}
+}
+
 func (s *kvStoreServer) Put(ctx context.Context, in *PutRequest) (*PutResponse, error) {
 	if err := in.Validate(); err != nil {
 		return nil, err
@@ -167,7 +173,7 @@ func (s *kvStoreServer) History(ctx context.Context, in *HistoryRequest) (*Histo
 		if ts := item.Timestamp(); !ts.IsZero() {
 			rev.Timestamp = timestamppb.New(ts)
 		}
-		revisions = append(revisions)
+		revisions = append(revisions, rev)
 	}
 	return &HistoryResponse{
 		Revisions: revisions,

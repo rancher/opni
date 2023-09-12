@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package driverutil;
+
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+
+option go_package = "github.com/rancher/opni/pkg/plugins/driverutil";
+option (cli.generator).generate = true;
+
+enum Target {
+  ActiveConfiguration  = 0;
+  DefaultConfiguration = 1;
+}
+
+enum Action {
+  NoAction = 0;
+  Set      = 1;
+  Reset    = 2;
+}
+
+// Get request options. See also: [pkg/storage.GetOptions]
+message GetRequest {
+  // If set, will return the config at the specified revision instead of
+  // the current config.
+  // This revision value can be obtained from the revision field of a
+  // typed GetConfiguration/GetDefaultConfiguration response, or from one of
+  // the history entries in a typed ConfigurationHistory response.
+  core.Revision revision = 1 [(cli.flag_set).no_prefix = true];
+}
+
+// History request options. See also: [pkg/storage.HistoryOptions]
+message ConfigurationHistoryRequest {
+  // The configuration type to return history for.
+  driverutil.Target target = 1;
+  // The latest modification revision to include in the returned history.
+  core.Revision revision = 2 [(cli.flag_set).no_prefix = true];
+  // If set, will include the values of the configuration in the response.
+  // Otherwise, only the revision field of each entry will be populated.
+  bool includeValues = 3 [(cli.flag).default = "true"];
+}
+
+message ValidationError {
+  enum Severity {
+    Unknown = 0;
+    Warning = 1;
+    Error   = 2;
+  }
+  Severity severity = 1;
+  string   message  = 2;
+  string   source   = 3;
+}
+
+enum InstallState {
+  NotInstalled = 0;
+  Installed    = 1;
+  Uninstalling = 2;
+}
+
+enum ConfigurationState {
+  NotConfigured = 0;
+  Configured    = 1;
+}
+
+enum ApplicationState {
+  NotRunning = 0;
+  Pending    = 1;
+  Running    = 2;
+  Failed     = 3;
+}
+
+message InstallStatus {
+  ConfigurationState  configState  = 1;
+  InstallState        installState = 2;
+  ApplicationState    appState     = 3;
+  repeated string     warnings     = 4;
+  string              version      = 5;
+  map<string, string> metadata     = 6;
+}
+
+message PresetMetadata {
+  // A display name for the preset.
+  string displayName = 1;
+  // Longer description of the preset.
+  string description = 2;
+  // Optional list of messages that should be displayed to the user when the
+  // preset is used (determined at the client's discretion).
+  // For example, this may contain additional information about requirements
+  // or next steps that the user should be aware of.
+  repeated string notes = 3;
+}

@@ -11,6 +11,7 @@ import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
@@ -70,7 +71,7 @@ var _ = Describe("Invalidated and clean up suite test", Ordered, Label("integrat
 			if err != nil {
 				return err
 			}
-			if cortexState.InstallState != cortexops.InstallState_Installed {
+			if cortexState.InstallState != driverutil.InstallState_Installed {
 				return fmt.Errorf("cortex cluster not yet installed")
 			}
 			_, err = alertingCondsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{})

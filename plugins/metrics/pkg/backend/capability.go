@@ -9,10 +9,10 @@ import (
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/machinery/uninstall"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -41,9 +41,9 @@ func (m *MetricsBackend) canInstall(ctx context.Context) error {
 		return status.Error(codes.Unavailable, err.Error())
 	}
 	switch stat.InstallState {
-	case cortexops.InstallState_Installed:
+	case driverutil.InstallState_Installed:
 		// ok
-	case cortexops.InstallState_NotInstalled, cortexops.InstallState_Uninstalling:
+	case driverutil.InstallState_NotInstalled, driverutil.InstallState_Uninstalling:
 		return status.Error(codes.Unavailable, fmt.Sprintf("cortex cluster is not installed"))
 	default:
 		return status.Error(codes.Internal, fmt.Sprintf("unknown cortex cluster state"))

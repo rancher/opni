@@ -20,11 +20,8 @@ var _ = Describe("Management API Cerificate Management Tests", Ordered, Label("i
 	BeforeAll(func() {
 		environment = &test.Environment{}
 		Expect(environment.Start()).To(Succeed())
+		DeferCleanup(environment.Stop)
 		client = environment.NewManagementClient()
-	})
-
-	AfterAll(func() {
-		ExpectGracefulExamplePluginShutdown(environment)
 	})
 
 	//#endregion

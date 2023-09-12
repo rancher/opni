@@ -54,9 +54,8 @@ func (k OpniManagerClusterDriverOptions) newGateway() *opnicorev1beta1.Gateway {
 
 type OpniManager struct {
 	cortexops.UnsafeCortexOpsServer
-	driverutil.DefaultConfigurableServer[*cortexops.CapabilityBackendConfigSpec, *cortexops.GetRequest]
 	OpniManagerClusterDriverOptions
-
+	*driverutil.BaseConfigServer[*cortexops.ResetRequest, *cortexops.ConfigurationHistoryResponse, *cortexops.CapabilityBackendConfigSpec]
 	configTracker *driverutil.DefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec]
 }
 
@@ -110,13 +109,15 @@ func NewOpniManagerClusterDriver(options OpniManagerClusterDriverOptions) (*Opni
 		controllerRef: gateway,
 	}, crds.WithClient(options.K8sClient))
 
-	configTracker := driverutil.NewDefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec](
-		options.DefaultConfigStore, activeStore, flagutil.LoadDefaults[*cortexops.CapabilityBackendConfigSpec])
+	configSrv := driverutil.NewBaseConfigServer[
+		*cortexops.ResetRequest,
+		*cortexops.ConfigurationHistoryResponse,
+	](options.DefaultConfigStore, activeStore, flagutil.LoadDefaults)
 
 	return &OpniManager{
+		BaseConfigServer:                configSrv,
 		OpniManagerClusterDriverOptions: options,
-		configTracker:                   configTracker,
-		DefaultConfigurableServer:       driverutil.NewDefaultConfigurableServer[cortexops.CortexOpsServer](configTracker),
+		configTracker:                   configSrv.Tracker(),
 	}, nil
 }
 
@@ -126,7 +127,7 @@ func (k *OpniManager) ListPresets(context.Context, *emptypb.Empty) (*cortexops.P
 		Items: []*cortexops.Preset{
 			{
 				Id: &corev1.Reference{Id: "all-in-one"},
-				Metadata: &cortexops.PresetMetadata{
+				Metadata: &driverutil.PresetMetadata{
 					DisplayName: "All In One",
 					Description: "Minimal Cortex deployment with all components running in a single process",
 					Notes: []string{
@@ -150,7 +151,7 @@ func (k *OpniManager) ListPresets(context.Context, *emptypb.Empty) (*cortexops.P
 			},
 			{
 				Id: &corev1.Reference{Id: "highly-available"},
-				Metadata: &cortexops.PresetMetadata{
+				Metadata: &driverutil.PresetMetadata{
 					DisplayName: "Highly Available",
 					Description: "Basic HA Cortex deployment with all components running in separate processes",
 					Notes: []string{
@@ -185,11 +186,11 @@ func (k *OpniManager) ListPresets(context.Context, *emptypb.Empty) (*cortexops.P
 }
 
 // Status implements cortexops.CortexOpsServer.
-func (k *OpniManager) Status(ctx context.Context, _ *emptypb.Empty) (*cortexops.InstallStatus, error) {
-	status := &cortexops.InstallStatus{
-		ConfigState:  cortexops.ConfigurationState_NotConfigured,
-		InstallState: cortexops.InstallState_NotInstalled,
-		AppState:     cortexops.ApplicationState_NotRunning,
+func (k *OpniManager) Status(ctx context.Context, _ *emptypb.Empty) (*driverutil.InstallStatus, error) {
+	status := &driverutil.InstallStatus{
+		ConfigState:  driverutil.ConfigurationState_NotConfigured,
+		InstallState: driverutil.InstallState_NotInstalled,
+		AppState:     driverutil.ApplicationState_NotRunning,
 		Metadata: map[string]string{
 			"driver": "opni-manager",
 		},
@@ -202,9 +203,9 @@ func (k *OpniManager) Status(ctx context.Context, _ *emptypb.Empty) (*cortexops.
 			return nil, fmt.Errorf("failed to get monitoring cluster: %w", err)
 		}
 	} else {
-		status.ConfigState = cortexops.ConfigurationState_Configured
+		status.ConfigState = driverutil.ConfigurationState_Configured
 		if cluster.Spec.Cortex.Enabled != nil && *cluster.Spec.Cortex.Enabled {
-			status.InstallState = cortexops.InstallState_Installed
+			status.InstallState = driverutil.InstallState_Installed
 		}
 		mcStatus := cluster.Status.Cortex
 		if err != nil {
@@ -212,13 +213,13 @@ func (k *OpniManager) Status(ctx context.Context, _ *emptypb.Empty) (*cortexops.
 		}
 		status.Version = mcStatus.Version
 		if cluster.GetDeletionTimestamp() != nil {
-			status.InstallState = cortexops.InstallState_Uninstalling
-			status.AppState = cortexops.ApplicationState_Running
+			status.InstallState = driverutil.InstallState_Uninstalling
+			status.AppState = driverutil.ApplicationState_Running
 		} else {
 			if mcStatus.WorkloadsReady {
-				status.AppState = cortexops.ApplicationState_Running
+				status.AppState = driverutil.ApplicationState_Running
 			} else {
-				status.AppState = cortexops.ApplicationState_Pending
+				status.AppState = driverutil.ApplicationState_Pending
 				status.Warnings = append(status.Warnings, mcStatus.Conditions...)
 			}
 		}
@@ -234,9 +235,9 @@ func (k *OpniManager) ShouldDisableNode(_ *corev1.Reference) error {
 		return nil
 	}
 	switch stat.InstallState {
-	case cortexops.InstallState_NotInstalled, cortexops.InstallState_Uninstalling:
+	case driverutil.InstallState_NotInstalled, driverutil.InstallState_Uninstalling:
 		return status.Error(codes.Unavailable, fmt.Sprintf("Cortex cluster is not installed"))
-	case cortexops.InstallState_Installed:
+	case driverutil.InstallState_Installed:
 		return nil
 	default:
 		// can't determine cluster status, so don't disable the node
@@ -245,7 +246,7 @@ func (k *OpniManager) ShouldDisableNode(_ *corev1.Reference) error {
 }
 
 func (k *OpniManager) DryRun(ctx context.Context, req *cortexops.DryRunRequest) (*cortexops.DryRunResponse, error) {
-	res, err := k.configTracker.DryRun(ctx, req.Target, req.Action, req.Spec)
+	res, err := k.configTracker.DryRun(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -254,28 +255,6 @@ func (k *OpniManager) DryRun(ctx context.Context, req *cortexops.DryRunRequest) 
 		Modified:         res.Modified,
 		ValidationErrors: configutil.ValidateConfiguration(res.Modified),
 	}, nil
-}
-
-func (k *OpniManager) ConfigurationHistory(ctx context.Context, req *cortexops.ConfigurationHistoryRequest) (*cortexops.ConfigurationHistoryResponse, error) {
-	revisions, err := k.configTracker.History(ctx, req.GetTarget(), storage.IncludeValues(req.GetIncludeValues()))
-	if err != nil {
-		return nil, err
-	}
-	resp := &cortexops.ConfigurationHistoryResponse{
-		Entries: make([]*cortexops.CapabilityBackendConfigSpec, len(revisions)),
-	}
-	for i, rev := range revisions {
-		if req.IncludeValues {
-			spec := rev.Value()
-			spec.Revision = corev1.NewRevision(rev.Revision(), rev.Timestamp())
-			resp.Entries[i] = spec
-		} else {
-			resp.Entries[i] = &cortexops.CapabilityBackendConfigSpec{
-				Revision: corev1.NewRevision(rev.Revision(), rev.Timestamp()),
-			}
-		}
-	}
-	return resp, nil
 }
 
 func init() {

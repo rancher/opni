@@ -1,6 +1,5 @@
 import { CoreStoreSpecifics, CoreStoreConfig } from '@shell/core/types';
 import { Cluster as ClusterModel } from '@pkg/opni/models/Cluster';
-import Vue from 'vue';
 import * as core from '@pkg/opni/generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
 import * as management from '@pkg/opni/generated/github.com/rancher/opni/pkg/apis/management/v1/management_pb';
 
@@ -29,7 +28,11 @@ const createStore = (): CoreStoreSpecifics => {
     state(): ClustersState {
       return { clusters: [] };
     },
-    getters:   { clusters: (state: ClustersState) => state.clusters },
+    getters:   {
+      clusters: (state: ClustersState) => {
+        return state.clusters;
+      }
+    },
     mutations: {
       updateCluster(state: ClustersState, cluster: core.Cluster) {
         const clusterId = cluster.id;
@@ -39,7 +42,7 @@ const createStore = (): CoreStoreSpecifics => {
         let c: ClusterModel;
 
         if (clusterIndex === -1) {
-          c = new ClusterModel(Vue);
+          c = new ClusterModel(this._vm);
           state.clusters.push(c);
         } else {
           c = state.clusters[clusterIndex];
@@ -81,9 +84,9 @@ const createStore = (): CoreStoreSpecifics => {
 
         const clusterId = event.cluster.id;
 
-        if (event.type === management.WatchEventType.Created || event.type === management.WatchEventType.Updated) {
+        if (event.type === management.WatchEventType.Put) {
           ctx.commit('updateCluster', event.cluster);
-        } else if (event.type === management.WatchEventType.Deleted) {
+        } else if (event.type === management.WatchEventType.Delete) {
           ctx.commit('deleteCluster', clusterId);
         }
       },

@@ -1,11 +1,12 @@
 <script>
+import { mapGetters } from 'vuex';
 import SortableTable from '@shell/components/SortableTable';
 import Loading from '@shell/components/Loading';
-import { getClusters } from '@pkg/opni/utils/requests/management';
 import CloneToClustersDialog from '@pkg/opni/components/dialogs/CloneToClustersDialog';
 import { InstallState, getClusterStatus, getAlertConditionsWithStatus } from '@pkg/opni/utils/requests/alerts';
 import LoadingSpinnerOverlay from '@pkg/opni/components/LoadingSpinnerOverlay';
-import ConditionFilter, { createDefaults as createConditionFilterDefaults, loadOptions as loadConditionFilterOptions } from '@pkg/opni/components/ConditionFilter';
+import ConditionFilter, { createDefaultFilters } from '@pkg/opni/components/ConditionFilter';
+import GlobalEventBus from '@pkg/opni/utils/GlobalEventBus';
 
 export default {
   components: {
@@ -18,8 +19,7 @@ export default {
 
   data() {
     return {
-      conditionFilter:        createConditionFilterDefaults(),
-      clusters:               [],
+      conditionFilters:        createDefaultFilters(),
       loading:                false,
       loadingTable:           false,
       statsInterval:          null,
@@ -60,13 +60,13 @@ export default {
   },
 
   created() {
-    this.$on('remove', this.onRemove);
+    GlobalEventBus.$on('remove', this.onRemove);
     this.$on('clone', this.onClone);
     this.statsInterval = setInterval(this.updateStatuses, 10000);
   },
 
   beforeDestroy() {
-    this.$off('remove');
+    GlobalEventBus.$off('remove');
     this.$off('clone');
     if (this.statsInterval) {
       clearInterval(this.statsInterval);
@@ -95,30 +95,27 @@ export default {
           return;
         }
 
-        const [conditionFilterOptions, clusters] = await Promise.all([loadConditionFilterOptions(), getClusters(this)]);
-
-        this.$set(this, 'clusters', clusters);
-        this.$set(this.conditionFilter, 'options', conditionFilterOptions);
-
         await this.updateStatuses();
       } finally {
         this.loading = false;
       }
     },
     async updateStatuses() {
-      this.$set(this, 'conditions', await getAlertConditionsWithStatus(this, this.clusters, this.conditionFilter.itemFilter));
+      this.$set(this, 'conditions', await getAlertConditionsWithStatus(this, this.conditionFilters, this.clusters));
     },
 
     async itemFilterChanged(itemFilter) {
       try {
         this.$set(this, 'loadingTable', true);
-        this.$set(this.conditionFilter, 'itemFilter', itemFilter);
+        this.$set(this, 'conditionFilters', itemFilter);
         await this.updateStatuses();
       } finally {
         this.$set(this, 'loadingTable', false);
       }
     },
   },
+
+  computed: { ...mapGetters({ clusters: 'opni/clusters' }) }
 };
 </script>
 <template>
@@ -150,7 +147,7 @@ export default {
           </div>
         </template>
         <template #header-right>
-          <ConditionFilter :options="conditionFilter.options" @item-filter-changed="itemFilterChanged" />
+          <ConditionFilter @item-filter-changed="itemFilterChanged" />
         </template>
       </SortableTable>
     </LoadingSpinnerOverlay>

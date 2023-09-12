@@ -3,20 +3,18 @@ import LabeledSelect from '@shell/components/form/LabeledSelect';
 import Tab from '@shell/components/Tabbed/Tab';
 import Tabbed from '@shell/components/Tabbed';
 import { cloneDeep } from 'lodash';
-import { CortexOps, DryRun } from '@pkg/opni/api/opni';
-import { toPlainMessage } from '@bufbuild/protobuf';
+import { CortexOps, DriverUtil } from '@pkg/opni/api/opni';
+import { getClusterStats } from '@pkg/opni/utils/requests';
 import Backend from '../Backend';
 import CapabilityTable from '../CapabilityTable';
-import { getMetricCapabilities } from '../../utils/requests/capability';
-import { getClusterStats } from '../../utils/requests';
 import Grafana from './Grafana';
-import { default as StorageComponent } from './Storage';
+import StorageComponent from './Storage';
 
 export async function isEnabled() {
   try {
     const state = (await CortexOps.service.Status()).installState;
 
-    return state !== CortexOps.types.InstallState.NotInstalled;
+    return state !== DriverUtil.types.InstallState.NotInstalled;
   } catch (ex) {
     return false;
   }
@@ -38,7 +36,6 @@ export default {
       presets:       [],
       presetOptions: [],
       presetIndex:   0,
-      // capabilities:  [],
       config:        null,
     };
   },
@@ -51,12 +48,6 @@ export default {
         capabilities.forEach(c => c.updateStats(stats));
       } catch (ex) {}
     },
-
-    // async loadCapabilities(parent) {
-    //   this.capabilities = await getMetricCapabilities(parent);
-
-    //   return this.capabilities;
-    // },
 
     headerProvider(headers) {
       const newHeaders = [...headers];
@@ -132,13 +123,13 @@ export default {
       }
 
       const newConfig = new CortexOps.types.CapabilityBackendConfigSpec(structuredClone(this.config));
-      const activeConfig = await CortexOps.service.GetConfiguration(new CortexOps.types.GetRequest());
+      const activeConfig = await CortexOps.service.GetConfiguration(new DriverUtil.types.GetRequest());
       const shouldSetConfig = activeConfig.revision.revision === 0n;
 
       const dryRunRequest = new CortexOps.types.DryRunRequest({
         spec:   newConfig,
-        action: shouldSetConfig ? DryRun.types.Action.Set : DryRun.types.Action.Reset,
-        target: DryRun.types.Target.ActiveConfiguration
+        action: shouldSetConfig ? DriverUtil.types.Action.Set : DriverUtil.types.Action.Reset,
+        target: DriverUtil.types.Target.ActiveConfiguration
       });
 
       const dryRun = await CortexOps.service.DryRun(dryRunRequest);
@@ -164,9 +155,9 @@ export default {
       }
 
       switch (status.installState) {
-      case CortexOps.types.InstallState.Uninstalling:
+      case DriverUtil.types.InstallState.Uninstalling:
         return `Monitoring is currently uninstalling from the cluster. You can't make changes right now.`;
-      case CortexOps.types.InstallState.Installed:
+      case DriverUtil.types.InstallState.Installed:
         return `Monitoring is currently installed on the cluster.`;
       default:
         return `Monitoring is currently in an unknown state on the cluster. You can't make changes right now.`;
@@ -179,9 +170,9 @@ export default {
       }
 
       switch (status.installState) {
-      case CortexOps.types.InstallState.Uninstalling:
+      case DriverUtil.types.InstallState.Uninstalling:
         return 'warning';
-      case CortexOps.types.InstallState.Installed:
+      case DriverUtil.types.InstallState.Installed:
         return `success`;
       default:
         return `error`;
@@ -198,7 +189,7 @@ export default {
       try {
         const status = (await CortexOps.service.Status());
 
-        if (status.installState === CortexOps.types.InstallState.NotInstalled) {
+        if (status.installState === DriverUtil.types.InstallState.NotInstalled) {
           return null;
         }
 
@@ -232,7 +223,7 @@ export default {
       })));
       this.setPresetAsConfig(this.presetIndex);
 
-      const config = await CortexOps.service.GetDefaultConfiguration(new CortexOps.types.GetRequest());
+      const config = await CortexOps.service.GetDefaultConfiguration(new DriverUtil.types.GetRequest());
 
       config.cortexWorkloads.targets = !config.cortexWorkloads.targets || Object.keys(config.cortexWorkloads.targets).length === 0 ? this.config.cortexWorkloads.targets : config.cortexWorkloads.targets;
       config.cortexConfig.storage = config.cortexConfig.storage || { backend: 's3' };

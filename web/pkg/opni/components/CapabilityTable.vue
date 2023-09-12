@@ -4,9 +4,11 @@ import SortableTable from '@shell/components/SortableTable';
 import { Banner } from '@components/Banner';
 import LoadingSpinner from '@pkg/opni/components/LoadingSpinner';
 import { mapGetters } from 'vuex';
-import { Capability, CapabilityStatuses } from '../models/Capability';
-import UninstallCapabilitiesDialog from './dialogs/UninstallCapabilitiesDialog';
-import CancelUninstallCapabilitiesDialog from './dialogs/CancelUninstallCapabilitiesDialog';
+import GlobalEventBus from '@pkg/opni/utils/GlobalEventBus';
+import { Capability } from '@pkg/opni/models/Capability';
+import UninstallCapabilitiesDialog from '@pkg/opni/components/dialogs/UninstallCapabilitiesDialog';
+import CancelUninstallCapabilitiesDialog from '@pkg/opni/components/dialogs/CancelUninstallCapabilitiesDialog';
+
 export default {
   components: {
     Banner,
@@ -22,10 +24,6 @@ export default {
       type:     String,
       required: true
     },
-    // capabilityProvider: {
-    //   type:     Function,
-    //   required: true
-    // },
 
     updateStatusProvider: {
       type:     Function,
@@ -39,7 +37,6 @@ export default {
   },
 
   async fetch() {
-    await this.load();
     await this.loadStatus();
   },
 
@@ -75,34 +72,30 @@ export default {
     return {
       loading:        false,
       statusInterval: null,
-      headers:        this.headerProvider(headers)
+      headers:        this.headerProvider(headers),
     };
   },
 
   computed: {
     ...mapGetters({ clusters: 'opni/clusters' }),
     capabilities() {
-      return this.clusters.map(c => new Capability(this.name, c, this.vue));
+      return this.clusters.map(c => Capability.create(this.name, c, this.vue));
     },
   },
 
+  watch: {
+    capabilities() {
+      this.loadStatus();
+    }
+  },
+
   created() {
-    this.$on('remove', this.onClusterDelete);
-    this.$on('edit', this.openEditDialog);
-    this.$on('copy', this.copyClusterID);
-    this.$on('uninstallCapabilities', this.openUninstallCapabilitiesDialog);
-    this.$on('cancelUninstallCapabilities', this.openCancelUninstallCapabilitiesDialog);
-    this.$on('cantDeleteCluster', this.openCantDeleteClusterDialog);
+    GlobalEventBus.$on('uninstallCapabilities', this.openUninstallCapabilitiesDialog);
     this.statusInterval = setInterval(this.loadStatus, 10000);
   },
 
   beforeDestroy() {
-    this.$off('remove');
-    this.$off('edit');
-    this.$off('copy');
-    this.$off('uninstallCapabilities');
-    this.$off('cancelUninstallCapabilities');
-    this.$off('cantDeleteCluster');
+    GlobalEventBus.$off('uninstallCapabilities');
     if (this.statusInterval) {
       clearInterval(this.statusInterval);
     }
@@ -117,23 +110,6 @@ export default {
       this.$refs.cancelCapabilitiesDialog.open(cluster, capabilities);
     },
 
-    cancelCapabilityUninstall(cluster, capabilities) {
-      // cluster.clearCapabilityStatus(capabilities);
-    },
-
-    // getCapabilities() {
-    //   return this.capabilityProvider(this);
-    // },
-
-    // async load() {
-    //   try {
-    //     this.loading = true;
-    //     this.$set(this, 'capabilities', await this.getCapabilities());
-    //   } finally {
-    //     this.loading = false;
-    //   }
-    // },
-
     async loadStatus() {
       const status = Promise.all(this.capabilities.map(c => c.updateCabilityLogs()));
 
@@ -144,7 +120,6 @@ export default {
     },
 
     async onDialogSave() {
-      // this.$set(this, 'capabilities', await this.getCapabilities());
       await this.loadStatus();
       this.$refs.uninstallCapabilitiesDialog.close(false);
       this.$refs.cancelCapabilitiesDialog.close(false);
@@ -182,7 +157,7 @@ export default {
         </SortableTable>
       </div>
     </Card>
-    <UninstallCapabilitiesDialog ref="uninstallCapabilitiesDialog" @save="onDialogSave" @cancel="cancelCapabilityUninstall" />
+    <UninstallCapabilitiesDialog ref="uninstallCapabilitiesDialog" @save="onDialogSave" />
     <CancelUninstallCapabilitiesDialog ref="cancelCapabilitiesDialog" @save="onDialogSave" />
   </div>
 </template>

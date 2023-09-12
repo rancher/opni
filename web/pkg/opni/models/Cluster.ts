@@ -1,9 +1,10 @@
 import Vue from 'vue';
-import { deleteCluster } from '../utils/requests/management';
-import * as Core from '../generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
-import { LABEL_KEYS, Status } from './shared';
+import GlobalEventBus from '@pkg/opni/utils/GlobalEventBus';
+import { deleteCluster } from '@pkg/opni/utils/requests/management';
+import * as Core from '@pkg/opni/generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
+import { LABEL_KEYS } from './shared';
 import { Resource } from './Resource';
-import { TaskState } from './Capability';
+import { TaskState, Capability } from './Capability';
 
 export interface ClusterResponse {
   id: string;
@@ -85,7 +86,6 @@ export class Cluster extends Resource {
   private base?: Core.Cluster;
   private healthStatus?: Core.HealthStatus;
   private clusterStats: ClusterStats;
-  private capLogs: CapabilityLog[];
 
   constructor(vue: any) {
     super(vue);
@@ -93,7 +93,6 @@ export class Cluster extends Resource {
       ingestionRate: 0,
       numSeries:     0,
     } as ClusterStats;
-    this.capLogs = [];
   }
 
   get status() {
@@ -185,6 +184,10 @@ export class Cluster extends Resource {
     return this.base?.metadata?.capabilities?.map(capability => capability.name) || [];
   }
 
+  get capabilityModels(): Capability[] {
+    return this.base?.metadata?.capabilities?.map(capability => Capability.create(capability.name as any, this, this.vue) ) || [];
+  }
+
   get capabilitiesRaw(): Core.ClusterCapability[] {
     return this.base?.metadata?.capabilities || [];
   }
@@ -197,18 +200,6 @@ export class Cluster extends Resource {
     return [];
   }
 
-  get numSeries(): number {
-    return this.clusterStats?.numSeries;
-  }
-
-  get sampleRate(): number | undefined {
-    return Math.floor(this.clusterStats?.ingestionRate || 0);
-  }
-
-  get rulesRate(): number | undefined {
-    return this.clusterStats?.RuleIngestionRate;
-  }
-
   get stats(): ClusterStats {
     return this.clusterStats;
   }
@@ -217,16 +208,16 @@ export class Cluster extends Resource {
     this.clusterStats = stats;
   }
 
-  get capabilityLogs(): CapabilityLog[] {
-    return this.capLogs;
-  }
-
   onClusterUpdated(cluster: Core.Cluster) {
     Vue.set(this, 'base', cluster);
   }
 
   onHealthStatusUpdated(healthStatus: Core.HealthStatus) {
     Vue.set(this, 'healthStatus', healthStatus);
+  }
+
+  uninstallCapabilities() {
+    GlobalEventBus.$emit('uninstallCapabilities', this.capabilityModels);
   }
 
   get availableActions(): any[] {
@@ -272,9 +263,9 @@ export class Cluster extends Resource {
 
   public promptRemove(resources = this) {
     if (this.capabilities.length > 0) {
-      this.vue.$emit('cantDeleteCluster', this);
+      GlobalEventBus.$emit('cantDeleteCluster', this);
     } else {
-      this.vue.$store.commit('action-menu/togglePromptRemove', resources, { root: true });
+      GlobalEventBus.$emit('promptRemove', resources);
     }
   }
 }

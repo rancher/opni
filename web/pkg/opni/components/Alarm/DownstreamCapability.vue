@@ -5,7 +5,7 @@ import UnitInput from '@shell/components/form/UnitInput';
 import Loading from '@shell/components/Loading';
 import { createComputedTime } from '@pkg/opni/utils/computed';
 import { AlertType } from '../../models/alerting/Condition';
-import { loadClusters, loadChoices } from './shared';
+import { mapClusterOptions, loadChoices } from './shared';
 
 const TYPE = 'downstreamCapability';
 
@@ -42,7 +42,7 @@ export default {
   },
 
   async fetch() {
-    await Promise.all([this.loadChoices(), this.loadClusters()]);
+    await this.loadChoices();
   },
 
   data() {
@@ -58,13 +58,11 @@ export default {
     async loadChoices() {
       await loadChoices(this, this.TYPE, this.ENUM);
     },
-
-    async loadClusters() {
-      await loadClusters(this);
-    },
   },
 
   computed: {
+    ...mapClusterOptions(),
+
     downstreamCapabilityClusterOptions() {
       const options = this.clusterOptions;
 

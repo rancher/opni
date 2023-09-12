@@ -1,6 +1,7 @@
 <script>
 import SortableTable from '@shell/components/SortableTable';
 import Loading from '@shell/components/Loading';
+import GlobalEventBus from '@pkg/opni/utils/GlobalEventBus';
 import { getRoleBindings } from '../utils/requests/management';
 import AddTokenDialog from './dialogs/AddTokenDialog';
 
@@ -42,15 +43,15 @@ export default {
   },
 
   created() {
-    this.$on('remove', this.onClusterDelete);
+    GlobalEventBus.$on('remove', this.onRemove);
   },
 
   beforeDestroy() {
-    this.$off('remove');
+    GlobalEventBus.$off('remove');
   },
 
   methods: {
-    onClusterDelete() {
+    onRemove() {
       this.load();
     },
 

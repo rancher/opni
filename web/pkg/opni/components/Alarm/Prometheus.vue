@@ -4,8 +4,8 @@ import UnitInput from '@shell/components/form/UnitInput';
 import TextAreaAutoGrow from '@components/Form/TextArea/TextAreaAutoGrow';
 import Loading from '@shell/components/Loading';
 import { createComputedTime } from '@pkg/opni/utils/computed';
-import { AlertType } from '../../models/alerting/Condition';
-import { loadClusters, loadChoices } from './shared';
+import { AlertType } from '@pkg/opni/models/alerting/Condition';
+import { mapClusterOptions, loadChoices } from './shared';
 
 const TYPE = 'prometheusQuery';
 
@@ -42,12 +42,11 @@ export default {
   },
 
   async fetch() {
-    await Promise.all([this.loadChoices(), this.loadClusters()]);
+    await this.loadChoices();
   },
 
   data() {
     return {
-      clusterOptions: [],
       choices:        { clusters: [] },
       error:          '',
     };
@@ -57,13 +56,11 @@ export default {
     async loadChoices() {
       await loadChoices(this, this.TYPE, this.ENUM);
     },
-
-    async loadClusters() {
-      await loadClusters(this);
-    },
   },
 
   computed: {
+    ...mapClusterOptions(),
+
     prometheusQueryClusterOptions() {
       const options = this.clusterOptions;
 

@@ -2,7 +2,7 @@
 import LabeledSelect from '@shell/components/form/LabeledSelect';
 import { getAlertConditionGroups } from '@pkg/opni/utils/requests/alerts';
 import { CONDITION_TYPES } from '@pkg/opni/utils/alarms';
-import { getClusters } from '@pkg/opni/utils/requests/management';
+import { mapGetters } from 'vuex';
 
 const NO_FILTER_SENTINEL = '__-NO_FILTER_SENTINEL-__';
 const NO_FILTER = {
@@ -11,24 +11,13 @@ const NO_FILTER = {
 };
 const DEFAULT_GROUP = '';
 
-export function createDefaults() {
-  const options = createDefaultOptions();
+export function createDefaultFilters() {
+  const defaults = defaultFilters();
 
-  return {
-    options,
-    itemFilter: getItemFilter(options, createDefaultFilters())
-  };
+  return getItemFilter([], defaults);
 }
 
-function createDefaultOptions() {
-  return {
-    group:      [],
-    cluster:    [],
-    type:       [NO_FILTER, ...CONDITION_TYPES],
-  };
-}
-
-function createDefaultFilters() {
+function defaultFilters() {
   return {
     group:       DEFAULT_GROUP,
     cluster:     NO_FILTER_SENTINEL,
@@ -36,28 +25,8 @@ function createDefaultFilters() {
   };
 }
 
-export async function loadOptions() {
-  const [groups, clusters] = await Promise.all([getAlertConditionGroups(), getClusters(this)]);
-
-  const groupOptions = groups.map(g => ({
-    value: g.id,
-    label: g.id === DEFAULT_GROUP ? 'Default' : g.id
-  }));
-
-  const clusterOptions = clusters.map(c => ({
-    value: c.id,
-    label: c.nameDisplay,
-  }));
-
-  return {
-    group:   [NO_FILTER, ...groupOptions],
-    cluster: [NO_FILTER, ...clusterOptions],
-    type:    [NO_FILTER, ...CONDITION_TYPES]
-  };
-}
-
-export function getItemFilter(options, filters) {
-  const groupIds = filters.group === NO_FILTER_SENTINEL ? options.group.map(f => f.value) : [filters.group];
+function getItemFilter(groupOptions, filters) {
+  const groupIds = filters.group === NO_FILTER_SENTINEL ? groupOptions.map(f => f.value).filter(v => v !== NO_FILTER_SENTINEL) : [filters.group];
   const clusters = filters.cluster === NO_FILTER_SENTINEL ? undefined : [filters.cluster];
   const alertTypes = filters.type === NO_FILTER_SENTINEL ? undefined : [filters.type];
 
@@ -69,26 +38,31 @@ export function getItemFilter(options, filters) {
 export default {
   components: { LabeledSelect },
 
-  props: {
-    options: {
-      type:     Object,
-      required: true
-    },
+  props: {},
+
+  async fetch() {
+    const groups = await getAlertConditionGroups();
+
+    this.$set(this, 'groups', groups);
   },
 
   data() {
-    return { filters: createDefaultFilters() };
+    return {
+      filters: defaultFilters(),
+      groups:  []
+    };
   },
 
   methods: {
     updateFilters() {
-      this.$emit('item-filter-changed', getItemFilter(this.options, this.filters));
+      this.$emit('item-filter-changed', this.getItemFilter(this.groupOptions, this.filters));
     },
 
     resetFilters() {
-      this.$set(this, 'filters', createDefaultFilters());
+      this.$set(this, 'filters', defaultFilters());
       this.updateFilters();
-    }
+    },
+    getItemFilter
   },
   watch: {
     'filters.cluster'() {
@@ -100,6 +74,31 @@ export default {
     'filters.group'() {
       this.updateFilters();
     }
+  },
+  computed: {
+    ...mapGetters({ clusters: 'opni/clusters' }),
+    clusterOptions() {
+      const clusterOptions = this.clusters.map(c => ({
+        value: c.id,
+        label: c.nameDisplay,
+      }));
+
+      return [NO_FILTER, ...clusterOptions];
+    },
+
+    typeOptions() {
+      return [NO_FILTER, ...CONDITION_TYPES];
+    },
+
+    groupOptions() {
+      const groups = this.groups.length === 0 ? [{ id: DEFAULT_GROUP }] : this.groups;
+      const groupOptions = groups.map(g => ({
+        value: g.id,
+        label: g.id === DEFAULT_GROUP ? 'Default' : g.id
+      }));
+
+      return [NO_FILTER, ...groupOptions];
+    }
   }
 };
 </script>
@@ -110,7 +109,7 @@ export default {
       class="cluster mr-10"
       label="Cluster"
       :searchable="true"
-      :options="options.cluster"
+      :options="clusterOptions"
     />
     <LabeledSelect
       v-model="filters.type"
@@ -118,14 +117,14 @@ export default {
       class="type mr-10"
       label="Type"
       :searchable="true"
-      :options="options.type"
+      :options="typeOptions"
     />
     <LabeledSelect
       v-model="filters.group"
       class="group mr-10"
       label="Group"
       :searchable="true"
-      :options="options.group"
+      :options="groupOptions"
     />
     <button class="btn btn-sm role-secondary" @click="resetFilters">
       Reset Filters

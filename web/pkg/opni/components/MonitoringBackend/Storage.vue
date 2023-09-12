@@ -72,7 +72,7 @@ export default {
   methods: {
     updateEndpoint() {
       if (this.value.cortexConfig.storage?.s3?.region) {
-        return this.$set(this.value.cortexConfig.storage.s3, 'endpoint', `${ S3_REGION_TO_ENDPOINT[this.value.storage.s3.region] }`);
+        return this.$set(this.value.cortexConfig.storage.s3, 'endpoint', `${ S3_REGION_TO_ENDPOINT[this.value.cortexConfig.storage.s3.region] }`);
       }
     },
   },

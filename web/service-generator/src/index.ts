@@ -46,20 +46,29 @@ function printMethod(f: GeneratedFile, method: DescMethod) {
   // const transformRequest = inputIsEmpty ? '' : `\n    transformRequest: req => req.toJsonString(),`;
   const transformResponse = outputIsEmpty ? '' : [`\n    transformResponse: resp => `, output, `.fromBinary(new Uint8Array(resp)),`];
   const data = inputIsEmpty ? '' : `,\n    data: input.toBinary() as ArrayBuffer`;
+  const urlPath = (m?.pattern.value as any || '').replaceAll('{', '${input.');
 
   switch (method.methodKind) {
   case MethodKind.Unary:
     f.print(`
 export async function ${ method.name }(`, ...(inputIsEmpty ? [] : ['input: ', input]), `): Promise<`, outputIsEmpty ? 'void' : output, `> {
-  return (await `, _axios, `.request({`, ...transformResponse, `
-    method: '${ m?.pattern.case || 'get' }',
-    responseType: 'arraybuffer',
-    headers: {
-      'Content-Type': 'application/octet-stream',
-      'Accept': 'application/octet-stream',
-    },
-    url: '/opni-api/${ method.parent.name }${ m?.pattern.value || '' }'${ data }
-  })).data;
+  try {
+    return (await `, _axios, `.request({`, ...transformResponse, `
+      method: '${ m?.pattern.case || 'get' }',
+      responseType: 'arraybuffer',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Accept': 'application/octet-stream',
+      },
+      url: \`/opni-api/${ method.parent.name }${ urlPath }\`${ data }
+    })).data;
+  } catch (ex) {
+    if (ex?.response?.data) {
+      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      console.error(s);
+    }
+    throw ex;
+  }
 }\n`);
     break;
   case MethodKind.ClientStreaming:

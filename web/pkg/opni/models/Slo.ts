@@ -6,6 +6,16 @@ import { Cluster } from './Cluster';
 import { Resource } from './Resource';
 
 export type SloStatusStateResponse = 'InProgress' | 'Creating' | 'NoData' | 'Ok' | 'Warning' | 'Breaching' | 'PartialDataOk' | 'InternalError';
+export const SloStatusEnumMapping: any = {
+  0: 'InProgress',
+  1: 'Creating',
+  2: 'NoData',
+  3: 'Ok',
+  4: 'Warning',
+  5: 'Breaching',
+  6: 'PartialDataOk',
+  7: 'InternalError',
+};
 
 export interface SloStatusResponse {
   state: SloStatusStateResponse;

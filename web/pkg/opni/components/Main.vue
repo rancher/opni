@@ -1,12 +1,10 @@
 <script>
 import ActionMenu from '@shell/components/ActionMenu';
 import PromptRemove from '@shell/components/PromptRemove';
-import { mapActions } from 'vuex';
-import { HandleClusterWatchEvent, HandleClusterHealthStatusEvent } from '@pkg/opni/store';
+import GlobalEventBus from '@pkg/opni/utils/GlobalEventBus';
 import { createNavItemsFromNavigation } from '../utils/navigation';
 import { isStandalone } from '../utils/standalone';
 import { NAVIGATION } from '../router';
-import { watchClusters } from '../utils/requests/management';
 import SideNavColumn from './Navigation/SideNavColumn';
 import SideNavColumnItems from './Navigation/SideNavColumn/Items';
 import SideNavColumnItem from './Navigation/SideNavColumn/Item';
@@ -26,30 +24,29 @@ export default {
       // Assume home pages have routes where the name is the key to use for string lookup
       name:          this.$route.name,
       allNavItems:  [],
-      closeStreams: null,
     };
   },
-  created() {
-    this.closeStreams = watchClusters(this);
-  },
-  beforeDestroy() {
-    if (this.closeStreams) {
-      this.closeStreams();
-    }
-  },
-  methods: {
-    ...mapActions([
-      HandleClusterWatchEvent,
-      HandleClusterHealthStatusEvent,
-    ]),
 
+  methods: {
     async load() {
       const allNavItems = await createNavItemsFromNavigation(NAVIGATION, this.t.bind(this));
 
       this.$set(this, 'allNavItems', allNavItems);
     },
 
-    isStandalone
+    isStandalone,
+
+    promptRemove(resources) {
+      this.$store.commit('action-menu/togglePromptRemove', resources, { root: true });
+    }
+  },
+
+  created() {
+    GlobalEventBus.$on('promptRemove', this.promptRemove);
+  },
+
+  beforeDestroy() {
+    GlobalEventBus.$off('promptRemove');
   },
 
   computed: {

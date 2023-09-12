@@ -1,6 +1,7 @@
 <script>
 import SortableTable from '@shell/components/SortableTable';
 import Loading from '@shell/components/Loading';
+import GlobalEventBus from '@pkg/opni/utils/GlobalEventBus';
 import { InstallState, getClusterStatus, getAlertEndpoints } from '../utils/requests/alerts';
 
 export default {
@@ -36,13 +37,13 @@ export default {
   },
 
   created() {
-    this.$on('remove', this.onRemove);
+    GlobalEventBus.$on('remove', this.onRemove);
     this.$on('clone', this.onClone);
     this.statsInterval = setInterval(this.updateStatuses, 10000);
   },
 
   beforeDestroy() {
-    this.$off('remove');
+    GlobalEventBus.$off('remove');
     this.$off('clone');
     if (this.statsInterval) {
       clearInterval(this.statsInterval);

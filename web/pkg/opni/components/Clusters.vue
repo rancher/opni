@@ -1,28 +1,21 @@
 <script>
 import SortableTable from '@shell/components/SortableTable';
-import Loading from '@shell/components/Loading';
 import { Banner } from '@components/Banner';
-import { isEmpty } from 'lodash';
 import { mapGetters } from 'vuex';
-import { Clusters } from '@pkg/opni/store';
-import { InstallState, getClusterStatus as getMonitoringBackendStatus } from '../utils/requests/monitoring';
-import { getOpensearchCluster } from '../utils/requests/loggingv2';
-import { getClusterStats } from '../utils/requests';
-import CapabilityButton from './CapabilityButton';
-import EditClusterDialog from './dialogs/EditClusterDialog';
-import CantDeleteClusterDialog from './dialogs/CantDeleteClusterDialog';
+import GlobalEventBus from '@pkg/opni/utils/GlobalEventBus';
+import CapabilityButton from '@pkg/opni/components/CapabilityButton';
+import EditClusterDialog from '@pkg/opni/components/dialogs/EditClusterDialog';
+import CantDeleteClusterDialog from '@pkg/opni/components/dialogs/CantDeleteClusterDialog';
+import UninstallCapabilitiesDialog from '@pkg/opni/components/dialogs/UninstallCapabilitiesDialog';
 
 export default {
   components: {
     CapabilityButton,
     CantDeleteClusterDialog,
     EditClusterDialog,
-    Loading,
     SortableTable,
     Banner,
-  },
-  async fetch() {
-    await this.loadStats();
+    UninstallCapabilitiesDialog
   },
 
   computed: { ...mapGetters({ clusters: 'opni/clusters' }) },
@@ -92,43 +85,26 @@ export default {
   },
 
   created() {
-    this.$on('remove', this.onClusterDelete);
-    this.$on('edit', this.openEditDialog);
-    this.$on('copy', this.copyClusterID);
-    this.$on('cantDeleteCluster', this.openCantDeleteClusterDialog);
-    this.statsInterval = setInterval(this.loadStats, 10000);
-    // this.closeStreams = watchClusters(this, this.clusters);
+    GlobalEventBus.$on('cantDeleteCluster', this.openCantDeleteClusterDialog);
+    GlobalEventBus.$on('uninstallCapabilities', this.openUninstallCapabilitiesDialog);
+    GlobalEventBus.$on('edit', this.openEditDialog);
+    GlobalEventBus.$on('copy', this.copyClusterID);
   },
 
   beforeDestroy() {
-    this.$off('remove');
-    this.$off('edit');
-    this.$off('copy');
-    this.$off('cantDeleteCluster');
-    if (this.statsInterval) {
-      clearInterval(this.statsInterval);
-    }
-    // if (this.closeStreams) {
-    //   this.closeStreams();
-    // }
+    GlobalEventBus.$off('cantDeleteCluster');
+    GlobalEventBus.$off('uninstallCapabilities');
+    GlobalEventBus.$off('edit');
+    GlobalEventBus.$off('copy');
   },
 
   methods: {
-    // ...mapActions([
-    //   store.HandleClusterWatchEvent,
-    //   store.HandleClusterHealthStatusEvent,
-    // ]),
-
     openEditDialog(cluster) {
       this.$refs.dialog.open(cluster);
     },
 
     openUninstallCapabilitiesDialog(cluster, capabilities) {
-      this.$refs.capabilitiesDialog.open(cluster, capabilities);
-    },
-
-    openCancelUninstallCapabilitiesDialog(cluster, capabilities) {
-      this.$refs.cancelCapabilitiesDialog.open(cluster, capabilities);
+      this.$refs.uninstallCapabilitiesDialog.open(cluster, capabilities);
     },
 
     openCantDeleteClusterDialog(cluster) {
@@ -143,35 +119,12 @@ export default {
       cluster.clearCapabilityStatus(capabilities);
     },
 
-    load() {
-    //   try {
-    //     this.loading = true;
-    //   } catch (ex) {
-    //     console.error(ex);
-    //   } finally {
-      this.loading = false;
-    //   }
+    promptRemove(resources) {
+      this.vue.$store.commit('action-menu/togglePromptRemove', resources, { root: true });
     },
-    async loadStats() {
-      try {
-        const [monitoringStatus, loggingStatus] = await Promise.all([getMonitoringBackendStatus(), getOpensearchCluster()]);
 
-        this.$set(this, 'isMonitoringBackendInstalled', monitoringStatus.state !== InstallState.NotInstalled);
-        this.$set(this, 'isLoggingBackendInstalled', !isEmpty(loggingStatus));
-      } catch (ex) {
-        this.$set(this, 'isMonitoringBackendInstalled', false);
-        this.$set(this, 'isLoggingBackendInstalled', false);
-      }
-
-      try {
-        if (this.isMonitoringBackendInstalled) {
-          const details = await getClusterStats(this);
-
-          this.clusters.forEach((cluster) => {
-            this.$set(cluster, 'stats', details.find(d => d.userID === cluster.id));
-          });
-        }
-      } catch (ex) {}
+    load() {
+      this.loading = false;
     },
 
     async onDialogSave() {
@@ -185,8 +138,7 @@ export default {
 };
 </script>
 <template>
-  <Loading v-if="loading || $fetchState.pending" />
-  <div v-else>
+  <div>
     <header>
       <div class="title">
         <h1>Agents</h1>
@@ -230,6 +182,7 @@ export default {
     </SortableTable>
     <EditClusterDialog ref="dialog" @save="load" />
     <CantDeleteClusterDialog ref="cantDeleteClusterDialog" />
+    <UninstallCapabilitiesDialog ref="uninstallCapabilitiesDialog" @save="load" />
   </div>
 </template>
 

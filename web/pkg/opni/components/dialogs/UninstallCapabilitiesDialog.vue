@@ -3,8 +3,10 @@ import AsyncButton from '@shell/components/AsyncButton';
 import { Card } from '@components/Card';
 import RadioGroup from '@components/Form/Radio/RadioGroup';
 import { Banner } from '@components/Banner';
-import { uninstallCapability } from '../../utils/requests/management';
-import { exceptionToErrorsArray } from '../../utils/error';
+import { Management, Capability } from '@pkg/opni/api/opni';
+import { Struct } from '@bufbuild/protobuf';
+import { exceptionToErrorsArray } from '@pkg/opni/utils/error';
+import { Reference } from '@pkg/opni/generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
 
 export default {
   components: {
@@ -46,7 +48,17 @@ export default {
       try {
         const uninstalls = this.capabilities
           .filter(cap => cap.isInstalled)
-          .map(cap => uninstallCapability(cap.rawCluster.id, cap.rawType, this.deleteData));
+          .map((cap) => {
+            const options = this.deleteData ? new Struct({ initialDelay: '1m' }) : undefined;
+
+            const uninstallRequest = new Capability.types.UninstallRequest({ cluster: new Reference({ id: cap.cluster.id }), options });
+            const capabilityUninstallRequest = new Management.types.CapabilityUninstallRequest({
+              name:   cap.type,
+              target: uninstallRequest
+            });
+
+            Management.service.UninstallCapability(capabilityUninstallRequest);
+          });
 
         await Promise.all(uninstalls);
         this.$emit('save');
@@ -57,10 +69,6 @@ export default {
     },
   },
   computed: {
-    clusters() {
-      return this.capabilities.map(c => c.rawCluster );
-    },
-
     label() {
       return (this.capabilities[0] || {}).nameDisplay;
     }
@@ -136,6 +144,10 @@ export default {
 
     .kv-item.key {
       padding-left: 1px;
+    }
+
+    hr {
+      display: none;
     }
   }
 }

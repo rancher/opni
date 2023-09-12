@@ -1,20 +1,19 @@
 import axios from 'axios';
 import { isEmpty } from 'lodash';
 import { Cluster } from '../../models/Cluster';
-import { Slo, SlosResponse, SloStatusResponse, SloStatusStateResponse } from '../../models/Slo';
+import {
+  Slo, SlosResponse, SloStatusResponse, SloStatusStateResponse, SloStatusEnumMapping
+} from '../../models/Slo';
 import { SloMetricsResponse } from '../../models/SloMetric';
 import { SloService, SloServicesResponse } from '../../models/SloService';
-import { getClusters } from './management';
 
 export type Datasource = 'monitoring' | 'logging';
 
 export async function getServices(clusterId: string): Promise<SloService[]> {
-  const clustersRequest = getClusters(null);
   const data = (await axios.post<SloServicesResponse>(`opni-api/SLO/services`, { datasource: 'monitoring', clusterId }))?.data;
   const response = isEmpty(data) ? { items: [] } : data;
-  const clusters = await clustersRequest;
 
-  return response.items.map(item => new SloService(item, clusters, null) );
+  return response.items.map(item => new SloService(item, null) );
 }
 
 export async function getMetrics(clusterId: string, serviceId: string): Promise<any> {
@@ -135,5 +134,5 @@ export async function getSLOs(vue: any, clusters?: Cluster[]) {
 export async function getSLOStatus(id: string): Promise<SloStatusStateResponse> {
   const result = (await axios.post <SloStatusResponse>(`opni-api/SLO/slos/${ id }/status`, { id })).data;
 
-  return result?.state;
+  return SloStatusEnumMapping[result?.state || 7];
 }

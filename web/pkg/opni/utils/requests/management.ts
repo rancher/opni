@@ -1,15 +1,11 @@
-import axios, { AxiosResponse } from 'axios';
-import store, { HandleClusterHealthStatusEvent, HandleClusterWatchEvent } from '@pkg/opni/store';
+import axios from 'axios';
+import { HandleClusterHealthStatusEvent, HandleClusterWatchEvent } from '@pkg/opni/store';
 import { Empty } from '@bufbuild/protobuf';
-import { ClusterHealthStatus } from '../../generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
 import { NodeCapabilityStatus } from '../../models/Capability';
 import { Management } from '../../api/opni';
-import { WatchClustersRequest, WatchEvent, WatchEventType } from '../../generated/github.com/rancher/opni/pkg/apis/management/v1/management_pb';
-import * as Core from '../../generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
+import { WatchClustersRequest } from '../../generated/github.com/rancher/opni/pkg/apis/management/v1/management_pb';
 import { TokensResponse, Token } from '../../models/Token';
-import {
-  Cluster, ClustersResponse, HealthResponse, CapabilityStatusResponse, ClusterResponse
-} from '../../models/Cluster';
+import { CapabilityStatusResponse } from '../../models/Cluster';
 import { MatchLabel, Role, RolesResponse } from '../../models/Role';
 import { RoleBinding, RoleBindingsResponse } from '../../models/RoleBinding';
 import { GatewayConfig, ConfigDocument } from '../../models/Config';
@@ -132,78 +128,12 @@ export async function updateCluster(id: string, name: string, labels: { [key: st
   }));
 }
 
-// export async function getClusters(vue: any): Promise<Cluster[]> {
-//   return await Promise.resolve([]);
-// }
+export function watchClusters(store: any) {
+  const request = new WatchClustersRequest();
 
-export function watchClusters(vue: any): () => Promise<void> {
-  // const initialHealthStatusCache = new Map<string, Core.HealthStatus>();
-
-  const request = new WatchClustersRequest({ knownClusters: vue.$store.state.clusters });
-  const closeC = Management.service.WatchClusters(request, e => vue.$store.dispatch(HandleClusterWatchEvent, e));
-  const closeH = Management.service.WatchClusterHealthStatus(new Empty(), e => vue.$store.dispatch(HandleClusterHealthStatusEvent, e));
-
-  // const closeC = Management.service.WatchClusters(new WatchClustersRequest(), (event: WatchEvent) => {
-  //   if (!event.cluster?.id) {
-  //     return;
-  //   }
-
-  //   const clusterId = event.cluster.id;
-  //   const clusterIndex = clustersCache.findIndex(c => c.id === clusterId);
-
-  //   if (event.type === WatchEventType.Created || event.type === WatchEventType.Updated) {
-  //   // find the cluster in the cache, or create a new one
-  //     let c: Cluster;
-
-  //     if (clusterIndex === -1) {
-  //       c = new Cluster(vue);
-
-  //       clustersCache.push(c);
-  //     } else {
-  //       c = clustersCache[clusterIndex];
-  //     }
-
-  //     c.onClusterUpdated(event.cluster);
-
-  //     // check if the cluster has an initial health status that came in out of order
-  //     const hs = initialHealthStatusCache.get(clusterId);
-
-  //     if (hs) {
-  //       c.onHealthStatusUpdated(hs);
-  //       initialHealthStatusCache.delete(clusterId);
-  //     }
-  //   } else if (event.type === WatchEventType.Deleted) {
-  //   // remove the cluster from the cache
-  //     clustersCache.splice(clusterIndex, 1);
-  //   }
-  // });
-
-  // const closeH = Management.service.WatchClusterHealthStatus(new Empty(), (hs: ClusterHealthStatus) => {
-  //   if (!hs.cluster || !hs.healthStatus) {
-  //     return;
-  //   }
-  //   const id = hs.cluster.id;
-  //   const healthStatus = hs.healthStatus;
-  //   const c = clustersCache.find(c => c.id === id);
-
-  //   if (!c) {
-  //     initialHealthStatusCache.set(id, healthStatus);
-  //   } else {
-  //     c.onHealthStatusUpdated(healthStatus);
-  //   }
-  // });
-
-  return async() => {
-    await closeC();
-    await closeH();
-  };
+  Management.service.WatchClusters(request, e => store.dispatch(HandleClusterWatchEvent, e));
+  Management.service.WatchClusterHealthStatus(new Empty(), e => store.dispatch(HandleClusterHealthStatusEvent, e));
 }
-
-// export async function getCluster(id: string, vue: any) {
-//   const clusterResponse = (await axios.get<ClusterResponse>(`opni-api/Management/clusters/${ id }`)).data;
-
-//   return new Cluster(clusterResponse, null as any, vue);
-// }
 
 export function deleteCluster(id: string): Promise<undefined> {
   return axios.delete(`opni-api/Management/clusters/${ id }`);

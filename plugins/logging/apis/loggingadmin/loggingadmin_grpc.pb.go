@@ -27,10 +27,10 @@ const (
 	LoggingAdminV2_DoUpgrade_FullMethodName                       = "/loggingadmin.LoggingAdminV2/DoUpgrade"
 	LoggingAdminV2_GetStorageClasses_FullMethodName               = "/loggingadmin.LoggingAdminV2/GetStorageClasses"
 	LoggingAdminV2_GetOpensearchStatus_FullMethodName             = "/loggingadmin.LoggingAdminV2/GetOpensearchStatus"
-	LoggingAdminV2_CreateOrUpdateSnapshot_FullMethodName          = "/loggingadmin.LoggingAdminV2/CreateOrUpdateSnapshot"
-	LoggingAdminV2_GetRecurringSnapshot_FullMethodName            = "/loggingadmin.LoggingAdminV2/GetRecurringSnapshot"
-	LoggingAdminV2_DeleteSnapshot_FullMethodName                  = "/loggingadmin.LoggingAdminV2/DeleteSnapshot"
-	LoggingAdminV2_ListSnapshots_FullMethodName                   = "/loggingadmin.LoggingAdminV2/ListSnapshots"
+	LoggingAdminV2_CreateOrUpdateSnapshotSchedule_FullMethodName  = "/loggingadmin.LoggingAdminV2/CreateOrUpdateSnapshotSchedule"
+	LoggingAdminV2_GetSnapshotSchedule_FullMethodName             = "/loggingadmin.LoggingAdminV2/GetSnapshotSchedule"
+	LoggingAdminV2_DeleteSnapshotSchedule_FullMethodName          = "/loggingadmin.LoggingAdminV2/DeleteSnapshotSchedule"
+	LoggingAdminV2_ListSnapshotSchedules_FullMethodName           = "/loggingadmin.LoggingAdminV2/ListSnapshotSchedules"
 )
 
 // LoggingAdminV2Client is the client API for LoggingAdminV2 service.
@@ -44,10 +44,10 @@ type LoggingAdminV2Client interface {
 	DoUpgrade(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetStorageClasses(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*StorageClassResponse, error)
 	GetOpensearchStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*StatusResponse, error)
-	CreateOrUpdateSnapshot(ctx context.Context, in *Snapshot, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	GetRecurringSnapshot(ctx context.Context, in *SnapshotReference, opts ...grpc.CallOption) (*Snapshot, error)
-	DeleteSnapshot(ctx context.Context, in *SnapshotReference, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	ListSnapshots(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SnapshotStatusList, error)
+	CreateOrUpdateSnapshotSchedule(ctx context.Context, in *SnapshotSchedule, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetSnapshotSchedule(ctx context.Context, in *SnapshotReference, opts ...grpc.CallOption) (*SnapshotSchedule, error)
+	DeleteSnapshotSchedule(ctx context.Context, in *SnapshotReference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListSnapshotSchedules(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SnapshotStatusList, error)
 }
 
 type loggingAdminV2Client struct {
@@ -121,36 +121,36 @@ func (c *loggingAdminV2Client) GetOpensearchStatus(ctx context.Context, in *empt
 	return out, nil
 }
 
-func (c *loggingAdminV2Client) CreateOrUpdateSnapshot(ctx context.Context, in *Snapshot, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *loggingAdminV2Client) CreateOrUpdateSnapshotSchedule(ctx context.Context, in *SnapshotSchedule, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, LoggingAdminV2_CreateOrUpdateSnapshot_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LoggingAdminV2_CreateOrUpdateSnapshotSchedule_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *loggingAdminV2Client) GetRecurringSnapshot(ctx context.Context, in *SnapshotReference, opts ...grpc.CallOption) (*Snapshot, error) {
-	out := new(Snapshot)
-	err := c.cc.Invoke(ctx, LoggingAdminV2_GetRecurringSnapshot_FullMethodName, in, out, opts...)
+func (c *loggingAdminV2Client) GetSnapshotSchedule(ctx context.Context, in *SnapshotReference, opts ...grpc.CallOption) (*SnapshotSchedule, error) {
+	out := new(SnapshotSchedule)
+	err := c.cc.Invoke(ctx, LoggingAdminV2_GetSnapshotSchedule_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *loggingAdminV2Client) DeleteSnapshot(ctx context.Context, in *SnapshotReference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *loggingAdminV2Client) DeleteSnapshotSchedule(ctx context.Context, in *SnapshotReference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, LoggingAdminV2_DeleteSnapshot_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LoggingAdminV2_DeleteSnapshotSchedule_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *loggingAdminV2Client) ListSnapshots(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SnapshotStatusList, error) {
+func (c *loggingAdminV2Client) ListSnapshotSchedules(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SnapshotStatusList, error) {
 	out := new(SnapshotStatusList)
-	err := c.cc.Invoke(ctx, LoggingAdminV2_ListSnapshots_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LoggingAdminV2_ListSnapshotSchedules_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -168,10 +168,10 @@ type LoggingAdminV2Server interface {
 	DoUpgrade(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	GetStorageClasses(context.Context, *emptypb.Empty) (*StorageClassResponse, error)
 	GetOpensearchStatus(context.Context, *emptypb.Empty) (*StatusResponse, error)
-	CreateOrUpdateSnapshot(context.Context, *Snapshot) (*emptypb.Empty, error)
-	GetRecurringSnapshot(context.Context, *SnapshotReference) (*Snapshot, error)
-	DeleteSnapshot(context.Context, *SnapshotReference) (*emptypb.Empty, error)
-	ListSnapshots(context.Context, *emptypb.Empty) (*SnapshotStatusList, error)
+	CreateOrUpdateSnapshotSchedule(context.Context, *SnapshotSchedule) (*emptypb.Empty, error)
+	GetSnapshotSchedule(context.Context, *SnapshotReference) (*SnapshotSchedule, error)
+	DeleteSnapshotSchedule(context.Context, *SnapshotReference) (*emptypb.Empty, error)
+	ListSnapshotSchedules(context.Context, *emptypb.Empty) (*SnapshotStatusList, error)
 	mustEmbedUnimplementedLoggingAdminV2Server()
 }
 
@@ -200,17 +200,17 @@ func (UnimplementedLoggingAdminV2Server) GetStorageClasses(context.Context, *emp
 func (UnimplementedLoggingAdminV2Server) GetOpensearchStatus(context.Context, *emptypb.Empty) (*StatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetOpensearchStatus not implemented")
 }
-func (UnimplementedLoggingAdminV2Server) CreateOrUpdateSnapshot(context.Context, *Snapshot) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateOrUpdateSnapshot not implemented")
+func (UnimplementedLoggingAdminV2Server) CreateOrUpdateSnapshotSchedule(context.Context, *SnapshotSchedule) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateOrUpdateSnapshotSchedule not implemented")
 }
-func (UnimplementedLoggingAdminV2Server) GetRecurringSnapshot(context.Context, *SnapshotReference) (*Snapshot, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetRecurringSnapshot not implemented")
+func (UnimplementedLoggingAdminV2Server) GetSnapshotSchedule(context.Context, *SnapshotReference) (*SnapshotSchedule, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSnapshotSchedule not implemented")
 }
-func (UnimplementedLoggingAdminV2Server) DeleteSnapshot(context.Context, *SnapshotReference) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteSnapshot not implemented")
+func (UnimplementedLoggingAdminV2Server) DeleteSnapshotSchedule(context.Context, *SnapshotReference) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSnapshotSchedule not implemented")
 }
-func (UnimplementedLoggingAdminV2Server) ListSnapshots(context.Context, *emptypb.Empty) (*SnapshotStatusList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListSnapshots not implemented")
+func (UnimplementedLoggingAdminV2Server) ListSnapshotSchedules(context.Context, *emptypb.Empty) (*SnapshotStatusList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListSnapshotSchedules not implemented")
 }
 func (UnimplementedLoggingAdminV2Server) mustEmbedUnimplementedLoggingAdminV2Server() {}
 
@@ -351,74 +351,74 @@ func _LoggingAdminV2_GetOpensearchStatus_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LoggingAdminV2_CreateOrUpdateSnapshot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Snapshot)
+func _LoggingAdminV2_CreateOrUpdateSnapshotSchedule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SnapshotSchedule)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LoggingAdminV2Server).CreateOrUpdateSnapshot(ctx, in)
+		return srv.(LoggingAdminV2Server).CreateOrUpdateSnapshotSchedule(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: LoggingAdminV2_CreateOrUpdateSnapshot_FullMethodName,
+		FullMethod: LoggingAdminV2_CreateOrUpdateSnapshotSchedule_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LoggingAdminV2Server).CreateOrUpdateSnapshot(ctx, req.(*Snapshot))
+		return srv.(LoggingAdminV2Server).CreateOrUpdateSnapshotSchedule(ctx, req.(*SnapshotSchedule))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LoggingAdminV2_GetRecurringSnapshot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _LoggingAdminV2_GetSnapshotSchedule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SnapshotReference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LoggingAdminV2Server).GetRecurringSnapshot(ctx, in)
+		return srv.(LoggingAdminV2Server).GetSnapshotSchedule(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: LoggingAdminV2_GetRecurringSnapshot_FullMethodName,
+		FullMethod: LoggingAdminV2_GetSnapshotSchedule_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LoggingAdminV2Server).GetRecurringSnapshot(ctx, req.(*SnapshotReference))
+		return srv.(LoggingAdminV2Server).GetSnapshotSchedule(ctx, req.(*SnapshotReference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LoggingAdminV2_DeleteSnapshot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _LoggingAdminV2_DeleteSnapshotSchedule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SnapshotReference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LoggingAdminV2Server).DeleteSnapshot(ctx, in)
+		return srv.(LoggingAdminV2Server).DeleteSnapshotSchedule(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: LoggingAdminV2_DeleteSnapshot_FullMethodName,
+		FullMethod: LoggingAdminV2_DeleteSnapshotSchedule_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LoggingAdminV2Server).DeleteSnapshot(ctx, req.(*SnapshotReference))
+		return srv.(LoggingAdminV2Server).DeleteSnapshotSchedule(ctx, req.(*SnapshotReference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LoggingAdminV2_ListSnapshots_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _LoggingAdminV2_ListSnapshotSchedules_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LoggingAdminV2Server).ListSnapshots(ctx, in)
+		return srv.(LoggingAdminV2Server).ListSnapshotSchedules(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: LoggingAdminV2_ListSnapshots_FullMethodName,
+		FullMethod: LoggingAdminV2_ListSnapshotSchedules_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LoggingAdminV2Server).ListSnapshots(ctx, req.(*emptypb.Empty))
+		return srv.(LoggingAdminV2Server).ListSnapshotSchedules(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -459,20 +459,20 @@ var LoggingAdminV2_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _LoggingAdminV2_GetOpensearchStatus_Handler,
 		},
 		{
-			MethodName: "CreateOrUpdateSnapshot",
-			Handler:    _LoggingAdminV2_CreateOrUpdateSnapshot_Handler,
+			MethodName: "CreateOrUpdateSnapshotSchedule",
+			Handler:    _LoggingAdminV2_CreateOrUpdateSnapshotSchedule_Handler,
 		},
 		{
-			MethodName: "GetRecurringSnapshot",
-			Handler:    _LoggingAdminV2_GetRecurringSnapshot_Handler,
+			MethodName: "GetSnapshotSchedule",
+			Handler:    _LoggingAdminV2_GetSnapshotSchedule_Handler,
 		},
 		{
-			MethodName: "DeleteSnapshot",
-			Handler:    _LoggingAdminV2_DeleteSnapshot_Handler,
+			MethodName: "DeleteSnapshotSchedule",
+			Handler:    _LoggingAdminV2_DeleteSnapshotSchedule_Handler,
 		},
 		{
-			MethodName: "ListSnapshots",
-			Handler:    _LoggingAdminV2_ListSnapshots_Handler,
+			MethodName: "ListSnapshotSchedules",
+			Handler:    _LoggingAdminV2_ListSnapshotSchedules_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

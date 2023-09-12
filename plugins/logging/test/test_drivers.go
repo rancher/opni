@@ -22,7 +22,7 @@ import (
 type MockManagementDriver struct {
 	status           *util.MockInstallState
 	clusterDetails   *loggingadmin.OpensearchClusterV2
-	snapshots        map[string]*loggingadmin.Snapshot
+	snapshots        map[string]*loggingadmin.SnapshotSchedule
 	mSnapshots       sync.Mutex
 	upgradeAvailable bool
 }
@@ -31,7 +31,7 @@ func NewMockManagementDriver(stateTracker *util.MockInstallState) *MockManagemen
 	return &MockManagementDriver{
 		status:           stateTracker,
 		upgradeAvailable: true,
-		snapshots:        map[string]*loggingadmin.Snapshot{},
+		snapshots:        map[string]*loggingadmin.SnapshotSchedule{},
 	}
 }
 
@@ -100,14 +100,17 @@ func (d *MockManagementDriver) GetStorageClasses(context.Context) ([]string, err
 	}, nil
 }
 
-func (d *MockManagementDriver) CreateOrUpdateSnapshot(_ context.Context, snapshot *loggingadmin.Snapshot) error {
+func (d *MockManagementDriver) CreateOrUpdateSnapshotSchedule(_ context.Context, snapshot *loggingadmin.SnapshotSchedule) error {
 	d.mSnapshots.Lock()
 	defer d.mSnapshots.Unlock()
 	d.snapshots[snapshot.GetRef().GetName()] = snapshot
 	return nil
 }
 
-func (d *MockManagementDriver) GetRecurringSnapshot(_ context.Context, ref *loggingadmin.SnapshotReference) (*loggingadmin.Snapshot, error) {
+func (d *MockManagementDriver) GetSnapshotSchedule(
+	_ context.Context,
+	ref *loggingadmin.SnapshotReference,
+) (*loggingadmin.SnapshotSchedule, error) {
 	d.mSnapshots.Lock()
 	defer d.mSnapshots.Unlock()
 
@@ -116,14 +119,10 @@ func (d *MockManagementDriver) GetRecurringSnapshot(_ context.Context, ref *logg
 		return nil, errors.New("snapshot not found")
 	}
 
-	if !s.Recurring {
-		return nil, errors.New("snapshot not found")
-	}
-
 	return s, nil
 }
 
-func (d *MockManagementDriver) DeleteSnapshot(_ context.Context, ref *loggingadmin.SnapshotReference) error {
+func (d *MockManagementDriver) DeleteSnapshotSchedule(_ context.Context, ref *loggingadmin.SnapshotReference) error {
 	d.mSnapshots.Lock()
 	defer d.mSnapshots.Unlock()
 
@@ -131,7 +130,7 @@ func (d *MockManagementDriver) DeleteSnapshot(_ context.Context, ref *loggingadm
 	return nil
 }
 
-func (d *MockManagementDriver) ListAllSnapshots(_ context.Context) (*loggingadmin.SnapshotStatusList, error) {
+func (d *MockManagementDriver) ListAllSnapshotSchedules(_ context.Context) (*loggingadmin.SnapshotStatusList, error) {
 	statuses := []*loggingadmin.SnapshotStatus{}
 	d.mSnapshots.Lock()
 	defer d.mSnapshots.Unlock()

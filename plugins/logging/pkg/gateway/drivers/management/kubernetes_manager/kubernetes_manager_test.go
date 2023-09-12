@@ -1204,21 +1204,9 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 	Context("snapshots", Ordered, func() {
 		var repo *loggingv1beta1.OpensearchRepository
 		Context("repository does not exist", func() {
-			When("creating a new one off snapshot", func() {
-				It("should not succeed", func() {
-					err := manager.CreateOrUpdateSnapshot(context.Background(), &loggingadmin.Snapshot{
-						Recurring: false,
-						Ref: &loggingadmin.SnapshotReference{
-							Name: "test",
-						},
-					})
-					Expect(err).To(HaveOccurred())
-				})
-			})
 			When("creating a new recurring snapshot", func() {
 				It("should not succeed", func() {
-					err := manager.CreateOrUpdateSnapshot(context.Background(), &loggingadmin.Snapshot{
-						Recurring: true,
+					err := manager.CreateOrUpdateSnapshotSchedule(context.Background(), &loggingadmin.SnapshotSchedule{
 						Ref: &loggingadmin.SnapshotReference{
 							Name: "test",
 						},
@@ -1265,8 +1253,6 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 					},
 				})
 				Expect(err).NotTo(HaveOccurred())
-				err = k8sClient.DeleteAllOf(context.Background(), &loggingv1beta1.Snapshot{}, client.InNamespace(namespace))
-				Expect(err).NotTo(HaveOccurred())
 				err = k8sClient.DeleteAllOf(context.Background(), &loggingv1beta1.RecurringSnapshot{}, client.InNamespace(namespace))
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -1292,33 +1278,13 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 				err := k8sClient.Create(context.Background(), repo)
 				Expect(client.IgnoreAlreadyExists(err)).NotTo(HaveOccurred())
 			})
-			When("creating a new one off snapshot", func() {
-				It("should succeed", func() {
-					err := manager.CreateOrUpdateSnapshot(context.Background(), &loggingadmin.Snapshot{
-						Recurring: false,
-						Ref: &loggingadmin.SnapshotReference{
-							Name: "test-oneoff",
-						},
-					})
-					Expect(err).NotTo(HaveOccurred())
-					Eventually(Object(&loggingv1beta1.Snapshot{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "test-oneoff",
-							Namespace: namespace,
-						},
-					})).Should(ExistAnd(
-						HaveOwner(repo),
-					))
-				})
-			})
 			When("creating a new recurring snapshot", func() {
 				It("should succeed", func() {
-					err := manager.CreateOrUpdateSnapshot(context.Background(), &loggingadmin.Snapshot{
-						Recurring: true,
+					err := manager.CreateOrUpdateSnapshotSchedule(context.Background(), &loggingadmin.SnapshotSchedule{
 						Ref: &loggingadmin.SnapshotReference{
 							Name: "test-recurring",
 						},
-						CronSchedule: lo.ToPtr("00 * * * *"),
+						CronSchedule: "00 * * * *",
 					})
 					Expect(err).NotTo(HaveOccurred())
 					Eventually(Object(&loggingv1beta1.RecurringSnapshot{
@@ -1331,33 +1297,9 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 					))
 				})
 			})
-			When("creating duplicate snapshots", func() {
-				It("should not succeed", func() {
-					err := manager.CreateOrUpdateSnapshot(context.Background(), &loggingadmin.Snapshot{
-						Recurring: false,
-						Ref: &loggingadmin.SnapshotReference{
-							Name: "test-recurring",
-						},
-					})
-					Expect(err).To(HaveOccurred())
-					err = manager.CreateOrUpdateSnapshot(context.Background(), &loggingadmin.Snapshot{
-						Recurring: true,
-						Ref: &loggingadmin.SnapshotReference{
-							Name: "test-oneoff",
-						},
-					})
-					Expect(err).To(HaveOccurred())
-				})
-			})
 			When("fetching snapshots", func() {
-				It("should fail if it is a oneoff", func() {
-					_, err := manager.GetRecurringSnapshot(context.Background(), &loggingadmin.SnapshotReference{
-						Name: "test-oneoff",
-					})
-					Expect(err).To(HaveOccurred())
-				})
-				It("should succeed if it is recurring", func() {
-					s, err := manager.GetRecurringSnapshot(context.Background(), &loggingadmin.SnapshotReference{
+				It("should succeed", func() {
+					s, err := manager.GetSnapshotSchedule(context.Background(), &loggingadmin.SnapshotReference{
 						Name: "test-recurring",
 					})
 					Expect(err).NotTo(HaveOccurred())
@@ -1366,12 +1308,11 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 			})
 			When("extra indices are defined", Ordered, func() {
 				It("should successfully update the snapshot", func() {
-					err := manager.CreateOrUpdateSnapshot(context.Background(), &loggingadmin.Snapshot{
-						Recurring: true,
+					err := manager.CreateOrUpdateSnapshotSchedule(context.Background(), &loggingadmin.SnapshotSchedule{
 						Ref: &loggingadmin.SnapshotReference{
 							Name: "test-recurring",
 						},
-						CronSchedule: lo.ToPtr("00 * * * *"),
+						CronSchedule: "00 * * * *",
 						AdditionalIndices: []string{
 							"test",
 						},
@@ -1388,19 +1329,18 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 					Expect(s.Spec.Snapshot.Indices).To(ContainElements("test", "logs*"))
 				})
 				It("should successfully create the snapshot", func() {
-					err := manager.CreateOrUpdateSnapshot(context.Background(), &loggingadmin.Snapshot{
-						Recurring: false,
+					err := manager.CreateOrUpdateSnapshotSchedule(context.Background(), &loggingadmin.SnapshotSchedule{
 						Ref: &loggingadmin.SnapshotReference{
 							Name: "test-indices",
 						},
-						CronSchedule: lo.ToPtr("00 * * * *"),
+						CronSchedule: "00 * * * *",
 						AdditionalIndices: []string{
 							"foo",
 							"bar",
 						},
 					})
 					Expect(err).NotTo(HaveOccurred())
-					s := &loggingv1beta1.Snapshot{}
+					s := &loggingv1beta1.RecurringSnapshot{}
 					Eventually(func() bool {
 						err := k8sClient.Get(context.Background(), types.NamespacedName{
 							Name:      "test-indices",
@@ -1408,10 +1348,10 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 						}, s)
 						return err == nil
 					}).Should(BeTrue())
-					Expect(s.Spec.Indices).To(ContainElements("foo", "bar", "logs*"))
+					Expect(s.Spec.Snapshot.Indices).To(ContainElements("foo", "bar", "logs*"))
 				})
 				It("should only return the extra indices when fetched", func() {
-					s, err := manager.GetRecurringSnapshot(context.Background(), &loggingadmin.SnapshotReference{
+					s, err := manager.GetSnapshotSchedule(context.Background(), &loggingadmin.SnapshotReference{
 						Name: "test-recurring",
 					})
 					Expect(err).NotTo(HaveOccurred())
@@ -1420,27 +1360,18 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 			})
 			When("listing snapshots", func() {
 				It("should find all the snapshots", func() {
-					list, err := manager.ListAllSnapshots(context.Background())
-					Expect(err).NotTo(HaveOccurred())
-					Expect(len(list.GetStatuses())).To(Equal(3))
-				})
-			})
-			When("deleting snapshots", func() {
-				It("should delete one-off snapshots", func() {
-					err := manager.DeleteSnapshot(context.Background(), &loggingadmin.SnapshotReference{
-						Name: "test-oneoff",
-					})
-					Expect(err).NotTo(HaveOccurred())
-					list, err := manager.ListAllSnapshots(context.Background())
+					list, err := manager.ListAllSnapshotSchedules(context.Background())
 					Expect(err).NotTo(HaveOccurred())
 					Expect(len(list.GetStatuses())).To(Equal(2))
 				})
+			})
+			When("deleting snapshots", func() {
 				It("should delete recurring snapshots", func() {
-					err := manager.DeleteSnapshot(context.Background(), &loggingadmin.SnapshotReference{
+					err := manager.DeleteSnapshotSchedule(context.Background(), &loggingadmin.SnapshotReference{
 						Name: "test-recurring",
 					})
 					Expect(err).NotTo(HaveOccurred())
-					list, err := manager.ListAllSnapshots(context.Background())
+					list, err := manager.ListAllSnapshotSchedules(context.Background())
 					Expect(err).NotTo(HaveOccurred())
 					Expect(len(list.GetStatuses())).To(Equal(1))
 				})

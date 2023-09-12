@@ -415,7 +415,7 @@ func (d *KubernetesManagerDriver) GetStorageClasses(ctx context.Context) ([]stri
 	return storageClassNames, nil
 }
 
-func (d *KubernetesManagerDriver) CreateOrUpdateSnapshot(ctx context.Context, snapshot *loggingadmin.Snapshot) error {
+func (d *KubernetesManagerDriver) CreateOrUpdateSnapshotSchedule(ctx context.Context, snapshot *loggingadmin.SnapshotSchedule) error {
 	repo := &loggingv1beta1.OpensearchRepository{}
 	err := d.K8sClient.Get(ctx, types.NamespacedName{
 		Name:      d.OpensearchCluster.Name,
@@ -430,14 +430,13 @@ func (d *KubernetesManagerDriver) CreateOrUpdateSnapshot(ctx context.Context, sn
 		return k8sutilerrors.GRPCFromK8s(err)
 	}
 
-	if snapshot.GetRecurring() {
-		return d.createOrUpdateRecurringSnapshot(ctx, snapshot, repo)
-	}
-
-	return d.createOneOffSnapshot(ctx, snapshot, repo)
+	return d.createOrUpdateRecurringSnapshot(ctx, snapshot, repo)
 }
 
-func (d *KubernetesManagerDriver) GetRecurringSnapshot(ctx context.Context, ref *loggingadmin.SnapshotReference) (*loggingadmin.Snapshot, error) {
+func (d *KubernetesManagerDriver) GetSnapshotSchedule(
+	ctx context.Context,
+	ref *loggingadmin.SnapshotReference,
+) (*loggingadmin.SnapshotSchedule, error) {
 	snapshot := &loggingv1beta1.RecurringSnapshot{}
 	err := d.K8sClient.Get(ctx, types.NamespacedName{
 		Name:      ref.GetName(),
@@ -448,10 +447,9 @@ func (d *KubernetesManagerDriver) GetRecurringSnapshot(ctx context.Context, ref 
 		return nil, k8sutilerrors.GRPCFromK8s(err)
 	}
 
-	return &loggingadmin.Snapshot{
+	return &loggingadmin.SnapshotSchedule{
 		Ref:          ref,
-		Recurring:    true,
-		CronSchedule: &snapshot.Spec.Creation.CronSchedule,
+		CronSchedule: snapshot.Spec.Creation.CronSchedule,
 		Retention: func() *loggingadmin.SnapshotRetention {
 			if snapshot.Spec.Retention == nil {
 				return nil
@@ -470,7 +468,7 @@ func (d *KubernetesManagerDriver) GetRecurringSnapshot(ctx context.Context, ref 
 	}, nil
 }
 
-func (d *KubernetesManagerDriver) DeleteSnapshot(ctx context.Context, ref *loggingadmin.SnapshotReference) error {
+func (d *KubernetesManagerDriver) DeleteSnapshotSchedule(ctx context.Context, ref *loggingadmin.SnapshotReference) error {
 	err := d.K8sClient.Delete(ctx, &loggingv1beta1.Snapshot{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ref.GetName(),
@@ -496,18 +494,14 @@ func (d *KubernetesManagerDriver) DeleteSnapshot(ctx context.Context, ref *loggi
 	return nil
 }
 
-func (d *KubernetesManagerDriver) ListAllSnapshots(ctx context.Context) (*loggingadmin.SnapshotStatusList, error) {
-	oneOff, err := d.listOneOffSnapshots(ctx)
-	if err != nil {
-		return nil, err
-	}
+func (d *KubernetesManagerDriver) ListAllSnapshotSchedules(ctx context.Context) (*loggingadmin.SnapshotStatusList, error) {
 	recurring, err := d.listRecurringSnapshots(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	return &loggingadmin.SnapshotStatusList{
-		Statuses: append(oneOff, recurring...),
+		Statuses: recurring,
 	}, nil
 }
 

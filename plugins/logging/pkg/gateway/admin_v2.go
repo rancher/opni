@@ -215,13 +215,16 @@ func (m *LoggingManagerV2) GetOpensearchStatus(ctx context.Context, _ *emptypb.E
 	}, nil
 }
 
-func (m *LoggingManagerV2) CreateOrUpdateSnapshot(ctx context.Context, snapshot *loggingadmin.Snapshot) (*emptypb.Empty, error) {
+func (m *LoggingManagerV2) CreateOrUpdateSnapshotSchedule(
+	ctx context.Context,
+	snapshot *loggingadmin.SnapshotSchedule,
+) (*emptypb.Empty, error) {
 	if snapshot.GetRetention().GetTimeRetention() != "" &&
 		!m.validDurationString(snapshot.GetRetention().GetTimeRetention()) {
 		return nil, loggingerrors.ErrInvalidDuration
 	}
 
-	err := m.managementDriver.CreateOrUpdateSnapshot(ctx, snapshot)
+	err := m.managementDriver.CreateOrUpdateSnapshotSchedule(ctx, snapshot)
 	if err != nil {
 		return nil, err
 	}
@@ -229,8 +232,11 @@ func (m *LoggingManagerV2) CreateOrUpdateSnapshot(ctx context.Context, snapshot 
 	return &emptypb.Empty{}, nil
 }
 
-func (m *LoggingManagerV2) GetRecurringSnapshot(ctx context.Context, ref *loggingadmin.SnapshotReference) (*loggingadmin.Snapshot, error) {
-	snapshot, err := m.managementDriver.GetRecurringSnapshot(ctx, ref)
+func (m *LoggingManagerV2) GetSnapshotSchedule(
+	ctx context.Context,
+	ref *loggingadmin.SnapshotReference,
+) (*loggingadmin.SnapshotSchedule, error) {
+	snapshot, err := m.managementDriver.GetSnapshotSchedule(ctx, ref)
 	if err != nil {
 		return nil, err
 	}
@@ -238,16 +244,16 @@ func (m *LoggingManagerV2) GetRecurringSnapshot(ctx context.Context, ref *loggin
 	return snapshot, nil
 }
 
-func (m *LoggingManagerV2) DeleteSnapshot(ctx context.Context, ref *loggingadmin.SnapshotReference) (*emptypb.Empty, error) {
-	err := m.managementDriver.DeleteSnapshot(ctx, ref)
+func (m *LoggingManagerV2) DeleteSnapshotSchedule(ctx context.Context, ref *loggingadmin.SnapshotReference) (*emptypb.Empty, error) {
+	err := m.managementDriver.DeleteSnapshotSchedule(ctx, ref)
 	if err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (m *LoggingManagerV2) ListSnapshots(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.SnapshotStatusList, error) {
-	list, err := m.managementDriver.ListAllSnapshots(ctx)
+func (m *LoggingManagerV2) ListSnapshotSchedules(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.SnapshotStatusList, error) {
+	list, err := m.managementDriver.ListAllSnapshotSchedules(ctx)
 	if err != nil {
 		return nil, err
 	}

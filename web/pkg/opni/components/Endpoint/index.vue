@@ -7,7 +7,12 @@ import Tab from '@shell/components/Tabbed/Tab';
 import Tabbed from '@shell/components/Tabbed';
 import { Banner } from '@components/Banner';
 import { exceptionToErrorsArray } from '@pkg/opni/utils/error';
-import { createAlertEndpoint, getAlertEndpoint, testAlertEndpoint, updateAlertEndpoint } from '@pkg/opni/utils/requests/alerts';
+import {
+  createAlertEndpoint,
+  getAlertEndpoint,
+  testAlertEndpoint,
+  updateAlertEndpoint,
+} from '@pkg/opni/utils/requests/alerts';
 import Slack from './Slack';
 import Email from './Email';
 import PagerDuty from './PagerDuty';
@@ -29,7 +34,8 @@ export default {
   },
 
   async fetch() {
-    const endpointRequest = this.$route.params.id && this.$route.params.id !== 'create' ? getAlertEndpoint(this.$route.params.id, this) : Promise.resolve(false);
+    const endpointRequest =
+      this.$route.params.id && this.$route.params.id !== 'create' ? getAlertEndpoint(this.$route.params.id, this) : Promise.resolve(false);
 
     if (await endpointRequest) {
       const endpoint = await endpointRequest;
@@ -45,34 +51,37 @@ export default {
     const types = [
       {
         label: 'Slack',
-        value: 'slack'
+        value: 'slack',
       },
       {
         label: 'Email',
-        value: 'email'
+        value: 'email',
       },
       {
         label: 'PagerDuty',
-        value: 'pagerDuty'
+        value: 'pagerDuty',
       },
       {
         label: 'Webhook',
-        value: 'webhook'
-      }
+        value: 'webhook',
+      },
     ];
     const type = types[3].value;
 
     return {
-      error:            '',
+      error:  '',
       types,
       type,
       config: {
         name:        '',
         description: '',
         endpoint:    {
-          slack: {}, email: {}, pagerDuty: {}, webhook: {}
-        }
-      }
+          slack:     {},
+          email:     {},
+          pagerDuty: {},
+          webhook:   {},
+        },
+      },
     };
   },
 
@@ -92,7 +101,7 @@ export default {
           const updateConfig = {
             forceUpdate: true,
             id:          { id: this.$route.params.id },
-            updateAlert: config
+            updateAlert: config,
           };
 
           await updateAlertEndpoint(updateConfig);
@@ -117,20 +126,23 @@ export default {
 
     createConfig() {
       return {
-        name: this.config.name, description: this.config.description, [this.type]: this.config.endpoint[this.type], id: this.$route.params.id
+        name:        this.config.name,
+        description: this.config.description,
+        [this.type]: this.config.endpoint[this.type],
+        id:          this.$route.params.id,
       };
     },
 
     async testEndpoint(buttonCallback) {
       try {
-        await testAlertEndpoint({ endpoint: this.createConfig() });
+        await testAlertEndpoint({ id: this.$route.params.id });
         this.$set(this, 'error', '');
         buttonCallback(true);
       } catch (err) {
         this.$set(this, 'error', exceptionToErrorsArray(err).join('; '));
         buttonCallback(false);
       }
-    }
+    },
   },
 
   computed: {
@@ -148,34 +160,39 @@ export default {
   <div v-else>
     <div class="row mb-20">
       <div class="col span-6">
-        <LabeledInput
-          v-model="config.name"
-          label="Name"
-          :required="true"
-        />
+        <LabeledInput v-model="config.name" label="Name" :required="true" />
       </div>
       <div class="col span-6">
-        <LabeledInput
-          v-model="config.description"
-          label="Description"
-        />
+        <LabeledInput v-model="config.description" label="Description" />
       </div>
     </div>
     <Tabbed :side-tabs="true" class="mb-20">
-      <Tab
-        name="options"
-        label="Options"
-        :weight="3"
-      >
-        <div class="row" :class="{'bottom': !!type}">
+      <Tab name="options" label="Options" :weight="3">
+        <div class="row" :class="{ bottom: !!type }">
           <div class="col span-12">
             <LabeledSelect v-model="type" label="Type" :options="types" />
           </div>
         </div>
-        <Slack v-if="type === 'slack'" v-model="config.endpoint.slack" class="mt-20" />
-        <Email v-if="type === 'email'" v-model="config.endpoint.email" class="mt-20" />
-        <PagerDuty v-if="type === 'pagerDuty'" v-model="config.endpoint.pagerDuty" class="mt-20" />
-        <Webhook v-if="type === 'webhook'" v-model="config.endpoint.webhook" class="mt-20" />
+        <Slack
+          v-if="type === 'slack'"
+          v-model="config.endpoint.slack"
+          class="mt-20"
+        />
+        <Email
+          v-if="type === 'email'"
+          v-model="config.endpoint.email"
+          class="mt-20"
+        />
+        <PagerDuty
+          v-if="type === 'pagerDuty'"
+          v-model="config.endpoint.pagerDuty"
+          class="mt-20"
+        />
+        <Webhook
+          v-if="type === 'webhook'"
+          v-model="config.endpoint.webhook"
+          class="mt-20"
+        />
       </Tab>
     </Tabbed>
     <div class="resource-footer">
@@ -194,11 +211,7 @@ export default {
       />
       <AsyncButton mode="edit" @click="save" />
     </div>
-    <Banner
-      v-if="error"
-      color="error"
-      :label="error"
-    />
+    <Banner v-if="error" color="error" :label="error" />
   </div>
 </template>
 

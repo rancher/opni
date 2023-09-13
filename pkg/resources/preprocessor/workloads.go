@@ -85,7 +85,7 @@ processors:
     name: no_op
 
 exporters:
-  opensearch:
+  opensearch/logs:
     http:
       endpoint: {{ .Endpoint }}
       tls:
@@ -99,16 +99,25 @@ exporters:
       unix_timestamp: true
       dedup: true
       dedot: false
+  opensearch/traces:
+    http:
+      endpoint: {{ .Endpoint }}
+      tls:
+        ca_file: /etc/otel/chain.crt
+        cert_file: /etc/otel/certs/tls.crt
+        key_file: /etc/otel/certs/tls.key
+      dataset: kubernetes
+      namespace: opni
 service:
   pipelines:
     logs:
       receivers: ["otlp"]
       processors: ["resource", "attributes", "transform"]
-      exporters: ["opensearch"]
+      exporters: ["opensearch/logs"]
     traces:
       receivers: ["otlp"]
       processors: ["no_op"]
-      exporters: ["opensearch"]
+      exporters: ["opensearch/traces"]
 `))
 )
 

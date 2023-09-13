@@ -74,23 +74,6 @@ type CollectorConfigSpec struct {
 	KubeAuditLogs *KubeAuditLogsSpec `json:"kubeAuditLogs,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:scope=Cluster
-//+kubebuilder:storageversion
-
-type TraceCollectorConfig struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec TraceCollectorConfigSpec `json:"spec,omitempty"`
-}
-
-// TraceCollectorConfigSpec defines the desired state of CollectorConfig
-type TraceCollectorConfigSpec struct {
-	// For now, there aren't any specific trace configs
-}
-
 type SelectorConfig struct {
 	Namespace string   `json:"namespace,omitempty"`
 	PodNames  []string `json:"podNames,omitempty"`
@@ -129,6 +112,23 @@ type CollectorConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []CollectorConfig `json:"items"`
+}
+
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
+//+kubebuilder:resource:scope=Cluster
+//+kubebuilder:storageversion
+
+type TraceCollectorConfig struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec TraceCollectorConfigSpec `json:"spec,omitempty"`
+}
+
+// TraceCollectorConfigSpec defines the desired state of CollectorConfig
+type TraceCollectorConfigSpec struct {
+	// For now, there aren't any specific trace configs
 }
 
 //+kubebuilder:object:root=true

@@ -122,12 +122,6 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
-              tracesConfig:
-                properties:
-                  name:
-                    type: string
-                type: object
-                x-kubernetes-map-type: atomic
               metricsConfig:
                 properties:
                   name:
@@ -181,6 +175,12 @@ spec:
                 type: object
               systemNamespace:
                 type: string
+              tracesConfig:
+                properties:
+                  name:
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
             type: object
           status:
             properties:

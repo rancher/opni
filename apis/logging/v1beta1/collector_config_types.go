@@ -114,32 +114,6 @@ type CollectorConfigList struct {
 	Items           []CollectorConfig `json:"items"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:scope=Cluster
-//+kubebuilder:storageversion
-
-type TraceCollectorConfig struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec TraceCollectorConfigSpec `json:"spec,omitempty"`
-}
-
-// TraceCollectorConfigSpec defines the desired state of CollectorConfig
-type TraceCollectorConfigSpec struct {
-	// For now, there aren't any specific trace configs
-}
-
-//+kubebuilder:object:root=true
-
-// TraceCollectorConfigList contains a list of TraceCollectorConfig
-type TraceCollectorConfigList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []TraceCollectorConfig `json:"items"`
-}
-
 func CollectorConfigCRD() (*crd.CRD, error) {
 	schema, err := openapi.ToOpenAPIFromStruct(CollectorConfig{})
 	if err != nil {
@@ -154,21 +128,6 @@ func CollectorConfigCRD() (*crd.CRD, error) {
 	}, nil
 }
 
-func TraceCollectorConfigCRD() (*crd.CRD, error) {
-	schema, err := openapi.ToOpenAPIFromStruct(TraceCollectorConfig{})
-	if err != nil {
-		return nil, err
-	}
-	return &crd.CRD{
-		GVK:          GroupVersion.WithKind("TraceCollectorConfig"),
-		PluralName:   "tracecollectorconfigs",
-		Status:       true,
-		Schema:       schema,
-		NonNamespace: true,
-	}, nil
-}
-
 func init() {
 	SchemeBuilder.Register(&CollectorConfig{}, &CollectorConfigList{})
-	SchemeBuilder.Register(&TraceCollectorConfig{}, &TraceCollectorConfigList{})
 }

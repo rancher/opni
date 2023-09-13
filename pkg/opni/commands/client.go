@@ -112,7 +112,6 @@ func BuildClientCmd() *cobra.Command {
 			for _, crdFunc := range []crdFunc{
 				opnicorev1beta1.CollectorCRD,
 				loggingv1beta1.CollectorConfigCRD,
-				loggingv1beta1.TraceCollectorConfigCRD,
 				monitoringv1beta1.CollectorConfigCRD,
 				opnicorev1beta1.KeyringCRD,
 			} {

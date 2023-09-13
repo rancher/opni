@@ -4,10 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"sync"
-
-	"log/slog"
 
 	"github.com/cisco-open/k8s-objectmatcher/patch"
 	"github.com/lestrrat-go/backoff/v2"
@@ -122,18 +121,9 @@ func (m *KubernetesManagerDriver) ConfigureNode(config *node.LoggingCapabilityCo
 BACKOFF:
 	for backoff.Continue(b) {
 		logCollectorConf := m.buildLoggingCollectorConfig()
-		traceCollectorConf := m.buildTraceCollectorConfig()
-
 		if err := m.reconcileObject(logCollectorConf, config.Enabled); err != nil {
 			m.Logger.With(
 				"object", client.ObjectKeyFromObject(logCollectorConf).String(),
-				logger.Err(err),
-			).Error("error reconciling object")
-			continue BACKOFF
-		}
-		if err := m.reconcileObject(traceCollectorConf, config.Enabled); err != nil {
-			m.Logger.With(
-				"object", client.ObjectKeyFromObject(traceCollectorConf).String(),
 				logger.Err(err),
 			).Error("error reconciling object")
 			continue BACKOFF
@@ -170,16 +160,6 @@ func (m *KubernetesManagerDriver) buildLoggingCollectorConfig() *opniloggingv1be
 		},
 	}
 	return collectorConfig
-}
-
-func (m *KubernetesManagerDriver) buildTraceCollectorConfig() *opniloggingv1beta1.TraceCollectorConfig {
-	traceCollectorConfig := &opniloggingv1beta1.TraceCollectorConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "opni-tracing",
-		},
-		Spec: opniloggingv1beta1.TraceCollectorConfigSpec{},
-	}
-	return traceCollectorConfig
 }
 
 // TODO: make this generic

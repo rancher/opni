@@ -81,8 +81,6 @@ processors:
       statements:
       - set(attributes["log_type"], "controlplane") where attributes["k8s.pod.labels.tier"] == "control-plane"
       - set(attributes["kubernetes_component"], attributes["k8s.pod.labels.component"]) where attributes["k8s.pod.labels.tier"] == "control-plane"
-  no_op:
-    name: no_op
 
 exporters:
   opensearch/logs:
@@ -116,7 +114,6 @@ service:
       exporters: ["opensearch/logs"]
     traces:
       receivers: ["otlp"]
-      processors: ["no_op"]
       exporters: ["opensearch/traces"]
 `))
 )

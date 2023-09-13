@@ -243,8 +243,6 @@ service:
       level: {{ .LogLevel }}
     metrics:
       level: none
-    traces:
-      level: none
   pipelines:
   {{- if .Logs.Enabled }}
     logs:
@@ -303,8 +301,6 @@ service:
     logs:
       level: {{ .LogLevel }}
     metrics:
-      level: none
-    traces:
       level: none
   pipelines:
   {{- if .LogsEnabled }}

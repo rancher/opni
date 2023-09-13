@@ -48,23 +48,23 @@ service LoggingAdminV2 {
     }
     rpc CreateOrUpdateSnapshotSchedule(SnapshotSchedule) returns(google.protobuf.Empty) {
         option (google.api.http) = {
-            put: "/snapshot"
+            put: "/logging/snapshot"
             body: "*"
         };
     }
     rpc GetSnapshotSchedule(SnapshotReference) returns(SnapshotSchedule) {
         option (google.api.http) = {
-            get: "/snapshot/{name}"
+            get: "/logging/snapshot/{name}"
         };
     }
     rpc DeleteSnapshotSchedule(SnapshotReference) returns(google.protobuf.Empty) {
         option (google.api.http) = {
-            delete: "/snapshot/{name}"
+            delete: "/logging/snapshot/{name}"
         };
     }
     rpc ListSnapshotSchedules(google.protobuf.Empty) returns(SnapshotStatusList) {
         option (google.api.http) = {
-            get: "/snapshot"
+            get: "/logging/snapshot"
         };
     }
 }

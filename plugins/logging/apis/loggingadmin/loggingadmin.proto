@@ -237,7 +237,7 @@ message MlDetails {
 }
 
 message NeuralSearchDetails {
-    optional bool enabled = 1;
+    bool enabled = 1;
     optional string url = 2;
 }
 

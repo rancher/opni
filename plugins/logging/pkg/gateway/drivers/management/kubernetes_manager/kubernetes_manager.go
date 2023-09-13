@@ -263,6 +263,11 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 		return err
 	}
 
+	fmt.Println("JAN update or create cluster... opensearch settings: ", k8sOpensearchCluster.Spec.OpensearchSettings)
+	fmt.Println("JAN converting proto to ns settings...")
+	ns := d.convertProtobufToNeuralSearch(cluster)
+	fmt.Println("JAN update or create cluster... proto to ns settings: ", ns)
+
 	if !exists {
 		k8sOpensearchCluster = &loggingv1beta1.OpniOpensearch{
 			ObjectMeta: metav1.ObjectMeta{
@@ -285,7 +290,7 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 						},
 					},
 					S3Settings:           s3ToKubernetes(cluster.GetS3()),
-					NeuralSearchSettings: d.convertProtobufToNeuralSearch(cluster),
+					NeuralSearchSettings: ns,
 				},
 				ExternalURL: cluster.ExternalURL,
 				ClusterConfigSpec: &loggingv1beta1.ClusterConfigSpec{
@@ -319,6 +324,8 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 			opniVersion,
 		)
 		k8sOpensearchCluster.Spec.OpensearchSettings.S3Settings = s3ToKubernetes(cluster.GetS3())
+		fmt.Println("JAN updating cluster... opensearch settings: ", k8sOpensearchCluster.Spec.OpensearchSettings)
+		fmt.Println("JAN updating cluster... ns settings: ", k8sOpensearchCluster.Spec.OpensearchSettings.NeuralSearchSettings)
 		k8sOpensearchCluster.Spec.OpensearchSettings.NeuralSearchSettings = d.convertProtobufToNeuralSearch(cluster)
 		k8sOpensearchCluster.Spec.ExternalURL = cluster.ExternalURL
 		if cluster.DataRetention != nil {

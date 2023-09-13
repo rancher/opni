@@ -943,12 +943,15 @@ func s3ToKubernetes(in *loggingadmin.OpensearchS3Settings) *loggingv1beta1.Opens
 
 func (d *KubernetesManagerDriver) convertProtobufToNeuralSearch(cluster *loggingadmin.OpensearchClusterV2) *opnimeta.NeuralSearchSettings {
 	if cluster.GetNeuralSearch() == nil {
+		fmt.Println("JAN cluster.GetNeuralSearch() == nil")
 		return &opnimeta.NeuralSearchSettings{
 			Enabled:   false,
 			CustomUrl: "",
 		}
 	}
-
+	fmt.Println("JAN cluster.GetNeuralSearch() != nil")
+	fmt.Println("JAN cluster.GetNeuralSearch().GetEnabled(): ", cluster.GetNeuralSearch().GetEnabled())
+	fmt.Println("JAN cluster.GetNeuralSearch().GetUrl(): ", cluster.GetNeuralSearch().GetUrl())
 	return &opnimeta.NeuralSearchSettings{
 		Enabled:   cluster.GetNeuralSearch().GetEnabled(),
 		CustomUrl: cluster.GetNeuralSearch().GetUrl(),
@@ -958,13 +961,20 @@ func (d *KubernetesManagerDriver) convertProtobufToNeuralSearch(cluster *logging
 func convertNeuralSearchToProtobuf(ns *opnimeta.NeuralSearchSettings) *loggingadmin.NeuralSearchDetails {
 	if ns == nil {
 		return &loggingadmin.NeuralSearchDetails{
-			Enabled: lo.ToPtr(false),
+			Enabled: false,
+			Url:     lo.ToPtr(""),
+		}
+	}
+
+	if ns.CustomUrl == "" {
+		return &loggingadmin.NeuralSearchDetails{
+			Enabled: ns.Enabled,
 			Url:     lo.ToPtr(""),
 		}
 	}
 
 	return &loggingadmin.NeuralSearchDetails{
-		Enabled: &ns.Enabled,
+		Enabled: ns.Enabled,
 		Url:     &ns.CustomUrl,
 	}
 }

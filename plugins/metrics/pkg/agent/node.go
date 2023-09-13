@@ -71,16 +71,6 @@ func NewMetricsNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *MetricsN
 	mn.conditions.AddListener(mn.sendHealthUpdate)
 	mn.targetRunner.SetRemoteReaderClient(NewRemoteReader(&http.Client{}))
 
-	// FIXME: this is a hack, update the old sync code to use delegates instead
-	mn.conditions.AddListener(func(key string) {
-		if key == node.CondNodeDriver {
-			mn.logger.Info("forcing sync due to node driver status change")
-			go func() {
-				mn.doSync(context.TODO())
-			}()
-		}
-	})
-
 	return mn
 }
 
@@ -332,17 +322,12 @@ func (m *MetricsNode) updateConfig(ctx context.Context, config *node.MetricsCapa
 
 	eg.Wait()
 
-	// TODO: this should ideally only be done if eg.Error() is nil, however
-	// there is a risk of an infinite sync loop since we have to manually
-	// re-sync when the driver status changes (see note in NewMetricsNode)
-	// Once we replace the sync manager with delegates, we can safely return
-	// errors from Sync and avoid the status condition workaround.
-	m.config = config
-
 	if err := eg.Error(); err != nil {
 		m.config.Conditions = append(config.Conditions, err.Error())
 		m.logger.With(zap.Error(err)).Error("node configuration error")
 		return err
 	}
+
+	m.config = config
 	return nil
 }

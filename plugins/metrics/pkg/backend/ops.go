@@ -52,7 +52,7 @@ func (m *OpsServiceBackend) SetConfiguration(ctx context.Context, in *cortexops.
 	if err != nil {
 		return nil, err
 	}
-	m.requestNodeSync(ctx, &corev1.Reference{})
+	m.broadcastNodeSync(ctx)
 	return res, nil
 }
 
@@ -63,7 +63,7 @@ func (m *OpsServiceBackend) ResetConfiguration(ctx context.Context, in *cortexop
 	if err != nil {
 		return nil, err
 	}
-	m.requestNodeSync(ctx, &corev1.Reference{})
+	m.broadcastNodeSync(ctx)
 	return res, nil
 }
 
@@ -80,7 +80,7 @@ func (m *OpsServiceBackend) Install(ctx context.Context, in *emptypb.Empty) (*em
 	if err != nil {
 		return nil, err
 	}
-	m.requestNodeSync(ctx, &corev1.Reference{})
+	m.broadcastNodeSync(ctx)
 	return res, nil
 }
 
@@ -100,7 +100,7 @@ func (m *OpsServiceBackend) Uninstall(ctx context.Context, in *emptypb.Empty) (*
 	if len(clustersWithCapability) > 0 {
 		return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("There are %d agents sending metrics to the Opni monitoring backend. Uninstall the capability on all agents before attempting to uninstall the Opni monitoring backend.", len(clustersWithCapability)))
 	}
-	defer m.requestNodeSync(ctx, &corev1.Reference{})
+	defer m.broadcastNodeSync(ctx)
 	return m.ClusterDriver.Uninstall(ctx, in)
 }
 

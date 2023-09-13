@@ -599,8 +599,11 @@ func (l *ListAlarmMessageRequest) Sanitize() {
 }
 
 func (l *ListAlarmMessageRequest) Validate() error {
+	if l.ConditionId == nil {
+		return validation.Errorf("%w :%s", validation.ErrMissingRequiredField, "conditionId")
+	}
 	if l.ConditionId.Id == "" {
-		return validation.Error("field conditionId must be set")
+		return validation.Errorf("%w : %s", validation.ErrMissingRequiredField, "conditionId.id")
 	}
 	if l.Start.AsTime().After(l.End.AsTime()) {
 		return validation.Error("start time must be before end time")

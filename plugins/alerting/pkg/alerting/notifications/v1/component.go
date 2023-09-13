@@ -24,6 +24,7 @@ type NotificationServerComponent struct {
 	logger *zap.SugaredLogger
 
 	conditionStorage future.Future[spec.ConditionStorage]
+	endpointStorage  future.Future[spec.EndpointStorage]
 }
 
 var _ server.ServerComponent = (*NotificationServerComponent)(nil)
@@ -34,11 +35,13 @@ func NewNotificationServerComponent(
 	return &NotificationServerComponent{
 		logger:           logger,
 		conditionStorage: future.New[spec.ConditionStorage](),
+		endpointStorage:  future.New[spec.EndpointStorage](),
 	}
 }
 
 type NotificationServerConfiguration struct {
 	spec.ConditionStorage
+	spec.EndpointStorage
 }
 
 func (n *NotificationServerComponent) Name() string {
@@ -72,5 +75,6 @@ func (n *NotificationServerComponent) Sync(_ context.Context, _ alertingSync.Syn
 func (n *NotificationServerComponent) Initialize(conf NotificationServerConfiguration) {
 	n.InitOnce(func() {
 		n.conditionStorage.Set(conf.ConditionStorage)
+		n.endpointStorage.Set(conf.EndpointStorage)
 	})
 }

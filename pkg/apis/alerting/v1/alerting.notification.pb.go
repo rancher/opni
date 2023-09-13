@@ -816,8 +816,13 @@ var file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_notification_prot
 	0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x20, 0x2e, 0x61, 0x6c, 0x65,
 	0x72, 0x74, 0x69, 0x6e, 0x67, 0x2e, 0x43, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x52,
 	0x65, 0x66, 0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x05, 0x76, 0x61,
-	0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x32, 0xee, 0x04, 0x0a, 0x12, 0x41, 0x6c, 0x65, 0x72,
-	0x74, 0x4e, 0x6f, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x12, 0x65,
+	0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x32, 0xbe, 0x05, 0x0a, 0x12, 0x41, 0x6c, 0x65, 0x72,
+	0x74, 0x4e, 0x6f, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x12, 0x4e,
+	0x0a, 0x11, 0x54, 0x65, 0x73, 0x74, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x45, 0x6e, 0x64, 0x70, 0x6f,
+	0x69, 0x6e, 0x74, 0x12, 0x0f, 0x2e, 0x63, 0x6f, 0x72, 0x65, 0x2e, 0x52, 0x65, 0x66, 0x65, 0x72,
+	0x65, 0x6e, 0x63, 0x65, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x22, 0x10, 0x82, 0xd3,
+	0xe4, 0x93, 0x02, 0x0a, 0x3a, 0x01, 0x2a, 0x22, 0x05, 0x2f, 0x74, 0x65, 0x73, 0x74, 0x12, 0x65,
 	0x0a, 0x0d, 0x54, 0x72, 0x69, 0x67, 0x67, 0x65, 0x72, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x73, 0x12,
 	0x1e, 0x2e, 0x61, 0x6c, 0x65, 0x72, 0x74, 0x69, 0x6e, 0x67, 0x2e, 0x54, 0x72, 0x69, 0x67, 0x67,
 	0x65, 0x72, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
@@ -922,20 +927,22 @@ var file_github_com_rancher_opni_pkg_apis_alerting_v1_alerting_notification_prot
 	16, // 17: alerting.ResolveAlertsRequest.labels:type_name -> alerting.ResolveAlertsRequest.LabelsEntry
 	17, // 18: alerting.ListRoutingRelationshipsResponse.routingRelationships:type_name -> alerting.ListRoutingRelationshipsResponse.RoutingRelationshipsEntry
 	23, // 19: alerting.ListRoutingRelationshipsResponse.RoutingRelationshipsEntry.value:type_name -> alerting.ConditionReferenceList
-	5,  // 20: alerting.AlertNotifications.TriggerAlerts:input_type -> alerting.TriggerAlertsRequest
-	7,  // 21: alerting.AlertNotifications.ResolveAlerts:input_type -> alerting.ResolveAlertsRequest
-	3,  // 22: alerting.AlertNotifications.PushNotification:input_type -> alerting.Notification
-	1,  // 23: alerting.AlertNotifications.ListNotifications:input_type -> alerting.ListNotificationRequest
-	0,  // 24: alerting.AlertNotifications.ListAlarmMessages:input_type -> alerting.ListAlarmMessageRequest
-	24, // 25: alerting.AlertNotifications.ListRoutingRelationships:input_type -> google.protobuf.Empty
-	6,  // 26: alerting.AlertNotifications.TriggerAlerts:output_type -> alerting.TriggerAlertsResponse
-	8,  // 27: alerting.AlertNotifications.ResolveAlerts:output_type -> alerting.ResolveAlertsResponse
-	24, // 28: alerting.AlertNotifications.PushNotification:output_type -> google.protobuf.Empty
-	2,  // 29: alerting.AlertNotifications.ListNotifications:output_type -> alerting.ListMessageResponse
-	2,  // 30: alerting.AlertNotifications.ListAlarmMessages:output_type -> alerting.ListMessageResponse
-	9,  // 31: alerting.AlertNotifications.ListRoutingRelationships:output_type -> alerting.ListRoutingRelationshipsResponse
-	26, // [26:32] is the sub-list for method output_type
-	20, // [20:26] is the sub-list for method input_type
+	22, // 20: alerting.AlertNotifications.TestAlertEndpoint:input_type -> core.Reference
+	5,  // 21: alerting.AlertNotifications.TriggerAlerts:input_type -> alerting.TriggerAlertsRequest
+	7,  // 22: alerting.AlertNotifications.ResolveAlerts:input_type -> alerting.ResolveAlertsRequest
+	3,  // 23: alerting.AlertNotifications.PushNotification:input_type -> alerting.Notification
+	1,  // 24: alerting.AlertNotifications.ListNotifications:input_type -> alerting.ListNotificationRequest
+	0,  // 25: alerting.AlertNotifications.ListAlarmMessages:input_type -> alerting.ListAlarmMessageRequest
+	24, // 26: alerting.AlertNotifications.ListRoutingRelationships:input_type -> google.protobuf.Empty
+	24, // 27: alerting.AlertNotifications.TestAlertEndpoint:output_type -> google.protobuf.Empty
+	6,  // 28: alerting.AlertNotifications.TriggerAlerts:output_type -> alerting.TriggerAlertsResponse
+	8,  // 29: alerting.AlertNotifications.ResolveAlerts:output_type -> alerting.ResolveAlertsResponse
+	24, // 30: alerting.AlertNotifications.PushNotification:output_type -> google.protobuf.Empty
+	2,  // 31: alerting.AlertNotifications.ListNotifications:output_type -> alerting.ListMessageResponse
+	2,  // 32: alerting.AlertNotifications.ListAlarmMessages:output_type -> alerting.ListMessageResponse
+	9,  // 33: alerting.AlertNotifications.ListRoutingRelationships:output_type -> alerting.ListRoutingRelationshipsResponse
+	27, // [27:34] is the sub-list for method output_type
+	20, // [20:27] is the sub-list for method input_type
 	20, // [20:20] is the sub-list for extension type_name
 	20, // [20:20] is the sub-list for extension extendee
 	0,  // [0:20] is the sub-list for field type_name

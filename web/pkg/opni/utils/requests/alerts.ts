@@ -5,7 +5,7 @@ import {
   AlertCondition, AlertConditionList, AlertDetailChoicesRequest, AlertStatusResponse, Condition, ConditionReference, ListAlarmMessageRequest, ListAlertTypeDetails, ListMessageResponse, ListStatusResponse, SilenceRequest, TimelineRequest, TimelineResponse, UpdateAlertConditionRequest
 } from '../../models/alerting/Condition';
 import {
-  AlertEndpoint, AlertEndpointList, Endpoint, TestAlertEndpointRequest, UpdateAlertEndpointRequest
+  AlertEndpoint, AlertEndpointList, Endpoint, UpdateAlertEndpointRequest
 } from '../../models/alerting/Endpoint';
 import { Cluster } from '../../models/Cluster';
 
@@ -29,8 +29,8 @@ export async function getAlertEndpoint(id: string, vue: any): Promise<Endpoint> 
   return new Endpoint({ id: { id }, endpoint: response }, vue);
 }
 
-export async function testAlertEndpoint(request: TestAlertEndpointRequest) {
-  await axios.post<AlertEndpoint>(`opni-api/AlertEndpoints/test`, request);
+export async function testAlertEndpoint(request: Reference) {
+  await axios.post<AlertEndpoint>(`opni-api/AlertNotifications/test`, request);
 }
 
 export function deleteEndpoint(id: string) {

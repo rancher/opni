@@ -20,7 +20,9 @@ import (
 )
 
 const (
-	configKey             = "config.yaml"
+	configKey = "config.yaml"
+
+	// TODO: Change back to opni-otel-collector image
 	preprocessorVersion   = "latest"
 	preprocessorImageRepo = "docker.io/jaehnri"
 	preprocessorImage     = "otel-collector"
@@ -98,14 +100,14 @@ exporters:
       dedup: true
       dedot: false
   opensearch/traces:
+    dataset: kubernetes
+    namespace: opni
     http:
       endpoint: {{ .Endpoint }}
       tls:
         ca_file: /etc/otel/chain.crt
         cert_file: /etc/otel/certs/tls.crt
         key_file: /etc/otel/certs/tls.key
-      dataset: kubernetes
-      namespace: opni
 service:
   pipelines:
     logs:

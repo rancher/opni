@@ -27,7 +27,6 @@ const (
 	AlertEndpoints_ListAlertEndpoints_FullMethodName  = "/alerting.AlertEndpoints/ListAlertEndpoints"
 	AlertEndpoints_UpdateAlertEndpoint_FullMethodName = "/alerting.AlertEndpoints/UpdateAlertEndpoint"
 	AlertEndpoints_DeleteAlertEndpoint_FullMethodName = "/alerting.AlertEndpoints/DeleteAlertEndpoint"
-	AlertEndpoints_TestAlertEndpoint_FullMethodName   = "/alerting.AlertEndpoints/TestAlertEndpoint"
 )
 
 // AlertEndpointsClient is the client API for AlertEndpoints service.
@@ -51,7 +50,6 @@ type AlertEndpointsClient interface {
 	// deletes and applies the consequences of those changes
 	// to everything without warning
 	DeleteAlertEndpoint(ctx context.Context, in *DeleteAlertEndpointRequest, opts ...grpc.CallOption) (*ConditionReferenceList, error)
-	TestAlertEndpoint(ctx context.Context, in *TestAlertEndpointRequest, opts ...grpc.CallOption) (*TestAlertEndpointResponse, error)
 }
 
 type alertEndpointsClient struct {
@@ -116,15 +114,6 @@ func (c *alertEndpointsClient) DeleteAlertEndpoint(ctx context.Context, in *Dele
 	return out, nil
 }
 
-func (c *alertEndpointsClient) TestAlertEndpoint(ctx context.Context, in *TestAlertEndpointRequest, opts ...grpc.CallOption) (*TestAlertEndpointResponse, error) {
-	out := new(TestAlertEndpointResponse)
-	err := c.cc.Invoke(ctx, AlertEndpoints_TestAlertEndpoint_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // AlertEndpointsServer is the server API for AlertEndpoints service.
 // All implementations must embed UnimplementedAlertEndpointsServer
 // for forward compatibility
@@ -146,7 +135,6 @@ type AlertEndpointsServer interface {
 	// deletes and applies the consequences of those changes
 	// to everything without warning
 	DeleteAlertEndpoint(context.Context, *DeleteAlertEndpointRequest) (*ConditionReferenceList, error)
-	TestAlertEndpoint(context.Context, *TestAlertEndpointRequest) (*TestAlertEndpointResponse, error)
 	mustEmbedUnimplementedAlertEndpointsServer()
 }
 
@@ -171,9 +159,6 @@ func (UnimplementedAlertEndpointsServer) UpdateAlertEndpoint(context.Context, *U
 }
 func (UnimplementedAlertEndpointsServer) DeleteAlertEndpoint(context.Context, *DeleteAlertEndpointRequest) (*ConditionReferenceList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAlertEndpoint not implemented")
-}
-func (UnimplementedAlertEndpointsServer) TestAlertEndpoint(context.Context, *TestAlertEndpointRequest) (*TestAlertEndpointResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method TestAlertEndpoint not implemented")
 }
 func (UnimplementedAlertEndpointsServer) mustEmbedUnimplementedAlertEndpointsServer() {}
 
@@ -296,24 +281,6 @@ func _AlertEndpoints_DeleteAlertEndpoint_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AlertEndpoints_TestAlertEndpoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TestAlertEndpointRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AlertEndpointsServer).TestAlertEndpoint(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AlertEndpoints_TestAlertEndpoint_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertEndpointsServer).TestAlertEndpoint(ctx, req.(*TestAlertEndpointRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // AlertEndpoints_ServiceDesc is the grpc.ServiceDesc for AlertEndpoints service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -344,10 +311,6 @@ var AlertEndpoints_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteAlertEndpoint",
 			Handler:    _AlertEndpoints_DeleteAlertEndpoint_Handler,
-		},
-		{
-			MethodName: "TestAlertEndpoint",
-			Handler:    _AlertEndpoints_TestAlertEndpoint_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

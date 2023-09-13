@@ -174,6 +174,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 	future.Wait1(p.storageClientSet, func(s spec.AlertingClientSet) {
 		p.NotificationServerComponent.Initialize(notifications.NotificationServerConfiguration{
 			ConditionStorage: s.Conditions(),
+			EndpointStorage:  s.Endpoints(),
 		})
 
 		p.EndpointServerComponent.Initialize(endpoints.EndpointServerConfiguration{
@@ -181,7 +182,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 			EndpointStorage:  s.Endpoints(),
 			RouterStorage:    s.Routers(),
 			HashRing:         s,
-			ManualSync:       p.SendManualSyncRequest,
 		})
 
 		serverCfg := server.Config{

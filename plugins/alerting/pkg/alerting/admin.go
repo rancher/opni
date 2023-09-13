@@ -564,30 +564,6 @@ func (p *Plugin) runSync() {
 	}
 }
 
-func (p *Plugin) SendManualSyncRequest(
-	ctx context.Context,
-	hashRing spec.HashRing,
-	routers spec.RouterStorage,
-) error {
-	p.syncController.syncMu.Lock()
-	defer p.syncController.syncMu.Unlock()
-
-	driver, err := p.clusterDriver.GetContext(ctx)
-	if err != nil {
-		return err
-	}
-
-	lg := p.logger.With("method", "sendManualSyncRequest")
-	payload, err := p.constructPartialSyncRequest(ctx, driver, hashRing, routers)
-	if err != nil {
-		lg.Errorf("failed to construct sync request: %s", err)
-		return err
-	}
-	p.syncController.PushSyncReq(payload)
-	lg.With("sync-id", payload.syncId).Debug("sent manual sync request")
-	return nil
-}
-
 func (p *Plugin) ready() error {
 	for _, comp := range p.Components() {
 		if !comp.Ready() {

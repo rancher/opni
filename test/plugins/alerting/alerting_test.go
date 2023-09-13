@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -256,36 +257,33 @@ func BuildAlertingClusterIntegrationTests(
 					By("verifying they are reachable")
 
 					for _, endp := range endpList.GetItems() {
-						_, err := alertEndpointsClient.TestAlertEndpoint(env.Context(), &alertingv1.TestAlertEndpointRequest{
-							Endpoint: endp.GetEndpoint(),
-						})
+						Expect(endp.GetId()).NotTo(BeNil())
+						_, err := alertNotificationsClient.TestAlertEndpoint(env.Context(), endp.GetId())
 						Expect(err).To(Succeed())
 					}
-					// maxSuccesses := 0
-					// time.Sleep(time.Hour)
-					// Eventually(func() error {
-					// 	success := 0
-					// 	errs := []error{}
-					// 	for _, server := range servers {
-					// 		if len(server.GetBuffer()) == 0 {
-					// 			if success > maxSuccesses {
-					// 				maxSuccesses = success
-					// 			}
-					// 			errs = append(errs, fmt.Errorf("server %v did not receive any alerts", server.Endpoint()))
-					// 		} else {
-					// 			success++
-					// 		}
-					// 	}
-					// 	if len(errs) > 0 {
-					// 		return errors.Join(errs...)
-					// 	}
-					// 	return nil
-					// }, time.Second*15, time.Millisecond*500).Should(Succeed(), fmt.Sprintf("only %d/%d servers received alerts", maxSuccesses, numServers))
+					maxSuccesses := 0
+					Eventually(func() error {
+						success := 0
+						errs := []error{}
+						for _, server := range servers {
+							if len(server.GetBuffer()) == 0 {
+								if success > maxSuccesses {
+									maxSuccesses = success
+								}
+								errs = append(errs, fmt.Errorf("server %v did not receive any alerts", server.Endpoint()))
+							} else {
+								success++
+							}
+						}
+						if len(errs) > 0 {
+							return errors.Join(errs...)
+						}
+						return nil
+					}, time.Second*15, time.Millisecond*100).Should(Succeed(), fmt.Sprintf("only %d/%d servers received alerts", maxSuccesses, numServers))
 
-					// for _, server := range servers {
-					// 	server.ClearBuffer()
-					// }
-
+					for _, server := range servers {
+						server.ClearBuffer()
+					}
 				})
 
 				It("should create some default conditions when bootstrapping agents", func() {

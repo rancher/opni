@@ -509,12 +509,14 @@ func BuildStorageClientSetSuite(
 			})
 
 			Specify("the hash ring should change its hash when configurations change enough to warrant an update", func() {
-				id1 := uuid.New().String()
-				id2 := uuid.New().String()
-				err := s.Endpoints().Put(ctx, id1, &alertingv1.AlertEndpoint{
+				id1Condition := uuid.New().String()
+				id2Condition := uuid.New().String()
+				id1Endpoint := uuid.New().String()
+				id2Endpoint := uuid.New().String()
+				err := s.Endpoints().Put(ctx, id1Endpoint, &alertingv1.AlertEndpoint{
 					Name:        "sample endpoint",
 					Description: "sample description",
-					Id:          id1,
+					Id:          id1Endpoint,
 					LastUpdated: timestamppb.Now(),
 					Endpoint: &alertingv1.AlertEndpoint_Slack{
 						Slack: &alertingv1.SlackEndpoint{
@@ -524,10 +526,10 @@ func BuildStorageClientSetSuite(
 					},
 				})
 				Expect(err).To(Succeed())
-				err = s.Endpoints().Put(ctx, id2, &alertingv1.AlertEndpoint{
+				err = s.Endpoints().Put(ctx, id2Endpoint, &alertingv1.AlertEndpoint{
 					Name:        "sample endpoint",
 					Description: "sample description",
-					Id:          id2,
+					Id:          id2Endpoint,
 					LastUpdated: timestamppb.Now(),
 					Endpoint: &alertingv1.AlertEndpoint_Slack{
 						Slack: &alertingv1.SlackEndpoint{
@@ -540,16 +542,16 @@ func BuildStorageClientSetSuite(
 
 				mutateState := []func(){
 					func() { // new
-						err := s.Conditions().Group("").Put(ctx, id1, &alertingv1.AlertCondition{
+						err := s.Conditions().Group("").Put(ctx, id1Condition, &alertingv1.AlertCondition{
 							Name:        "sample condition",
 							Description: "sample description",
-							Id:          id1,
+							Id:          id1Condition,
 							LastUpdated: timestamppb.Now(),
 							Severity:    alertingv1.OpniSeverity_Info,
 							AttachedEndpoints: &alertingv1.AttachedEndpoints{
 								Items: []*alertingv1.AttachedEndpoint{
 									{
-										EndpointId: id1,
+										EndpointId: id1Endpoint,
 									},
 								},
 								Details: &alertingv1.EndpointImplementation{
@@ -561,17 +563,17 @@ func BuildStorageClientSetSuite(
 						Expect(err).To(Succeed())
 					},
 					func() { // new
-						err := s.Conditions().Group("test-group").Put(ctx, id2, &alertingv1.AlertCondition{
+						err := s.Conditions().Group("test-group").Put(ctx, id2Condition, &alertingv1.AlertCondition{
 							Name:        "sample condition",
 							Description: "sample description",
-							Id:          id2,
+							Id:          id2Condition,
 							GroupId:     "test-group",
 							LastUpdated: timestamppb.Now(),
 							Severity:    alertingv1.OpniSeverity_Info,
 							AttachedEndpoints: &alertingv1.AttachedEndpoints{
 								Items: []*alertingv1.AttachedEndpoint{
 									{
-										EndpointId: id2,
+										EndpointId: id2Endpoint,
 									},
 								},
 								Details: &alertingv1.EndpointImplementation{
@@ -583,16 +585,16 @@ func BuildStorageClientSetSuite(
 						Expect(err).To(Succeed())
 					},
 					func() { // update timestamp
-						err := s.Conditions().Group("").Put(ctx, id1, &alertingv1.AlertCondition{
+						err := s.Conditions().Group("").Put(ctx, id1Condition, &alertingv1.AlertCondition{
 							Name:        "sample condition",
 							Description: "sample description",
-							Id:          id1,
+							Id:          id1Condition,
 							LastUpdated: timestamppb.Now(),
 							Severity:    alertingv1.OpniSeverity_Info,
 							AttachedEndpoints: &alertingv1.AttachedEndpoints{
 								Items: []*alertingv1.AttachedEndpoint{
 									{
-										EndpointId: id2,
+										EndpointId: id2Endpoint,
 									},
 								},
 								Details: &alertingv1.EndpointImplementation{
@@ -604,16 +606,16 @@ func BuildStorageClientSetSuite(
 						Expect(err).To(Succeed())
 					},
 					func() {
-						err := s.Conditions().Group("").Put(ctx, id1, &alertingv1.AlertCondition{
+						err := s.Conditions().Group("").Put(ctx, id1Condition, &alertingv1.AlertCondition{
 							Name:        "sample condition",
 							Description: "sample description",
-							Id:          id2,
+							Id:          id2Condition,
 							LastUpdated: timestamppb.Now(),
 							Severity:    alertingv1.OpniSeverity_Info,
 							AttachedEndpoints: &alertingv1.AttachedEndpoints{
 								Items: []*alertingv1.AttachedEndpoint{
 									{
-										EndpointId: id1,
+										EndpointId: id1Endpoint,
 									},
 								},
 								Details: &alertingv1.EndpointImplementation{
@@ -625,19 +627,19 @@ func BuildStorageClientSetSuite(
 						Expect(err).To(Succeed())
 					},
 					func() {
-						err := s.Conditions().Group("").Put(ctx, id1, &alertingv1.AlertCondition{
+						err := s.Conditions().Group("").Put(ctx, id1Condition, &alertingv1.AlertCondition{
 							Name:        "sample condition",
 							Description: "sample description",
-							Id:          id1,
+							Id:          id1Condition,
 							LastUpdated: timestamppb.Now(),
 							Severity:    alertingv1.OpniSeverity_Info,
 							AttachedEndpoints: &alertingv1.AttachedEndpoints{
 								Items: []*alertingv1.AttachedEndpoint{
 									{
-										EndpointId: id1,
+										EndpointId: id1Endpoint,
 									},
 									{
-										EndpointId: id2,
+										EndpointId: id2Endpoint,
 									},
 								},
 								Details: &alertingv1.EndpointImplementation{
@@ -649,10 +651,10 @@ func BuildStorageClientSetSuite(
 						Expect(err).To(Succeed())
 					},
 					func() {
-						err = s.Endpoints().Put(ctx, id2, &alertingv1.AlertEndpoint{
+						err = s.Endpoints().Put(ctx, id2Endpoint, &alertingv1.AlertEndpoint{
 							Name:        "sample endpoint",
 							Description: "sample description",
-							Id:          id2,
+							Id:          id2Endpoint,
 							LastUpdated: timestamppb.Now(),
 							Endpoint: &alertingv1.AlertEndpoint_Slack{
 								Slack: &alertingv1.SlackEndpoint{
@@ -697,7 +699,48 @@ func BuildStorageClientSetSuite(
 				}
 			})
 
-			Specify("the hash should not change when no meaningul configuration change occurs", func() {
+			Specify("the hash should change when we add endpoints", func() {
+				oldHash, err := s.GetHash(ctx, shared.SingleConfigId)
+				Expect(err).To(Succeed())
+				err = s.Endpoints().Put(ctx, "endpoint1", &alertingv1.AlertEndpoint{
+					Name:        "sample endpoint",
+					Description: "sample description",
+					Id:          "endpoint1",
+					LastUpdated: timestamppb.Now(),
+					Endpoint: &alertingv1.AlertEndpoint_Slack{
+						Slack: &alertingv1.SlackEndpoint{
+							WebhookUrl: "https://slack222.com",
+							Channel:    "#test222",
+						},
+					},
+				})
+				Expect(err).To(Succeed())
+
+				_, err = s.Sync(ctx)
+				Expect(err).To(Succeed())
+
+				newHash, err := s.GetHash(ctx, shared.SingleConfigId)
+				Expect(err).To(Succeed())
+				Expect(newHash).NotTo(Equal(oldHash))
+			})
+
+			Specify("the hash should change when we remove endpoints", func() {
+				oldHash, err := s.GetHash(ctx, shared.SingleConfigId)
+				Expect(err).To(Succeed())
+				err = s.Endpoints().Delete(ctx, "endpoint1")
+				Expect(err).To(Succeed())
+
+				_, err = s.Sync(ctx)
+				Expect(err).To(Succeed())
+
+				newHash, err := s.GetHash(ctx, shared.SingleConfigId)
+				Expect(err).To(Succeed())
+				Expect(newHash).NotTo(Equal(oldHash))
+			})
+
+			Specify("the hash should not change when no meaningful configuration change occurs", func() {
+				_, err := s.Sync(ctx)
+				Expect(err).To(Succeed())
 				for i := 0; i < 10; i++ {
 					oldHash, err := s.GetHash(ctx, shared.SingleConfigId)
 					Expect(err).To(Succeed())

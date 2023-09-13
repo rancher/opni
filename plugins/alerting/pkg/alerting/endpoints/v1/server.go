@@ -6,15 +6,12 @@ import (
 	"time"
 
 	amCfg "github.com/prometheus/alertmanager/config"
-	"github.com/prometheus/alertmanager/pkg/labels"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
-	"github.com/rancher/opni/pkg/alerting/message"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage/opts"
 	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/validation"
 	"github.com/samber/lo"
 	lop "github.com/samber/lo/parallel"
 	"gopkg.in/yaml.v2"
@@ -23,7 +20,6 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -223,143 +219,6 @@ func (e *EndpointServerComponent) ListAlertEndpoints(
 		},
 	)
 	return &alertingv1.AlertEndpointList{Items: items}, nil
-}
-
-func (e *EndpointServerComponent) TestAlertEndpoint(ctx context.Context, req *alertingv1.TestAlertEndpointRequest) (*alertingv1.TestAlertEndpointResponse, error) {
-	if !e.Initialized() {
-		return nil, status.Error(codes.Unavailable, "Endpoint server is not yet available")
-	}
-	if req.Endpoint == nil {
-		return nil, validation.Error("Endpoint must be set")
-	}
-	// if it has an Id it needs to be unredacted
-	if req.Endpoint.Id != "" {
-		unredactSecrets(ctx, e.endpointStorage.Get(), req.Endpoint.Id, req.Endpoint)
-	}
-	if err := req.Validate(); err != nil {
-		return nil, err
-	}
-	details := &alertingv1.EndpointImplementation{
-		Title: "Test Alert Endpoint",
-		Body:  "Opni Alerting is sending you a test alert to verify your alert endpoint configuration.",
-	}
-
-	ephemeralId := shared.NewAlertingRefId()
-	createImpl := &alertingv1.FullAttachedEndpoints{
-		InitialDelay: durationpb.New(time.Duration(time.Second * 0)),
-		Items: []*alertingv1.FullAttachedEndpoint{
-			{
-				EndpointId:    ephemeralId,
-				AlertEndpoint: req.GetEndpoint(),
-				Details:       details,
-			},
-		},
-		ThrottlingDuration: durationpb.New(time.Duration(time.Second * 1)),
-		Details:            details,
-	}
-
-	// - create ephemeral dispatcher
-	router, err := e.routerStorage.Get().Get(ctx, shared.SingleConfigId)
-	if err != nil {
-		return nil, err
-	}
-
-	ns := "test"
-	if err := router.SetNamespaceSpec("test", ephemeralId, createImpl); err != nil {
-		return nil, err
-	}
-	err = e.manualSync(ctx, e.hashRing.Get(), e.routerStorage.Get())
-	if err != nil {
-		e.logger.Errorf("Failed to sync router %s", err)
-		return nil, err
-	}
-	go func() { // create, trigger, delete
-		ctxTimeout, ca := context.WithTimeout(e.ctx, 120*time.Second)
-		t := time.NewTicker(RetryTestEdnpoint)
-		defer func() {
-			t.Stop()
-			ca()
-			router.SetNamespaceSpec(ns, ephemeralId, &alertingv1.FullAttachedEndpoints{
-				Items: []*alertingv1.FullAttachedEndpoint{},
-			})
-		}()
-		for {
-			isLoaded := false
-			select {
-			case <-ctxTimeout.Done():
-				e.logger.Errorf("failed to find loaded receiver when testing endpoint")
-				return
-			case <-t.C:
-				e.mu.Lock()
-				if _, err := e.Client.ConfigClient().GetReceiver(ctxTimeout, ephemeralId); err != nil {
-					isLoaded = true
-				}
-				e.mu.Unlock()
-			}
-			if isLoaded {
-				break
-			}
-		}
-
-		_, err = e.notifications.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
-			ConditionId: &corev1.Reference{Id: ephemeralId},
-			Namespace:   ns,
-			Annotations: map[string]string{
-				message.NotificationContentHeader:  "Test notification",
-				message.NotificationContentSummary: "Admin has sent a test notification",
-			},
-			Labels: map[string]string{
-				ns: ephemeralId,
-			},
-		})
-
-		if err != nil {
-			// errors can represent partial successes, however it is unusual
-			e.logger.Errorf("Failed to trigger alert %s", err)
-		}
-		matchers := []*labels.Matcher{
-			{
-				Type:  labels.MatchEqual,
-				Name:  ns,
-				Value: ephemeralId,
-			},
-		}
-
-		for {
-			hasAlerted := false
-			select {
-			case <-ctxTimeout.Done():
-				e.logger.Warn("failed to find alert when testing endpoint")
-				return
-			case <-t.C:
-				_, err = e.notifications.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
-					ConditionId: &corev1.Reference{Id: ephemeralId},
-					Namespace:   ns,
-					Annotations: map[string]string{
-						message.NotificationContentHeader:  "Test notification",
-						message.NotificationContentSummary: "Admin has sent a test notification",
-					},
-					Labels: map[string]string{
-						ns: ephemeralId,
-					},
-				})
-				if err != nil {
-					// errors can represent partial successes, however it is unusual
-					e.logger.Warnf("failed to trigger alert on test endpoint %s", err)
-				}
-				e.mu.Lock()
-				if ags, err := e.Client.AlertClient().GetAlert(ctxTimeout, matchers); err == nil && len(ags) > 0 {
-					hasAlerted = true
-				}
-				e.mu.Unlock()
-			}
-			if hasAlerted {
-				break
-			}
-		}
-	}()
-
-	return &alertingv1.TestAlertEndpointResponse{}, nil
 }
 
 func unredactSecrets(

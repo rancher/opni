@@ -153,7 +153,7 @@ func (a *AlertManagerSyncerV1) recvMsgs(
 			RECV:
 				syncReq, err := remoteSyncerClient.Recv()
 				if err == io.EOF {
-					a.lg.Warnf("remote syncer disconnected, reconnecting, ...")
+					a.lg.Info("remote syncer disconnected, reconnecting, ...")
 					break
 				}
 				if st, ok := status.FromError(err); ok && err != nil {

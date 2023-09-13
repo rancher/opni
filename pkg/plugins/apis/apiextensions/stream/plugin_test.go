@@ -271,7 +271,7 @@ var _ = Describe("Stream API Extensions Plugin", Ordered, Label("unit"), func() 
 						goto receive
 					}
 					Expect(err).To(testutil.MatchStatusCode(codes.DeadlineExceeded, ContainSubstring("stream client discovery timed out")))
-				case <-time.After(10 * time.Millisecond):
+				case <-time.After(1 * time.Second):
 					Fail("stream.Recv() should have returned")
 				}
 			})

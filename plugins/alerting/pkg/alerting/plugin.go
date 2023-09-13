@@ -132,7 +132,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		),
 	}
 
-	p.syncController = NewSyncController()
+	p.syncController = NewSyncController(p.logger.With("component", "sync-controller"))
 	p.httpProxy = NewHttpApiServer(
 		lg.With("component", "http-proxy"),
 		p.AlertingClient,

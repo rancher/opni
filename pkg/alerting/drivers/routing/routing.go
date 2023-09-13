@@ -200,7 +200,6 @@ func newReceiverImplementationFromEndpoint(endp *alertingv1.AlertEndpoint, detai
 }
 
 func (o *OpniRouterV1) HasLabels(routingId string) []*labels.Matcher {
-	// TODO : FIXME:
 	for namespaceName, routes := range o.NamespacedSpecs {
 		if _, ok := routes[routingId]; ok {
 			return []*labels.Matcher{
@@ -216,7 +215,6 @@ func (o *OpniRouterV1) HasLabels(routingId string) []*labels.Matcher {
 }
 
 func (o *OpniRouterV1) HasReceivers(routingId string) []string {
-	// TODO : FIXME:
 	for namespaceName, routes := range o.NamespacedSpecs {
 		if _, ok := routes[routingId]; ok {
 			return []string{

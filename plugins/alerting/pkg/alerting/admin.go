@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
 	alertingSync "github.com/rancher/opni/pkg/alerting/server/sync"
@@ -42,6 +43,8 @@ type RemoteInfo struct {
 }
 
 type SyncController struct {
+	lg *zap.SugaredLogger
+
 	hashMu          sync.Mutex
 	syncMu          sync.RWMutex
 	remoteMu        sync.RWMutex
@@ -93,7 +96,8 @@ func (s *SyncController) PushSyncReq(payload *syncPayload) {
 	for id, syncer := range s.syncPushers {
 		id := id
 		syncer := syncer
-		syncer <- &alertops.SyncRequest{
+		select {
+		case syncer <- &alertops.SyncRequest{
 			LifecycleId: id,
 			SyncId:      payload.syncId,
 			Items: []*alertingv1.PutConfigRequest{
@@ -102,13 +106,17 @@ func (s *SyncController) PushSyncReq(payload *syncPayload) {
 					Config: payload.data,
 				},
 			},
+		}:
+		default:
+			s.lg.With("syncer-id", id).Error("failed to push sync request : buffer already full")
 		}
 	}
 }
 
 func (s *SyncController) PushOne(lifecycleId string, payload *syncPayload) {
 	if _, ok := s.syncPushers[lifecycleId]; ok {
-		s.syncPushers[lifecycleId] <- &alertops.SyncRequest{
+		select {
+		case s.syncPushers[lifecycleId] <- &alertops.SyncRequest{
 			LifecycleId: lifecycleId,
 			SyncId:      payload.syncId,
 			Items: []*alertingv1.PutConfigRequest{
@@ -117,12 +125,16 @@ func (s *SyncController) PushOne(lifecycleId string, payload *syncPayload) {
 					Config: payload.data,
 				},
 			},
+		}:
+		default:
+			s.lg.With("syncer-id", lifecycleId).Error("failed to push sync request : buffer already full")
 		}
 	}
 }
 
-func NewSyncController() SyncController {
+func NewSyncController(lg *zap.SugaredLogger) SyncController {
 	return SyncController{
+		lg:              lg,
 		syncPushers:     map[string]chan *alertops.SyncRequest{},
 		remoteInfo:      map[string]RemoteInfo{},
 		syncMu:          sync.RWMutex{},
@@ -288,7 +300,7 @@ func (p *Plugin) SyncConfig(server alertops.ConfigReconciler_SyncConfigServer) e
 		for {
 			info, err := server.Recv()
 			if err == io.EOF {
-				lg.Debug("remote syncer closed connection")
+				lg.Warn("remote syncer closed connection")
 				p.syncController.RemoveSyncPusher(assignedLifecycleUuid)
 				return nil
 			}
@@ -307,10 +319,10 @@ func (p *Plugin) SyncConfig(server alertops.ConfigReconciler_SyncConfigServer) e
 	for {
 		select {
 		case <-p.ctx.Done():
-			lg.Debug("exiting syncer loop, alerting plugin shutting down")
+			lg.Info("exiting syncer loop, alerting plugin shutting down")
 			return nil
 		case <-server.Context().Done():
-			lg.Debug("exiting syncer loop, remote syncer shutting down")
+			lg.Info("exiting syncer loop, remote syncer shutting down")
 			return nil
 		case err := <-connErr:
 			return err
@@ -406,7 +418,6 @@ func (p *Plugin) doConfigSync(ctx context.Context, syncInfo alertingSync.SyncInf
 		if err != nil {
 			return err
 		}
-		lg.With("syncId", payload.syncId).Debug("sync change detected, pushing sync request to remote syncers")
 		p.syncController.PushSyncReq(payload)
 		return nil
 	}
@@ -425,7 +436,6 @@ func (p *Plugin) doConfigSync(ctx context.Context, syncInfo alertingSync.SyncInf
 			return err
 		}
 		for _, id := range queuedSyncs {
-			lg.With("syncId", payload.syncId, "lifecycleId", id).Debug("sync id mismatch, pushing sync request to remote syncers")
 			p.syncController.PushOne(id, payload)
 		}
 	}
@@ -519,7 +529,6 @@ func (p *Plugin) runSyncTasks(tasks []alertingSync.SyncTask) (retErr error) {
 		return err
 	}
 
-	lg.Debug("Running periodic sync for alerting")
 	var eg util.MultiErrGroup
 	for _, task := range tasks {
 		task := task
@@ -528,9 +537,8 @@ func (p *Plugin) runSyncTasks(tasks []alertingSync.SyncTask) (retErr error) {
 		})
 	}
 	eg.Wait()
-	lg.Debugf("finished running periodic sync for alerting, sucessfully ran %d/%d sync tasks", len(tasks)-len(eg.Errors()), len(tasks))
 	if err := eg.Error(); err != nil {
-		lg.Error(err)
+		lg.Errorf(" ran %d/%d tasks successfully %w", len(tasks)-len(eg.Errors()), len(tasks), err)
 		retErr = err
 	}
 	return
@@ -550,7 +558,7 @@ func (p *Plugin) runSync() {
 	for {
 		select {
 		case <-p.ctx.Done():
-			p.logger.Debug("exiting main sync loop")
+			p.logger.Info("exiting main sync loop")
 			return
 		case <-ticker.C:
 			if err := p.runSyncTasks(syncTasks); err != nil {

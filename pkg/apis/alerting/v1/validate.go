@@ -603,7 +603,7 @@ func (l *ListAlarmMessageRequest) Validate() error {
 		return validation.Errorf("%w :%s", validation.ErrMissingRequiredField, "conditionId")
 	}
 	if l.ConditionId.Id == "" {
-		return validation.Errorf("%w : %s", validation.ErrMissingRequiredField, "conditionI.id")
+		return validation.Errorf("%w : %s", validation.ErrMissingRequiredField, "conditionId.id")
 	}
 	if l.Start.AsTime().After(l.End.AsTime()) {
 		return validation.Error("start time must be before end time")

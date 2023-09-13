@@ -87,7 +87,7 @@ func (w *targetedDelegatingClient[T]) Invoke(ctx context.Context, method string,
 		},
 	}
 	switch {
-	case w.target != nil:
+	case w.target != nil && w.target.Id != "":
 		respMsg, err := w.delegateClient.Request(ctx, &streamv1.DelegatedMessage{
 			Request: rpc,
 			Target:  w.target,

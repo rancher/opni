@@ -88,6 +88,9 @@ func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
 }
 
 func (m *MetricsBackend) requestNodeSync(ctx context.Context, target *corev1.Reference) error {
+	if target == nil || target.Id == "" {
+		panic("bug: target must be non-nil and have a non-empty ID. this logic was recently changed - please update the caller")
+	}
 	_, err := m.Delegate.
 		WithTarget(target).
 		SyncNow(ctx, &capabilityv1.Filter{CapabilityNames: []string{wellknown.CapabilityMetrics}})

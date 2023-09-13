@@ -177,18 +177,14 @@ func (s *AlertingNode) updateConfig(ctx context.Context, config *node.AlertingCa
 	}
 	eg.Wait()
 	s.configMu.Lock()
-	// TODO: this should ideally only be done if eg.Error() is nil, however
-	// there is a risk of an infinite sync loop since we have to manually
-	// re-sync when the driver status changes (see note in NewMetricsNode)
-	// Once we replace the sync manager with delegates, we can safely return
-	// errors from Sync and avoid the status condition workaround.
-	s.config = config
-	s.configMu.Unlock()
+	defer s.configMu.Unlock()
 
 	if err := eg.Error(); err != nil {
 		s.config.Conditions = (append(s.config.GetConditions(), err.Error()))
 		s.lg.With(zap.Error(err)).Errorf("%s node configuration error", s.capability)
 		return err
+	} else {
+		s.config = config
 	}
 
 	return nil

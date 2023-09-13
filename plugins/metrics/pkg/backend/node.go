@@ -64,6 +64,7 @@ func (m *NodeServiceBackend) SetNodeConfiguration(ctx context.Context, req *node
 			return nil, err
 		}
 
+		m.requestNodeSync(ctx, req.Node)
 		return &emptypb.Empty{}, nil
 	}
 	if err := req.Spec.Validate(); err != nil {

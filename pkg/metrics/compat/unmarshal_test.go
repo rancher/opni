@@ -57,7 +57,7 @@ var _ = Describe("Prometheus Query response unmarshalling", Label("unit"), func(
 		Expect(scalar.Value).To(Equal(scalarData.Value))
 		Expect(scalar.Timestamp).To(Equal(scalarData.Timestamp))
 
-		samples := qr.MapToSamples()
+		samples := qr.LinearSamples()
 		Expect(samples).To(HaveLen(1))
 		Expect(samples[0].Value).To(Equal(float64(scalarData.Value)))
 		Expect(samples[0].Timestamp).To(Equal(int64(scalarData.Timestamp)))
@@ -114,7 +114,7 @@ var _ = Describe("Prometheus Query response unmarshalling", Label("unit"), func(
 		Expect(err).To(Succeed())
 		Expect(vector).NotTo(BeNil())
 
-		samples := qr.MapToSamples()
+		samples := qr.LinearSamples()
 		Expect(samples).To(HaveLen(2))
 		Expect(samples[0].Value).To(Equal(float64(vectorData[1].Value)))
 		Expect(samples[0].Timestamp).To(Equal(int64(vectorData[1].Timestamp)))
@@ -186,7 +186,7 @@ var _ = Describe("Prometheus Query response unmarshalling", Label("unit"), func(
 		Expect(err).To(Succeed())
 		Expect(matrix).NotTo(BeNil())
 
-		samples := qr.MapToSamples()
+		samples := qr.LinearSamples()
 		Expect(samples).To(HaveLen(3))
 		Expect(samples[0].Value).To(Equal(float64(2)))
 		Expect(samples[0].Timestamp).To(Equal(int64(0)))

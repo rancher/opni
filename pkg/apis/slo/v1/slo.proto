@@ -267,6 +267,7 @@ message PlotVector {
 }
 
 message DataPoint {
+  // expected to be between 0 and 100
   double sli = 1;
   google.protobuf.Timestamp timestamp = 2;
 }

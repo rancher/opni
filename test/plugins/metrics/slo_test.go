@@ -285,8 +285,7 @@ var _ = Describe("Prometheus SLOs", Ordered, Label("integration"), func() {
 				"code",
 				"200",
 				"500",
-				99.9,
-				10000,
+				50.0,
 			)
 			Expect(err)
 		})
@@ -351,42 +350,76 @@ var _ = Describe("Prometheus SLOs", Ordered, Label("integration"), func() {
 		})
 
 		It("should be able to query the written data", func() {
+			// asStr := func(samples []compat.Sample) string {
+			// 	res := []string{}
+			// 	for _, s := range samples {
+			// 		res = append(res, fmt.Sprintf("V : %f, T : %d", s.Value, s.Timestamp))
+			// 	}
+			// 	return strings.Join(res, " -- ")
+			// }
 			resp, err := adminClient.QueryRange(env.Context(), &cortexadmin.QueryRangeRequest{
 				Tenants: []string{
 					"agent",
 				},
-				Query: "http_slo_response{code=\"200\"}",
+				Query: "sum(http_slo_response{code=\"200\"})",
 				Start: timestamppb.New(time.Now().Add(-time.Hour)),
 				End:   timestamppb.New(time.Now()),
 				Step:  durationpb.New(time.Second * 1),
 			})
 			Expect(err).To(Succeed())
 			Expect(resp).NotTo(BeNil())
-			GinkgoWriter.Write(resp.Data)
 			qr, err := compat.UnmarshalPrometheusResponse(resp.Data)
 			Expect(err).To(Succeed())
-			samples := qr.MapToSamples()
+			samples := qr.LinearSamples()
+			// GinkgoWriter.Write([]byte(asStr(samples)))
 			Expect(samples).NotTo(HaveLen(0))
 
 			resp2, err := adminClient.QueryRange(env.Context(), &cortexadmin.QueryRangeRequest{
 				Tenants: []string{
 					"agent",
 				},
-				Query: "http_slo_response{code=\"500\"}",
+				Query: "sum(http_slo_response{code=~\"200|500\"})",
 				Start: timestamppb.New(time.Now().Add(-time.Hour)),
 				End:   timestamppb.New(time.Now()),
 				Step:  durationpb.New(time.Second * 1),
 			})
 			Expect(err).To(Succeed())
 			Expect(resp2).NotTo(BeNil())
-			GinkgoWriter.Write(resp2.Data)
 			qr2, err := compat.UnmarshalPrometheusResponse(resp2.Data)
 			Expect(err).To(Succeed())
-			samples2 := qr2.MapToSamples()
+			samples2 := qr2.LinearSamples()
+			// GinkgoWriter.Write([]byte(asStr(samples2)))
 			Expect(samples2).NotTo(HaveLen(0))
+			Eventually(func() error {
+				resp3, err := adminClient.QueryRange(env.Context(), &cortexadmin.QueryRangeRequest{
+					Tenants: []string{
+						"agent",
+					},
+					Query: "sum(rate(http_slo_response{code=~\"200\"}[1m])) /  sum(rate(http_slo_response{code=~\"500|200\"}[1m]))",
+					Start: timestamppb.New(time.Now().Add(-time.Hour)),
+					End:   timestamppb.New(time.Now()),
+					Step:  durationpb.New(time.Second * 1),
+				})
+				if err != nil {
+					return err
+				}
+				if resp3 == nil {
+					return fmt.Errorf("nil response")
+				}
+				qr3, err := compat.UnmarshalPrometheusResponse(resp3.Data)
+				if err != nil {
+					return err
+				}
+				samples3 := qr3.LinearSamples()
+				// GinkgoWriter.Write([]byte(asStr(samples3)))
+				if len(samples3) == 0 {
+					return fmt.Errorf("no samples")
+				}
+				return nil
+			}).Should(Succeed())
 		})
 
-		XIt("should create an SLO based on the written data", func() {
+		It("should create an SLO based on the written data", func() {
 			req := &slov1.CreateSLORequest{
 				Slo: util.ProtoClone(metricsSlo),
 			}
@@ -397,14 +430,37 @@ var _ = Describe("Prometheus SLOs", Ordered, Label("integration"), func() {
 
 			for _, item := range plotVec.PlotVector.Items {
 				Expect(item).NotTo(BeNil())
-				Expect(item.Sli).To(BeNumerically(">", float64(0))) //FIXME: it is 0 right now
-				Expect(item.Sli).To(BeNumerically("<", float64(100)))
+				Expect(item.Sli).To(BeNumerically(">", float64(0)))
+				Expect(item.Sli).To(BeNumerically("<=", float64(100)))
 			}
 
 			ref, err := sloDatasource.Create(env.Context(), req)
 			Expect(err).To(Succeed())
 			Expect(ref).NotTo(BeNil())
 			Expect(ref.Id).NotTo(BeEmpty())
+
+			By("verifying it eventually has a status")
+			Eventually(func() error {
+				status, err := sloDatasource.Status(env.Context(), &slov1.SLOData{
+					Id:  ref.Id,
+					SLO: req.Slo,
+				})
+
+				if err != nil {
+					return err
+				}
+
+				if status.State == slov1.SLOStatusState_Creating {
+					return fmt.Errorf("still creating")
+				}
+				if status.State == slov1.SLOStatusState_InternalError {
+					return fmt.Errorf("internal error")
+				}
+				if status.State == slov1.SLOStatusState_NoData {
+					return fmt.Errorf("no data")
+				}
+				return nil
+			}).Should(Succeed())
 		})
 	})
 })
@@ -449,37 +505,9 @@ func writeSLO(
 	period time.Duration,
 	metricName, serviceName, eventName, goodEvent, totalEvent string,
 	expectedSLI float64,
-	numSamples int,
 ) error {
 	if expectedSLI > 100 && expectedSLI < 0 {
 		return fmt.Errorf("expected SLI must be between 0 and 100")
-	}
-
-	now := time.Now()
-	start := now.Add(-period)
-
-	goodTs := []int64{}
-	goodSamples := int(float64(numSamples) * (expectedSLI / 100))
-	goodStepDuration := int(period.Milliseconds()) / goodSamples
-	totalSamples := int(float64(numSamples) * ((100 - expectedSLI) / 100))
-	totalStepDuration := int(period.Milliseconds()) / totalSamples
-	for i := 0; i < goodSamples; i++ {
-		toAdd := time.Duration(i*goodStepDuration) * time.Millisecond
-		goodTs = append(goodTs, start.Add(toAdd).UnixMilli())
-	}
-	totalTs := []int64{}
-	for i := 0; i < totalSamples; i++ {
-
-		toAdd := time.Duration(i*totalStepDuration) * time.Millisecond
-		totalTs = append(totalTs, start.Add(toAdd).UnixMilli())
-	}
-
-	if len(goodTs) == 0 {
-		panic("bug : test should have non-zero good event samples")
-	}
-
-	if len(totalTs) == 0 {
-		panic("bug : test should have non-zero total event samples")
 	}
 
 	wreq := &prompb.WriteRequest{
@@ -502,19 +530,71 @@ func writeSLO(
 		},
 	}
 
-	for i, ts := range goodTs {
+	now := time.Now()
+	start := now.Add(-period)
+
+	// 4 zeroes
+	precision := 1000
+	iExpectedSLI := precision * int(expectedSLI)
+	iMax := 100 * precision
+	goodVal := 1
+	totalVal := 1
+
+	// write every 250ms
+	for i := 0; i < int(period.Milliseconds()); i += 500 {
+		ts := start.Add(time.Duration(i) * time.Millisecond)
+		cur := i % iMax
+		if cur < iMax-iExpectedSLI {
+			totalVal += 1
+		} else {
+			goodVal += 1
+		}
 		goodEvents.Samples = append(goodEvents.Samples, prompb.Sample{
-			Value:     float64(i + 1),
-			Timestamp: ts,
+			Value:     float64(goodVal),
+			Timestamp: ts.UnixMilli(),
+		})
+		totalEvents.Samples = append(totalEvents.Samples, prompb.Sample{
+			Value:     float64(totalVal),
+			Timestamp: ts.UnixMilli(),
 		})
 	}
 
-	for i, ts := range totalTs {
-		totalEvents.Samples = append(totalEvents.Samples, prompb.Sample{
-			Value:     float64(i + 1),
-			Timestamp: ts,
-		})
+	// goodSamples := int(float64(numSamples) * (expectedSLI / 100))
+	// goodStepDuration := int(period.Milliseconds()) / goodSamples
+	// totalSamples := int(float64(numSamples) * ((100 - expectedSLI) / 100))
+	// totalStepDuration := int(period.Milliseconds()) / totalSamples
+	// for i := 0; i < goodSamples; i++ {
+	// 	toAdd := time.Duration(i*goodStepDuration) * time.Millisecond
+	// 	goodTs = append(goodTs, start.Add(toAdd).UnixMilli())
+	// }
+	// totalTs := []int64{}
+	// for i := 0; i < totalSamples; i++ {
+
+	// 	toAdd := time.Duration(i*totalStepDuration) * time.Millisecond
+	// 	totalTs = append(totalTs, start.Add(toAdd).UnixMilli())
+	// }
+
+	if len(goodEvents.Samples) == 0 {
+		panic("bug : no good events")
 	}
+
+	if len(totalEvents.Samples) == 0 {
+		panic("bug : no total events")
+	}
+
+	// for i, ts := range goodTs {
+	// 	goodEvents.Samples = append(goodEvents.Samples, prompb.Sample{
+	// 		Value:     float64(i + 1),
+	// 		Timestamp: ts,
+	// 	})
+	// }
+
+	// for i, ts := range totalTs {
+	// 	totalEvents.Samples = append(totalEvents.Samples, prompb.Sample{
+	// 		Value:     float64(i + 1),
+	// 		Timestamp: ts,
+	// 	})
+	// }
 
 	wreq.Timeseries = append(wreq.Timeseries, goodEvents)
 	wreq.Timeseries = append(wreq.Timeseries, totalEvents)

@@ -97,12 +97,11 @@ func (qr *QueryResult) GetScalar() (*model.Scalar, error) {
 }
 
 type Sample struct {
-	Value float64
-	// TODO Milliseconds?
+	Value     float64
 	Timestamp int64
 }
 
-func (qr *QueryResult) MapToSamples() []Sample {
+func (qr *QueryResult) LinearSamples() []Sample {
 	res := []Sample{}
 	switch qr.V.Type() {
 	case model.ValVector:

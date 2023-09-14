@@ -215,7 +215,7 @@ func (m *MetricsSLOStore) Status(ctx context.Context, slo *slov1.SLOData) (*slov
 	if err != nil {
 		return nil, err
 	}
-	if len(qrSLI.MapToSamples()) == 0 {
+	if len(qrSLI.LinearSamples()) == 0 {
 		return &slov1.SLOStatus{
 			State: slov1.SLOStatusState_NoData,
 		}, nil
@@ -234,7 +234,7 @@ func (m *MetricsSLOStore) Status(ctx context.Context, slo *slov1.SLOData) (*slov
 	if err != nil {
 		return nil, err
 	}
-	samples := qrBudget.MapToSamples()
+	samples := qrBudget.LinearSamples()
 	if len(samples) == 0 {
 		return &slov1.SLOStatus{
 			State: slov1.SLOStatusState_NoData,
@@ -260,7 +260,7 @@ func (m *MetricsSLOStore) Status(ctx context.Context, slo *slov1.SLOData) (*slov
 	if err != nil {
 		return nil, err
 	}
-	samples = qrPage.MapToSamples()
+	samples = qrPage.LinearSamples()
 	if len(samples) != 0 {
 		lastPageAlert := samples[len(samples)-1].Value
 		if lastPageAlert > 0 {
@@ -282,7 +282,7 @@ func (m *MetricsSLOStore) Status(ctx context.Context, slo *slov1.SLOData) (*slov
 	if err != nil {
 		return nil, err
 	}
-	samples = qrTicket.MapToSamples()
+	samples = qrTicket.LinearSamples()
 	if len(samples) != 0 {
 		lastPageAlert := samples[len(samples)-1].Value
 		if lastPageAlert > 0 {
@@ -334,7 +334,7 @@ func (m *MetricsSLOStore) Preview(ctx context.Context, slo *slov1.CreateSLOReque
 		return nil, err
 	}
 
-	samples := qrSLI.MapToSamples()
+	samples := qrSLI.LinearSamples()
 
 	plotVector := &slov1.PlotVector{
 		Objective: slo.Slo.Target.Value,
@@ -343,7 +343,7 @@ func (m *MetricsSLOStore) Preview(ctx context.Context, slo *slov1.CreateSLOReque
 
 	for i := 0; i < len(samples); i++ {
 		plotVector.Items[i] = &slov1.DataPoint{
-			Sli:       samples[i].Value,
+			Sli:       samples[i].Value * 100,
 			Timestamp: timestamppb.Now(),
 		}
 	}

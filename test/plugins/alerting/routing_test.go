@@ -18,9 +18,9 @@ import (
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/alerting"
 	"github.com/rancher/opni/pkg/test/freeport"
-	"github.com/rancher/opni/pkg/test/testruntime"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
@@ -29,225 +29,226 @@ import (
 
 var defaultHook *alerting.MockIntegrationWebhookServer
 
-func init() {
-	testruntime.IfIntegration(func() {
-		BuildRoutingLogicTest(
-			func() routing.OpniRouting {
-				defaultHooks := alerting.NewWebhookMemoryServer(env, "webhook")
-				defaultHook = defaultHooks
-				cfg := config.WebhookConfig{
-					NotifierConfig: config.NotifierConfig{
-						VSendResolved: false,
-					},
-					URL: &amCfg.URL{
-						URL: util.Must(url.Parse(defaultHook.GetWebhook())),
-					},
-				}
-				return routing.NewOpniRouterV1(cfg)
-			},
-		)
+var _ = Describe("Alerting routing logic translation to physical dispatching", Ordered, Label("integration"), func() {
+	var alertingClient client.AlertingClient
+	var alertingClient2 client.AlertingClient
+	var alertingClient3 client.AlertingClient
+	var router routing.OpniRouting
+	var env *test.Environment
+	var tmpConfigDir string
+
+	BeforeAll(func() {
+		env = &test.Environment{}
+		Expect(env).NotTo(BeNil())
+		Expect(env.Start()).To(Succeed())
+		DeferCleanup(env.Stop)
+		tmpConfigDir = env.GenerateNewTempDirectory("alertmanager-config")
+		Expect(tmpConfigDir).NotTo(Equal(""))
+
+		routerConstructor := func() routing.OpniRouting {
+			defaultHooks := alerting.NewWebhookMemoryServer(env, "webhook")
+			defaultHook = defaultHooks
+			cfg := config.WebhookConfig{
+				NotifierConfig: config.NotifierConfig{
+					VSendResolved: false,
+				},
+				URL: &amCfg.URL{
+					URL: util.Must(url.Parse(defaultHook.GetWebhook())),
+				},
+			}
+			return routing.NewOpniRouterV1(cfg)
+		}
+
+		router = routerConstructor()
+		Expect(router).NotTo(BeNil())
 	})
-}
 
-func BuildRoutingLogicTest(
-	routerConstructor func() routing.OpniRouting,
-) bool {
-	return Describe("Alerting routing logic translation to physical dispatching", Ordered, Label("integration"), func() {
-		var alertingClient client.AlertingClient
-		var alertingClient2 client.AlertingClient
-		var alertingClient3 client.AlertingClient
-		When("setting namespace specs on the routing tree", func() {
-			step := "initial"
-			var router routing.OpniRouting
-			BeforeAll(func() {
-				Expect(env).NotTo(BeNil())
-				router = routerConstructor()
-				Expect(router).NotTo(BeNil())
-			})
-			AfterEach(func() {
-				By(fmt.Sprintf("%s step: expecting that the router can build the config", step))
-				currentCfg, err := router.BuildConfig()
-				Expect(err).To(Succeed())
-				By(fmt.Sprintf("%s step: expecting that the formed alertmanager config is correct", step))
-				fp := freeport.GetFreePort()
+	When("setting namespace specs on the routing tree", func() {
+		step := "initial"
 
-				alerting.ExpectAlertManagerConfigToBeValid(env.Context(), env, tmpConfigDir, step+".yaml", currentCfg, fp)
-			})
+		AfterEach(func() {
+			By(fmt.Sprintf("%s step: expecting that the router can build the config", step))
+			currentCfg, err := router.BuildConfig()
+			Expect(err).To(Succeed())
+			By(fmt.Sprintf("%s step: expecting that the formed alertmanager config is correct", step))
+			fp := freeport.GetFreePort()
 
-			It("should be able to dynamically update alert routing", func() {
-				step = "dynamic-alert-routing"
-				tmpConfigDir := env.GenerateNewTempDirectory("webhook")
-				err := os.MkdirAll(tmpConfigDir, 0755)
-				Expect(err).To(Succeed())
-				By("Creating some test webhook servers")
+			alerting.ExpectAlertManagerConfigToBeValid(env.Context(), env, tmpConfigDir, step+".yaml", currentCfg, fp)
+		})
 
-				servers := alerting.CreateWebhookServer(env, 3)
-				server1, server2, server3 := servers[0], servers[1], servers[2]
+		It("should be able to dynamically update alert routing", func() {
+			step = "dynamic-alert-routing"
+			tmpConfigDir := env.GenerateNewTempDirectory("webhook")
+			err := os.MkdirAll(tmpConfigDir, 0755)
+			Expect(err).To(Succeed())
+			By("Creating some test webhook servers")
 
-				condId1, condId2, condId3 := uuid.New().String(), uuid.New().String(), uuid.New().String()
-				ns := "test"
-				By("routing to a subset of the test webhook servers")
-				details1 := &alertingv1.EndpointImplementation{
-					Title: "test1",
-					Body:  "test1",
-				}
-				details2 := &alertingv1.EndpointImplementation{
-					Title: "test2",
-					Body:  "test2",
-				}
-				details3 := &alertingv1.EndpointImplementation{
-					Title: "test3",
-					Body:  "test3",
-				}
-				suiteSpec := &testSpecSuite{
-					name:          "dynamic-alert-routing",
-					defaultServer: defaultHook,
-					specs: []*testSpec{
-						{
-							namespace: ns,
-							id:        condId1,
-							servers:   []*alerting.MockIntegrationWebhookServer{server1},
-							details:   details1,
-						},
-						{
-							namespace: ns,
-							id:        condId2,
-							servers:   []*alerting.MockIntegrationWebhookServer{server1, server2},
-							details:   details2,
-						},
-						{
-							namespace: ns,
-							id:        condId3,
-							servers:   []*alerting.MockIntegrationWebhookServer{server1, server2, server3},
-							details:   details3,
-						},
+			servers := alerting.CreateWebhookServer(env, 3)
+			server1, server2, server3 := servers[0], servers[1], servers[2]
+
+			condId1, condId2, condId3 := uuid.New().String(), uuid.New().String(), uuid.New().String()
+			ns := "test"
+			By("routing to a subset of the test webhook servers")
+			details1 := &alertingv1.EndpointImplementation{
+				Title: "test1",
+				Body:  "test1",
+			}
+			details2 := &alertingv1.EndpointImplementation{
+				Title: "test2",
+				Body:  "test2",
+			}
+			details3 := &alertingv1.EndpointImplementation{
+				Title: "test3",
+				Body:  "test3",
+			}
+			suiteSpec := &testSpecSuite{
+				name:          "dynamic-alert-routing",
+				defaultServer: defaultHook,
+				specs: []*testSpec{
+					{
+						namespace: ns,
+						id:        condId1,
+						servers:   []*alerting.MockIntegrationWebhookServer{server1},
+						details:   details1,
 					},
-				}
-				By("setting the router to the namespace specs")
-				for _, spec := range suiteSpec.specs {
-					endpoints := lo.Map(
-						spec.servers,
-						func(server *alerting.MockIntegrationWebhookServer, _ int) *alertingv1.FullAttachedEndpoint {
-							return &alertingv1.FullAttachedEndpoint{
-								AlertEndpoint: server.Endpoint(),
-								EndpointId:    server.Endpoint().Id,
-								Details:       spec.details,
-							}
-						})
-					err = router.SetNamespaceSpec(
-						spec.namespace,
-						spec.id,
-						&alertingv1.FullAttachedEndpoints{
-							Items:              endpoints,
-							Details:            spec.details,
-							InitialDelay:       durationpb.New(time.Second * 1),
-							ThrottlingDuration: durationpb.New(time.Second * 1),
-						},
-					)
-					Expect(err).To(Succeed())
-				}
-
-				By("running alertmanager with this config")
-				amPort, ca := alerting.RunAlertManager(env, router, tmpConfigDir, step+".yaml")
-				alertingClient = client.NewClient(
-					nil,
-					fmt.Sprintf("http://localhost:%d", amPort),
-					fmt.Sprintf("http://localhost:%d", 0),
-				)
-				defer ca()
-				By("sending alerts to each condition in the router")
-				for _, spec := range suiteSpec.specs {
-					err := alertingClient.AlertClient().PostAlarm(context.TODO(), client.AlertObject{
-						Id: spec.id,
-						Labels: map[string]string{
-							ns: spec.id,
-						},
-						Annotations: map[string]string{},
+					{
+						namespace: ns,
+						id:        condId2,
+						servers:   []*alerting.MockIntegrationWebhookServer{server1, server2},
+						details:   details2,
+					},
+					{
+						namespace: ns,
+						id:        condId3,
+						servers:   []*alerting.MockIntegrationWebhookServer{server1, server2, server3},
+						details:   details3,
+					},
+				},
+			}
+			By("setting the router to the namespace specs")
+			for _, spec := range suiteSpec.specs {
+				endpoints := lo.Map(
+					spec.servers,
+					func(server *alerting.MockIntegrationWebhookServer, _ int) *alertingv1.FullAttachedEndpoint {
+						return &alertingv1.FullAttachedEndpoint{
+							AlertEndpoint: server.Endpoint(),
+							EndpointId:    server.Endpoint().Id,
+							Details:       spec.details,
+						}
 					})
-					Expect(err).To(Succeed())
-				}
-				Eventually(func() error {
-					return suiteSpec.ExpectAlertsToBeRouted(amPort)
-				}, time.Second*30, time.Second*1).Should(Succeed())
-				ca()
-				server1.ClearBuffer()
-				server2.ClearBuffer()
-				server3.ClearBuffer()
-				defaultHook.ClearBuffer()
-
-				By("deleting a random server endpoint")
-				// ok
-				err = router.DeleteEndpoint(suiteSpec.specs[0].servers[0].Endpoint().Id)
+				err = router.SetNamespaceSpec(
+					spec.namespace,
+					spec.id,
+					&alertingv1.FullAttachedEndpoints{
+						Items:              endpoints,
+						Details:            spec.details,
+						InitialDelay:       durationpb.New(time.Second * 1),
+						ThrottlingDuration: durationpb.New(time.Second * 1),
+					},
+				)
 				Expect(err).To(Succeed())
-				for _, spec := range suiteSpec.specs {
-					spec.servers = spec.servers[1:]
-				}
+			}
 
-				amPort2, ca2 := alerting.RunAlertManager(env, router, tmpConfigDir, step+".yaml")
-				alertingClient2 = client.NewClient(
-					nil,
-					fmt.Sprintf("http://localhost:%d", amPort2),
-					fmt.Sprintf("http://localhost:%d", 0),
-				)
-				defer ca2()
-				By("sending alerts to each condition in the router")
-				for _, spec := range suiteSpec.specs {
-					err := alertingClient2.AlertClient().PostAlarm(context.TODO(), client.AlertObject{
-						Id: spec.id,
-						Labels: map[string]string{
-							ns: spec.id,
-						},
-						Annotations: map[string]string{},
-					})
-					Expect(err).To(Succeed())
-				}
-				Eventually(func() error {
-					return suiteSpec.ExpectAlertsToBeRouted(amPort2)
-				}, time.Second*30, time.Second*1).Should(Succeed())
-				ca2()
-
-				By("updating an endpoint to another endpoint")
-
-				server1.ClearBuffer()
-				server2.ClearBuffer()
-				server3.ClearBuffer()
-				defaultHook.ClearBuffer()
-
-				err = router.UpdateEndpoint(server2.Endpoint().Id, server1.Endpoint())
+			By("running alertmanager with this config")
+			amPort, ca := alerting.RunAlertManager(env, router, tmpConfigDir, step+".yaml")
+			alertingClient = client.NewClient(
+				nil,
+				fmt.Sprintf("http://localhost:%d", amPort),
+				fmt.Sprintf("http://localhost:%d", 0),
+			)
+			defer ca()
+			By("sending alerts to each condition in the router")
+			for _, spec := range suiteSpec.specs {
+				err := alertingClient.AlertClient().PostAlarm(context.TODO(), client.AlertObject{
+					Id: spec.id,
+					Labels: map[string]string{
+						ns: spec.id,
+					},
+					Annotations: map[string]string{},
+				})
 				Expect(err).To(Succeed())
-				for _, spec := range suiteSpec.specs {
-					if len(spec.servers) != 0 {
-						spec.servers[0] = server1
-					}
-				}
+			}
+			Eventually(func() error {
+				return suiteSpec.ExpectAlertsToBeRouted(amPort)
+			}, time.Second*30, time.Second*1).Should(Succeed())
+			ca()
+			server1.ClearBuffer()
+			server2.ClearBuffer()
+			server3.ClearBuffer()
+			defaultHook.ClearBuffer()
 
-				By("send an an alert to each specs")
-				amPort3, ca3 := alerting.RunAlertManager(env, router, tmpConfigDir, step+".yaml")
-				defer ca3()
-				alertingClient3 = client.NewClient(
-					nil,
-					fmt.Sprintf("http://localhost:%d", amPort3),
-					fmt.Sprintf("http://localhost:%d", 0),
-				)
-				By("sending alerts to each condition in the router")
-				for _, spec := range suiteSpec.specs {
-					err := alertingClient3.AlertClient().PostAlarm(context.TODO(), client.AlertObject{
-						Id: spec.id,
-						Labels: map[string]string{
-							ns: spec.id,
-						},
-						Annotations: map[string]string{},
-					})
-					Expect(err).To(Succeed())
+			By("deleting a random server endpoint")
+			// ok
+			err = router.DeleteEndpoint(suiteSpec.specs[0].servers[0].Endpoint().Id)
+			Expect(err).To(Succeed())
+			for _, spec := range suiteSpec.specs {
+				spec.servers = spec.servers[1:]
+			}
+
+			amPort2, ca2 := alerting.RunAlertManager(env, router, tmpConfigDir, step+".yaml")
+			alertingClient2 = client.NewClient(
+				nil,
+				fmt.Sprintf("http://localhost:%d", amPort2),
+				fmt.Sprintf("http://localhost:%d", 0),
+			)
+			defer ca2()
+			By("sending alerts to each condition in the router")
+			for _, spec := range suiteSpec.specs {
+				err := alertingClient2.AlertClient().PostAlarm(context.TODO(), client.AlertObject{
+					Id: spec.id,
+					Labels: map[string]string{
+						ns: spec.id,
+					},
+					Annotations: map[string]string{},
+				})
+				Expect(err).To(Succeed())
+			}
+			Eventually(func() error {
+				return suiteSpec.ExpectAlertsToBeRouted(amPort2)
+			}, time.Second*30, time.Second*1).Should(Succeed())
+			ca2()
+
+			By("updating an endpoint to another endpoint")
+
+			server1.ClearBuffer()
+			server2.ClearBuffer()
+			server3.ClearBuffer()
+			defaultHook.ClearBuffer()
+
+			err = router.UpdateEndpoint(server2.Endpoint().Id, server1.Endpoint())
+			Expect(err).To(Succeed())
+			for _, spec := range suiteSpec.specs {
+				if len(spec.servers) != 0 {
+					spec.servers[0] = server1
 				}
-				Eventually(func() error {
-					return suiteSpec.ExpectAlertsToBeRouted(amPort3)
-				}, time.Second*30, time.Second*1).Should(Succeed())
-				ca3()
-			})
+			}
+
+			By("send an an alert to each specs")
+			amPort3, ca3 := alerting.RunAlertManager(env, router, tmpConfigDir, step+".yaml")
+			defer ca3()
+			alertingClient3 = client.NewClient(
+				nil,
+				fmt.Sprintf("http://localhost:%d", amPort3),
+				fmt.Sprintf("http://localhost:%d", 0),
+			)
+			By("sending alerts to each condition in the router")
+			for _, spec := range suiteSpec.specs {
+				err := alertingClient3.AlertClient().PostAlarm(context.TODO(), client.AlertObject{
+					Id: spec.id,
+					Labels: map[string]string{
+						ns: spec.id,
+					},
+					Annotations: map[string]string{},
+				})
+				Expect(err).To(Succeed())
+			}
+			Eventually(func() error {
+				return suiteSpec.ExpectAlertsToBeRouted(amPort3)
+			}, time.Second*30, time.Second*1).Should(Succeed())
+			ca3()
 		})
 	})
-}
+})
 
 type testSpecSuite struct {
 	name          string

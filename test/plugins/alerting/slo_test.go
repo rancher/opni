@@ -33,6 +33,7 @@ const (
 
 var _ = Describe("SLO Alerting", Ordered, Label("integration"), func() {
 	var sloClient slov1.SLOClient
+	var env *test.Environment
 	BeforeAll(func() {
 		env = &test.Environment{}
 		Expect(env).NotTo(BeNil())

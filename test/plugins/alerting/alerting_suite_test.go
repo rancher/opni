@@ -8,9 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
-	"github.com/rancher/opni/pkg/test"
 	_ "github.com/rancher/opni/pkg/test/setup"
-	"github.com/rancher/opni/pkg/test/testruntime"
 	_ "github.com/rancher/opni/plugins/alerting/test"
 	_ "github.com/rancher/opni/plugins/metrics/test"
 	"github.com/samber/lo"
@@ -40,16 +38,16 @@ func TestAlerting(t *testing.T) {
 	RunSpecs(t, "Alerting Suite")
 }
 
-var env *test.Environment
-var tmpConfigDir string
+// var env *test.Environment
+// var tmpConfigDir string
 
-var _ = BeforeSuite(func() {
-	testruntime.IfIntegration(func() {
-		env = &test.Environment{}
-		Expect(env).NotTo(BeNil())
-		Expect(env.Start()).To(Succeed())
-		DeferCleanup(env.Stop)
-		tmpConfigDir = env.GenerateNewTempDirectory("alertmanager-config")
-		Expect(tmpConfigDir).NotTo(Equal(""))
-	})
-})
+// var _ = BeforeSuite(func() {
+// 	testruntime.IfIntegration(func() {
+// 		env = &test.Environment{}
+// 		Expect(env).NotTo(BeNil())
+// 		Expect(env.Start()).To(Succeed())
+// 		DeferCleanup(env.Stop)
+// 		tmpConfigDir = env.GenerateNewTempDirectory("alertmanager-config")
+// 		Expect(tmpConfigDir).NotTo(Equal(""))
+// 	})
+// })

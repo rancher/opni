@@ -21,8 +21,8 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Stream_Connect_FullMethodName = "/stream.Stream/Connect"
-	Stream_Notify_FullMethodName  = "/stream.Stream/Notify"
+	Stream_Connect_FullMethodName = "/streaming.Stream/Connect"
+	Stream_Notify_FullMethodName  = "/streaming.Stream/Notify"
 )
 
 // StreamClient is the client API for Stream service.
@@ -165,7 +165,7 @@ func _Stream_Notify_Handler(srv interface{}, ctx context.Context, dec func(inter
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Stream_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "stream.Stream",
+	ServiceName: "streaming.Stream",
 	HandlerType: (*StreamServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -185,8 +185,8 @@ var Stream_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	Delegate_Request_FullMethodName   = "/stream.Delegate/Request"
-	Delegate_Broadcast_FullMethodName = "/stream.Delegate/Broadcast"
+	Delegate_Request_FullMethodName   = "/streaming.Delegate/Request"
+	Delegate_Broadcast_FullMethodName = "/streaming.Delegate/Broadcast"
 )
 
 // DelegateClient is the client API for Delegate service.
@@ -301,7 +301,7 @@ func _Delegate_Broadcast_Handler(srv interface{}, ctx context.Context, dec func(
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Delegate_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "stream.Delegate",
+	ServiceName: "streaming.Delegate",
 	HandlerType: (*DelegateServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -311,6 +311,96 @@ var Delegate_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Broadcast",
 			Handler:    _Delegate_Broadcast_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.com/rancher/opni/pkg/apis/stream/v1/stream.proto",
+}
+
+const (
+	Relay_RelayDelegateRequest_FullMethodName = "/streaming.Relay/RelayDelegateRequest"
+)
+
+// RelayClient is the client API for Relay service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type RelayClient interface {
+	RelayDelegateRequest(ctx context.Context, in *RelayedDelegatedMessage, opts ...grpc.CallOption) (*DelegatedMessageReply, error)
+}
+
+type relayClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRelayClient(cc grpc.ClientConnInterface) RelayClient {
+	return &relayClient{cc}
+}
+
+func (c *relayClient) RelayDelegateRequest(ctx context.Context, in *RelayedDelegatedMessage, opts ...grpc.CallOption) (*DelegatedMessageReply, error) {
+	out := new(DelegatedMessageReply)
+	err := c.cc.Invoke(ctx, Relay_RelayDelegateRequest_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RelayServer is the server API for Relay service.
+// All implementations must embed UnimplementedRelayServer
+// for forward compatibility
+type RelayServer interface {
+	RelayDelegateRequest(context.Context, *RelayedDelegatedMessage) (*DelegatedMessageReply, error)
+	mustEmbedUnimplementedRelayServer()
+}
+
+// UnimplementedRelayServer must be embedded to have forward compatible implementations.
+type UnimplementedRelayServer struct {
+}
+
+func (UnimplementedRelayServer) RelayDelegateRequest(context.Context, *RelayedDelegatedMessage) (*DelegatedMessageReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RelayDelegateRequest not implemented")
+}
+func (UnimplementedRelayServer) mustEmbedUnimplementedRelayServer() {}
+
+// UnsafeRelayServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RelayServer will
+// result in compilation errors.
+type UnsafeRelayServer interface {
+	mustEmbedUnimplementedRelayServer()
+}
+
+func RegisterRelayServer(s grpc.ServiceRegistrar, srv RelayServer) {
+	s.RegisterService(&Relay_ServiceDesc, srv)
+}
+
+func _Relay_RelayDelegateRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RelayedDelegatedMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RelayServer).RelayDelegateRequest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Relay_RelayDelegateRequest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RelayServer).RelayDelegateRequest(ctx, req.(*RelayedDelegatedMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// Relay_ServiceDesc is the grpc.ServiceDesc for Relay service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Relay_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "streaming.Relay",
+	HandlerType: (*RelayServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "RelayDelegateRequest",
+			Handler:    _Relay_RelayDelegateRequest_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

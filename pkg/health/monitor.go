@@ -50,7 +50,7 @@ func NewMonitor(opts ...MonitorOption) *Monitor {
 	}
 }
 
-func (m *Monitor) Run(ctx context.Context, updater HealthStatusUpdater) {
+func (m *Monitor) Run(ctx context.Context, updater HealthStatusUpdateReader) {
 	defer func() {
 		m.mu.Lock()
 		defer m.mu.Unlock()

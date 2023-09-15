@@ -8,54 +8,27 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/storage/etcd/concurrencyx"
 	"github.com/rancher/opni/pkg/storage/lock"
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
 type EtcdLock struct {
-	client  *clientv3.Client
-	mutex   *concurrency.Mutex
-	session *concurrency.Session
+	client *clientv3.Client
+	mutex  *concurrencyx.Mutex
 
 	acquired uint32
-	key      string
 
 	startLock   lock.LockPrimitive
 	startUnlock lock.LockPrimitive
 	options     *lock.LockOptions
 }
 
-func NewEtcdLock(c *clientv3.Client, key string, options *lock.LockOptions) *EtcdLock {
-	lockValiditySeconds := int(options.LockValidity.Seconds())
-	if lockValiditySeconds == 0 {
-		lockValiditySeconds = 1
-	}
-	s, err := concurrency.NewSession(c, concurrency.WithTTL(lockValiditySeconds))
-	if err != nil {
-		panic(err)
-	}
-
-	m := concurrency.NewMutex(s, key)
-	return &EtcdLock{
-		client:  c,
-		session: s,
-		mutex:   m,
-		options: options,
-		key:     key,
-	}
-}
-
 var _ storage.Lock = (*EtcdLock)(nil)
 
 func (e *EtcdLock) Lock() error {
 	return e.startLock.Do(func() error {
-		ctxca, ca := context.WithCancel(e.client.Ctx())
-		signalAcquired := make(chan struct{})
-		defer close(signalAcquired)
-		if !e.options.Keepalive {
-			defer e.session.Orphan()
-		}
+		ctxca, ca := context.WithCancel(e.options.AcquireContext)
 		var lockErr error
 		var mu sync.Mutex
 		go func() {
@@ -92,4 +65,8 @@ func (e *EtcdLock) Unlock() error {
 		}
 		return e.mutex.Unlock(e.client.Ctx())
 	})
+}
+
+func (e *EtcdLock) Key() string {
+	return e.mutex.Key()
 }

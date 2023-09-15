@@ -317,3 +317,8 @@ message Revision {
   // purposes only.
   google.protobuf.Timestamp timestamp = 2 [(cli.flag).skip = true];
 }
+
+message InstanceInfo {
+  string relayAddress      = 1;
+  string managementAddress = 2;
+}

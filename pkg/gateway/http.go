@@ -172,7 +172,7 @@ func (s *GatewayHTTPServer) ListenAndServe(ctx context.Context) error {
 		"metrics", metricsListener.Addr().String(),
 	).Info("gateway HTTP server starting")
 
-	ctx, ca := context.WithCancel(ctx)
+	ctx, ca := context.WithCancelCause(ctx)
 
 	e1 := lo.Async(func() error {
 		return util.ServeHandler(ctx, s.router.Handler(), listener)

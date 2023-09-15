@@ -167,7 +167,7 @@ type managementApiServer interface {
 }
 
 func (m *Server) ListenAndServe(ctx context.Context) error {
-	ctx, ca := context.WithCancel(ctx)
+	ctx, ca := context.WithCancelCause(ctx)
 
 	e1 := lo.Async(func() error {
 		err := m.listenAndServeGrpc(ctx)

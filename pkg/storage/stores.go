@@ -181,6 +181,9 @@ type Lock interface {
 	Lock() error
 	// Unlock releases the lock on the key. If the lock was never held, it will return an error.
 	Unlock() error
+	// Key returns a unique temporary prefix key that exists while the lock is held.
+	// If the lock is not currently held, the return value is undefined.
+	Key() string
 }
 
 // LockManager replaces sync.Mutex when a distributed locking mechanism is required.

@@ -6,9 +6,11 @@ type CompositeBackend struct {
 	RBACStore
 	KeyringStoreBroker
 	KeyValueStoreBroker
+	LockManager
 }
 
 var _ Backend = (*CompositeBackend)(nil)
+var _ LockManager = (*CompositeBackend)(nil)
 
 func (cb *CompositeBackend) Use(store any) {
 	if ts, ok := store.(TokenStore); ok {
@@ -25,6 +27,9 @@ func (cb *CompositeBackend) Use(store any) {
 	}
 	if kv, ok := store.(KeyValueStoreBroker); ok {
 		cb.KeyValueStoreBroker = kv
+	}
+	if lm, ok := store.(LockManager); ok {
+		cb.LockManager = lm
 	}
 }
 

@@ -255,7 +255,7 @@ func defaultStorageBackend() v1beta1.StorageType {
 	if v, ok := os.LookupEnv("TEST_ENV_DEFAULT_STORAGE_BACKEND"); ok {
 		return v1beta1.StorageType(v)
 	}
-	return "jetstream"
+	return "etcd"
 }
 
 func FindTestBin() (string, error) {
@@ -1456,6 +1456,8 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 		panic(err)
 	}
 
+	relayPort := freeport.GetFreePort()
+
 	return &v1beta1.GatewayConfig{
 		TypeMeta: meta.TypeMeta{
 			APIVersion: "v1beta1",
@@ -1466,9 +1468,10 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 			GRPCListenAddress:    fmt.Sprintf("localhost:%d", e.ports.GatewayGRPC),
 			MetricsListenAddress: fmt.Sprintf("localhost:%d", e.ports.GatewayMetrics),
 			Management: v1beta1.ManagementSpec{
-				GRPCListenAddress: fmt.Sprintf("tcp://localhost:%d", e.ports.ManagementGRPC),
-				HTTPListenAddress: fmt.Sprintf(":%d", e.ports.ManagementHTTP),
-				WebListenAddress:  fmt.Sprintf("localhost:%d", e.ports.ManagementWeb),
+				GRPCListenAddress:  fmt.Sprintf("tcp://localhost:%d", e.ports.ManagementGRPC),
+				HTTPListenAddress:  fmt.Sprintf(":%d", e.ports.ManagementHTTP),
+				WebListenAddress:   fmt.Sprintf("localhost:%d", e.ports.ManagementWeb),
+				RelayListenAddress: lo.Ternary(e.storageBackend == "etcd", fmt.Sprintf("localhost:%d", relayPort), ""),
 				// WebCerts: v1beta1.CertsSpec{
 				// 	CACertData:      dashboardCertData,
 				// 	ServingCertData: dashboardCertData,

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/concurrency"
 	"go.uber.org/zap"
 
 	"github.com/lestrrat-go/backoff/v2"
@@ -16,6 +17,8 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/storage/etcd/concurrencyx"
+	"github.com/rancher/opni/pkg/storage/lock"
 	"github.com/rancher/opni/pkg/util"
 )
 
@@ -45,8 +48,9 @@ const (
 // EtcdStore implements TokenStore and TenantStore.
 type EtcdStore struct {
 	EtcdStoreOptions
-	Logger *zap.SugaredLogger
-	Client *clientv3.Client
+	Logger  *zap.SugaredLogger
+	Client  *clientv3.Client
+	session *concurrency.Session
 }
 
 var _ storage.Backend = (*EtcdStore)(nil)
@@ -94,10 +98,15 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 	lg.With(
 		"endpoints", clientConfig.Endpoints,
 	).Info("connecting to etcd")
+	session, err := concurrency.NewSession(cli)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create etcd client: %w", err)
+	}
 	return &EtcdStore{
 		EtcdStoreOptions: options,
 		Logger:           lg,
 		Client:           cli,
+		session:          session,
 	}, nil
 }
 
@@ -114,13 +123,26 @@ func (e *EtcdStore) KeyringStore(prefix string, ref *corev1.Reference) storage.K
 }
 
 func (e *EtcdStore) KeyValueStore(prefix string) storage.KeyValueStore {
-	pfx := e.Prefix
-	if prefix != "" {
-		pfx = prefix
+	if e.Prefix != "" {
+		prefix = path.Join(e.Prefix, prefix)
 	}
 	return &genericKeyValueStore{
 		client: e.Client,
-		prefix: path.Join(pfx, "kv"),
+		prefix: path.Join(prefix, "kv"),
+	}
+}
+
+func (e *EtcdStore) Locker(prefix string, opts ...lock.LockOption) storage.Lock {
+	options := lock.DefaultLockOptions(e.Client.Ctx())
+	options.Apply(opts...)
+	if e.Prefix != "" {
+		prefix = path.Join(e.Prefix, prefix)
+	}
+	m := concurrencyx.NewMutex(e.session, prefix, options.InitialValue)
+	return &EtcdLock{
+		client:  e.Client,
+		mutex:   m,
+		options: options,
 	}
 }
 

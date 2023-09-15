@@ -63,6 +63,9 @@ type LockOptions struct {
 	Keepalive bool
 	// How long the remote lock stays valid for, if Keepalive is false
 	LockValidity time.Duration
+	// An optional initial value set on the mutex key when it is created after
+	// acquiring the lock
+	InitialValue string
 }
 
 func DefaultLockOptions(acquireCtx context.Context) *LockOptions {
@@ -110,5 +113,11 @@ func WithAcquireContext(ctx context.Context) LockOption {
 func WithKeepalive(keepalive bool) LockOption {
 	return func(o *LockOptions) {
 		o.Keepalive = keepalive
+	}
+}
+
+func WithInitialValue(value string) LockOption {
+	return func(o *LockOptions) {
+		o.InitialValue = value
 	}
 }

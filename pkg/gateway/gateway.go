@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/auth/challenges"
 	authv1 "github.com/rancher/opni/pkg/auth/cluster/v1"
 	authv2 "github.com/rancher/opni/pkg/auth/cluster/v2"
+	"github.com/rancher/opni/pkg/storage/kvutil"
 	"github.com/rancher/opni/pkg/update"
 	k8sserver "github.com/rancher/opni/pkg/update/kubernetes/server"
 	patchserver "github.com/rancher/opni/pkg/update/patch/server"
@@ -56,12 +57,13 @@ import (
 
 type Gateway struct {
 	GatewayOptions
-	config        *config.GatewayConfig
-	tlsConfig     *tls.Config
-	logger        *zap.SugaredLogger
-	httpServer    *GatewayHTTPServer
-	grpcServer    *GatewayGRPCServer
-	statusQuerier health.HealthStatusQuerier
+	config            *config.GatewayConfig
+	tlsConfig         *tls.Config
+	logger            *zap.SugaredLogger
+	httpServer        *GatewayHTTPServer
+	grpcServer        *GatewayGRPCServer
+	connectionTracker *ConnectionTracker
+	statusQuerier     health.HealthStatusQuerier
 
 	storageBackend  storage.Backend
 	capBackendStore capabilities.BackendStore
@@ -267,12 +269,58 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 
 	// set up stream server
 	listener := health.NewListener()
-	monitor := health.NewMonitor(health.WithLogger(lg.Named("monitor")))
-	delegate := NewDelegateServer(storageBackend, lg)
-	// set up agent connection handlers
-	agentHandler := MultiConnectionHandler(listener, delegate)
+	collector := health.NewCollector()
 
-	go monitor.Run(ctx, listener)
+	var localUpdater health.HealthStatusUpdateReader = listener
+
+	// set up connection tracker
+	var connectionTracker *ConnectionTracker
+	if conf.Spec.Management.RelayListenAddress != "" {
+		// require a lock manager
+		lockManager, ok := storageBackend.(storage.LockManager)
+		if !ok || lockManager == nil {
+			lg.With(
+				zap.Error(err),
+			).Panic("storage backend does not support distributed locking and cannot be used if the relay server is configured")
+		}
+		lg := lg.Named("connections")
+		connectionsKv := storageBackend.KeyValueStore("connections")
+		connectionsLm := kvutil.LockManagerWithPrefix(lockManager, "connections/kv/")
+		connectionTracker = NewConnectionTracker(ctx, &corev1.InstanceInfo{
+			RelayAddress:      conf.Spec.Management.RelayListenAddress,
+			ManagementAddress: conf.Spec.Management.GRPCListenAddress,
+		}, connectionsKv, connectionsLm, lg)
+
+		writerManager := NewHealthStatusWriterManager(ctx, connectionsKv, lg)
+		localUpdater = health.NewFanOutUpdater(listener, writerManager)
+		connectionTracker.AddTrackedConnectionListener(writerManager)
+		// updater = health.NewFanOutUpdater(collector, writer)
+
+		remoteUpdater, err := NewHealthStatusReader(ctx, connectionsKv, WithFilter(connectionTracker.IsRemotelyTracked))
+		if err != nil {
+			lg.With(
+				zap.Error(err),
+			).Panic("failed to create health status reader")
+		}
+		go collector.Collect(ctx, remoteUpdater)
+	}
+	go collector.Collect(ctx, localUpdater)
+
+	monitor := health.NewMonitor(health.WithLogger(lg.Named("monitor")))
+	delegateServerOpts := []DelegateServerOption{}
+	if connectionTracker != nil {
+		delegateServerOpts = append(delegateServerOpts, WithConnectionTracker(connectionTracker))
+	}
+	delegate := NewDelegateServer(storageBackend, lg, delegateServerOpts...)
+	// set up agent connection handlers
+	handlers := []ConnectionHandler{listener, delegate}
+	if connectionTracker != nil {
+		handlers = append(handlers, connectionTracker)
+	}
+
+	agentHandler := MultiConnectionHandler(handlers...)
+
+	go monitor.Run(ctx, collector)
 	streamSvc := NewStreamServer(agentHandler, storageBackend, httpServer.metricsRegisterer, lg)
 
 	controlv1.RegisterHealthListenerServer(streamSvc, listener)
@@ -290,15 +338,16 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	bootstrapv2.RegisterBootstrapServer(grpcServer, bootstrapServerV2)
 
 	g := &Gateway{
-		GatewayOptions:  options,
-		tlsConfig:       tlsConfig,
-		config:          conf,
-		logger:          lg,
-		storageBackend:  storageBackend,
-		capBackendStore: capBackendStore,
-		httpServer:      httpServer,
-		grpcServer:      grpcServer,
-		statusQuerier:   monitor,
+		GatewayOptions:    options,
+		tlsConfig:         tlsConfig,
+		config:            conf,
+		logger:            lg,
+		storageBackend:    storageBackend,
+		capBackendStore:   capBackendStore,
+		httpServer:        httpServer,
+		grpcServer:        grpcServer,
+		statusQuerier:     monitor,
+		connectionTracker: connectionTracker,
 	}
 
 	waitctx.Go(ctx, func() {
@@ -317,35 +366,50 @@ type keyValueStoreServer interface {
 
 func (g *Gateway) ListenAndServe(ctx context.Context) error {
 	lg := g.logger
-	ctx, ca := context.WithCancel(ctx)
+	ctx, ca := context.WithCancelCause(ctx)
 
-	// start http server
-	e1 := lo.Async(func() error {
-		err := g.httpServer.ListenAndServe(ctx)
-		if err != nil {
-			if errors.Is(err, context.Canceled) {
-				lg.Info("http server stopped")
-			} else {
-				lg.With(zap.Error(err)).Warn("http server exited with error")
+	channels := []<-chan error{
+		// start http server
+		lo.Async(func() error {
+			err := g.httpServer.ListenAndServe(ctx)
+			if err != nil {
+				if errors.Is(err, context.Canceled) {
+					lg.Info("http server stopped")
+				} else {
+					lg.With(zap.Error(err)).Warn("http server exited with error")
+				}
 			}
-		}
-		return err
-	})
-
-	// start grpc server
-	e2 := lo.Async(func() error {
-		err := g.grpcServer.ListenAndServe(ctx)
-		if err != nil {
-			if errors.Is(err, context.Canceled) {
-				lg.Info("grpc server stopped")
-			} else {
-				lg.With(zap.Error(err)).Warn("grpc server exited with error")
+			return err
+		}),
+		// start grpc server
+		lo.Async(func() error {
+			err := g.grpcServer.ListenAndServe(ctx)
+			if err != nil {
+				if errors.Is(err, context.Canceled) {
+					lg.Info("grpc server stopped")
+				} else {
+					lg.With(zap.Error(err)).Warn("grpc server exited with error")
+				}
 			}
-		}
-		return err
-	})
+			return err
+		}),
+	}
 
-	return util.WaitAll(ctx, ca, e1, e2)
+	if g.connectionTracker != nil {
+		channels = append(channels, lo.Async(func() error {
+			err := g.connectionTracker.Run(ctx)
+			if err != nil {
+				if errors.Is(err, context.Canceled) {
+					lg.Info("connection tracker stopped")
+				} else {
+					lg.With(zap.Error(err)).Warn("connection tracker exited with error")
+				}
+			}
+			return err
+		}))
+	}
+
+	return util.WaitAll(ctx, ca, channels...)
 }
 
 // Implements management.CoreDataSource

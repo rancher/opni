@@ -92,10 +92,17 @@ func (s *genericKeyValueStore) Watch(ctx context.Context, key string, opts ...st
 	options := storage.WatchOptions{}
 	options.Apply(opts...)
 
-	if err := validateKey(key); err != nil {
-		return nil, err
-	}
 	qualifiedKey := path.Join(s.prefix, key)
+	if options.Prefix {
+		// in prefix mode, key can be "" to watch the entire prefix
+		if err := validateKey(qualifiedKey); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := validateKey(key); err != nil {
+			return nil, err
+		}
+	}
 
 	clientOptions := []clientv3.OpOption{
 		clientv3.WithPrevKV(),

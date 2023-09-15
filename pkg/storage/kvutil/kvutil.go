@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/storage/lock"
 )
 
 type KeyValueStoreLocker[T any] interface {
@@ -140,4 +141,20 @@ func (s ValueStoreAdapter[T]) Delete(ctx context.Context, opts ...storage.Delete
 
 func (s ValueStoreAdapter[T]) History(ctx context.Context, opts ...storage.HistoryOpt) ([]storage.KeyRevision[T], error) {
 	return s.HistoryFunc(ctx, opts...)
+}
+
+type lockManagerPrefixImpl struct {
+	base   storage.LockManager
+	prefix string
+}
+
+func (s *lockManagerPrefixImpl) Locker(key string, opts ...lock.LockOption) storage.Lock {
+	return s.base.Locker(s.prefix+key, opts...)
+}
+
+func LockManagerWithPrefix(base storage.LockManager, prefix string) storage.LockManager {
+	return &lockManagerPrefixImpl{
+		base:   base,
+		prefix: prefix,
+	}
 }

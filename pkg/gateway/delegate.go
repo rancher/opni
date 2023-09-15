@@ -16,6 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
 
@@ -35,15 +36,41 @@ func (a agentInfo) GetId() string {
 }
 
 type DelegateServer struct {
+	DelegateServerOptions
 	streamv1.UnsafeDelegateServer
-	mu           sync.RWMutex
+	streamv1.UnsafeRelayServer
+	mu           *sync.RWMutex
+	rcond        *sync.Cond
 	activeAgents map[string]agentInfo
 	logger       *zap.SugaredLogger
 	clusterStore storage.ClusterStore
 }
 
-func NewDelegateServer(clusterStore storage.ClusterStore, lg *zap.SugaredLogger) *DelegateServer {
+type DelegateServerOptions struct {
+	connectionTracker *ConnectionTracker
+}
+
+type DelegateServerOption func(*DelegateServerOptions)
+
+func (o *DelegateServerOptions) apply(opts ...DelegateServerOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithConnectionTracker(connectionTracker *ConnectionTracker) DelegateServerOption {
+	return func(o *DelegateServerOptions) {
+		o.connectionTracker = connectionTracker
+	}
+}
+
+func NewDelegateServer(clusterStore storage.ClusterStore, lg *zap.SugaredLogger, opts ...DelegateServerOption) *DelegateServer {
+	options := DelegateServerOptions{}
+	options.apply(opts...)
+	mu := &sync.RWMutex{}
 	return &DelegateServer{
+		mu:           mu,
+		rcond:        sync.NewCond(mu.RLocker()),
 		activeAgents: make(map[string]agentInfo),
 		clusterStore: clusterStore,
 		logger:       lg.Named("delegate"),
@@ -61,6 +88,7 @@ func (d *DelegateServer) HandleAgentConnection(ctx context.Context, clientSet ag
 			zap.Error(err),
 		).Error("internal error: failed to look up connecting agent")
 		d.mu.Unlock()
+		d.rcond.Broadcast()
 		return
 	}
 
@@ -71,6 +99,7 @@ func (d *DelegateServer) HandleAgentConnection(ctx context.Context, clientSet ag
 	}
 	d.logger.With("id", id).Debug("agent connected")
 	d.mu.Unlock()
+	d.rcond.Broadcast()
 
 	<-ctx.Done()
 
@@ -78,6 +107,7 @@ func (d *DelegateServer) HandleAgentConnection(ctx context.Context, clientSet ag
 	delete(d.activeAgents, id)
 	d.logger.With("id", id).Debug("agent disconnected")
 	d.mu.Unlock()
+	d.rcond.Broadcast()
 }
 
 func (d *DelegateServer) Request(ctx context.Context, req *streamv1.DelegatedMessage) (*totem.RPC, error) {
@@ -90,27 +120,72 @@ func (d *DelegateServer) Request(ctx context.Context, req *streamv1.DelegatedMes
 		"request", req.GetRequest().QualifiedMethodName(),
 	)
 	lg.Debug("delegating rpc request")
-	target, ok := d.activeAgents[targetId]
-	if ok {
-		fwdResp := &totem.RPC{}
-		err := target.Invoke(ctx, totem.Forward, req.GetRequest(), fwdResp)
-		if err != nil {
-			d.logger.With(
-				zap.Error(err),
-			).Error("delegating rpc request failed")
-			return nil, err
-		}
+ATTEMPT:
+	for {
+		target, ok := d.activeAgents[targetId]
+		if ok {
+			fwdResp := &totem.RPC{}
+			err := target.Invoke(ctx, totem.Forward, req.GetRequest(), fwdResp)
+			if err != nil {
+				d.logger.With(
+					zap.Error(err),
+				).Error("delegating rpc request failed")
+				return nil, err
+			}
 
-		resp := &totem.RPC{}
-		err = proto.Unmarshal(fwdResp.GetResponse().GetResponse(), resp)
-		if err != nil {
-			d.logger.With(
-				zap.Error(err),
-			).Error("delegating rpc request failed")
-			return nil, err
-		}
+			resp := &totem.RPC{}
+			err = proto.Unmarshal(fwdResp.GetResponse().GetResponse(), resp)
+			if err != nil {
+				d.logger.With(
+					zap.Error(err),
+				).Error("delegating rpc request failed")
+				return nil, err
+			}
 
-		return resp, nil
+			return resp, nil
+		}
+		// check the connection tracker
+		info, ok := d.connectionTracker.Lookup(targetId)
+		if ok {
+			if info.IsLocal {
+				// if the target is local, we might be waiting on a write lock for d.mu
+				// to be acquired, which would add the target we're looking for to
+				// d.activeAgents.
+				if !d.mu.TryRLock() {
+					// unlock the read lock acquired at the beginning of this function,
+					// and wait to be signalled by HandleAgentConnection
+					d.rcond.Wait()
+					if _, ok := d.activeAgents[targetId]; ok {
+						continue ATTEMPT
+					}
+				} else {
+					// we're out of sync, tell the client to retry
+					d.mu.RUnlock() // d.mu is read-locked twice, unlock one (other unlock is deferred)
+					return nil, status.Error(codes.Unavailable, "agent connection state is not consistent (try again later)")
+				}
+			} else {
+				addr := info.Instance.GetRelayAddress()
+				cc, err := grpc.DialContext(ctx, addr,
+					grpc.WithBlock(),
+					grpc.FailOnNonTempDialError(true),
+					grpc.WithTransportCredentials(insecure.NewCredentials()),
+				)
+				if err != nil {
+					return nil, status.Errorf(codes.Unavailable, "failed to dial controlling instance (try again later): %s", err.Error())
+				}
+				defer cc.Close() // TODO: try keeping this open for a short time
+				relayClient := streamv1.NewRelayClient(cc)
+				resp, err := relayClient.RelayDelegateRequest(ctx, &streamv1.RelayedDelegatedMessage{
+					Message:   req,
+					Principal: d.connectionTracker.LocalInstanceInfo(),
+				}, grpc.WaitForReady(true))
+				if err != nil {
+					return nil, err
+				}
+				return resp.GetReply(), status.ErrorProto(resp.GetStatus())
+			}
+			break
+		}
 	}
 
 	err := status.Error(codes.NotFound, "target not found")

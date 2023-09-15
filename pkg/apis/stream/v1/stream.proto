@@ -1,12 +1,14 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/pkg/apis/stream/v1";
-import "github.com/kralicky/totem/totem.proto";
+
+package streaming;
+
 import "github.com/kralicky/totem/extensions.proto";
+import "github.com/kralicky/totem/totem.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/protobuf/empty.proto";
 import "google/rpc/status.proto";
-import "google/protobuf/any.proto";
-import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
-package stream;
+
+option go_package = "github.com/rancher/opni/pkg/apis/stream/v1";
 
 service Stream {
   rpc Connect(stream totem.RPC) returns (stream totem.RPC);
@@ -17,13 +19,13 @@ service Stream {
 }
 
 enum EventType {
-  Unknown = 0;
+  Unknown           = 0;
   DiscoveryComplete = 1;
 }
 
 message StreamEvent {
-  EventType type = 1;
-  string correlationId = 2;
+  EventType type          = 1;
+  string    correlationId = 2;
 }
 
 service Delegate {
@@ -39,18 +41,27 @@ service Delegate {
   rpc Broadcast(BroadcastMessage) returns (BroadcastReplyList);
 }
 
+service Relay {
+  rpc RelayDelegateRequest(RelayedDelegatedMessage) returns (DelegatedMessageReply);
+}
+
+message RelayedDelegatedMessage {
+  DelegatedMessage  message   = 1;
+  core.InstanceInfo principal = 2;
+}
+
 message DelegatedMessage {
-  totem.RPC request = 1;
-  core.Reference target = 2;
+  totem.RPC      request = 1;
+  core.Reference target  = 2;
 }
 
 message DelegatedMessageReply {
-  totem.RPC reply = 1;
+  totem.RPC         reply  = 1;
   google.rpc.Status status = 2;
 }
 
 message BroadcastMessage {
-  totem.RPC request = 1;
+  totem.RPC            request        = 1;
   core.ClusterSelector targetSelector = 2;
 }
 
@@ -59,6 +70,6 @@ message BroadcastReplyList {
 }
 
 message BroadcastReply {
-  core.Reference ref = 1;
-  totem.RPC reply = 2;
+  core.Reference ref   = 1;
+  totem.RPC      reply = 2;
 }

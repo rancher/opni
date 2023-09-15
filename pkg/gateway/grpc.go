@@ -15,14 +15,14 @@ import (
 	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
 
-	agentv1 "github.com/rancher/opni/pkg/agent"
+	"github.com/rancher/opni/pkg/agent"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/util"
 )
 
 type ConnectionHandler interface {
-	HandleAgentConnection(context.Context, agentv1.ClientSet)
+	HandleAgentConnection(context.Context, agent.ClientSet)
 }
 
 func MultiConnectionHandler(handlers ...ConnectionHandler) ConnectionHandler {
@@ -35,15 +35,15 @@ type multiConnectionHandler struct {
 	handlers []ConnectionHandler
 }
 
-func (m *multiConnectionHandler) HandleAgentConnection(ctx context.Context, clientSet agentv1.ClientSet) {
+func (m *multiConnectionHandler) HandleAgentConnection(ctx context.Context, clientSet agent.ClientSet) {
 	for _, handler := range m.handlers {
 		go handler.HandleAgentConnection(ctx, clientSet)
 	}
 }
 
-type ConnectionHandlerFunc func(context.Context, agentv1.ClientSet)
+type ConnectionHandlerFunc func(context.Context, agent.ClientSet)
 
-func (f ConnectionHandlerFunc) HandleAgentConnection(ctx context.Context, clientSet agentv1.ClientSet) {
+func (f ConnectionHandlerFunc) HandleAgentConnection(ctx context.Context, clientSet agent.ClientSet) {
 	f(ctx, clientSet)
 }
 

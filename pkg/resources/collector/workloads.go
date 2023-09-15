@@ -38,11 +38,7 @@ const (
 	machineID       = "/etc/machine-id"
 )
 
-var (
-	directoryOrCreate = corev1.HostPathDirectoryOrCreate
-
-	kubeAuditLogsFileTypes = []string{".log", ".json"}
-)
+var directoryOrCreate = corev1.HostPathDirectoryOrCreate
 
 func (r *Reconciler) agentConfigMapName() string {
 	return fmt.Sprintf("%s-agent-config", r.collector.Name)

@@ -50,8 +50,9 @@ type RKE2Spec struct {
 }
 
 type KubeAuditLogsSpec struct {
-	Enabled bool   `json:"enabled,omitempty"`
-	LogPath string `json:"logPath,omitempty"`
+	Enabled       bool   `json:"enabled,omitempty"`
+	AuditFilename string `json:"auditFilename,omitempty"`
+	PathPrefix    string `json:"pathPrefix,omitempty"`
 }
 
 // CollectorConfigSpec defines the desired state of CollectorConfig

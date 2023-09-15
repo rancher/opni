@@ -105,7 +105,7 @@ journald/k3s:
 
 	templateKubeAuditLogs = template.Must(template.New("kubeauditlogsreceiver").Parse(`
 filelog/kubeauditlogs:
-  include: {{ . }}
+  include: [ {{ . }} ]
   start_at: beginning
   include_file_path: false
   include_file_name: false

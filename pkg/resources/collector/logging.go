@@ -2,9 +2,7 @@ package collector
 
 import (
 	"bytes"
-	"fmt"
 	"path/filepath"
-	"strings"
 
 	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -50,13 +48,16 @@ func (r *Reconciler) generateKubeAuditLogsReceiver(config *opniloggingv1beta1.Co
 
 	if config.Spec.KubeAuditLogs != nil && config.Spec.KubeAuditLogs.Enabled {
 		filelogDir := "/var/log/kube-audit"
-
-		if config.Spec.KubeAuditLogs.LogPath != "" {
-			filelogDir = config.Spec.KubeAuditLogs.LogPath
+		if config.Spec.KubeAuditLogs.PathPrefix != "" {
+			filelogDir = config.Spec.KubeAuditLogs.PathPrefix
 		}
 
-		fileGlobPatterns := generateFileGlobPatterns(filelogDir, kubeAuditLogsFileTypes)
-		err := templateKubeAuditLogs.Execute(&receiver, fileGlobPatterns)
+		auditLogFilename := "audit.log"
+		if config.Spec.KubeAuditLogs.AuditFilename != "" {
+			auditLogFilename = config.Spec.KubeAuditLogs.AuditFilename
+		}
+
+		err := templateKubeAuditLogs.Execute(&receiver, filepath.Join(filelogDir, auditLogFilename))
 		if err != nil {
 			return "", nil, err
 		}
@@ -110,8 +111,8 @@ func (r *Reconciler) hostLoggingVolumes() (
 	})
 
 	kubeAuditLogsDir := "/var/log/kube-audit"
-	if config.Spec.KubeAuditLogs != nil && config.Spec.KubeAuditLogs.LogPath != "" {
-		kubeAuditLogsDir = config.Spec.KubeAuditLogs.LogPath
+	if config.Spec.KubeAuditLogs != nil && config.Spec.KubeAuditLogs.PathPrefix != "" {
+		kubeAuditLogsDir = config.Spec.KubeAuditLogs.PathPrefix
 	}
 
 	retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
@@ -221,25 +222,4 @@ func (r *Reconciler) hostLoggingVolumes() (
 		})
 	}
 	return
-}
-
-// generateFileGlobPattern generates a file glob pattern based on the provided path and file type.
-// If the path doesn't end with a slash, it appends one before constructing the pattern.
-//
-// path is the base path for the file glob pattern. fileType is the desired file types to match,
-// e.g., [".log", ".json"].
-//
-// It returns a single string of the format "[ /foo/*.log, /bar/*.json ]".
-func generateFileGlobPatterns(path string, fileTypes []string) string {
-	if len(path) > 0 && path[len(path)-1] != '/' {
-		path += "/"
-	}
-
-	var patterns []string
-	for _, fileType := range fileTypes {
-		pattern := filepath.Join(path, fmt.Sprintf("*%s", fileType))
-		patterns = append(patterns, pattern)
-	}
-
-	return fmt.Sprintf("[%s]", strings.Join(patterns, ","))
 }

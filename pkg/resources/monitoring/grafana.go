@@ -39,6 +39,11 @@ var sloOverviewDashboard []byte
 //go:embed slo/slo_grafana_detailed.json
 var sloDetailedDashboard []byte
 
+const (
+	grafanaImageVersion = "10.1.1"
+	grafanaImageRepo    = "grafana"
+)
+
 func (r *Reconciler) grafana() ([]resources.Resource, error) {
 	dashboardSelector := &metav1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -177,7 +182,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 
 	defaults := grafanav1alpha1.GrafanaSpec{
 		DashboardLabelSelector: []*metav1.LabelSelector{dashboardSelector},
-		BaseImage:              "grafana/grafana:latest",
+		BaseImage:              fmt.Sprintf("%s/grafana:%s", grafanaImageRepo, grafanaImageVersion),
 		Client: &grafanav1alpha1.GrafanaClient{
 			PreferService: lo.ToPtr(true),
 		},

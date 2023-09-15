@@ -4,20 +4,25 @@ const (
 	ModelTaskStatusCreated   = "CREATED"
 	ModelTaskStatusCompleted = "COMPLETED"
 	ModelTaskStatusFailed    = "FAILED"
-	ModelName                = "huggingface/sentence-transformers/all-distilroberta-v1"
-	ModelVersion             = "1.0.1"
-	ModelFormat              = "TORCH_SCRIPT"
-	LogEmbeddingName         = "log_embedding"
 	ModelGroupName           = "opni-neural-search-model-group"
 	ModelGroupDesc           = "model group for neural search"
 	ModelAccess              = "private"
 	DefaultSearchResultSize  = 10
+	// below parameters from the table in https://opensearch.org/docs/latest/ml-commons-plugin/pretrained-models/
+	ModelName             = "huggingface/sentence-transformers/all-distilroberta-v1"
+	ModelVersion          = "1.0.1"
+	ModelFormat           = "TORCH_SCRIPT"
+	ModelTypeBert         = "roberta"
+	LogEmbeddingName      = "log_embedding"
+	EmbeddingDimension    = 768
+	FrameworkType         = "sentence_transformers"
+	ModelContentHashValue = "92bc10216c720b57a6bab1d7ca2cc2e559156997212a7f0d8bb70f2edfedc78b"
 )
 
 var (
 	LogEmbeddingMappings = LogEmbeddingSpec{
 		Type:      "knn_vector",
-		Dimension: 768,
+		Dimension: EmbeddingDimension,
 		Method: MethodSpec{
 			Name:      "hnsw",
 			SpaceType: "l2",
@@ -32,6 +37,12 @@ var (
 	EnableMlAccessControl = MlSettings{
 		Transient: TransientMlSettings{
 			ModelAccessControlEnabled: true,
+		},
+	}
+
+	EnableRegisterViaUrl = MlSettings{
+		Transient: TransientMlSettings{
+			RegisterViaUrlEnabled: true,
 		},
 	}
 
@@ -70,6 +81,7 @@ type MlSettings struct {
 
 type TransientMlSettings struct {
 	ModelAccessControlEnabled bool `json:"plugins.ml_commons.model_access_control_enabled,omitempty"`
+	RegisterViaUrlEnabled     bool `json:"plugins.ml_commons.allow_registering_model_via_url,omitempty"`
 }
 
 type MethodSpec struct {
@@ -124,11 +136,19 @@ type GroupBody struct {
 }
 
 type ModelSpec struct {
-	Name         string `json:"name,omitempty"`
-	Version      string `json:"version,omitempty"`
-	Format       string `json:"model_format,omitempty"`
-	ModelGroupID string `json:"model_group_id,omitempty"`
-	Url          string `json:"url,omitempty"`
+	Name                  string      `json:"name,omitempty"`
+	Version               string      `json:"version,omitempty"`
+	Format                string      `json:"model_format,omitempty"`
+	ModelGroupID          string      `json:"model_group_id,omitempty"`
+	ModelContentHashValue string      `json:"model_content_hash_value,omitempty"`
+	ModelConfig           ModelConfig `json:"model_config,omitempty"`
+	CustomUrl             string      `json:"url,omitempty"`
+}
+
+type ModelConfig struct {
+	ModelType     string `json:"model_type,omitempty"`
+	Dimension     int    `json:"embedding_dimension,omitempty"`
+	FrameworkType string `json:"framework_type,omitempty"`
 }
 
 type ModelResp struct {

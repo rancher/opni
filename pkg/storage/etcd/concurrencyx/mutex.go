@@ -41,7 +41,13 @@ type Mutex struct {
 }
 
 func NewMutex(s *concurrency.Session, pfx string, initialValue string) *Mutex {
-	return &Mutex{s, pfx + "/", "", -1, initialValue, nil}
+	return &Mutex{
+		s:            s,
+		pfx:          pfx + "/",
+		myKey:        "",
+		myRev:        -1,
+		initialValue: initialValue,
+	}
 }
 
 // TryLock locks the mutex if not already locked by another session.
@@ -60,7 +66,7 @@ func (m *Mutex) TryLock(ctx context.Context) error {
 	}
 	client := m.s.Client()
 	// Cannot lock, so delete the key
-	if _, err := client.Delete(ctx, m.myKey, v3.WithPrefix()); err != nil {
+	if _, err := client.Delete(ctx, m.myKey); err != nil {
 		return err
 	}
 	m.myKey = "\x00"

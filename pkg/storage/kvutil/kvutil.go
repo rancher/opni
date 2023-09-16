@@ -6,6 +6,9 @@ import (
 
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/lock"
+	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
+	"google.golang.org/protobuf/proto"
 )
 
 type KeyValueStoreLocker[T any] interface {
@@ -156,5 +159,77 @@ func LockManagerWithPrefix(base storage.LockManager, prefix string) storage.Lock
 	return &lockManagerPrefixImpl{
 		base:   base,
 		prefix: prefix,
+	}
+}
+
+func WithMessageCodec[T proto.Message](base storage.ValueStoreT[[]byte]) storage.ValueStoreT[T] {
+	decodeKeyRevision := func(kr storage.KeyRevision[[]byte]) storage.KeyRevision[T] {
+		if kr == nil {
+			return nil
+		}
+		impl := &storage.KeyRevisionImpl[T]{
+			K:    kr.Key(),
+			V:    util.NewMessage[T](),
+			Rev:  kr.Revision(),
+			Time: kr.Timestamp(),
+		}
+		if err := proto.Unmarshal(kr.Value(), impl.V); err != nil {
+			impl.V = lo.Empty[T]()
+		}
+		return impl
+	}
+
+	return ValueStoreAdapter[T]{
+		PutFunc: func(ctx context.Context, value T, opts ...storage.PutOpt) error {
+			bytes, err := proto.Marshal(value)
+			if err != nil {
+				return err
+			}
+			return base.Put(ctx, bytes, opts...)
+		},
+		GetFunc: func(ctx context.Context, opts ...storage.GetOpt) (T, error) {
+			bytes, err := base.Get(ctx, opts...)
+			if err != nil {
+				return lo.Empty[T](), err
+			}
+			msg := util.NewMessage[T]()
+			if err := proto.Unmarshal(bytes, msg); err != nil {
+				return lo.Empty[T](), err
+			}
+			return msg, nil
+		},
+		WatchFunc: func(ctx context.Context, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[T]], error) {
+			c, err := base.Watch(ctx, opts...)
+			if err != nil {
+				return nil, err
+			}
+			out := make(chan storage.WatchEvent[storage.KeyRevision[T]], 1)
+			go func() {
+				defer close(out)
+				for e := range c {
+					typed := storage.WatchEvent[storage.KeyRevision[T]]{
+						EventType: e.EventType,
+						Current:   decodeKeyRevision(e.Current),
+						Previous:  decodeKeyRevision(e.Previous),
+					}
+					out <- typed
+				}
+			}()
+			return out, nil
+		},
+		DeleteFunc: func(ctx context.Context, opts ...storage.DeleteOpt) error {
+			return base.Delete(ctx, opts...)
+		},
+		HistoryFunc: func(ctx context.Context, opts ...storage.HistoryOpt) ([]storage.KeyRevision[T], error) {
+			resp, err := base.History(ctx, opts...)
+			if err != nil {
+				return nil, err
+			}
+			out := make([]storage.KeyRevision[T], len(resp))
+			for i, kr := range resp {
+				out[i] = decodeKeyRevision(kr)
+			}
+			return out, nil
+		},
 	}
 }

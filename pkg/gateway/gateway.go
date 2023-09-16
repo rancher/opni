@@ -11,7 +11,6 @@ import (
 	"github.com/rancher/opni/pkg/auth/challenges"
 	authv1 "github.com/rancher/opni/pkg/auth/cluster/v1"
 	authv2 "github.com/rancher/opni/pkg/auth/cluster/v2"
-	"github.com/rancher/opni/pkg/storage/kvutil"
 	"github.com/rancher/opni/pkg/update"
 	k8sserver "github.com/rancher/opni/pkg/update/kubernetes/server"
 	patchserver "github.com/rancher/opni/pkg/update/patch/server"
@@ -269,42 +268,41 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 
 	// set up stream server
 	listener := health.NewListener()
-	collector := health.NewCollector()
-
-	var localUpdater health.HealthStatusUpdateReader = listener
+	buffer := health.NewBuffer()
 
 	// set up connection tracker
 	var connectionTracker *ConnectionTracker
 	if conf.Spec.Management.RelayListenAddress != "" {
 		// require a lock manager
-		lockManager, ok := storageBackend.(storage.LockManager)
-		if !ok || lockManager == nil {
+		storageBackendLmBroker, ok := storageBackend.(storage.LockManagerBroker)
+		if !ok || storageBackendLmBroker == nil {
 			lg.With(
 				zap.Error(err),
 			).Panic("storage backend does not support distributed locking and cannot be used if the relay server is configured")
 		}
 		lg := lg.Named("connections")
 		connectionsKv := storageBackend.KeyValueStore("connections")
-		connectionsLm := kvutil.LockManagerWithPrefix(lockManager, "connections/kv/")
+		connectionsLm := storageBackendLmBroker.LockManager("connections")
 		connectionTracker = NewConnectionTracker(ctx, &corev1.InstanceInfo{
 			RelayAddress:      conf.Spec.Management.RelayListenAddress,
 			ManagementAddress: conf.Spec.Management.GRPCListenAddress,
 		}, connectionsKv, connectionsLm, lg)
 
 		writerManager := NewHealthStatusWriterManager(ctx, connectionsKv, lg)
-		localUpdater = health.NewFanOutUpdater(listener, writerManager)
+		go health.Copy(ctx, writerManager, listener)
+		// localUpdater := health.NewFanOutUpdater(listener, writerManager)
 		connectionTracker.AddTrackedConnectionListener(writerManager)
-		// updater = health.NewFanOutUpdater(collector, writer)
 
-		remoteUpdater, err := NewHealthStatusReader(ctx, connectionsKv, WithFilter(connectionTracker.IsRemotelyTracked))
+		kvReader, err := NewHealthStatusReader(ctx, connectionsKv)
 		if err != nil {
 			lg.With(
 				zap.Error(err),
 			).Panic("failed to create health status reader")
 		}
-		go collector.Collect(ctx, remoteUpdater)
+		go health.Copy(ctx, buffer, kvReader)
+	} else {
+		go health.Copy(ctx, buffer, listener)
 	}
-	go collector.Collect(ctx, localUpdater)
 
 	monitor := health.NewMonitor(health.WithLogger(lg.Named("monitor")))
 	delegateServerOpts := []DelegateServerOption{}
@@ -320,7 +318,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 
 	agentHandler := MultiConnectionHandler(handlers...)
 
-	go monitor.Run(ctx, collector)
+	go monitor.Run(ctx, buffer)
 	streamSvc := NewStreamServer(agentHandler, storageBackend, httpServer.metricsRegisterer, lg)
 
 	controlv1.RegisterHealthListenerServer(streamSvc, listener)

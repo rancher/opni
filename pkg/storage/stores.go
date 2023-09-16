@@ -118,7 +118,9 @@ type KeyValueStoreT[T any] interface {
 	// When the watch is started, the current value of the key will be sent
 	// if and only if both of the following conditions are met:
 	// 1. A revision is explicitly set in the watch options. If no revision is
-	//    specified, only future events will be sent.
+	//    specified, only future events will be sent. Revision 0 is equivalent
+	//    to the oldest revision among all keys matching the prefix, not
+	//    including deleted keys.
 	// 2. The key exists; or in prefix mode, there is at least one key matching
 	//    the prefix.
 	//
@@ -159,6 +161,10 @@ type KeyValueStoreBroker interface {
 
 type KeyValueStoreTBroker[T any] interface {
 	KeyValueStore(namespace string) KeyValueStoreT[T]
+}
+
+type LockManagerBroker interface {
+	LockManager(namespace string) LockManager
 }
 
 // A store that can be used to compute subject access rules

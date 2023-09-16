@@ -21,6 +21,7 @@ type HealthStatusUpdateReader interface {
 type HealthStatusUpdateWriter interface {
 	StatusWriterC() chan<- StatusUpdate
 	HealthWriterC() chan<- HealthUpdate
+	Close()
 }
 
 type HealthStatusQuerier interface {

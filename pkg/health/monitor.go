@@ -52,6 +52,9 @@ func NewMonitor(opts ...MonitorOption) *Monitor {
 
 func (m *Monitor) Run(ctx context.Context, updater HealthStatusUpdateReader) {
 	defer func() {
+		if err := recover(); err != nil {
+			panic(err)
+		}
 		m.mu.Lock()
 		defer m.mu.Unlock()
 		m.currentHealth = make(map[string]*corev1.Health)
@@ -65,11 +68,14 @@ func (m *Monitor) Run(ctx context.Context, updater HealthStatusUpdateReader) {
 		m.healthListeners = nil
 		m.statusListeners = nil
 	}()
+	healthC := updater.HealthC()
+	statusC := updater.StatusC()
 	for {
 		select {
 		case <-ctx.Done():
+			m.lg.Debug("health monitor context canceled")
 			return
-		case update, ok := <-updater.HealthC():
+		case update, ok := <-healthC:
 			if !ok {
 				m.lg.Debug("health update channel closed")
 				return
@@ -92,7 +98,7 @@ func (m *Monitor) Run(ctx context.Context, updater HealthStatusUpdateReader) {
 				}
 			}
 			m.mu.Unlock()
-		case update, ok := <-updater.StatusC():
+		case update, ok := <-statusC:
 			if !ok {
 				m.lg.Debug("status update channel closed")
 				return

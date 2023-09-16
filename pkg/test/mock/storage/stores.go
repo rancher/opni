@@ -1413,6 +1413,20 @@ func (m *MockLock) EXPECT() *MockLockMockRecorder {
 	return m.recorder
 }
 
+// Key mocks base method.
+func (m *MockLock) Key() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Key")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Key indicates an expected call of Key.
+func (mr *MockLockMockRecorder) Key() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Key", reflect.TypeOf((*MockLock)(nil).Key))
+}
+
 // Lock mocks base method.
 func (m *MockLock) Lock() error {
 	m.ctrl.T.Helper()

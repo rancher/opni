@@ -47,7 +47,7 @@ type DelegateServer struct {
 }
 
 type DelegateServerOptions struct {
-	connectionTracker *ConnectionTracker
+	ct *ConnectionTracker
 }
 
 type DelegateServerOption func(*DelegateServerOptions)
@@ -60,7 +60,7 @@ func (o *DelegateServerOptions) apply(opts ...DelegateServerOption) {
 
 func WithConnectionTracker(connectionTracker *ConnectionTracker) DelegateServerOption {
 	return func(o *DelegateServerOptions) {
-		o.connectionTracker = connectionTracker
+		o.ct = connectionTracker
 	}
 }
 
@@ -145,9 +145,9 @@ ATTEMPT:
 			return resp, nil
 		}
 		// check the connection tracker
-		info, ok := d.connectionTracker.Lookup(targetId)
-		if ok {
-			if info.IsLocal {
+
+		if info := d.ct.Lookup(targetId); info != nil {
+			if d.ct.IsLocalInstance(info) {
 				// if the target is local, we might be waiting on a write lock for d.mu
 				// to be acquired, which would add the target we're looking for to
 				// d.activeAgents.
@@ -164,7 +164,7 @@ ATTEMPT:
 					return nil, status.Error(codes.Unavailable, "agent connection state is not consistent (try again later)")
 				}
 			} else {
-				addr := info.Instance.GetRelayAddress()
+				addr := info.GetRelayAddress()
 				cc, err := grpc.DialContext(ctx, addr,
 					grpc.WithBlock(),
 					grpc.FailOnNonTempDialError(true),
@@ -177,7 +177,7 @@ ATTEMPT:
 				relayClient := streamv1.NewRelayClient(cc)
 				resp, err := relayClient.RelayDelegateRequest(ctx, &streamv1.RelayedDelegatedMessage{
 					Message:   req,
-					Principal: d.connectionTracker.LocalInstanceInfo(),
+					Principal: d.ct.LocalInstanceInfo(),
 				}, grpc.WaitForReady(true))
 				if err != nil {
 					return nil, err

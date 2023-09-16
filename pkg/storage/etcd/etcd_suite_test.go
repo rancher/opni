@@ -20,6 +20,7 @@ func TestEtcd(t *testing.T) {
 }
 
 var store = future.New[*etcd.EtcdStore]()
+var lockManager = future.New[*etcd.EtcdLockManager]()
 
 var _ = BeforeSuite(func() {
 	testruntime.IfIntegration(func() {
@@ -35,6 +36,7 @@ var _ = BeforeSuite(func() {
 		)
 		Expect(err).NotTo(HaveOccurred())
 		store.Set(client)
+
 		DeferCleanup(env.Stop, "Test Suite Finished")
 	})
 })

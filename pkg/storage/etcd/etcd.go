@@ -17,8 +17,6 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/storage/etcd/concurrencyx"
-	"github.com/rancher/opni/pkg/storage/lock"
 	"github.com/rancher/opni/pkg/util"
 )
 
@@ -98,7 +96,7 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 	lg.With(
 		"endpoints", clientConfig.Endpoints,
 	).Info("connecting to etcd")
-	session, err := concurrency.NewSession(cli)
+	session, err := concurrency.NewSession(cli, concurrency.WithTTL(5))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create etcd client: %w", err)
 	}
@@ -132,17 +130,14 @@ func (e *EtcdStore) KeyValueStore(prefix string) storage.KeyValueStore {
 	}
 }
 
-func (e *EtcdStore) Locker(prefix string, opts ...lock.LockOption) storage.Lock {
-	options := lock.DefaultLockOptions(e.Client.Ctx())
-	options.Apply(opts...)
+func (e *EtcdStore) LockManager(prefix string) storage.LockManager {
 	if e.Prefix != "" {
 		prefix = path.Join(e.Prefix, prefix)
 	}
-	m := concurrencyx.NewMutex(e.session, prefix, options.InitialValue)
-	return &EtcdLock{
+	return &EtcdLockManager{
 		client:  e.Client,
-		mutex:   m,
-		options: options,
+		session: e.session,
+		prefix:  path.Join(prefix, "kv"),
 	}
 }
 

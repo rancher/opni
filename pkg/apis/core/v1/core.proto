@@ -321,4 +321,7 @@ message Revision {
 message InstanceInfo {
   string relayAddress      = 1;
   string managementAddress = 2;
+  bool   acquired          = 3;
+  Health health            = 4;
+  Status status            = 5;
 }

@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"encoding/base64"
 	"strings"
 	sync "sync"
 
@@ -12,19 +13,20 @@ import (
 	"github.com/rancher/opni/pkg/storage/lock"
 	"github.com/rancher/opni/pkg/util"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 type TrackedConnectionListener interface {
 	// Called when a new agent connection to any gateway instance is tracked.
 	// The provided context will be canceled when the tracked connection is deleted.
 	// Implementations of this method MUST NOT block.
-	HandleTrackedConnection(ctx context.Context, agentId string, prefix string, instanceInfo *corev1.InstanceInfo)
+	HandleTrackedConnection(ctx context.Context, agentId string, leaseId string, instanceInfo *corev1.InstanceInfo)
 }
 
 type activeTrackedConnection struct {
 	agentId               string
-	prefix                string
+	leaseId               string
+	revision              int64
 	instanceInfo          *corev1.InstanceInfo
 	trackingContext       context.Context
 	cancelTrackingContext context.CancelFunc
@@ -66,40 +68,13 @@ func NewConnectionTracker(
 	}
 }
 
-type AgentInstanceInfo struct {
-	Instance *corev1.InstanceInfo
-	IsLocal  bool
-}
-
-func (ct *ConnectionTracker) createTrackedConn(agentId string, prefix string, instanceInfo *corev1.InstanceInfo) *activeTrackedConnection {
-	ct.listenersMu.Lock()
-	defer ct.listenersMu.Unlock()
-	ctx, cancel := context.WithCancel(ct.rootContext)
-	conn := &activeTrackedConnection{
-		agentId:               agentId,
-		prefix:                prefix,
-		instanceInfo:          instanceInfo,
-		trackingContext:       ctx,
-		cancelTrackingContext: cancel,
-	}
-	for _, listener := range ct.listeners {
-		listener.HandleTrackedConnection(ctx, agentId, prefix, instanceInfo)
-	}
-	return conn
-}
-
-func (ct *ConnectionTracker) Lookup(agentId string) (AgentInstanceInfo, bool) {
+func (ct *ConnectionTracker) Lookup(agentId string) *corev1.InstanceInfo {
 	ct.mu.RLock()
 	defer ct.mu.RUnlock()
 	if conn, ok := ct.activeConnections[agentId]; ok {
-		return AgentInstanceInfo{}, false
-	} else {
-		info := util.ProtoClone(conn.instanceInfo)
-		return AgentInstanceInfo{
-			Instance: info,
-			IsLocal:  ct.isLocal(info),
-		}, true
+		return conn.instanceInfo
 	}
+	return nil
 }
 
 func (ct *ConnectionTracker) AddTrackedConnectionListener(listener TrackedConnectionListener) {
@@ -110,9 +85,7 @@ func (ct *ConnectionTracker) AddTrackedConnectionListener(listener TrackedConnec
 
 	ct.listeners = append(ct.listeners, listener)
 	for _, conn := range ct.activeConnections {
-		// if !ct.isLocal(conn.instanceInfo) {
-		listener.HandleTrackedConnection(conn.trackingContext, conn.agentId, conn.prefix, conn.instanceInfo)
-		// }
+		listener.HandleTrackedConnection(conn.trackingContext, conn.agentId, conn.leaseId, conn.instanceInfo)
 	}
 }
 
@@ -134,7 +107,7 @@ func (ct *ConnectionTracker) LocalInstanceInfo() *corev1.InstanceInfo {
 // Starts the connection tracker. This will block until the context is canceled
 // and the underlying kv store watcher is closed.
 func (ct *ConnectionTracker) Run(ctx context.Context) error {
-	watcher, err := ct.kv.Watch(ctx, "", storage.WithPrefix())
+	watcher, err := ct.kv.Watch(ctx, "", storage.WithPrefix(), storage.WithRevision(0))
 	if err != nil {
 		return err
 	}
@@ -148,8 +121,14 @@ func (ct *ConnectionTracker) Run(ctx context.Context) error {
 
 func (ct *ConnectionTracker) HandleAgentConnection(ctx context.Context, clientSet agent.ClientSet) {
 	agentId := cluster.StreamAuthorizedID(ctx)
-	locker := ct.lm.Locker(agentId, lock.WithAcquireContext(ctx),
-		lock.WithInitialValue(string(util.Must(protojson.Marshal(ct.localInstanceInfo)))))
+	info := &corev1.InstanceInfo{
+		RelayAddress:      ct.localInstanceInfo.GetRelayAddress(),
+		ManagementAddress: ct.localInstanceInfo.GetManagementAddress(),
+	}
+	locker := ct.lm.Locker(agentId,
+		lock.WithAcquireContext(ctx),
+		lock.WithInitialValue(base64.StdEncoding.EncodeToString(util.Must(proto.Marshal(info)))),
+	)
 	if err := locker.Lock(); err != nil {
 		ct.logger.With(
 			zap.Error(err),
@@ -157,6 +136,8 @@ func (ct *ConnectionTracker) HandleAgentConnection(ctx context.Context, clientSe
 		).Error("failed to acquire lock on agent connection")
 		return
 	}
+	info.Acquired = true
+	ct.kv.Put(ctx, locker.Key(), util.Must(proto.Marshal(info)))
 	defer func() {
 		if err := locker.Unlock(); err != nil {
 			ct.logger.With(
@@ -188,71 +169,125 @@ func (ct *ConnectionTracker) handleEventLocked(event storage.WatchEvent[storage.
 
 	switch event.EventType {
 	case storage.WatchEventPut:
-		agentId, _, ok := decodeKey(event.Current.Key())
+		agentId, leaseId, ok := decodeKey(event.Current.Key())
 		if !ok {
 			return
 		}
-		lg := ct.logger.With("agentId", agentId)
-		instanceInfo := &corev1.InstanceInfo{}
-		if err := protojson.Unmarshal(event.Current.Value(), instanceInfo); err != nil {
-			lg.With(
-				zap.Error(err),
-				"key", event.Current.Key(),
-			).Error("malformed instance info was written by controlling gateway, ignoring")
+		ct.listenersMu.Lock()
+		defer ct.listenersMu.Unlock()
+		instanceInfo := sync.OnceValues(func() (*corev1.InstanceInfo, error) {
+			var info corev1.InstanceInfo
+			if err := proto.Unmarshal(event.Current.Value(), &info); err != nil {
+				return nil, err
+			}
+			return &info, nil
+		})
+		lg := ct.logger.With(
+			"agentId", agentId,
+			"key", event.Current.Key(),
+		)
+		if conn, ok := ct.activeConnections[agentId]; ok {
+			if conn.leaseId == leaseId {
+				// key was updated, not a new connection
+				return
+			}
+			info, err := instanceInfo()
+			if err != nil {
+				lg.With(zap.Error(err)).Error("failed to unmarshal instance info")
+				return
+			}
+			if !info.GetAcquired() {
+				// a different instance is only attempting to acquire the lock,
+				// ignore the event
+				return
+			}
+			// a different instance has acquired the lock, invalidate
+			// the current tracked connection
+			ct.logger.Debug("tracked connection invalidated: ", agentId)
+			conn.cancelTrackingContext()
+			delete(ct.activeConnections, agentId)
+		}
+		info, err := instanceInfo()
+		if err != nil {
+			lg.With(zap.Error(err)).Error("failed to unmarshal instance info")
 			return
 		}
-		if ct.isLocal(instanceInfo) {
+		if !info.GetAcquired() {
+			return // ignore unacquired connections
+		}
+		if ct.IsLocalInstance(info) {
 			ct.logger.Debug("tracking new connection (local): ", agentId)
 		} else {
 			ct.logger.Debug("tracking new connection: ", agentId)
 		}
-		ct.activeConnections[agentId] = ct.createTrackedConn(agentId, event.Current.Key(), instanceInfo)
+		ctx, cancel := context.WithCancel(ct.rootContext)
+		conn := &activeTrackedConnection{
+			agentId:               agentId,
+			leaseId:               leaseId,
+			revision:              event.Current.Revision(),
+			instanceInfo:          info,
+			trackingContext:       ctx,
+			cancelTrackingContext: cancel,
+		}
+		ct.activeConnections[agentId] = conn
+		for _, listener := range ct.listeners {
+			listener.HandleTrackedConnection(ctx, agentId, leaseId, info)
+		}
 	case storage.WatchEventDelete:
-		agentId, _, ok := decodeKey(event.Previous.Key())
+		agentId, leaseId, ok := decodeKey(event.Previous.Key())
 		if !ok {
 			return
 		}
-		lg := ct.logger.With("agentId", agentId)
-		prev := &corev1.InstanceInfo{}
-		if err := protojson.Unmarshal(event.Previous.Value(), prev); err == nil {
-			if ct.isLocal(prev) {
-				lg.Debug("tracked connection deleted (local)")
+		// make sure the previous revision of the deleted key is the same as the
+		// revision of the tracked connection.
+		lg := ct.logger.With("key", event.Previous.Key(), "rev", event.Previous.Revision())
+		if conn, ok := ct.activeConnections[agentId]; ok {
+			if conn.leaseId != leaseId {
+				// likely an expired lock attempt, ignore
+				return
+			}
+			prev := &corev1.InstanceInfo{}
+			if err := proto.Unmarshal(event.Previous.Value(), prev); err == nil {
+				if ct.IsLocalInstance(prev) {
+					lg.Debug("tracked connection deleted (local)")
+				} else {
+					lg.With(
+						"prevAddress", prev.GetRelayAddress(),
+					).Debug("tracked connection deleted")
+				}
 			} else {
 				lg.With(
-					"prevAddress", prev.GetRelayAddress(),
+					"prevAddress", "(unknown)",
 				).Debug("tracked connection deleted")
 			}
-		} else {
-			lg.With(
-				"prevAddress", "(unknown)",
-			).Debug("tracked connection deleted")
-		}
-		if conn, ok := ct.activeConnections[agentId]; ok {
 			conn.cancelTrackingContext()
+
+			delete(ct.activeConnections, agentId)
+		} else {
+			lg.Debug("ignoring untracked key deletion event: ", event.Previous.Key())
 		}
-		delete(ct.activeConnections, agentId)
 	}
 }
 
-func (ct *ConnectionTracker) isLocal(instanceInfo *corev1.InstanceInfo) bool {
+func (ct *ConnectionTracker) IsLocalInstance(instanceInfo *corev1.InstanceInfo) bool {
 	return instanceInfo.GetRelayAddress() == ct.localInstanceInfo.GetRelayAddress()
 }
 
-func (ct *ConnectionTracker) IsLocallyTracked(agentId string) bool {
+func (ct *ConnectionTracker) IsTrackedLocal(agentId string) bool {
 	ct.mu.RLock()
 	defer ct.mu.RUnlock()
 	info, ok := ct.activeConnections[agentId]
-	if ok && ct.isLocal(info.instanceInfo) {
+	if ok && ct.IsLocalInstance(info.instanceInfo) {
 		return true
 	}
 	return false
 }
 
-func (ct *ConnectionTracker) IsRemotelyTracked(agentId string) bool {
+func (ct *ConnectionTracker) IsTrackedRemote(agentId string) bool {
 	ct.mu.RLock()
 	defer ct.mu.RUnlock()
 	info, ok := ct.activeConnections[agentId]
-	if ok && !ct.isLocal(info.instanceInfo) {
+	if ok && !ct.IsLocalInstance(info.instanceInfo) {
 		return true
 	}
 	return false

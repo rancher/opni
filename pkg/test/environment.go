@@ -105,6 +105,7 @@ type ServicePorts struct {
 	ManagementGRPC   int `env:"OPNI_MANAGEMENT_GRPC_PORT"`
 	ManagementHTTP   int `env:"OPNI_MANAGEMENT_HTTP_PORT"`
 	ManagementWeb    int `env:"OPNI_MANAGEMENT_WEB_PORT"`
+	ManagementRelay  int `env:"OPNI_MANAGEMENT_RELAY_PORT"`
 	CortexGRPC       int `env:"CORTEX_GRPC_PORT"`
 	CortexHTTP       int `env:"CORTEX_HTTP_PORT"`
 	TestEnvironment  int `env:"TEST_ENV_API_PORT"`
@@ -185,6 +186,7 @@ type Environment struct {
 
 type EnvironmentOptions struct {
 	enableEtcd             bool
+	remoteEtcdPort         int
 	enableJetstream        bool
 	enableGateway          bool
 	defaultAgentOpts       []StartAgentOption
@@ -241,6 +243,12 @@ func WithEnableNodeExporter(enable bool) EnvironmentOption {
 func WithStorageBackend(backend v1beta1.StorageType) EnvironmentOption {
 	return func(o *EnvironmentOptions) {
 		o.storageBackend = backend
+	}
+}
+
+func WithRemoteEtcdPort(port int) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.remoteEtcdPort = port
 	}
 }
 
@@ -302,6 +310,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	// TODO : bootstrap with otelcollector
 	options := EnvironmentOptions{
 		enableEtcd:             false,
+		remoteEtcdPort:         0,
 		enableJetstream:        true,
 		enableNodeExporter:     false,
 		enableGateway:          true,
@@ -319,7 +328,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		}
 	}
 
-	if options.storageBackend == "etcd" && !options.enableEtcd {
+	if options.storageBackend == "etcd" && (!options.enableEtcd && options.remoteEtcdPort == 0) {
 		options.enableEtcd = true
 	} else if options.storageBackend == "jetstream" && !options.enableJetstream {
 		options.enableJetstream = true
@@ -352,7 +361,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	if err != nil {
 		return err
 	}
-	if options.enableEtcd {
+	if options.enableEtcd || options.remoteEtcdPort != 0 {
 		if err := os.Mkdir(path.Join(e.tempDir, "etcd"), 0700); err != nil {
 			return err
 		}
@@ -401,6 +410,8 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 
 	if options.enableEtcd {
 		e.startEtcd()
+	} else {
+		e.ports.Etcd = options.remoteEtcdPort
 	}
 
 	if options.enableJetstream {
@@ -1456,8 +1467,6 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 		panic(err)
 	}
 
-	relayPort := freeport.GetFreePort()
-
 	return &v1beta1.GatewayConfig{
 		TypeMeta: meta.TypeMeta{
 			APIVersion: "v1beta1",
@@ -1471,7 +1480,7 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 				GRPCListenAddress:  fmt.Sprintf("tcp://localhost:%d", e.ports.ManagementGRPC),
 				HTTPListenAddress:  fmt.Sprintf(":%d", e.ports.ManagementHTTP),
 				WebListenAddress:   fmt.Sprintf("localhost:%d", e.ports.ManagementWeb),
-				RelayListenAddress: lo.Ternary(e.storageBackend == "etcd", fmt.Sprintf("localhost:%d", relayPort), ""),
+				RelayListenAddress: lo.Ternary(e.storageBackend == "etcd", fmt.Sprintf("localhost:%d", e.ports.ManagementRelay), ""),
 				// WebCerts: v1beta1.CertsSpec{
 				// 	CACertData:      dashboardCertData,
 				// 	ServingCertData: dashboardCertData,

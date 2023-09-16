@@ -50,7 +50,7 @@ func (s *genericKeyValueStore) Put(ctx context.Context, key string, value []byte
 	}
 	resp, err := s.client.Txn(ctx).
 		If(comparisons...).
-		Then(clientv3.OpPut(qualifiedKey, encodedValue)).
+		Then(clientv3.OpPut(qualifiedKey, encodedValue, clientv3.WithIgnoreLease())).
 		Commit()
 	if err != nil {
 		return etcdGrpcError(err)
@@ -108,6 +108,15 @@ func (s *genericKeyValueStore) Watch(ctx context.Context, key string, opts ...st
 		clientv3.WithPrevKV(),
 	}
 	if options.Revision != nil {
+		if *options.Revision == 0 {
+			resp, err := s.client.Get(ctx, qualifiedKey, clientv3.WithFirstCreate()...)
+			if err != nil {
+				return nil, etcdGrpcError(err)
+			}
+			if len(resp.Kvs) == 1 {
+				*options.Revision = resp.Kvs[0].CreateRevision
+			}
+		}
 		clientOptions = append(clientOptions, clientv3.WithRev(*options.Revision))
 	}
 	if options.Prefix {

@@ -13,13 +13,13 @@ import (
 	"github.com/samber/lo"
 )
 
-func LockManagerTestSuite[T storage.LockManager](
+func LockManagerTestSuite[T storage.LockManagerBroker](
 	lmF future.Future[T],
 ) func() {
 	return func() {
-		var lm T
+		var lm storage.LockManager
 		BeforeAll(func() {
-			lm = lmF.Get()
+			lm = lmF.Get().LockManager("test")
 		})
 
 		When("using distributed locks ", func() {

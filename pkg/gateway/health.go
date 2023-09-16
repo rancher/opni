@@ -2,15 +2,19 @@ package gateway
 
 import (
 	"context"
+	"errors"
+	"path"
 	"strings"
 	sync "sync"
+	"time"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/kvutil"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type HealthStatusWriterManager struct {
@@ -19,7 +23,7 @@ type HealthStatusWriterManager struct {
 	queueLock          sync.Mutex
 	healthQueueByAgent map[string]chan health.HealthUpdate
 	statusQueueByAgent map[string]chan health.StatusUpdate
-	rootKv             storage.KeyValueStore
+	connectionsKv      storage.KeyValueStore
 	logger             *zap.SugaredLogger
 }
 
@@ -29,14 +33,16 @@ func NewHealthStatusWriterManager(ctx context.Context, rootKv storage.KeyValueSt
 	healthQueue := make(chan health.HealthUpdate, 256)
 	statusQueue := make(chan health.StatusUpdate, 256)
 	mgr := &HealthStatusWriterManager{
-		rootKv:             rootKv,
+		connectionsKv:      rootKv,
 		logger:             lg,
 		healthQueue:        healthQueue,
 		statusQueue:        statusQueue,
 		healthQueueByAgent: make(map[string]chan health.HealthUpdate),
 		statusQueueByAgent: make(map[string]chan health.StatusUpdate),
 	}
+	lg.Debug("starting health status writer manager")
 	go func() {
+		defer lg.Debug("stopping health status writer manager")
 		for {
 			select {
 			case <-ctx.Done():
@@ -58,6 +64,7 @@ func (w *HealthStatusWriterManager) agentHealthQueue(id string) chan health.Heal
 		return q
 	}
 	q := make(chan health.HealthUpdate, 8)
+	w.logger.Debugf("initializing health queue for %s", id)
 	w.healthQueueByAgent[id] = q
 	return q
 }
@@ -69,6 +76,7 @@ func (w *HealthStatusWriterManager) agentStatusQueue(id string) chan health.Stat
 		return q
 	}
 	q := make(chan health.StatusUpdate, 8)
+	w.logger.Debugf("initializing health queue for %s", id)
 	w.statusQueueByAgent[id] = q
 	return q
 }
@@ -83,45 +91,25 @@ func (w *HealthStatusWriterManager) StatusWriterC() chan<- health.StatusUpdate {
 	return w.statusQueue
 }
 
+// Close implements health.HealthStatusUpdateWriter.
+func (w *HealthStatusWriterManager) Close() {
+	close(w.healthQueue)
+	close(w.statusQueue)
+}
+
 // HandleTrackedConnection implements RemoteConnectionListener.
-func (wm *HealthStatusWriterManager) HandleTrackedConnection(ctx context.Context, agentId string, prefix string, instanceInfo *corev1.InstanceInfo) {
-	wm.queueLock.Lock()
-	defer wm.queueLock.Unlock()
-	w := NewHealthStatusWriter(ctx, kvutil.WithPrefix(wm.rootKv, prefix+"/"), wm.logger)
-	var agentHealthQueue chan health.HealthUpdate
-	var agentStatusQueue chan health.StatusUpdate
-	if q, ok := wm.healthQueueByAgent[agentId]; !ok {
-		agentHealthQueue = make(chan health.HealthUpdate, 8)
-		wm.healthQueueByAgent[agentId] = agentHealthQueue
-	} else {
-		agentHealthQueue = q
-	}
-	if q, ok := wm.statusQueueByAgent[agentId]; !ok {
-		agentStatusQueue = make(chan health.StatusUpdate, 8)
-		wm.statusQueueByAgent[agentId] = agentStatusQueue
-	} else {
-		agentStatusQueue = q
-	}
+func (wm *HealthStatusWriterManager) HandleTrackedConnection(ctx context.Context, agentId string, leaseId string, instanceInfo *corev1.InstanceInfo) {
+	w := NewHealthStatusWriter(ctx, kvutil.WithMessageCodec[*corev1.InstanceInfo](kvutil.WithKey(wm.connectionsKv, path.Join(agentId, leaseId))), wm.logger)
+	agentBuffer := health.AsBuffer(wm.agentHealthQueue(agentId), wm.agentStatusQueue(agentId))
+	wm.logger.Debugf("handling new tracked connection for %s", agentId)
 	go func() {
-		healthWriter := w.HealthWriterC()
-		statusWriter := w.StatusWriterC()
-		defer close(healthWriter)
-		defer close(statusWriter)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case h := <-agentHealthQueue:
-				healthWriter <- h
-			case s := <-agentStatusQueue:
-				statusWriter <- s
-			}
-		}
+		defer w.Close()
+		health.Copy(ctx, w, agentBuffer)
 	}()
 }
 
 type HealthStatusWriter struct {
-	kv      storage.KeyValueStore
+	v       storage.ValueStoreT[*corev1.InstanceInfo]
 	healthC chan health.HealthUpdate
 	statusC chan health.StatusUpdate
 }
@@ -131,39 +119,57 @@ var _ health.HealthStatusUpdateWriter = (*HealthStatusWriter)(nil)
 // Writes health and status updates to the keys "health" and "status" at the
 // root of the provided KeyValueStore. To write updates to a specific path,
 // use a prefixed KeyValueStore.
-func NewHealthStatusWriter(ctx context.Context, kv storage.KeyValueStore, lg *zap.SugaredLogger) health.HealthStatusUpdateWriter {
+func NewHealthStatusWriter(ctx context.Context, v storage.ValueStoreT[*corev1.InstanceInfo], lg *zap.SugaredLogger) health.HealthStatusUpdateWriter {
 	healthC := make(chan health.HealthUpdate, 8)
 	statusC := make(chan health.StatusUpdate, 8)
+
 	go func() {
-		for h := range healthC {
-			bytes, err := protojson.Marshal(h.Health)
-			if err != nil {
-				continue
-			}
-			if err := kv.Put(ctx, "health", bytes); err != nil {
-				lg.With(
-					zap.Error(err),
-					zap.String("id", h.ID),
-				).Error("failed to write health update to key-value store")
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case h := <-healthC:
+				var rev int64
+				ii, err := v.Get(ctx, storage.WithRevisionOut(&rev))
+				if err != nil && !storage.IsNotFound(err) {
+					if errors.Is(err, ctx.Err()) {
+						return
+					}
+					lg.With(zap.Error(err)).Error("failed to get instance info")
+					continue
+				}
+				if ii == nil {
+					ii = &corev1.InstanceInfo{}
+				}
+				ii.Health = h.Health
+				if err := v.Put(ctx, ii, storage.WithRevision(rev)); err != nil {
+					lg.With(zap.Error(err)).Error("failed to put instance info")
+					continue
+				}
+			case s := <-statusC:
+				var rev int64
+				ii, err := v.Get(ctx, storage.WithRevisionOut(&rev))
+				if err != nil && !storage.IsNotFound(err) {
+					if errors.Is(err, ctx.Err()) {
+						return
+					}
+					lg.With(zap.Error(err)).Error("failed to get instance info")
+					continue
+				}
+				if ii == nil {
+					ii = &corev1.InstanceInfo{}
+				}
+				ii.Status = s.Status
+				if err := v.Put(ctx, ii, storage.WithRevision(rev)); err != nil {
+					lg.With(zap.Error(err)).Error("failed to put instance info")
+					continue
+				}
 			}
 		}
 	}()
-	go func() {
-		for s := range statusC {
-			bytes, err := protojson.Marshal(s.Status)
-			if err != nil {
-				continue
-			}
-			if err := kv.Put(ctx, "status", bytes); err != nil {
-				lg.With(
-					zap.Error(err),
-					zap.String("id", s.ID),
-				).Error("failed to write status update to key-value store")
-			}
-		}
-	}()
+
 	return &HealthStatusWriter{
-		kv:      kv,
+		v:       v,
 		healthC: healthC,
 		statusC: statusC,
 	}
@@ -177,6 +183,11 @@ func (w *HealthStatusWriter) HealthWriterC() chan<- health.HealthUpdate {
 // StatusWriterC implements health.HealthStatusUpdateWriter.
 func (w *HealthStatusWriter) StatusWriterC() chan<- health.StatusUpdate {
 	return w.statusC
+}
+
+func (w *HealthStatusWriter) Close() {
+	close(w.healthC)
+	close(w.statusC)
 }
 
 type HealthStatusReader struct {
@@ -212,18 +223,21 @@ func NewHealthStatusReader(ctx context.Context, kv storage.KeyValueStore, opts .
 
 	healthC := make(chan health.HealthUpdate, 256)
 	statusC := make(chan health.StatusUpdate, 256)
-	events, err := kv.Watch(ctx, "", storage.WithPrefix())
+	events, err := kv.Watch(ctx, "", storage.WithPrefix(), storage.WithRevision(0))
 	if err != nil {
 		return nil, err
 	}
 
 	decodeKey := func(key string) (string, string, bool) {
 		parts := strings.Split(key, "/")
-		if len(parts) != 3 {
+		if len(parts) != 2 {
 			return "", "", false
 		}
-		return parts[0], parts[2], true
+		return parts[0], parts[1], true
 	}
+
+	healthTime := time.Time{}
+	statusTime := time.Time{}
 
 	go func() {
 		defer close(healthC)
@@ -232,43 +246,80 @@ func NewHealthStatusReader(ctx context.Context, kv storage.KeyValueStore, opts .
 		for event := range events {
 			switch event.EventType {
 			case storage.WatchEventPut:
-				id, kind, ok := decodeKey(event.Current.Key())
-				if !ok || !options.filter(id) {
+				id, _, ok := decodeKey(event.Current.Key())
+				if !ok {
+					// fmt.Println("could not decode key")
+					continue
+				}
+				if !options.filter(id) {
+					// fmt.Println("excluded by filter")
 					continue
 				}
 
-				switch kind {
-				case "health":
-					msg := &corev1.Health{}
-					if err := protojson.Unmarshal(event.Current.Value(), msg); err != nil {
-						continue
+				var info corev1.InstanceInfo
+				if err := proto.Unmarshal(event.Current.Value(), &info); err != nil {
+					// fmt.Println("could not unmarshal instance info")
+					continue
+				}
+				updatedHealthTime := info.GetHealth().GetTimestamp().AsTime()
+				if info.Health != nil {
+					if updatedHealthTime.After(healthTime) {
+						healthC <- health.HealthUpdate{
+							ID:     id,
+							Health: info.Health,
+						}
 					}
+				} else {
 					healthC <- health.HealthUpdate{
-						ID:     id,
-						Health: msg,
-					}
-				case "status":
-					msg := &corev1.Status{}
-					if err := protojson.Unmarshal(event.Current.Value(), msg); err != nil {
-						continue
-					}
-					statusC <- health.StatusUpdate{
-						ID:     id,
-						Status: msg,
+						ID: id,
+						Health: &corev1.Health{
+							Timestamp: timestamppb.Now(),
+							Ready:     false,
+						},
 					}
 				}
+				healthTime = updatedHealthTime
+
+				updatedStatusTime := info.GetStatus().GetTimestamp().AsTime()
+				if info.Status != nil {
+					if updatedStatusTime.After(statusTime) {
+						statusC <- health.StatusUpdate{
+							ID:     id,
+							Status: info.Status,
+						}
+					}
+				} else {
+					statusC <- health.StatusUpdate{
+						ID: id,
+						Status: &corev1.Status{
+							Timestamp: timestamppb.Now(),
+							Connected: false,
+						},
+					}
+				}
+				statusTime = updatedStatusTime
 			case storage.WatchEventDelete:
-				id, kind, ok := decodeKey(event.Previous.Key())
+				id, _, ok := decodeKey(event.Previous.Key())
 				if !ok || !options.filter(id) {
 					continue
 				}
 
-				switch kind {
-				case "health":
-					healthC <- health.HealthUpdate{ID: id}
-				case "status":
-					statusC <- health.StatusUpdate{ID: id}
+				healthC <- health.HealthUpdate{
+					ID: id,
+					Health: &corev1.Health{
+						Timestamp: timestamppb.Now(),
+						Ready:     false,
+					},
 				}
+				healthTime = time.Time{}
+				statusC <- health.StatusUpdate{
+					ID: id,
+					Status: &corev1.Status{
+						Timestamp: timestamppb.Now(),
+						Connected: false,
+					},
+				}
+				statusTime = time.Time{}
 			}
 		}
 	}()

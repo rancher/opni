@@ -189,11 +189,6 @@ func main() {
 	c := make(chan os.Signal, 2)
 	var closeOnce sync.Once
 	signal.Notify(c, os.Interrupt)
-	iPort, _ = environment.StartInstrumentationServer()
-	kPort = environment.StartMockKubernetesMetricServer()
-	for i := 0; i < 100; i++ {
-		environment.SimulateKubeObject(kPort)
-	}
 	testlog.Log.Infof(chalk.Green.Color("Instrumentation server listening on %d"), iPort)
 	var client managementv1.ManagementClient
 	if enableGateway {

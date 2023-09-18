@@ -119,5 +119,7 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 		body, err := io.ReadAll(resp.Body)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(body).NotTo(BeEmpty())
+
+		// TODO : MAYBE add other cortex APIS that query metric data in special ways
 	})
 })

@@ -261,6 +261,11 @@ func NewHealthStatusReader(ctx context.Context, kv storage.KeyValueStore, opts .
 					// fmt.Println("could not unmarshal instance info")
 					continue
 				}
+				if !info.GetAcquired() {
+					// a different instance is only attempting to acquire the lock,
+					// ignore the event
+					continue
+				}
 				updatedHealthTime := info.GetHealth().GetTimestamp().AsTime()
 				if info.Health != nil {
 					if updatedHealthTime.After(healthTime) {
@@ -301,6 +306,16 @@ func NewHealthStatusReader(ctx context.Context, kv storage.KeyValueStore, opts .
 			case storage.WatchEventDelete:
 				id, _, ok := decodeKey(event.Previous.Key())
 				if !ok || !options.filter(id) {
+					continue
+				}
+				var info corev1.InstanceInfo
+				if err := proto.Unmarshal(event.Previous.Value(), &info); err != nil {
+					// fmt.Println("could not unmarshal instance info")
+					continue
+				}
+				if !info.GetAcquired() {
+					// a different instance likely tried to lock the key and failed,
+					// deleting its mutex key, so ignore the event
 					continue
 				}
 

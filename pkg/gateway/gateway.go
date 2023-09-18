@@ -256,15 +256,6 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		rateLimitOpts = append(rateLimitOpts, WithRate(conf.Spec.RateLimit.Rate))
 		rateLimitOpts = append(rateLimitOpts, WithBurst(conf.Spec.RateLimit.Burst))
 	}
-	grpcServer := NewGRPCServer(&conf.Spec, lg,
-		grpc.Creds(credentials.NewTLS(tlsConfig)),
-		grpc.ChainStreamInterceptor(
-			NewRateLimiterInterceptor(lg, rateLimitOpts...).StreamServerInterceptor(),
-			clusterAuth,
-			updateServer.StreamServerInterceptor(),
-			NewLastKnownDetailsApplier(storageBackend),
-		),
-	)
 
 	// set up stream server
 	listener := health.NewListener()
@@ -310,17 +301,27 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		delegateServerOpts = append(delegateServerOpts, WithConnectionTracker(connectionTracker))
 	}
 	delegate := NewDelegateServer(storageBackend, lg, delegateServerOpts...)
-	// set up agent connection handlers
-	handlers := []ConnectionHandler{listener, delegate}
-	if connectionTracker != nil {
-		handlers = append(handlers, connectionTracker)
-	}
-
-	agentHandler := MultiConnectionHandler(handlers...)
+	agentHandler := MultiConnectionHandler(listener, delegate)
 
 	go monitor.Run(ctx, buffer)
-	streamSvc := NewStreamServer(agentHandler, storageBackend, httpServer.metricsRegisterer, lg)
 
+	// initialize grpc server
+
+	var streamInterceptors []grpc.StreamServerInterceptor
+	streamInterceptors = append(streamInterceptors, NewRateLimiterInterceptor(lg, rateLimitOpts...).StreamServerInterceptor())
+	streamInterceptors = append(streamInterceptors, clusterAuth)
+	if connectionTracker != nil {
+		streamInterceptors = append(streamInterceptors, connectionTracker.StreamServerInterceptor())
+	}
+	streamInterceptors = append(streamInterceptors, updateServer.StreamServerInterceptor())
+	streamInterceptors = append(streamInterceptors, NewLastKnownDetailsApplier(storageBackend))
+
+	grpcServer := NewGRPCServer(&conf.Spec, lg,
+		grpc.Creds(credentials.NewTLS(tlsConfig)),
+		grpc.ChainStreamInterceptor(streamInterceptors...),
+	)
+
+	streamSvc := NewStreamServer(agentHandler, storageBackend, httpServer.metricsRegisterer, lg)
 	controlv1.RegisterHealthListenerServer(streamSvc, listener)
 	streamv1.RegisterDelegateServer(streamSvc.InternalServiceRegistrar(), delegate)
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)

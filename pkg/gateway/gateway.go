@@ -62,6 +62,7 @@ type Gateway struct {
 	httpServer        *GatewayHTTPServer
 	grpcServer        *GatewayGRPCServer
 	connectionTracker *ConnectionTracker
+	delegate          *DelegateServer
 	statusQuerier     health.HealthStatusQuerier
 
 	storageBackend  storage.Backend
@@ -300,7 +301,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	if connectionTracker != nil {
 		delegateServerOpts = append(delegateServerOpts, WithConnectionTracker(connectionTracker))
 	}
-	delegate := NewDelegateServer(storageBackend, lg, delegateServerOpts...)
+	delegate := NewDelegateServer(conf.Spec, storageBackend, lg, delegateServerOpts...)
 	agentHandler := MultiConnectionHandler(listener, delegate)
 
 	go monitor.Run(ctx, buffer)
@@ -347,6 +348,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		grpcServer:        grpcServer,
 		statusQuerier:     monitor,
 		connectionTracker: connectionTracker,
+		delegate:          delegate,
 	}
 
 	waitctx.Go(ctx, func() {
@@ -402,6 +404,18 @@ func (g *Gateway) ListenAndServe(ctx context.Context) error {
 					lg.Info("connection tracker stopped")
 				} else {
 					lg.With(zap.Error(err)).Warn("connection tracker exited with error")
+				}
+			}
+			return err
+		}))
+		channels = append(channels, lo.Async(func() error {
+			relaySrv := g.delegate.NewRelayServer()
+			err := relaySrv.ListenAndServe(ctx)
+			if err != nil {
+				if errors.Is(err, context.Canceled) {
+					lg.Info("relay server stopped")
+				} else {
+					lg.With(zap.Error(err)).Warn("relay server exited with error")
 				}
 			}
 			return err

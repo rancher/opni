@@ -12,8 +12,10 @@ import (
 const (
 	CapabilityBackendPluginID = "opni.backends.Capability"
 	CapabilityNodePluginID    = "opni.backends.CapabilityNode"
+	CapabilityRBACPluginID    = "opni.backends.RBAC"
 	ServiceID                 = "capability.Backend"
 	NodeServiceID             = "capability.Node"
+	RBACServiceID             = "capability.RBAC"
 )
 
 type capabilityBackendPlugin struct {
@@ -84,7 +86,42 @@ func (p *capabilityAgentPlugin) GRPCClient(
 	return capabilityv1.NewNodeClient(c), nil
 }
 
+type capabilityRBACPlugin struct {
+	plugin.NetRPCUnsupportedPlugin
+
+	rbacSrv capabilityv1.RBACManagerServer
+}
+
+var _ plugin.GRPCPlugin = (*capabilityRBACPlugin)(nil)
+var _ plugin.Plugin = (*capabilityRBACPlugin)(nil)
+
+func (p *capabilityRBACPlugin) GRPCServer(
+	_ *plugin.GRPCBroker,
+	s *grpc.Server,
+) error {
+	capabilityv1.RegisterRBACManagerServer(s, p.rbacSrv)
+	return nil
+}
+
+func (p *capabilityRBACPlugin) GRPCClient(
+	ctx context.Context,
+	_ *plugin.GRPCBroker,
+	c *grpc.ClientConn,
+) (interface{}, error) {
+	if err := plugins.CheckAvailability(ctx, c, RBACServiceID); err != nil {
+		return nil, err
+	}
+	return capabilityv1.NewRBACManagerClient(c), nil
+}
+
+func NewRBACPlugin(rbac capabilityv1.RBACManagerServer) plugin.Plugin {
+	return &capabilityRBACPlugin{
+		rbacSrv: rbac,
+	}
+}
+
 func init() {
 	plugins.GatewayScheme.Add(CapabilityBackendPluginID, NewPlugin(nil))
 	plugins.AgentScheme.Add(CapabilityNodePluginID, NewAgentPlugin(nil))
+	plugins.GatewayScheme.Add(CapabilityRBACPluginID, NewRBACPlugin(nil))
 }

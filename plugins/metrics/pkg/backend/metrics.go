@@ -36,6 +36,7 @@ import (
 
 type MetricsBackend struct {
 	capabilityv1.UnsafeBackendServer
+	capabilityv1.UnsafeRBACManagerServer
 	node.UnsafeNodeMetricsCapabilityServer
 	remoteread.UnsafeRemoteReadGatewayServer
 	MetricsBackendConfig

@@ -209,6 +209,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 		util.PackService(&node.NodeConfiguration_ServiceDesc, p.metrics.NodeBackend),
 	))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.metrics))
+	scheme.Add(capability.CapabilityRBACPluginID, capability.NewRBACPlugin(&p.metrics))
 	scheme.Add(metrics.MetricsPluginID, metrics.NewPlugin(p))
 	return scheme
 }

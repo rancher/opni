@@ -33,19 +33,27 @@ var _ = Describe("Server", Ordered, Label("integration", "slow"), func() {
 		client := env.NewManagementClient()
 		client.CreateRole(context.Background(), &corev1.Role{
 			Id: "admin",
-			MatchLabels: &corev1.LabelSelector{
-				MatchExpressions: []*corev1.LabelSelectorRequirement{
-					{
-						Key:      "foo",
-						Operator: "Exists",
+			Permissions: []*corev1.PermissionItem{
+				{
+					Type: string(corev1.PermissionTypeCluster),
+					Verbs: []*corev1.PermissionVerb{
+						{Verb: "GET"},
+					},
+					MatchLabels: &corev1.LabelSelector{
+						MatchExpressions: []*corev1.LabelSelectorRequirement{
+							{
+								Key:      "foo",
+								Operator: "Exists",
+							},
+						},
 					},
 				},
 			},
 		})
 		client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
-			Id:       "admin-rb",
-			RoleId:   "admin",
-			Subjects: []string{"admin@example.com"},
+			Id:      "admin-rb",
+			RoleIds: []string{"admin"},
+			Subject: "admin@example.com",
 		})
 		addr := env.GatewayConfig().Spec.Management.GRPCListenAddress
 		addr = strings.TrimPrefix(addr, "tcp://")

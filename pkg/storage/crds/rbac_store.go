@@ -158,13 +158,15 @@ func (c *CRDStore) ListRoles(ctx context.Context) (*corev1.RoleList, error) {
 	if err != nil {
 		return nil, err
 	}
-	roles := &corev1.RoleList{
-		Items: make([]*corev1.Role, 0, len(list.Items)),
+	rolesList := &corev1.ReferenceList{
+		Items: make([]*corev1.Reference, 0, len(list.Items)),
 	}
 	for _, item := range list.Items {
-		roles.Items = append(roles.Items, item.Spec)
+		rolesList.Items = append(rolesList.Items, &corev1.Reference{Id: item.Name})
 	}
-	return roles, nil
+	return &corev1.RoleList{
+		Items: rolesList,
+	}, nil
 }
 
 func (c *CRDStore) ListRoleBindings(ctx context.Context) (*corev1.RoleBindingList, error) {

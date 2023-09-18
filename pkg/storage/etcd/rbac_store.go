@@ -229,17 +229,20 @@ func (e *EtcdStore) ListRoles(ctx context.Context) (*corev1.RoleList, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list roles: %w", err)
 	}
-	roleList := &corev1.RoleList{
-		Items: make([]*corev1.Role, len(resp.Kvs)),
+	rolesList := &corev1.ReferenceList{
+		Items: make([]*corev1.Reference, 0, len(resp.Kvs)),
 	}
 	for i, kv := range resp.Kvs {
+
 		role := &corev1.Role{}
 		if err := protojson.Unmarshal(kv.Value, role); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal role: %w", err)
 		}
-		roleList.Items[i] = role
+		rolesList.Items[i] = &corev1.Reference{Id: role.Id}
 	}
-	return roleList, nil
+	return &corev1.RoleList{
+		Items: rolesList,
+	}, nil
 }
 
 func (e *EtcdStore) ListRoleBindings(ctx context.Context) (*corev1.RoleBindingList, error) {

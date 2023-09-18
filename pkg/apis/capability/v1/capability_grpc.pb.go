@@ -492,3 +492,317 @@ var Node_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto",
 }
+
+const (
+	RBACManager_Info_FullMethodName                    = "/capability.RBACManager/Info"
+	RBACManager_GetAvailablePermissions_FullMethodName = "/capability.RBACManager/GetAvailablePermissions"
+	RBACManager_GetRole_FullMethodName                 = "/capability.RBACManager/GetRole"
+	RBACManager_CreateRole_FullMethodName              = "/capability.RBACManager/CreateRole"
+	RBACManager_UpdateRole_FullMethodName              = "/capability.RBACManager/UpdateRole"
+	RBACManager_DeleteRole_FullMethodName              = "/capability.RBACManager/DeleteRole"
+	RBACManager_ListRoles_FullMethodName               = "/capability.RBACManager/ListRoles"
+)
+
+// RBACManagerClient is the client API for RBACManager service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type RBACManagerClient interface {
+	// Returns info about the manager, including capability name
+	Info(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Details, error)
+	GetAvailablePermissions(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.AvailablePermissions, error)
+	GetRole(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.Role, error)
+	CreateRole(ctx context.Context, in *v1.Role, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	UpdateRole(ctx context.Context, in *v1.Role, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DeleteRole(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListRoles(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.RoleList, error)
+}
+
+type rBACManagerClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRBACManagerClient(cc grpc.ClientConnInterface) RBACManagerClient {
+	return &rBACManagerClient{cc}
+}
+
+func (c *rBACManagerClient) Info(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Details, error) {
+	out := new(Details)
+	err := c.cc.Invoke(ctx, RBACManager_Info_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rBACManagerClient) GetAvailablePermissions(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.AvailablePermissions, error) {
+	out := new(v1.AvailablePermissions)
+	err := c.cc.Invoke(ctx, RBACManager_GetAvailablePermissions_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rBACManagerClient) GetRole(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.Role, error) {
+	out := new(v1.Role)
+	err := c.cc.Invoke(ctx, RBACManager_GetRole_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rBACManagerClient) CreateRole(ctx context.Context, in *v1.Role, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RBACManager_CreateRole_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rBACManagerClient) UpdateRole(ctx context.Context, in *v1.Role, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RBACManager_UpdateRole_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rBACManagerClient) DeleteRole(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RBACManager_DeleteRole_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rBACManagerClient) ListRoles(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.RoleList, error) {
+	out := new(v1.RoleList)
+	err := c.cc.Invoke(ctx, RBACManager_ListRoles_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RBACManagerServer is the server API for RBACManager service.
+// All implementations must embed UnimplementedRBACManagerServer
+// for forward compatibility
+type RBACManagerServer interface {
+	// Returns info about the manager, including capability name
+	Info(context.Context, *emptypb.Empty) (*Details, error)
+	GetAvailablePermissions(context.Context, *emptypb.Empty) (*v1.AvailablePermissions, error)
+	GetRole(context.Context, *v1.Reference) (*v1.Role, error)
+	CreateRole(context.Context, *v1.Role) (*emptypb.Empty, error)
+	UpdateRole(context.Context, *v1.Role) (*emptypb.Empty, error)
+	DeleteRole(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	ListRoles(context.Context, *emptypb.Empty) (*v1.RoleList, error)
+	mustEmbedUnimplementedRBACManagerServer()
+}
+
+// UnimplementedRBACManagerServer must be embedded to have forward compatible implementations.
+type UnimplementedRBACManagerServer struct {
+}
+
+func (UnimplementedRBACManagerServer) Info(context.Context, *emptypb.Empty) (*Details, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Info not implemented")
+}
+func (UnimplementedRBACManagerServer) GetAvailablePermissions(context.Context, *emptypb.Empty) (*v1.AvailablePermissions, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAvailablePermissions not implemented")
+}
+func (UnimplementedRBACManagerServer) GetRole(context.Context, *v1.Reference) (*v1.Role, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRole not implemented")
+}
+func (UnimplementedRBACManagerServer) CreateRole(context.Context, *v1.Role) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateRole not implemented")
+}
+func (UnimplementedRBACManagerServer) UpdateRole(context.Context, *v1.Role) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateRole not implemented")
+}
+func (UnimplementedRBACManagerServer) DeleteRole(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteRole not implemented")
+}
+func (UnimplementedRBACManagerServer) ListRoles(context.Context, *emptypb.Empty) (*v1.RoleList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListRoles not implemented")
+}
+func (UnimplementedRBACManagerServer) mustEmbedUnimplementedRBACManagerServer() {}
+
+// UnsafeRBACManagerServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RBACManagerServer will
+// result in compilation errors.
+type UnsafeRBACManagerServer interface {
+	mustEmbedUnimplementedRBACManagerServer()
+}
+
+func RegisterRBACManagerServer(s grpc.ServiceRegistrar, srv RBACManagerServer) {
+	s.RegisterService(&RBACManager_ServiceDesc, srv)
+}
+
+func _RBACManager_Info_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RBACManagerServer).Info(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RBACManager_Info_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RBACManagerServer).Info(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RBACManager_GetAvailablePermissions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RBACManagerServer).GetAvailablePermissions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RBACManager_GetAvailablePermissions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RBACManagerServer).GetAvailablePermissions(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RBACManager_GetRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Reference)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RBACManagerServer).GetRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RBACManager_GetRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RBACManagerServer).GetRole(ctx, req.(*v1.Reference))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RBACManager_CreateRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Role)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RBACManagerServer).CreateRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RBACManager_CreateRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RBACManagerServer).CreateRole(ctx, req.(*v1.Role))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RBACManager_UpdateRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Role)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RBACManagerServer).UpdateRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RBACManager_UpdateRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RBACManagerServer).UpdateRole(ctx, req.(*v1.Role))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RBACManager_DeleteRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Reference)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RBACManagerServer).DeleteRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RBACManager_DeleteRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RBACManagerServer).DeleteRole(ctx, req.(*v1.Reference))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RBACManager_ListRoles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RBACManagerServer).ListRoles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RBACManager_ListRoles_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RBACManagerServer).ListRoles(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// RBACManager_ServiceDesc is the grpc.ServiceDesc for RBACManager service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var RBACManager_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "capability.RBACManager",
+	HandlerType: (*RBACManagerServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Info",
+			Handler:    _RBACManager_Info_Handler,
+		},
+		{
+			MethodName: "GetAvailablePermissions",
+			Handler:    _RBACManager_GetAvailablePermissions_Handler,
+		},
+		{
+			MethodName: "GetRole",
+			Handler:    _RBACManager_GetRole_Handler,
+		},
+		{
+			MethodName: "CreateRole",
+			Handler:    _RBACManager_CreateRole_Handler,
+		},
+		{
+			MethodName: "UpdateRole",
+			Handler:    _RBACManager_UpdateRole_Handler,
+		},
+		{
+			MethodName: "DeleteRole",
+			Handler:    _RBACManager_DeleteRole_Handler,
+		},
+		{
+			MethodName: "ListRoles",
+			Handler:    _RBACManager_ListRoles_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto",
+}

@@ -13,6 +13,7 @@ type (
 	StreamAPIExtensionPlugin     = apiextensions.StreamAPIExtensionClient
 	UnaryAPIExtensionPlugin      = apiextensions.UnaryAPIExtensionClient
 	CapabilityBackendPlugin      = capabilityv1.BackendClient
+	CapabilityRBACPlugin         = capabilityv1.RBACManagerClient
 	CapabilityNodePlugin         = capabilityv1.NodeClient
 	MetricsPlugin                = collector.RemoteProducer
 	SystemPlugin                 = system.SystemPluginServer

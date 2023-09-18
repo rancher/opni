@@ -54,6 +54,17 @@ service Node {
   }
 }
 
+service RBACManager {
+  // Returns info about the manager, including capability name
+  rpc Info(google.protobuf.Empty) returns (Details);
+  rpc GetAvailablePermissions(google.protobuf.Empty) returns (core.AvailablePermissions);
+  rpc GetRole(core.Reference) returns (core.Role);
+  rpc CreateRole(core.Role) returns (google.protobuf.Empty);
+  rpc UpdateRole(core.Role) returns (google.protobuf.Empty);
+  rpc DeleteRole(core.Reference) returns (google.protobuf.Empty);
+  rpc ListRoles(google.protobuf.Empty) returns (core.RoleList);
+}
+
 message Details {
   string          name    = 1;
   string          source  = 2;

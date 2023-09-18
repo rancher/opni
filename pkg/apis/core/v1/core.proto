@@ -126,37 +126,76 @@ message ClusterSelector {
   MatchOptions    matchOptions  = 3;
 }
 
-message Role {
-  string          id          = 1;
-  repeated string clusterIDs  = 2;
-  LabelSelector   matchLabels = 3;
-  RoleMetadata    metadata    = 4;
-}
-
 message RoleMetadata {
   // read-only
   string resourceVersion = 1;
 }
 
 message RoleBinding {
-  string              id       = 1;
-  string              roleId   = 2;
-  repeated string     subjects = 3;
-  repeated string     taints   = 4;
+  string id = 1;
+  string subject = 2;
+  repeated string roleIds = 3;
+  repeated string taints = 4;
   RoleBindingMetadata metadata = 5;
 }
 
 message RoleBindingMetadata {
   // read-only
   string resourceVersion = 1;
-}
-
-message RoleList {
-  repeated Role items = 1;
+  // immutable after creation
+  optional string capability = 2;
 }
 
 message RoleBindingList {
   repeated RoleBinding items = 1;
+}
+
+message CapabilityType {
+  string name = 2;
+}
+
+message CapabilityTypeList {
+  repeated string names = 2;
+}
+
+message PermissionVerb {
+  string verb = 1;
+}
+
+message PermissionDescription {
+  string type = 1;
+  repeated PermissionVerb verbs = 2;
+}
+
+message AvailablePermissions {
+  repeated PermissionDescription items = 1;
+}
+
+message PermissionItem {
+  string type = 1;
+  repeated PermissionVerb verbs = 2;
+  repeated string ids = 3;
+  LabelSelector matchLabels = 4;
+}
+
+message Role {
+  string id = 1;
+  repeated PermissionItem permissions = 2;
+  RoleMetadata metadata = 3;
+}
+
+message BackendRole {
+  CapabilityType capability = 1;
+  Role role = 2;
+}
+
+message BackendRoleRequest {
+  CapabilityType capability = 1;
+  core.Reference roleRef = 2;
+}
+
+message RoleList {
+  ReferenceList items = 1;
 }
 
 message CertInfo {

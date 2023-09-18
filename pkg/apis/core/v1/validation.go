@@ -110,21 +110,26 @@ func (r *Role) Validate() error {
 	if err := validation.ValidateID(r.Id); err != nil {
 		return fmt.Errorf("%w: %q", err, r.Id)
 	}
-	for _, clusterID := range r.ClusterIDs {
-		if err := validation.ValidateID(clusterID); err != nil {
-			return fmt.Errorf("%w: %q", err, clusterID)
+	for _, perm := range r.Permissions {
+		if perm.Type == "" {
+			return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "permission type")
 		}
-	}
-	if len(lo.Uniq(r.ClusterIDs)) != len(r.ClusterIDs) {
-		return fmt.Errorf("%w: %s", validation.ErrDuplicate, "clusterIDs")
-	}
-	if r.MatchLabels != nil {
-		if err := r.MatchLabels.WithRestrictInternalLabels().Validate(); err != nil {
-			return err
+		for _, clusterID := range perm.Ids {
+			if err := validation.ValidateID(clusterID); err != nil {
+				return fmt.Errorf("%w: %q", err, clusterID)
+			}
 		}
-	}
-	if len(r.ClusterIDs) == 0 && len(r.GetMatchLabels().GetMatchLabels()) == 0 && len(r.GetMatchLabels().GetMatchExpressions()) == 0 {
-		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "role must have at least one cluster ID or label selector")
+		if len(lo.Uniq(perm.Ids)) != len(perm.Ids) {
+			return fmt.Errorf("%w: %s %s", validation.ErrDuplicate, perm.Type, "Ids")
+		}
+		if perm.MatchLabels != nil {
+			if err := perm.MatchLabels.WithRestrictInternalLabels().Validate(); err != nil {
+				return err
+			}
+		}
+		if len(perm.Ids) == 0 && len(perm.GetMatchLabels().GetMatchLabels()) == 0 && len(perm.GetMatchLabels().GetMatchExpressions()) == 0 {
+			return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "role must have at least one ID or label selector")
+		}
 	}
 	return nil
 }
@@ -133,21 +138,21 @@ func (rb *RoleBinding) Validate() error {
 	if rb.Id == "" {
 		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "id")
 	}
-	if rb.RoleId == "" {
-		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "roleId")
+	if rb.Subject == "" {
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "subject")
 	}
 	if err := validation.ValidateID(rb.Id); err != nil {
 		return fmt.Errorf("%w: %q", err, rb.Id)
 	}
-	if err := validation.ValidateID(rb.RoleId); err != nil {
-		return fmt.Errorf("%w: %q", err, rb.RoleId)
+	if err := validation.ValidateSubject(rb.Subject); err != nil {
+		return err
 	}
-	if len(rb.Subjects) == 0 {
+	if len(rb.RoleIds) == 0 {
 		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "subjects")
 	}
-	for _, subject := range rb.Subjects {
-		if err := validation.ValidateSubject(subject); err != nil {
-			return err
+	for _, roleId := range rb.RoleIds {
+		if err := validation.ValidateID(roleId); err != nil {
+			return fmt.Errorf("%w: %q", err, roleId)
 		}
 	}
 	return nil

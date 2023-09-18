@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -37,12 +38,7 @@ func (p *rbacProvider) SubjectAccess(
 	allowedClusters := map[string]struct{}{}
 	// All applicable role bindings for this user are ORed together
 	for _, roleBinding := range rbs.Items {
-		appliesToUser := false
-		for _, s := range roleBinding.Subjects {
-			if s == req.Subject {
-				appliesToUser = true
-			}
-		}
+		appliesToUser := roleBinding.Subject == req.Subject
 		if !appliesToUser {
 			continue
 		}
@@ -54,28 +50,40 @@ func (p *rbacProvider) SubjectAccess(
 			).Warn("skipping tainted role binding")
 			continue
 		}
-		role, err := p.store.GetRole(ctx, roleBinding.RoleReference())
-		if err != nil {
-			p.logger.With(
-				zap.Error(err),
-				"roleBinding", roleBinding.Id,
-				"role", roleBinding.RoleId,
-			).Warn("error looking up role")
-			continue
-		}
-		// Add explicitly-allowed clusters to the list
-		for _, clusterID := range role.ClusterIDs {
-			allowedClusters[clusterID] = struct{}{}
-		}
-
-		// Add any clusters to the list which match the role's label selector
-		filteredList, err := p.store.ListClusters(ctx, role.MatchLabels,
-			corev1.MatchOptions_EmptySelectorMatchesNone)
-		if err != nil {
-			return nil, fmt.Errorf("failed to list clusters: %w", err)
-		}
-		for _, cluster := range filteredList.Items {
-			allowedClusters[cluster.Id] = struct{}{}
+		for _, roleId := range roleBinding.GetRoleIds() {
+			role, err := p.store.GetRole(ctx, &corev1.Reference{
+				Id: roleId,
+			})
+			if err != nil {
+				p.logger.With(
+					zap.Error(err),
+					"roleBinding", roleBinding.Id,
+					"role", roleId,
+				).Warn("error looking up role")
+				continue
+			}
+			for _, permission := range role.Permissions {
+				if permission.Type == string(corev1.PermissionTypeCluster) && slices.Contains(
+					permission.GetVerbs(),
+					&corev1.PermissionVerb{
+						Verb: string(ClusterVerbGet),
+					},
+				) {
+					// Add explicitly-allowed clusters to the list
+					for _, clusterID := range permission.GetIds() {
+						allowedClusters[clusterID] = struct{}{}
+					}
+					// Add any clusters to the list which match the role's label selector
+					filteredList, err := p.store.ListClusters(ctx, permission.MatchLabels,
+						corev1.MatchOptions_EmptySelectorMatchesNone)
+					if err != nil {
+						return nil, fmt.Errorf("failed to list clusters: %w", err)
+					}
+					for _, cluster := range filteredList.Items {
+						allowedClusters[cluster.Id] = struct{}{}
+					}
+				}
+			}
 		}
 	}
 	sortedReferences := make([]*corev1.Reference, 0, len(allowedClusters))

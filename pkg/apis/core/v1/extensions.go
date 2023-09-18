@@ -10,6 +10,14 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+type CorePermissionType string
+
+const (
+	PermissionTypeCluster   CorePermissionType = "cluster"
+	PermissionTypeNamespace CorePermissionType = "namespace"
+	PermissionTypeAPI       CorePermissionType = "api"
+)
+
 func (s *HealthStatus) Summary() string {
 	if s.Status == nil || s.Health == nil {
 		return "Unknown"

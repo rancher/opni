@@ -21,17 +21,25 @@ var _ = Describe("Taints", Ordered, Label("unit"), func() {
 		It("should apply the relevant taint", func() {
 			store := mock_storage.NewTestRBACStore(ctrl)
 			rb := &corev1.RoleBinding{
-				Id:       "test",
-				RoleId:   "test",
-				Subjects: []string{"foo"},
+				Id:      "test",
+				RoleIds: []string{"test"},
+				Subject: "foo",
 			}
 			err := storage.ApplyRoleBindingTaints(context.Background(), store, rb)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(rb.Taints).To(Equal([]string{"role not found"}))
+			Expect(rb.Taints).To(Equal([]string{"role test not found"}))
 
 			err = store.CreateRole(context.Background(), &corev1.Role{
-				Id:         "test",
-				ClusterIDs: []string{"foo"},
+				Id: "test",
+				Permissions: []*corev1.PermissionItem{
+					{
+						Type: string(corev1.PermissionTypeCluster),
+						Verbs: []*corev1.PermissionVerb{
+							{Verb: string(storage.ClusterVerbGet)},
+						},
+						Ids: []string{"foo"},
+					},
+				},
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -43,36 +51,44 @@ var _ = Describe("Taints", Ordered, Label("unit"), func() {
 		It("should only apply the relevant taint once", func() {
 			store := mock_storage.NewTestRBACStore(ctrl)
 			rb := &corev1.RoleBinding{
-				Id:       "test-rb2",
-				RoleId:   "does-not-exist",
-				Subjects: []string{"foo"},
+				Id:      "test-rb2",
+				RoleIds: []string{"does-not-exist"},
+				Subject: "foo",
 			}
 			err := storage.ApplyRoleBindingTaints(context.Background(), store, rb)
 			Expect(err).NotTo(HaveOccurred())
 			err = storage.ApplyRoleBindingTaints(context.Background(), store, rb)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(rb.Taints).To(Equal([]string{"role not found"}))
+			Expect(rb.Taints).To(Equal([]string{"role does-not-exist not found"}))
 		})
 	})
 	When("A role binding has no subjects", func() {
 		It("should apply the relevant taint", func() {
 			store := mock_storage.NewTestRBACStore(ctrl)
 			err := store.CreateRole(context.Background(), &corev1.Role{
-				Id:         "test",
-				ClusterIDs: []string{"foo"},
+				Id: "test",
+				Permissions: []*corev1.PermissionItem{
+					{
+						Type: string(corev1.PermissionTypeCluster),
+						Verbs: []*corev1.PermissionVerb{
+							{Verb: string(storage.ClusterVerbGet)},
+						},
+						Ids: []string{"foo"},
+					},
+				},
 			})
 			Expect(err).NotTo(HaveOccurred())
 
 			rb := &corev1.RoleBinding{
-				Id:       "test",
-				RoleId:   "test",
-				Subjects: []string{},
+				Id:      "test",
+				RoleIds: []string{"test"},
+				Subject: "",
 			}
 			err = storage.ApplyRoleBindingTaints(context.Background(), store, rb)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(rb.Taints).To(Equal([]string{"no subjects"}))
 
-			rb.Subjects = []string{"foo"}
+			rb.Subject = "foo"
 			rb.Taints = []string{}
 			err = storage.ApplyRoleBindingTaints(context.Background(), store, rb)
 			Expect(err).NotTo(HaveOccurred())

@@ -8,47 +8,69 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (s *Server) CreateRole(ctx context.Context, in *corev1.Role) (*emptypb.Empty, error) {
-	if err := validation.Validate(in); err != nil {
-		return nil, err
-	}
-	return &emptypb.Empty{}, s.coreDataSource.StorageBackend().CreateRole(ctx, in)
+func (s *Server) ListRBACBackends(_ context.Context, _ *emptypb.Empty) (*corev1.CapabilityTypeList, error) {
+	capabilities := s.rbacManagerStore.List()
+	return &corev1.CapabilityTypeList{
+		Names: capabilities,
+	}, nil
 }
 
-func (s *Server) UpdateRole(
-	ctx context.Context,
-	in *corev1.Role,
-) (*emptypb.Empty, error) {
-	if err := validation.Validate(in); err != nil {
-		return &emptypb.Empty{}, err
-	}
-
-	oldRole, err := s.GetRole(ctx, in.Reference())
+func (s *Server) GetAvailableBackendPermissions(ctx context.Context, in *corev1.CapabilityType) (*corev1.AvailablePermissions, error) {
+	client, err := s.rbacManagerStore.Get(in.GetName())
 	if err != nil {
-		return &emptypb.Empty{}, err
-	}
-
-	_, err = s.coreDataSource.StorageBackend().UpdateRole(ctx, oldRole.Reference(), func(role *corev1.Role) {
-		role.ClusterIDs = in.GetClusterIDs()
-		role.MatchLabels = in.GetMatchLabels()
-		role.Metadata = in.GetMetadata()
-	})
-	return &emptypb.Empty{}, err
-}
-
-func (s *Server) DeleteRole(ctx context.Context, in *corev1.Reference) (*emptypb.Empty, error) {
-	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, s.coreDataSource.StorageBackend().DeleteRole(ctx, in)
+	return client.GetAvailablePermissions(ctx, nil)
 }
 
-func (s *Server) GetRole(ctx context.Context, in *corev1.Reference) (*corev1.Role, error) {
-	if err := validation.Validate(in); err != nil {
+func (s *Server) CreateBackendRole(ctx context.Context, in *corev1.BackendRole) (*emptypb.Empty, error) {
+	if err := validation.Validate(in.GetRole()); err != nil {
 		return nil, err
 	}
-	role, err := s.coreDataSource.StorageBackend().GetRole(ctx, in)
-	return role, err
+
+	client, err := s.rbacManagerStore.Get(in.GetCapability().GetName())
+	if err != nil {
+		return nil, err
+	}
+
+	return client.CreateRole(ctx, in.GetRole())
+}
+
+func (s *Server) UpdateBackendRole(ctx context.Context, in *corev1.BackendRole) (*emptypb.Empty, error) {
+	if err := validation.Validate(in.GetRole()); err != nil {
+		return nil, err
+	}
+
+	client, err := s.rbacManagerStore.Get(in.GetCapability().GetName())
+	if err != nil {
+		return nil, err
+	}
+
+	return client.UpdateRole(ctx, in.GetRole())
+}
+
+func (s *Server) DeleteBackendRole(ctx context.Context, in *corev1.BackendRoleRequest) (*emptypb.Empty, error) {
+	client, err := s.rbacManagerStore.Get(in.GetCapability().GetName())
+	if err != nil {
+		return nil, err
+	}
+	return client.DeleteRole(ctx, in.GetRoleRef())
+}
+
+func (s *Server) GetBackendRole(ctx context.Context, in *corev1.BackendRoleRequest) (*corev1.Role, error) {
+	client, err := s.rbacManagerStore.Get(in.GetCapability().GetName())
+	if err != nil {
+		return nil, err
+	}
+	return client.GetRole(ctx, in.GetRoleRef())
+}
+
+func (s *Server) ListBackendRoles(ctx context.Context, in *corev1.CapabilityType) (*corev1.RoleList, error) {
+	client, err := s.rbacManagerStore.Get(in.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return client.ListRoles(ctx, nil)
 }
 
 func (s *Server) CreateRoleBinding(ctx context.Context, in *corev1.RoleBinding) (*emptypb.Empty, error) {
@@ -79,8 +101,8 @@ func (s *Server) UpdateRoleBinding(
 	}
 
 	_, err = s.coreDataSource.StorageBackend().UpdateRoleBinding(ctx, oldRb.Reference(), func(rb *corev1.RoleBinding) {
-		rb.RoleId = in.GetRoleId()
-		rb.Subjects = in.GetSubjects()
+		rb.RoleIds = in.GetRoleIds()
+		rb.Subject = in.GetSubject()
 		rb.Metadata = in.GetMetadata()
 	})
 	return &emptypb.Empty{}, err

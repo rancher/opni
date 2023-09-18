@@ -289,3 +289,9 @@ func RegisterStoreBuilder[T ~string](name T, builder func(...any) (any, error)) 
 func GetStoreBuilder[T ~string](name T) func(...any) (any, error) {
 	return storeBuilderCache[string(name)]
 }
+
+type ClusterVerb string
+
+const (
+	ClusterVerbGet ClusterVerb = "GET"
+)

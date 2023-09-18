@@ -71,6 +71,7 @@ type Server struct {
 	config            *v1beta1.ManagementSpec
 	logger            *zap.SugaredLogger
 	rbacProvider      rbac.Provider
+	rbacManagerStore  capabilities.RBACManagerStore
 	coreDataSource    CoreDataSource
 	grpcServer        *grpc.Server
 	dashboardSettings *DashboardSettingsManager
@@ -130,6 +131,7 @@ func NewServer(
 		logger:                  lg,
 		coreDataSource:          cds,
 		rbacProvider:            storage.NewRBACProvider(cds.StorageBackend()),
+		rbacManagerStore:        capabilities.NewRBACManagerStore(lg),
 		dashboardSettings: &DashboardSettingsManager{
 			kv:     cds.StorageBackend().KeyValueStore("dashboard"),
 			logger: lg,
@@ -158,6 +160,26 @@ func NewServer(
 				).Error("failed to serve plugin API extensions")
 			}
 		}()
+	}))
+
+	pluginLoader.Hook(hooks.OnLoadM(func(p types.CapabilityRBACPlugin, md meta.PluginMeta) {
+		info, err := p.Info(ctx, &emptypb.Empty{})
+		if err != nil {
+			lg.With(
+				zap.String("plugin", md.Module),
+			).Error("failed to get capability info")
+			return
+		}
+		if err := m.rbacManagerStore.Add(info.Name, p); err != nil {
+			lg.With(
+				zap.String("plugin", md.Module),
+				zap.Error(err),
+			).Error("failed to add capability backend rbac")
+		}
+		lg.With(
+			zap.String("plugin", md.Module),
+			zap.String("capability", info.Name),
+		).Info("added capability rbac backend")
 	}))
 
 	return m

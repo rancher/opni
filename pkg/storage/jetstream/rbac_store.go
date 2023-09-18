@@ -178,7 +178,8 @@ func (s *JetStreamStore) ListRoles(ctx context.Context) (*corev1.RoleList, error
 	}
 	defer watcher.Stop()
 
-	var roles []*corev1.Role
+	roles := &corev1.ReferenceList{}
+
 	for entry := range watcher.Updates() {
 		if entry == nil {
 			break
@@ -188,7 +189,7 @@ func (s *JetStreamStore) ListRoles(ctx context.Context) (*corev1.RoleList, error
 		if err := protojson.Unmarshal(entry.Value(), role); err != nil {
 			return nil, err
 		}
-		roles = append(roles, role)
+		roles.Items = append(roles.Items, &corev1.Reference{Id: role.Id})
 	}
 	return &corev1.RoleList{
 		Items: roles,

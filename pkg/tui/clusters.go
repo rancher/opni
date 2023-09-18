@@ -190,7 +190,7 @@ func (m ClusterListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				capabilities = append(capabilities, fmt.Sprintf("%s (deleting)", c.Name))
 			}
 		}
-		row := table.Row{t.cluster.GetId(), strings.Join(labels, ","), strings.Join(capabilities, ",")}
+		row := table.Row{t.cluster.GetId(), strings.Join(labels, "\n"), strings.Join(capabilities, "\n")}
 		if t.healthStatus != nil {
 			if !m.showSessionAttrs && len(t.healthStatus.GetStatus().GetSessionAttributes()) > 0 {
 				m.showSessionAttrs = true
@@ -201,7 +201,7 @@ func (m ClusterListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			row = append(row, t.healthStatus.Summary())
 			if m.showSessionAttrs {
-				row = append(row, strings.Join(t.healthStatus.GetStatus().GetSessionAttributes(), ", "))
+				row = append(row, strings.Join(t.healthStatus.GetStatus().GetSessionAttributes(), "\n"))
 			}
 		} else {
 			row = append(row, "(unknown)")

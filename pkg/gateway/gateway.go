@@ -353,6 +353,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 
 	waitctx.Go(ctx, func() {
 		<-ctx.Done()
+		storageBackend.Close()
 		lg.Info("shutting down plugins")
 		plugin.CleanupClients()
 		lg.Info("all plugins shut down")

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"sync"
 	"time"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -49,6 +50,8 @@ type EtcdStore struct {
 	Logger  *zap.SugaredLogger
 	Client  *clientv3.Client
 	session *concurrency.Session
+
+	closeOnce sync.Once
 }
 
 var _ storage.Backend = (*EtcdStore)(nil)
@@ -86,7 +89,7 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 	clientConfig := clientv3.Config{
 		Endpoints: conf.Endpoints,
 		TLS:       tlsConfig,
-		Context:   ctx,
+		Context:   context.WithoutCancel(ctx),
 		Logger:    lg.Desugar(),
 	}
 	cli, err := clientv3.New(clientConfig)
@@ -106,6 +109,13 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 		Client:           cli,
 		session:          session,
 	}, nil
+}
+
+func (e *EtcdStore) Close() {
+	e.closeOnce.Do(func() {
+		e.session.Close()
+		e.Client.Close()
+	})
 }
 
 func (e *EtcdStore) KeyringStore(prefix string, ref *corev1.Reference) storage.KeyringStore {

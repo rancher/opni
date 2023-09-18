@@ -30,6 +30,8 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -47,6 +49,7 @@ var _ = Describe("Prometheus SLOs", Ordered, Label("integration"), func() {
 	var sloGen *metrics.SLOGeneratorImpl
 	var sloDatasource backend.SLODatasource
 	var rw remote.WriteClient
+	var sloRef *corev1.Reference
 	BeforeAll(func() {
 		env = &test.Environment{}
 		Expect(env.Start()).To(Succeed())
@@ -285,7 +288,7 @@ var _ = Describe("Prometheus SLOs", Ordered, Label("integration"), func() {
 				"code",
 				"200",
 				"500",
-				50.0,
+				99.0,
 			)
 			Expect(err)
 		})
@@ -435,31 +438,91 @@ var _ = Describe("Prometheus SLOs", Ordered, Label("integration"), func() {
 			}
 
 			ref, err := sloDatasource.Create(env.Context(), req)
+			sloRef = ref
 			Expect(err).To(Succeed())
 			Expect(ref).NotTo(BeNil())
 			Expect(ref.Id).NotTo(BeEmpty())
 
 			By("verifying it eventually has a status")
-			Eventually(func() error {
+			Eventually(func() slov1.SLOStatusState {
 				status, err := sloDatasource.Status(env.Context(), &slov1.SLOData{
 					Id:  ref.Id,
 					SLO: req.Slo,
 				})
 
 				if err != nil {
-					return err
+					return slov1.SLOStatusState_InProgress
 				}
 
-				if status.State == slov1.SLOStatusState_Creating {
-					return fmt.Errorf("still creating")
+				return status.State
+			}, time.Second*5, time.Millisecond*100).Should(
+				Equal(slov1.SLOStatusState_Ok),
+			)
+
+			By("verifying after update to a higher target, it should have breached the error budget")
+			incoming := &slov1.SLOData{
+				Id:  ref.Id,
+				SLO: util.ProtoClone(metricsSlo),
+			}
+			existing := &slov1.SLOData{
+				Id:  ref.Id,
+				SLO: util.ProtoClone(metricsSlo),
+			}
+			incoming.SLO.Target.Value = 99.9999
+			_, err = sloDatasource.Update(env.Context(), incoming, existing)
+			Expect(err).To(Succeed())
+
+			Eventually(func() slov1.SLOStatusState {
+				status, err := sloDatasource.Status(env.Context(), incoming)
+				if err != nil {
+					return slov1.SLOStatusState_InProgress
 				}
-				if status.State == slov1.SLOStatusState_InternalError {
-					return fmt.Errorf("internal error")
+				return status.State
+			}).Should(Equal(slov1.SLOStatusState_Breaching))
+
+			// TODO : this is wrong, might need to tweak alert rules
+			// By("verifying updates of a target that should pick up burn rate")
+
+			// incoming2 := util.ProtoClone(incoming)
+			// incoming2.SLO.Target.Value = 99.5
+			// _, err = sloDatasource.Update(env.Context(), incoming2, incoming)
+			// Expect(err).To(Succeed())
+
+			// Eventually(func() slov1.SLOStatusState {
+			// 	status, err := sloDatasource.Status(env.Context(), incoming2)
+			// 	if err != nil {
+			// 		return slov1.SLOStatusState_InProgress
+			// 	}
+			// 	return status.State
+			// }).Should(Equal(slov1.SLOStatusState_Warning))
+
+		})
+
+		It("should be able to delete a metrics SLO", func() {
+			Expect(sloRef).NotTo(BeNil())
+			Expect(sloRef.Id).NotTo(BeEmpty())
+			Expect(sloDatasource.Delete(env.Context(), &slov1.SLOData{
+				Id:  sloRef.Id,
+				SLO: util.ProtoClone(metricsSlo),
+			})).To(Succeed())
+
+			Eventually(func() error {
+				_, err := adminClient.GetRule(env.Context(), &cortexadmin.GetRuleRequest{
+					ClusterId: "agent",
+					Namespace: "slo",
+					GroupName: sloRef.Id,
+				})
+				if err == nil {
+					return fmt.Errorf("rule still exists")
 				}
-				if status.State == slov1.SLOStatusState_NoData {
-					return fmt.Errorf("no data")
+				if st, ok := status.FromError(err); ok && st.Code() == codes.NotFound {
+					return nil
+				} else if ok {
+					return fmt.Errorf("unexpected status code %d", st.Code())
+				} else if err != nil {
+					return err
 				}
-				return nil
+				return fmt.Errorf("unreachable code?")
 			}).Should(Succeed())
 		})
 	})
@@ -559,21 +622,6 @@ func writeSLO(
 		})
 	}
 
-	// goodSamples := int(float64(numSamples) * (expectedSLI / 100))
-	// goodStepDuration := int(period.Milliseconds()) / goodSamples
-	// totalSamples := int(float64(numSamples) * ((100 - expectedSLI) / 100))
-	// totalStepDuration := int(period.Milliseconds()) / totalSamples
-	// for i := 0; i < goodSamples; i++ {
-	// 	toAdd := time.Duration(i*goodStepDuration) * time.Millisecond
-	// 	goodTs = append(goodTs, start.Add(toAdd).UnixMilli())
-	// }
-	// totalTs := []int64{}
-	// for i := 0; i < totalSamples; i++ {
-
-	// 	toAdd := time.Duration(i*totalStepDuration) * time.Millisecond
-	// 	totalTs = append(totalTs, start.Add(toAdd).UnixMilli())
-	// }
-
 	if len(goodEvents.Samples) == 0 {
 		panic("bug : no good events")
 	}
@@ -581,20 +629,6 @@ func writeSLO(
 	if len(totalEvents.Samples) == 0 {
 		panic("bug : no total events")
 	}
-
-	// for i, ts := range goodTs {
-	// 	goodEvents.Samples = append(goodEvents.Samples, prompb.Sample{
-	// 		Value:     float64(i + 1),
-	// 		Timestamp: ts,
-	// 	})
-	// }
-
-	// for i, ts := range totalTs {
-	// 	totalEvents.Samples = append(totalEvents.Samples, prompb.Sample{
-	// 		Value:     float64(i + 1),
-	// 		Timestamp: ts,
-	// 	})
-	// }
 
 	wreq.Timeseries = append(wreq.Timeseries, goodEvents)
 	wreq.Timeseries = append(wreq.Timeseries, totalEvents)
@@ -641,7 +675,7 @@ var (
 			},
 		},
 		SloPeriod:         "2h",
-		Target:            &slov1.Target{Value: 99.9},
+		Target:            &slov1.Target{Value: 90.0},
 		BudgetingInterval: durationpb.New(time.Second * 1),
 	}
 )

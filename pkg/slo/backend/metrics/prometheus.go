@@ -255,11 +255,29 @@ func (s *SLOGeneratorImpl) ErrorBudgetRemaining() MetricGenerator {
 }
 
 func (s *SLOGeneratorImpl) PageAlert() MetricGenerator {
-	panic("not implemented") // TODO: Implement
+	return NewMWMBAlertGenerator(
+		"slo:mwmb_alert:page",
+		s.slo.IdLabels,
+		s.windows.PageQuick,
+		s.windows.PageSlow,
+		func(window prommodel.Duration) MetricGenerator {
+			return s.SLI(window)
+		},
+		s.options,
+	)
 }
 
 func (s *SLOGeneratorImpl) TicketAlert() MetricGenerator {
-	panic("not implemented") // TODO: Implement
+	return NewMWMBAlertGenerator(
+		"slo:mwmb_alert:ticket",
+		s.slo.IdLabels,
+		s.windows.TicketQuick,
+		s.windows.TicketSlow,
+		func(window prommodel.Duration) MetricGenerator {
+			return s.SLI(window)
+		},
+		s.options,
+	)
 }
 
 var _ MWMBSLOGenerator = (*SLOGeneratorImpl)(nil)

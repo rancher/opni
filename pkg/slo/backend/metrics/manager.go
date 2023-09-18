@@ -87,8 +87,22 @@ func (m *MetricsSLOStore) Create(ctx context.Context, req *slov1.CreateSLOReques
 func (m *MetricsSLOStore) Update(ctx context.Context, incoming, existing *slov1.SLOData) (*slov1.SLOData, error) {
 	incomingSLO := backend.SLODataToStruct(incoming)
 	existingSLO := backend.SLODataToStruct(existing)
+	if err := incomingSLO.Validate(); err != nil {
+		return nil, err
+	}
+	if err := existingSLO.Validate(); err != nil {
+		return nil, err
+	}
+	sloGen, err := NewSLOGenerator(*incomingSLO)
+	if err != nil {
+		return nil, err
+	}
+	rg, err := sloGen.AsRuleGroup()
+	if err != nil {
+		return nil, err
+	}
 
-	yamlBytes, err := yaml.Marshal(incomingSLO)
+	yamlBytes, err := yaml.Marshal(rg)
 	if err != nil {
 		return nil, err
 	}
@@ -247,6 +261,28 @@ func (m *MetricsSLOStore) Status(ctx context.Context, slo *slov1.SLOData) (*slov
 		}, nil
 	}
 
+	ticketAlert := sloGen.TicketAlert().Expr()
+	rawTicketAlert, err := m.adminClient.Query(ctx, &cortexadmin.QueryRequest{
+		Tenants: []string{clusterId},
+		Query:   ticketAlert,
+	})
+	if err != nil {
+		return nil, err
+	}
+	qrTicket, err := compat.UnmarshalPrometheusResponse(rawTicketAlert.Data)
+	if err != nil {
+		return nil, err
+	}
+	samples = qrTicket.LinearSamples()
+	if len(samples) != 0 {
+		lastPageAlert := samples[len(samples)-1].Value
+		if lastPageAlert > 0 {
+			return &slov1.SLOStatus{
+				State: slov1.SLOStatusState_Warning,
+			}, nil
+		}
+	}
+
 	// 4.
 	pageAlert := sloGen.PageAlert().Expr()
 	rawPageAlert, err := m.adminClient.Query(ctx, &cortexadmin.QueryRequest{
@@ -270,27 +306,6 @@ func (m *MetricsSLOStore) Status(ctx context.Context, slo *slov1.SLOData) (*slov
 		}
 	}
 
-	ticketAlert := sloGen.TicketAlert().Expr()
-	rawTicketAlert, err := m.adminClient.Query(ctx, &cortexadmin.QueryRequest{
-		Tenants: []string{clusterId},
-		Query:   ticketAlert,
-	})
-	if err != nil {
-		return nil, err
-	}
-	qrTicket, err := compat.UnmarshalPrometheusResponse(rawTicketAlert.Data)
-	if err != nil {
-		return nil, err
-	}
-	samples = qrTicket.LinearSamples()
-	if len(samples) != 0 {
-		lastPageAlert := samples[len(samples)-1].Value
-		if lastPageAlert > 0 {
-			return &slov1.SLOStatus{
-				State: slov1.SLOStatusState_Warning,
-			}, nil
-		}
-	}
 	return &slov1.SLOStatus{
 		State: slov1.SLOStatusState_Ok,
 	}, nil

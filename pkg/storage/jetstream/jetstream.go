@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/iancoleman/strcase"
@@ -45,7 +46,8 @@ type JetStreamStore struct {
 		Roles        nats.KeyValue
 		RoleBindings nats.KeyValue
 	}
-	logger *zap.SugaredLogger
+	logger    *zap.SugaredLogger
+	closeOnce sync.Once
 }
 
 var _ storage.Backend = (*JetStreamStore)(nil)
@@ -106,11 +108,6 @@ func NewJetStreamStore(ctx context.Context, conf *v1beta1.JetStreamStorageSpec, 
 		return nil, err
 	}
 
-	go func() {
-		<-ctx.Done()
-		nc.Close()
-	}()
-
 	ctrl := backoff.Exponential(
 		backoff.WithMaxRetries(0),
 		backoff.WithMinInterval(10*time.Millisecond),
@@ -152,6 +149,13 @@ func NewJetStreamStore(ctx context.Context, conf *v1beta1.JetStreamStorageSpec, 
 		return nil, ctx.Err()
 	}
 	return store, nil
+}
+
+func (s *JetStreamStore) Close() {
+	s.closeOnce.Do(func() {
+		s.nc.Close()
+		s.logger.Debug("nats client closed")
+	})
 }
 
 func (s *JetStreamStore) upsertBucket(name string) nats.KeyValue {

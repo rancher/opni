@@ -15,6 +15,10 @@ type Backend interface {
 	RBACStore
 	KeyringStoreBroker
 	KeyValueStoreBroker
+
+	// Close shuts down any connections and releases any resources held
+	// by the storage backend client.
+	Close()
 }
 
 type MutatorFunc[T any] func(T)

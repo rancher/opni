@@ -3,10 +3,8 @@ package metrics
 import (
 	"errors"
 	"fmt"
-	"text/template"
 	"time"
 
-	"github.com/prometheus/common/model"
 	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/rancher/opni/pkg/slo/backend"
@@ -45,8 +43,8 @@ type MetricGenerator interface {
 }
 
 type MWMBSLOGenerator interface {
-	Windows() []prommodel.Duration
-	SLI(measurementPeriod prommodel.Duration) MetricGenerator
+	Windows() []WindowMetadata
+	SLI(WindowMetadata) MetricGenerator
 
 	Objective() MetricGenerator
 	ErrorBudget() MetricGenerator
@@ -57,11 +55,10 @@ type MWMBSLOGenerator interface {
 	PeriodBurnRate() MetricGenerator
 	ErrorBudgetRemaining() MetricGenerator
 
-	// TODO : unimplemented
-	// TicketWindow() MetricGenerator
-	// PageWindow() MetricGenerator
 	PageAlert() MetricGenerator
 	TicketAlert() MetricGenerator
+	PageIntervals() MetricGenerator
+	TicketIntervals() MetricGenerator
 }
 
 type SLOGeneratorOptions struct {
@@ -94,7 +91,7 @@ func NewSLOGenerator(slo backend.SLO, opts ...SLOGeneratorOption) (*SLOGenerator
 	if err := slo.Validate(); err != nil {
 		return nil, err
 	}
-	dur, err := prommodel.ParseDuration(slo.SloPeriod)
+	sloPeriod, err := prommodel.ParseDuration(slo.SloPeriod)
 	if err != nil {
 		return nil, err
 	}
@@ -109,11 +106,13 @@ func NewSLOGenerator(slo backend.SLO, opts ...SLOGeneratorOption) (*SLOGenerator
 	switch slo.SloPeriod {
 	case "28d", "30d": //fallback to google SRE production presets
 		windows = GenerateMWMBWindows(
-			prommodel.Duration(time.Minute * 5),
+			sloPeriod,
+			prommodel.Duration(time.Minute*5),
 		)
 	default: // use somewhat hacky normalization
 		windows = GenerateMWMBWindows(
-			prommodel.Duration(NormalizePeriodToBudgetingInterval(time.Duration(dur))),
+			sloPeriod,
+			prommodel.Duration(NormalizePeriodToBudgetingInterval(time.Duration(sloPeriod))),
 		)
 	}
 
@@ -122,7 +121,7 @@ func NewSLOGenerator(slo backend.SLO, opts ...SLOGeneratorOption) (*SLOGenerator
 		options:    options,
 		goodQuery:  goodQuery,
 		totalQuery: totalQuery,
-		period:     dur,
+		period:     sloPeriod,
 		windows:    windows,
 	}, nil
 }
@@ -169,7 +168,7 @@ func (s *SLOGeneratorImpl) rules() ([]rulefmt.RuleNode, error) {
 		s.ErrorBudgetRemaining().Rule,
 	}
 
-	for _, window := range append(s.Windows(), s.period) {
+	for _, window := range s.Windows() {
 		sli := s.SLI(window)
 		ruleConstructor = append(ruleConstructor, sli.Rule)
 	}
@@ -187,16 +186,16 @@ func (s *SLOGeneratorImpl) rules() ([]rulefmt.RuleNode, error) {
 	return rules, errors.Join(errs...)
 }
 
-func (s *SLOGeneratorImpl) Windows() []prommodel.Duration {
-	return s.windows.windowRangeDur()
+func (s *SLOGeneratorImpl) Windows() []WindowMetadata {
+	return s.windows.WindowRange()
 }
 
-func (s *SLOGeneratorImpl) SLI(measurementPeriod prommodel.Duration) MetricGenerator {
+func (s *SLOGeneratorImpl) SLI(w WindowMetadata) MetricGenerator {
 	return NewMWMBSLIGenerator(
 		SLOSLI,
 		s.goodQuery,
 		s.totalQuery,
-		measurementPeriod,
+		w,
 		s.slo.IdLabels,
 	)
 }
@@ -236,10 +235,11 @@ func (s *SLOGeneratorImpl) CurrentBurnRate() MetricGenerator {
 }
 
 func (s *SLOGeneratorImpl) PeriodBurnRate() MetricGenerator {
+	periodWindow := s.Windows()[len(s.Windows())-1]
 	return NewBurnRateGenerator(
 		SLOPeriodBurnRate,
 		s.slo.IdLabels,
-		s.SLI(s.period),
+		s.SLI(periodWindow),
 		s.ErrorBudget(),
 		s.options,
 	)
@@ -256,27 +256,53 @@ func (s *SLOGeneratorImpl) ErrorBudgetRemaining() MetricGenerator {
 
 func (s *SLOGeneratorImpl) PageAlert() MetricGenerator {
 	return NewMWMBAlertGenerator(
-		"slo:mwmb_alert:page",
 		s.slo.IdLabels,
 		s.windows.PageQuick,
 		s.windows.PageSlow,
-		func(window prommodel.Duration) MetricGenerator {
+		func(window WindowMetadata) MetricGenerator {
 			return s.SLI(window)
 		},
 		s.options,
+		false,
 	)
 }
 
 func (s *SLOGeneratorImpl) TicketAlert() MetricGenerator {
 	return NewMWMBAlertGenerator(
-		"slo:mwmb_alert:ticket",
 		s.slo.IdLabels,
 		s.windows.TicketQuick,
 		s.windows.TicketSlow,
-		func(window prommodel.Duration) MetricGenerator {
+		func(window WindowMetadata) MetricGenerator {
 			return s.SLI(window)
 		},
 		s.options,
+		false,
+	)
+}
+
+func (s *SLOGeneratorImpl) PageIntervals() MetricGenerator {
+	return NewMWMBAlertGenerator(
+		s.slo.IdLabels,
+		s.windows.PageQuick,
+		s.windows.PageSlow,
+		func(window WindowMetadata) MetricGenerator {
+			return s.SLI(window)
+		},
+		s.options,
+		true,
+	)
+}
+
+func (s *SLOGeneratorImpl) TicketIntervals() MetricGenerator {
+	return NewMWMBAlertGenerator(
+		s.slo.IdLabels,
+		s.windows.TicketQuick,
+		s.windows.TicketSlow,
+		func(window WindowMetadata) MetricGenerator {
+			return s.SLI(window)
+		},
+		s.options,
+		true,
 	)
 }
 
@@ -325,14 +351,14 @@ func (v *ConstantMetricGenerator) Rule() (rulefmt.RuleNode, error) {
 
 type SumRateGenerator struct {
 	goodExpr string
-	window   prommodel.Duration
+	window   WindowMetadata
 }
 
 var _ MetricGenerator = (*SumRateGenerator)(nil)
 
 func NewSumRateGenerator(
 	goodExpr string,
-	window prommodel.Duration,
+	window WindowMetadata,
 ) *SumRateGenerator {
 	return &SumRateGenerator{
 		goodExpr: goodExpr,
@@ -345,7 +371,7 @@ func (s *SumRateGenerator) Id() string {
 }
 
 func (s *SumRateGenerator) Expr() string {
-	return fmt.Sprintf("sum(rate(%s[%s]))", s.goodExpr, s.window.String())
+	return fmt.Sprintf("sum(rate(%s[%s]))", s.goodExpr, s.window.WindowDur.String())
 }
 
 func (s *SumRateGenerator) Rule() (rulefmt.RuleNode, error) {
@@ -354,7 +380,7 @@ func (s *SumRateGenerator) Rule() (rulefmt.RuleNode, error) {
 
 func NewMWMBSLIGenerator(
 	name, goodExpr, totalExpr string,
-	window prommodel.Duration,
+	window WindowMetadata,
 	idLabels backend.IdentificationLabels,
 ) *MWMBSLIGenerator {
 	goodQuery := NewSumRateGenerator(goodExpr, window)
@@ -370,7 +396,7 @@ func NewMWMBSLIGenerator(
 
 type MWMBSLIGenerator struct {
 	name   string
-	window prommodel.Duration
+	window WindowMetadata
 
 	goodQuery  MetricGenerator
 	totalQuery MetricGenerator
@@ -381,7 +407,7 @@ type MWMBSLIGenerator struct {
 var _ MetricGenerator = (*MWMBSLIGenerator)(nil)
 
 func (s *MWMBSLIGenerator) Id() string {
-	return s.name + s.window.String()
+	return s.name + ":" + s.window.Name
 }
 
 func (s *MWMBSLIGenerator) Expr() string {
@@ -520,63 +546,85 @@ func (e *ErrorBudgetRemainingGenerator) Rule() (rulefmt.RuleNode, error) {
 	}, nil
 }
 
-var mwmbAlertTplBool = template.Must(template.New("mwmbAlertTpl").Option("missingkey=error").Parse(`
-(max({{ .QuickShortMetric }}{{ .MetricFilter}} > bool ({{ .QuickShortBurnFactor }} * {{ .ErrorBudgetRatio }})) 
-without ({{ .WindowLabel }}) and 
-max({{ .QuickLongMetric }}{{ .MetricFilter}} > bool ({{ .QuickLongBurnFactor }} * {{ .ErrorBudgetRatio }})) without ({{ .WindowLabel }})) 
-
-or 
-
-(max({{ .SlowShortMetric }}{{ .MetricFilter }} > bool ({{ .SlowShortBurnFactor }} * {{ .ErrorBudgetRatio }})) without ({{ .WindowLabel }}) 
-and max({{ .SlowQuickMetric }}{{ .MetricFilter }} > bool ({{ .SlowQuickBurnFactor }} * {{ .ErrorBudgetRatio }})) without ({{ .WindowLabel }}))`))
-
 // TODO : add a description of how these alerts are structured
 type MWMBAlertGenerator struct {
-	name        string
 	quickWindow Window
 	slowWindow  Window
 	idLabels    backend.IdentificationLabels
 	options     *SLOGeneratorOptions
-	errorRate   func(model.Duration) MetricGenerator
+	errorRate   func(WindowMetadata) MetricGenerator
+	asRule      bool
 }
 
 var _ MetricGenerator = (*MWMBAlertGenerator)(nil)
 
 func NewMWMBAlertGenerator(
-	name string,
 	idLabels backend.IdentificationLabels,
 	quickWindow, slowWindow Window,
-	errorRate func(model.Duration) MetricGenerator,
+	errorRate func(WindowMetadata) MetricGenerator,
 	options *SLOGeneratorOptions,
+	asRule bool,
 ) *MWMBAlertGenerator {
 	return &MWMBAlertGenerator{
-		name:        name,
 		idLabels:    idLabels,
 		quickWindow: quickWindow,
 		slowWindow:  slowWindow,
 		errorRate:   errorRate,
 		options:     options,
+		asRule:      asRule,
 	}
 }
 
 func (m *MWMBAlertGenerator) Id() string {
-	return m.name
+	baseID := "slo:mwmb_alert"
+	if m.asRule {
+		return baseID + ":interval:" + m.quickWindow.Name()
+	}
+	return baseID + ":" + m.quickWindow.Name()
 }
 
 func (m *MWMBAlertGenerator) Expr() string {
-	construct := func(dur prommodel.Duration) string {
-		return m.errorRate(dur).Expr()
+	construct := func(w WindowMetadata) string {
+		return m.errorRate(w).Expr()
 	}
 	if m.options.optimized {
-		construct = func(dur prommodel.Duration) string {
-			return fmt.Sprintf("%s{%s}", m.errorRate(dur).Id(), m.idLabels.ToLabels().ConstructPrometheus())
+		construct = func(w WindowMetadata) string {
+			return fmt.Sprintf("%s{%s}", m.errorRate(w).Id(), m.idLabels.ToLabels().ConstructPrometheus())
 		}
 
 	}
-	shortWindowQuickExpr := fmt.Sprintf("(%s) > (%.9f * %.9f)", construct(m.quickWindow.ShortWindow), m.quickWindow.GetShortBurnRateFactor(), m.quickWindow.ErrorBudgetPercent)
-	shortWindowLongExpr := fmt.Sprintf("(%s) > (%.9f * %.9f)", construct(m.quickWindow.LongWindow), m.quickWindow.GetLongBurnRateFactor(), m.quickWindow.ErrorBudgetPercent)
-	longWindowQuickExpr := fmt.Sprintf("(%s) > (%.9f * %.9f)", construct(m.slowWindow.ShortWindow), m.slowWindow.GetShortBurnRateFactor(), m.slowWindow.ErrorBudgetPercent)
-	longWindowLongExpr := fmt.Sprintf("(%s) > (%.9f * %.9f)", construct(m.slowWindow.LongWindow), m.slowWindow.GetLongBurnRateFactor(), m.slowWindow.ErrorBudgetPercent)
+	compOperator := ">"
+	if m.asRule {
+		compOperator = "> bool"
+	}
+	shortWindowQuickExpr := fmt.Sprintf(
+		"(%s) %s (%.9f * %.9f)",
+		construct(m.quickWindow.ShortWindowMetadata()),
+		compOperator,
+		m.quickWindow.GetShortBurnRateFactor(),
+		m.quickWindow.ErrorBudgetPercent,
+	)
+	shortWindowLongExpr := fmt.Sprintf(
+		"(%s) %s (%.9f * %.9f)",
+		construct(m.quickWindow.LongWindowMetadata()),
+		compOperator,
+		m.quickWindow.GetLongBurnRateFactor(),
+		m.quickWindow.ErrorBudgetPercent,
+	)
+	longWindowQuickExpr := fmt.Sprintf(
+		"(%s) %s (%.9f * %.9f)",
+		construct(m.slowWindow.ShortWindowMetadata()),
+		compOperator,
+		m.slowWindow.GetShortBurnRateFactor(),
+		m.slowWindow.ErrorBudgetPercent,
+	)
+	longWindowLongExpr := fmt.Sprintf(
+		"(%s) %s (%.9f * %.9f)",
+		construct(m.slowWindow.LongWindowMetadata()),
+		compOperator,
+		m.slowWindow.GetLongBurnRateFactor(),
+		m.slowWindow.ErrorBudgetPercent,
+	)
 
 	return fmt.Sprintf(
 		"(max((%s)) and max((%s))) or (max(%s) and max(%s))",

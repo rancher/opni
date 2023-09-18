@@ -7,7 +7,6 @@ import (
 	"slices"
 
 	"github.com/prometheus/common/model"
-	"github.com/samber/lo"
 )
 
 func NormalizePeriodToBudgetingInterval(period time.Duration) (budgetingInterval time.Duration) {
@@ -17,6 +16,7 @@ func NormalizePeriodToBudgetingInterval(period time.Duration) (budgetingInterval
 }
 
 type MWMBWindows struct {
+	Period      model.Duration
 	PageQuick   Window
 	PageSlow    Window
 	TicketQuick Window
@@ -32,21 +32,25 @@ func (w MWMBWindows) windows() []Window {
 	}
 }
 
-func (w MWMBWindows) WindowRange() []string {
-	windows := w.windowRangeDur()
-	return lo.Map(windows, func(w model.Duration, _ int) string {
-		return w.String()
-	})
+type WindowMetadata struct {
+	WindowDur model.Duration
+	// use for building other rules
+	Name string
 }
 
-func (w MWMBWindows) windowRangeDur() []model.Duration {
-	windows := []model.Duration{}
+func (w MWMBWindows) WindowRange() []WindowMetadata {
+	windows := []WindowMetadata{}
 	for _, w := range w.windows() {
-		windows = append(windows, w.ShortWindow)
-		windows = append(windows, w.LongWindow)
+		windows = append(windows, w.ShortWindowMetadata())
+		windows = append(windows, w.LongWindowMetadata())
 	}
-	slices.SortFunc(windows, func(i, j model.Duration) int {
-		return int(int64(i) - int64(j))
+	windows = append(windows, WindowMetadata{
+		WindowDur: w.Period,
+		Name:      "period",
+	})
+
+	slices.SortFunc(windows, func(i, j WindowMetadata) int {
+		return int(int64(i.WindowDur) - int64(j.WindowDur))
 	})
 	return windows
 }
@@ -56,7 +60,7 @@ func (w MWMBWindows) windowRangeDur() []model.Duration {
 // budgeting interval is the shortest interval to monitor in a window
 //
 // budgeting interval should roughly be set to 5/432 of the SLO period
-func GenerateMWMBWindows(budgetingInterval model.Duration) *MWMBWindows {
+func GenerateMWMBWindows(sloPeriod, budgetingInterval model.Duration) *MWMBWindows {
 	pageQuickShort := budgetingInterval
 	pageQuickLong := budgetingInterval * 12
 
@@ -70,25 +74,34 @@ func GenerateMWMBWindows(budgetingInterval model.Duration) *MWMBWindows {
 	ticketSlowLong := ticketQuickLong * 3
 
 	return &MWMBWindows{
+		Period: sloPeriod,
 		PageQuick: Window{
 			LongWindow:         pageQuickLong,
 			ShortWindow:        pageQuickShort,
 			ErrorBudgetPercent: 2,
+			Period:             sloPeriod,
+			name:               "page:quick",
 		},
 		PageSlow: Window{
 			LongWindow:         pageSlowLong,
 			ShortWindow:        pageSlowShort,
 			ErrorBudgetPercent: 5,
+			Period:             sloPeriod,
+			name:               "page:slow",
 		},
 		TicketQuick: Window{
 			LongWindow:         ticketQuickLong,
 			ShortWindow:        ticketQuickShort,
 			ErrorBudgetPercent: 10,
+			Period:             sloPeriod,
+			name:               "ticket:quick",
 		},
 		TicketSlow: Window{
 			LongWindow:         ticketSlowLong,
 			ShortWindow:        ticketSlowShort,
 			ErrorBudgetPercent: 10,
+			Period:             sloPeriod,
+			name:               "ticket:slow",
 		},
 	}
 }
@@ -96,29 +109,34 @@ func GenerateMWMBWindows(budgetingInterval model.Duration) *MWMBWindows {
 // https://sre.google/workbook/alerting-on-slos/
 func WindowDefaults(period model.Duration) *MWMBWindows {
 	return &MWMBWindows{
+		Period: period,
 		PageQuick: Window{
 			ShortWindow:        model.Duration(time.Minute) * 5,
 			LongWindow:         model.Duration(time.Minute) * 60,
 			ErrorBudgetPercent: 2,
 			Period:             period,
+			name:               "page:quick",
 		},
 		PageSlow: Window{
 			ShortWindow:        model.Duration(time.Minute) * 30,
 			LongWindow:         model.Duration(time.Hour) * 6,
 			ErrorBudgetPercent: 5,
 			Period:             period,
+			name:               "page:slow",
 		},
 		TicketQuick: Window{
 			LongWindow:         (model.Duration(time.Hour) * 24),
 			ShortWindow:        model.Duration(time.Hour) * 2,
 			ErrorBudgetPercent: 10,
 			Period:             period,
+			name:               "ticket:quick",
 		},
 		TicketSlow: Window{
 			LongWindow:         (model.Duration(time.Hour) * 24) * 3,
 			ShortWindow:        model.Duration(time.Hour) * 6,
 			ErrorBudgetPercent: 10,
 			Period:             period,
+			name:               "ticket:slow",
 		},
 	}
 }
@@ -138,7 +156,28 @@ type Window struct {
 	// LongWindow is the long window used to alert based on the errors happened on that
 	// long window.
 	LongWindow model.Duration
-	Period     model.Duration
+	// Overall SLO period
+	Period model.Duration
+	// Name of the current window, builds into prometheus rule names that depend on this window.
+	name string
+}
+
+func (w Window) ShortWindowMetadata() WindowMetadata {
+	return WindowMetadata{
+		WindowDur: w.ShortWindow,
+		Name:      w.Name() + ":short",
+	}
+}
+
+func (w Window) LongWindowMetadata() WindowMetadata {
+	return WindowMetadata{
+		WindowDur: w.LongWindow,
+		Name:      w.Name() + ":long",
+	}
+}
+
+func (w Window) Name() string {
+	return w.name
 }
 
 func (w Window) Validate() error {
@@ -180,6 +219,20 @@ func (w MWMBWindows) Validate() error {
 	err = w.TicketSlow.Validate()
 	if err != nil {
 		return fmt.Errorf("invalid ticket slow: %w", err)
+	}
+
+	if w.Period < w.TicketSlow.LongWindow ||
+		w.Period < w.TicketSlow.ShortWindow ||
+		w.Period < w.TicketQuick.LongWindow ||
+		w.Period < w.TicketQuick.ShortWindow {
+		return fmt.Errorf("period must be greater than ticket budgeting intervals")
+	}
+
+	if w.Period < w.PageSlow.LongWindow ||
+		w.Period < w.PageSlow.ShortWindow ||
+		w.Period < w.PageQuick.LongWindow ||
+		w.Period < w.PageQuick.ShortWindow {
+		return fmt.Errorf("period must be greater than page budgeting intervals")
 	}
 
 	return nil

@@ -217,7 +217,10 @@ func (m *MetricsSLOStore) Status(ctx context.Context, slo *slov1.SLOData) (*slov
 	if err != nil {
 		return nil, err
 	}
-	sliExpr := sloGen.SLI(dur).Expr()
+	sliExpr := sloGen.SLI(WindowMetadata{
+		WindowDur: dur,
+		Name:      "test",
+	}).Expr()
 	rawSLIRes, err := m.adminClient.Query(ctx, &cortexadmin.QueryRequest{
 		Tenants: []string{clusterId},
 		Query:   sliExpr,
@@ -325,7 +328,7 @@ func (m *MetricsSLOStore) Preview(ctx context.Context, slo *slov1.CreateSLOReque
 	if err != nil {
 		return nil, err
 	}
-	sli := sloGen.SLI(period).Expr()
+	sli := sloGen.SLI(WindowMetadata{WindowDur: period, Name: "test"}).Expr()
 	cur := time.Now()
 	startTs, endTs := cur.Add(time.Duration(-period)), cur
 	numSteps := 250
@@ -363,28 +366,70 @@ func (m *MetricsSLOStore) Preview(ctx context.Context, slo *slov1.CreateSLOReque
 		}
 	}
 
-	// TODO: detect alert windows
-	// pageAlert := sloGen.PageAlert().Expr()
-	// rawPageAlert, err := m.adminClient.Query(ctx, &cortexadmin.QueryRequest{
-	// 	Tenants: []string{slo.Slo.ClusterId},
-	// 	Query:   pageAlert,
-	// })
-	// fmt.Println(rawPageAlert)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// // TODO : check values
-	// ticketAlert := sloGen.TicketAlert().Expr()
-	// rawTicketAlert, err := m.adminClient.Query(ctx, &cortexadmin.QueryRequest{
-	// 	Tenants: []string{slo.Slo.ClusterId},
-	// 	Query:   ticketAlert,
-	// })
-	// fmt.Println(rawTicketAlert)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	pageIntervals := sloGen.PageIntervals().Expr()
+	rawPageAlert, err := m.adminClient.Query(ctx, &cortexadmin.QueryRequest{
+		Tenants: []string{slo.Slo.ClusterId},
+		Query:   pageIntervals,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	qrPage, err := compat.UnmarshalPrometheusResponse(rawPageAlert.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	pageSamples := qrPage.LinearSamples()
+	plotVector.Windows = append(plotVector.Windows, DetectFiringIntervals(severeAlertWindow, pageSamples)...)
+
+	ticketIntervals := sloGen.TicketIntervals().Expr()
+	rawTicketAlert, err := m.adminClient.Query(ctx, &cortexadmin.QueryRequest{
+		Tenants: []string{slo.Slo.ClusterId},
+		Query:   ticketIntervals,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	qrTicket, err := compat.UnmarshalPrometheusResponse(rawTicketAlert.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	ticketSamples := qrTicket.LinearSamples()
+	plotVector.Windows = append(plotVector.Windows, DetectFiringIntervals(criticalAlertWindow, ticketSamples)...)
 
 	return &slov1.SLOPreviewResponse{
 		PlotVector: plotVector,
 	}, nil
+}
+
+const severeAlertWindow = "severe"
+const criticalAlertWindow = "critical"
+
+func DetectFiringIntervals(sev string, samples []compat.Sample) []*slov1.AlertFiringWindows {
+	windows := make([]*slov1.AlertFiringWindows, 0)
+	open := false
+	for _, sample := range samples {
+		if !open && sample.Value > 0 {
+			// Convert Unix millisecond timestamp to time.Time
+			t := time.Unix(sample.Timestamp/1000, (sample.Timestamp%1000)*int64(time.Millisecond))
+			windows = append(windows, &slov1.AlertFiringWindows{
+				Severity: sev,
+				Start:    timestamppb.New(t),
+			})
+			open = true
+		} else if open && sample.Value == 0 {
+			t := time.Unix(sample.Timestamp/1000, (sample.Timestamp%1000)*int64(time.Millisecond))
+			windows[len(windows)-1].End = timestamppb.New(t)
+			open = false
+		}
+	}
+
+	if open && windows[len(windows)-1].End == nil {
+		windows[len(windows)-1].End = timestamppb.Now()
+	}
+
+	return windows
 }

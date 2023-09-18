@@ -39,7 +39,7 @@ var _ = Describe("Prometheus SLO", Label("unit"), func() {
 		})
 
 		Specify("sum rate generators should produce valid promQL", func() {
-			sr := metrics.NewSumRateGenerator("hello_vector", prommodel.Duration(time.Minute))
+			sr := metrics.NewSumRateGenerator("hello_vector", metrics.WindowMetadata{WindowDur: prommodel.Duration(time.Minute)})
 
 			// this is a partial generator
 			Expect(sr.Id()).To(Equal(""))
@@ -50,7 +50,7 @@ var _ = Describe("Prometheus SLO", Label("unit"), func() {
 			_, err = promql.ParseExpr(sr.Expr())
 			Expect(err).NotTo(HaveOccurred())
 
-			seconds := metrics.NewSumRateGenerator("hello_vector", prommodel.Duration(time.Second))
+			seconds := metrics.NewSumRateGenerator("hello_vector", metrics.WindowMetadata{WindowDur: prommodel.Duration(time.Second)})
 			Expect(seconds.Id()).To(Equal(""))
 			Expect(seconds.Expr()).To(Equal("sum(rate(hello_vector[1s]))"))
 
@@ -60,14 +60,14 @@ var _ = Describe("Prometheus SLO", Label("unit"), func() {
 			_, err = promql.ParseExpr(seconds.Expr())
 			Expect(err).NotTo(HaveOccurred())
 
-			hours := metrics.NewSumRateGenerator("hello_vector", prommodel.Duration(time.Hour))
+			hours := metrics.NewSumRateGenerator("hello_vector", metrics.WindowMetadata{WindowDur: prommodel.Duration(time.Hour)})
 			Expect(hours.Id()).To(Equal(""))
 			Expect(hours.Expr()).To(Equal("sum(rate(hello_vector[1h]))"))
 
 			_, err = hours.Rule()
 			Expect(err).To(HaveOccurred())
 
-			days := metrics.NewSumRateGenerator("hello_vector", prommodel.Duration(24*time.Hour))
+			days := metrics.NewSumRateGenerator("hello_vector", metrics.WindowMetadata{WindowDur: prommodel.Duration(24 * time.Hour)})
 			Expect(days.Id()).To(Equal(""))
 			Expect(days.Expr()).To(Equal("sum(rate(hello_vector[1d]))"))
 
@@ -80,13 +80,13 @@ var _ = Describe("Prometheus SLO", Label("unit"), func() {
 				"sli_vector",
 				"http_request_duration_seconds_count{job=\"myservice\", code=~\"5..|429\"}",
 				"http_request_duration_seconds_count{job=\"myservice\"}",
-				prommodel.Duration(time.Minute),
+				metrics.WindowMetadata{WindowDur: prommodel.Duration(time.Minute), Name: "page:quick:short"},
 				map[string]string{
 					"bar": "baz",
 				},
 			)
 
-			Expect(mwmb.Id()).To(Equal("sli_vector1m"))
+			Expect(mwmb.Id()).To(Equal("sli_vector:page:quick:short"))
 			Expect(mwmb.Expr()).To(Equal(
 				"1 - ((sum(rate(http_request_duration_seconds_count{job=\"myservice\", code=~\"5..|429\"}[1m]))) / (sum(rate(http_request_duration_seconds_count{job=\"myservice\"}[1m]))))",
 			))
@@ -107,13 +107,13 @@ var _ = Describe("Prometheus SLO", Label("unit"), func() {
 				"sli_vector",
 				"http_request_duration_seconds_count{job=\"myservice\", code=~\"5..|429\"}",
 				"http_request_duration_seconds_count{job=\"myservice\"}",
-				prommodel.Duration(time.Second),
+				metrics.WindowMetadata{WindowDur: prommodel.Duration(time.Second), Name: "ticket:long:long"},
 				map[string]string{
 					"bar": "baz",
 				},
 			)
 
-			Expect(seconds.Id()).To(Equal("sli_vector1s"))
+			Expect(seconds.Id()).To(Equal("sli_vector:ticket:long:long"))
 			Expect(seconds.Expr()).To(Equal(
 				"1 - ((sum(rate(http_request_duration_seconds_count{job=\"myservice\", code=~\"5..|429\"}[1s]))) / (sum(rate(http_request_duration_seconds_count{job=\"myservice\"}[1s]))))",
 			))
@@ -134,13 +134,13 @@ var _ = Describe("Prometheus SLO", Label("unit"), func() {
 				"sli_vector",
 				"http_request_duration_seconds_count{job=\"myservice\", code=~\"5..|429\"}",
 				"http_request_duration_seconds_count{job=\"myservice\"}",
-				prommodel.Duration(time.Hour*6),
+				metrics.WindowMetadata{WindowDur: prommodel.Duration(time.Hour * 6), Name: "page:quick:short"},
 				map[string]string{
 					"bar": "baz",
 				},
 			)
 
-			Expect(hours.Id()).To(Equal("sli_vector6h"))
+			Expect(hours.Id()).To(Equal("sli_vector:page:quick:short"))
 			Expect(hours.Expr()).To(Equal(
 				"1 - ((sum(rate(http_request_duration_seconds_count{job=\"myservice\", code=~\"5..|429\"}[6h]))) / (sum(rate(http_request_duration_seconds_count{job=\"myservice\"}[6h]))))",
 			))
@@ -161,13 +161,13 @@ var _ = Describe("Prometheus SLO", Label("unit"), func() {
 				"sli_vector",
 				"http_request_duration_seconds_count{job=\"myservice\", code=~\"5..|429\"}",
 				"http_request_duration_seconds_count{job=\"myservice\"}",
-				prommodel.Duration(time.Hour*24*24),
+				metrics.WindowMetadata{WindowDur: prommodel.Duration(time.Hour * 24 * 24), Name: "test"},
 				map[string]string{
 					"bar": "baz",
 				},
 			)
 
-			Expect(days.Id()).To(Equal("sli_vector24d"))
+			Expect(days.Id()).To(Equal("sli_vector:test"))
 			Expect(days.Expr()).To(Equal(
 				"1 - ((sum(rate(http_request_duration_seconds_count{job=\"myservice\", code=~\"5..|429\"}[24d]))) / (sum(rate(http_request_duration_seconds_count{job=\"myservice\"}[24d]))))",
 			))
@@ -327,7 +327,7 @@ var _ = Describe("Prometheus SLO", Label("unit"), func() {
 				"id":  "1",
 				"foo": "bar",
 			}
-			errorRate := func(window prommodel.Duration) metrics.MetricGenerator {
+			errorRate := func(window metrics.WindowMetadata) metrics.MetricGenerator {
 				return metrics.NewMWMBSLIGenerator(
 					"error_rate",
 					"test_metric{foo=~\"bar\",id=~\"1\"}",
@@ -340,17 +340,18 @@ var _ = Describe("Prometheus SLO", Label("unit"), func() {
 			mwmb := metrics.WindowDefaults(prommodel.Duration(time.Hour * 24 * 30))
 			quick, long := mwmb.PageWindows()
 			pageGen := metrics.NewMWMBAlertGenerator(
-				"mwmb_alert",
 				idLabels,
 				quick,
 				long,
 				errorRate,
 				opts,
+				false,
 			)
 
-			Expect(pageGen.Id()).To(Equal("mwmb_alert"))
+			Expect(pageGen.Id()).To(Equal("slo:mwmb_alert:page:quick"))
 			GinkgoWriter.Write([]byte(pageGen.Expr()))
-			// Expect(pageGen.Expr()).Should(Equal("TODO")) // TODO
+			expected := "(max(((error_rate:page:quick:short{foo=~\"bar\",id=~\"1\"}) > (172.800000000 * 2.000000000))) and max(((error_rate:page:quick:long{foo=~\"bar\",id=~\"1\"}) > (14.400000000 * 2.000000000)))) or (max((error_rate:page:slow:short{foo=~\"bar\",id=~\"1\"}) > (72.000000000 * 5.000000000)) and max((error_rate:page:slow:long{foo=~\"bar\",id=~\"1\"}) > (6.000000000 * 5.000000000)))"
+			Expect(pageGen.Expr()).Should(Equal(expected))
 
 			rule, err := pageGen.Rule()
 			Expect(err).NotTo(HaveOccurred())
@@ -368,16 +369,17 @@ var _ = Describe("Prometheus SLO", Label("unit"), func() {
 				metrics.WithOptimization(false),
 			)
 			pageGenRaw := metrics.NewMWMBAlertGenerator(
-				"mwmb_alert",
 				idLabels,
 				quick,
 				long,
 				errorRate,
 				opts,
+				false,
 			)
 
-			Expect(pageGenRaw.Id()).To(Equal("mwmb_alert"))
-			// Expect(pageGenRaw.Expr()).Should(Equal("TODO")) // TODO
+			Expect(pageGenRaw.Id()).To(Equal("slo:mwmb_alert:page:quick"))
+			expectedRaw := "(max(((1 - ((sum(rate(test_metric{foo=~\"bar\",id=~\"1\"}[5m]))) / (sum(rate(test_metric{foo=~\"bar\",id=~\"1|2\"}[5m]))))) > (172.800000000 * 2.000000000))) and max(((1 - ((sum(rate(test_metric{foo=~\"bar\",id=~\"1\"}[1h]))) / (sum(rate(test_metric{foo=~\"bar\",id=~\"1|2\"}[1h]))))) > (14.400000000 * 2.000000000)))) or (max((1 - ((sum(rate(test_metric{foo=~\"bar\",id=~\"1\"}[30m]))) / (sum(rate(test_metric{foo=~\"bar\",id=~\"1|2\"}[30m]))))) > (72.000000000 * 5.000000000)) and max((1 - ((sum(rate(test_metric{foo=~\"bar\",id=~\"1\"}[6h]))) / (sum(rate(test_metric{foo=~\"bar\",id=~\"1|2\"}[6h]))))) > (6.000000000 * 5.000000000)))"
+			Expect(pageGenRaw.Expr()).Should(Equal(expectedRaw))
 
 			rule, err = pageGenRaw.Rule()
 			Expect(err).NotTo(HaveOccurred())
@@ -436,9 +438,9 @@ var _ = Describe("Prometheus SLO", Label("unit"), func() {
 					Expect(gen).NotTo(BeNil())
 					Expect(gen.Id()).NotTo(Equal(""))
 					Expect(gen.Id()).To(HavePrefix(metrics.SLOSLI))
-					Expect(gen.Id()).To(HaveSuffix(prommodel.Duration(window).String()))
-					Expect(gen.Id()).To(Equal(metrics.SLOSLI + prommodel.Duration(window).String()))
-					expected := fmt.Sprintf("1 - ((sum(rate(test_metric{job=\"scrape\", foo=~\"bar\"}[%s]))) / (sum(rate(test_metric{job=\"scrape\"}[%s]))))", prommodel.Duration(window), prommodel.Duration(window))
+					Expect(gen.Id()).To(HaveSuffix(window.Name))
+					Expect(gen.Id()).To(Equal(metrics.SLOSLI + ":" + window.Name))
+					expected := fmt.Sprintf("1 - ((sum(rate(test_metric{job=\"scrape\", foo=~\"bar\"}[%s]))) / (sum(rate(test_metric{job=\"scrape\"}[%s]))))", prommodel.Duration(window.WindowDur), prommodel.Duration(window.WindowDur))
 					Expect(gen.Expr()).To(Equal(expected))
 					_, err = promql.ParseExpr(gen.Expr())
 					Expect(err).NotTo(HaveOccurred())
@@ -556,7 +558,7 @@ var _ = Describe("Prometheus SLO", Label("unit"), func() {
 				By("expecting the optimized period burn rate rule to reference the correct sli rule")
 				pbr := sloGen.PeriodBurnRate()
 
-				periodSLIID := sloGen.SLI(util.Must(prommodel.ParseDuration(period))).Id()
+				periodSLIID := sloGen.SLI(metrics.WindowMetadata{WindowDur: util.Must(prommodel.ParseDuration(period)), Name: "period"}).Id()
 
 				expectedP := fmt.Sprintf(
 					`%s{%s} / on(%s) group_left %s{%s}`,
@@ -566,6 +568,7 @@ var _ = Describe("Prometheus SLO", Label("unit"), func() {
 					errorBudgetId,
 					curSloFilters,
 				)
+				GinkgoWriter.Write([]byte(expectedP))
 				Expect(pbr.Expr()).To(Equal(expectedP))
 
 				_, err = promql.ParseExpr(pbr.Expr())
@@ -658,9 +661,9 @@ var _ = Describe("Prometheus SLO", Label("unit"), func() {
 					Expect(gen).NotTo(BeNil())
 					Expect(gen.Id()).NotTo(Equal(""))
 					Expect(gen.Id()).To(HavePrefix(metrics.SLOSLI))
-					Expect(gen.Id()).To(HaveSuffix(prommodel.Duration(window).String()))
-					Expect(gen.Id()).To(Equal(metrics.SLOSLI + prommodel.Duration(window).String()))
-					expected := fmt.Sprintf("1 - ((sum(rate(test_metric{job=\"scrape\", foo=~\"bar\",code=~\"200\"}[%s]))) / (sum(rate(test_metric{job=\"scrape\", code=~\"200|500|503\"}[%s]))))", prommodel.Duration(window), prommodel.Duration(window))
+					Expect(gen.Id()).To(HaveSuffix(window.Name))
+					Expect(gen.Id()).To(Equal(metrics.SLOSLI + ":" + window.Name))
+					expected := fmt.Sprintf("1 - ((sum(rate(test_metric{job=\"scrape\", foo=~\"bar\",code=~\"200\"}[%s]))) / (sum(rate(test_metric{job=\"scrape\", code=~\"200|500|503\"}[%s]))))", prommodel.Duration(window.WindowDur), prommodel.Duration(window.WindowDur))
 					Expect(gen.Expr()).To(Equal(expected))
 					_, err := promql.ParseExpr(gen.Expr())
 					Expect(err).NotTo(HaveOccurred())
@@ -770,7 +773,7 @@ var _ = Describe("Prometheus SLO", Label("unit"), func() {
 
 				By("expecting the unoptimized period burn rate rule to be valid promql")
 				pbr := sloGen.PeriodBurnRate()
-				periodSLIExpr := sloGen.SLI(util.Must(prommodel.ParseDuration(period))).Expr()
+				periodSLIExpr := sloGen.SLI(metrics.WindowMetadata{WindowDur: util.Must(prommodel.ParseDuration(period)), Name: "test"}).Expr()
 
 				expectedP := fmt.Sprintf(
 					`(%s) / (%s)`,
@@ -884,7 +887,7 @@ var _ = Describe("Prometheus SLO", Label("unit"), func() {
 				sloGen.PeriodBurnRate().Id(),
 				sloGen.ErrorBudgetRemaining().Id(),
 			}
-			for _, window := range append(sloGen.Windows(), period) {
+			for _, window := range append(sloGen.Windows()) {
 				generatorIds = append(generatorIds, sloGen.SLI(window).Id())
 			}
 
@@ -969,7 +972,7 @@ var _ = Describe("Prometheus SLO", Label("unit"), func() {
 				sloGen.PeriodBurnRate().Id(),
 				sloGen.ErrorBudgetRemaining().Id(),
 			}
-			for _, window := range append(sloGen.Windows(), period) {
+			for _, window := range append(sloGen.Windows()) {
 				generatorIds = append(generatorIds, sloGen.SLI(window).Id())
 			}
 

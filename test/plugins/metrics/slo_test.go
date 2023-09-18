@@ -174,7 +174,11 @@ var _ = Describe("Prometheus SLOs", Ordered, Label("integration"), func() {
 		})
 
 		It("should construct loadable SLI SLI rule", func() {
-			expectLoadRules(env.Context(), "objective", adminClient, sloGen.SLI(prommodel.Duration(time.Second*5)))
+			expectLoadRules(env.Context(), "objective", adminClient, sloGen.SLI(
+				metrics.WindowMetadata{
+					WindowDur: prommodel.Duration(time.Second * 5),
+					Name:      "test",
+				}))
 		})
 
 		It("should construct SLI current burn rate rule", func() {

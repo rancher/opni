@@ -2,7 +2,10 @@ package gateway
 
 import (
 	"context"
+	"math"
+	"runtime"
 	"sync"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 
@@ -11,12 +14,16 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
+	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 )
 
@@ -39,6 +46,7 @@ type DelegateServer struct {
 	DelegateServerOptions
 	streamv1.UnsafeDelegateServer
 	streamv1.UnsafeRelayServer
+	config       v1beta1.GatewayConfigSpec
 	mu           *sync.RWMutex
 	rcond        *sync.Cond
 	activeAgents map[string]agentInfo
@@ -64,16 +72,18 @@ func WithConnectionTracker(connectionTracker *ConnectionTracker) DelegateServerO
 	}
 }
 
-func NewDelegateServer(clusterStore storage.ClusterStore, lg *zap.SugaredLogger, opts ...DelegateServerOption) *DelegateServer {
+func NewDelegateServer(config v1beta1.GatewayConfigSpec, clusterStore storage.ClusterStore, lg *zap.SugaredLogger, opts ...DelegateServerOption) *DelegateServer {
 	options := DelegateServerOptions{}
 	options.apply(opts...)
 	mu := &sync.RWMutex{}
 	return &DelegateServer{
-		mu:           mu,
-		rcond:        sync.NewCond(mu.RLocker()),
-		activeAgents: make(map[string]agentInfo),
-		clusterStore: clusterStore,
-		logger:       lg.Named("delegate"),
+		DelegateServerOptions: options,
+		config:                config,
+		mu:                    mu,
+		rcond:                 sync.NewCond(mu.RLocker()),
+		activeAgents:          make(map[string]agentInfo),
+		clusterStore:          clusterStore,
+		logger:                lg.Named("delegate"),
 	}
 }
 
@@ -164,14 +174,16 @@ ATTEMPT:
 					return nil, status.Error(codes.Unavailable, "agent connection state is not consistent (try again later)")
 				}
 			} else {
+				lg.Debug("relaying request to controlling instance")
 				addr := info.GetRelayAddress()
 				cc, err := grpc.DialContext(ctx, addr,
+					grpc.WithContextDialer(util.DialProtocol),
 					grpc.WithBlock(),
 					grpc.FailOnNonTempDialError(true),
 					grpc.WithTransportCredentials(insecure.NewCredentials()),
 				)
 				if err != nil {
-					return nil, status.Errorf(codes.Unavailable, "failed to dial controlling instance (try again later): %s", err.Error())
+					return nil, status.Errorf(codes.Unavailable, "failed to dial controlling instance: %s", err.Error())
 				}
 				defer cc.Close() // TODO: try keeping this open for a short time
 				relayClient := streamv1.NewRelayClient(cc)
@@ -242,4 +254,73 @@ func (d *DelegateServer) Broadcast(ctx context.Context, req *streamv1.BroadcastM
 	}
 
 	return reply, nil
+}
+
+func (d *DelegateServer) NewRelayServer() *RelayServer {
+	if d.ct == nil {
+		panic("relay server requires a connection tracker")
+	}
+	return &RelayServer{
+		delegateSrv:       d,
+		listenAddress:     d.config.Management.RelayListenAddress,
+		connectionTracker: d.ct,
+		logger:            d.logger.Named("relay"),
+	}
+}
+
+type RelayServer struct {
+	streamv1.UnsafeRelayServer
+	connectionTracker *ConnectionTracker
+	listenAddress     string
+	delegateSrv       *DelegateServer
+	logger            *zap.SugaredLogger
+}
+
+func (rs *RelayServer) ListenAndServe(ctx context.Context) error {
+	listener, err := util.NewProtocolListener(rs.listenAddress)
+	if err != nil {
+		return err
+	}
+
+	creds := insecure.NewCredentials() // todo
+
+	server := grpc.NewServer(
+		grpc.Creds(creds),
+		grpc.NumStreamWorkers(uint32(runtime.NumCPU())),
+		grpc.MaxRecvMsgSize(math.MaxInt32),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			MaxConnectionIdle: 10 * time.Second,
+		}),
+	)
+	streamv1.RegisterRelayServer(server, rs)
+
+	errC := lo.Async(func() error {
+		return server.Serve(listener)
+	})
+
+	select {
+	case <-ctx.Done():
+		server.Stop()
+		return ctx.Err()
+	case err := <-errC:
+		return err
+	}
+}
+
+// HandleDelegateRequest implements v1.RelayServer.
+func (rs *RelayServer) RelayDelegateRequest(ctx context.Context, msg *streamv1.RelayedDelegatedMessage) (*streamv1.DelegatedMessageReply, error) {
+	principal := msg.GetPrincipal()
+	target := msg.GetMessage().GetTarget().GetId()
+	if rs.connectionTracker.IsLocalInstance(principal) {
+		panic("bug: attempted to relay a delegated request to self")
+	}
+	rs.logger.Debugf("delegating request on behalf of %s", principal)
+	if !rs.connectionTracker.IsTrackedLocal(target) {
+		return nil, status.Error(codes.FailedPrecondition, "requested target is not controlled by this instance")
+	}
+	rpc, err := rs.delegateSrv.Request(ctx, msg.GetMessage())
+	return &streamv1.DelegatedMessageReply{
+		Reply:  rpc,
+		Status: status.Convert(err).Proto(),
+	}, nil
 }

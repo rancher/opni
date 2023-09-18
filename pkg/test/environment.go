@@ -1480,7 +1480,7 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 				GRPCListenAddress:  fmt.Sprintf("tcp://localhost:%d", e.ports.ManagementGRPC),
 				HTTPListenAddress:  fmt.Sprintf(":%d", e.ports.ManagementHTTP),
 				WebListenAddress:   fmt.Sprintf("localhost:%d", e.ports.ManagementWeb),
-				RelayListenAddress: lo.Ternary(e.storageBackend == "etcd", fmt.Sprintf("localhost:%d", e.ports.ManagementRelay), ""),
+				RelayListenAddress: lo.Ternary(e.storageBackend == "etcd", fmt.Sprintf("tcp://localhost:%d", e.ports.ManagementRelay), ""),
 				// WebCerts: v1beta1.CertsSpec{
 				// 	CACertData:      dashboardCertData,
 				// 	ServingCertData: dashboardCertData,

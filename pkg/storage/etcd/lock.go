@@ -88,6 +88,17 @@ func (e *EtcdLock) Lock() error {
 	})
 }
 
+func (e *EtcdLock) TryLock() (bool, error) {
+	err := e.mutex.TryLock(e.client.Ctx())
+	if err != nil {
+		if errors.Is(err, concurrency.ErrLocked) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 func (e *EtcdLock) Unlock() error {
 	return e.mutex.Unlock(e.client.Ctx())
 

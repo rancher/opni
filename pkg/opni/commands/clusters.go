@@ -62,7 +62,8 @@ func BuildClustersListCmd() *cobra.Command {
 						}
 					}
 				}()
-				return p.Start()
+				_, err := p.Run()
+				return err
 			}
 			t, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
 			if err != nil {

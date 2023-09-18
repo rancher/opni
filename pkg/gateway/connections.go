@@ -6,13 +6,16 @@ import (
 	"strings"
 	sync "sync"
 
-	"github.com/rancher/opni/pkg/agent"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/lock"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/streams"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -119,37 +122,51 @@ func (ct *ConnectionTracker) Run(ctx context.Context) error {
 	return nil
 }
 
-func (ct *ConnectionTracker) HandleAgentConnection(ctx context.Context, clientSet agent.ClientSet) {
-	agentId := cluster.StreamAuthorizedID(ctx)
-	info := &corev1.InstanceInfo{
-		RelayAddress:      ct.localInstanceInfo.GetRelayAddress(),
-		ManagementAddress: ct.localInstanceInfo.GetManagementAddress(),
-	}
-	locker := ct.lm.Locker(agentId,
-		lock.WithAcquireContext(ctx),
-		lock.WithInitialValue(base64.StdEncoding.EncodeToString(util.Must(proto.Marshal(info)))),
-	)
-	if err := locker.Lock(); err != nil {
-		ct.logger.With(
-			zap.Error(err),
-			"agentId", agentId,
-		).Error("failed to acquire lock on agent connection")
-		return
-	}
-	info.Acquired = true
-	ct.kv.Put(ctx, locker.Key(), util.Must(proto.Marshal(info)))
-	defer func() {
-		if err := locker.Unlock(); err != nil {
+type agentLockKeyType struct{}
+
+var agentLockKey agentLockKeyType
+
+func (ct *ConnectionTracker) StreamServerInterceptor() grpc.StreamServerInterceptor {
+	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		agentId := cluster.StreamAuthorizedID(ss.Context())
+		instanceInfo := &corev1.InstanceInfo{
+			RelayAddress:      ct.localInstanceInfo.GetRelayAddress(),
+			ManagementAddress: ct.localInstanceInfo.GetManagementAddress(),
+		}
+		locker := ct.lm.Locker(agentId,
+			lock.WithAcquireContext(ss.Context()),
+			lock.WithInitialValue(base64.StdEncoding.EncodeToString(util.Must(proto.Marshal(instanceInfo)))),
+		)
+		ct.logger.Debug("attempting to acquire connection lock for agent: ", agentId)
+		if acquired, err := locker.TryLock(); !acquired {
 			ct.logger.With(
 				zap.Error(err),
 				"agentId", agentId,
-			).Error("failed to release lock on agent connection")
+			).Error("failed to acquire lock on agent connection")
+			if err == nil {
+				return status.Errorf(codes.FailedPrecondition, "already connected to a different gateway instance")
+			}
+			return status.Errorf(codes.Internal, "failed to acquire lock on agent connection: %v", err)
 		}
-	}()
+		ct.logger.Debug("acquired connection lock for agent: ", agentId)
 
-	ct.logger.Debug("acquired connection lock for agent: ", agentId)
-	<-ctx.Done()
-	ct.logger.Debug("releasing connection lock for agent: ", agentId)
+		defer func() {
+			ct.logger.Debug("releasing connection lock for agent: ", agentId)
+			if err := locker.Unlock(); err != nil {
+				ct.logger.With(
+					zap.Error(err),
+					"agentId", agentId,
+				).Error("failed to release lock on agent connection")
+			}
+		}()
+
+		instanceInfo.Acquired = true
+		ct.kv.Put(ss.Context(), locker.Key(), util.Must(proto.Marshal(instanceInfo)))
+
+		stream := streams.NewServerStreamWithContext(ss)
+		stream.Ctx = context.WithValue(stream.Ctx, agentLockKey, locker)
+		return handler(srv, stream)
+	}
 }
 
 func (ct *ConnectionTracker) handleEventLocked(event storage.WatchEvent[storage.KeyRevision[[]byte]]) {

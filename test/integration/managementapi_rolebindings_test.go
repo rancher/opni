@@ -23,6 +23,7 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 	BeforeAll(func() {
 		environment = &test.Environment{}
 		Expect(environment.Start()).To(Succeed())
+		DeferCleanup(environment.Stop)
 		client = environment.NewManagementClient()
 
 		_, err := client.CreateRole(context.Background(), &corev1.Role{
@@ -34,9 +35,6 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	AfterAll(func() {
-		ExpectGracefulExamplePluginShutdown(environment)
-	})
 	//#endregion
 
 	//#region Happy Path Tests

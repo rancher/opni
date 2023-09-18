@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -85,23 +84,26 @@ func (s *ExamplePlugin) UseManagementAPI(client managementv1.ManagementClient) {
 	cfg, err := client.GetConfig(context.Background(), &emptypb.Empty{}, grpc.WaitForReady(true))
 	if err != nil {
 		s.logger.With(zap.Error(err)).Error("failed to get config")
-		os.Exit(1)
+		return
 	}
 	objectList, err := machinery.LoadDocuments(cfg.Documents)
 	if err != nil {
 		s.logger.With(zap.Error(err)).Error("failed to load config")
-		os.Exit(1)
+		return
 	}
 	machinery.LoadAuthProviders(s.ctx, objectList)
 	objectList.Visit(func(config *v1beta1.GatewayConfig) {
 		backend, err := machinery.ConfigureStorageBackend(s.ctx, &config.Spec.Storage)
 		if err != nil {
 			s.logger.With(zap.Error(err)).Error("failed to configure storage backend")
-			os.Exit(1)
+			return
 		}
 		s.storageBackend.Set(backend)
 	})
 
+	if !s.storageBackend.IsSet() {
+		return
+	}
 	<-s.ctx.Done()
 }
 
@@ -111,7 +113,7 @@ func (s *ExamplePlugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	})
 	if err != nil {
 		s.logger.With(zap.Error(err)).Error("failed to create uninstall controller")
-		os.Exit(1)
+		return
 	}
 	s.uninstallController.Set(ctrl)
 	<-s.ctx.Done()

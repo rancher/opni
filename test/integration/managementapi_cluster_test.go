@@ -31,6 +31,8 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 	BeforeAll(func() {
 		environment = &test.Environment{}
 		Expect(environment.Start()).To(Succeed())
+		DeferCleanup(environment.Stop)
+
 		client = environment.NewManagementClient()
 
 		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
@@ -47,9 +49,6 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 		Eventually(errC).Should(Receive(BeNil()))
 	})
 
-	AfterAll(func() {
-		ExpectGracefulExamplePluginShutdown(environment)
-	})
 	//#endregion
 
 	//#region Happy Path Tests

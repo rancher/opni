@@ -23,10 +23,8 @@ var _ = Describe("Gateway unary interceptor tests", Ordered, Label("integration"
 		Expect(env.Start()).To(Succeed())
 		client = env.NewManagementClient(test.WithClientCaching(10*1024, time.Minute))
 		ctx = env.Context()
-	})
 
-	AfterAll(func() {
-		ExpectGracefulExamplePluginShutdown(env)
+		DeferCleanup(env.Stop)
 	})
 
 	When("we use the gateway caching interceptors", func() {

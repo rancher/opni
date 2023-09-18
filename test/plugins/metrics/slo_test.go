@@ -612,9 +612,9 @@ func writeSLO(
 		ts := start.Add(time.Duration(i) * time.Millisecond)
 		cur := i % iMax
 		if cur < iMax-iExpectedSLI {
-			totalVal += 1
+			totalVal++
 		} else {
-			goodVal += 1
+			goodVal++
 		}
 		goodEvents.Samples = append(goodEvents.Samples, prompb.Sample{
 			Value:     float64(goodVal),

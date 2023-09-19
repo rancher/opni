@@ -10,10 +10,15 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/caching"
+	"github.com/rancher/opni/pkg/capabilities"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/management"
+	"github.com/rancher/opni/pkg/slo/backend"
+	"github.com/rancher/opni/pkg/slo/backend/metrics"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/slo/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/node_backend"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
@@ -26,6 +31,7 @@ import (
 
 	"github.com/rancher/opni/pkg/alerting/server"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
@@ -37,6 +43,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	slov1 "github.com/rancher/opni/pkg/apis/slo/v1"
 	_ "github.com/rancher/opni/pkg/storage/etcd"
 	_ "github.com/rancher/opni/pkg/storage/jetstream"
 )
@@ -94,6 +101,12 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	p.capabilitySpecStore.Set(node_backend.CapabilitySpecKV{
 		DefaultCapabilitySpec: storage.NewValueStore(system.NewKVStoreClient[*node.AlertingCapabilitySpec](client), "/alerting/config/capability/default"),
 		NodeCapabilitySpecs:   storage.NewKeyValueStoreWithPrefix(system.NewKVStoreClient[*node.AlertingCapabilitySpec](client), "/alerting/config/capability/nodes"),
+	})
+
+	p.sloStorage.Set(slo.StorageAPIs{
+		SLOs:     system.NewKVStoreClient[*slov1.SLOData](client),
+		Services: system.NewKVStoreClient[*slov1.Service](client),
+		Metrics:  system.NewKVStoreClient[*slov1.Metric](client),
 	})
 
 	var (
@@ -193,11 +206,49 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	}
 	p.adminClient.Set(cortexadmin.NewCortexAdminClient(cc))
 	p.cortexOpsClient.Set(cortexops.NewCortexOpsClient(cc))
+
+	p.registerMetricsDatasource()
 }
 
 func (p *Plugin) UseNodeManagerClient(client capabilityv1.NodeManagerClient) {
 	p.capabilityManager.Set(client)
 	<-p.ctx.Done()
+}
+
+func (p *Plugin) registerMetricsDatasource() {
+	metricsProvider := metrics.NewProvider(p.logger.With("component", "slo"))
+	metricsProvider.Initialize(p.adminClient.Get())
+	metricsStoreProvider := metrics.NewMetricsSLOStoreProvider(p.logger.With("component", "slo"))
+	metricsStoreProvider.Initialize(p.adminClient.Get())
+
+	metricsDatasource := backend.NewSLODatasource(
+		metrics.NewMetricsSLOStore(
+			metricsStoreProvider,
+		),
+		metrics.NewBackend(
+			metricsProvider,
+		),
+		func(ctx context.Context, clusterId *corev1.Reference) error {
+			mgmtClient, err := p.mgmtClient.GetContext(ctx)
+			if err != nil {
+				return err
+			}
+			cluster, err := mgmtClient.GetCluster(ctx, &corev1.Reference{
+				Id: clusterId.Id,
+			})
+			if err != nil {
+				return err
+			}
+			if !capabilities.Has(cluster, capabilities.Cluster(wellknown.CapabilityMetrics)) {
+				return fmt.Errorf("requires metrics capability to be installed on cluster %s", cluster.GetId())
+			}
+			return nil
+		},
+	)
+	slo.RegisterDatasource(
+		"monitoring",
+		metricsDatasource,
+	)
 }
 
 func (p *Plugin) handleDriverNotifications() {

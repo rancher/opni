@@ -9,6 +9,15 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+func (c *ClusterList) Has(clusterId string) bool {
+	for _, cluster := range c.Items {
+		if cluster.Id == clusterId {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *HealthStatus) Summary() string {
 	if s.Status == nil || s.Health == nil {
 		return "Unknown"

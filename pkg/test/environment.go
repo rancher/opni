@@ -35,11 +35,8 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nkeys"
 	"github.com/onsi/ginkgo/v2"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rancher/opni/pkg/agent"
 	agentv2 "github.com/rancher/opni/pkg/agent/v2"
-	"github.com/rancher/opni/pkg/alerting/metrics/naming"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -61,7 +58,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	pluginmeta "github.com/rancher/opni/pkg/plugins/meta"
-	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/pkg/test/freeport"
 	mock_ident "github.com/rancher/opni/pkg/test/mock/ident"
 	"github.com/rancher/opni/pkg/test/testdata"
@@ -1095,141 +1091,6 @@ func (e *Environment) StartOTELCollectorContext(ctx waitctx.PermissiveContext, o
 	}()
 
 	return nil
-}
-
-// Starts a server that exposes Prometheus metrics
-//
-// Returns port number of the server & a channel that shutdowns the server
-func (e *Environment) StartInstrumentationServer() (int, chan struct{}) {
-	// lg := e.logger
-	port := freeport.GetFreePort()
-
-	mux := http.NewServeMux()
-	reg := prometheus.NewRegistry()
-
-	for queryName, queryObj := range query.AvailableQueries {
-		// register each prometheus collector
-		reg.MustRegister(queryObj.GetCollector())
-
-		// create an endpoint simulating good events
-		mux.HandleFunc(fmt.Sprintf("/%s/%s", queryName, "good"), queryObj.GetGoodEventGenerator())
-		// create an endpoint simulating bad events
-		mux.HandleFunc(fmt.Sprintf("/%s/%s", queryName, "bad"), queryObj.GetBadEventGenerator())
-
-	}
-	// expose prometheus metrics
-
-	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{
-		Registry: reg,
-	}))
-
-	autoInstrumentationServer := &http.Server{
-		Addr:           fmt.Sprintf("127.0.0.1:%d", port),
-		Handler:        mux,
-		ReadTimeout:    1 * time.Second,
-		WriteTimeout:   1 * time.Second,
-		MaxHeaderBytes: 1 << 20,
-	}
-	done := make(chan struct{})
-	waitctx.Restrictive.Go(e.ctx, func() {
-		go func() {
-			err := autoInstrumentationServer.ListenAndServe()
-			if !errors.Is(err, http.ErrServerClosed) {
-				panic(err)
-			}
-		}()
-		defer autoInstrumentationServer.Shutdown(context.Background())
-		select {
-		case <-e.ctx.Done():
-		case <-done:
-		}
-	})
-	return port, done
-}
-
-func (e *Environment) StartMockKubernetesMetricServer() (port int) {
-	port = freeport.GetFreePort()
-
-	mux := http.NewServeMux()
-	reg := prometheus.NewRegistry()
-
-	registeredCollectors := map[string]*prometheus.GaugeVec{}
-
-	kubeMetricsIsDefined := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: naming.KubeMetricsIsDefinedMetricName,
-	}, []string{"namespace"})
-
-	kubeMetricsIsDefined.WithLabelValues("kube-system").Set(1)
-
-	setObjHandler := func(w http.ResponseWriter, r *http.Request) {
-		collectorWriteSync.Lock()
-		defer collectorWriteSync.Unlock()
-		objType := r.URL.Query().Get("obj")
-		name := r.URL.Query().Get("name")
-		namespace := r.URL.Query().Get("namespace")
-		phase := r.URL.Query().Get("phase")
-		uid := r.URL.Query().Get("uid")
-
-		accessedState := false
-		var b bytes.Buffer
-		err := naming.KubeObjMetricCreator.Execute(&b, map[string]string{
-			"ObjType": objType,
-		})
-		if err != nil {
-			panic(err)
-		}
-		var newOrExistingKubeObjStateCollector *prometheus.GaugeVec
-		if _, ok := registeredCollectors[b.String()]; !ok {
-			newOrExistingKubeObjStateCollector = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-				Name: b.String(),
-			}, []string{objType, "namespace", "phase", "uid"})
-			registeredCollectors[b.String()] = newOrExistingKubeObjStateCollector
-			reg.MustRegister(newOrExistingKubeObjStateCollector)
-		} else {
-			newOrExistingKubeObjStateCollector = registeredCollectors[b.String()]
-		}
-
-		for _, validPhase := range shared.KubeStates {
-			if phase == validPhase {
-				accessedState = true
-				newOrExistingKubeObjStateCollector.WithLabelValues(name, namespace, validPhase, uid).Set(1)
-			} else {
-				newOrExistingKubeObjStateCollector.WithLabelValues(name, namespace, validPhase, uid).Set(0)
-			}
-		}
-		if accessedState == false {
-			panic(fmt.Sprintf("Set state for kube metrics api must be one of %s", strings.Join(shared.KubeStates, ",")))
-		}
-	}
-
-	reg.MustRegister(kubeMetricsIsDefined)
-
-	mux.HandleFunc("/set", setObjHandler)
-	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{
-		Registry: reg,
-	}))
-
-	autoKubernetesMetricsServer := &http.Server{
-		Addr:           fmt.Sprintf("127.0.0.1:%d", port),
-		Handler:        mux,
-		ReadTimeout:    1 * time.Second,
-		WriteTimeout:   1 * time.Second,
-		MaxHeaderBytes: 1 << 20,
-	}
-	waitctx.Permissive.Go(e.ctx, func() {
-		go func() {
-			err := autoKubernetesMetricsServer.ListenAndServe()
-			if err != http.ErrServerClosed {
-				panic(err)
-			}
-		}()
-		defer autoKubernetesMetricsServer.Shutdown(context.Background())
-		select {
-		case <-e.ctx.Done():
-		}
-	})
-
-	return port
 }
 
 func (e *Environment) StartAgentDisconnectServer() {

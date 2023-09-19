@@ -519,6 +519,7 @@ func main() {
 
 	// listen for spacebar on stdin
 	t, err := tty.Open()
+	defer t.Close()
 	if err == nil {
 		showHelp()
 		go func() {

@@ -133,6 +133,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		}
 		driver, err := builder(p.ctx,
 			driverutil.NewOption("defaultConfigStore", backendKvClients.DefaultClusterConfigurationSpec),
+			driverutil.NewOption("onActiveConfigChanged", p.metrics.OpsBackend.OnActiveConfigChanged),
 		)
 		if err != nil {
 			p.logger.With(

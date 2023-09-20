@@ -5,19 +5,27 @@ import (
 	"reflect"
 
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/storage/lock"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type kvStoreServer struct {
 	UnsafeKeyValueStoreServer
-	store storage.KeyValueStore
+	kv storage.KeyValueStore
+	lm storage.LockManager
 }
 
-func NewKVStoreServer(store storage.KeyValueStore) KeyValueStoreServer {
+func NewKVStoreServer(store storage.KeyValueStore, lockMgr storage.LockManager) KeyValueStoreServer {
 	return &kvStoreServer{
-		store: store,
+		kv: store,
+		lm: lockMgr,
 	}
 }
 
@@ -32,7 +40,7 @@ func (s *kvStoreServer) Put(ctx context.Context, in *PutRequest) (*PutResponse, 
 	if in.Revision != nil {
 		opts = append(opts, storage.WithRevision(*in.Revision))
 	}
-	err := s.store.Put(ctx, in.Key, in.Value, opts...)
+	err := s.kv.Put(ctx, in.Key, in.Value, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +60,7 @@ func (s *kvStoreServer) Get(ctx context.Context, in *GetRequest) (*GetResponse, 
 	if in.Revision != nil {
 		opts = append(opts, storage.WithRevision(*in.Revision))
 	}
-	data, err := s.store.Get(ctx, in.GetKey(), opts...)
+	data, err := s.kv.Get(ctx, in.GetKey(), opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +79,7 @@ func (s *kvStoreServer) Watch(in *WatchRequest, stream KeyValueStore_WatchServer
 		opts = append(opts, storage.WithPrefix())
 	}
 
-	ch, err := s.store.Watch(stream.Context(), in.GetKey(), opts...)
+	ch, err := s.kv.Watch(stream.Context(), in.GetKey(), opts...)
 	if err != nil {
 		return err
 	}
@@ -128,7 +136,7 @@ func (s *kvStoreServer) Delete(ctx context.Context, in *DeleteRequest) (*DeleteR
 	if in.Revision != nil {
 		opts = append(opts, storage.WithRevision(*in.Revision))
 	}
-	err := s.store.Delete(ctx, in.GetKey(), opts...)
+	err := s.kv.Delete(ctx, in.GetKey(), opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +151,7 @@ func (s *kvStoreServer) ListKeys(ctx context.Context, in *ListKeysRequest) (*Lis
 	if in.Limit != nil {
 		opts = append(opts, storage.WithLimit(*in.Limit))
 	}
-	items, err := s.store.ListKeys(ctx, in.GetKey(), opts...)
+	items, err := s.kv.ListKeys(ctx, in.GetKey(), opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +167,7 @@ func (s *kvStoreServer) History(ctx context.Context, in *HistoryRequest) (*Histo
 	opts := []storage.HistoryOpt{}
 	opts = append(opts, storage.IncludeValues(in.IncludeValues))
 
-	items, err := s.store.History(ctx, in.GetKey(), opts...)
+	items, err := s.kv.History(ctx, in.GetKey(), opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -178,6 +186,37 @@ func (s *kvStoreServer) History(ctx context.Context, in *HistoryRequest) (*Histo
 	return &HistoryResponse{
 		Revisions: revisions,
 	}, nil
+}
+
+func (s *kvStoreServer) Lock(ctx context.Context, in *LockRequest) (*emptypb.Empty, error) {
+	if s.lm == nil {
+		return nil, status.Errorf(codes.Unimplemented, "not available with the current storage backend")
+	}
+	if err := in.Validate(); err != nil {
+		return nil, err
+	}
+
+	locker := s.lm.Locker(in.Key, lock.WithAcquireContext(ctx))
+	if in.TryLock {
+		acquired, err := locker.TryLock()
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+		if !acquired {
+			return nil, util.Must(status.New(codes.Aborted, err.Error()).WithDetails(&errdetails.ErrorInfo{
+				Reason: "TRY_LOCK",
+			})).Err()
+		}
+	} else {
+		if err := locker.Lock(); err != nil {
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+	}
+	<-ctx.Done()
+	if err := locker.Unlock(); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
 }
 
 type kvStoreClientImpl[T proto.Message] struct {

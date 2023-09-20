@@ -19,6 +19,12 @@ type OpsServiceBackend struct {
 	*MetricsBackend
 }
 
+func (m *OpsServiceBackend) OnActiveConfigChanged() {
+	m.WaitForInit()
+
+	m.broadcastNodeSync(context.Background())
+}
+
 var _ cortexops.CortexOpsServer = (*OpsServiceBackend)(nil)
 
 func (m *OpsServiceBackend) GetDefaultConfiguration(ctx context.Context, in *driverutil.GetRequest) (*cortexops.CapabilityBackendConfigSpec, error) {
@@ -48,23 +54,13 @@ func (m *OpsServiceBackend) GetConfiguration(ctx context.Context, in *driverutil
 func (m *OpsServiceBackend) SetConfiguration(ctx context.Context, in *cortexops.CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
 	m.WaitForInit()
 
-	res, err := m.ClusterDriver.SetConfiguration(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	m.broadcastNodeSync(ctx)
-	return res, nil
+	return m.ClusterDriver.SetConfiguration(ctx, in)
 }
 
 func (m *OpsServiceBackend) ResetConfiguration(ctx context.Context, in *cortexops.ResetRequest) (*emptypb.Empty, error) {
 	m.WaitForInit()
 
-	res, err := m.ClusterDriver.ResetConfiguration(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	m.broadcastNodeSync(ctx)
-	return res, nil
+	return m.ClusterDriver.ResetConfiguration(ctx, in)
 }
 
 func (m *OpsServiceBackend) Status(ctx context.Context, in *emptypb.Empty) (*driverutil.InstallStatus, error) {
@@ -76,12 +72,7 @@ func (m *OpsServiceBackend) Status(ctx context.Context, in *emptypb.Empty) (*dri
 func (m *OpsServiceBackend) Install(ctx context.Context, in *emptypb.Empty) (*emptypb.Empty, error) {
 	m.WaitForInit()
 
-	res, err := m.ClusterDriver.Install(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	m.broadcastNodeSync(ctx)
-	return res, nil
+	return m.ClusterDriver.Install(ctx, in)
 }
 
 func (m *OpsServiceBackend) Uninstall(ctx context.Context, in *emptypb.Empty) (*emptypb.Empty, error) {
@@ -100,7 +91,6 @@ func (m *OpsServiceBackend) Uninstall(ctx context.Context, in *emptypb.Empty) (*
 	if len(clustersWithCapability) > 0 {
 		return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("There are %d agents sending metrics to the Opni monitoring backend. Uninstall the capability on all agents before attempting to uninstall the Opni monitoring backend.", len(clustersWithCapability)))
 	}
-	defer m.broadcastNodeSync(ctx)
 	return m.ClusterDriver.Uninstall(ctx, in)
 }
 

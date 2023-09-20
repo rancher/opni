@@ -2,7 +2,6 @@ syntax = "proto3";
 
 package system;
 
-import "github.com/rancher/opni/pkg/apis/management/v1/management.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -22,6 +21,7 @@ service KeyValueStore {
   rpc Delete(DeleteRequest) returns (DeleteResponse);
   rpc ListKeys(ListKeysRequest) returns (ListKeysResponse);
   rpc History(HistoryRequest) returns (HistoryResponse);
+  rpc Lock(LockRequest) returns (google.protobuf.Empty);
 }
 
 message BrokerID {
@@ -98,4 +98,13 @@ message WatchResponse {
   EventType   eventType = 1;
   KeyRevision current   = 2;
   KeyRevision previous  = 3;
+}
+
+message LockRequest {
+  // The key to acquire a lock for.
+  string key = 1;
+  // If true, the request will return immediately with an error if the lock is
+  // already held. Otherwise, the lock will be acquired, and the request will
+  // block until canceled.
+  bool tryLock = 2;
 }

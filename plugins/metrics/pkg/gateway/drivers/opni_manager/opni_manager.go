@@ -28,10 +28,11 @@ import (
 )
 
 type OpniManagerClusterDriverOptions struct {
-	K8sClient          client.WithWatch                                            `option:"k8sClient"`
-	MonitoringCluster  types.NamespacedName                                        `option:"monitoringCluster"`
-	GatewayRef         types.NamespacedName                                        `option:"gatewayRef"`
-	DefaultConfigStore storage.ValueStoreT[*cortexops.CapabilityBackendConfigSpec] `option:"defaultConfigStore"`
+	K8sClient             client.WithWatch                                            `option:"k8sClient"`
+	MonitoringCluster     types.NamespacedName                                        `option:"monitoringCluster"`
+	GatewayRef            types.NamespacedName                                        `option:"gatewayRef"`
+	DefaultConfigStore    storage.ValueStoreT[*cortexops.CapabilityBackendConfigSpec] `option:"defaultConfigStore"`
+	OnActiveConfigChanged func()                                                      `option:"onActiveConfigChanged"`
 }
 
 func (k OpniManagerClusterDriverOptions) newMonitoringCluster() *opnicorev1beta1.MonitoringCluster {
@@ -84,7 +85,7 @@ func (methods) FillObjectFromConfig(obj *opnicorev1beta1.MonitoringCluster, conf
 	obj.Spec.Grafana.GrafanaConfig = conf.Grafana
 }
 
-func NewOpniManagerClusterDriver(options OpniManagerClusterDriverOptions) (*OpniManager, error) {
+func NewOpniManagerClusterDriver(ctx context.Context, options OpniManagerClusterDriverOptions) (*OpniManager, error) {
 	if options.K8sClient == nil {
 		s := scheme.Scheme
 		opnicorev1beta1.AddToScheme(s)
@@ -103,13 +104,23 @@ func NewOpniManagerClusterDriver(options OpniManagerClusterDriverOptions) (*Opni
 	}
 
 	gateway := options.newGateway()
-	err := options.K8sClient.Get(context.TODO(), options.GatewayRef, gateway)
+	err := options.K8sClient.Get(ctx, options.GatewayRef, gateway)
 	if err != nil {
 		return nil, err
 	}
 	activeStore := crds.NewCRDValueStore(options.MonitoringCluster, methods{
 		controllerRef: gateway,
 	}, crds.WithClient(options.K8sClient))
+
+	updateC, err := activeStore.Watch(ctx, storage.WithPrefix())
+	if err != nil {
+		return nil, err
+	}
+	go func() {
+		for range updateC {
+			options.OnActiveConfigChanged()
+		}
+	}()
 
 	configSrv := driverutil.NewBaseConfigServer[
 		*cortexops.ResetRequest,
@@ -260,7 +271,7 @@ func (k *OpniManager) DryRun(ctx context.Context, req *cortexops.DryRunRequest) 
 }
 
 func init() {
-	drivers.ClusterDrivers.Register("opni-manager", func(_ context.Context, opts ...driverutil.Option) (drivers.ClusterDriver, error) {
+	drivers.ClusterDrivers.Register("opni-manager", func(ctx context.Context, opts ...driverutil.Option) (drivers.ClusterDriver, error) {
 		options := OpniManagerClusterDriverOptions{
 			MonitoringCluster: types.NamespacedName{
 				Namespace: os.Getenv("POD_NAMESPACE"),
@@ -270,11 +281,12 @@ func init() {
 				Namespace: os.Getenv("POD_NAMESPACE"),
 				Name:      os.Getenv("GATEWAY_NAME"),
 			},
+			OnActiveConfigChanged: func() {},
 		}
 		if err := driverutil.ApplyOptions(&options, opts...); err != nil {
 			return nil, err
 		}
 
-		return NewOpniManagerClusterDriver(options)
+		return NewOpniManagerClusterDriver(ctx, options)
 	})
 }

@@ -42,3 +42,10 @@ func (hr *HistoryRequest) Validate() error {
 	}
 	return nil
 }
+
+func (lr *LockRequest) Validate() error {
+	if lr.Key == "" {
+		return validation.Errorf("%w: key", validation.ErrMissingRequiredField)
+	}
+	return nil
+}

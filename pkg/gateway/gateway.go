@@ -155,8 +155,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 			).Warn("system plugin module name is invalid")
 			return
 		}
-		store := storageBackend.KeyValueStore(ns)
-		go p.ServeKeyValueStore(store)
+		go p.ServeKeyValueStore(ns, storageBackend)
 	}))
 
 	// serve caching provider for plugin RPCs

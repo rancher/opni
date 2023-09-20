@@ -227,6 +227,7 @@ const (
 	KeyValueStore_Delete_FullMethodName   = "/system.KeyValueStore/Delete"
 	KeyValueStore_ListKeys_FullMethodName = "/system.KeyValueStore/ListKeys"
 	KeyValueStore_History_FullMethodName  = "/system.KeyValueStore/History"
+	KeyValueStore_Lock_FullMethodName     = "/system.KeyValueStore/Lock"
 )
 
 // KeyValueStoreClient is the client API for KeyValueStore service.
@@ -239,6 +240,7 @@ type KeyValueStoreClient interface {
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
 	ListKeys(ctx context.Context, in *ListKeysRequest, opts ...grpc.CallOption) (*ListKeysResponse, error)
 	History(ctx context.Context, in *HistoryRequest, opts ...grpc.CallOption) (*HistoryResponse, error)
+	Lock(ctx context.Context, in *LockRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type keyValueStoreClient struct {
@@ -326,6 +328,15 @@ func (c *keyValueStoreClient) History(ctx context.Context, in *HistoryRequest, o
 	return out, nil
 }
 
+func (c *keyValueStoreClient) Lock(ctx context.Context, in *LockRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, KeyValueStore_Lock_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // KeyValueStoreServer is the server API for KeyValueStore service.
 // All implementations must embed UnimplementedKeyValueStoreServer
 // for forward compatibility
@@ -336,6 +347,7 @@ type KeyValueStoreServer interface {
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
 	ListKeys(context.Context, *ListKeysRequest) (*ListKeysResponse, error)
 	History(context.Context, *HistoryRequest) (*HistoryResponse, error)
+	Lock(context.Context, *LockRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedKeyValueStoreServer()
 }
 
@@ -360,6 +372,9 @@ func (UnimplementedKeyValueStoreServer) ListKeys(context.Context, *ListKeysReque
 }
 func (UnimplementedKeyValueStoreServer) History(context.Context, *HistoryRequest) (*HistoryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method History not implemented")
+}
+func (UnimplementedKeyValueStoreServer) Lock(context.Context, *LockRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Lock not implemented")
 }
 func (UnimplementedKeyValueStoreServer) mustEmbedUnimplementedKeyValueStoreServer() {}
 
@@ -485,6 +500,24 @@ func _KeyValueStore_History_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KeyValueStore_Lock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LockRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KeyValueStoreServer).Lock(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KeyValueStore_Lock_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KeyValueStoreServer).Lock(ctx, req.(*LockRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // KeyValueStore_ServiceDesc is the grpc.ServiceDesc for KeyValueStore service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -511,6 +544,10 @@ var KeyValueStore_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "History",
 			Handler:    _KeyValueStore_History_Handler,
+		},
+		{
+			MethodName: "Lock",
+			Handler:    _KeyValueStore_Lock_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

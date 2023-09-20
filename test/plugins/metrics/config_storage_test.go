@@ -52,7 +52,7 @@ var _ = Describe("Config Storage Tests", Ordered, Label("integration"), func() {
 				})
 				Expect(err).NotTo(HaveOccurred())
 
-				server := system.NewKVStoreServer(backend.KeyValueStore("test"))
+				server := system.NewKVStoreServer(backend.KeyValueStore("test"), backend.(storage.LockManagerBroker).LockManager("test"))
 
 				listener := bufconn.Listen(1024)
 				srv := grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
@@ -100,7 +100,7 @@ var _ = Describe("Config Storage Tests", Ordered, Label("integration"), func() {
 				})
 				Expect(err).NotTo(HaveOccurred())
 
-				server := system.NewKVStoreServer(backend.KeyValueStore("test"))
+				server := system.NewKVStoreServer(backend.KeyValueStore("test"), backend.(storage.LockManagerBroker).LockManager("test"))
 
 				listener := bufconn.Listen(1024)
 				srv := grpc.NewServer(grpc.Creds(insecure.NewCredentials()))

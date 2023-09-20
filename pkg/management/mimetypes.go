@@ -7,7 +7,9 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/jhump/protoreflect/dynamic"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/runtime/protoiface"
+	"google.golang.org/protobuf/runtime/protoimpl"
 )
 
 type DynamicV1Marshaler struct{}
@@ -21,26 +23,31 @@ func (*DynamicV1Marshaler) ContentType(_ any) string {
 
 // Marshal implements runtime.Marshaler.
 func (*DynamicV1Marshaler) Marshal(v any) ([]byte, error) {
-	msg := v.(*dynamic.Message)
-	return msg.Marshal()
+	return proto.Marshal(protoimpl.X.ProtoMessageV2Of(v))
 }
 
 // NewDecoder implements runtime.Marshaler.
 func (*DynamicV1Marshaler) NewDecoder(r io.Reader) runtime.Decoder {
 	return runtime.DecoderFunc(func(v any) error {
-		msg := v.(*dynamic.Message)
-		bytes, err := io.ReadAll(r)
+		data, err := io.ReadAll(r)
 		if err != nil {
 			return err
 		}
-		return msg.Unmarshal(bytes)
+		switch msg := v.(type) {
+		case *dynamic.Message:
+			return msg.Unmarshal(data)
+		case proto.Message:
+			return proto.Unmarshal(data, msg)
+		default:
+			return proto.Unmarshal(data, protoimpl.X.ProtoMessageV2Of(msg))
+		}
 	})
 }
 
 // NewEncoder implements runtime.Marshaler.
 func (*DynamicV1Marshaler) NewEncoder(w io.Writer) runtime.Encoder {
 	return runtime.EncoderFunc(func(v any) error {
-		bytes, err := v.(*dynamic.Message).Marshal()
+		bytes, err := proto.Marshal(protoimpl.X.ProtoMessageV2Of(v))
 		if err != nil {
 			return err
 		}
@@ -51,8 +58,14 @@ func (*DynamicV1Marshaler) NewEncoder(w io.Writer) runtime.Encoder {
 
 // Unmarshal implements runtime.Marshaler.
 func (*DynamicV1Marshaler) Unmarshal(data []byte, v any) error {
-	msg := v.(*dynamic.Message)
-	return msg.Unmarshal(data)
+	switch msg := v.(type) {
+	case *dynamic.Message:
+		return msg.Unmarshal(data)
+	case proto.Message:
+		return proto.Unmarshal(data, msg)
+	default:
+		return proto.Unmarshal(data, protoimpl.X.ProtoMessageV2Of(msg))
+	}
 }
 
 type LegacyJsonMarshaler struct{}

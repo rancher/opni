@@ -22,7 +22,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/genproto/googleapis/api/annotations"
-	statuspb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -224,23 +223,6 @@ func (m *Server) configureServiceStubHandlers(
 			).Debug("configured http handler")
 		}
 	}
-}
-
-type statusOnlyMarshaler struct {
-	runtime.Marshaler
-}
-
-func (m statusOnlyMarshaler) Marshal(v any) ([]byte, error) {
-	if st, ok := v.(*statuspb.Status); ok {
-		return []byte(st.GetMessage()), nil
-	}
-	return m.Marshaler.Marshal(v)
-}
-
-func extensionsErrorHandler(ctx context.Context, mux *runtime.ServeMux, marshaler runtime.Marshaler, w http.ResponseWriter, r *http.Request, err error) {
-	runtime.DefaultHTTPErrorHandler(ctx, mux, statusOnlyMarshaler{
-		Marshaler: marshaler,
-	}, w, r, err)
 }
 
 func loadHttpRuleDescriptors(svc *desc.ServiceDescriptor) []*managementv1.HTTPRuleDescriptor {

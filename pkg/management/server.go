@@ -231,7 +231,6 @@ func (m *Server) listenAndServeHttp(ctx context.Context) error {
 	).Info("management HTTP server starting")
 	mux := http.NewServeMux()
 	gwmux := runtime.NewServeMux(
-		runtime.WithErrorHandler(extensionsErrorHandler),
 		runtime.WithMarshalerOption("application/json", &LegacyJsonMarshaler{}),
 		runtime.WithMarshalerOption("application/octet-stream", &DynamicV1Marshaler{}),
 		runtime.WithMarshalerOption(runtime.MIMEWildcard, &DynamicV1Marshaler{}),

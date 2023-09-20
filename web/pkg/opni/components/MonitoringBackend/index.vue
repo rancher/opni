@@ -225,6 +225,7 @@ export default {
 
       const config = await CortexOps.service.GetDefaultConfiguration(new DriverUtil.types.GetRequest());
 
+      config.cortexWorkloads = config.cortexWorkloads || {};
       config.cortexWorkloads.targets = !config.cortexWorkloads.targets || Object.keys(config.cortexWorkloads.targets).length === 0 ? this.config.cortexWorkloads.targets : config.cortexWorkloads.targets;
       config.cortexConfig.storage = config.cortexConfig.storage || { backend: 's3' };
       const backendField = config.cortexConfig.storage.backend;

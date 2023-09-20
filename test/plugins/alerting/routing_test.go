@@ -296,7 +296,9 @@ func (t testSpecSuite) ExpectAlertsToBeRouted(amPort int) error {
 				}
 			}
 		}
-		Expect(found).To(BeTrue())
+		if !found {
+			return fmt.Errorf("expected to find finalizer for '%s'=%s in alertmanager state", ns, conditionId)
+		}
 	}
 	// Addr is unique for each server
 	uniqServers := map[string]lo.Tuple2[*alerting.MockIntegrationWebhookServer, string]{}
@@ -313,8 +315,9 @@ func (t testSpecSuite) ExpectAlertsToBeRouted(amPort int) error {
 			expectedIds[server.Addr] = append(expectedIds[server.Addr], spec.id)
 		}
 	}
-
-	Expect(expectedIds).NotTo(HaveLen(0))
+	if len(expectedIds) == 0 {
+		return fmt.Errorf("expected to find at least one server")
+	}
 	for _, server := range uniqServers {
 		ids := []string{}
 		for _, msg := range server.A.GetBuffer() {

@@ -40,7 +40,7 @@ export default {
         dataRetention: '7d',
 
         dataNodes: {
-          replicas:     '1',
+          replicas:     '2',
           diskSize:     '35Gi',
           memoryLimit:  '2048Mi',
           cpuResources: {
@@ -71,7 +71,7 @@ export default {
 
         controlplaneNodes: {
           enabled:      false,
-          replicas:     '1',
+          replicas:     '3',
           nodeSelector: {},
           tolerations:  [],
           persistence:  {

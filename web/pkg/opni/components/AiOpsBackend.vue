@@ -291,12 +291,6 @@ export default {
 </template>
 
 <style lang="scss" scoped>
-.middle {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-}
-
 .banner {
   display: flex;
   flex-direction: row;

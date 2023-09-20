@@ -111,10 +111,6 @@ func (in *Config) FlagSet(prefix ...string) *pflag.FlagSet {
 		in.Swift = &SwiftConfig{}
 	}
 	fs.AddFlagSet(in.Swift.FlagSet(append(prefix, "swift")...))
-	if in.Filesystem == nil {
-		in.Filesystem = &FilesystemConfig{}
-	}
-	fs.AddFlagSet(in.Filesystem.FlagSet(append(prefix, "filesystem")...))
 	return fs
 }
 
@@ -451,10 +447,4 @@ func (in *SwiftConfig) UnredactSecrets(unredacted *SwiftConfig) error {
 		return nil
 	}
 	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
-}
-
-func (in *FilesystemConfig) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("FilesystemConfig", pflag.ExitOnError)
-	fs.SortFlags = true
-	return fs
 }

@@ -49,6 +49,7 @@ type CortexWorkloadOptions struct {
 	extraVolumes                  []corev1.Volume
 	extraVolumeMounts             []corev1.VolumeMount
 	extraEnvVars                  []corev1.EnvVar
+	extraAnnotations              map[string]string
 	sidecarContainers             []corev1.Container
 	initContainers                []corev1.Container
 	lifecycle                     *corev1.Lifecycle
@@ -104,6 +105,12 @@ func ExtraVolumeMounts(volumeMounts ...corev1.VolumeMount) CortexWorkloadOption 
 func ExtraEnvVars(envVars ...corev1.EnvVar) CortexWorkloadOption {
 	return func(o *CortexWorkloadOptions) {
 		o.extraEnvVars = append(o.extraEnvVars, envVars...)
+	}
+}
+
+func ExtraAnnotations(annotations map[string]string) CortexWorkloadOption {
+	return func(o *CortexWorkloadOptions) {
+		o.extraAnnotations = annotations
 	}
 }
 
@@ -368,7 +375,8 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: labels,
+			Labels:      labels,
+			Annotations: options.extraAnnotations,
 		},
 		Spec: corev1.PodSpec{
 			ServiceAccountName:            "cortex",

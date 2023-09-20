@@ -132,7 +132,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		),
 	}
 
-	p.syncController = NewSyncController()
+	p.syncController = NewSyncController(p.logger.With("component", "sync-controller"))
 	p.httpProxy = NewHttpApiServer(
 		lg.With("component", "http-proxy"),
 		p.AlertingClient,
@@ -174,6 +174,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 	future.Wait1(p.storageClientSet, func(s spec.AlertingClientSet) {
 		p.NotificationServerComponent.Initialize(notifications.NotificationServerConfiguration{
 			ConditionStorage: s.Conditions(),
+			EndpointStorage:  s.Endpoints(),
 		})
 
 		p.EndpointServerComponent.Initialize(endpoints.EndpointServerConfiguration{
@@ -181,7 +182,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 			EndpointStorage:  s.Endpoints(),
 			RouterStorage:    s.Routers(),
 			HashRing:         s,
-			ManualSync:       p.SendManualSyncRequest,
 		})
 
 		serverCfg := server.Config{

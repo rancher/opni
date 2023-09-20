@@ -86,7 +86,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 	BeforeAll(func() {
 		env = &test.Environment{}
 		Expect(env.Start()).To(Succeed())
-		DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop, "Test Suite Finished")
 
 		client := env.NewManagementClient()
 		token, err := client.CreateBootstrapToken(env.Context(), &managementv1.CreateBootstrapTokenRequest{
@@ -96,8 +96,9 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 		info, err := client.CertsInfo(env.Context(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
 		opsClient := cortexops.NewCortexOpsClient(env.ManagementClientConn())
-		err = cortexops.InstallWithPreset(context.Background(), opsClient)
+		err = cortexops.InstallWithPreset(env.Context(), opsClient)
 		Expect(err).NotTo(HaveOccurred())
+		Expect(cortexops.WaitForReady(env.Context(), opsClient)).To(Succeed())
 
 		_, errC := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint}, test.WithContext(env.Context()))
 		Eventually(errC).Should(Receive(BeNil()))

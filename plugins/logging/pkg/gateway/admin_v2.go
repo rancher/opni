@@ -25,7 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const defaultOpniVersion = "0.11.1"
+const defaultOpniVersion = "0.11.2"
 
 type ClusterStatus int
 
@@ -67,7 +67,11 @@ type LoggingManagerV2 struct {
 }
 
 func (m *LoggingManagerV2) GetOpensearchCluster(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.OpensearchClusterV2, error) {
-	return m.managementDriver.GetCluster(ctx)
+	cluster, err := m.managementDriver.GetCluster(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return cluster, nil
 }
 
 func (m *LoggingManagerV2) DeleteOpensearchCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
@@ -94,11 +98,16 @@ func (m *LoggingManagerV2) DeleteOpensearchCluster(ctx context.Context, _ *empty
 func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, cluster *loggingadmin.OpensearchClusterV2) (*emptypb.Empty, error) {
 	// Validate retention string
 	if !m.validDurationString(lo.FromPtrOr(cluster.DataRetention, "7d")) {
-		return &emptypb.Empty{}, loggingerrors.ErrInvalidRetention()
+		return &emptypb.Empty{}, loggingerrors.ErrInvalidDuration
 	}
 	// Input should always have a data nodes field
 	if cluster.GetDataNodes() == nil {
-		return &emptypb.Empty{}, loggingerrors.ErrMissingDataNode()
+		return &emptypb.Empty{}, loggingerrors.ErrMissingDataNode
+	}
+
+	// Don't allow a single data node with no persistence
+	if err := m.validateStorage(cluster.GetDataNodes()); err != nil {
+		return nil, err
 	}
 
 	go m.opensearchManager.SetClient(m.managementDriver.NewOpensearchClientForCluster)
@@ -142,8 +151,11 @@ func (m *LoggingManagerV2) DoUpgrade(ctx context.Context, _ *emptypb.Empty) (*em
 	}
 
 	err := m.managementDriver.DoUpgrade(ctx, version)
+	if err != nil {
+		return nil, err
+	}
 
-	return &emptypb.Empty{}, err
+	return &emptypb.Empty{}, nil
 }
 
 func (m *LoggingManagerV2) GetStorageClasses(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.StorageClassResponse, error) {
@@ -203,6 +215,46 @@ func (m *LoggingManagerV2) GetOpensearchStatus(ctx context.Context, _ *emptypb.E
 	}, nil
 }
 
+func (m *LoggingManagerV2) CreateOrUpdateSnapshot(ctx context.Context, snapshot *loggingadmin.Snapshot) (*emptypb.Empty, error) {
+	if snapshot.GetRetention().GetTimeRetention() != "" &&
+		!m.validDurationString(snapshot.GetRetention().GetTimeRetention()) {
+		return nil, loggingerrors.ErrInvalidDuration
+	}
+
+	err := m.managementDriver.CreateOrUpdateSnapshot(ctx, snapshot)
+	if err != nil {
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (m *LoggingManagerV2) GetRecurringSnapshot(ctx context.Context, ref *loggingadmin.SnapshotReference) (*loggingadmin.Snapshot, error) {
+	snapshot, err := m.managementDriver.GetRecurringSnapshot(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+
+	return snapshot, nil
+}
+
+func (m *LoggingManagerV2) DeleteSnapshot(ctx context.Context, ref *loggingadmin.SnapshotReference) (*emptypb.Empty, error) {
+	err := m.managementDriver.DeleteSnapshot(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (m *LoggingManagerV2) ListSnapshots(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.SnapshotStatusList, error) {
+	list, err := m.managementDriver.ListAllSnapshots(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return list, nil
+}
+
 func (m *LoggingManagerV2) validDurationString(duration string) bool {
 	match, err := regexp.MatchString(`^\d+[dMmyh]`, duration)
 	if err != nil {
@@ -210,6 +262,14 @@ func (m *LoggingManagerV2) validDurationString(duration string) bool {
 		return false
 	}
 	return match
+}
+
+func (m *LoggingManagerV2) validateStorage(dataNodes *loggingadmin.DataDetails) error {
+	if dataNodes.GetReplicas() < 2 && !dataNodes.GetPersistence().GetEnabled() {
+		m.logger.Error("minimum of 2 data nodes required if no persistent storage")
+		return loggingerrors.ErrInvalidDataPersistence
+	}
+	return nil
 }
 
 func (m *LoggingManagerV2) opensearchClusterReady() bool {

@@ -29,7 +29,7 @@ var _ = Describe("agent capability tests", Ordered, Label("integration"), func()
 			env = &test.Environment{}
 			Expect(env).NotTo(BeNil())
 			Expect(env.Start()).To(Succeed())
-			DeferCleanup(env.Stop)
+			DeferCleanup(env.Stop, "Test Suite Finished")
 		})
 	})
 

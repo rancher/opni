@@ -2,6 +2,7 @@ package notifications
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/message"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
@@ -40,6 +42,44 @@ func init() {
 
 var _ (alertingv1.AlertNotificationsServer) = (*NotificationServerComponent)(nil)
 
+func (n *NotificationServerComponent) TestAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
+	if !n.Initialized() {
+		return nil, status.Error(codes.Unavailable, "Notification server is not yet available")
+	}
+	if err := ref.Validate(); err != nil {
+		return nil, err
+	}
+	ctxca, ca := context.WithTimeout(ctx, 1*time.Second)
+	defer ca()
+
+	endp, err := n.endpointStorage.GetContext(ctxca)
+	if err != nil {
+		return nil, status.Error(codes.Unavailable, fmt.Sprintf("failed to get endpoit storage : %s", err.Error()))
+	}
+	if _, err := endp.Get(ctx, ref.Id); err != nil {
+		return nil, fmt.Errorf("testing an endpoint requires it is loaded : %w", err)
+	}
+
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	err = n.Client.AlertClient().PostAlarm(
+		ctx,
+		client.AlertObject{
+			Id: ref.Id,
+			Labels: map[string]string{
+				message.NotificationPropertyOpniUuid: ref.Id,
+				message.TestNamespace:                ref.Id,
+			},
+			Annotations: map[string]string{
+				message.NotificationContentHeader:  "Test notification",
+				message.NotificationContentSummary: "Admin has sent a test notification",
+			},
+		},
+	)
+
+	return &emptypb.Empty{}, err
+}
+
 func (n *NotificationServerComponent) TriggerAlerts(ctx context.Context, req *alertingv1.TriggerAlertsRequest) (*alertingv1.TriggerAlertsResponse, error) {
 	if !n.Initialized() {
 		return nil, status.Error(codes.Unavailable, "Notification server is not yet available")
@@ -47,9 +87,6 @@ func (n *NotificationServerComponent) TriggerAlerts(ctx context.Context, req *al
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	lg := n.logger.With("Handler", "TriggerAlerts")
-	lg.Debugf("Received request to trigger alerts  on condition %s", req.GetConditionId())
-	lg.Debugf("Received alert annotations : %s", req.Annotations)
 
 	// This logic is intended to
 	// 1) Provide a safeguard to ensure that external callers of the API will not cause nil pointer map dereferences in the AlertManager adapter logic

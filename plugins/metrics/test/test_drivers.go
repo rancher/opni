@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path"
 	"runtime/debug"
@@ -408,8 +409,12 @@ func (d *TestEnvPrometheusNodeDriver) ConfigureNode(nodeId string, conf *node.Me
 		// this is the only place where UnsafeStartPrometheus is safe
 		_, err := d.env.UnsafeStartPrometheus(ctx, nodeId)
 		if err != nil {
+			defer ca()
+			if errors.Is(err, context.Canceled) {
+				lg.Info("test environment stopped before prometheus could start")
+				return nil
+			}
 			lg.With("err", err).Error("failed to start prometheus")
-			ca()
 			return err
 		}
 		lg.Info("started prometheus")
@@ -443,6 +448,11 @@ func (d *TestEnvOtelNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsC
 		"node", nodeId,
 		"driver", "otel",
 	)
+	if d.env.Context().Err() != nil {
+		// test environment was stopped
+		return nil
+	}
+
 	lg.Debug("configuring node")
 
 	d.otelMu.Lock()

@@ -333,6 +333,14 @@ func (w *WebhookEndpoint) Validate() error {
 	if _, err := url.Parse(w.GetUrl()); err != nil {
 		return validation.Errorf("url must be a valid url : %s", err)
 	}
+
+	if hc := w.GetHttpConfig(); hc != nil {
+		if hc.GetProxyUrl() != "" {
+			if _, err := url.Parse(hc.GetProxyUrl()); err != nil {
+				return validation.Errorf("proxy url must be a valid url : %s", err)
+			}
+		}
+	}
 	return nil
 }
 
@@ -591,8 +599,11 @@ func (l *ListAlarmMessageRequest) Sanitize() {
 }
 
 func (l *ListAlarmMessageRequest) Validate() error {
+	if l.ConditionId == nil {
+		return validation.Errorf("%w :%s", validation.ErrMissingRequiredField, "conditionId")
+	}
 	if l.ConditionId.Id == "" {
-		return validation.Error("field conditionId must be set")
+		return validation.Errorf("%w : %s", validation.ErrMissingRequiredField, "conditionId.id")
 	}
 	if l.Start.AsTime().After(l.End.AsTime()) {
 		return validation.Error("start time must be before end time")

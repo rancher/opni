@@ -132,6 +132,9 @@ func (cg *Generator) generateFile(gen *protogen.Plugin, file *protogen.File) *pr
 	}
 
 	for _, fs := range cg.orderedFlagSets {
+		if fs.flagCount == 0 {
+			continue
+		}
 		if !fs.wrote {
 			fs.wrote = true
 			fs.buf.g.P()
@@ -730,6 +733,22 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 					flagSetOpts := FlagSetOptions{}
 					applyOptions(field.Desc, &flagSetOpts)
 
+					// generate a flag set if either:
+					// - the field is from a *different* message in the same file
+					//   (note that this effectively always skips recursive message fields)
+					// - the file is in cg.generatedFiles (special case, see generateFlagSet)
+					if (field.Message.Desc.ParentFile() == field.Parent.Desc.ParentFile() && field.Message != message) ||
+						cg.generatedFiles[field.Message.Desc.ParentFile().Path()] != nil {
+						depFs := cg.generateFlagSet(g.g, field.Message)
+						if depFs.flagCount == 0 {
+							continue
+						}
+						deps[kebabName] = depFs
+						if len(depFs.secretFields) > 0 || len(depFs.depsWithSecretFields) > 0 {
+							fs.depsWithSecretFields = append(fs.depsWithSecretFields, field)
+						}
+					}
+
 					g.P("if in.", field.GoName, " == nil {")
 					g.P(" in.", field.GoName, " = &", field.Message.GoIdent, "{}")
 					g.P("}")
@@ -752,19 +771,6 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 						}
 						return true
 					})
-
-					// generate a flag set if either:
-					// - the field is from a *different* message in the same file
-					//   (note that this effectively always skips recursive message fields)
-					// - the file is in cg.generatedFiles (special case, see generateFlagSet)
-					if (field.Message.Desc.ParentFile() == field.Parent.Desc.ParentFile() && field.Message != message) ||
-						cg.generatedFiles[field.Message.Desc.ParentFile().Path()] != nil {
-						depFs := cg.generateFlagSet(g.g, field.Message)
-						deps[kebabName] = depFs
-						if len(depFs.secretFields) > 0 || len(depFs.depsWithSecretFields) > 0 {
-							fs.depsWithSecretFields = append(fs.depsWithSecretFields, field)
-						}
-					}
 				}
 				continue
 			}

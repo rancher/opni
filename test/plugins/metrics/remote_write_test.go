@@ -29,8 +29,9 @@ var _ = Describe("Agent - Remote Write Tests", Ordered, Label("integration"), fu
 		client = environment.NewManagementClient()
 
 		opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
-		err := cortexops.InstallWithPreset(context.Background(), opsClient)
+		err := cortexops.InstallWithPreset(environment.Context(), opsClient)
 		Expect(err).NotTo(HaveOccurred())
+		Expect(cortexops.WaitForReady(environment.Context(), opsClient)).To(Succeed())
 
 		certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())

@@ -18,6 +18,13 @@ package alerting;
 
 // Opni-Alerting internal use
 service AlertNotifications {
+  rpc TestAlertEndpoint(core.Reference) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post : "/test"
+      body : "*"
+    };
+  }
+
   rpc TriggerAlerts(TriggerAlertsRequest) returns (TriggerAlertsResponse) {
     option (google.api.http) = {
       post : "/trigger"

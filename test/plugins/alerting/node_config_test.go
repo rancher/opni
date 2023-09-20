@@ -49,7 +49,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		Eventually(errC).Should(Receive(BeNil()), time.Second*60, time.Second)
 
 		nodeClient = node.NewAlertingNodeConfigurationClient(env.ManagementClientConn())
-		DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop, "Test Suite Finished")
 	})
 
 	var getConfig = func(agentId string) (*node.AlertingCapabilitySpec, bool, error) {
@@ -130,7 +130,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		}).Should(Succeed())
 
 		// replace the standard default config with the test environment config
-		backend.FallbackDefaultNodeSpec = util.ProtoClone(defaultConfig)
+		backend.FallbackDefaultNodeSpec.Store(util.ProtoClone(defaultConfig))
 
 		spec, isDefault, err := getConfig("agent1")
 		Expect(err).NotTo(HaveOccurred())

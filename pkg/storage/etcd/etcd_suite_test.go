@@ -42,7 +42,7 @@ var _ = BeforeSuite(func() {
 		)
 		Expect(err).NotTo(HaveOccurred())
 		lmF.Set(l)
-		DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop, "Test Suite Finished")
 	})
 })
 

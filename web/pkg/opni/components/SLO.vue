@@ -463,17 +463,6 @@ export default {
 </template>
 
 <style lang="scss" scoped>
-.bottom {
-  border-bottom: 1px solid var(--header-border);
-  padding-bottom: 20px;
-}
-
-.middle {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
 .resource-footer {
   display: flex;
   flex-direction: row;

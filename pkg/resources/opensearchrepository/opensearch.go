@@ -33,22 +33,22 @@ func (r *Reconciler) reconcileOpensearchObjects(cluster *opensearchv1.OpenSearch
 
 	settings := osapi.RepositoryRequest{}
 	switch {
-	case r.repository.Spec.Settings.S3 != nil:
+	case r.respository.Spec.Settings.S3 != nil:
 		settings.Type = osapi.RepositoryTypeS3
 		settings.Settings.S3Settings = &osapi.S3Settings{
-			Bucket: r.repository.Spec.Settings.S3.Bucket,
-			Path:   r.repository.Spec.Settings.S3.Folder,
+			Bucket: r.respository.Spec.Settings.S3.Bucket,
+			Path:   r.respository.Spec.Settings.S3.Folder,
 		}
-	case r.repository.Spec.Settings.FileSystem != nil:
+	case r.respository.Spec.Settings.FileSystem != nil:
 		settings.Type = osapi.RepositoryTypeFileSystem
 		settings.Settings.FileSystemSettings = &osapi.FileSystemSettings{
-			Location: r.repository.Spec.Settings.FileSystem.Location,
+			Location: r.respository.Spec.Settings.FileSystem.Location,
 		}
 	default:
 		return errors.New("invalid repository settings")
 	}
 
-	return osReconciler.MaybeUpdateRepository(r.repository.Name, settings)
+	return osReconciler.MaybeUpdateRepository(r.respository.Name, settings)
 }
 
 func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchCluster) error {
@@ -70,17 +70,17 @@ func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchClu
 			return err
 		}
 
-		err = osReconciler.MaybeDeleteRepository(r.repository.Name)
+		err = osReconciler.MaybeDeleteRepository(r.respository.Name)
 		if err != nil {
 			return err
 		}
 	}
 
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.repository), r.repository); err != nil {
+		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.respository), r.respository); err != nil {
 			return err
 		}
-		controllerutil.RemoveFinalizer(r.repository, meta.OpensearchFinalizer)
-		return r.client.Update(r.ctx, r.repository)
+		controllerutil.RemoveFinalizer(r.respository, meta.OpensearchFinalizer)
+		return r.client.Update(r.ctx, r.respository)
 	})
 }

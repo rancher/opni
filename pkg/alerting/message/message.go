@@ -41,6 +41,11 @@ const (
 	NotificationPartitionByDetails  = "details"
 )
 
+const (
+	// Reserved namespace for routing messages to loaded receivers
+	TestNamespace = "test"
+)
+
 // var _ Message = (*config.Alert)(nil)
 
 // Identifies important information in message contents

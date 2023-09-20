@@ -150,7 +150,7 @@ var workloadOptions = map[string][]CortexWorkloadOption{
 	},
 }
 
-func (r *Reconciler) cortexWorkloads() []resources.Resource {
+func (r *Reconciler) cortexWorkloads(configDigest string) []resources.Resource {
 	var res []resources.Resource
 	deployedWorkloads := map[string]struct{}{}
 
@@ -164,6 +164,9 @@ func (r *Reconciler) cortexWorkloads() []resources.Resource {
 			opts := append([]CortexWorkloadOption{
 				Replicas(spec.GetReplicas()),
 				ExtraArgs(spec.GetExtraArgs()...),
+				ExtraAnnotations(map[string]string{
+					resources.OpniConfigHash: configDigest,
+				}),
 			}, workloadOptions[target]...)
 			switch workloadType {
 			case deployment:

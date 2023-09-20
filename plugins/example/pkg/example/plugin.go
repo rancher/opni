@@ -108,7 +108,6 @@ func (s *ExamplePlugin) UseManagementAPI(client managementv1.ManagementClient) {
 	if !s.storageBackend.IsSet() {
 		return
 	}
-
 	<-s.ctx.Done()
 }
 

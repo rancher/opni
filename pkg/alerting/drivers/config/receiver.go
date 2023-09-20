@@ -341,11 +341,7 @@ func (c *WebhookConfig) StoreInfo(details *alertingv1.EndpointImplementation) {
 
 func (c *WebhookConfig) Configure(endp *alertingv1.AlertEndpoint) OpniReceiver {
 	webhookSpec := endp.GetWebhook()
-	parsedURL := util.Must(url.Parse(webhookSpec.Url))
-	c.URL = &amCfg.URL{
-		URL: parsedURL,
-	}
-	return c
+	return ToWebhook(webhookSpec)
 }
 
 func (c *WebhookConfig) Clone() OpniReceiver {

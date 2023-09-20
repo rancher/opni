@@ -107,6 +107,15 @@ BACKOFF:
 				).Error("error reconciling object")
 				continue BACKOFF
 			}
+			lg.Info("starting collector reconcile...")
+			if err := o.reconcileCollector(deployOTEL); err != nil {
+				lg.With(
+					"object", "opni collector",
+					zap.Error(err),
+				).Error("error reconciling object")
+				continue BACKOFF
+			}
+			lg.Info("collector reconcile complete")
 		}
 		success = true
 		break
@@ -118,15 +127,6 @@ BACKOFF:
 	} else {
 		lg.Info("objects reconciled successfully")
 	}
-	lg.Info("starting collector reconcile...")
-	if err := o.reconcileCollector(deployOTEL); err != nil {
-		lg.With(
-			"object", "opni collector",
-			zap.Error(err),
-		).Error("error reconciling object")
-		return err
-	}
-	lg.Info("collector reconcile complete")
 	return nil
 }
 

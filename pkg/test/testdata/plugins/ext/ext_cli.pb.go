@@ -589,9 +589,3 @@ func (in *SampleConfigurationHistoryResponse) FlagSet(prefix ...string) *pflag.F
 	fs.SortFlags = true
 	return fs
 }
-
-func (in *SampleResetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("SampleResetRequest", pflag.ExitOnError)
-	fs.SortFlags = true
-	return fs
-}

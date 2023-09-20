@@ -39,6 +39,11 @@ var sloOverviewDashboard []byte
 //go:embed slo/slo_grafana_detailed.json
 var sloDetailedDashboard []byte
 
+const (
+	grafanaImageVersion = "10.1.1"
+	grafanaImageRepo    = "grafana"
+)
+
 func (r *Reconciler) grafana() ([]resources.Resource, error) {
 	dashboardSelector := &metav1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -175,7 +180,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		return nil, fmt.Errorf("invalid grafana hostname: %w", err)
 	}
 
-	tag := "latest"
+	tag := "10.1.1"
 	if r.mc.Spec.Grafana.GetVersion() != "" {
 		tag = strings.TrimSpace(r.mc.Spec.Grafana.GetVersion())
 	}

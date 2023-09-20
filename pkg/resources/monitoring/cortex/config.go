@@ -1,7 +1,10 @@
 package cortex
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"slices"
 
 	"github.com/cortexproject/cortex/pkg/storage/bucket/filesystem"
 	"github.com/go-kit/log"
@@ -19,7 +22,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func (r *Reconciler) config() ([]resources.Resource, error) {
+func (r *Reconciler) config() ([]resources.Resource, string, error) {
 	if r.mc.Spec.Cortex.Enabled == nil || !*r.mc.Spec.Cortex.Enabled {
 		return []resources.Resource{
 			resources.Absent(&corev1.Secret{
@@ -36,7 +39,7 @@ func (r *Reconciler) config() ([]resources.Resource, error) {
 					Labels:    cortexAppLabel,
 				},
 			}),
-		}, nil
+		}, "", nil
 	}
 
 	if r.mc.Spec.Cortex.CortexConfig == nil {
@@ -63,34 +66,40 @@ func (r *Reconciler) config() ([]resources.Resource, error) {
 		ClientAuth:  "RequireAndVerifyClientCert",
 	}
 
-	conf, rtConf, err := configutil.CortexAPISpecToCortexConfig(r.mc.Spec.Cortex.CortexConfig,
-		configutil.MergeOverrideLists(
-			[]configutil.CortexConfigOverrider{
-				configutil.NewOverrider(func(t *filesystem.Config) bool {
-					t.Directory = "/data"
-					return true
-				}),
-			},
-			configutil.NewHostOverrides(configutil.StandardOverridesShape{
-				HttpListenAddress:      "0.0.0.0",
-				HttpListenPort:         8080,
-				GrpcListenAddress:      "0.0.0.0",
-				GrpcListenPort:         9095,
-				StorageDir:             "/data",
-				RuntimeConfig:          "/etc/cortex-runtime-config/runtime_config.yaml",
-				TLSServerConfig:        configutil.TLSServerConfigShape(tlsServerConfig),
-				TLSGatewayClientConfig: configutil.TLSClientConfigShape(tlsGatewayClientConfig),
-				TLSCortexClientConfig:  configutil.TLSClientConfigShape(tlsCortexClientConfig),
+	targetList := []string{}
+	for target := range r.mc.Spec.Cortex.CortexWorkloads.GetTargets() {
+		targetList = append(targetList, target)
+	}
+	slices.Sort(targetList)
+	overriders := configutil.MergeOverrideLists(
+		[]configutil.CortexConfigOverrider{
+			configutil.NewOverrider(func(t *filesystem.Config) bool {
+				t.Directory = "/data"
+				return true
 			}),
-			configutil.NewImplementationSpecificOverrides(configutil.ImplementationSpecificOverridesShape{
-				QueryFrontendAddress: "cortex-query-frontend-headless:9095",
-				MemberlistJoinAddrs:  []string{"cortex-memberlist"},
-				AlertmanagerURL:      fmt.Sprintf("https://opni-internal.%s.svc:8080/plugin_alerting/alertmanager", r.mc.Namespace),
-			}),
-		)...,
+		},
+		configutil.NewTargetsOverride(targetList...),
+		configutil.NewHostOverrides(configutil.StandardOverridesShape{
+			HttpListenAddress:      "0.0.0.0",
+			HttpListenPort:         8080,
+			GrpcListenAddress:      "0.0.0.0",
+			GrpcListenPort:         9095,
+			StorageDir:             "/data",
+			RuntimeConfig:          "/etc/cortex-runtime-config/runtime_config.yaml",
+			TLSServerConfig:        configutil.TLSServerConfigShape(tlsServerConfig),
+			TLSGatewayClientConfig: configutil.TLSClientConfigShape(tlsGatewayClientConfig),
+			TLSCortexClientConfig:  configutil.TLSClientConfigShape(tlsCortexClientConfig),
+		}),
+		configutil.NewImplementationSpecificOverrides(configutil.ImplementationSpecificOverridesShape{
+			QueryFrontendAddress: "cortex-query-frontend-headless:9095",
+			MemberlistJoinAddrs:  []string{"cortex-memberlist"},
+			AlertmanagerURL:      fmt.Sprintf("https://opni-internal.%s.svc:8080/plugin_alerting/alertmanager", r.mc.Namespace),
+		}),
 	)
+
+	conf, rtConf, err := configutil.CortexAPISpecToCortexConfig(r.mc.Spec.Cortex.CortexConfig, overriders...)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if err := conf.Validate(log.NewNopLogger()); err != nil {
 		r.logger.With(
@@ -102,14 +111,14 @@ func (r *Reconciler) config() ([]resources.Resource, error) {
 		r.logger.With(
 			zap.Error(err),
 		).Error("Failed to marshal cortex config (cannot continue)")
-		return nil, err
+		return nil, "", err
 	}
 	rtConfBytes, err := configutil.MarshalRuntimeConfig(rtConf)
 	if err != nil {
 		r.logger.With(
 			zap.Error(err),
 		).Error("Failed to marshal cortex runtime config (cannot continue)")
-		return nil, err
+		return nil, "", err
 	}
 	configSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -132,12 +141,14 @@ func (r *Reconciler) config() ([]resources.Resource, error) {
 		},
 	}
 
+	configDigestBytes := sha256.Sum256(confBytes)
+	configDigest := hex.EncodeToString(configDigestBytes[:])
 	ctrl.SetControllerReference(r.mc, configSecret, r.client.Scheme())
 	ctrl.SetControllerReference(r.mc, runtimeConfigMap, r.client.Scheme())
 	return []resources.Resource{
 		resources.Present(configSecret),
 		resources.Present(runtimeConfigMap),
-	}, nil
+	}, configDigest, nil
 }
 
 func (r *Reconciler) alertmanagerFallbackConfig() resources.Resource {

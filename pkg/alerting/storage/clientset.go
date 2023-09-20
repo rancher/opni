@@ -1,12 +1,10 @@
 package storage
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"io"
-	"strings"
+	"fmt"
 	"time"
 
 	"slices"
@@ -15,10 +13,12 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"gopkg.in/yaml.v3"
 
 	"github.com/rancher/opni/pkg/alerting/drivers/backend"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
+	"github.com/rancher/opni/pkg/alerting/message"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	storage_opts "github.com/rancher/opni/pkg/alerting/storage/opts"
 	"github.com/rancher/opni/pkg/alerting/storage/spec"
@@ -86,54 +86,6 @@ func (c *CompositeAlertingClientSet) GetHash(ctx context.Context, key string) (s
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
-func (c *CompositeAlertingClientSet) CalculateHash(ctx context.Context, key string, syncOptions *storage_opts.SyncOptions) error {
-	aggregate := ""
-	if syncOptions.DefaultReceiver != nil {
-		var st bytes.Buffer
-		err := yaml.NewEncoder(&st).Encode(syncOptions.DefaultReceiver)
-		if err != nil {
-			return err
-		}
-		aggregate += st.String()
-	}
-	if key == shared.SingleConfigId {
-		conds, err := c.listAllConditions(ctx)
-		if err != nil {
-			return err
-		}
-		slices.SortFunc(conds, func(a, b *alertingv1.AlertCondition) int {
-			if a.GroupId != b.GroupId {
-				return strings.Compare(a.GroupId, b.GroupId)
-			}
-			return strings.Compare(a.Id, b.Id)
-		})
-		aggregate += strings.Join(
-			lo.Map(conds, func(a *alertingv1.AlertCondition, _ int) string {
-				return a.Id + a.GroupId + a.LastUpdated.String()
-			}), "-")
-		endps, err := c.Endpoints().List(ctx)
-		if err != nil {
-			return err
-		}
-		slices.SortFunc(endps, func(a, b *alertingv1.AlertEndpoint) int {
-			return strings.Compare(a.Id, b.Id)
-		})
-		aggregate += strings.Join(
-			lo.Map(endps, func(a *alertingv1.AlertEndpoint, _ int) string {
-				return a.Id + a.LastUpdated.String()
-			}), "_")
-	} else {
-		panic("not implemented")
-	}
-	encode := strings.NewReader(aggregate)
-	hash := sha256.New()
-	if _, err := io.Copy(hash, encode); err != nil {
-		return err
-	}
-	c.hashes[key] = hex.EncodeToString(hash.Sum(nil))
-	return nil
-}
-
 func (c *CompositeAlertingClientSet) listAllConditions(ctx context.Context) ([]*alertingv1.AlertCondition, error) {
 	groups, err := c.Conditions().ListGroups(ctx)
 	if err != nil {
@@ -169,6 +121,36 @@ func (c *CompositeAlertingClientSet) calculateRouters(ctx context.Context, syncO
 	if syncOpts.Router == nil {
 		syncOpts.Router = routing.NewDefaultOpniRouting()
 	}
+
+	endpKeys := lo.Keys(endpMap)
+	slices.Sort(endpKeys)
+
+	for _, endpId := range endpKeys {
+		endp := endpMap[endpId]
+		err = syncOpts.Router.SetNamespaceSpec(message.TestNamespace, endp.Id, &alertingv1.FullAttachedEndpoints{
+			InitialDelay:       durationpb.New(time.Second),
+			RepeatInterval:     durationpb.New(time.Hour),
+			ThrottlingDuration: durationpb.New(time.Minute),
+			Details: &alertingv1.EndpointImplementation{
+				Title: "Test admin notification",
+				Body:  fmt.Sprintf("Test admin notification : %s", endp.Name),
+			},
+			Items: []*alertingv1.FullAttachedEndpoint{
+				{
+					EndpointId:    endp.Id,
+					AlertEndpoint: endp,
+					Details: &alertingv1.EndpointImplementation{
+						Title: "Test admin notification",
+						Body:  fmt.Sprintf("Test admin notification : %s", endp.Name),
+					},
+				},
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// create router specs for conditions
 	for _, cond := range conds {
 		if cond.Id == "" {
@@ -212,6 +194,7 @@ func (c *CompositeAlertingClientSet) calculateRouters(ctx context.Context, syncO
 			panic(err)
 		}
 	}
+
 	// set expected defaults based on endpoint configuration
 	defaults := lo.Filter(endps, func(a *alertingv1.AlertEndpoint, _ int) bool {
 		if len(a.GetProperties()) == 0 {

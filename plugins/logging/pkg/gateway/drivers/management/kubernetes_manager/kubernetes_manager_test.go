@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
+	"github.com/rancher/opni/pkg/test/testlog"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/management/kubernetes_manager"
@@ -61,7 +62,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 
 	BeforeEach(func() {
 		namespace = "test-logging-v2"
-		version = "0.11.1"
+		version = "0.11.2"
 		opensearchVersion = "2.8.0"
 
 		security = &opsterv1.Security{
@@ -77,7 +78,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 		}
 		dashboards = opsterv1.DashboardsConfig{
 			ImageSpec: &opsterv1.ImageSpec{
-				Image: lo.ToPtr("docker.io/rancher/opensearch-dashboards:v0.11.1-2.8.0"),
+				Image: lo.ToPtr("docker.io/rancher/opensearch-dashboards:v0.11.2-2.8.0"),
 			},
 			Replicas: 1,
 			Enable:   true,
@@ -126,6 +127,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 			kubernetes_manager.KubernetesManagerDriverOptions{
 				K8sClient:         k8sClient,
 				OpensearchCluster: opniCluster,
+				Logger:            testlog.Log,
 			},
 		)
 		Expect(err).NotTo(HaveOccurred())
@@ -251,9 +253,6 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 								Folder: "backups",
 							},
 						}))
-					})
-					Specify("cleanup", func() {
-						Expect(k8sClient.Delete(context.Background(), object)).To(Succeed())
 					})
 				})
 				Context("anti affinity is enabled", func() {
@@ -1151,7 +1150,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 					})
 				}, timeout, interval).Should(BeTrue())
 				Expect(object.Spec.Security).To(Equal(security))
-				Expect(object.Spec.Version).To(Equal("0.11.1"))
+				Expect(object.Spec.Version).To(Equal("0.11.2"))
 				Expect(len(object.Spec.NodePools)).To(Equal(2))
 			})
 			When("upgrade is available", func() {
@@ -1162,7 +1161,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 					}, object)
 					Expect(err).NotTo(HaveOccurred())
 					object.Status.OpensearchVersion = lo.ToPtr("2.8.0")
-					object.Status.Version = lo.ToPtr("0.11.1")
+					object.Status.Version = lo.ToPtr("0.11.2")
 					Expect(k8sClient.Status().Update(context.Background(), object)).To(Succeed())
 				})
 				Specify("check upgrade available should return true", func() {
@@ -1186,6 +1185,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 				})
 			})
 		})
+
 		Specify("delete should succeed", func() {
 			err := manager.DeleteCluster(context.Background())
 			Expect(err).NotTo(HaveOccurred())
@@ -1201,4 +1201,251 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 			}, timeout, interval).Should(BeTrue())
 		})
 	})
+	Context("snapshots", Ordered, func() {
+		var repo *loggingv1beta1.OpensearchRepository
+		Context("repository does not exist", func() {
+			When("creating a new one off snapshot", func() {
+				It("should not succeed", func() {
+					err := manager.CreateOrUpdateSnapshot(context.Background(), &loggingadmin.Snapshot{
+						Recurring: false,
+						Ref: &loggingadmin.SnapshotReference{
+							Name: "test",
+						},
+					})
+					Expect(err).To(HaveOccurred())
+				})
+			})
+			When("creating a new recurring snapshot", func() {
+				It("should not succeed", func() {
+					err := manager.CreateOrUpdateSnapshot(context.Background(), &loggingadmin.Snapshot{
+						Recurring: true,
+						Ref: &loggingadmin.SnapshotReference{
+							Name: "test",
+						},
+					})
+					Expect(err).To(HaveOccurred())
+				})
+			})
+		})
+		Context("repository does exist", Ordered, func() {
+			BeforeAll(func() {
+				request := createRequest()
+				err := manager.CreateOrUpdateCluster(context.Background(), request, version, nats)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			AfterAll(func() {
+				err := manager.DeleteCluster(context.Background())
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() bool {
+					err := k8sClient.Get(context.Background(), types.NamespacedName{
+						Name:      "opni",
+						Namespace: namespace,
+					}, &loggingv1beta1.OpniOpensearch{})
+					if err != nil {
+						return k8serrors.IsNotFound(err)
+					}
+					return false
+				}, timeout, interval).Should(BeTrue())
+				err = k8sClient.Delete(context.Background(), &loggingv1beta1.OpensearchRepository{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "opni",
+						Namespace: namespace,
+					},
+					Spec: loggingv1beta1.OpensearchRepositorySpec{
+						Settings: loggingv1beta1.RepositorySettings{
+							S3: &loggingv1beta1.S3PathSettings{
+								Bucket: "test-bucket",
+								Folder: "test",
+							},
+						},
+						OpensearchClusterRef: &opnimeta.OpensearchClusterRef{
+							Name:      "opni",
+							Namespace: namespace,
+						},
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+				err = k8sClient.DeleteAllOf(context.Background(), &loggingv1beta1.Snapshot{}, client.InNamespace(namespace))
+				Expect(err).NotTo(HaveOccurred())
+				err = k8sClient.DeleteAllOf(context.Background(), &loggingv1beta1.RecurringSnapshot{}, client.InNamespace(namespace))
+				Expect(err).NotTo(HaveOccurred())
+			})
+			JustBeforeEach(func() {
+				repo = &loggingv1beta1.OpensearchRepository{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "opni",
+						Namespace: namespace,
+					},
+					Spec: loggingv1beta1.OpensearchRepositorySpec{
+						Settings: loggingv1beta1.RepositorySettings{
+							S3: &loggingv1beta1.S3PathSettings{
+								Bucket: "test-bucket",
+								Folder: "test",
+							},
+						},
+						OpensearchClusterRef: &opnimeta.OpensearchClusterRef{
+							Name:      "opni",
+							Namespace: namespace,
+						},
+					},
+				}
+				err := k8sClient.Create(context.Background(), repo)
+				Expect(client.IgnoreAlreadyExists(err)).NotTo(HaveOccurred())
+			})
+			When("creating a new one off snapshot", func() {
+				It("should succeed", func() {
+					err := manager.CreateOrUpdateSnapshot(context.Background(), &loggingadmin.Snapshot{
+						Recurring: false,
+						Ref: &loggingadmin.SnapshotReference{
+							Name: "test-oneoff",
+						},
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Eventually(Object(&loggingv1beta1.Snapshot{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-oneoff",
+							Namespace: namespace,
+						},
+					})).Should(ExistAnd(
+						HaveOwner(repo),
+					))
+				})
+			})
+			When("creating a new recurring snapshot", func() {
+				It("should succeed", func() {
+					err := manager.CreateOrUpdateSnapshot(context.Background(), &loggingadmin.Snapshot{
+						Recurring: true,
+						Ref: &loggingadmin.SnapshotReference{
+							Name: "test-recurring",
+						},
+						CronSchedule: lo.ToPtr("00 * * * *"),
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Eventually(Object(&loggingv1beta1.RecurringSnapshot{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-recurring",
+							Namespace: namespace,
+						},
+					})).Should(ExistAnd(
+						HaveOwner(repo),
+					))
+				})
+			})
+			When("creating duplicate snapshots", func() {
+				It("should not succeed", func() {
+					err := manager.CreateOrUpdateSnapshot(context.Background(), &loggingadmin.Snapshot{
+						Recurring: false,
+						Ref: &loggingadmin.SnapshotReference{
+							Name: "test-recurring",
+						},
+					})
+					Expect(err).To(HaveOccurred())
+					err = manager.CreateOrUpdateSnapshot(context.Background(), &loggingadmin.Snapshot{
+						Recurring: true,
+						Ref: &loggingadmin.SnapshotReference{
+							Name: "test-oneoff",
+						},
+					})
+					Expect(err).To(HaveOccurred())
+				})
+			})
+			When("fetching snapshots", func() {
+				It("should fail if it is a oneoff", func() {
+					_, err := manager.GetRecurringSnapshot(context.Background(), &loggingadmin.SnapshotReference{
+						Name: "test-oneoff",
+					})
+					Expect(err).To(HaveOccurred())
+				})
+				It("should succeed if it is recurring", func() {
+					s, err := manager.GetRecurringSnapshot(context.Background(), &loggingadmin.SnapshotReference{
+						Name: "test-recurring",
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(s.GetCronSchedule()).To(Equal("00 * * * *"))
+				})
+			})
+			When("extra indices are defined", Ordered, func() {
+				It("should successfully update the snapshot", func() {
+					err := manager.CreateOrUpdateSnapshot(context.Background(), &loggingadmin.Snapshot{
+						Recurring: true,
+						Ref: &loggingadmin.SnapshotReference{
+							Name: "test-recurring",
+						},
+						CronSchedule: lo.ToPtr("00 * * * *"),
+						AdditionalIndices: []string{
+							"test",
+						},
+					})
+					Expect(err).NotTo(HaveOccurred())
+					s := &loggingv1beta1.RecurringSnapshot{}
+					Eventually(func() bool {
+						err := k8sClient.Get(context.Background(), types.NamespacedName{
+							Name:      "test-recurring",
+							Namespace: namespace,
+						}, s)
+						return err == nil
+					}).Should(BeTrue())
+					Expect(s.Spec.Snapshot.Indices).To(ContainElements("test", "logs*"))
+				})
+				It("should successfully create the snapshot", func() {
+					err := manager.CreateOrUpdateSnapshot(context.Background(), &loggingadmin.Snapshot{
+						Recurring: false,
+						Ref: &loggingadmin.SnapshotReference{
+							Name: "test-indices",
+						},
+						CronSchedule: lo.ToPtr("00 * * * *"),
+						AdditionalIndices: []string{
+							"foo",
+							"bar",
+						},
+					})
+					Expect(err).NotTo(HaveOccurred())
+					s := &loggingv1beta1.Snapshot{}
+					Eventually(func() bool {
+						err := k8sClient.Get(context.Background(), types.NamespacedName{
+							Name:      "test-indices",
+							Namespace: namespace,
+						}, s)
+						return err == nil
+					}).Should(BeTrue())
+					Expect(s.Spec.Indices).To(ContainElements("foo", "bar", "logs*"))
+				})
+				It("should only return the extra indices when fetched", func() {
+					s, err := manager.GetRecurringSnapshot(context.Background(), &loggingadmin.SnapshotReference{
+						Name: "test-recurring",
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(s.GetAdditionalIndices()).To(Equal([]string{"test"}))
+				})
+			})
+			When("listing snapshots", func() {
+				It("should find all the snapshots", func() {
+					list, err := manager.ListAllSnapshots(context.Background())
+					Expect(err).NotTo(HaveOccurred())
+					Expect(len(list.GetStatuses())).To(Equal(3))
+				})
+			})
+			When("deleting snapshots", func() {
+				It("should delete one-off snapshots", func() {
+					err := manager.DeleteSnapshot(context.Background(), &loggingadmin.SnapshotReference{
+						Name: "test-oneoff",
+					})
+					Expect(err).NotTo(HaveOccurred())
+					list, err := manager.ListAllSnapshots(context.Background())
+					Expect(err).NotTo(HaveOccurred())
+					Expect(len(list.GetStatuses())).To(Equal(2))
+				})
+				It("should delete recurring snapshots", func() {
+					err := manager.DeleteSnapshot(context.Background(), &loggingadmin.SnapshotReference{
+						Name: "test-recurring",
+					})
+					Expect(err).NotTo(HaveOccurred())
+					list, err := manager.ListAllSnapshots(context.Background())
+					Expect(err).NotTo(HaveOccurred())
+					Expect(len(list.GetStatuses())).To(Equal(1))
+				})
+			})
+		})
+	})
+
 })

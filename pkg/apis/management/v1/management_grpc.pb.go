@@ -87,7 +87,7 @@ type ManagementClient interface {
 	ListRoleBindings(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.RoleBindingList, error)
 	SubjectAccess(ctx context.Context, in *v1.SubjectAccessRequest, opts ...grpc.CallOption) (*v1.ReferenceList, error)
 	APIExtensions(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*APIExtensionInfoList, error)
-	GetConfig(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GatewayConfig, error)
+	GetConfig(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GatewayConfigPre, error)
 	UpdateConfig(ctx context.Context, in *UpdateConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListCapabilities(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityList, error)
 	// Deprecated: Do not use.
@@ -372,8 +372,8 @@ func (c *managementClient) APIExtensions(ctx context.Context, in *emptypb.Empty,
 	return out, nil
 }
 
-func (c *managementClient) GetConfig(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GatewayConfig, error) {
-	out := new(GatewayConfig)
+func (c *managementClient) GetConfig(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GatewayConfigPre, error) {
+	out := new(GatewayConfigPre)
 	err := c.cc.Invoke(ctx, Management_GetConfig_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -500,7 +500,7 @@ type ManagementServer interface {
 	ListRoleBindings(context.Context, *emptypb.Empty) (*v1.RoleBindingList, error)
 	SubjectAccess(context.Context, *v1.SubjectAccessRequest) (*v1.ReferenceList, error)
 	APIExtensions(context.Context, *emptypb.Empty) (*APIExtensionInfoList, error)
-	GetConfig(context.Context, *emptypb.Empty) (*GatewayConfig, error)
+	GetConfig(context.Context, *emptypb.Empty) (*GatewayConfigPre, error)
 	UpdateConfig(context.Context, *UpdateConfigRequest) (*emptypb.Empty, error)
 	ListCapabilities(context.Context, *emptypb.Empty) (*CapabilityList, error)
 	// Deprecated: Do not use.
@@ -592,7 +592,7 @@ func (UnimplementedManagementServer) SubjectAccess(context.Context, *v1.SubjectA
 func (UnimplementedManagementServer) APIExtensions(context.Context, *emptypb.Empty) (*APIExtensionInfoList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method APIExtensions not implemented")
 }
-func (UnimplementedManagementServer) GetConfig(context.Context, *emptypb.Empty) (*GatewayConfig, error) {
+func (UnimplementedManagementServer) GetConfig(context.Context, *emptypb.Empty) (*GatewayConfigPre, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetConfig not implemented")
 }
 func (UnimplementedManagementServer) UpdateConfig(context.Context, *UpdateConfigRequest) (*emptypb.Empty, error) {

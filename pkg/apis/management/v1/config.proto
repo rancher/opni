@@ -1,0 +1,166 @@
+syntax = "proto3";
+
+package management;
+
+
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/rancher/opni/pkg/apis/management/v1";
+
+option (cli.generator) = {
+    generate :         true
+    generate_deepcopy: true
+};
+
+service GatewayConfigRET {
+  rpc GetGatewayConfig(google.protobuf.Empty) returns (GatewayConfigSpec) {
+    option (google.api.http) = {
+      get: "/gateway/config"
+    };
+  }
+  rpc PutGatewayConfig(GatewayConfigSpec) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put:  "/gateway/config"
+      body: "*"
+    };
+  }
+  rpc WatchGatewayConfig(google.protobuf.Empty) returns (stream GatewayConfigSpec) {
+    option (google.api.http) = {
+      post: "/gateway/config/watch"
+      body: "*"
+    };
+  }
+}
+
+
+
+message GatewayConfigSpec {
+    string httpListenAddress = 1 [(cli.flag).default = "localhost:8080"]; 
+    string gRPCListenAddress = 2 [(cli.flag).default = "localhost:0090"];
+    string metricsListenAddress = 3 [(cli.flag).default = "localhost:8086"];
+    string hostname = 4 [(cli.flag).default = "localhost"]; 
+    MetricsSpec metrics = 5; 
+    ManagementSpec management = 6;
+    StorageSpec storage = 7;
+    CertsSpec certs = 8;
+    PluginsSpec plugins = 9;
+    KeyringSpec keyring = 10; 
+    AgentUpgradeSpec agentUpgrade = 11;
+    RateLimitSpec rateLimit = 12;
+    AuthSpec auth = 13;
+}
+
+message MetricsSpec {
+    string path = 1 [(cli.flag).default = "/metrics"];
+}
+
+message ManagementSpec {
+    string grpcListenAddress = 1 [(cli.flag).default = "tcp://0.0.0.0:11090"];
+    string httpListenAddress = 2 [(cli.flag).default = "0.0.0.0:11080"];
+    string webhookListenAddress = 3 [(cli.flag).default = "0.0.0.0:12080"];
+    string relayListenAddress = 4;
+    CertsSpec webCerts = 5;  
+}
+
+message StorageSpec {
+    // TODO : might want enum here?
+    string type = 1 [(cli.flag).default = "etcd"];
+    EtcdStorageSpec etcd = 2;
+    JetstreamStorageSpec jetstream = 3;
+    CustomResourceStorageSpec customResource = 4;
+
+}
+
+message EtcdStorageSpec {
+    repeated string endpoints = 1;
+    MTLSSpec certs = 2;
+}
+
+message JetstreamStorageSpec {
+    string endpoint = 1;
+    string nKeySeedPath = 2;
+}
+
+message CustomResourceStorageSpec{
+    string namespace = 1;
+}
+
+message MTLSSpec {
+    // Path to the server CA certificate
+    string ServerCA = 1;
+    // Path to the client CA certificate
+    string ClientCA = 2;
+    // Path to the client certificate
+    string ClientCert = 3;
+    // Path to the private key used for client cert auth
+    string ClientKey = 4;
+}
+
+
+message CertsSpec {
+    // Path to a PEM encoded CA certificate file. Mutually exclusive with CACertData
+	optional string CACert = 1;
+	// String containing PEM encoded CA certificate data. Mutually exclusive with CACert
+	bytes CACertData  = 2;
+	// Path to a PEM encoded server certificate file. Mutually exclusive with ServingCertData
+	optional string ServingCert = 3;
+	// String containing PEM encoded server certificate data. Mutually exclusive with ServingCert
+	bytes ServingCertData = 4;
+	// Path to a PEM encoded server key file. Mutually exclusive with ServingKeyData
+	optional string ServingKey = 5;
+	// String containing PEM encoded server key data. Mutually exclusive with ServingKey
+	bytes ServingKeyData = 6;
+}
+
+message PluginsSpec {
+    string dir = 1;
+    BinaryPluginsSpec binary = 2;
+}
+
+message BinaryPluginsSpec {
+    CacheSpec cache = 1;
+}
+
+message CacheSpec {
+    // TODO : enum?
+    string PathEngine = 1;
+    
+    // TODO : how do we want to do the rest
+}
+
+message KeyringSpec {
+    // Directories to search for files containing ephemeral keys.
+	// All files in these directories will be loaded into the keyring on
+	// startup. Keys loaded in this way will not be persisted across restarts.
+	repeated string EphemeralKeyDirs = 1; 
+}
+
+message AgentUpgradeSpec {
+    KubernetesAgentUpgradeSpec kubernetes = 1;
+}
+
+message KubernetesAgentUpgradeSpec {
+    // TODO : enum?
+    string imageReolver = 1;
+    NoopImageResolverSpec noop = 2;
+    KubernetesImageResolverSpec kuberntes = 3;
+}
+
+message NoopImageResolverSpec {}
+
+message KubernetesImageResolverSpec {
+    string controlNamespace = 1;
+}
+
+message RateLimitSpec {
+    double rate = 1;
+    int32 burst = 2;
+}
+
+message AuthSpec {
+    // potentially fields to deprecate after auth is implemented
+    string authProvider = 1001;
+    repeated string trustedProxies = 1002;
+}

@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package management;
 
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 import "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/api/annotations.proto";
@@ -12,6 +13,8 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "google/rpc/status.proto";
+
+
 
 option go_package = "github.com/rancher/opni/pkg/apis/management/v1";
 
@@ -144,7 +147,7 @@ service Management {
       get: "/apiextensions"
     };
   }
-  rpc GetConfig(google.protobuf.Empty) returns (GatewayConfig) {
+  rpc GetConfig(google.protobuf.Empty) returns (GatewayConfigPre) {
     option (google.api.http) = {
       get: "/config"
     };
@@ -258,7 +261,7 @@ message HTTPRuleDescriptor {
   google.protobuf.MethodDescriptorProto method = 2;
 }
 
-message GatewayConfig {
+message GatewayConfigPre {
   repeated ConfigDocumentWithSchema documents = 1;
 }
 

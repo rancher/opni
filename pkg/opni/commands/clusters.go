@@ -10,6 +10,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/opni/cliutil"
+	"github.com/rancher/opni/pkg/render"
 	"github.com/rancher/opni/pkg/tui"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -78,7 +79,7 @@ func BuildClustersListCmd() *cobra.Command {
 					healthStatus = append(healthStatus, stat)
 				}
 			}
-			fmt.Println(cliutil.RenderClusterList(t, healthStatus))
+			fmt.Println(render.RenderClusterList(t, healthStatus))
 			return nil
 		},
 	}
@@ -262,7 +263,7 @@ func BuildClustersShowCmd() *cobra.Command {
 			case "json":
 				fmt.Println(protojson.Format(cluster))
 			case "table":
-				fmt.Println(cliutil.RenderClusterDetails(cluster))
+				fmt.Println(render.RenderClusterDetails(cluster))
 			}
 			return nil
 		},

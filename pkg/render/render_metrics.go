@@ -1,6 +1,6 @@
 //go:build !minimal
 
-package cliutil
+package render
 
 import (
 	"fmt"

@@ -17,7 +17,7 @@ import (
 func (m *Server) GetConfig(
 	_ context.Context,
 	_ *emptypb.Empty,
-) (*managementv1.GatewayConfig, error) {
+) (*managementv1.GatewayConfigPre, error) {
 	lg := m.logger
 	objects, err := m.lifecycler.GetObjectList()
 	if err != nil {
@@ -26,7 +26,7 @@ func (m *Server) GetConfig(
 		).Error("failed to get object list")
 		return nil, err
 	}
-	gc := &managementv1.GatewayConfig{}
+	gc := &managementv1.GatewayConfigPre{}
 	objects.Visit(func(obj interface{}, schema *jsonschema.Schema) {
 		jsonData, err := json.Marshal(obj)
 		if err != nil {

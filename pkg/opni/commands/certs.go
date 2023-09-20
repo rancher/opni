@@ -9,8 +9,8 @@ import (
 	"fmt"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/render"
 
-	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -48,7 +48,7 @@ func BuildCertsInfoCmd() *cobra.Command {
 			}
 			switch outputFormat {
 			case "table":
-				fmt.Println(cliutil.RenderCertInfoChain(t.Chain))
+				fmt.Println(render.RenderCertInfoChain(t.Chain))
 			case "pem":
 				fmt.Print(string(pemEncodedChain(t.Chain)))
 			case "base64":

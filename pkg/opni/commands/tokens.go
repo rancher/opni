@@ -9,6 +9,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/opni/cliutil"
+	"github.com/rancher/opni/pkg/render"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -54,7 +55,7 @@ func BuildTokensCreateCmd() *cobra.Command {
 			if err != nil {
 				lg.Fatal(err)
 			}
-			fmt.Println(cliutil.RenderBootstrapToken(t))
+			fmt.Println(render.RenderBootstrapToken(t))
 		},
 	}
 	tokensCreateCmd.Flags().StringVar(&ttl, "ttl", "300s", "Time to live")
@@ -88,7 +89,7 @@ func BuildTokensCreateSupportCmd() *cobra.Command {
 			if err != nil {
 				lg.Fatal(err)
 			}
-			fmt.Println(cliutil.RenderBootstrapToken(t))
+			fmt.Println(render.RenderBootstrapToken(t))
 		},
 	}
 	tokensCreateSupportCmd.Flags().StringVar(&ttl, "ttl", "168h", "Time to live")
@@ -128,7 +129,7 @@ func BuildTokensListCmd() *cobra.Command {
 			if err != nil {
 				lg.Fatal(err)
 			}
-			fmt.Println(cliutil.RenderBootstrapTokenList(t))
+			fmt.Println(render.RenderBootstrapTokenList(t))
 		},
 	}
 }
@@ -152,7 +153,7 @@ func BuildTokensGetCmd() *cobra.Command {
 				}
 				tokenList = append(tokenList, t)
 			}
-			cliutil.RenderBootstrapTokenList(&corev1.BootstrapTokenList{
+			render.RenderBootstrapTokenList(&corev1.BootstrapTokenList{
 				Items: tokenList,
 			})
 		},

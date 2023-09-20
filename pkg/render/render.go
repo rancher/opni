@@ -1,4 +1,4 @@
-package cliutil
+package render
 
 import (
 	"fmt"
@@ -341,4 +341,12 @@ func RenderClusterDetails(cluster *corev1.Cluster) string {
 		}
 	}
 	return w.Render()
+}
+
+func JoinKeyValuePairs(pairs map[string]string) []string {
+	kvs := make([]string, 0, len(pairs))
+	for k, v := range pairs {
+		kvs = append(kvs, k+"="+v)
+	}
+	return kvs
 }

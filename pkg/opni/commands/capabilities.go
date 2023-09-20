@@ -14,7 +14,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/opni/cliutil"
+	"github.com/rancher/opni/pkg/render"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
@@ -52,7 +52,7 @@ func BuildCapabilityListCmd() *cobra.Command {
 			if err != nil {
 				lg.Fatal(err)
 			}
-			fmt.Println(cliutil.RenderCapabilityList(list))
+			fmt.Println(render.RenderCapabilityList(list))
 		},
 	}
 	return cmd

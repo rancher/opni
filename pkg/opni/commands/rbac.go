@@ -9,6 +9,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/opni/cliutil"
+	"github.com/rancher/opni/pkg/render"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -73,7 +74,7 @@ func BuildRolesCreateCmd() *cobra.Command {
 			if err != nil {
 				lg.Fatal(err)
 			}
-			fmt.Println(cliutil.RenderRole(role))
+			fmt.Println(render.RenderRole(role))
 		},
 	}
 	cmd.Flags().StringSliceVar(&clusterIDs, "cluster-ids", []string{}, "Explicit cluster IDs to allow")
@@ -113,7 +114,7 @@ func BuildRolesUpdateCmd() *cobra.Command {
 			if err != nil {
 				lg.Fatal(err)
 			}
-			fmt.Println(cliutil.RenderRole(role))
+			fmt.Println(render.RenderRole(role))
 		},
 	}
 	cmd.Flags().StringSliceVar(&clusterIDs, "cluster-ids", []string{}, "Explicit cluster IDs to allow")
@@ -161,7 +162,7 @@ func BuildRolesShowCmd() *cobra.Command {
 			if err != nil {
 				lg.Fatal(err)
 			}
-			fmt.Println(cliutil.RenderRole(role))
+			fmt.Println(render.RenderRole(role))
 		},
 	}
 }
@@ -176,7 +177,7 @@ func BuildRolesListCmd() *cobra.Command {
 			if err != nil {
 				lg.Fatal(err)
 			}
-			fmt.Println(cliutil.RenderRoleList(t))
+			fmt.Println(render.RenderRoleList(t))
 		},
 	}
 }
@@ -207,7 +208,7 @@ func BuildRoleBindingsCreateCmd() *cobra.Command {
 			if err != nil {
 				lg.Fatal(err)
 			}
-			fmt.Println(cliutil.RenderRoleBinding(rb))
+			fmt.Println(render.RenderRoleBinding(rb))
 		},
 	}
 }
@@ -241,7 +242,7 @@ func BuildRoleBindingsUpdateCmd() *cobra.Command {
 			if err != nil {
 				lg.Fatal(err)
 			}
-			fmt.Println(cliutil.RenderRoleBinding(rb))
+			fmt.Println(render.RenderRoleBinding(rb))
 		},
 	}
 }
@@ -286,7 +287,7 @@ func BuildRoleBindingsShowCmd() *cobra.Command {
 			if err != nil {
 				lg.Fatal(err)
 			} else {
-				fmt.Println(cliutil.RenderRoleBinding(rb))
+				fmt.Println(render.RenderRoleBinding(rb))
 			}
 		},
 	}
@@ -302,7 +303,7 @@ func BuildRoleBindingsListCmd() *cobra.Command {
 			if err != nil {
 				lg.Fatal(err)
 			}
-			fmt.Println(cliutil.RenderRoleBindingList(t))
+			fmt.Println(render.RenderRoleBindingList(t))
 		},
 	}
 }
@@ -353,7 +354,7 @@ func BuildAccessMatrixCmd() *cobra.Command {
 				sortedUsers = append(sortedUsers, user)
 			}
 			sort.Strings(sortedUsers)
-			fmt.Println(cliutil.RenderAccessMatrix(cliutil.AccessMatrix{
+			fmt.Println(render.RenderAccessMatrix(render.AccessMatrix{
 				Users:           sortedUsers,
 				KnownClusters:   allClusters,
 				ClustersToUsers: clusterToUsers,

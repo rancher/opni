@@ -112,11 +112,8 @@ func (b *LoggingBackend) shouldDisableNode(ctx context.Context) bool {
 }
 
 func (b *LoggingBackend) requestNodeSync(ctx context.Context, cluster *opnicorev1.Reference) {
-	_, err := b.NodeManagerClient.RequestSync(ctx, &capabilityv1.SyncRequest{
-		Cluster: cluster,
-		Filter: &capabilityv1.Filter{
-			CapabilityNames: []string{wellknown.CapabilityLogs},
-		},
+	_, err := b.Delegate.WithTarget(cluster).SyncNow(ctx, &capabilityv1.Filter{
+		CapabilityNames: []string{wellknown.CapabilityLogs},
 	})
 
 	name := cluster.GetId()

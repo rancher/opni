@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 
-	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -92,10 +91,5 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		os.Exit(1)
 	}
 	p.nc.Set(nc)
-	<-p.ctx.Done()
-}
-
-func (p *Plugin) UseNodeManagerClient(client capabilityv1.NodeManagerClient) {
-	p.nodeManagerClient.Set(client)
 	<-p.ctx.Done()
 }

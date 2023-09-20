@@ -1644,8 +1644,8 @@ github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c h1:1kKbyl5GtGk/D+6
 github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c/go.mod h1:GXnSgs1TGXa8aX1hO9SUE1o3pLfggl5hkBMXdVWD8dc=
 github.com/kralicky/ragu v1.0.11-0.20230627162951-2dd00e0cbbf3 h1:UB8Fk6c8Ait8DLtemgT/ItRdUpxJQHMDntqFopFt6/Q=
 github.com/kralicky/ragu v1.0.11-0.20230627162951-2dd00e0cbbf3/go.mod h1:njQGnwU5IHm4Qx6/oOY0ll7Z6WA0apfP0ClpVA0M27Q=
-github.com/kralicky/totem v1.2.0 h1:3pZuqhLrCYVbaxskkvubEm65AC/mquDLRTUZYGUxEEY=
-github.com/kralicky/totem v1.2.0/go.mod h1:DFlQM6o5n1AWrU/+wd3hjLKoKZ+a0TPRUQxnCQvGKyY=
+github.com/kralicky/totem v1.2.1 h1:ayd+IHbmmWhgFXJfzTHg0mJ2mr/IYHCh/nDqYyd6yCk=
+github.com/kralicky/totem v1.2.1/go.mod h1:DFlQM6o5n1AWrU/+wd3hjLKoKZ+a0TPRUQxnCQvGKyY=
 github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d h1:kLfaaFdmCHKZCvL4DzQ7T9YsAVSBqZez34zaegldkls=
 github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d/go.mod h1:z4cKsjE0B5RlhFSbWcZNh70UEjtwrj8fpG1QXyU2KuI=
 github.com/kralicky/zap v1.24.1-0.20230718165024-a2256218e4cc h1:FhngWZAuozJDezZPFebEy8QPbf7tw3MRv07RN8RLcg0=

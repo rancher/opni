@@ -3,9 +3,10 @@ package stream
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"strings"
 
 	"github.com/kralicky/totem"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -17,8 +18,7 @@ import (
 // Aggregator allows the user to aggregate the responses from a broadcast request, and store the result in reply.
 type Aggregator func(reply any, msg *streamv1.BroadcastReplyList) error
 
-// EmptyNothingAggregator is an aggregator to use if you don't need to do any aggregation, or don't care about the response.
-var EmptyNothingAggregator Aggregator = func(any, *streamv1.BroadcastReplyList) error {
+func DiscardReplies(any, *streamv1.BroadcastReplyList) error {
 	return nil
 }
 
@@ -87,7 +87,7 @@ func (w *targetedDelegatingClient[T]) Invoke(ctx context.Context, method string,
 		},
 	}
 	switch {
-	case w.target != nil:
+	case w.target != nil && w.target.Id != "":
 		respMsg, err := w.delegateClient.Request(ctx, &streamv1.DelegatedMessage{
 			Request: rpc,
 			Target:  w.target,

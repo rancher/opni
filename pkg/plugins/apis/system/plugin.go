@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-plugin"
-	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/plugins"
@@ -22,7 +21,6 @@ import (
 
 type SystemPluginClient interface {
 	UseManagementAPI(managementv1.ManagementClient)
-	UseNodeManagerClient(capabilityv1.NodeManagerClient)
 	UseCachingProvider(caching.CachingProvider[proto.Message])
 	UseKeyValueStore(KeyValueStoreClient)
 	UseAPIExtensions(ExtensionClientInterface)
@@ -33,7 +31,6 @@ type SystemPluginClient interface {
 type UnimplementedSystemPluginClient struct{}
 
 func (UnimplementedSystemPluginClient) UseManagementAPI(managementv1.ManagementClient)            {}
-func (UnimplementedSystemPluginClient) UseNodeManagerClient(capabilityv1.NodeManagerClient)       {}
 func (UnimplementedSystemPluginClient) UseKeyValueStore(KeyValueStoreClient)                      {}
 func (UnimplementedSystemPluginClient) UseAPIExtensions(ExtensionClientInterface)                 {}
 func (UnimplementedSystemPluginClient) UseCachingProvider(caching.CachingProvider[proto.Message]) {}
@@ -41,7 +38,6 @@ func (UnimplementedSystemPluginClient) mustEmbedUnimplementedSystemPluginClient(
 
 type SystemPluginServer interface {
 	ServeManagementAPI(managementv1.ManagementServer)
-	ServeNodeManagerServer(capabilityv1.NodeManagerServer)
 	ServeKeyValueStore(storage.KeyValueStore)
 	ServeAPIExtensions(dialAddress string) error
 	ServeCachingProvider()
@@ -100,17 +96,6 @@ func (c *systemPluginClientImpl) UseManagementAPI(_ context.Context, in *BrokerI
 	defer cc.Close()
 	client := managementv1.NewManagementClient(cc)
 	c.client.UseManagementAPI(client)
-	return &emptypb.Empty{}, nil
-}
-
-func (c *systemPluginClientImpl) UseNodeManagerClient(_ context.Context, in *BrokerID) (*emptypb.Empty, error) {
-	cc, err := c.broker.Dial(in.Id)
-	if err != nil {
-		return nil, err
-	}
-	defer cc.Close()
-	client := capabilityv1.NewNodeManagerClient(cc)
-	c.client.UseNodeManagerClient(client)
 	return &emptypb.Empty{}, nil
 }
 
@@ -188,19 +173,6 @@ func (s *systemPluginHandler) ServeManagementAPI(api managementv1.ManagementServ
 		},
 		func(id uint32) {
 			s.client.UseManagementAPI(s.ctx, &BrokerID{
-				Id: id,
-			})
-		},
-	)
-}
-
-func (s *systemPluginHandler) ServeNodeManagerServer(api capabilityv1.NodeManagerServer) {
-	s.serveSystemApi(
-		func(srv *grpc.Server) {
-			capabilityv1.RegisterNodeManagerServer(srv, api)
-		},
-		func(id uint32) {
-			s.client.UseNodeManagerClient(s.ctx, &BrokerID{
 				Id: id,
 			})
 		},

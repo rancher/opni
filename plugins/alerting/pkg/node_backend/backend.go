@@ -2,18 +2,21 @@ package node_backend
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/rancher/opni/pkg/agent"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/pkg/storage"
-
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	"go.uber.org/zap"
@@ -45,9 +48,9 @@ type AlertingNodeBackend struct {
 	nodeStatusMu sync.RWMutex
 	nodeStatus   map[string]*capabilityv1.NodeCapabilityStatus
 
-	nodeManagerClient future.Future[capabilityv1.NodeManagerClient]
-	mgmtClient        future.Future[managementv1.ManagementClient]
-	storageBackend    future.Future[storage.Backend]
+	delegate       future.Future[streamext.StreamDelegate[agent.ClientSet]]
+	mgmtClient     future.Future[managementv1.ManagementClient]
+	storageBackend future.Future[storage.Backend]
 
 	capabilityKV future.Future[CapabilitySpecKV]
 }
@@ -56,24 +59,24 @@ func NewAlertingNodeBackend(
 	lg *zap.SugaredLogger,
 ) *AlertingNodeBackend {
 	return &AlertingNodeBackend{
-		lg:                lg,
-		nodeManagerClient: future.New[capabilityv1.NodeManagerClient](),
-		mgmtClient:        future.New[managementv1.ManagementClient](),
-		storageBackend:    future.New[storage.Backend](),
-		capabilityKV:      future.New[CapabilitySpecKV](),
-		nodeStatus:        make(map[string]*capabilityv1.NodeCapabilityStatus),
+		lg:             lg,
+		delegate:       future.New[streamext.StreamDelegate[agent.ClientSet]](),
+		mgmtClient:     future.New[managementv1.ManagementClient](),
+		storageBackend: future.New[storage.Backend](),
+		capabilityKV:   future.New[CapabilitySpecKV](),
+		nodeStatus:     make(map[string]*capabilityv1.NodeCapabilityStatus),
 	}
 }
 
 func (a *AlertingNodeBackend) Initialize(
 	kv CapabilitySpecKV,
 	mgmtClient managementv1.ManagementClient,
-	nodeManagerClient capabilityv1.NodeManagerClient,
+	nodeManagerClient streamext.StreamDelegate[agent.ClientSet],
 	storageBackend storage.Backend,
 ) {
 	a.InitOnce(func() {
 		a.capabilityKV.Set(kv)
-		a.nodeManagerClient.Set(nodeManagerClient)
+		a.delegate.Set(nodeManagerClient)
 		a.mgmtClient.Set(mgmtClient)
 		a.storageBackend.Set(storageBackend)
 	})
@@ -100,26 +103,39 @@ func init() {
 	)
 }
 
-func (a *AlertingNodeBackend) requestNodeSync(ctx context.Context, node *corev1.Reference) {
-	_, err := a.nodeManagerClient.Get().RequestSync(ctx, &capabilityv1.SyncRequest{
-		Cluster: node,
-		Filter: &capabilityv1.Filter{
-			CapabilityNames: []string{wellknown.CapabilityAlerting},
-		},
-	})
-	name := node.GetId()
-	if name == "" {
-		name = "(all)"
+func (a *AlertingNodeBackend) requestNodeSync(ctx context.Context, target *corev1.Reference) error {
+	if target == nil || target.Id == "" {
+		panic("bug: target must be non-nil and have a non-empty ID. this logic was recently changed - please update the caller")
 	}
-	lg := a.lg.With(
-		"cluster", name,
-		"capability", wellknown.CapabilityAlerting,
-	)
-	if err != nil {
-		lg.With(zap.Error(err)).Error("failed to request node sync; nodes may not be updated immediately")
-	}
+	_, err := a.delegate.Get().
+		WithTarget(target).
+		SyncNow(ctx, &capabilityv1.Filter{CapabilityNames: []string{wellknown.CapabilityAlerting}})
+	return err
+}
 
-	lg.Info("node sync requested")
+func (a *AlertingNodeBackend) broadcastNodeSync(ctx context.Context) {
+	// keep any metadata in the context, but don't propagate cancellation
+	ctx = context.WithoutCancel(ctx)
+	var errs []error
+	a.delegate.Get().
+		WithBroadcastSelector(&corev1.ClusterSelector{}, func(reply any, msg *streamv1.BroadcastReplyList) error {
+			for _, resp := range msg.GetResponses() {
+				err := resp.GetReply().GetResponse().GetStatus().Err()
+				if err != nil {
+					target := resp.GetRef()
+					errs = append(errs, status.Errorf(codes.Internal, "failed to sync agent %s: %v", target.GetId(), err))
+				}
+			}
+			return nil
+		}).
+		SyncNow(ctx, &capabilityv1.Filter{
+			CapabilityNames: []string{wellknown.CapabilityAlerting},
+		})
+	if len(errs) > 0 {
+		a.lg.With(
+			zap.Error(errors.Join(errs...)),
+		).Warn("one or more agents failed to sync; they may not be updated immediately")
+	}
 }
 
 func (a *AlertingNodeBackend) buildResponse(oldCfg, newCfg *node.AlertingCapabilityConfig) *node.SyncResponse {
@@ -158,7 +174,7 @@ func (a *AlertingNodeBackend) SetDefaultConfiguration(ctx context.Context, spec 
 		if err := a.capabilityKV.Get().DefaultCapabilitySpec.Delete(ctx); err != nil {
 			return nil, err
 		}
-		a.requestNodeSync(ctx, &corev1.Reference{})
+		a.broadcastNodeSync(ctx)
 		return &emptypb.Empty{}, nil
 	}
 
@@ -170,7 +186,7 @@ func (a *AlertingNodeBackend) SetDefaultConfiguration(ctx context.Context, spec 
 		return nil, err
 	}
 
-	a.requestNodeSync(ctx, &corev1.Reference{Id: ""})
+	a.broadcastNodeSync(ctx)
 
 	return &emptypb.Empty{}, nil
 }

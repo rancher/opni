@@ -509,7 +509,7 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 					HaveReplicaCount(1),
 					HaveMatchingContainer(And(
 						HaveName("grafana"),
-						HaveImage("grafana/grafana:latest"),
+						HaveImage("grafana/grafana:10.1.1"),
 					)),
 				))
 			})

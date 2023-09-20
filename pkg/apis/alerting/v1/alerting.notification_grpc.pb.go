@@ -8,6 +8,7 @@ package v1
 
 import (
 	context "context"
+	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -20,6 +21,7 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
+	AlertNotifications_TestAlertEndpoint_FullMethodName        = "/alerting.AlertNotifications/TestAlertEndpoint"
 	AlertNotifications_TriggerAlerts_FullMethodName            = "/alerting.AlertNotifications/TriggerAlerts"
 	AlertNotifications_ResolveAlerts_FullMethodName            = "/alerting.AlertNotifications/ResolveAlerts"
 	AlertNotifications_PushNotification_FullMethodName         = "/alerting.AlertNotifications/PushNotification"
@@ -32,6 +34,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AlertNotificationsClient interface {
+	TestAlertEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	TriggerAlerts(ctx context.Context, in *TriggerAlertsRequest, opts ...grpc.CallOption) (*TriggerAlertsResponse, error)
 	ResolveAlerts(ctx context.Context, in *ResolveAlertsRequest, opts ...grpc.CallOption) (*ResolveAlertsResponse, error)
 	PushNotification(ctx context.Context, in *Notification, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -52,6 +55,15 @@ type alertNotificationsClient struct {
 
 func NewAlertNotificationsClient(cc grpc.ClientConnInterface) AlertNotificationsClient {
 	return &alertNotificationsClient{cc}
+}
+
+func (c *alertNotificationsClient) TestAlertEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, AlertNotifications_TestAlertEndpoint_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *alertNotificationsClient) TriggerAlerts(ctx context.Context, in *TriggerAlertsRequest, opts ...grpc.CallOption) (*TriggerAlertsResponse, error) {
@@ -112,6 +124,7 @@ func (c *alertNotificationsClient) ListRoutingRelationships(ctx context.Context,
 // All implementations must embed UnimplementedAlertNotificationsServer
 // for forward compatibility
 type AlertNotificationsServer interface {
+	TestAlertEndpoint(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	TriggerAlerts(context.Context, *TriggerAlertsRequest) (*TriggerAlertsResponse, error)
 	ResolveAlerts(context.Context, *ResolveAlertsRequest) (*ResolveAlertsResponse, error)
 	PushNotification(context.Context, *Notification) (*emptypb.Empty, error)
@@ -131,6 +144,9 @@ type AlertNotificationsServer interface {
 type UnimplementedAlertNotificationsServer struct {
 }
 
+func (UnimplementedAlertNotificationsServer) TestAlertEndpoint(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TestAlertEndpoint not implemented")
+}
 func (UnimplementedAlertNotificationsServer) TriggerAlerts(context.Context, *TriggerAlertsRequest) (*TriggerAlertsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TriggerAlerts not implemented")
 }
@@ -160,6 +176,24 @@ type UnsafeAlertNotificationsServer interface {
 
 func RegisterAlertNotificationsServer(s grpc.ServiceRegistrar, srv AlertNotificationsServer) {
 	s.RegisterService(&AlertNotifications_ServiceDesc, srv)
+}
+
+func _AlertNotifications_TestAlertEndpoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Reference)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertNotificationsServer).TestAlertEndpoint(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AlertNotifications_TestAlertEndpoint_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertNotificationsServer).TestAlertEndpoint(ctx, req.(*v1.Reference))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _AlertNotifications_TriggerAlerts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -277,6 +311,10 @@ var AlertNotifications_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "alerting.AlertNotifications",
 	HandlerType: (*AlertNotificationsServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "TestAlertEndpoint",
+			Handler:    _AlertNotifications_TestAlertEndpoint_Handler,
+		},
 		{
 			MethodName: "TriggerAlerts",
 			Handler:    _AlertNotifications_TriggerAlerts_Handler,

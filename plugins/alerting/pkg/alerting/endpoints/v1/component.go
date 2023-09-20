@@ -25,10 +25,7 @@ type EndpointServerComponent struct {
 	mu sync.Mutex
 	server.Config
 
-	endpMu sync.Mutex
-
 	notifications *notifications.NotificationServerComponent
-	manualSync    manualSync
 
 	logger *zap.SugaredLogger
 
@@ -61,8 +58,6 @@ type EndpointServerConfiguration struct {
 	spec.ConditionStorage
 	spec.RouterStorage
 	spec.HashRing
-
-	ManualSync manualSync
 }
 
 func (e *EndpointServerComponent) Name() string {
@@ -99,6 +94,5 @@ func (e *EndpointServerComponent) Initialize(conf EndpointServerConfiguration) {
 		e.conditionStorage.Set(conf.ConditionStorage)
 		e.routerStorage.Set(conf.RouterStorage)
 		e.hashRing.Set(conf.HashRing)
-		e.manualSync = conf.ManualSync
 	})
 }

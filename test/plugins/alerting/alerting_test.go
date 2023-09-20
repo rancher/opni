@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -149,8 +150,10 @@ func BuildAlertingClusterIntegrationTests(
 					ts := timestamppb.Now()
 					for _, comp := range info.Components {
 						Expect(comp.LastHandshake.AsTime()).To(BeTemporally("<", ts.AsTime()))
-						if comp.ConnectInfo.SyncId != info.CurSyncId {
-							Expect(comp.LastHandshake.AsTime()).To(BeTemporally(">", ts.AsTime().Add(15*(-time.Second))), "sync is stuttering")
+						if comp.ConnectInfo.GetState() != alertops.SyncState_Synced {
+							if comp.ConnectInfo.SyncId != info.CurSyncId {
+								Expect(comp.LastHandshake.AsTime()).To(BeTemporally(">", ts.AsTime().Add(15*(-time.Second))), "sync is stuttering")
+							}
 						}
 					}
 				}
@@ -198,7 +201,7 @@ func BuildAlertingClusterIntegrationTests(
 							return fmt.Errorf("cluster config not equal : not applied")
 						}
 						return err
-					}, time.Second*5, time.Millisecond*200)
+					}, time.Second*5, time.Millisecond*200).Should(Succeed())
 				})
 
 				Specify("the alerting plugin components should be running and healthy", func() {
@@ -254,24 +257,33 @@ func BuildAlertingClusterIntegrationTests(
 					By("verifying they are reachable")
 
 					for _, endp := range endpList.GetItems() {
-						_, err := alertEndpointsClient.TestAlertEndpoint(env.Context(), &alertingv1.TestAlertEndpointRequest{
-							Endpoint: endp.GetEndpoint(),
-						})
+						Expect(endp.GetId()).NotTo(BeNil())
+						_, err := alertNotificationsClient.TestAlertEndpoint(env.Context(), endp.GetId())
 						Expect(err).To(Succeed())
 					}
+					maxSuccesses := 0
 					Eventually(func() error {
+						success := 0
+						errs := []error{}
 						for _, server := range servers {
 							if len(server.GetBuffer()) == 0 {
-								return fmt.Errorf("server %s did not receive any alerts", server.Endpoint().Name)
+								if success > maxSuccesses {
+									maxSuccesses = success
+								}
+								errs = append(errs, fmt.Errorf("server %v did not receive any alerts", server.Endpoint()))
+							} else {
+								success++
 							}
 						}
+						if len(errs) > 0 {
+							return errors.Join(errs...)
+						}
 						return nil
-					}, time.Second*30, time.Millisecond*100)
+					}, time.Second*15, time.Millisecond*100).Should(Succeed(), fmt.Sprintf("only %d/%d servers received alerts", maxSuccesses, numServers))
 
 					for _, server := range servers {
 						server.ClearBuffer()
 					}
-
 				})
 
 				It("should create some default conditions when bootstrapping agents", func() {
@@ -369,6 +381,14 @@ func BuildAlertingClusterIntegrationTests(
 						},
 					})
 					Expect(err).To(Succeed())
+					disconnectStatusList, err := alertConditionsClient.ListAlertConditionsWithStatus(env.Context(), &alertingv1.ListStatusRequest{
+						ItemFilter: &alertingv1.ListAlertConditionRequest{
+							AlertTypes: []alertingv1.AlertType{
+								alertingv1.AlertType_System,
+							},
+						},
+					})
+					Expect(err).To(Succeed())
 
 					capabilityList, err := alertConditionsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{
 						AlertTypes: []alertingv1.AlertType{
@@ -376,7 +396,18 @@ func BuildAlertingClusterIntegrationTests(
 						},
 					})
 					Expect(err).To(Succeed())
+
+					capabilityStatusList, err := alertConditionsClient.ListAlertConditionsWithStatus(env.Context(), &alertingv1.ListStatusRequest{
+						ItemFilter: &alertingv1.ListAlertConditionRequest{
+							AlertTypes: []alertingv1.AlertType{
+								alertingv1.AlertType_DownstreamCapability,
+							},
+						},
+					})
+
+					Expect(err).To(Succeed())
 					Expect(capabilityList.Items).To(HaveLen(len(disconnectList.Items)))
+					Expect(capabilityStatusList.GetAlertConditions()).To(HaveLen(len(disconnectStatusList.GetAlertConditions())))
 				})
 
 				It("should be able to attach endpoints to conditions", func() {
@@ -461,9 +492,15 @@ func BuildAlertingClusterIntegrationTests(
 						return nil
 					}, time.Second*30, time.Second).Should(Succeed())
 					By("verifying the routing relationships are correctly loaded")
+					Eventually(func() int {
+						relationships, err := alertNotificationsClient.ListRoutingRelationships(env.Context(), &emptypb.Empty{})
+						if err != nil {
+							return -1
+						}
+						return len(relationships.RoutingRelationships)
+					}).Should(Equal(len(expectedRouting)))
 					relationships, err := alertNotificationsClient.ListRoutingRelationships(env.Context(), &emptypb.Empty{})
 					Expect(err).To(Succeed())
-					Expect(len(relationships.RoutingRelationships)).To(Equal(len(expectedRouting)))
 
 					for endpId, rel := range relationships.RoutingRelationships {
 						slices.SortFunc(rel.Items, func(a, b *alertingv1.ConditionReference) bool {
@@ -576,7 +613,7 @@ func BuildAlertingClusterIntegrationTests(
 							}
 						}
 						return nil
-					}, time.Second*5, time.Second*1)
+					}, time.Second*5, time.Second*1).Should(Succeed())
 				})
 
 				It("should be able to batch list status and filter by status", func() {
@@ -626,10 +663,10 @@ func BuildAlertingClusterIntegrationTests(
 							}
 						}
 						return nil
-					}, time.Second*5, time.Second)
+					}, time.Second*60, time.Second).Should(Succeed())
 				})
 
-				XIt("should be able to list opni messages", func() {
+				It("should be able to list opni messages", func() {
 					Eventually(func() error {
 						list, err := alertNotificationsClient.ListNotifications(env.Context(), &alertingv1.ListNotificationRequest{})
 						if err != nil {
@@ -639,7 +676,7 @@ func BuildAlertingClusterIntegrationTests(
 							return fmt.Errorf("expected to find at least one notification, got 0")
 						}
 						return nil
-					}, time.Second*60, time.Second).Should(BeNil())
+					}, time.Second*60, time.Second).Should(Succeed())
 
 					By("verifying we enforce limits")
 					list, err := alertNotificationsClient.ListNotifications(env.Context(), &alertingv1.ListNotificationRequest{
@@ -714,8 +751,9 @@ func BuildAlertingClusterIntegrationTests(
 									ConditionId: &alertingv1.ConditionReference{
 										Id: id,
 									},
-									Start: item.Windows[0].Start,
-									End:   timestamppb.Now(),
+									Fingerprints: item.Windows[0].Fingerprints,
+									Start:        item.Windows[0].Start,
+									End:          timestamppb.Now(),
 								})
 								if err != nil {
 									return err
@@ -732,7 +770,7 @@ func BuildAlertingClusterIntegrationTests(
 							}
 						}
 						return nil
-					}, time.Second*15, time.Second)
+					}, time.Second*15, time.Second).Should(Succeed())
 				})
 
 				Specify("the alertmanager proxy served by the Gateway HTTP port should be able to list the alarms", func() {

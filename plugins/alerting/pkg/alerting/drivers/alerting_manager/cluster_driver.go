@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni/apis"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	alertingClient "github.com/rancher/opni/pkg/alerting/client"
+	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
@@ -341,12 +342,16 @@ func (a *AlertingClusterManager) ShouldDisableNode(_ *corev1.Reference) error {
 	return nil
 }
 
+func (a *AlertingClusterManager) GetDefaultReceiver() *config.WebhookConfig {
+	return nil
+}
+
 func listPeers(replicas int) []alertingClient.AlertingPeer {
 	peers := []alertingClient.AlertingPeer{}
 	for i := 0; i < replicas; i++ {
 		peers = append(peers, alertingClient.AlertingPeer{
 			ApiAddress:      fmt.Sprintf("http://%s-%d.%s:9093", shared.AlertmanagerService, i, shared.AlertmanagerService),
-			EmbeddedAddress: fmt.Sprintf("http://%s-%d.%s:6006", shared.EmitterService, i, shared.EmitterService),
+			EmbeddedAddress: fmt.Sprintf("http://%s-%d.%s:3000", shared.AlertmanagerService, i, shared.AlertmanagerService),
 		})
 	}
 	return peers

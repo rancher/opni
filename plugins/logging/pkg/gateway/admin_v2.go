@@ -25,7 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const defaultOpniVersion = "0.11.1"
+const defaultOpniVersion = "0.11.2"
 
 type ClusterStatus int
 

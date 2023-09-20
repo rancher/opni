@@ -74,14 +74,6 @@ service AlertEndpoints{
       body : "*"
     };
   }
-
-  rpc TestAlertEndpoint(TestAlertEndpointRequest)
-      returns (TestAlertEndpointResponse) {
-    option (google.api.http) = {
-      post : "/test"
-      body : "*"
-    };
-  }
 }
 
 

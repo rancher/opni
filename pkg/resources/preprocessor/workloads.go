@@ -21,9 +21,9 @@ import (
 
 const (
 	configKey             = "config.yaml"
-	preprocessorVersion   = "v0.1.3-rc2-0.74.0"
-	preprocessorImageRepo = "ghcr.io/rancher-sandbox"
-	preprocessorImage     = "opni-otel-collector"
+	preprocessorVersion   = "latest"
+	preprocessorImageRepo = "docker.io/jaehnri"
+	preprocessorImage     = "otel-collector"
 	otlpGRPCPort          = 4317
 )
 

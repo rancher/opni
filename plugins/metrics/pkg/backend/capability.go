@@ -191,7 +191,7 @@ func (m *MetricsBackend) UninstallStatus(_ context.Context, cluster *corev1.Refe
 	return m.UninstallController.TaskStatus(cluster.Id)
 }
 
-func (m *MetricsBackend) CancelUninstall(ctx context.Context, cluster *corev1.Reference) (*emptypb.Empty, error) {
+func (m *MetricsBackend) CancelUninstall(_ context.Context, cluster *corev1.Reference) (*emptypb.Empty, error) {
 	m.WaitForInit()
 
 	m.UninstallController.CancelTask(cluster.Id)

@@ -91,7 +91,8 @@ type ManagementSpec struct {
 	//+kubebuilder:default="0.0.0.0:12080"
 	WebListenAddress string `json:"webListenAddress,omitempty"`
 
-	RelayListenAddress string `json:"relayListenAddress,omitempty"`
+	RelayListenAddress    string `json:"relayListenAddress,omitempty"`
+	RelayAdvertiseAddress string `json:"relayAdvertiseAddress,omitempty"`
 
 	WebCerts *CertsSpec `json:"webCerts,omitempty"`
 }

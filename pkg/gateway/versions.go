@@ -22,6 +22,9 @@ func NewLastKnownDetailsApplier(storageBackend storage.ClusterStore) func(srv in
 		lkcd := &corev1.LastKnownConnectionDetails{
 			Time: timestamppb.Now(),
 		}
+		if instanceInfo, ok := ss.Context().Value(instanceInfoKey).(*corev1.InstanceInfo); ok {
+			lkcd.InstanceInfo = instanceInfo
+		}
 
 		// best effort peer info
 		if p, ok := peer.FromContext(ss.Context()); ok {

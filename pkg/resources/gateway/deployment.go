@@ -41,7 +41,7 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: lo.ToPtr[int32](1),
+			Replicas: lo.ToPtr[int32](3),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
@@ -67,6 +67,14 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 									ValueFrom: &corev1.EnvVarSource{
 										FieldRef: &corev1.ObjectFieldSelector{
 											FieldPath: "metadata.namespace",
+										},
+									},
+								},
+								corev1.EnvVar{
+									Name: "POD_IP",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "status.podIP",
 										},
 									},
 								},

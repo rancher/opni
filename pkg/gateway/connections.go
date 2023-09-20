@@ -122,9 +122,9 @@ func (ct *ConnectionTracker) Run(ctx context.Context) error {
 	return nil
 }
 
-type agentLockKeyType struct{}
+type instanceInfoKeyType struct{}
 
-var agentLockKey agentLockKeyType
+var instanceInfoKey = instanceInfoKeyType{}
 
 func (ct *ConnectionTracker) StreamServerInterceptor() grpc.StreamServerInterceptor {
 	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
@@ -164,7 +164,7 @@ func (ct *ConnectionTracker) StreamServerInterceptor() grpc.StreamServerIntercep
 		ct.kv.Put(ss.Context(), locker.Key(), util.Must(proto.Marshal(instanceInfo)))
 
 		stream := streams.NewServerStreamWithContext(ss)
-		stream.Ctx = context.WithValue(stream.Ctx, agentLockKey, locker)
+		stream.Ctx = context.WithValue(stream.Ctx, instanceInfoKey, util.ProtoClone(instanceInfo))
 		return handler(srv, stream)
 	}
 }

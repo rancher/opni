@@ -39,6 +39,18 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
 }
 
+// Close mocks base method.
+func (m *MockBackend) Close() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Close")
+}
+
+// Close indicates an expected call of Close.
+func (mr *MockBackendMockRecorder) Close() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockBackend)(nil).Close))
+}
+
 // CreateCluster mocks base method.
 func (m *MockBackend) CreateCluster(ctx context.Context, cluster *v1.Cluster) error {
 	m.ctrl.T.Helper()
@@ -1322,6 +1334,43 @@ func (mr *MockKeyValueStoreTBrokerMockRecorder[T]) KeyValueStore(namespace inter
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyValueStore", reflect.TypeOf((*MockKeyValueStoreTBroker[T])(nil).KeyValueStore), namespace)
 }
 
+// MockLockManagerBroker is a mock of LockManagerBroker interface.
+type MockLockManagerBroker struct {
+	ctrl     *gomock.Controller
+	recorder *MockLockManagerBrokerMockRecorder
+}
+
+// MockLockManagerBrokerMockRecorder is the mock recorder for MockLockManagerBroker.
+type MockLockManagerBrokerMockRecorder struct {
+	mock *MockLockManagerBroker
+}
+
+// NewMockLockManagerBroker creates a new mock instance.
+func NewMockLockManagerBroker(ctrl *gomock.Controller) *MockLockManagerBroker {
+	mock := &MockLockManagerBroker{ctrl: ctrl}
+	mock.recorder = &MockLockManagerBrokerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockLockManagerBroker) EXPECT() *MockLockManagerBrokerMockRecorder {
+	return m.recorder
+}
+
+// LockManager mocks base method.
+func (m *MockLockManagerBroker) LockManager(namespace string) storage.LockManager {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LockManager", namespace)
+	ret0, _ := ret[0].(storage.LockManager)
+	return ret0
+}
+
+// LockManager indicates an expected call of LockManager.
+func (mr *MockLockManagerBrokerMockRecorder) LockManager(namespace interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LockManager", reflect.TypeOf((*MockLockManagerBroker)(nil).LockManager), namespace)
+}
+
 // MockSubjectAccessCapableStore is a mock of SubjectAccessCapableStore interface.
 type MockSubjectAccessCapableStore struct {
 	ctrl     *gomock.Controller
@@ -1439,6 +1488,21 @@ func (m *MockLock) Lock() error {
 func (mr *MockLockMockRecorder) Lock() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lock", reflect.TypeOf((*MockLock)(nil).Lock))
+}
+
+// TryLock mocks base method.
+func (m *MockLock) TryLock() (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TryLock")
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TryLock indicates an expected call of TryLock.
+func (mr *MockLockMockRecorder) TryLock() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TryLock", reflect.TypeOf((*MockLock)(nil).TryLock))
 }
 
 // Unlock mocks base method.

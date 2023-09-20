@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"strings"
 
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
@@ -52,13 +53,19 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 			Command: []string{"/opt/bitnami/scripts/etcd/healthcheck.sh"},
 		},
 	}
+	const etcdReplicaCount = 3
+	var initialCluster []string
+	for i := 0; i < etcdReplicaCount; i++ {
+		initialCluster = append(initialCluster, fmt.Sprintf("etcd-%[1]d=https://etcd-%[1]d.etcd-headless.%[2]s.svc.cluster.local:2380", i, r.gw.Namespace))
+	}
+
 	statefulset := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "etcd",
 			Namespace: r.gw.Namespace,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas: lo.ToPtr[int32](1),
+			Replicas: lo.ToPtr[int32](etcdReplicaCount),
 			PersistentVolumeClaimRetentionPolicy: &appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
 				WhenDeleted: appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
 				WhenScaled:  appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
@@ -98,11 +105,14 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 					Containers: []corev1.Container{
 						{
 							Name:            "etcd",
-							Image:           "docker.io/bitnami/etcd:3",
+							Image:           "docker.io/bitnami/etcd:3.5.9",
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							SecurityContext: &corev1.SecurityContext{
 								RunAsNonRoot: lo.ToPtr(true),
 								RunAsUser:    lo.ToPtr[int64](1001),
+								SeccompProfile: &corev1.SeccompProfile{
+									Type: corev1.SeccompProfileTypeRuntimeDefault,
+								},
 							},
 							Ports: []corev1.ContainerPort{
 								{
@@ -185,6 +195,18 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 									Value: "jwt,priv-key=/opt/bitnami/etcd/certs/token/jwt-token.pem,sign-method=RS256,ttl=10m",
 								},
 								{
+									Name:  "ETCD_INITIAL_CLUSTER",
+									Value: strings.Join(initialCluster, ","),
+								},
+								{
+									Name:  "ETCD_INITIAL_CLUSTER_STATE",
+									Value: "new",
+								},
+								{
+									Name:  "ETCD_INITIAL_ADVERTISE_PEER_URLS",
+									Value: fmt.Sprintf("https://$(MY_POD_NAME).etcd-headless.%s.svc.cluster.local:2380", r.gw.Namespace),
+								},
+								{
 									Name:  "ETCD_ADVERTISE_CLIENT_URLS",
 									Value: fmt.Sprintf("https://$(MY_POD_NAME).etcd-headless.%[1]s.svc.cluster.local:2379,https://etcd.%[1]s.svc.cluster.local:2379", r.gw.Namespace),
 								},
@@ -193,12 +215,8 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 									Value: "https://0.0.0.0:2379",
 								},
 								{
-									Name:  "ETCD_INITIAL_ADVERTISE_PEER_URLS",
-									Value: fmt.Sprintf("http://$(MY_POD_NAME).etcd-headless.%s.svc.cluster.local:2380", r.gw.Namespace),
-								},
-								{
 									Name:  "ETCD_LISTEN_PEER_URLS",
-									Value: "http://0.0.0.0:2380",
+									Value: "https://0.0.0.0:2380",
 								},
 								{
 									Name:  "ETCD_CLUSTER_DOMAIN",
@@ -206,11 +224,11 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 								},
 								{
 									Name:  "ETCD_CERT_FILE",
-									Value: "/opt/bitnami/etcd/certs/client/tls.crt",
+									Value: "/opt/bitnami/etcd/certs/server/tls.crt",
 								},
 								{
 									Name:  "ETCD_KEY_FILE",
-									Value: "/opt/bitnami/etcd/certs/client/tls.key",
+									Value: "/opt/bitnami/etcd/certs/server/tls.key",
 								},
 								{
 									Name:  "ETCD_CLIENT_CERT_AUTH",
@@ -218,7 +236,27 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 								},
 								{
 									Name:  "ETCD_TRUSTED_CA_FILE",
-									Value: "/opt/bitnami/etcd/certs/client/ca.crt",
+									Value: "/opt/bitnami/etcd/certs/server/ca.crt",
+								},
+								{
+									Name:  "ETCD_PEER_CERT_FILE",
+									Value: "/opt/bitnami/etcd/certs/peer/tls.crt",
+								},
+								{
+									Name:  "ETCD_PEER_KEY_FILE",
+									Value: "/opt/bitnami/etcd/certs/peer/tls.key",
+								},
+								{
+									Name:  "ETCD_PEER_CLIENT_CERT_AUTH",
+									Value: "true",
+								},
+								{
+									Name:  "ETCD_PEER_TRUSTED_CA_FILE",
+									Value: "/opt/bitnami/etcd/certs/peer/ca.crt",
+								},
+								{
+									Name:  "ETCD_TLS_MIN_VERSION",
+									Value: "TLS1.3",
 								},
 							},
 							LivenessProbe: &corev1.Probe{
@@ -237,6 +275,13 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 								SuccessThreshold:    1,
 								FailureThreshold:    5,
 							},
+							Lifecycle: &corev1.Lifecycle{
+								PreStop: &corev1.LifecycleHandler{
+									Exec: &corev1.ExecAction{
+										Command: []string{"/opt/bitnami/scripts/etcd/prestop.sh"},
+									},
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "data",
@@ -248,8 +293,13 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 									ReadOnly:  true,
 								},
 								{
-									Name:      "etcd-client-certs",
-									MountPath: "/opt/bitnami/etcd/certs/client/",
+									Name:      "etcd-serving-certs",
+									MountPath: "/opt/bitnami/etcd/certs/server/",
+									ReadOnly:  true,
+								},
+								{
+									Name:      "etcd-peer-certs",
+									MountPath: "/opt/bitnami/etcd/certs/peer/",
 									ReadOnly:  true,
 								},
 							},
@@ -266,10 +316,19 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 							},
 						},
 						{
-							Name: "etcd-client-certs",
+							Name: "etcd-serving-certs",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
 									SecretName:  "etcd-serving-cert-keys",
+									DefaultMode: lo.ToPtr[int32](0400),
+								},
+							},
+						},
+						{
+							Name: "etcd-peer-certs",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName:  "etcd-peer-cert-keys",
 									DefaultMode: lo.ToPtr[int32](0400),
 								},
 							},

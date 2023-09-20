@@ -22,6 +22,10 @@ const (
 	gatewayServingSecret = "opni-gateway-serving-cert"
 )
 
+var defaultDuration = &metav1.Duration{
+	Duration: 365 * 24 * time.Hour,
+}
+
 func (r *Reconciler) certs() ([]resources.Resource, error) {
 	list := []resources.Resource{}
 	for _, obj := range []client.Object{
@@ -39,8 +43,14 @@ func (r *Reconciler) certs() ([]resources.Resource, error) {
 		r.etcdIntermediateCA(),
 		r.etcdIntermediateCAIssuer(),
 		r.etcdClientCert(),
+		r.etcdPeerCert(),
 		r.etcdServingCert(),
 	} {
+		if cert, ok := obj.(*cmv1.Certificate); ok {
+			if cert.Spec.Duration == nil {
+				cert.Spec.Duration = defaultDuration
+			}
+		}
 		ctrl.SetControllerReference(r.gw, obj, r.client.Scheme())
 		list = append(list, resources.Present(obj))
 	}
@@ -80,6 +90,7 @@ func (r *Reconciler) gatewayCA() client.Object {
 				Kind:  "ClusterIssuer",
 				Name:  "opni-gateway-selfsigned-issuer",
 			},
+			Duration: defaultDuration,
 		},
 	}
 }
@@ -393,6 +404,36 @@ func (r *Reconciler) etcdClientCert() client.Object {
 				cmv1.UsageDigitalSignature,
 				cmv1.UsageKeyEncipherment,
 				cmv1.UsageClientAuth,
+			},
+		},
+	}
+}
+
+func (r *Reconciler) etcdPeerCert() client.Object {
+	return &cmv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "etcd-peer-cert",
+			Namespace: r.gw.Namespace,
+		},
+		Spec: cmv1.CertificateSpec{
+			SecretName: "etcd-peer-cert-keys",
+			PrivateKey: &cmv1.CertificatePrivateKey{
+				Algorithm: cmv1.Ed25519KeyAlgorithm,
+				Encoding:  cmv1.PKCS1,
+			},
+			IssuerRef: cmmetav1.ObjectReference{
+				Group: "cert-manager.io",
+				Kind:  "Issuer",
+				Name:  "etcd-intermediate-ca-issuer",
+			},
+			DNSNames: []string{
+				fmt.Sprintf("*.etcd-headless.%s.svc.cluster.local", r.gw.Namespace),
+			},
+			Usages: []cmv1.KeyUsage{
+				cmv1.UsageDigitalSignature,
+				cmv1.UsageKeyEncipherment,
+				cmv1.UsageClientAuth,
+				cmv1.UsageServerAuth,
 			},
 		},
 	}

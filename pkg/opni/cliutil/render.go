@@ -75,15 +75,25 @@ func RenderClusterList(list *corev1.ClusterList, status []*corev1.HealthStatus) 
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	renderSessionAttributes := false
+	renderInstanceInfo := false
 	for _, s := range status {
 		if len(s.GetStatus().GetSessionAttributes()) > 0 {
 			renderSessionAttributes = true
 			break
 		}
 	}
+	for _, c := range list.Items {
+		if c.GetMetadata().GetLastKnownConnectionDetails().GetInstanceInfo() != nil {
+			renderInstanceInfo = true
+			break
+		}
+	}
 	hdr := table.Row{"ID", "LABELS", "CAPABILITIES", "STATUS"}
 	if renderSessionAttributes {
 		hdr = append(hdr, "ATTRIBUTES")
+	}
+	if renderInstanceInfo {
+		hdr = append(hdr, "INSTANCE")
 	}
 	w.AppendHeader(hdr)
 	for i, t := range list.Items {
@@ -102,6 +112,14 @@ func RenderClusterList(list *corev1.ClusterList, status []*corev1.HealthStatus) 
 		row := table.Row{t.GetId(), strings.Join(labels, ","), strings.Join(capabilities, ","), status[i].Summary()}
 		if renderSessionAttributes {
 			row = append(row, strings.Join(status[i].Status.GetSessionAttributes(), ","))
+		}
+		if renderInstanceInfo {
+			instanceInfo := t.GetMetadata().GetLastKnownConnectionDetails().GetInstanceInfo()
+			if instanceInfo != nil && instanceInfo.GetAcquired() {
+				row = append(row, instanceInfo.GetRelayAddress())
+			} else {
+				row = append(row, "")
+			}
 		}
 		w.AppendRow(row)
 	}

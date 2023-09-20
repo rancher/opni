@@ -69,6 +69,8 @@ message LastKnownConnectionDetails {
   BuildInfo                 agentBuildInfo = 3;
   // plugin package id -> hash
   map<string, string> pluginVersions = 4;
+  // which gateway instance the agent was connected to
+  InstanceInfo instanceInfo = 5;
 }
 
 // Go build info types

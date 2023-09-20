@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 
 	"github.com/rancher/opni/pkg/auth/challenges"
 	authv1 "github.com/rancher/opni/pkg/auth/cluster/v1"
@@ -275,8 +276,13 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		lg := lg.Named("connections")
 		connectionsKv := storageBackend.KeyValueStore("connections")
 		connectionsLm := storageBackendLmBroker.LockManager("connections")
+		advertiseAddr := conf.Spec.Management.RelayAdvertiseAddress
+		if advertiseAddr == "" {
+			lg.Warn("relay advertise address not set; will advertise the listen address")
+			advertiseAddr = conf.Spec.Management.RelayListenAddress
+		}
 		connectionTracker = NewConnectionTracker(ctx, &corev1.InstanceInfo{
-			RelayAddress:      conf.Spec.Management.RelayListenAddress,
+			RelayAddress:      os.ExpandEnv(conf.Spec.Management.RelayAdvertiseAddress),
 			ManagementAddress: conf.Spec.Management.GRPCListenAddress,
 		}, connectionsKv, connectionsLm, lg)
 

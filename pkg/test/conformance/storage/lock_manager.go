@@ -84,7 +84,7 @@ func LockManagerTestSuite[T storage.LockManager](
 			})
 
 			Specify("locks should be able to acquire the lock if the existing lock has expired", func() {
-				exLock := lm.Locker("bar", lock.WithRetryDelay(1*time.Millisecond), lock.WithExpireDuration(0*time.Second))
+				exLock := lm.Locker("bar", lock.WithRetryDelay(1*time.Millisecond), lock.WithKeepalive(false), lock.WithExpireDuration(1*time.Second))
 				// some implementations expire durations are forced to round up to the largest second, so 3 *time.Second is a requirement here
 				otherLock := lm.Locker("bar", lock.WithAcquireTimeout(3*time.Second))
 				err := exLock.Lock()

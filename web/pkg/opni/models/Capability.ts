@@ -3,7 +3,7 @@ import { uninstallCapabilityStatus } from '@pkg/opni/utils/requests/management';
 import { exceptionToErrorsArray } from '@pkg/opni/utils/error';
 import { Management } from '@pkg/opni/api/opni';
 import { Reference } from '@pkg/opni/generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
-import { InstallRequest, InstallResponseStatus } from '@pkg/opni/generated/github.com/rancher/opni/pkg/apis/capability/v1/capability_pb';
+import { InstallRequest } from '@pkg/opni/generated/github.com/rancher/opni/pkg/apis/capability/v1/capability_pb';
 import GlobalEventBus from '@pkg/opni/utils/GlobalEventBus';
 import { CapabilityInstallRequest, CapabilityStatusRequest } from '@pkg/opni/generated/github.com/rancher/opni/pkg/apis/management/v1/management_pb';
 import { Cluster } from './Cluster';
@@ -80,7 +80,7 @@ export class Capability extends Resource {
   private capabilityStatus: CapabilityStatuses;
   private stats?: ClusterStats[];
 
-  private constructor(type: keyof CapabilityStatuses, cluster: Cluster, vue: any) {
+  constructor(type: keyof CapabilityStatuses, cluster: Cluster, vue: any) {
     super(vue);
     this.type = type;
     this.cluster = cluster;
@@ -150,6 +150,13 @@ export class Capability extends Resource {
       default:
         return 'error';
       }
+    }
+
+    if (this.capabilities.length === 0) {
+      Vue.set(this.capabilityStatus, this.type, {
+        state:        'info',
+        shortMessage: 'Not Installed',
+      });
     }
 
     for (const i in this.capabilities) {
@@ -242,16 +249,12 @@ export class Capability extends Resource {
 
   async install() {
     try {
-      const result = await Management.service.InstallCapability(new CapabilityInstallRequest({
+      await Management.service.InstallCapability(new CapabilityInstallRequest({
         name:   this.type,
         target: new InstallRequest({ cluster: new Reference({ id: this.cluster.id }) }),
       }));
 
-      Vue.set(this.capabilityStatus, this.type, {
-        state:        InstallResponseStatus[result.status].toLowerCase(),
-        shortMessage: result.status === InstallResponseStatus.Success ? 'Installed' : InstallResponseStatus[result.status],
-        message:      result.message,
-      });
+      this.updateCabilityLogs();
     } catch (ex) {
       Vue.set(this.capabilityStatus, this.type, {
         state:        'error',
@@ -286,7 +289,7 @@ export class Capability extends Resource {
   }
 
   get clusterStats(): ClusterStats | undefined {
-    return this.stats?.find(s => s.userID === this.cluster.id);
+    return this.isInstalled ? this.stats?.find(s => s.userID === this.cluster.id) : undefined;
   }
 
   updateStats(stats: ClusterStats[]) {

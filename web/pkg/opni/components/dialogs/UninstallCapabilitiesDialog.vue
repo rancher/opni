@@ -57,10 +57,11 @@ export default {
               target: uninstallRequest
             });
 
-            Management.service.UninstallCapability(capabilityUninstallRequest);
+            return Management.service.UninstallCapability(capabilityUninstallRequest);
           });
 
         await Promise.all(uninstalls);
+        this.capabilities.forEach(cap => cap.updateCabilityLogs());
         this.$emit('save');
       } catch (err) {
         this.errors = exceptionToErrorsArray(err);

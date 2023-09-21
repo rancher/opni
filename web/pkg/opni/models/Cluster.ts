@@ -1,4 +1,4 @@
-import Vue from 'vue';
+import Vue, { reactive } from 'vue';
 import GlobalEventBus from '@pkg/opni/utils/GlobalEventBus';
 import { deleteCluster } from '@pkg/opni/utils/requests/management';
 import * as Core from '@pkg/opni/generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
@@ -93,6 +93,10 @@ export class Cluster extends Resource {
       ingestionRate: 0,
       numSeries:     0,
     } as ClusterStats;
+  }
+
+  static create(vue: any): Cluster {
+    return reactive(new Cluster(vue));
   }
 
   get status() {

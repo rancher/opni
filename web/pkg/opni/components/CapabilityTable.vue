@@ -6,6 +6,7 @@ import LoadingSpinner from '@pkg/opni/components/LoadingSpinner';
 import { mapGetters } from 'vuex';
 import GlobalEventBus from '@pkg/opni/utils/GlobalEventBus';
 import { Capability } from '@pkg/opni/models/Capability';
+import { MetricCapability } from '@pkg/opni/models/MetricCapability';
 import UninstallCapabilitiesDialog from '@pkg/opni/components/dialogs/UninstallCapabilitiesDialog';
 import CancelUninstallCapabilitiesDialog from '@pkg/opni/components/dialogs/CancelUninstallCapabilitiesDialog';
 
@@ -79,7 +80,7 @@ export default {
   computed: {
     ...mapGetters({ clusters: 'opni/clusters' }),
     capabilities() {
-      return this.clusters.map(c => Capability.create(this.name, c, this.vue));
+      return this.clusters.map(c => this.name === 'metrics' ? MetricCapability.createExtended(c, 'Prometheus', this.vue) : Capability.create(this.name, c, this.vue));
     },
   },
 

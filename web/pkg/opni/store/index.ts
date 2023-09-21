@@ -42,7 +42,7 @@ const createStore = (): CoreStoreSpecifics => {
         let c: ClusterModel;
 
         if (clusterIndex === -1) {
-          c = new ClusterModel(this._vm);
+          c = ClusterModel.create(this._vm);
           state.clusters.push(c);
         } else {
           c = state.clusters[clusterIndex];

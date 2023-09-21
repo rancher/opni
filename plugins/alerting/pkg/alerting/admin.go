@@ -538,7 +538,7 @@ func (p *Plugin) runSyncTasks(tasks []alertingSync.SyncTask) (retErr error) {
 	}
 	eg.Wait()
 	if err := eg.Error(); err != nil {
-		lg.Errorf(" ran %d/%d tasks successfully %w", len(tasks)-len(eg.Errors()), len(tasks), err)
+		lg.Errorf(" ran %d/%d tasks successfully %s", len(tasks)-len(eg.Errors()), len(tasks), err)
 		retErr = err
 	}
 	return

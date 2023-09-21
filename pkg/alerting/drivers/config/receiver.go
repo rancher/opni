@@ -92,7 +92,8 @@ func ExtractReceiver(unmarshall func(interface{}) error, _ /*data*/ interface{})
 
 // Takes a collection of OpniReceivers and converts them to a single AlertManager
 // this function will panic if it cannot convert the receivers
-func BuildReceiver(receiverId string, recvs []OpniReceiver) (*Receiver, error) {
+func BuildReceiver(receiverId string, recvs []OpniReceiver) (Receiver, error) {
+	var r Receiver
 	slackCfg := []*SlackConfig{}
 	emailCfg := []*EmailConfig{}
 	pagerdutyCfg := []*PagerdutyConfig{}
@@ -105,7 +106,7 @@ func BuildReceiver(receiverId string, recvs []OpniReceiver) (*Receiver, error) {
 	telegramCfg := []*TelegramConfig{}
 
 	if len(recvs) == 0 {
-		return nil, fmt.Errorf("no receivers to build")
+		return r, fmt.Errorf("no receivers to build")
 	}
 
 	for _, recv := range recvs {
@@ -131,14 +132,14 @@ func BuildReceiver(receiverId string, recvs []OpniReceiver) (*Receiver, error) {
 		case shared.InternalTelegramId:
 			fallthrough
 		default:
-			return nil, fmt.Errorf("unknown receiver type %s", recv.InternalId())
+			return r, fmt.Errorf("unknown receiver type %s", recv.InternalId())
 		}
 	}
 	if len(slackCfg)+len(emailCfg)+len(pagerdutyCfg)+len(webhookCfg) == 0 {
-		return nil, fmt.Errorf("no receivers to configs parsed")
+		return r, fmt.Errorf("no receivers to configs parsed")
 	}
 
-	return &Receiver{
+	return Receiver{
 		Name:             receiverId,
 		SlackConfigs:     slackCfg,
 		EmailConfigs:     emailCfg,

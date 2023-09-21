@@ -80,8 +80,8 @@ var (
 	}
 )
 
-func FinalizerReceiver(cfg *config.WebhookConfig) *config.Receiver {
-	return &config.Receiver{
+func FinalizerReceiver(cfg *config.WebhookConfig) config.Receiver {
+	return config.Receiver{
 		Name: shared.AlertingHookReceiverName,
 		WebhookConfigs: []*config.WebhookConfig{
 			cfg,
@@ -95,7 +95,7 @@ func NewRoutingTree(cfg *config.WebhookConfig) *config.Config {
 	metricsSubtree := NewOpniMetricsSubtree()
 	root.Route.Routes = append(root.Route.Routes, subtree)
 	root.Route.Routes = append(root.Route.Routes, metricsSubtree)
-	slices.SortFunc(recvs, func(a, b *config.Receiver) int {
+	slices.SortFunc(recvs, func(a, b config.Receiver) int {
 		return strings.Compare(a.Name, b.Name)
 	})
 	// !! finalizer route must always be last
@@ -118,7 +118,7 @@ func NewRootNode(cfg *config.WebhookConfig) *config.Config {
 			//GroupInterval:  lo.ToPtr(model.Duration(1 * time.Minute)),
 			RepeatInterval: DefaultConfig.GlobalConfig.RepeatInterval,
 		},
-		Receivers: []*config.Receiver{
+		Receivers: []config.Receiver{
 			FinalizerReceiver(cfg),
 		},
 		MuteTimeIntervals: []config.MuteTimeInterval{},
@@ -129,7 +129,7 @@ func NewRootNode(cfg *config.WebhookConfig) *config.Config {
 
 // returns the subtree & the default receivers
 // contains the setup for broadcasting and conditions
-func NewOpniSubRoutingTree() (*config.Route, []*config.Receiver) {
+func NewOpniSubRoutingTree() (*config.Route, []config.Receiver) {
 	opniRoute := &config.Route{
 		GroupByStr: []string{message.NotificationPropertyOpniUuid},
 
@@ -137,7 +137,7 @@ func NewOpniSubRoutingTree() (*config.Route, []*config.Receiver) {
 		Routes:   []*config.Route{},
 		Continue: true, // we want to expand the sub trees
 	}
-	allRecvs := []*config.Receiver{}
+	allRecvs := []config.Receiver{}
 	// notification namespace is based on the grpc enum status
 	notificationRouting, recvs := NewNamespaceTree(NotificationSubTreeLabel(), NotificationSubTreeValues()...)
 
@@ -222,7 +222,7 @@ func setDefaultRateLimitingFromProto(route *config.Route) {
 	}
 }
 
-func NewNamespaceTree(namespace string, defaultValues ...RouteValues) (*config.Route, []*config.Receiver) {
+func NewNamespaceTree(namespace string, defaultValues ...RouteValues) (*config.Route, []config.Receiver) {
 	parentRoute := &config.Route{
 		// re-expand all label values to be able to do custom routing within each namespace
 		GroupByStr: []string{"..."},
@@ -236,7 +236,7 @@ func NewNamespaceTree(namespace string, defaultValues ...RouteValues) (*config.R
 		GroupWait:      DefaultConfig.SubtreeConfig.GroupWait,
 		RepeatInterval: DefaultConfig.SubtreeConfig.RepeatInterval,
 	}
-	receivers := []*config.Receiver{}
+	receivers := []config.Receiver{}
 	subRoutes := []*config.Route{}
 	for _, val := range defaultValues {
 		subRoute, recv := NewNotificationLeaf(namespace, val)
@@ -254,7 +254,7 @@ func NewNamespaceTree(namespace string, defaultValues ...RouteValues) (*config.R
 	return parentRoute, receivers
 }
 
-func NewNotificationLeaf(namespace string, value RouteValues) (*config.Route, *config.Receiver) {
+func NewNotificationLeaf(namespace string, value RouteValues) (*config.Route, config.Receiver) {
 	valueRoute := &config.Route{
 		GroupByStr: []string{message.NotificationPropertyGroupKey},
 		Matchers: config.Matchers{
@@ -270,7 +270,7 @@ func NewNotificationLeaf(namespace string, value RouteValues) (*config.Route, *c
 		ReceiverId: value.A,
 	})
 	valueRoute.Receiver = constructedReceiverId
-	valueReceiver := &config.Receiver{
+	valueReceiver := config.Receiver{
 		Name: constructedReceiverId,
 	}
 	return valueRoute, valueReceiver
@@ -282,7 +282,7 @@ func NewNamespaceLeaf(
 	opniConfigs []config.OpniReceiver,
 	matchers []*labels.Matcher,
 	receiverId string,
-) (*config.Route, *config.Receiver) {
+) (*config.Route, config.Receiver) {
 	valueRoute := &config.Route{
 		Matchers: matchers,
 		// even though in the current implementation, each namespace value should be unique,

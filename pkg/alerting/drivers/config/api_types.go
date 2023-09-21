@@ -110,7 +110,7 @@ type Config struct {
 	Global       *GlobalConfig  `yaml:"global,omitempty" json:"global,omitempty"`
 	Route        *Route         `yaml:"route,omitempty" json:"route,omitempty"`
 	InhibitRules []*InhibitRule `yaml:"inhibit_rules,omitempty" json:"inhibit_rules,omitempty"`
-	Receivers    []*Receiver    `yaml:"receivers,omitempty" json:"receivers,omitempty"`
+	Receivers    []Receiver     `yaml:"receivers,omitempty" json:"receivers,omitempty"`
 	Templates    []string       `yaml:"templates" json:"templates"`
 	// Deprecated. Remove before v1.0 release.
 	MuteTimeIntervals []MuteTimeInterval `yaml:"mute_time_intervals,omitempty" json:"mute_time_intervals,omitempty"`
@@ -338,6 +338,14 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 				}
 
 				webex.APIURL = c.Global.WebexAPIURL
+			}
+		}
+		for _, msteams := range rcv.MSTeamsConfigs {
+			if msteams.HTTPConfig == nil {
+				msteams.HTTPConfig = c.Global.HTTPConfig
+			}
+			if msteams.WebhookURL == nil {
+				return fmt.Errorf("no msteams webhook URL provided")
 			}
 		}
 
@@ -715,6 +723,7 @@ type Receiver struct {
 	SNSConfigs       []*SNSConfig       `yaml:"sns_configs,omitempty" json:"sns_configs,omitempty"`
 	TelegramConfigs  []*TelegramConfig  `yaml:"telegram_configs,omitempty" json:"telegram_configs,omitempty"`
 	WebexConfigs     []*WebexConfig     `yaml:"webex_configs,omitempty" json:"webex_configs,omitempty"`
+	MSTeamsConfigs   []*MSTeamsConfig   `yaml:"msteams_configs,omitempty" json:"teams_configs,omitempty"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface for Receiver.
@@ -887,6 +896,13 @@ var (
 		Message:              `{{ template "telegram.default.message" . }}`,
 		ParseMode:            "HTML",
 	}
+	DefaultMSTeamsConfig = MSTeamsConfig{
+		NotifierConfig: NotifierConfig{
+			VSendResolved: true,
+		},
+		Title: `{{ template "msteams.default.title" . }}`,
+		Text:  `{{ template "msteams.default.text" . }}`,
+	}
 )
 
 // NotifierConfig contains base options common across all notifier configurations.
@@ -896,6 +912,22 @@ type NotifierConfig struct {
 
 func (nc *NotifierConfig) SendResolved() bool {
 	return nc.VSendResolved
+}
+
+type MSTeamsConfig struct {
+	NotifierConfig `yaml:",inline" json:",inline"`
+	HTTPConfig     *commoncfg.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
+	// Changedfr from SecretURL to URL
+	WebhookURL *amCfg.URL `yaml:"webhook_url,omitempty" json:"webhook_url,omitempty"`
+
+	Title string `yaml:"title,omitempty" json:"title,omitempty"`
+	Text  string `yaml:"text,omitempty" json:"text,omitempty"`
+}
+
+func (c *MSTeamsConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*c = DefaultMSTeamsConfig
+	type plain MSTeamsConfig
+	return unmarshal((*plain)(c))
 }
 
 // WebexConfig configures notifications via Webex.
@@ -1200,6 +1232,8 @@ type WebhookConfig struct {
 
 	// URL to send POST request to.
 	URL *amCfg.URL `yaml:"url" json:"url"`
+
+	URLFile string `yaml:"url_file" json:"url_file"`
 	// MaxAlerts is the maximum number of alerts to be sent per webhook message.
 	// Alerts exceeding this threshold will be truncated. Setting this to 0
 	// allows an unlimited number of alerts.
@@ -1213,12 +1247,19 @@ func (c *WebhookConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal((*plain)(c)); err != nil {
 		return err
 	}
-	if c.URL == nil {
-		return fmt.Errorf("missing URL in webhook config")
+	if c.URL == nil && c.URLFile == "" {
+		return fmt.Errorf("one of url or url_file must be configured")
 	}
-	if c.URL.Scheme != "https" && c.URL.Scheme != "http" {
-		return fmt.Errorf("scheme required for webhook url")
+	if c.URL != nil && c.URLFile != "" {
+		return fmt.Errorf("at most one of url & url_file must be configured")
 	}
+
+	if c.URL != nil {
+		if c.URL.Scheme != "https" && c.URL.Scheme != "http" {
+			return fmt.Errorf("scheme required for webhook url")
+		}
+	}
+
 	return nil
 }
 
@@ -1394,13 +1435,18 @@ type PushoverConfig struct {
 
 	HTTPConfig *commoncfg.HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
 	//! Changed from Secret to string for marshalling / unmarshalling purposes
-	UserKey string `yaml:"user_key,omitempty" json:"user_key,omitempty"`
+	UserKey     string `yaml:"user_key,omitempty" json:"user_key,omitempty"`
+	UserKeyFile string `yaml:"user_key_file,omitempty" json:"user_key_file,omitempty"`
+
 	//! Changed from Secret to string for marshalling / unmarshalling purposes
-	Token    string   `yaml:"token,omitempty" json:"token,omitempty"`
+	Token     string `yaml:"token,omitempty" json:"token,omitempty"`
+	TokenFile string `yaml:"token_file,omitempty" json:"token_file,omitempty"`
+
 	Title    string   `yaml:"title,omitempty" json:"title,omitempty"`
 	Message  string   `yaml:"message,omitempty" json:"message,omitempty"`
 	URL      string   `yaml:"url,omitempty" json:"url,omitempty"`
 	URLTitle string   `yaml:"url_title,omitempty" json:"url_title,omitempty"`
+	Device   string   `yaml:"device,omitempty" json:"device,omitempty"`
 	Sound    string   `yaml:"sound,omitempty" json:"sound,omitempty"`
 	Priority string   `yaml:"priority,omitempty" json:"priority,omitempty"`
 	Retry    duration `yaml:"retry,omitempty" json:"retry,omitempty"`
@@ -1415,10 +1461,10 @@ func (c *PushoverConfig) UnmarshalYAML(unmarshal func(interface{}) error) error 
 	if err := unmarshal((*plain)(c)); err != nil {
 		return err
 	}
-	if c.UserKey == "" {
+	if c.UserKey == "" && c.UserKeyFile != "" {
 		return fmt.Errorf("missing user key in Pushover config")
 	}
-	if c.Token == "" {
+	if c.Token == "" && c.TokenFile != "" {
 		return fmt.Errorf("missing token in Pushover config")
 	}
 	return nil
@@ -1461,6 +1507,7 @@ type TelegramConfig struct {
 	APIUrl *amCfg.URL `yaml:"api_url" json:"api_url,omitempty"`
 	//! Changed from Secret to string for marshalling / unmarshalling purposes
 	BotToken             string `yaml:"bot_token,omitempty" json:"token,omitempty"`
+	BotTokenFile         string `yaml:"bot_token_file,omitempty" json:"token_file,omitempty"`
 	ChatID               int64  `yaml:"chat_id,omitempty" json:"chat,omitempty"`
 	Message              string `yaml:"message,omitempty" json:"message,omitempty"`
 	DisableNotifications bool   `yaml:"disable_notifications,omitempty" json:"disable_notifications,omitempty"`
@@ -1474,8 +1521,11 @@ func (c *TelegramConfig) UnmarshalYAML(unmarshal func(interface{}) error) error 
 	if err := unmarshal((*plain)(c)); err != nil {
 		return err
 	}
-	if c.BotToken == "" {
-		return fmt.Errorf("missing bot_token on telegram_config")
+	if c.BotToken == "" && c.BotTokenFile == "" {
+		return fmt.Errorf("missing bot_token or bot_token_file on telegram_config")
+	}
+	if c.BotToken != "" && c.BotTokenFile != "" {
+		return fmt.Errorf("at most one of bot_token & bot_token_file must be configured")
 	}
 	if c.ChatID == 0 {
 		return fmt.Errorf("missing chat_id on telegram_config")

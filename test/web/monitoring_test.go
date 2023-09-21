@@ -96,7 +96,7 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 
 	It("should show all agents in the Capability Management table", func() {
 		By("confirming that the local agent has the Degraded badge")
-		// Eventually(Table().Row(1)).Should(MatchCells(CheckBox(), HaveDegradedBadge(), b.HaveInnerText("monitoring-test-agent1"))) // TODO
+		Eventually(Table().Row(1)).Should(MatchCells(CheckBox(), HaveDegradedBadge(), b.HaveInnerText("monitoring-test-agent1"))) // TODO
 		By("confirming that the other agents have the Not Installed badge")
 		Eventually(Table().Row(2)).Should(MatchCells(CheckBox(), HaveNotInstalledBadge(), b.HaveInnerText("monitoring-test-agent2")))
 		Eventually(Table().Row(3)).Should(MatchCells(CheckBox(), HaveNotInstalledBadge(), b.HaveInnerText("monitoring-test-agent3")))
@@ -363,13 +363,11 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 		By("clicking the Save button")
 		b.Click("div.uninstall-capabilities-dialog .card-actions button.role-primary")
 
-		// TODO
 		By("confirming that the local agent has the Degraded badge")
-		// Eventually(Table().Row(1)).Should(MatchCells(CheckBox(), HaveDegradedBadge(), b.HaveInnerText("monitoring-test-agent1"))) // TODO
+		Eventually(Table().Row(1)).Should(MatchCells(CheckBox(), HaveDegradedBadge(), b.HaveInnerText("monitoring-test-agent1")))
 		By("confirming that the other agents have the Not Installed badge")
-		// Eventually(Table().Row(2)).Should(MatchCells(CheckBox(), Or(HaveNotInstalledBadge(), HaveUninstallingBadge()), b.HaveInnerText("monitoring-test-agent2"))) // TODO
-		// Eventually(Table().Row(3)).Should(MatchCells(CheckBox(), Or(HaveNotInstalledBadge(), HaveUninstallingBadge()), b.HaveInnerText("monitoring-test-agent3"))) // TODO
-		time.Sleep(1 * time.Second) // TODO remove this sleep when the above is fixed
+		Eventually(Table().Row(2)).Should(MatchCells(CheckBox(), Or(HaveNotInstalledBadge(), HaveUninstallingBadge()), b.HaveInnerText("monitoring-test-agent2")))
+		Eventually(Table().Row(3)).Should(MatchCells(CheckBox(), Or(HaveNotInstalledBadge(), HaveUninstallingBadge()), b.HaveInnerText("monitoring-test-agent3")))
 
 		By("confirming that all agents have the capability uninstalled")
 		c, err := mgmtClient.GetCluster(context.Background(), &corev1.Reference{Id: "monitoring-test-agent1"})

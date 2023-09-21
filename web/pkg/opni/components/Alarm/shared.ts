@@ -1,6 +1,7 @@
 import Vue from 'vue';
-import { getAlertConditionChoices, getAlertCondition } from '../../utils/requests/alerts';
-import { getClusters } from '../../utils/requests/management';
+import { mapGetters } from 'vuex';
+import { getAlertConditionChoices, getAlertCondition } from '@pkg/opni/utils/requests/alerts';
+import { Cluster } from '@pkg/opni/models/Cluster';
 
 export async function loadChoices(parent: Vue, typeAsString: string, typeAsEnum: number) {
   try {
@@ -11,15 +12,18 @@ export async function loadChoices(parent: Vue, typeAsString: string, typeAsEnum:
   } catch (ex) { }
 }
 
-export async function loadClusters(parent: Vue) {
-  const clusters = await getClusters(parent);
-
-  parent.$set(parent, 'clusterOptions', clusters.map(c => ({
-    label: c.nameDisplay,
-    value: c.id
-  })));
+export function mapClusterOptions() {
+  return {
+    ...mapGetters({ clusters: 'opni/clusters' }),
+    clusterOptions() {
+      return this.clusters.map((c: Cluster) => ({
+        label: c.nameDisplay,
+        value: c.id
+      }));
+    }
+  };
 }
 
-export function createConditionRequest(route: any) {
-  return route.params.id && route.params.id !== 'create' ? getAlertCondition({ id: route.params.id, groupId: route.query.groupId }, this) : Promise.resolve(false);
+export function createConditionRequest(vue: any, route: any) {
+  return route.params.id && route.params.id !== 'create' ? getAlertCondition({ id: route.params.id, groupId: route.query.groupId }, vue) : Promise.resolve(false);
 }

@@ -44,7 +44,7 @@ service Management {
   }
   rpc WatchClusters(WatchClustersRequest) returns (stream WatchEvent) {
     option (google.api.http) = {
-      post: "/clusters/watch"
+      get:  "/watch/clusters"
       body: "*"
     };
   }
@@ -70,8 +70,7 @@ service Management {
   }
   rpc WatchClusterHealthStatus(google.protobuf.Empty) returns (stream core.ClusterHealthStatus) {
     option (google.api.http) = {
-      post: "/clusters/health/watch"
-      body: "*"
+      get: "/watch/health"
     };
   }
   rpc EditCluster(EditClusterRequest) returns (core.Cluster) {
@@ -177,7 +176,7 @@ service Management {
   rpc UninstallCapability(CapabilityUninstallRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/clusters/{target.cluster.id}/capabilities/{name}/uninstall"
-      body: "target"
+      body: "*"
     };
   }
   rpc CapabilityStatus(CapabilityStatusRequest) returns (capability.NodeCapabilityStatus) {

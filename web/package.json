@@ -1,11 +1,13 @@
 {
   "name": "opni",
   "version": "0.1.1",
+  "license": "Apache-2.0",
   "private": false,
   "engines": {
     "node": "18"
   },
   "dependencies": {
+    "@bufbuild/protobuf": "^1.3.0",
     "@rancher/shell": "^0.3.16",
     "@types/lodash": "^4.14.194",
     "chart.js": "^3.9.1",
@@ -36,9 +38,7 @@
     "build:service-generator": "(cd ./service-generator && yarn install && yarn build)",
     "docker": "docker build -t opni-ui -f ./Dockerfile .",
     "build": "IS_STANDALONE=true ./node_modules/.bin/vue-cli-service build",
+    "build:watch": "NODE_ENV=dev IS_STANDALONE=true ./node_modules/.bin/vue-cli-service build --watch",
     "start": "node prod.js"
-  },
-  "devDependencies": {
-    "@bufbuild/protobuf": "1.2.1"
   }
 }

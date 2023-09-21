@@ -11,3 +11,10 @@ export const CONDITION_TYPES = [
   PrometheusConsts.TYPE_OPTION,
   MonitoringBackendConsts.TYPE_OPTION,
 ];
+
+export const CONDITION_TYPES_WITHOUT_MONITORING = [
+  AgentDisconnectConsts.TYPE_OPTION,
+  DownstreamCapabilityConsts.TYPE_OPTION,
+  PrometheusConsts.TYPE_OPTION,
+  MonitoringBackendConsts.TYPE_OPTION,
+];

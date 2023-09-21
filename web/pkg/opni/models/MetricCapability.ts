@@ -1,19 +1,31 @@
-import Vue from 'vue';
-import { Provider, setNodeConfiguration } from '../utils/requests/node-configuration';
+import Vue, { reactive } from 'vue';
+import { Provider, setNodeConfiguration, getNodeConfiguration } from '../utils/requests/node-configuration';
 import { Cluster } from './Cluster';
 import { Capability } from './Capability';
 
 export class MetricCapability extends Capability {
-  providerRaw: Provider;
+  providerRaw?: Provider;
 
-  constructor(cluster: Cluster, provider: Provider, vue: any) {
+  constructor(cluster: Cluster, vue: any) {
     super('metrics', cluster, vue);
 
-    this.providerRaw = provider;
+    this.updateProvider();
+  }
+
+  updateProvider() {
+    getNodeConfiguration(this.id).then((config) => {
+      Vue.set(this, 'providerRaw', config.prometheus ? 'Prometheus' : 'OpenTelemetry');
+    }, () => {
+      Vue.set(this, 'providerRaw', 'OpenTelemetry');
+    });
+  }
+
+  static createExtended(cluster: Cluster, vue: any): MetricCapability {
+    return reactive(new MetricCapability(cluster, vue));
   }
 
   get provider(): string {
-    return this.isInstalled ? this.providerRaw : '—';
+    return this.isInstalled && this.providerRaw ? this.providerRaw : '—';
   }
 
   get availableActions(): any[] {
@@ -24,14 +36,14 @@ export class MetricCapability extends Capability {
         label:    'Use Prometheus',
         icon:     'icon icon-fork',
         bulkable: true,
-        enabled:  this.isInstalled && this.provider !== 'Prometheus',
+        enabled:  this.isInstalled && this.provider === 'OpenTelemetry',
       },
       {
         action:   'useOpenTelemetry',
         label:    'Use OpenTelemetry',
         icon:     'icon icon-fork',
         bulkable: true,
-        enabled:  this.isInstalled && this.provider !== 'OpenTelemetry',
+        enabled:  this.isInstalled && this.provider === 'Prometheus',
       }
     ];
   }
@@ -50,13 +62,15 @@ export class MetricCapability extends Capability {
     return st;
   }
 
-  usePrometheus() {
-    setNodeConfiguration(this.id, 'Prometheus');
+  async usePrometheus() {
     Vue.set(this, 'providerRaw', 'Prometheus');
+    await setNodeConfiguration(this.id, 'Prometheus');
+    this.updateProvider();
   }
 
-  useOpenTelemetry() {
-    setNodeConfiguration(this.id, 'OpenTelemetry');
+  async useOpenTelemetry() {
     Vue.set(this, 'providerRaw', 'OpenTelemetry');
+    await setNodeConfiguration(this.id, 'OpenTelemetry');
+    this.updateProvider();
   }
 }

@@ -1,15 +1,15 @@
 <script>
+import { mapGetters } from 'vuex';
 import { LabeledInput } from '@components/Form/LabeledInput';
 import AsyncButton from '@shell/components/AsyncButton';
-import Loading from '@shell/components/Loading';
 import Tab from '@shell/components/Tabbed/Tab';
 import Tabbed from '@shell/components/Tabbed';
 import { Banner } from '@components/Banner';
 import ArrayListSelect from '@shell/components/form/ArrayListSelect';
 import KeyValue from '@shell/components/form/KeyValue';
 import MatchExpressions from '@shell/components/form/MatchExpressions';
+import { createRole } from '@pkg/opni/utils/requests/management';
 import { exceptionToErrorsArray } from '../utils/error';
-import { createRole, getClusters } from '../utils/requests/management';
 
 export default {
   components: {
@@ -17,24 +17,10 @@ export default {
     AsyncButton,
     KeyValue,
     LabeledInput,
-    Loading,
     MatchExpressions,
     Tab,
     Tabbed,
     Banner,
-  },
-
-  async fetch() {
-    const clusters = await getClusters();
-
-    this.$set(
-      this,
-      'clusterIdOptions',
-      clusters.map(cluster => ({
-        label: cluster.nameDisplay,
-        value: cluster.id,
-      }))
-    );
   },
 
   data() {
@@ -44,7 +30,6 @@ export default {
       subjects:         [],
       taints:           [],
       clusterIds:       [],
-      clusterIdOptions: [],
       matchLabels:      {},
       matchExpressions: [],
       error:            '',
@@ -78,18 +63,26 @@ export default {
   },
 
   computed: {
+    ...mapGetters({ clusters: 'opni/clusters' }),
+
     matchLabelsToSave() {
       return {
         matchLabels:      this.matchLabels,
         matchExpressions: this.matchExpressions,
       };
     },
+
+    clusterIdOptions() {
+      return this.clusters.map(cluster => ({
+        label: cluster.nameDisplay,
+        value: cluster.id,
+      }));
+    }
   },
 };
 </script>
 <template>
-  <Loading v-if="$fetchState.pending" />
-  <div v-else>
+  <div>
     <div class="row mb-20">
       <div class="col span-12">
         <LabeledInput

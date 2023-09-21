@@ -1,9 +1,11 @@
-import axios, { AxiosResponse } from 'axios';
-import { NodeCapabilityStatus } from 'models/Capability';
+import axios from 'axios';
+import { HandleClusterHealthStatusEvent, HandleClusterWatchEvent } from '@pkg/opni/store';
+import { Empty } from '@bufbuild/protobuf';
+import { NodeCapabilityStatus } from '../../models/Capability';
+import { Management } from '../../api/opni';
+import { WatchClustersRequest } from '../../generated/github.com/rancher/opni/pkg/apis/management/v1/management_pb';
 import { TokensResponse, Token } from '../../models/Token';
-import {
-  Cluster, ClustersResponse, HealthResponse, CapabilityStatusResponse, ClusterResponse
-} from '../../models/Cluster';
+import { CapabilityStatusResponse } from '../../models/Cluster';
 import { MatchLabel, Role, RolesResponse } from '../../models/Role';
 import { RoleBinding, RoleBindingsResponse } from '../../models/RoleBinding';
 import { GatewayConfig, ConfigDocument } from '../../models/Config';
@@ -126,30 +128,11 @@ export async function updateCluster(id: string, name: string, labels: { [key: st
   }));
 }
 
-export async function getClusters(vue: any): Promise<Cluster[]> {
-  const clustersResponse = (await axios.get<ClustersResponse>(`opni-api/Management/clusters`)).data.items;
-  const healthResponses = await Promise.allSettled(clustersResponse.map(clustersResponse => axios.get<HealthResponse>(`opni-api/Management/clusters/${ clustersResponse.id }/health`)));
+export function watchClusters(store: any) {
+  const request = new WatchClustersRequest();
 
-  const notConnected: HealthResponse = {
-    status: {
-      connected: false, timestamp: '', sessionAttributes: []
-    },
-    health: { ready: false, conditions: [] }
-  };
-
-  return clustersResponse.map((clusterResponse, i) => {
-    if (healthResponses[i].status === 'fulfilled') {
-      return new Cluster(clusterResponse, (healthResponses[i] as PromiseFulfilledResult<AxiosResponse<HealthResponse>>).value.data, vue);
-    }
-
-    return new Cluster(clusterResponse, notConnected, vue);
-  });
-}
-
-export async function getCluster(id: string, vue: any) {
-  const clusterResponse = (await axios.get<ClusterResponse>(`opni-api/Management/clusters/${ id }`)).data;
-
-  return new Cluster(clusterResponse, null as any, vue);
+  Management.service.WatchClusters(request, e => store.dispatch(HandleClusterWatchEvent, e));
+  Management.service.WatchClusterHealthStatus(new Empty(), e => store.dispatch(HandleClusterHealthStatusEvent, e));
 }
 
 export function deleteCluster(id: string): Promise<undefined> {

@@ -1,42 +1,18 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "allowJs": true,
-    "target": "esnext",
-    "module": "esnext",
+    "target": "ESNext",
+    "module": "ESNext",
     "strict": true,
     "jsx": "preserve",
     "importHelpers": true,
-    "moduleResolution": "node",
+    "moduleResolution": "NodeNext",
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "sourceMap": true,
-    "baseUrl": ".",
-    "preserveSymlinks": true,
-    "typeRoots": [
-      "../../node_modules",
-      "../../node_modules/@rancher/shell/types"
-    ],
-    "types": [
-      "@types/node",
-      "@types/lodash",
-      "rancher",
-      "shell"
-    ],
-    "lib": [
-      "esnext",
-      "dom",
-      "dom.iterable",
-      "scripthost"
-    ],
-    "paths": {
-      "@shell/*": [
-        "../../node_modules/@rancher/shell/*"
-      ],
-      "@components/*": [
-        "@rancher/components/*"
-      ]
-    }
+    "preserveSymlinks": true
   },
   "include": [
     "**/*.ts",

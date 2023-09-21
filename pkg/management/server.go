@@ -222,7 +222,11 @@ func (m *Server) listenAndServeHttp(ctx context.Context) error {
 		"address", m.config.HTTPListenAddress,
 	).Info("management HTTP server starting")
 	mux := http.NewServeMux()
-	gwmux := runtime.NewServeMux(runtime.WithErrorHandler(extensionsErrorHandler))
+	gwmux := runtime.NewServeMux(
+		runtime.WithMarshalerOption("application/json", &LegacyJsonMarshaler{}),
+		runtime.WithMarshalerOption("application/octet-stream", &DynamicV1Marshaler{}),
+		runtime.WithMarshalerOption(runtime.MIMEWildcard, &DynamicV1Marshaler{}),
+	)
 
 	m.configureManagementHttpApi(ctx, gwmux)
 	m.configureHttpApiExtensions(gwmux)

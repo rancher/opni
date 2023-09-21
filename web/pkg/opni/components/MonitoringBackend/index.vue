@@ -3,18 +3,21 @@ import LabeledSelect from '@shell/components/form/LabeledSelect';
 import Tab from '@shell/components/Tabbed/Tab';
 import Tabbed from '@shell/components/Tabbed';
 import { cloneDeep } from 'lodash';
-import { CortexOps, DryRun } from '@pkg/opni/api/opni';
+import { CortexOps, DriverUtil } from '@pkg/opni/api/opni';
+import { getClusterStats } from '@pkg/opni/utils/requests';
 import Backend from '../Backend';
 import CapabilityTable from '../CapabilityTable';
-import { getMetricCapabilities } from '../../utils/requests/capability';
-import { getClusterStats } from '../../utils/requests';
 import Grafana from './Grafana';
-import { default as StorageComponent } from './Storage';
+import StorageComponent from './Storage';
 
 export async function isEnabled() {
-  const state = (await CortexOps.service.Status()).installState;
+  try {
+    const state = (await CortexOps.service.Status()).installState;
 
-  return state !== CortexOps.types.InstallState.NotInstalled;
+    return state !== DriverUtil.types.InstallState.NotInstalled;
+  } catch (ex) {
+    return false;
+  }
 }
 
 export default {
@@ -33,8 +36,7 @@ export default {
       presets:       [],
       presetOptions: [],
       presetIndex:   0,
-      capabilities:  [],
-      config:        {},
+      config:        null,
     };
   },
 
@@ -45,12 +47,6 @@ export default {
 
         capabilities.forEach(c => c.updateStats(stats));
       } catch (ex) {}
-    },
-
-    async loadCapabilities(parent) {
-      this.capabilities = await getMetricCapabilities(parent);
-
-      return this.capabilities;
     },
 
     headerProvider(headers) {
@@ -99,7 +95,7 @@ export default {
 
     async disable() {
       await CortexOps.service.Uninstall();
-      if (this.config?.cortexConfig?.storage.s3?.secretAccessKey) {
+      if (this.config?.cortexConfig?.storage?.s3?.secretAccessKey) {
         this.$set(this.config.cortexConfig.storage.s3, 'secretAccessKey', '');
       }
     },
@@ -126,14 +122,14 @@ export default {
         }
       }
 
-      const newConfig = CortexOps.types.CapabilityBackendConfigSpec.fromJson(this.config);
-      const activeConfig = await CortexOps.service.GetConfiguration(CortexOps.types.GetRequest.fromJson({}));
+      const newConfig = new CortexOps.types.CapabilityBackendConfigSpec(structuredClone(this.config));
+      const activeConfig = await CortexOps.service.GetConfiguration(new DriverUtil.types.GetRequest());
       const shouldSetConfig = activeConfig.revision.revision === 0n;
 
       const dryRunRequest = new CortexOps.types.DryRunRequest({
         spec:   newConfig,
-        action: shouldSetConfig ? DryRun.types.Action.Set : DryRun.types.Action.Reset,
-        target: DryRun.types.Target.ActiveConfiguration
+        action: shouldSetConfig ? DriverUtil.types.Action.Set : DriverUtil.types.Action.Reset,
+        target: DriverUtil.types.Target.ActiveConfiguration
       });
 
       const dryRun = await CortexOps.service.DryRun(dryRunRequest);
@@ -145,7 +141,7 @@ export default {
       await CortexOps.service.SetDefaultConfiguration(newConfig);
 
       if (shouldSetConfig) {
-        await CortexOps.service.SetConfiguration(CortexOps.types.CapabilityBackendConfigSpec.fromJson({}));
+        await CortexOps.service.SetConfiguration(new CortexOps.types.CapabilityBackendConfigSpec());
       } else {
         await CortexOps.service.ResetConfiguration();
       }
@@ -159,9 +155,9 @@ export default {
       }
 
       switch (status.installState) {
-      case CortexOps.types.InstallState.Uninstalling:
+      case DriverUtil.types.InstallState.Uninstalling:
         return `Monitoring is currently uninstalling from the cluster. You can't make changes right now.`;
-      case CortexOps.types.InstallState.Installed:
+      case DriverUtil.types.InstallState.Installed:
         return `Monitoring is currently installed on the cluster.`;
       default:
         return `Monitoring is currently in an unknown state on the cluster. You can't make changes right now.`;
@@ -174,9 +170,9 @@ export default {
       }
 
       switch (status.installState) {
-      case CortexOps.types.InstallState.Uninstalling:
+      case DriverUtil.types.InstallState.Uninstalling:
         return 'warning';
-      case CortexOps.types.InstallState.Installed:
+      case DriverUtil.types.InstallState.Installed:
         return `success`;
       default:
         return `error`;
@@ -185,15 +181,15 @@ export default {
 
     isEnabled,
 
-    async isUpgradeAvailable() {
-      return await false;
+    isUpgradeAvailable() {
+      return false;
     },
 
     async getStatus() {
       try {
         const status = (await CortexOps.service.Status());
 
-        if (status.installState === CortexOps.types.InstallState.NotInstalled) {
+        if (status.installState === DriverUtil.types.InstallState.NotInstalled) {
           return null;
         }
 
@@ -203,12 +199,22 @@ export default {
           list:     status.warnings
         };
       } catch (ex) {
-        return null;
+        return {
+          state:   'error',
+          message: 'Unable to get status',
+          list:     []
+        };
       }
     },
 
     async getConfig() {
-      const presets = (await CortexOps.service.ListPresets()).items;
+      let presets = [];
+
+      try {
+        presets = (await CortexOps.service.ListPresets())?.items || [];
+      } catch (e) {
+        console.error(e);
+      }
 
       this.$set(this, 'presets', presets);
       this.$set(this, 'presetOptions', presets.map((p, i) => ({
@@ -217,8 +223,9 @@ export default {
       })));
       this.setPresetAsConfig(this.presetIndex);
 
-      const config = JSON.parse((await CortexOps.service.GetDefaultConfiguration(new CortexOps.types.GetRequest({}))).toJsonString());
+      const config = await CortexOps.service.GetDefaultConfiguration(new DriverUtil.types.GetRequest());
 
+      config.cortexWorkloads = config.cortexWorkloads || {};
       config.cortexWorkloads.targets = !config.cortexWorkloads.targets || Object.keys(config.cortexWorkloads.targets).length === 0 ? this.config.cortexWorkloads.targets : config.cortexWorkloads.targets;
       config.cortexConfig.storage = config.cortexConfig.storage || { backend: 's3' };
       const backendField = config.cortexConfig.storage.backend;
@@ -227,8 +234,8 @@ export default {
       this.$set(this, 'config', { ...clone, ...config });
       this.$set(this.config.cortexConfig, 'storage', { ...(clone.cortexConfig.storage || {}), ...(config.cortexConfig.storage || {}) });
       this.$set(this.config.cortexConfig.storage, backendField, { ...(clone.cortexConfig.storage?.[backendField] || {}), ...(config.cortexConfig.storage?.[backendField] || {}) });
-      this.$set(this.config.cortexConfig.storage, 'backend', config.cortexConfig.storage.backend || 'filesystem');
-      this.$set(this.config, 'grafana', config.grafana || { enabled: true });
+      this.$set(this.config.cortexConfig.storage, 'backend', config.cortexConfig.storage?.backend || 'filesystem');
+      this.$set(this.config, 'grafana', config.grafana || { enabled: true, hostname: '' });
 
       if (this.config.revision.revision === '0') {
         this.$set(this.config.grafana, 'enabled', true);
@@ -247,7 +254,7 @@ export default {
     presetIndex() {
       this.setPresetAsConfig(this.presetIndex);
     }
-  }
+  },
 };
 </script>
 <template>
@@ -268,15 +275,15 @@ export default {
       </div>
       <Tabbed :side-tabs="true">
         <Tab :weight="4" name="storage" label="Storage">
-          <StorageComponent v-model="config.cortexConfig" />
+          <StorageComponent v-model="config" :v-if="!!config" />
         </Tab>
         <Tab :weight="3" name="grafana" label="Grafana">
-          <Grafana v-model="config.grafana" :status="status" />
+          <Grafana v-model="config.grafana" />
         </Tab>
       </Tabbed>
     </template>
     <template #details>
-      <CapabilityTable :capability-provider="loadCapabilities" :header-provider="headerProvider" :update-status-provider="updateStatus" />
+      <CapabilityTable name="metrics" :header-provider="headerProvider" :update-status-provider="updateStatus" />
     </template>
   </Backend>
 </template>

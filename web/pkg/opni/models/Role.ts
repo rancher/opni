@@ -1,6 +1,5 @@
 import { deleteRole } from '../utils/requests/management';
 import { findBy } from '../utils/array';
-import { Cluster } from './Cluster';
 import { Resource } from './Resource';
 
 export interface MatchExpression {
@@ -26,15 +25,10 @@ export interface RolesResponse {
 
 export class Role extends Resource {
     private base: RoleResponse;
-    private clusters?: Cluster[];
 
     constructor(base: RoleResponse, vue: any) {
       super(vue);
       this.base = base;
-    }
-
-    setClusters(clusters: Cluster[]) {
-      this.clusters = clusters;
     }
 
     get id() {
@@ -51,6 +45,10 @@ export class Role extends Resource {
 
     get clusterIds() {
       return this.base.clusterIDs;
+    }
+
+    get clusters() {
+      return this.vue.$store.getters['opni/clusters'];
     }
 
     get clusterNames() {

@@ -1,4 +1,5 @@
 <script>
+import { mapGetters } from 'vuex';
 import SortableTable from '@shell/components/SortableTable';
 import Loading from '@shell/components/Loading';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
@@ -7,7 +8,6 @@ import { Banner } from '@components/Banner';
 import {
   getDeployments, getModelStatus, trainModel, getModelTrainingParameters, hasGpu
 } from '../utils/requests/workload';
-import { getClusters } from '../utils/requests/management';
 import { getOpensearchCluster } from '../utils/requests/loggingv2';
 import { exceptionToErrorsArray } from '../utils/error';
 import { isEnabled as isAiOpsEnabled } from './LogAnomalyBackend';
@@ -33,7 +33,6 @@ export default {
       statusInterval:   null,
       deployments:          {},
       cluster:          '',
-      clusters:         [],
       error:            '',
       queue:            {},
       lastParameters:   {},
@@ -93,9 +92,6 @@ export default {
 
         this.$set(this, 'hasGpu', await hasGpu());
 
-        const clusters = await getClusters();
-
-        this.$set(this, 'clusters', clusters.map(c => ({ label: c.nameDisplay, value: c.id })));
         this.$set(this, 'cluster', this.clusters[0].value);
         await Promise.all([this.loadDeployments(), this.loadStatus()]);
         await this.loadSelection();
@@ -106,8 +102,11 @@ export default {
     },
 
     async loadDeployments() {
-      const clusterIds = this.clusters.map(c => c.value);
-      const deployments = (await Promise.all(clusterIds.map(clusterId => getDeployments(clusterId)))).flat();
+      if (this.clusterIds.length === 0) {
+        return;
+      }
+
+      const deployments = (await Promise.all(this.clusterIds.map(clusterId => getDeployments(clusterId)))).flat();
       const index = {};
 
       deployments.forEach((deployment) => {
@@ -239,6 +238,16 @@ export default {
   },
 
   computed: {
+    ...mapGetters({ clusters: 'opni/clusters' }),
+
+    clusterOptions() {
+      return this.clusters.map(c => ({ label: c.nameDisplay, value: c.id }));
+    },
+
+    clusterIds() {
+      return this.clusters.map(c => c.value);
+    },
+
     selectionCount() {
       return sum(Object.values(this.queue).flatMap(v => v.length));
     },
@@ -330,6 +339,10 @@ export default {
     cluster() {
       this.$set(this, 'ignoreSelection', true);
       this.selectQueue();
+    },
+
+    clusterIds() {
+      this.loadDeployments();
     }
   }
 };

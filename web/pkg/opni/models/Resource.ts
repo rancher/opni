@@ -1,3 +1,5 @@
+import GlobalEventBus from '@pkg/opni/utils/GlobalEventBus';
+
 export class Resource {
   protected vue: any;
 
@@ -10,19 +12,19 @@ export class Resource {
   }
 
   public promptRemove(resources = this) {
-    this.vue.$store.commit('action-menu/togglePromptRemove', resources, { root: true });
+    GlobalEventBus.$emit('promptRemove', resources);
   }
 
   public promptEdit(resource = this) {
-    this.vue.$emit('edit', resource);
+    GlobalEventBus.$emit('edit', resource);
   }
 
   public copy(resource = this) {
-    this.vue.$emit('copy', resource);
+    GlobalEventBus.$emit('copy', resource);
   }
 
   public remove() {
-    this.vue.$emit('remove');
+    GlobalEventBus.$emit('remove');
   }
 
   public currentRouter() {

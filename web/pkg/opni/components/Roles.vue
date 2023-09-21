@@ -1,7 +1,9 @@
 <script>
+import { mapGetters } from 'vuex';
 import SortableTable from '@shell/components/SortableTable';
 import Loading from '@shell/components/Loading';
-import { getClusters, getRoles } from '../utils/requests/management';
+import GlobalEventBus from '@pkg/opni/utils/GlobalEventBus';
+import { getRoles } from '../utils/requests/management';
 import AddTokenDialog from './dialogs/AddTokenDialog';
 
 export default {
@@ -16,7 +18,6 @@ export default {
     return {
       loading:  false,
       roles:    [],
-      clusters: [],
       headers:  [
         {
           name:      'nameDisplay',
@@ -51,15 +52,15 @@ export default {
   },
 
   created() {
-    this.$on('remove', this.onClusterDelete);
+    GlobalEventBus.$on('remove', this.onRemove);
   },
 
   beforeDestroy() {
-    this.$off('remove');
+    GlobalEventBus.$off('remove');
   },
 
   methods: {
-    onClusterDelete() {
+    onRemove() {
       this.load();
     },
 
@@ -71,17 +72,16 @@ export default {
     async load() {
       try {
         this.loading = true;
-        const [roles, clusters] = await Promise.all([getRoles(this), getClusters(this)]);
-
-        roles.forEach(role => role.setClusters(clusters));
+        const roles = await getRoles(this);
 
         this.$set(this, 'roles', roles);
-        this.$set(this, 'clusters', clusters);
       } finally {
         this.loading = false;
       }
     }
-  }
+  },
+
+  computed: { ...mapGetters({ clusters: 'opni/clusters' }) }
 };
 </script>
 <template>

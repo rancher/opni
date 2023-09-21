@@ -12,7 +12,6 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/samber/lo"
 	"go.uber.org/atomic"
@@ -32,6 +31,7 @@ import (
 	mock_apiextensions "github.com/rancher/opni/pkg/test/mock/apiextensions"
 	mock_ext "github.com/rancher/opni/pkg/test/mock/ext"
 	"github.com/rancher/opni/pkg/test/testdata/plugins/ext"
+	statuspb "google.golang.org/genproto/googleapis/rpc/status"
 )
 
 var _ = Describe("Extensions", Ordered, Label("slow"), func() {
@@ -281,8 +281,10 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 	It("should forward HTTP calls containing path parameters to the plugin", func() {
 		tries := 10 // need to wait a bit for the server to become ready
 		for {
-			resp, err := http.Post(tv.httpEndpoint+"/Ext/bar/a/b",
-				"application/json", strings.NewReader("c"))
+			req, _ := http.NewRequest(http.MethodPost, tv.httpEndpoint+"/Ext/bar/a/b", strings.NewReader("c"))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Accept", "application/json")
+			resp, err := http.DefaultClient.Do(req)
 			if (err != nil || resp.StatusCode != 200) && tries > 0 {
 				tries--
 				time.Sleep(100 * time.Millisecond)
@@ -296,7 +298,10 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 			resp.Body.Close()
 			Expect(string(body)).To(Equal(`{"param1":"a","param2":"b","param3":"c"}`))
 
-			resp, err = http.Get(tv.httpEndpoint + "/Ext/bar/a/b/c")
+			req, _ = http.NewRequest(http.MethodGet, tv.httpEndpoint+"/Ext/bar/a/b/c", nil)
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Accept", "application/json")
+			resp, err = http.DefaultClient.Do(req)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(200))
 			body, err = io.ReadAll(resp.Body)
@@ -305,7 +310,10 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 			Expect(string(body)).To(Equal(`{"param1":"a","param2":"b","param3":"c"}`))
 
 			{
-				resp, err = http.Post(tv.httpEndpoint+"/Ext/baz/true/asdf/BAR", "application/json", nil)
+				req, _ = http.NewRequest(http.MethodPost, tv.httpEndpoint+"/Ext/baz/true/asdf/BAR", nil)
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("Accept", "application/json")
+				resp, err = http.DefaultClient.Do(req)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
 				body, err = io.ReadAll(resp.Body)
@@ -323,7 +331,10 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 			}
 
 			{
-				resp, err = http.Post(tv.httpEndpoint+"/Ext/baz/testing", "application/json", nil)
+				req, _ = http.NewRequest(http.MethodPost, tv.httpEndpoint+"/Ext/baz/testing", nil)
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("Accept", "application/json")
+				resp, err = http.DefaultClient.Do(req)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
 				body, err = io.ReadAll(resp.Body)
@@ -347,6 +358,8 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 			{
 				req, err := http.NewRequest(http.MethodPut, tv.httpEndpoint+"/Ext/set/testing1", strings.NewReader(`{"value": "value1"}`))
 				Expect(err).NotTo(HaveOccurred())
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("Accept", "application/json")
 				resp, err = http.DefaultClient.Do(req)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
@@ -366,6 +379,8 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 			{
 				req, err := http.NewRequest(http.MethodPut, tv.httpEndpoint+"/Ext/set/example/testing1", strings.NewReader(`{"value": "value1"}`))
 				Expect(err).NotTo(HaveOccurred())
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("Accept", "application/json")
 				resp, err = http.DefaultClient.Do(req)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(200))
@@ -408,18 +423,21 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 				{"/Ext/baz/true/asdf/BAR", "paramInt64", "1", nil},
 				{"/Ext/baz/testing", "paramInt64", "1", nil},
 			}
-			for _, req := range requests {
-				resp, err = http.Post(tv.httpEndpoint+req.path,
-					"application/json", strings.NewReader(fmt.Sprintf(`{%q: %s}`, req.param, req.value)))
+			for _, testCase := range requests {
+				req, _ := http.NewRequest(http.MethodPost, tv.httpEndpoint+testCase.path, strings.NewReader(fmt.Sprintf(`{%q: %s}`, testCase.param, testCase.value)))
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("Accept", "application/json")
+				resp, err = http.DefaultClient.Do(req)
 				Expect(err).NotTo(HaveOccurred())
 				body, err = io.ReadAll(resp.Body)
 				Expect(err).NotTo(HaveOccurred())
 				resp.Body.Close()
-				msg := string(body)
-				testlog.Log.Debugf("code: %d, msg: %s", resp.StatusCode, msg)
-				if req.err != nil {
+
+				if testCase.err != nil {
+					var spb statuspb.Status
+					Expect(protojson.Unmarshal(body, &spb)).To(Succeed())
 					Expect(resp.StatusCode).To(Equal(400))
-					Expect(msg).To(Equal(req.err))
+					Expect(spb.GetMessage()).To(Equal(testCase.err))
 				} else {
 					Expect(resp.StatusCode).To(Equal(200))
 				}

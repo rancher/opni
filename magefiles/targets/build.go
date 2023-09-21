@@ -10,6 +10,7 @@ import (
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
+	"github.com/magefile/mage/target"
 	"github.com/mholt/archiver/v4"
 )
 
@@ -46,6 +47,10 @@ func (Build) Linter(ctx context.Context) error {
 
 // Build the typescript service generator plugin
 func (Build) TypescriptServiceGenerator() error {
+	if shouldGenerate, _ := target.Dir("web/service-generator/dist", "web/service-generator/src"); !shouldGenerate {
+		return nil
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err

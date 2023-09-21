@@ -815,7 +815,7 @@ func (e *Environment) StartCortex(ctx context.Context, configBuilder func(Cortex
 	exited := lo.Async(cmd.Run)
 
 	retryCount := 0
-	ticker := time.NewTicker(10 * time.Millisecond)
+	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 READY:
 	for {
@@ -825,7 +825,7 @@ READY:
 		case <-exited:
 			return nil, errors.New("cortex exited unexpectedly")
 		case <-ticker.C:
-			reqContext, reqCancel := context.WithTimeout(ctx, 10*time.Millisecond)
+			reqContext, reqCancel := context.WithTimeout(ctx, 100*time.Millisecond)
 			req, _ := http.NewRequestWithContext(reqContext, http.MethodGet, fmt.Sprintf("https://localhost:%d/ready", e.ports.CortexHTTP), nil)
 			resp, err := client.Do(req)
 			reqCancel()
@@ -1467,7 +1467,7 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 			MetricsListenAddress: fmt.Sprintf("localhost:%d", e.ports.GatewayMetrics),
 			Management: v1beta1.ManagementSpec{
 				GRPCListenAddress: fmt.Sprintf("tcp://localhost:%d", e.ports.ManagementGRPC),
-				HTTPListenAddress: fmt.Sprintf("localhost:%d", e.ports.ManagementHTTP),
+				HTTPListenAddress: fmt.Sprintf(":%d", e.ports.ManagementHTTP),
 				WebListenAddress:  fmt.Sprintf("localhost:%d", e.ports.ManagementWeb),
 				// WebCerts: v1beta1.CertsSpec{
 				// 	CACertData:      dashboardCertData,

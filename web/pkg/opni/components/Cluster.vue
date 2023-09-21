@@ -1,4 +1,5 @@
 <script>
+import { mapGetters } from 'vuex';
 import { LabeledInput } from '@components/Form/LabeledInput';
 import CopyCode from '@shell/components/CopyCode';
 import { Checkbox } from '@components/Form/Checkbox';
@@ -8,14 +9,12 @@ import { Card } from '@components/Card';
 import { Banner } from '@components/Banner';
 import { createAgent } from '../utils/requests';
 import {
-  getClusters, updateCluster, getClusterFingerprint, createToken, getDefaultImageRepository, getGatewayConfig
+  updateCluster, getClusterFingerprint, createToken, getDefaultImageRepository, getGatewayConfig
 } from '../utils/requests/management';
 import { generateName } from '../utils/nameGenerator';
 
 const TOKEN_EXPIRATION_SECONDS = 3600;
 const NEW_TOKEN_INTERVAL_SECONDS = TOKEN_EXPIRATION_SECONDS - 100;
-
-const CLUSTER_COUNT_INTERVAL_SECONDS = 10;
 
 export default {
   components: {
@@ -29,9 +28,8 @@ export default {
   },
 
   async fetch() {
-    const [token, clusters, clusterFingerprint, defaultImageRepository, gatewayConfig] = await Promise.all([
+    const [token, clusterFingerprint, defaultImageRepository, gatewayConfig] = await Promise.all([
       createToken(`${ TOKEN_EXPIRATION_SECONDS }s`, '', []),
-      getClusters(),
       getClusterFingerprint(),
       getDefaultImageRepository(),
       getGatewayConfig()
@@ -41,7 +39,6 @@ export default {
     const port = gatewayConfig?.map(g => g.json)?.find(g => g.kind === 'GatewayConfig')?.spec?.grpcListenAddress?.split(':')[1];
 
     this.$set(this, 'token', token.id);
-    this.$set(this, 'clusterCount', clusters.length);
     this.$set(this, 'pin', clusterFingerprint);
     this.$set(this, 'defaultImageRepository', defaultImageRepository || '');
     this.$set(this, 'gatewayAddress', `${ hostname }:${ port }` || '');
@@ -53,12 +50,8 @@ export default {
     return {
       isManualOpen:           false,
       token:                  null,
-      capabilities:           [],
-      capability:             'metrics',
       labels:                 {},
       name:                   '',
-      clusterCount:           0,
-      clusterCountInterval:   null,
       newCluster:             null,
       newClusterFound:        false,
       pin:                    null,
@@ -76,7 +69,6 @@ export default {
   },
 
   created() {
-    this.clusterCountInterval = setInterval(this.lookForNewCluster, CLUSTER_COUNT_INTERVAL_SECONDS * 1000);
     this.newTokenInervalHandle = setInterval(async() => {
       const token = await createToken(`${ TOKEN_EXPIRATION_SECONDS }s`, '', []);
 
@@ -85,10 +77,6 @@ export default {
   },
 
   beforeDestroy() {
-    if (this.clusterCountInterval) {
-      clearInterval(this.clusterCountInterval);
-    }
-
     if (this.newTokenInervalHandle) {
       clearInterval(this.newTokenInervalHandle);
     }
@@ -105,14 +93,11 @@ export default {
       createAgent(this.token);
     },
 
-    async lookForNewCluster() {
-      const clusters = await getClusters();
-      const foundCluster = clusters.find(c => c.name === this.friendlyName);
+    lookForNewCluster() {
+      const foundCluster = this.clusters.find(c => c.name === this.friendlyName);
 
       if (foundCluster) {
-        clearInterval(this.clusterCountInterval);
         this.newCluster = foundCluster;
-        this.clusterCountInterval = null;
         this.newClusterFound = true;
       }
     },
@@ -122,6 +107,7 @@ export default {
     },
   },
   computed: {
+    ...mapGetters({ clusters: 'opni/clusters' }),
     friendlyName() {
       return this.name || this.generatedName;
     },
@@ -143,6 +129,15 @@ export default {
     },
     manualIcon() {
       return this.isManualOpen ? 'icon-chevron-up' : 'icon-chevron-down';
+    },
+    clusterCount() {
+      return this.clusters.length;
+    }
+  },
+
+  watch: {
+    clusterCount() {
+      this.lookForNewCluster();
     }
   }
 };

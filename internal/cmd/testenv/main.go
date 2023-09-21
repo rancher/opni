@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -56,11 +57,12 @@ func main() {
 		enableGateway,
 		enableEtcd,
 		enableJetstream,
-		enableNodeExporter bool
+		enableNodeExporter,
+		noEmbeddedWebAssets,
+		headlessDashboard bool
 	)
 	var remoteGatewayAddress string
 	var agentIdSeed int64
-	var webAssetsPath string
 
 	pflag.BoolVar(&enableGateway, "enable-gateway", true, "enable gateway")
 	pflag.BoolVar(&enableEtcd, "enable-etcd", true, "enable etcd")
@@ -68,7 +70,8 @@ func main() {
 	pflag.BoolVar(&enableNodeExporter, "enable-node-exporter", true, "enable node exporter")
 	pflag.StringVar(&remoteGatewayAddress, "remote-gateway-address", "", "remote gateway address")
 	pflag.Int64Var(&agentIdSeed, "agent-id-seed", 0, "random seed used for generating agent ids. if unset, uses a random seed.")
-	pflag.StringVar(&webAssetsPath, "web-assets-path", "", "path to custom web assets (if unset, uses embedded assets)")
+	pflag.BoolVar(&noEmbeddedWebAssets, "no-embedded-web-assets", false, "serve web assets from web/dist instead of using embedded assets")
+	pflag.BoolVar(&headlessDashboard, "headless-dashboard", false, "run the dashboard without opening a browser window")
 
 	pflag.Parse()
 
@@ -235,8 +238,13 @@ func main() {
 				return
 			}
 			opts := []dashboard.ServerOption{}
-			if webAssetsPath != "" {
-				fs := os.DirFS(webAssetsPath)
+			if noEmbeddedWebAssets {
+				absPath, err := filepath.Abs("web/")
+				if err != nil {
+					testlog.Log.Error(err)
+					return
+				}
+				fs := os.DirFS(absPath)
 				opts = append(opts, dashboard.WithAssetsFS(fs))
 			}
 			dashboardSrv, err := dashboard.NewServer(&environment.GatewayConfig().Spec.Management, opts...)
@@ -290,7 +298,9 @@ func main() {
 		switch rn {
 		case ' ':
 			startDashboard()
-			go browser.OpenURL(fmt.Sprintf("http://localhost:%d", environment.GetPorts().ManagementWeb))
+			if !headlessDashboard {
+				go browser.OpenURL(fmt.Sprintf("http://localhost:%d", environment.GetPorts().ManagementWeb))
+			}
 		case 'q':
 			closeOnce.Do(func() {
 				signal.Stop(c)

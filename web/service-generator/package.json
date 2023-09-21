@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "description": "Stuff",
   "license": "Apache-2.0",
+  "engines": {
+    "node": "18"
+  },
   "bin": {
     "service-generator": "generate"
   },

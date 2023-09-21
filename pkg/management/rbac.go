@@ -123,20 +123,20 @@ func (s *Server) GetRoleBinding(ctx context.Context, in *corev1.Reference) (*cor
 	return rb, err
 }
 
-func (s *Server) ListRoles(ctx context.Context, _ *emptypb.Empty) (*corev1.RoleList, error) {
-	rl, err := s.coreDataSource.StorageBackend().ListRoles(ctx)
-	return rl, err
-}
+// func (s *Server) ListRoles(ctx context.Context, _ *emptypb.Empty) (*corev1.RoleList, error) {
+// 	rl, err := s.coreDataSource.StorageBackend().ListRoles(ctx)
+// 	return rl, err
+// }
 
 func (s *Server) ListRoleBindings(ctx context.Context, _ *emptypb.Empty) (*corev1.RoleBindingList, error) {
 	rbl, err := s.coreDataSource.StorageBackend().ListRoleBindings(ctx)
 	return rbl, err
 }
 
-func (s *Server) SubjectAccess(ctx context.Context, sar *corev1.SubjectAccessRequest) (*corev1.ReferenceList, error) {
-	if err := validation.Validate(sar); err != nil {
-		return nil, err
-	}
-	rl, err := s.rbacProvider.SubjectAccess(ctx, sar)
-	return rl, err
-}
+// func (s *Server) SubjectAccess(ctx context.Context, sar *corev1.SubjectAccessRequest) (*corev1.ReferenceList, error) {
+// 	if err := validation.Validate(sar); err != nil {
+// 		return nil, err
+// 	}
+// 	rl, err := s.rbacProvider.SubjectAccess(ctx, sar)
+// 	return rl, err
+// }

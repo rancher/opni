@@ -1,44 +1,35 @@
 package machinery
 
-import (
-	"context"
+// type subjectAccessCapableStore struct {
+// 	client managementv1.ManagementClient
+// }
 
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/storage"
-	"google.golang.org/protobuf/types/known/emptypb"
-)
+// func SubjectAccessCapableStore(client managementv1.ManagementClient) storage.SubjectAccessCapableStore {
+// 	return &subjectAccessCapableStore{
+// 		client: client,
+// 	}
+// }
 
-type subjectAccessCapableStore struct {
-	client managementv1.ManagementClient
-}
+// func (s *subjectAccessCapableStore) ListClusters(
+// 	ctx context.Context,
+// 	matchLabels *corev1.LabelSelector,
+// 	matchOptions corev1.MatchOptions,
+// ) (*corev1.ClusterList, error) {
+// 	return s.client.ListClusters(ctx, &managementv1.ListClustersRequest{
+// 		MatchLabels:  matchLabels,
+// 		MatchOptions: matchOptions,
+// 	})
+// }
 
-func SubjectAccessCapableStore(client managementv1.ManagementClient) storage.SubjectAccessCapableStore {
-	return &subjectAccessCapableStore{
-		client: client,
-	}
-}
+// func (s *subjectAccessCapableStore) GetRole(
+// 	ctx context.Context,
+// 	ref *corev1.Reference,
+// ) (*corev1.Role, error) {
+// 	return s.client.GetRole(ctx, ref)
+// }
 
-func (s *subjectAccessCapableStore) ListClusters(
-	ctx context.Context,
-	matchLabels *corev1.LabelSelector,
-	matchOptions corev1.MatchOptions,
-) (*corev1.ClusterList, error) {
-	return s.client.ListClusters(ctx, &managementv1.ListClustersRequest{
-		MatchLabels:  matchLabels,
-		MatchOptions: matchOptions,
-	})
-}
-
-func (s *subjectAccessCapableStore) GetRole(
-	ctx context.Context,
-	ref *corev1.Reference,
-) (*corev1.Role, error) {
-	return s.client.GetRole(ctx, ref)
-}
-
-func (s *subjectAccessCapableStore) ListRoleBindings(
-	ctx context.Context,
-) (*corev1.RoleBindingList, error) {
-	return s.client.ListRoleBindings(ctx, &emptypb.Empty{})
-}
+// func (s *subjectAccessCapableStore) ListRoleBindings(
+// 	ctx context.Context,
+// ) (*corev1.RoleBindingList, error) {
+// 	return s.client.ListRoleBindings(ctx, &emptypb.Empty{})
+// }

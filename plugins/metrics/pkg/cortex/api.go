@@ -18,6 +18,7 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/fwd"
+	"github.com/rancher/opni/plugins/metrics/pkg/backend"
 	metricsutil "github.com/rancher/opni/plugins/metrics/pkg/util"
 )
 
@@ -46,6 +47,7 @@ type HttpApiServerConfig struct {
 	Logger           *zap.SugaredLogger            `validate:"required"`
 	StorageBackend   storage.Backend               `validate:"required"`
 	AuthMiddlewares  map[string]auth.Middleware    `validate:"required"`
+	Backend          backend.MetricsBackend        `validate:"required"`
 }
 
 func (p *HttpApiServer) Initialize(config HttpApiServerConfig) {
@@ -66,8 +68,12 @@ func (p *HttpApiServer) ConfigureRoutes(router *gin.Engine) {
 
 	router.Use(logger.GinLogger(p.Logger), gin.Recovery())
 
-	rbacProvider := storage.NewRBACProvider(p.StorageBackend)
-	rbacMiddleware := rbac.NewMiddleware(rbacProvider, orgIDCodec)
+	rbacMiddleware := rbac.NewMiddleware(rbac.MiddlewareConfig{
+		Provider: &p.Backend,
+		Codec:    orgIDCodec,
+		Store:    p.StorageBackend,
+		Logger:   p.Logger.Named("middleware"),
+	})
 	authMiddleware, ok := p.AuthMiddlewares[p.Config.AuthProvider]
 	if !ok {
 		p.Logger.With(
@@ -98,7 +104,7 @@ func (p *HttpApiServer) ConfigureRoutes(router *gin.Engine) {
 
 func (p *HttpApiServer) configureAlertmanager(router *gin.Engine, f *forwarders, m *middlewares) {
 	orgIdLimiter := func(c *gin.Context) {
-		ids := rbac.AuthorizedClusterIDs(c)
+		ids := backend.AuthorizedClusterIDs(c)
 		if len(ids) > 1 {
 			user, _ := rbac.AuthorizedUserID(c)
 			p.Logger.With(

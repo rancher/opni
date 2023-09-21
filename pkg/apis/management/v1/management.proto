@@ -138,19 +138,9 @@ service Management {
       get: "/rolebindings/{id}"
     };
   }
-  rpc ListRoles(google.protobuf.Empty) returns (core.RoleList) {
-    option (google.api.http) = {
-      get: "/roles"
-    };
-  }
   rpc ListRoleBindings(google.protobuf.Empty) returns (core.RoleBindingList) {
     option (google.api.http) = {
       get: "/rolebindings"
-    };
-  }
-  rpc SubjectAccess(core.SubjectAccessRequest) returns (core.ReferenceList) {
-    option (google.api.http) = {
-      get: "/subjectaccess"
     };
   }
   rpc APIExtensions(google.protobuf.Empty) returns (APIExtensionInfoList) {

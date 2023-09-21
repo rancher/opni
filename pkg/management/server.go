@@ -26,7 +26,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
-	"github.com/rancher/opni/pkg/rbac"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
@@ -70,7 +69,6 @@ type Server struct {
 	managementServerOptions
 	config            *v1beta1.ManagementSpec
 	logger            *zap.SugaredLogger
-	rbacProvider      rbac.Provider
 	rbacManagerStore  capabilities.RBACManagerStore
 	coreDataSource    CoreDataSource
 	grpcServer        *grpc.Server
@@ -130,7 +128,6 @@ func NewServer(
 		config:                  conf,
 		logger:                  lg,
 		coreDataSource:          cds,
-		rbacProvider:            storage.NewRBACProvider(cds.StorageBackend()),
 		rbacManagerStore:        capabilities.NewRBACManagerStore(lg),
 		dashboardSettings: &DashboardSettingsManager{
 			kv:     cds.StorageBackend().KeyValueStore("dashboard"),

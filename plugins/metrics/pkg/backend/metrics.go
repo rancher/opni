@@ -62,13 +62,14 @@ type MetricsAgentClientSet interface {
 }
 
 type MetricsBackendConfig struct {
-	Logger              *zap.SugaredLogger                              `validate:"required"`
-	StorageBackend      storage.Backend                                 `validate:"required"`
-	MgmtClient          managementv1.ManagementClient                   `validate:"required"`
-	UninstallController *task.Controller                                `validate:"required"`
-	ClusterDriver       drivers.ClusterDriver                           `validate:"required"`
-	Delegate            streamext.StreamDelegate[MetricsAgentClientSet] `validate:"required"`
-	KV                  *KVClients                                      `validate:"required"`
+	Logger              *zap.SugaredLogger `validate:"required"`
+	StorageBackend      storage.Backend
+	RolesStore          storage.RBACStore                                          `validate:"required"`
+	MgmtClient          managementv1.ManagementClient                              `validate:"required"`
+	UninstallController *task.Controller                                           `validate:"required"`
+	ClusterDriver       drivers.ClusterDriver                                      `validate:"required"`
+	Delegate            streamext.StreamDelegate[remoteread.RemoteReadAgentClient] `validate:"required"`
+	KV                  *KVClients
 }
 
 type KVClients struct {

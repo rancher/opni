@@ -7,12 +7,14 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 )
 
+type RBACHeader map[string]*corev1.ReferenceList
+
 const (
 	UserIDKey = "rbac_user_id"
 )
 
 type Provider interface {
-	SubjectAccess(context.Context, *corev1.SubjectAccessRequest) (*corev1.ReferenceList, error)
+	AccessHeader(context.Context, *corev1.ReferenceList) (RBACHeader, error)
 }
 
 func AuthorizedUserID(c *gin.Context) (string, bool) {

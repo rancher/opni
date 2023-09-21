@@ -45,9 +45,7 @@ const (
 	Management_UpdateRoleBinding_FullMethodName              = "/management.Management/UpdateRoleBinding"
 	Management_DeleteRoleBinding_FullMethodName              = "/management.Management/DeleteRoleBinding"
 	Management_GetRoleBinding_FullMethodName                 = "/management.Management/GetRoleBinding"
-	Management_ListRoles_FullMethodName                      = "/management.Management/ListRoles"
 	Management_ListRoleBindings_FullMethodName               = "/management.Management/ListRoleBindings"
-	Management_SubjectAccess_FullMethodName                  = "/management.Management/SubjectAccess"
 	Management_APIExtensions_FullMethodName                  = "/management.Management/APIExtensions"
 	Management_GetConfig_FullMethodName                      = "/management.Management/GetConfig"
 	Management_UpdateConfig_FullMethodName                   = "/management.Management/UpdateConfig"
@@ -89,9 +87,7 @@ type ManagementClient interface {
 	UpdateRoleBinding(ctx context.Context, in *v1.RoleBinding, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteRoleBinding(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetRoleBinding(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.RoleBinding, error)
-	ListRoles(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.RoleList, error)
 	ListRoleBindings(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.RoleBindingList, error)
-	SubjectAccess(ctx context.Context, in *v1.SubjectAccessRequest, opts ...grpc.CallOption) (*v1.ReferenceList, error)
 	APIExtensions(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*APIExtensionInfoList, error)
 	GetConfig(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GatewayConfig, error)
 	UpdateConfig(ctx context.Context, in *UpdateConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -369,27 +365,9 @@ func (c *managementClient) GetRoleBinding(ctx context.Context, in *v1.Reference,
 	return out, nil
 }
 
-func (c *managementClient) ListRoles(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.RoleList, error) {
-	out := new(v1.RoleList)
-	err := c.cc.Invoke(ctx, Management_ListRoles_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *managementClient) ListRoleBindings(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.RoleBindingList, error) {
 	out := new(v1.RoleBindingList)
 	err := c.cc.Invoke(ctx, Management_ListRoleBindings_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *managementClient) SubjectAccess(ctx context.Context, in *v1.SubjectAccessRequest, opts ...grpc.CallOption) (*v1.ReferenceList, error) {
-	out := new(v1.ReferenceList)
-	err := c.cc.Invoke(ctx, Management_SubjectAccess_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -532,9 +510,7 @@ type ManagementServer interface {
 	UpdateRoleBinding(context.Context, *v1.RoleBinding) (*emptypb.Empty, error)
 	DeleteRoleBinding(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	GetRoleBinding(context.Context, *v1.Reference) (*v1.RoleBinding, error)
-	ListRoles(context.Context, *emptypb.Empty) (*v1.RoleList, error)
 	ListRoleBindings(context.Context, *emptypb.Empty) (*v1.RoleBindingList, error)
-	SubjectAccess(context.Context, *v1.SubjectAccessRequest) (*v1.ReferenceList, error)
 	APIExtensions(context.Context, *emptypb.Empty) (*APIExtensionInfoList, error)
 	GetConfig(context.Context, *emptypb.Empty) (*GatewayConfig, error)
 	UpdateConfig(context.Context, *UpdateConfigRequest) (*emptypb.Empty, error)
@@ -625,14 +601,8 @@ func (UnimplementedManagementServer) DeleteRoleBinding(context.Context, *v1.Refe
 func (UnimplementedManagementServer) GetRoleBinding(context.Context, *v1.Reference) (*v1.RoleBinding, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRoleBinding not implemented")
 }
-func (UnimplementedManagementServer) ListRoles(context.Context, *emptypb.Empty) (*v1.RoleList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListRoles not implemented")
-}
 func (UnimplementedManagementServer) ListRoleBindings(context.Context, *emptypb.Empty) (*v1.RoleBindingList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListRoleBindings not implemented")
-}
-func (UnimplementedManagementServer) SubjectAccess(context.Context, *v1.SubjectAccessRequest) (*v1.ReferenceList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SubjectAccess not implemented")
 }
 func (UnimplementedManagementServer) APIExtensions(context.Context, *emptypb.Empty) (*APIExtensionInfoList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method APIExtensions not implemented")
@@ -1103,24 +1073,6 @@ func _Management_GetRoleBinding_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Management_ListRoles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ManagementServer).ListRoles(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Management_ListRoles_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementServer).ListRoles(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Management_ListRoleBindings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
@@ -1135,24 +1087,6 @@ func _Management_ListRoleBindings_Handler(srv interface{}, ctx context.Context, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ManagementServer).ListRoleBindings(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Management_SubjectAccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.SubjectAccessRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ManagementServer).SubjectAccess(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Management_SubjectAccess_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementServer).SubjectAccess(ctx, req.(*v1.SubjectAccessRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1465,16 +1399,8 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Management_GetRoleBinding_Handler,
 		},
 		{
-			MethodName: "ListRoles",
-			Handler:    _Management_ListRoles_Handler,
-		},
-		{
 			MethodName: "ListRoleBindings",
 			Handler:    _Management_ListRoleBindings_Handler,
-		},
-		{
-			MethodName: "SubjectAccess",
-			Handler:    _Management_SubjectAccess_Handler,
 		},
 		{
 			MethodName: "APIExtensions",

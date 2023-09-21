@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"sort"
@@ -30,7 +31,6 @@ import (
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -63,7 +63,7 @@ type Agent struct {
 	AgentOptions
 	config v1beta1.AgentConfigSpec
 	router *gin.Engine
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 
 	tenantID         string
 	identityProvider ident.Provider
@@ -99,14 +99,10 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	options.apply(opts...)
 	level := logger.DefaultLogLevel.Level()
 	if conf.Spec.LogLevel != "" {
-		l, err := zap.ParseAtomicLevel(conf.Spec.LogLevel)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing log level: %w", err)
-		}
-		level = l.Level()
+		level = logger.ParseLevel(conf.Spec.LogLevel)
 	}
 	lg := logger.New(logger.WithLogLevel(level)).Named("agent")
-	lg.Debugf("using log level: %s", level)
+	lg.Debug("using log level:", "level", level.String())
 
 	router := gin.New()
 	router.Use(logger.GinLogger(lg), gin.Recovery())

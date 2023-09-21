@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -65,7 +66,7 @@ type Agent struct {
 
 	config       v1beta1.AgentConfigSpec
 	router       *gin.Engine
-	Logger       *zap.SugaredLogger
+	logger       *slog.Logger
 	pluginLoader *plugins.PluginLoader
 
 	tenantID         string
@@ -119,14 +120,10 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	options.apply(opts...)
 	level := logger.DefaultLogLevel.Level()
 	if conf.Spec.LogLevel != "" {
-		l, err := zap.ParseAtomicLevel(conf.Spec.LogLevel)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing log level: %w", err)
-		}
-		level = l.Level()
+		level = logger.ParseLevel(conf.Spec.LogLevel)
 	}
 	lg := logger.New(logger.WithLogLevel(level)).Named("agent")
-	lg.Debugf("using log level: %s", level)
+	lg.Debug("using log level:", "level", level.String())
 
 	var pl *plugins.PluginLoader
 	if options.unmanagedPluginLoader != nil {
@@ -465,11 +462,11 @@ func setupPluginRoutes(
 	defer mutex.Unlock()
 
 	sampledLogger := logger.New(
-		logger.WithSampling(&zap.SamplingConfig{
-			Initial:    1,
-			Thereafter: 0,
+		logger.WithSampling(&slogsampling.ThresholdSamplingOption{
+			Threshold: 1,
+			Rate:      0,
 		}),
-	).Named("api")
+	).WithGroup("api")
 	forwarder := fwd.To(cfg.HttpAddr,
 		fwd.WithLogger(sampledLogger),
 		fwd.WithDestHint(pluginMeta.Filename()),

@@ -145,7 +145,7 @@ func WithSampling(cfg *zap.SamplingConfig) LoggerOption {
 
 func New(opts ...LoggerOption) ExtendedSugaredLogger {
 	options := &LoggerOptions{
-		logLevel:    DefaultLogLevel.Level(),
+		logLevel:    zapcore.ErrorLevel,
 		timeEncoder: zapcore.RFC3339TimeEncoder,
 		writer:      DefaultWriter,
 	}

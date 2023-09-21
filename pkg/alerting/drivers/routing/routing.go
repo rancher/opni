@@ -386,7 +386,7 @@ func (o *OpniRouterV1) BuildConfig() (*config.Config, error) {
 
 	// build each namespaced tree that isn't the default namespace
 	opniRoutes := []*config.Route{}
-	opniReceivers := []*config.Receiver{}
+	opniReceivers := []config.Receiver{}
 	namespaces := lo.Keys(o.NamespacedSpecs) // needs to be deterministically ordered
 	slices.SortFunc(namespaces, strings.Compare)
 	for _, namespace := range namespaces {
@@ -443,7 +443,7 @@ func (o *OpniRouterV1) BuildConfig() (*config.Config, error) {
 			}
 		}
 	}
-	slices.SortFunc(opniReceivers, func(a, b *config.Receiver) int {
+	slices.SortFunc(opniReceivers, func(a, b config.Receiver) int {
 		return strings.Compare(a.Name, b.Name)
 	})
 	//prepend

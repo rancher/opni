@@ -327,11 +327,16 @@ func (a *PagerDutyEndpoint) Validate() error {
 }
 
 func (w *WebhookEndpoint) Validate() error {
-	if w.GetUrl() == "" {
-		return validation.Error("url must be set")
+	if w.GetUrl() == "" && w.GetUrlFile() == "" {
+		return validation.Error("one of url / url file must be set")
 	}
-	if _, err := url.Parse(w.GetUrl()); err != nil {
-		return validation.Errorf("url must be a valid url : %s", err)
+	if w.GetUrl() != "" && w.GetUrlFile() != "" {
+		return validation.Error("only one of url / url file must be set")
+	}
+	if w.GetUrl() != "" {
+		if _, err := url.Parse(w.GetUrl()); err != nil {
+			return validation.Errorf("url must be a valid url : %s", err)
+		}
 	}
 
 	if hc := w.GetHttpConfig(); hc != nil {

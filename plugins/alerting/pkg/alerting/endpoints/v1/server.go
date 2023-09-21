@@ -2,6 +2,7 @@ package endpoints
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -88,9 +89,15 @@ func (e *EndpointServerComponent) UpdateAlertEndpoint(ctx context.Context, req *
 	if !e.Initialized() {
 		return nil, status.Error(codes.Unavailable, "Endpoint server is not yet available")
 	}
-	if err := unredactSecrets(ctx, e.endpointStorage.Get(), req.Id.Id, req.GetUpdateAlert()); err != nil {
+
+	e.logger.Error("UpdateAlertEndpoint", "req", fmt.Sprintf("%+v", req))
+
+	if err := e.unredactSecrets(ctx, e.endpointStorage.Get(), req.Id.Id, req.GetUpdateAlert()); err != nil {
 		return nil, err
 	}
+
+	e.logger.Error("UpdateAlertEndpoint", "req", fmt.Sprintf("%+v", req))
+
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -221,7 +228,7 @@ func (e *EndpointServerComponent) ListAlertEndpoints(
 	return &alertingv1.AlertEndpointList{Items: items}, nil
 }
 
-func unredactSecrets(
+func (e *EndpointServerComponent) unredactSecrets(
 	ctx context.Context,
 	store spec.EndpointStorage,
 	endpointId string,
@@ -231,6 +238,8 @@ func unredactSecrets(
 	if err != nil {
 		return err
 	}
+	e.logger.Error(unredacted)
 	endp.UnredactSecrets(unredacted)
+	e.logger.Error(endp)
 	return nil
 }

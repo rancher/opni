@@ -71,15 +71,6 @@ spec:
             periodSeconds: 10
             successThreshold: 1
             failureThreshold: 3
-          readinessProbe:
-            httpGet:
-              path: /healthz
-              port: http
-              scheme: HTTP
-            timeoutSeconds: 1
-            periodSeconds: 10
-            successThreshold: 1
-            failureThreshold: 3
           startupProbe:
             httpGet:
               path: /healthz
@@ -88,7 +79,7 @@ spec:
             timeoutSeconds: 1
             periodSeconds: 10
             successThreshold: 1
-            failureThreshold: 10
+            failureThreshold: 30
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
         - name: client

@@ -290,18 +290,9 @@ func newHandler(
 				w.WriteHeader(http.StatusUpgradeRequired)
 				return
 			}
-			// cookie := make([]byte, 32)
-			// rand.Read(cookie)
-
 			conn, err := (&websocket.Upgrader{
 				ReadBufferSize:  1024,
 				WriteBufferSize: 1024,
-				CheckOrigin: func(r *http.Request) bool {
-					// only allow localhost
-					// host, _, _ := net.SplitHostPort(r.Host)
-					// return host == "localhost"
-					return true
-				},
 			}).Upgrade(w, req, http.Header{})
 			if err != nil {
 				lg.With(zap.Error(err)).Error("failed to upgrade connection")
@@ -463,37 +454,8 @@ func handleWebsocketStream(
 	return handleWebsocketClientStream(ctx, conn, backendStream, methodDesc, lg)
 }
 
-func handleWebsocketClientStream(ctx context.Context, conn *websocket.Conn, backendStream *grpcdynamic.ClientStream, methodDesc *desc.MethodDescriptor, lg *zap.SugaredLogger) error {
+func handleWebsocketClientStream(_ context.Context, _ *websocket.Conn, _ *grpcdynamic.ClientStream, _ *desc.MethodDescriptor, _ *zap.SugaredLogger) error {
 	return fmt.Errorf("not implemented")
-	// for {
-	// 	msgType, data, err := conn.ReadMessage()
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	if msgType == websocket.CloseMessage {
-	// 		break
-	// 	}
-
-	// 	msg := dynamic.NewMessage(methodDesc.GetInputType())
-	// 	if err := msg.UnmarshalJSONPB(&jsonpb.Unmarshaler{}, data); err != nil {
-	// 		return err
-	// 	}
-
-	// 	if err := backendStream.SendMsg(msg); err != nil {
-	// 		return err
-	// 	}
-	// }
-	// resp, err := backendStream.CloseAndReceive()
-
-	// respMsg, _ := dynamic.AsDynamicMessage(resp)
-	// if err != nil {
-	// 	return err
-	// }
-	// jsonData, _ := respMsg.MarshalJSONPB(legacyJsonpbMarshaler)
-	// if err := conn.WriteMessage(websocket.TextMessage, jsonData); err != nil {
-	// 	return err
-	// }
-	// return nil
 }
 
 func handleWebsocketServerStream(
@@ -612,51 +574,8 @@ func handleWebsocketServerStream(
 	return err
 }
 
-func handleWebsocketBidiStream(ctx context.Context, conn *websocket.Conn, backendStream *grpcdynamic.BidiStream, methodDesc *desc.MethodDescriptor) error {
+func handleWebsocketBidiStream(_ context.Context, _ *websocket.Conn, _ *grpcdynamic.BidiStream, _ *desc.MethodDescriptor) error {
 	return fmt.Errorf("not implemented")
-	// var eg errgroup.Group
-	// eg.Go(func() error {
-	// 	for {
-	// 		msgType, data, err := conn.ReadMessage()
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		if msgType == websocket.CloseMessage {
-	// 			return backendStream.CloseSend()
-	// 		}
-
-	// 		msg := dynamic.NewMessage(methodDesc.GetInputType())
-	// 		if err := msg.UnmarshalJSONPB(legacyJsonpbUnmarshaler, data); err != nil {
-	// 			return err
-	// 		}
-
-	// 		if err := backendStream.SendMsg(msg); err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// })
-
-	// respMsg := dynamic.NewMessage(methodDesc.GetOutputType())
-	// for {
-	// 	if resp, err := backendStream.RecvMsg(); err == io.EOF {
-	// 		break
-	// 	} else if err != nil {
-	// 		return err
-	// 	} else {
-	// 		respMsg, _ = dynamic.AsDynamicMessage(resp)
-	// 	}
-
-	// 	data, err := respMsg.MarshalJSONPB(legacyJsonpbMarshaler)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-
-	// 	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-	// 		return err
-	// 	}
-	// }
-
-	// return eg.Wait()
 }
 
 func unknownServiceHandler(director StreamDirector) grpc.StreamHandler {

@@ -29,16 +29,16 @@ var _ = BuildHttpTransportCaching(
 func BuildHttpTransportCaching(
 	t caching.HttpCachingTransport,
 ) bool {
-	return Describe("Http util test suites", Ordered, Label("unit"), func() {
+	return Describe("Http util test suites", Ordered, Label("integration"), func() {
 		var serverPort int
 		var cachingClient *http.Client
 		var defaultClient *http.Client
 		doIncrement := func(objectId string) (*http.Response, error) {
 			var url string
 			if objectId == "" {
-				url = fmt.Sprintf("http://localhost:%d/increment", serverPort)
+				url = fmt.Sprintf("http://127.0.0.1:%d/increment", serverPort)
 			} else {
-				url = fmt.Sprintf("http://localhost:%d/increment?id=%s", serverPort, objectId)
+				url = fmt.Sprintf("http://127.0.0.1:%d/increment?id=%s", serverPort, objectId)
 			}
 			req, err := http.NewRequest(http.MethodPost, url, nil)
 			if err != nil {
@@ -52,9 +52,9 @@ func BuildHttpTransportCaching(
 		getValueWithMaxAgeCache := func(objectId string) (*http.Response, error) {
 			var url string
 			if objectId == "" {
-				url = fmt.Sprintf("http://localhost:%d/value", serverPort)
+				url = fmt.Sprintf("http://127.0.0.1:%d/value", serverPort)
 			} else {
-				url = fmt.Sprintf("http://localhost:%d/value?id=%s", serverPort, objectId)
+				url = fmt.Sprintf("http://127.0.0.1:%d/value?id=%s", serverPort, objectId)
 			}
 			req, err := http.NewRequest(http.MethodGet, url, nil)
 			if err != nil {
@@ -69,9 +69,9 @@ func BuildHttpTransportCaching(
 		getValueWithBypassCache := func(objectId string) (*http.Response, error) {
 			var url string
 			if objectId == "" {
-				url = fmt.Sprintf("http://localhost:%d/value", serverPort)
+				url = fmt.Sprintf("http://127.0.0.1:%d/value", serverPort)
 			} else {
-				url = fmt.Sprintf("http://localhost:%d/value?id=%s", serverPort, objectId)
+				url = fmt.Sprintf("http://127.0.0.1:%d/value?id=%s", serverPort, objectId)
 			}
 			req, err := http.NewRequest(http.MethodGet, url, nil)
 			if err != nil {
@@ -86,9 +86,9 @@ func BuildHttpTransportCaching(
 		getValueDefaultTransport := func(objectId string) (*http.Response, error) {
 			var url string
 			if objectId == "" {
-				url = fmt.Sprintf("http://localhost:%d/value", serverPort)
+				url = fmt.Sprintf("http://127.0.0.1:%d/value", serverPort)
 			} else {
-				url = fmt.Sprintf("http://localhost:%d/value?id=%s", serverPort, objectId)
+				url = fmt.Sprintf("http://127.0.0.1:%d/value?id=%s", serverPort, objectId)
 			}
 			req, err := http.NewRequest(http.MethodGet, url, nil)
 			if err != nil {
@@ -100,7 +100,7 @@ func BuildHttpTransportCaching(
 		}
 
 		getServerCacheValue := func() (*http.Response, error) {
-			url := fmt.Sprintf("http://localhost:%d/cache/value", serverPort)
+			url := fmt.Sprintf("http://127.0.0.1:%d/cache/value", serverPort)
 			req, err := http.NewRequest(http.MethodGet, url, nil)
 			if err != nil {
 				return nil, err

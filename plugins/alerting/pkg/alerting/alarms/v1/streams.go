@@ -213,7 +213,7 @@ func (p *AlarmServerComponent) onDownstreamCapabilityConditionCreate(conditionId
 						}
 					}
 				}
-				return healthy, h.HealthStatus.Status.Timestamp
+				return healthy, h.HealthStatus.GetStatus().GetTimestamp()
 			},
 			triggerHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
 				_, _ = p.notifications.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{

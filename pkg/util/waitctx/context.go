@@ -117,7 +117,7 @@ func (restrictive) Wait(ctx RestrictiveContext, notifyAfter ...time.Duration) {
 
 // WaitWithTimeout follows the same pattern as wait, but with a timeout.  If the timeout expires
 // WaitWithTimeout will panic.
-func (restrictive) WaitWWithTimeout(ctx RestrictiveContext, timeout time.Duration, notifyAfter ...time.Duration) {
+func (restrictive) WaitWithTimeout(ctx RestrictiveContext, timeout time.Duration, notifyAfter ...time.Duration) {
 	data := ctx.Value(waitCtxDataKey)
 	if data == nil {
 		panic("context is not a WaitContext")
@@ -134,6 +134,7 @@ func (restrictive) WaitWWithTimeout(ctx RestrictiveContext, timeout time.Duratio
 		d.cond.L.Unlock()
 	}()
 	if len(notifyAfter) > 0 {
+		stack := string(debug.Stack())
 		notifyDone := make(chan struct{})
 		defer close(notifyDone)
 		go func() {
@@ -142,7 +143,7 @@ func (restrictive) WaitWWithTimeout(ctx RestrictiveContext, timeout time.Duratio
 				case <-notifyDone:
 					return
 				case <-time.After(notifyAfter[0]):
-					fmt.Fprint(os.Stderr, chalk.Yellow.Color("\n=== WARNING: waiting longer than expected for context to cancel ===\n"+string(debug.Stack())+"\n"))
+					fmt.Fprint(os.Stderr, chalk.Yellow.Color("\n=== WARNING: waiting longer than expected for context to cancel ===\n"+stack+"\n"))
 				}
 			}
 		}()
@@ -246,6 +247,6 @@ var (
 	AddOne          = Restrictive.AddOne
 	Done            = Restrictive.Done
 	Wait            = Restrictive.Wait
-	WaitWithTimeout = Restrictive.WaitWWithTimeout
+	WaitWithTimeout = Restrictive.WaitWithTimeout
 	Go              = Restrictive.Go
 )

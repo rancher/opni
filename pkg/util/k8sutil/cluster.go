@@ -11,6 +11,9 @@ type ClientOptions struct {
 	Kubeconfig *string
 	RestConfig *rest.Config
 	Scheme     *runtime.Scheme
+
+	QPS   float32
+	Burst int
 }
 
 func NewK8sClient(options ClientOptions) (client.WithWatch, error) {
@@ -47,6 +50,8 @@ func NewRestConfig(options ClientOptions) (*rest.Config, error) {
 		if err != nil {
 			return nil, err
 		}
+		restConfig.QPS = options.QPS
+		restConfig.Burst = options.Burst
 	}
 	return restConfig, nil
 }

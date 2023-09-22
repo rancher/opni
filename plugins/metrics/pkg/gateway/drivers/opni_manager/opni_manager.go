@@ -90,6 +90,8 @@ func NewOpniManagerClusterDriver(options OpniManagerClusterDriverOptions) (*Opni
 		opnicorev1beta1.AddToScheme(s)
 		c, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
 			Scheme: s,
+			QPS:    50,
+			Burst:  100,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create kubernetes client: %w", err)

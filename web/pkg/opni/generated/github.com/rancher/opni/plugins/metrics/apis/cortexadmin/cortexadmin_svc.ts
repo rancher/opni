@@ -40,7 +40,7 @@ export async function WriteMetrics(input: WriteRequest): Promise<WriteResponse> 
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexAdmin/write_metrics`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -63,7 +63,7 @@ export async function Query(input: QueryRequest): Promise<QueryResponse> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexAdmin/query`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -86,7 +86,7 @@ export async function QueryRange(input: QueryRangeRequest): Promise<QueryRespons
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexAdmin/query_range`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -109,7 +109,7 @@ export async function GetRule(input: GetRuleRequest): Promise<QueryResponse> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexAdmin/rules/${input.namespace}/${input.groupName}`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -132,7 +132,7 @@ export async function GetMetricMetadata(input: MetricMetadataRequest): Promise<M
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexAdmin/metadata`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -155,7 +155,7 @@ export async function ListRules(input: ListRulesRequest): Promise<ListRulesRespo
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexAdmin/rules`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -177,7 +177,7 @@ export async function LoadRules(input: LoadRuleRequest): Promise<void> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexAdmin/rules`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -199,7 +199,7 @@ export async function DeleteRule(input: DeleteRuleRequest): Promise<void> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexAdmin/rules/${input.groupName}`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -243,7 +243,7 @@ export async function GetSeriesMetrics(input: SeriesRequest): Promise<SeriesInfo
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexAdmin/series/metadata`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -266,7 +266,7 @@ export async function GetMetricLabelSets(input: LabelRequest): Promise<MetricLab
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexAdmin/series/labels`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -311,7 +311,7 @@ export async function GetCortexConfig(input: ConfigRequest): Promise<ConfigRespo
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexAdmin/config`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -334,7 +334,7 @@ export async function ExtractRawSeries(input: MatcherRequest): Promise<QueryResp
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexAdmin/series/raw`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {

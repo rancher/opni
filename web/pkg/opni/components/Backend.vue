@@ -105,6 +105,7 @@ export default {
         if (finished) {
           finished(false);
         }
+        console.error(ex);
         this.$set(this, 'error', exceptionToErrorsArray(ex).join('; '));
       } finally {
         if (always) {

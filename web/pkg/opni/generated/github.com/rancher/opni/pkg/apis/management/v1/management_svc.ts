@@ -22,7 +22,7 @@ export async function CreateBootstrapToken(input: CreateBootstrapTokenRequest): 
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/tokens`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -44,7 +44,7 @@ export async function RevokeBootstrapToken(input: Reference): Promise<void> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/tokens/${input.id}`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -89,7 +89,7 @@ export async function GetBootstrapToken(input: Reference): Promise<BootstrapToke
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/tokens/${input.id}`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -112,7 +112,7 @@ export async function ListClusters(input: ListClustersRequest): Promise<ClusterL
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/clusters`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -162,7 +162,7 @@ export async function DeleteCluster(input: Reference): Promise<void> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/clusters/${input.id}`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -207,7 +207,7 @@ export async function GetCluster(input: Reference): Promise<Cluster> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/clusters/${input.id}`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -230,7 +230,7 @@ export async function GetClusterHealthStatus(input: Reference): Promise<HealthSt
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/clusters/${input.id}/health`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -281,7 +281,7 @@ export async function EditCluster(input: EditClusterRequest): Promise<Cluster> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/clusters/${input.cluster.id}`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -303,7 +303,7 @@ export async function CreateRole(input: Role): Promise<void> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/roles`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -325,7 +325,7 @@ export async function UpdateRole(input: Role): Promise<void> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/roles`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -347,7 +347,7 @@ export async function DeleteRole(input: Reference): Promise<void> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/roles/${input.id}`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -370,7 +370,7 @@ export async function GetRole(input: Reference): Promise<Role> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/roles/${input.id}`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -392,7 +392,7 @@ export async function CreateRoleBinding(input: RoleBinding): Promise<void> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/rolebindings`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -414,7 +414,7 @@ export async function UpdateRoleBinding(input: RoleBinding): Promise<void> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/rolebindings`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -436,7 +436,7 @@ export async function DeleteRoleBinding(input: Reference): Promise<void> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/rolebindings/${input.id}`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -459,7 +459,7 @@ export async function GetRoleBinding(input: Reference): Promise<RoleBinding> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/rolebindings/${input.id}`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -526,7 +526,7 @@ export async function SubjectAccess(input: SubjectAccessRequest): Promise<Refere
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/subjectaccess`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -592,7 +592,7 @@ export async function UpdateConfig(input: UpdateConfigRequest): Promise<void> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/config`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -637,7 +637,7 @@ export async function CapabilityInstaller(input: CapabilityInstallerRequest): Pr
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/capabilities/${input.name}/installer`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -660,7 +660,7 @@ export async function InstallCapability(input: CapabilityInstallRequest): Promis
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/clusters/${input.target.cluster.id}/capabilities/${input.name}/install`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -682,7 +682,7 @@ export async function UninstallCapability(input: CapabilityUninstallRequest): Pr
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/clusters/${input.target.cluster.id}/capabilities/${input.name}/uninstall`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -705,7 +705,7 @@ export async function CapabilityStatus(input: CapabilityStatusRequest): Promise<
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/clusters/${input.cluster.id}/capabilities/${input.name}/status`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -728,7 +728,7 @@ export async function CapabilityUninstallStatus(input: CapabilityStatusRequest):
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/clusters/${input.cluster.id}/capabilities/${input.name}/uninstall/status`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -750,7 +750,7 @@ export async function CancelCapabilityUninstall(input: CapabilityUninstallCancel
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/clusters/${input.cluster.id}/capabilities/${input.name}/uninstall/cancel`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -794,7 +794,7 @@ export async function UpdateDashboardSettings(input: DashboardSettings): Promise
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/dashboard/settings`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {

@@ -45,7 +45,7 @@ function printMethod(f: GeneratedFile, method: DescMethod) {
   // const returnType = output.name === 'Empty' ? 'void' : output.name;
   // const transformRequest = inputIsEmpty ? '' : `\n    transformRequest: req => req.toJsonString(),`;
   const transformResponse = outputIsEmpty ? '' : [`\n    transformResponse: resp => `, output, `.fromBinary(new Uint8Array(resp)),`];
-  const data = inputIsEmpty ? '' : `,\n    data: input.toBinary() as ArrayBuffer`;
+  const data = inputIsEmpty ? '' : `,\n    data: input?.toBinary() as ArrayBuffer`;
   const urlPath = (m?.pattern.value as any || '').replaceAll('{', '${input.');
 
   switch (method.methodKind) {

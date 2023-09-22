@@ -4,7 +4,7 @@ import LabeledSelect from '@shell/components/form/LabeledSelect';
 import { Checkbox } from '@components/Form/Checkbox';
 import UnitInput from '@shell/components/form/UnitInput';
 import { Storage } from '@pkg/opni/api/opni';
-import { createComputedTime } from '@pkg/opni/utils/computed';
+import { createComputedDuration } from '@pkg/opni/utils/computed';
 import { S3_REGIONS, S3_REGION_TO_ENDPOINT } from '@pkg/opni/utils/storage';
 
 export const SECONDS_IN_DAY = 86400;
@@ -58,15 +58,15 @@ export default {
       ];
     },
 
-    s3RetentionPeriod: createComputedTime('value.limits.compactorBlocksRetentionPeriod', SECONDS_IN_DAY),
+    s3RetentionPeriod: createComputedDuration('value.cortexConfig.limits.compactorBlocksRetentionPeriod', SECONDS_IN_DAY),
 
-    s3IdleConnTimeout: createComputedTime('value.storage.s3.http.idleConnTimeout'),
+    s3IdleConnTimeout: createComputedDuration('value.cortexConfig.storage.s3.http.idleConnTimeout'),
 
-    s3ResponseHeaderTimeout: createComputedTime('value.storage.s3.http.responseHeaderTimeout'),
+    s3ResponseHeaderTimeout: createComputedDuration('value.cortexConfig.storage.s3.http.responseHeaderTimeout'),
 
-    s3TlsHandshakeTimeout: createComputedTime('value.storage.s3.http.tlsHandshakeTimeout'),
+    s3TlsHandshakeTimeout: createComputedDuration('value.cortexConfig.storage.s3.http.tlsHandshakeTimeout'),
 
-    s3ExpectContinueTimeout: createComputedTime('value.storage.s3.http.expectContinueTimeout'),
+    s3ExpectContinueTimeout: createComputedDuration('value.cortexConfig.storage.s3.http.expectContinueTimeout'),
   },
 
   methods: {

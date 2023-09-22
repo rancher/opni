@@ -18,7 +18,7 @@ export async function GetDefaultConfiguration(input: GetRequest): Promise<Capabi
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexOps/configuration/default`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -40,7 +40,7 @@ export async function SetDefaultConfiguration(input: CapabilityBackendConfigSpec
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexOps/configuration/default`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -84,7 +84,7 @@ export async function GetConfiguration(input: GetRequest): Promise<CapabilityBac
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexOps/configuration`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -106,7 +106,7 @@ export async function SetConfiguration(input: CapabilityBackendConfigSpec): Prom
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexOps/configuration`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -128,7 +128,7 @@ export async function ResetConfiguration(input: ResetRequest): Promise<void> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexOps/configuration`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -237,7 +237,7 @@ export async function DryRun(input: DryRunRequest): Promise<DryRunResponse> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexOps/dry-run`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -260,7 +260,7 @@ export async function ConfigurationHistory(input: ConfigurationHistoryRequest): 
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexOps/configuration/history`,
-    data: input.toBinary() as ArrayBuffer
+    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {

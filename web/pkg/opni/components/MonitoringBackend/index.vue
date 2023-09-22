@@ -5,6 +5,7 @@ import Tabbed from '@shell/components/Tabbed';
 import { cloneDeep } from 'lodash';
 import { CortexOps, DriverUtil } from '@pkg/opni/api/opni';
 import { getClusterStats } from '@pkg/opni/utils/requests';
+import { Duration } from '@bufbuild/protobuf';
 import Backend from '../Backend';
 import CapabilityTable from '../CapabilityTable';
 import Grafana from './Grafana';
@@ -144,7 +145,7 @@ export default {
       if (shouldSetConfig) {
         await CortexOps.service.SetConfiguration(new CortexOps.types.CapabilityBackendConfigSpec());
       } else {
-        await CortexOps.service.ResetConfiguration();
+        await CortexOps.service.ResetConfiguration(new CortexOps.types.ResetRequest({}));
       }
 
       await CortexOps.service.Install();
@@ -226,7 +227,7 @@ export default {
       this.$set(this, 'configFromBackend', await CortexOps.service.GetDefaultConfiguration(new DriverUtil.types.GetRequest()));
       this.$set(this, 'config', this.configFromBackend);
 
-      if (!this.config.cortexConfig) {
+      if (!this.config.cortexWorkloads) {
         this.applyPreset();
       } else {
         this.prepareConfig();
@@ -243,19 +244,22 @@ export default {
         this.$set(this, 'config', { ...clone, ...configFromBackend });
       }
 
-      this.$set(this.config, 'cortexWorkloads', configFromBackend.cortexWorkloads || {});
+      this.$set(this.config, 'cortexWorkloads', this.config.cortexWorkloads || {});
       this.$set(this.config.cortexConfig, 'storage', this.config.cortexConfig.storage || { backend: 's3', s3: {} });
-      const backendField = configFromBackend.cortexConfig.storage.backend;
+      const backendField = this.config.cortexConfig.storage.backend;
 
-      this.$set(this.config.cortexConfig, 'storage', { ...(clone?.cortexConfig?.storage || {}), ...(configFromBackend?.cortexConfig?.storage || {}) });
-      this.$set(this.config.cortexConfig.storage, backendField, { ...(clone?.cortexConfig?.storage?.[backendField] || {}), ...(configFromBackend?.cortexConfig?.storage?.[backendField] || {}) });
-      this.$set(this.config.cortexConfig.storage, 'backend', configFromBackend.cortexConfig.storage?.backend || 'filesystem');
-      this.$set(this.config, 'grafana', configFromBackend.grafana || { enabled: true, hostname: '' });
+      this.$set(this.config.cortexConfig, 'storage', { ...(clone?.cortexConfig?.storage || {}) });
+      this.$set(this.config.cortexConfig.storage, backendField, { ...(clone?.cortexConfig?.storage?.[backendField] || {}) });
+      this.$set(this.config.cortexConfig.storage, 'backend', this.config.cortexConfig.storage?.backend || 'filesystem');
+      this.$set(this.config, 'grafana', this.config.grafana || { enabled: true, hostname: '' });
+      this.$set(this.config.cortexConfig, 'limits', this.config.cortexConfig.limits || { compactorBlocksRetentionPeriod: new Duration({ seconds: BigInt(86400) }) });
 
       if (this.config.revision?.revision === '0') {
         this.$set(this.config.grafana, 'enabled', true);
         this.$set(this.config.cortexConfig.storage, 'backend', 'filesystem');
       }
+
+      console.log(this.config);
     },
 
     setPresetAsConfig(index) {

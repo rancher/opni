@@ -33,10 +33,11 @@ export default {
 
   data() {
     return {
-      presets:       [],
-      presetOptions: [],
-      presetIndex:   0,
-      config:        null,
+      presets:           [],
+      presetOptions:     [],
+      presetIndex:       0,
+      config:            null,
+      configFromBackend: null
     };
   },
 
@@ -221,40 +222,59 @@ export default {
         label: p.metadata.displayName,
         value: i
       })));
-      this.setPresetAsConfig(this.presetIndex);
 
-      const config = await CortexOps.service.GetDefaultConfiguration(new DriverUtil.types.GetRequest());
+      this.$set(this, 'configFromBackend', await CortexOps.service.GetDefaultConfiguration(new DriverUtil.types.GetRequest()));
+      this.$set(this, 'config', this.configFromBackend);
 
-      config.cortexWorkloads = config.cortexWorkloads || {};
-      config.cortexWorkloads.targets = !config.cortexWorkloads.targets || Object.keys(config.cortexWorkloads.targets).length === 0 ? this.config.cortexWorkloads.targets : config.cortexWorkloads.targets;
-      config.cortexConfig.storage = config.cortexConfig.storage || { backend: 's3' };
-      const backendField = config.cortexConfig.storage.backend;
-      const clone = cloneDeep(this.config);
-
-      this.$set(this, 'config', { ...clone, ...config });
-      this.$set(this.config.cortexConfig, 'storage', { ...(clone.cortexConfig.storage || {}), ...(config.cortexConfig.storage || {}) });
-      this.$set(this.config.cortexConfig.storage, backendField, { ...(clone.cortexConfig.storage?.[backendField] || {}), ...(config.cortexConfig.storage?.[backendField] || {}) });
-      this.$set(this.config.cortexConfig.storage, 'backend', config.cortexConfig.storage?.backend || 'filesystem');
-      this.$set(this.config, 'grafana', config.grafana || { enabled: true, hostname: '' });
-
-      if (this.config.revision.revision === '0') {
-        this.$set(this.config.grafana, 'enabled', true);
-        this.$set(this.config.cortexConfig.storage, 'backend', 'filesystem');
+      if (!this.config.cortexConfig) {
+        this.applyPreset();
+      } else {
+        this.prepareConfig();
       }
 
       return this.config;
     },
 
+    prepareConfig() {
+      const configFromBackend = cloneDeep(this.configFromBackend);
+      const clone = cloneDeep(this.config || {});
+
+      if (configFromBackend.cortexConfig.storage?.backend === clone.cortexConfig.storage?.backend) {
+        this.$set(this, 'config', { ...clone, ...configFromBackend });
+      }
+
+      this.$set(this.config, 'cortexWorkloads', configFromBackend.cortexWorkloads || {});
+      this.$set(this.config.cortexConfig, 'storage', this.config.cortexConfig.storage || { backend: 's3', s3: {} });
+      const backendField = configFromBackend.cortexConfig.storage.backend;
+
+      this.$set(this.config.cortexConfig, 'storage', { ...(clone?.cortexConfig?.storage || {}), ...(configFromBackend?.cortexConfig?.storage || {}) });
+      this.$set(this.config.cortexConfig.storage, backendField, { ...(clone?.cortexConfig?.storage?.[backendField] || {}), ...(configFromBackend?.cortexConfig?.storage?.[backendField] || {}) });
+      this.$set(this.config.cortexConfig.storage, 'backend', configFromBackend.cortexConfig.storage?.backend || 'filesystem');
+      this.$set(this.config, 'grafana', configFromBackend.grafana || { enabled: true, hostname: '' });
+
+      if (this.config.revision?.revision === '0') {
+        this.$set(this.config.grafana, 'enabled', true);
+        this.$set(this.config.cortexConfig.storage, 'backend', 'filesystem');
+      }
+    },
+
     setPresetAsConfig(index) {
-      this.$set(this, 'config', this.presets[index].spec);
+      const config = this.presets[index].spec;
+
+      this.$set(this, 'config', config);
+    },
+
+    applyPreset() {
+      this.setPresetAsConfig(this.presetIndex);
+
+      this.prepareConfig();
     }
   },
-
   watch: {
     presetIndex() {
-      this.setPresetAsConfig(this.presetIndex);
+      this.applyPreset();
     }
-  },
+  }
 };
 </script>
 <template>

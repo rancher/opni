@@ -252,14 +252,17 @@ export default {
       this.$set(this.config.cortexConfig.storage, backendField, { ...(clone?.cortexConfig?.storage?.[backendField] || {}) });
       this.$set(this.config.cortexConfig.storage, 'backend', this.config.cortexConfig.storage?.backend || 'filesystem');
       this.$set(this.config, 'grafana', this.config.grafana || { enabled: true, hostname: '' });
-      this.$set(this.config.cortexConfig, 'limits', this.config.cortexConfig.limits || { compactorBlocksRetentionPeriod: new Duration({ seconds: BigInt(86400) }) });
+      this.$set(this.config.cortexConfig, 'limits', this.config.cortexConfig.limits || { compactorBlocksRetentionPeriod: new Duration({ seconds: BigInt(0) }) });
 
       if (this.config.revision?.revision === '0') {
         this.$set(this.config.grafana, 'enabled', true);
         this.$set(this.config.cortexConfig.storage, 'backend', 'filesystem');
       }
-
-      console.log(this.config);
+      this.$set(this.config.cortexConfig.storage, 's3', this.config.cortexConfig.storage.s3 || { });
+      this.$set(this.config.cortexConfig.storage.s3, 'http', this.config.cortexConfig.storage.s3.http || {});
+      this.$set(this.config.cortexConfig.storage.s3, 'sse', this.config.cortexConfig.storage.s3.sse || {});
+      this.$set(this.config.cortexConfig.storage, 'filesystem', this.config.cortexConfig.storage.filesystem || { });
+      this.$set(this.config.cortexConfig.storage, 'filesystem', this.config.cortexConfig.storage.filesystem || { });
     },
 
     setPresetAsConfig(index) {

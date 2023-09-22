@@ -50,7 +50,6 @@ func WithK8sClient(k8sClient client.Client) ExternalTopologyOperatorDriverOption
 }
 
 func NewExternalTopologyOperatorDriver(
-	logger *slog.Logger,
 	opts ...ExternalTopologyOperatorDriverOption,
 ) (*ExternalTopologyOperatorDriver, error) {
 	options := ExternalTopologyOperatorDriverOptions{}
@@ -73,7 +72,7 @@ func NewExternalTopologyOperatorDriver(
 
 	return &ExternalTopologyOperatorDriver{
 		ExternalTopologyOperatorDriverOptions: options,
-		logger:                                logger.WithGroup("external-topology-operator-driver"),
+		logger:                                logger.New().WithGroup("external-topology-operator-driver"),
 		namespace:                             namespace,
 	}, nil
 }

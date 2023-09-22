@@ -40,7 +40,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		k8sClient:        future.New[client.Client](),
 	}
 
-	if d, err := drivers.NewExternalTopologyOperatorDriver(lg.WithGroup("external-topology-operator")); err != nil {
+	if d, err := drivers.NewExternalTopologyOperatorDriver(); err != nil {
 		// doens't exist
 		lg.With(
 			"driver", d.Name(),

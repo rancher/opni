@@ -219,14 +219,14 @@ func (r *Reconciler) agentConfigMap() (resources.Resource, string) {
 
 	receiverData, logReceivers, err := r.receiverConfig()
 	if err != nil {
-		r.logger.Error("error", logger.Err(err))
+		r.lg.Error("error", logger.Err(err))
 		return resources.Error(cm, err), ""
 	}
 	cm.Data[receiversKey] = string(receiverData)
 
 	mainData, err := r.mainConfig(logReceivers)
 	if err != nil {
-		r.logger.Error("error", logger.Err(err))
+		r.lg.Error("error", logger.Err(err))
 		return resources.Error(cm, err), ""
 	}
 	cm.Data[mainKey] = string(mainData)
@@ -263,7 +263,7 @@ func (r *Reconciler) aggregatorConfigMap(curCfg otel.AggregatorConfig) (resource
 	}
 	err = t.Execute(&buffer, curCfg)
 	if err != nil {
-		r.logger.Error("error", logger.Err(err))
+		r.lg.Error("error", logger.Err(err))
 		return resources.Error(nil, err), ""
 	}
 	config := buffer.Bytes()

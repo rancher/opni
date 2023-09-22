@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-
 	"log/slog"
 
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -37,7 +36,7 @@ func NewEtcdLockManager(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts
 		Endpoints: conf.Endpoints,
 		TLS:       tlsConfig,
 		Context:   ctx,
-		Logger:    lg.Desugar(),
+		Logger:    logger.NewZap().Named("etcd-locker").Desugar(),
 	}
 	etcdClient, err := clientv3.New(clientConfig)
 	if err != nil {

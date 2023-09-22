@@ -214,8 +214,7 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 	now := time.Now()
 
 	if now.Sub(existing.CreatedAt.AsTime()) <= sloapi.MinEvaluateInterval*2 {
-		s.lg.With("sloId", existing.Id).Debug("SLO status is not ready to be evaluated : ",
-			(&sloapi.SLOStatus{State: sloapi.SLOStatusState_Creating}).String())
+		s.lg.Debug("SLO status is not ready to be evaluated : ", "sloId", existing.Id, "status", (&sloapi.SLOStatus{State: sloapi.SLOStatusState_Creating}).String())
 
 		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_Creating}, nil
 	}

@@ -53,5 +53,5 @@ func Configure(serviceName string) {
 
 	otel.SetTracerProvider(tracesdk.NewTracerProvider(opts...))
 	otel.SetTextMapPropagator(autoprop.NewTextMapPropagator())
-	otel.SetLogger(zapr.NewLogger(log.Desugar()))
+	otel.SetLogger(zapr.NewLogger(logger.NewZap().Named("tracing").Desugar()))
 }

@@ -464,6 +464,7 @@ func setupPluginRoutes(
 	sampledLogger := logger.New(
 		logger.WithSampling(&slogsampling.ThresholdSamplingOption{
 			Threshold: 1,
+			Tick:      logger.NoRepeatInterval,
 			Rate:      0,
 		}),
 	).WithGroup("api")

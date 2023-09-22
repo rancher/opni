@@ -9,33 +9,20 @@ import (
 
 	"slices"
 
-	"log/slog"
-
 	"github.com/iancoleman/strcase"
 	"github.com/mitchellh/mapstructure"
-	"github.com/rancher/opni/pkg/logger"
-	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-var (
-	stackLg     *slog.Logger
-	initStackLg sync.Once
-	errType     = reflect.TypeOf((*error)(nil)).Elem()
-)
-
 func Must[T any](t T, err ...error) T {
-	initStackLg.Do(func() {
-		stackLg = logger.New(logger.WithZapOptions(zap.AddStacktrace(slog.LevelInfo)))
-	})
 	if len(err) > 0 {
 		if err[0] != nil {
-			stackLg.Panic(err)
+			panic(err)
 		}
 	} else if tv := reflect.ValueOf(t); (tv != reflect.Value{}) {
 		if verr := tv.Interface().(error); verr != nil {
-			stackLg.Panic(verr)
+			panic(verr)
 		}
 	}
 	return t

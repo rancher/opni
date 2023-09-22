@@ -58,9 +58,7 @@ func WithDestHint(hint string) ForwarderOption {
 
 func To(addr string, opts ...ForwarderOption) gin.HandlerFunc {
 	defaultLogger := logger.New(
-		logger.WithSampling(&slogsampling.ThresholdSamplingOption{Threshold: 1, Rate: 0})).WithGroup(
-
-		"fwd")
+		logger.WithSampling(&slogsampling.ThresholdSamplingOption{Threshold: 1, Tick: logger.NoRepeatInterval, Rate: 0})).WithGroup("fwd")
 
 	options := &ForwarderOptions{
 		logger: defaultLogger,

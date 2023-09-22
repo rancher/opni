@@ -9,8 +9,8 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/monitoring/cortex"
 	"github.com/rancher/opni/pkg/util/k8sutil"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
-	"log/slog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -22,7 +22,7 @@ type Reconciler struct {
 	client client.Client
 	mc     *corev1beta1.MonitoringCluster
 	gw     *corev1beta1.Gateway
-	logger *slog.Logger
+	logger *zap.SugaredLogger
 }
 
 func NewReconciler(

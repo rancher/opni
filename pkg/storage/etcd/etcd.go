@@ -5,10 +5,9 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"log/slog"
 	"path"
 	"time"
-
-	"log/slog"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 
@@ -86,7 +85,7 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 		Endpoints: conf.Endpoints,
 		TLS:       tlsConfig,
 		Context:   ctx,
-		Logger:    lg.Desugar(),
+		Logger:    logger.NewZap().Named("etcd").Desugar(),
 	}
 	cli, err := clientv3.New(clientConfig)
 	if err != nil {

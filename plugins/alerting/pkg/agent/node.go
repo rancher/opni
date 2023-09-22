@@ -226,7 +226,7 @@ func (s *AlertingNode) sendHealthUpdate() {
 	defer s.healthMu.RUnlock()
 
 	if !s.hasRemoteHealthClient() {
-		s.lg.Warn("failed to send %s node health update, remote health client not set", s.capability)
+		s.lg.Warn(fmt.Sprintf("failed to send %s node health update, remote health client not set", s.capability))
 		return
 	}
 

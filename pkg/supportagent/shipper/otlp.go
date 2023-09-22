@@ -178,9 +178,9 @@ func (s *otlpShipper) Publish(ctx context.Context, tokens *bufio.Scanner) error 
 	s.lg.Info("waiting for shipping to finish")
 	s.wg.Wait()
 	if s.failureCount > 0 {
-		s.lg.Errorf("failed to ship %d logs for log type %s", s.failureCount, s.logType)
+		s.lg.Error(fmt.Sprintf("failed to ship %d logs for log type %s", s.failureCount, s.logType))
 		if s.component != "" {
-			s.lg.Errorf("failed component was %s", s.component)
+			s.lg.Error(fmt.Sprintf("failed component was %s", s.component))
 		}
 		s.lg.Error(strings.Join(s.collectedErrorMessages, "\n"))
 	}

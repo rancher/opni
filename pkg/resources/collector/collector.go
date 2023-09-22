@@ -28,7 +28,7 @@ type Reconciler struct {
 	collector *corev1beta1.Collector
 	tmpl      *template.Template
 	ctx       context.Context
-	logger    *slog.Logger
+	lg        *slog.Logger
 	*promdiscover.PrometheusDiscovery
 }
 
@@ -45,7 +45,7 @@ func NewReconciler(
 		collector:           instance,
 		tmpl:                otel.OTELTemplates,
 		ctx:                 ctx,
-		logger:              logger.NewPluginLogger().WithGroup("collector-controller"),
+		lg:                  logger.NewPluginLogger().WithGroup("collector-controller"),
 		PrometheusDiscovery: nil,
 	}
 }
@@ -92,7 +92,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 
 	// check metrics service discovery
 	metricsConfig, tlsSecrets := r.withPrometheusCrdDiscovery(r.getMetricsConfig()) // check metrics SD
-	r.logger.Debug(fmt.Sprintf("metrics config : %v", metricsConfig.Spec))
+	r.lg.Debug(fmt.Sprintf("metrics config : %v", metricsConfig.Spec))
 	aggCfg := r.getAggregatorConfig(lo.FromPtr(metricsConfig)) // generate aggregator struct
 	config, _ = r.aggregatorConfigMap(aggCfg)                  // generate aggregator configmap
 	resourceList = append(resourceList, r.metricsTlsAssets(tlsSecrets))

@@ -39,6 +39,7 @@ export default {
 
   async fetch() {
     await this.loadStatus();
+    this.createCapabilities();
   },
 
   data() {
@@ -74,19 +75,22 @@ export default {
       loading:        false,
       statusInterval: null,
       headers:        this.headerProvider(headers),
+      capabilities:   []
     };
   },
 
-  computed: {
-    ...mapGetters({ clusters: 'opni/clusters' }),
-    capabilities() {
-      return this.clusters.map(c => this.name === 'metrics' ? MetricCapability.createExtended(c, 'Prometheus', this.vue) : Capability.create(this.name, c, this.vue));
-    },
-  },
+  computed: { ...mapGetters({ clusters: 'opni/clusters' }) },
 
   watch: {
     capabilities() {
       this.loadStatus();
+    },
+
+    clusters: {
+      deep: true,
+      handler() {
+        this.createCapabilities();
+      }
     }
   },
 
@@ -103,6 +107,20 @@ export default {
   },
 
   methods: {
+    createCapabilities() {
+      const currentCapabilities = this.capabilities;
+      const newCapabilities = this.clusters.map((cluster) => {
+        const foundCapability = currentCapabilities.find(capability => capability.id === cluster.id);
+
+        if (foundCapability) {
+          return foundCapability;
+        }
+
+        return this.name === 'metrics' ? MetricCapability.createExtended(cluster, this.vue) : Capability.create(this.name, cluster, this.vue);
+      });
+
+      this.$set(this, 'capabilities', newCapabilities);
+    },
     openUninstallCapabilitiesDialog(capabilities) {
       this.$refs.uninstallCapabilitiesDialog.open(capabilities);
     },

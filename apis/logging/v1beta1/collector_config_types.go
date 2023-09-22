@@ -49,6 +49,12 @@ type RKE2Spec struct {
 	LogPath string `json:"logPath,omitempty"`
 }
 
+type KubeAuditLogsSpec struct {
+	Enabled       bool   `json:"enabled,omitempty"`
+	AuditFilename string `json:"auditFilename,omitempty"`
+	PathPrefix    string `json:"pathPrefix,omitempty"`
+}
+
 // CollectorConfigSpec defines the desired state of CollectorConfig
 type CollectorConfigSpec struct {
 	// +kubebuilder:validation:Enum:=aks;eks;gke;k3s;rke;rke2;generic
@@ -64,6 +70,8 @@ type CollectorConfigSpec struct {
 	K3S  *K3SSpec  `json:"k3s,omitempty"`
 	RKE  *RKESpec  `json:"rke,omitempty"`
 	RKE2 *RKE2Spec `json:"rke2,omitempty"`
+
+	KubeAuditLogs *KubeAuditLogsSpec `json:"kubeAuditLogs,omitempty"`
 }
 
 type SelectorConfig struct {

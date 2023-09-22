@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
 	"github.com/rancher/opni/pkg/otel"
 	"github.com/rancher/opni/pkg/resources"
@@ -14,6 +15,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,9 +38,7 @@ const (
 	machineID       = "/etc/machine-id"
 )
 
-var (
-	directoryOrCreate = corev1.HostPathDirectoryOrCreate
-)
+var directoryOrCreate = corev1.HostPathDirectoryOrCreate
 
 func (r *Reconciler) agentConfigMapName() string {
 	return fmt.Sprintf("%s-agent-config", r.collector.Name)
@@ -78,7 +78,23 @@ func (r *Reconciler) receiverConfig() (retData []byte, retReceivers []string, re
 		retData = append(retData, []byte(templateLogAgentK8sReceiver)...)
 		retReceivers = append(retReceivers, logReceiverK8s)
 
-		receiver, data, err := r.generateDistributionReceiver()
+		config, err := r.fetchLoggingCollectorConfig()
+		if err != nil {
+			retErr = err
+			return
+		}
+
+		auditLogsReceiver, data, err := r.generateKubeAuditLogsReceiver(config)
+		if err != nil {
+			retErr = err
+			return
+		}
+		retData = append(retData, data...)
+		if len(auditLogsReceiver) > 0 {
+			retReceivers = append(retReceivers, auditLogsReceiver)
+		}
+
+		receiver, data, err := r.generateDistributionReceiver(config)
 		if err != nil {
 			retErr = err
 			return
@@ -97,6 +113,7 @@ func (r *Reconciler) receiverConfig() (retData []byte, retReceivers []string, re
 		}
 		retData = append(retData, data...)
 	}
+
 	return
 }
 
@@ -558,4 +575,14 @@ func (r *Reconciler) configReloaderImageSpec() opnimeta.ImageSpec {
 			return nil
 		}(),
 	}.Resolve()
+}
+
+func (r *Reconciler) fetchLoggingCollectorConfig() (*opniloggingv1beta1.CollectorConfig, error) {
+	config := &opniloggingv1beta1.CollectorConfig{}
+	err := r.client.Get(r.ctx, types.NamespacedName{
+		Name:      r.collector.Spec.LoggingConfig.Name,
+		Namespace: r.collector.Spec.SystemNamespace,
+	}, config)
+
+	return config, err
 }

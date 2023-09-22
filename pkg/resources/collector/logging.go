@@ -2,22 +2,16 @@ package collector
 
 import (
 	"bytes"
+	"path/filepath"
 
 	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (r *Reconciler) generateDistributionReceiver() (receiver []string, retBytes []byte, retErr error) {
-	config := &opniloggingv1beta1.CollectorConfig{}
-	retErr = r.client.Get(r.ctx, types.NamespacedName{
-		Name:      r.collector.Spec.LoggingConfig.Name,
-		Namespace: r.collector.Spec.SystemNamespace,
-	}, config)
-	if retErr != nil {
-		return
-	}
+func (r *Reconciler) generateDistributionReceiver(config *opniloggingv1beta1.CollectorConfig) (receiver []string, retBytes []byte, retErr error) {
 	var providerReceiver bytes.Buffer
+
 	switch config.Spec.Provider {
 	case opniloggingv1beta1.LogProviderRKE:
 		return []string{logReceiverRKE}, []byte(templateLogAgentRKE), nil
@@ -47,6 +41,31 @@ func (r *Reconciler) generateDistributionReceiver() (receiver []string, retBytes
 	default:
 		return
 	}
+}
+
+func (r *Reconciler) generateKubeAuditLogsReceiver(config *opniloggingv1beta1.CollectorConfig) (string, []byte, error) {
+	var receiver bytes.Buffer
+
+	if config.Spec.KubeAuditLogs != nil && config.Spec.KubeAuditLogs.Enabled {
+		filelogDir := "/var/log/kube-audit"
+		if config.Spec.KubeAuditLogs.PathPrefix != "" {
+			filelogDir = config.Spec.KubeAuditLogs.PathPrefix
+		}
+
+		auditLogFilename := "audit.log"
+		if config.Spec.KubeAuditLogs.AuditFilename != "" {
+			auditLogFilename = config.Spec.KubeAuditLogs.AuditFilename
+		}
+
+		err := templateKubeAuditLogs.Execute(&receiver, filepath.Join(filelogDir, auditLogFilename))
+		if err != nil {
+			return "", nil, err
+		}
+
+		return logReceiverKubeAuditLogs, receiver.Bytes(), nil
+	}
+
+	return "", nil, nil
 }
 
 func (r *Reconciler) hostLoggingVolumes() (
@@ -90,6 +109,26 @@ func (r *Reconciler) hostLoggingVolumes() (
 			},
 		},
 	})
+
+	kubeAuditLogsDir := "/var/log/kube-audit"
+	if config.Spec.KubeAuditLogs != nil && config.Spec.KubeAuditLogs.PathPrefix != "" {
+		kubeAuditLogsDir = config.Spec.KubeAuditLogs.PathPrefix
+	}
+
+	retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{
+		Name:      "kubeauditlogs",
+		MountPath: kubeAuditLogsDir,
+		ReadOnly:  true,
+	})
+	retVolumes = append(retVolumes, corev1.Volume{
+		Name: "kubeauditlogs",
+		VolumeSource: corev1.VolumeSource{
+			HostPath: &corev1.HostPathVolumeSource{
+				Path: kubeAuditLogsDir,
+			},
+		},
+	})
+
 	switch config.Spec.Provider {
 	case opniloggingv1beta1.LogProviderRKE:
 		retVolumeMounts = append(retVolumeMounts, corev1.VolumeMount{

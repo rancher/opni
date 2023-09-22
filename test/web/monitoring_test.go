@@ -70,9 +70,6 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 		By("clicking the Grafana tab")
 		b.Click("li#grafana > a")
 
-		By("enabling Grafana")
-		b.Click("section#grafana button.role-primary")
-
 		By("confirming that the storage tab is hidden and the grafana tab is visible")
 		Eventually("section#storage").ShouldNot(b.BeVisible())
 		Expect("section#grafana").To(b.BeVisible())

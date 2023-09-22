@@ -36,17 +36,10 @@ export default {
     ];
 
     if (!this.value.httpConfig) {
-      this.$set(this.value, 'httpConfig', {
-        ...{ tlsConfig: {} },
-        ...(this.value.httpConfig || {})
-      });
+      this.$set(this.value, 'httpConfig', { ...(this.value.httpConfig || {}) });
     }
 
     const authorizationType = this.getAuthType(this.value.httpConfig);
-
-    if (this.$route.name === 'endpoint-create') {
-      this.setAuthDefault(authorizationType, authorizationTypes);
-    }
 
     return {
       authorizationTypes,

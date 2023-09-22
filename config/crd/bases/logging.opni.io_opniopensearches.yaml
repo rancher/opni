@@ -82,6 +82,17 @@ spec:
                                   type: boolean
                               type: object
                               x-kubernetes-map-type: atomic
+                            emptyDir:
+                              properties:
+                                medium:
+                                  type: string
+                                sizeLimit:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                              type: object
                             name:
                               type: string
                             path:
@@ -1254,6 +1265,21 @@ spec:
                         nodeSelector:
                           additionalProperties:
                             type: string
+                          type: object
+                        pdb:
+                          properties:
+                            enable:
+                              type: boolean
+                            maxUnavailable:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              x-kubernetes-int-or-string: true
+                            minAvailable:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              x-kubernetes-int-or-string: true
                           type: object
                         persistence:
                           properties:

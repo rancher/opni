@@ -31,7 +31,7 @@ service LoggingAdminV2 {
             get: "/logging/upgrade/available"
         };
     }
-    rpc DoUpgrade(google.protobuf.Empty) returns(google.protobuf.Empty) {
+    rpc DoUpgrade(UpgradeOptions) returns(google.protobuf.Empty) {
         option (google.api.http) = {
             post: "/logging/upgrade/do"
         };
@@ -46,25 +46,25 @@ service LoggingAdminV2 {
             get: "/logging/status"
         };
     }
-    rpc CreateOrUpdateSnapshot(Snapshot) returns(google.protobuf.Empty) {
+    rpc CreateOrUpdateSnapshotSchedule(SnapshotSchedule) returns(google.protobuf.Empty) {
         option (google.api.http) = {
-            put: "/snapshot"
+            put: "/logging/snapshot"
             body: "*"
         };
     }
-    rpc GetRecurringSnapshot(SnapshotReference) returns(Snapshot) {
+    rpc GetSnapshotSchedule(SnapshotReference) returns(SnapshotSchedule) {
         option (google.api.http) = {
-            get: "/snapshot/{name}"
+            get: "/logging/snapshot/{name}"
         };
     }
-    rpc DeleteSnapshot(SnapshotReference) returns(google.protobuf.Empty) {
+    rpc DeleteSnapshotSchedule(SnapshotReference) returns(google.protobuf.Empty) {
         option (google.api.http) = {
-            delete: "/snapshot/{name}"
+            delete: "/logging/snapshot/{name}"
         };
     }
-    rpc ListSnapshots(google.protobuf.Empty) returns(SnapshotStatusList) {
+    rpc ListSnapshotSchedules(google.protobuf.Empty) returns(SnapshotStatusList) {
         option (google.api.http) = {
-            get: "/snapshot"
+            get: "/logging/snapshot"
         };
     }
 }
@@ -132,6 +132,10 @@ message UpgradeAvailableResponse {
     bool upgradePending = 1;
 }
 
+message UpgradeOptions {
+    bool snapshotCluster = 1;
+}
+
 message StorageClassResponse {
     repeated string storageClasses = 1;
 }
@@ -178,10 +182,9 @@ message ControlplaneDetails {
     optional DataPersistence persistence = 4;
 }
 
-message Snapshot {
+message SnapshotSchedule {
     SnapshotReference ref = 1;
-    bool recurring = 2;
-    optional string cronSchedule = 3;
+    string cronSchedule = 3;
     optional SnapshotRetention retention = 4;
     repeated string additionalIndices = 5;
 }

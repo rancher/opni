@@ -6,7 +6,6 @@ import (
 	"slices"
 
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
-	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	k8sutilerrors "github.com/rancher/opni/pkg/util/errors/k8sutil"
 	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
@@ -23,31 +22,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
-
-type DefaultIndices map[string]bool
-
-func (d DefaultIndices) Slice() []string {
-	out := make([]string, 0, len(d))
-	for k := range d {
-		out = append(out, k)
-	}
-	return out
-}
-
-func (d DefaultIndices) RemoveFromSlice(in []string) []string {
-	out := make([]string, 0, len(in))
-	for _, s := range in {
-		if _, ok := d[s]; !ok {
-			out = append(out, s)
-		}
-	}
-	return out
-}
-
-var defaultIndices = DefaultIndices{
-	"logs*":                            true,
-	resources.ClusterMetadataIndexName: true,
-}
 
 func (d *KubernetesManagerDriver) generateNodePools(cluster *loggingadmin.OpensearchClusterV2) (pools []opsterv1.NodePool, retErr error) {
 	resources, jvm, retErr := generateK8sResources(
@@ -506,71 +480,12 @@ func (d *KubernetesManagerDriver) s3ToProtobuf(
 	}
 }
 
-func (d *KubernetesManagerDriver) createOneOffSnapshot(
-	ctx context.Context,
-	snapshot *loggingadmin.Snapshot,
-	owner metav1.Object,
-) error {
-	recurring := &loggingv1beta1.RecurringSnapshot{}
-	err := d.K8sClient.Get(ctx, types.NamespacedName{
-		Name:      snapshot.GetRef().GetName(),
-		Namespace: d.OpensearchCluster.Namespace,
-	}, recurring)
-
-	if err == nil {
-		d.Logger.Error("snapshot name already exists")
-		return errors.ErrAlreadyExists
-	}
-
-	if !k8serrors.IsNotFound(err) {
-		d.Logger.Errorf("failed to check for exsisting snapshot: %v", err)
-		return k8sutilerrors.GRPCFromK8s(err)
-	}
-
-	k8sSnapshot := &loggingv1beta1.Snapshot{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      snapshot.GetRef().GetName(),
-			Namespace: d.OpensearchCluster.Namespace,
-		},
-		Spec: loggingv1beta1.SnapshotSpec{
-			Indices: append(snapshot.GetAdditionalIndices(), defaultIndices.Slice()...),
-			Repository: corev1.LocalObjectReference{
-				Name: d.OpensearchCluster.Name,
-			},
-		},
-	}
-	controllerutil.SetOwnerReference(owner, k8sSnapshot, d.K8sClient.Scheme())
-
-	err = d.K8sClient.Create(ctx, k8sSnapshot)
-	if err != nil {
-		d.Logger.Errorf("failed to create snapshot: %v", err)
-		return k8sutilerrors.GRPCFromK8s(err)
-	}
-
-	return nil
-}
-
 func (d *KubernetesManagerDriver) createOrUpdateRecurringSnapshot(
 	ctx context.Context,
-	snapshot *loggingadmin.Snapshot,
+	snapshot *loggingadmin.SnapshotSchedule,
+	defaultIndices []string,
 	owner metav1.Object,
 ) error {
-	oneOff := &loggingv1beta1.Snapshot{}
-	err := d.K8sClient.Get(ctx, types.NamespacedName{
-		Name:      snapshot.GetRef().GetName(),
-		Namespace: d.OpensearchCluster.Namespace,
-	}, oneOff)
-
-	if err == nil {
-		d.Logger.Error("snapshot name must be unique")
-		return errors.ErrAlreadyExists
-	}
-
-	if !k8serrors.IsNotFound(err) {
-		d.Logger.Errorf("failed to check for exsisting snapshot: %v", err)
-		return k8sutilerrors.GRPCFromK8s(err)
-	}
-
 	k8sSnapshot := &loggingv1beta1.RecurringSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      snapshot.GetRef().GetName(),
@@ -578,14 +493,14 @@ func (d *KubernetesManagerDriver) createOrUpdateRecurringSnapshot(
 		},
 	}
 
-	err = d.K8sClient.Get(ctx, client.ObjectKeyFromObject(k8sSnapshot), k8sSnapshot)
+	err := d.K8sClient.Get(ctx, client.ObjectKeyFromObject(k8sSnapshot), k8sSnapshot)
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
 			d.Logger.Errorf("failed to check if snapshot exists: %v", err)
 			return k8sutilerrors.GRPCFromK8s(err)
 		}
 		controllerutil.SetOwnerReference(owner, k8sSnapshot, d.K8sClient.Scheme())
-		d.updateRecurringSnapshot(k8sSnapshot, snapshot)
+		d.updateRecurringSnapshot(k8sSnapshot, snapshot, defaultIndices)
 		err = d.K8sClient.Create(ctx, k8sSnapshot)
 		if err != nil {
 			d.Logger.Errorf("failed to create snapshot: %v", err)
@@ -598,7 +513,7 @@ func (d *KubernetesManagerDriver) createOrUpdateRecurringSnapshot(
 		if err != nil {
 			return err
 		}
-		d.updateRecurringSnapshot(k8sSnapshot, snapshot)
+		d.updateRecurringSnapshot(k8sSnapshot, snapshot, defaultIndices)
 		return d.K8sClient.Update(ctx, k8sSnapshot)
 	})
 
@@ -609,10 +524,14 @@ func (d *KubernetesManagerDriver) createOrUpdateRecurringSnapshot(
 	return nil
 }
 
-func (d *KubernetesManagerDriver) updateRecurringSnapshot(k8sSnapshot *loggingv1beta1.RecurringSnapshot, snapshot *loggingadmin.Snapshot) {
+func (d *KubernetesManagerDriver) updateRecurringSnapshot(
+	k8sSnapshot *loggingv1beta1.RecurringSnapshot,
+	snapshot *loggingadmin.SnapshotSchedule,
+	defaultIndices []string,
+) {
 	k8sSnapshot.Spec = loggingv1beta1.RecurringSnapshotSpec{
 		Snapshot: loggingv1beta1.SnapshotSpec{
-			Indices: append(snapshot.GetAdditionalIndices(), defaultIndices.Slice()...),
+			Indices: append(snapshot.GetAdditionalIndices(), defaultIndices...),
 			Repository: corev1.LocalObjectReference{
 				Name: d.OpensearchCluster.Name,
 			},
@@ -631,34 +550,6 @@ func (d *KubernetesManagerDriver) updateRecurringSnapshot(k8sSnapshot *loggingv1
 			}
 		}(),
 	}
-}
-
-func (d *KubernetesManagerDriver) listOneOffSnapshots(ctx context.Context) (retSlice []*loggingadmin.SnapshotStatus, retErr error) {
-	list := &loggingv1beta1.SnapshotList{}
-	retErr = d.K8sClient.List(ctx, list, client.InNamespace(d.OpensearchCluster.Namespace))
-	if retErr != nil {
-		d.Logger.Errorf("failed to list snapshots: %v", retErr)
-		retErr = k8sutilerrors.GRPCFromK8s(retErr)
-		return
-	}
-
-	for _, s := range list.Items {
-		retSlice = append(retSlice, &loggingadmin.SnapshotStatus{
-			Ref: &loggingadmin.SnapshotReference{
-				Name: s.Name,
-			},
-			Status: string(s.Status.State),
-			StatusMessage: func() *string {
-				if s.Status.FailureMessage == "" {
-					return nil
-				}
-				return &s.Status.FailureMessage
-			}(),
-			LastUpdated: timestamppb.New(s.CreationTimestamp.Time),
-			Recurring:   false,
-		})
-	}
-	return
 }
 
 func (d *KubernetesManagerDriver) listRecurringSnapshots(ctx context.Context) (retSlice []*loggingadmin.SnapshotStatus, retErr error) {

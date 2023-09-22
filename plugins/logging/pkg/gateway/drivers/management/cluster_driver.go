@@ -17,11 +17,10 @@ type ClusterDriver interface {
 	UpgradeAvailable(ctx context.Context, opniVersion string) (bool, error)
 	DoUpgrade(ctx context.Context, opniVersion string) error
 	GetStorageClasses(context.Context) ([]string, error)
-	CreateOrUpdateSnapshot(ctx context.Context, snapshot *loggingadmin.Snapshot) error
-	// Get snapshot only returns recurring snapshots because oneoff snapshots are immutable once created
-	GetRecurringSnapshot(ctx context.Context, ref *loggingadmin.SnapshotReference) (*loggingadmin.Snapshot, error)
-	DeleteSnapshot(ctx context.Context, ref *loggingadmin.SnapshotReference) error
-	ListAllSnapshots(ctx context.Context) (*loggingadmin.SnapshotStatusList, error)
+	CreateOrUpdateSnapshotSchedule(ctx context.Context, snapshot *loggingadmin.SnapshotSchedule, defaultIndices []string) error
+	GetSnapshotSchedule(ctx context.Context, ref *loggingadmin.SnapshotReference, defaultIndices []string) (*loggingadmin.SnapshotSchedule, error)
+	DeleteSnapshotSchedule(ctx context.Context, ref *loggingadmin.SnapshotReference) error
+	ListAllSnapshotSchedules(ctx context.Context) (*loggingadmin.SnapshotStatusList, error)
 }
 
 var Drivers = driverutil.NewDriverCache[ClusterDriver]()

@@ -1039,7 +1039,7 @@ func (r *Reconciler) CreateSnapshotAsync(name, repository string, settings types
 		return oserrors.ErrSnapshotAlreadyExsts
 	}
 
-	resp, err := r.osClient.Snapshot.CreateSnapshot(r.ctx, name, repository, opensearchutil.NewJSONReader(settings))
+	resp, err := r.osClient.Snapshot.CreateSnapshot(r.ctx, name, repository, opensearchutil.NewJSONReader(settings), false)
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot: %w", err)
 	}

@@ -5,6 +5,7 @@ package commands
 import (
 	"fmt"
 
+	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -42,11 +43,14 @@ func BuildOpensearchUpgradeStatusCmd() *cobra.Command {
 }
 
 func BuildOpensearchUpgradeDoCmd() *cobra.Command {
-	return &cobra.Command{
+	var doSnapshot bool
+	doUpgradeCmd := &cobra.Command{
 		Use:   "do",
 		Short: "Initiate the Opensearch upgrade",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, err := loggingAdminV2Client.DoUpgrade(cmd.Context(), &emptypb.Empty{})
+			_, err := loggingAdminV2Client.DoUpgrade(cmd.Context(), &loggingadmin.UpgradeOptions{
+				SnapshotCluster: doSnapshot,
+			})
 
 			if err != nil {
 				return err
@@ -55,6 +59,9 @@ func BuildOpensearchUpgradeDoCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	doUpgradeCmd.Flags().BoolVarP(&doSnapshot, "snapshot", "s", false, "Snapshot cluster before upgrade")
+	return doUpgradeCmd
 }
 
 func BuildLoggingBackendCmd() *cobra.Command {

@@ -115,7 +115,12 @@ func (a *SnapshotAPI) DeleteRepository(ctx context.Context, name string) (*Respo
 	return (*Response)(res), err
 }
 
-func (a *SnapshotAPI) CreateSnapshot(ctx context.Context, name, repository string, body io.Reader) (*Response, error) {
+func (a *SnapshotAPI) CreateSnapshot(
+	ctx context.Context,
+	name, repository string,
+	body io.Reader,
+	wait bool,
+) (*Response, error) {
 	method := http.MethodPut
 	path := generateSnapshotPath(name, repository)
 
@@ -125,6 +130,12 @@ func (a *SnapshotAPI) CreateSnapshot(ctx context.Context, name, repository strin
 	}
 	if ctx != nil {
 		req = req.WithContext(ctx)
+	}
+
+	if wait {
+		q := req.URL.Query()
+		q.Set("wait_for_completion", "true")
+		req.URL.RawQuery = q.Encode()
 	}
 
 	if body != nil {

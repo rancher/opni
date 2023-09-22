@@ -271,5 +271,11 @@ func (p *Plugin) NewLoggingManagerForPlugin() *LoggingManagerV2 {
 		storageNamespace:  p.storageNamespace,
 		natsRef:           p.natsRef,
 		otelForwarder:     p.otelForwarder,
+		k8sObjectsName: func() string {
+			if p.opensearchCluster == nil {
+				return "opni"
+			}
+			return p.opensearchCluster.Name
+		}(),
 	}
 }

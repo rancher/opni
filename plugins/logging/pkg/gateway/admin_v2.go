@@ -54,6 +54,11 @@ func ClusterStatusDescription(s ClusterStatus, extraInfo ...string) string {
 	}
 }
 
+var defaultIndices = []string{
+	"logs*",
+	"opni-cluster-metadata",
+}
+
 type LoggingManagerV2 struct {
 	loggingadmin.UnsafeLoggingAdminV2Server
 	managementDriver  management.ClusterDriver
@@ -64,6 +69,7 @@ type LoggingManagerV2 struct {
 	otelForwarder     *otel.OTELForwarder
 	storageNamespace  string
 	natsRef           *corev1.LocalObjectReference
+	k8sObjectsName    string
 }
 
 func (m *LoggingManagerV2) GetOpensearchCluster(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.OpensearchClusterV2, error) {
@@ -144,10 +150,25 @@ func (m *LoggingManagerV2) UpgradeAvailable(ctx context.Context, _ *emptypb.Empt
 	}, nil
 }
 
-func (m *LoggingManagerV2) DoUpgrade(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (m *LoggingManagerV2) DoUpgrade(ctx context.Context, options *loggingadmin.UpgradeOptions) (*emptypb.Empty, error) {
 	version := strings.TrimPrefix(versions.Version, "v")
 	if version == "unversioned" {
 		version = defaultOpniVersion
+	}
+
+	if options.SnapshotCluster {
+		cluster, err := m.managementDriver.GetCluster(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if cluster.GetS3() == nil {
+			return nil, loggingerrors.ErrInvalidUpgradeOptions
+		}
+
+		err = m.opensearchManager.DoSnapshot(ctx, m.k8sObjectsName, defaultIndices)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	err := m.managementDriver.DoUpgrade(ctx, version)
@@ -215,13 +236,16 @@ func (m *LoggingManagerV2) GetOpensearchStatus(ctx context.Context, _ *emptypb.E
 	}, nil
 }
 
-func (m *LoggingManagerV2) CreateOrUpdateSnapshot(ctx context.Context, snapshot *loggingadmin.Snapshot) (*emptypb.Empty, error) {
+func (m *LoggingManagerV2) CreateOrUpdateSnapshotSchedule(
+	ctx context.Context,
+	snapshot *loggingadmin.SnapshotSchedule,
+) (*emptypb.Empty, error) {
 	if snapshot.GetRetention().GetTimeRetention() != "" &&
 		!m.validDurationString(snapshot.GetRetention().GetTimeRetention()) {
 		return nil, loggingerrors.ErrInvalidDuration
 	}
 
-	err := m.managementDriver.CreateOrUpdateSnapshot(ctx, snapshot)
+	err := m.managementDriver.CreateOrUpdateSnapshotSchedule(ctx, snapshot, defaultIndices)
 	if err != nil {
 		return nil, err
 	}
@@ -229,8 +253,11 @@ func (m *LoggingManagerV2) CreateOrUpdateSnapshot(ctx context.Context, snapshot 
 	return &emptypb.Empty{}, nil
 }
 
-func (m *LoggingManagerV2) GetRecurringSnapshot(ctx context.Context, ref *loggingadmin.SnapshotReference) (*loggingadmin.Snapshot, error) {
-	snapshot, err := m.managementDriver.GetRecurringSnapshot(ctx, ref)
+func (m *LoggingManagerV2) GetSnapshotSchedule(
+	ctx context.Context,
+	ref *loggingadmin.SnapshotReference,
+) (*loggingadmin.SnapshotSchedule, error) {
+	snapshot, err := m.managementDriver.GetSnapshotSchedule(ctx, ref, defaultIndices)
 	if err != nil {
 		return nil, err
 	}
@@ -238,16 +265,16 @@ func (m *LoggingManagerV2) GetRecurringSnapshot(ctx context.Context, ref *loggin
 	return snapshot, nil
 }
 
-func (m *LoggingManagerV2) DeleteSnapshot(ctx context.Context, ref *loggingadmin.SnapshotReference) (*emptypb.Empty, error) {
-	err := m.managementDriver.DeleteSnapshot(ctx, ref)
+func (m *LoggingManagerV2) DeleteSnapshotSchedule(ctx context.Context, ref *loggingadmin.SnapshotReference) (*emptypb.Empty, error) {
+	err := m.managementDriver.DeleteSnapshotSchedule(ctx, ref)
 	if err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (m *LoggingManagerV2) ListSnapshots(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.SnapshotStatusList, error) {
-	list, err := m.managementDriver.ListAllSnapshots(ctx)
+func (m *LoggingManagerV2) ListSnapshotSchedules(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.SnapshotStatusList, error) {
+	list, err := m.managementDriver.ListAllSnapshotSchedules(ctx)
 	if err != nil {
 		return nil, err
 	}

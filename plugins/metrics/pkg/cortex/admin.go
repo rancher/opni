@@ -745,14 +745,9 @@ func (p *CortexAdminServer) GetCortexStatus(ctx context.Context, _ *emptypb.Empt
 		return
 	})
 
-	if err := eg.Wait(); err != nil {
-		p.Logger.With(
-			zap.Error(err),
-		).Error("failed to get cluster status")
-		return nil, err
-	}
+	err := eg.Wait()
 	stat.Timestamp = timestamppb.Now()
-	return stat, nil
+	return stat, err
 }
 
 func (p *CortexAdminServer) GetCortexConfig(ctx context.Context, req *cortexadmin.ConfigRequest) (*cortexadmin.ConfigResponse, error) {

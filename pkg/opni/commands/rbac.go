@@ -8,7 +8,7 @@ import (
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	cliutil "github.com/rancher/opni/pkg/opni/util"
+	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/emptypb"
 )

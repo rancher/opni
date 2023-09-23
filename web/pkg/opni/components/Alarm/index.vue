@@ -1,4 +1,5 @@
 <script>
+import { mapGetters } from 'vuex';
 import { LabeledInput } from '@components/Form/LabeledInput';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
 import AsyncButton from '@shell/components/AsyncButton';
@@ -11,8 +12,7 @@ import dayjs from 'dayjs';
 import {
   createAlertCondition, getAlertConditionGroups, updateAlertCondition, deactivateSilenceAlertCondition, silenceAlertCondition
 } from '@pkg/opni/utils/requests/alerts';
-import { getClusters } from '@pkg/opni/utils/requests/management';
-import { CONDITION_TYPES } from '@pkg/opni/utils/alarms';
+import { CONDITION_TYPES, CONDITION_TYPES_WITHOUT_MONITORING } from '@pkg/opni/utils/alarms';
 import { exceptionToErrorsArray } from '../../utils/error';
 import { Severity, SeverityResponseToEnum } from '../../models/alerting/Condition';
 import AttachedEndpoints, { createDefaultAttachedEndpoints } from '../AttachedEndpoints';
@@ -63,7 +63,6 @@ export default {
       DownstreamCapability,
       MonitoringBackend,
       Prometheus,
-      conditionTypes:    CONDITION_TYPES,
       type:              AgentDisconnect.TYPE,
       ...AgentDisconnect.DEFAULT_CONFIG,
       ...KubeState.DEFAULT_CONFIG,
@@ -102,9 +101,7 @@ export default {
 
   methods: {
     async load() {
-      const conditionRequest = createConditionRequest(this.$route);
-      const clusters = await getClusters(this);
-      const hasOneMonitoring = clusters.some(c => c.isCapabilityInstalled('metrics'));
+      const conditionRequest = createConditionRequest(this, this.$route);
       const groups = await getAlertConditionGroups();
 
       this.$set(this, 'groups', groups.map(g => ({
@@ -112,13 +109,9 @@ export default {
         label: g.id === '' ? 'Default' : g.id
       })));
 
-      if (!hasOneMonitoring) {
-        this.conditionTypes.splice(1, 1);
-      }
+      const condition = await conditionRequest;
 
-      if (await conditionRequest) {
-        const condition = await conditionRequest;
-
+      if (condition) {
         this.$set(this, 'originalCondition', condition);
 
         this.$set(this, 'type', condition.type);
@@ -210,6 +203,16 @@ export default {
   },
 
   computed: {
+    ...mapGetters({ clusters: 'opni/clusters' }),
+
+    hasOneMonitoring() {
+      return this.clusters.some(c => c.isCapabilityInstalled('metrics'));
+    },
+
+    conditionTypeOptions() {
+      return this.hasOneMonitoring ? CONDITION_TYPES : CONDITION_TYPES_WITHOUT_MONITORING;
+    },
+
     id() {
       return this.$route.params.id && this.$route.params.id !== 'create' ? this.$route.params.id : undefined;
     },
@@ -261,7 +264,7 @@ export default {
       >
         <div class="row bottom mb-20">
           <div class="col span-6">
-            <LabeledSelect v-model="type" label="Type" :options="conditionTypes" :required="true" />
+            <LabeledSelect v-model="type" label="Type" :options="conditionTypeOptions" :required="true" />
           </div>
           <div class="col span-6">
             <LabeledSelect v-model="config.groupId" label="Group" :options="groups" :taggable="true" :searchable="true" />

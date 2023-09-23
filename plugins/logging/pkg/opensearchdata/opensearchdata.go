@@ -58,14 +58,14 @@ func NewManager(logger *zap.SugaredLogger, kv future.Future[system.KeyValueStore
 }
 
 func (m *Manager) keyExists(keyToCheck string) (bool, error) {
-	prefixKey := &system.Key{
+	prefixKey := &system.ListKeysRequest{
 		Key: opensearchPrefix,
 	}
 	keys, err := m.systemKV.Get().ListKeys(context.Background(), prefixKey)
 	if err != nil {
 		return false, err
 	}
-	for _, key := range keys.GetItems() {
+	for _, key := range keys.GetKeys() {
 		if key == fmt.Sprintf("%s%s", opensearchPrefix, keyToCheck) {
 			return true, nil
 		}

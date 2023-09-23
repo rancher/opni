@@ -72,11 +72,10 @@ func NewCachingHttpServer(serverPort int) *CachingHttpServer {
 	})
 
 	mux.HandleFunc("/cache/value", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", fmt.Sprintf("max-age=%d", 5))
 		w.WriteHeader(http.StatusOK)
+		caching.WithHttpMaxAgeCachingHeader(w.Header(), time.Second*5)
 		encoder := json.NewEncoder(w)
 		encoder.Encode(ValueResponse{Value: int(c.value.Load())})
-		caching.WithHttpMaxAgeCachingHeader(w.Header(), time.Second*5)
 	})
 
 	c.Server = &http.Server{

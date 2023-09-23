@@ -12,12 +12,10 @@ export interface SloServicesResponse {
 
 export class SloService extends Resource {
     private base: SloServiceResponse;
-    private clusters: Cluster[];
 
-    constructor(base: SloServiceResponse, clusters: Cluster[], vue: any) {
+    constructor(base: SloServiceResponse, vue: any) {
       super(vue);
       this.base = base;
-      this.clusters = clusters;
     }
 
     get id(): string {
@@ -29,6 +27,6 @@ export class SloService extends Resource {
     }
 
     get cluster(): Cluster {
-      return this.clusters.find(cluster => cluster.id === this.clusterId) as Cluster;
+      return this.vue.store.getters['opni/clusters'].find((cluster: Cluster) => cluster.id === this.clusterId) as Cluster;
     }
 }

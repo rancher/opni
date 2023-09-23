@@ -1,15 +1,15 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/metrics/apis/remoteread";
-
-import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
-
-import "google/protobuf/timestamp.proto";
-import "google/protobuf/duration.proto";
-import "google/protobuf/empty.proto";
-import "google/api/http.proto";
-import "google/api/annotations.proto";
 
 package remoteread;
+
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "google/api/annotations.proto";
+import "google/api/http.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/rancher/opni/plugins/metrics/apis/remoteread";
 
 service RemoteReadGateway {
   rpc AddTarget(TargetAddRequest) returns (google.protobuf.Empty) {
@@ -17,17 +17,17 @@ service RemoteReadGateway {
       post: "/targets"
       body: "*"
     };
-  };
+  }
   rpc EditTarget(TargetEditRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      put: "/targets"
+      put:  "/targets"
       body: "*"
     };
   }
   rpc RemoveTarget(TargetRemoveRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       delete: "/targets/{meta.clusterId}/{meta.name}"
-      body: "*"
+      body:   "*"
     };
   }
   rpc ListTargets(TargetListRequest) returns (TargetList) {
@@ -69,38 +69,38 @@ service RemoteReadAgent {
 }
 
 message Target {
-  TargetMeta meta = 1;
-  TargetSpec spec = 2;
+  TargetMeta   meta   = 1;
+  TargetSpec   spec   = 2;
   TargetStatus status = 3;
 }
 
 message TargetMeta {
-  string name = 1;
+  string name      = 1;
   string clusterId = 2;
 }
 
 enum TargetState {
-  Unknown = 0;
+  Unknown    = 0;
   NotRunning = 1;
-  Running = 2;
-  Completed = 3;
-  Failed = 4;
-  Canceled = 6;
+  Running    = 2;
+  Completed  = 3;
+  Failed     = 4;
+  Canceled   = 6;
 }
 
 message TargetStatus {
   TargetProgress progress = 1;
-  string message = 2;
-  TargetState state = 3;
+  string         message  = 2;
+  TargetState    state    = 3;
 }
 
 message TargetSpec {
-   string endpoint = 1;
+  string endpoint = 1;
 }
 
 message TargetDiff {
   string endpoint = 1;
-  string name = 2;
+  string name     = 2;
 }
 
 message TargetList {
@@ -108,18 +108,18 @@ message TargetList {
 }
 
 message TargetProgress {
-  google.protobuf.Timestamp startTimestamp = 1;
+  google.protobuf.Timestamp startTimestamp    = 1;
   google.protobuf.Timestamp lastReadTimestamp = 2;
-  google.protobuf.Timestamp endTimestamp = 3;
+  google.protobuf.Timestamp endTimestamp      = 3;
 }
 
 message TargetAddRequest {
-  Target target = 1;
+  Target target    = 1;
   string clusterId = 2;
 }
 
 message TargetEditRequest {
-  TargetMeta meta = 1;
+  TargetMeta meta       = 1;
   TargetDiff targetDiff = 2;
 }
 
@@ -133,7 +133,7 @@ message TargetListRequest {
 
 message StartReadRequest {
   Target target = 1;
-  Query query = 2;
+  Query  query  = 2;
 }
 
 message StopReadRequest {
@@ -147,32 +147,32 @@ message TargetStatusRequest {
 // PromQL query
 message Query {
   google.protobuf.Timestamp startTimestamp = 1;
-  google.protobuf.Timestamp endTimestamp = 2;
-  repeated LabelMatcher matchers = 3;
+  google.protobuf.Timestamp endTimestamp   = 2;
+  repeated LabelMatcher     matchers       = 3;
 }
 
 message LabelMatcher {
   enum Type {
-    Equal  = 0;
-    NotEqual = 1;
-    RegexEqual  = 2;
+    Equal         = 0;
+    NotEqual      = 1;
+    RegexEqual    = 2;
     NotRegexEqual = 3;
   }
 
-  Type type    = 1;
+  Type   type  = 1;
   string name  = 2;
   string value = 3;
 }
 
 message Progress {
   google.protobuf.Timestamp startTimestamp = 1;
-  google.protobuf.Timestamp endTimestamp = 2;
-  float percentDone = 3;
+  google.protobuf.Timestamp endTimestamp   = 2;
+  float                     percentDone    = 3;
 }
 
 message DiscoveryEntry {
-  string name = 1;
-  string clusterId = 2;
+  string name             = 1;
+  string clusterId        = 2;
   string externalEndpoint = 3;
   string internalEndpoint = 4;
 }
@@ -180,7 +180,7 @@ message DiscoveryEntry {
 message DiscoveryRequest {
   // we only need to provide clusterId or namespace if we want to narrow our scope of discovery
   repeated string clusterIds = 1;
-  optional string namespace = 2;
+  optional string namespace  = 2;
 }
 
 message DiscoveryResponse {

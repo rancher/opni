@@ -1,46 +1,101 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/pkg/plugins/apis/system";
-
-import "google/protobuf/empty.proto";
 
 package system;
 
+import "github.com/rancher/opni/pkg/apis/management/v1/management.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/rancher/opni/pkg/plugins/apis/system";
+
 service System {
   rpc UseManagementAPI(BrokerID) returns (google.protobuf.Empty);
-  rpc UseNodeManagerClient(BrokerID) returns (google.protobuf.Empty);
   rpc UseKeyValueStore(BrokerID) returns (google.protobuf.Empty);
   rpc UseAPIExtensions(DialAddress) returns (google.protobuf.Empty);
   rpc UseCachingProvider(google.protobuf.Empty) returns (google.protobuf.Empty);
 }
 
 service KeyValueStore {
-  rpc Put(KeyValue) returns (google.protobuf.Empty);
-  rpc Get(Key) returns (Value);
-  rpc Delete(Key) returns (google.protobuf.Empty);
-  rpc ListKeys(Key) returns (KeyList);
+  rpc Put(PutRequest) returns (PutResponse);
+  rpc Get(GetRequest) returns (GetResponse);
+  rpc Watch(WatchRequest) returns (stream WatchResponse);
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+  rpc ListKeys(ListKeysRequest) returns (ListKeysResponse);
+  rpc History(HistoryRequest) returns (HistoryResponse);
 }
 
 message BrokerID {
   uint32 id = 1;
 }
 
-message Key {
-  string key = 1;
-}
-
-message Value {
-  bytes value = 1;
-}
-
-message KeyValue {
-  string key = 1;
-  bytes value = 2;
-}
-
-message KeyList {
-  repeated string items = 1;
-}
-
 message DialAddress {
   string value = 1;
+}
+
+message PutRequest {
+  string         key      = 1;
+  bytes          value    = 2;
+  optional int64 revision = 3;
+}
+
+message PutResponse {
+  int64 revision = 1;
+}
+
+message GetRequest {
+  string         key      = 1;
+  optional int64 revision = 2;
+}
+
+message GetResponse {
+  bytes value    = 1;
+  int64 revision = 2;
+}
+
+message DeleteRequest {
+  string         key      = 1;
+  optional int64 revision = 2;
+}
+
+message DeleteResponse {}
+
+message ListKeysRequest {
+  string         key   = 1;
+  optional int64 limit = 2;
+}
+
+message ListKeysResponse {
+  repeated string keys = 1;
+}
+
+message HistoryRequest {
+  string key           = 1;
+  bool   includeValues = 3;
+}
+
+message HistoryResponse {
+  repeated KeyRevision revisions = 1;
+}
+
+message KeyRevision {
+  string                             key       = 1;
+  optional bytes                     value     = 2;
+  int64                              revision  = 3;
+  optional google.protobuf.Timestamp timestamp = 4;
+}
+
+message WatchRequest {
+  string         key      = 1;
+  optional int64 revision = 2;
+  bool           prefix   = 3;
+}
+
+message WatchResponse {
+  enum EventType {
+    Put    = 0;
+    Delete = 1;
+  }
+  EventType   eventType = 1;
+  KeyRevision current   = 2;
+  KeyRevision previous  = 3;
 }

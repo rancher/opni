@@ -16,3 +16,4 @@ ksconfig.json
 nuxt.config.js
 shell/utils/dynamic-importer.js
 shell/assets/fonts
+pkg/opni/generated/

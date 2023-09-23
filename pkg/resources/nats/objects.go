@@ -384,8 +384,8 @@ func (r *Reconciler) natsStatefulSet() *appsv1.StatefulSet {
 		},
 	}
 
-	if lo.FromPtrOr(r.natsCluster.Spec.JetStream.Enabled, true) &&
-		lo.FromPtrOr(r.natsCluster.Spec.JetStream.FileStorage.Enabled, true) {
+	if r.natsCluster.Spec.JetStream.FileStorage.JetStreamPersistenceSpec.EmptyDir != nil ||
+		r.natsCluster.Spec.JetStream.FileStorage.JetStreamPersistenceSpec.PVC != nil {
 		statefulset.Spec.Template.Spec.Containers[0].VolumeMounts = append(
 			statefulset.Spec.Template.Spec.Containers[0].VolumeMounts,
 			corev1.VolumeMount{

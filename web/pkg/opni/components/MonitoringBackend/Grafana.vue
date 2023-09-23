@@ -10,11 +10,6 @@ export default {
       type:     Object,
       required: true
     },
-
-    status: {
-      type:     Number,
-      required: true
-    }
   },
 };
 </script>

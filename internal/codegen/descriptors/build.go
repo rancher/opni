@@ -29,6 +29,10 @@ type BuilderOptions struct {
 	EditFieldComment func(rf reflect.StructField, in *string)
 	// Called for each field. If it returns true, the field will be skipped.
 	SkipFieldFunc func(rf reflect.StructField) bool
+
+	CustomFieldTypes map[reflect.Type]func() *builder.FieldType
+
+	AllScalarFieldsOptional bool
 }
 
 type Builder struct {
@@ -112,8 +116,8 @@ func (b *Builder) BuildMessage(msgType reflect.Type, newFieldHook func(f *builde
 			oldFieldHook(f, rf)
 			if f.Options == nil {
 				f.Options = &descriptorpb.FieldOptions{}
+				mutateExtension(f.Options, cli.E_Flag, b.EditFlagOptions(rf))
 			}
-			mutateExtension(f.Options, cli.E_Flag, b.EditFlagOptions(rf))
 		}
 	}
 	if b.EditFieldComment != nil {
@@ -214,41 +218,34 @@ FIELDS:
 
 		// add any more special cases here as needed
 
-		if rfType.Kind() == reflect.Struct {
-			newMsg := b.BuildMessage(rfType, maybeApplyDiscoveredMetadata(rfType))
-			newField := builder.NewField(rfName, builder.FieldTypeMessage(newMsg))
-			if isSlice {
-				newField.SetRepeated()
-			}
-			newFieldHook(newField, rf)
-			m.AddField(newField)
-			continue
-		}
 		if rfType.Kind() == reflect.Map {
 			// add map field
 			keyType := rfType.Key()
 			valueType := rfType.Elem()
 
-			keyFieldType := fieldType(keyType)
-			var valueFieldType *builder.FieldType
-			if valueType.Kind() == reflect.Struct {
-				valueFieldType = builder.FieldTypeMessage(b.BuildMessage(rfType, maybeApplyDiscoveredMetadata(rfType)))
-			} else {
-				valueFieldType = fieldType(valueType)
+			if valueType.Kind() == reflect.Ptr {
+				valueType = valueType.Elem()
 			}
+
+			keyFieldType := b.fieldType(keyType)
+			valueFieldType := b.fieldType(valueType)
 			newField := builder.NewMapField(rfName, keyFieldType, valueFieldType)
 			newFieldHook(newField, rf)
 			m.AddField(newField)
 			continue
 		}
 
-		field := builder.NewField(rfName, fieldType(rfType))
-		// if the field is a pointer to a scalar, set optional
-		if isPtr && isScalar(rfType.Elem()) {
-			field.SetProto3Optional(true)
-		}
+		fieldType := b.fieldType(rfType)
+		field := builder.NewField(rfName, fieldType)
 		if isSlice {
 			field.SetRepeated()
+		} else if (b.AllScalarFieldsOptional || isPtr) && isFieldTypeScalar(fieldType.GetType()) {
+			// if the field is a pointer to a scalar, set optional
+			field.SetProto3Optional(true)
+		} else if inlineType, ok := b.canInline(rf, fieldType); ok {
+			toInline := b.cache[inlineType.Type]
+			field.SetType(builder.FieldTypeMessage(toInline))
+			delete(b.cache, rfType)
 		}
 		newFieldHook(field, rf)
 		m.AddField(field)
@@ -257,7 +254,38 @@ FIELDS:
 	return m
 }
 
-func fieldType(rf reflect.Type) *builder.FieldType {
+func (b *Builder) canInline(rf reflect.StructField, fieldType *builder.FieldType) (reflect.StructField, bool) {
+	if fieldType.GetType() != descriptorpb.FieldDescriptorProto_TYPE_MESSAGE {
+		return reflect.StructField{}, false
+	}
+	mb, ok := b.cache[rf.Type]
+	if !ok {
+		return reflect.StructField{}, false
+	}
+	children := mb.GetChildren()
+	if len(children) != 1 {
+		return reflect.StructField{}, false
+	}
+	if f, ok := children[0].(*builder.FieldBuilder); ok {
+		if f.GetType().GetType() == descriptorpb.FieldDescriptorProto_TYPE_MESSAGE {
+			count := 0
+			var inlineType reflect.StructField
+			for i := 0; i < rf.Type.NumField(); i++ {
+				rfField := rf.Type.Field(i)
+				if rfField.Anonymous && rfField.Name == children[0].GetName() {
+					inlineType = rfField
+					count++
+				}
+			}
+			if count == 1 {
+				return inlineType, true
+			}
+		}
+	}
+	return reflect.StructField{}, false
+}
+
+func (b *Builder) fieldType(rf reflect.Type) *builder.FieldType {
 	switch rf.Kind() {
 	case reflect.Bool:
 		return builder.FieldTypeBool()
@@ -275,6 +303,17 @@ func fieldType(rf reflect.Type) *builder.FieldType {
 		return builder.FieldTypeDouble()
 	case reflect.String:
 		return builder.FieldTypeString()
+	case reflect.Struct:
+		{
+			rf := rf
+			if rf.Kind() == reflect.Pointer {
+				rf = rf.Elem()
+			}
+			if c, ok := b.CustomFieldTypes[rf]; ok {
+				return c()
+			}
+		}
+		return builder.FieldTypeMessage(b.BuildMessage(rf, maybeApplyDiscoveredMetadata(rf)))
 	default:
 		panic("unsupported type: " + rf.String() + " (" + rf.Kind().String() + ")")
 	}
@@ -282,7 +321,33 @@ func fieldType(rf reflect.Type) *builder.FieldType {
 
 func isScalar(t reflect.Type) bool {
 	switch t.Kind() {
-	case reflect.Bool, reflect.Int32, reflect.Int64, reflect.Float32, reflect.Float64, reflect.String:
+	case reflect.Bool, reflect.String,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64:
+		return true
+	default:
+		return false
+	}
+}
+
+func isFieldTypeScalar(ft descriptorpb.FieldDescriptorProto_Type) bool {
+	switch ft {
+	case descriptorpb.FieldDescriptorProto_TYPE_BOOL,
+		descriptorpb.FieldDescriptorProto_TYPE_INT32,
+		descriptorpb.FieldDescriptorProto_TYPE_INT64,
+		descriptorpb.FieldDescriptorProto_TYPE_SINT32,
+		descriptorpb.FieldDescriptorProto_TYPE_SINT64,
+		descriptorpb.FieldDescriptorProto_TYPE_UINT32,
+		descriptorpb.FieldDescriptorProto_TYPE_UINT64,
+		descriptorpb.FieldDescriptorProto_TYPE_FIXED32,
+		descriptorpb.FieldDescriptorProto_TYPE_FIXED64,
+		descriptorpb.FieldDescriptorProto_TYPE_SFIXED32,
+		descriptorpb.FieldDescriptorProto_TYPE_SFIXED64,
+		descriptorpb.FieldDescriptorProto_TYPE_FLOAT,
+		descriptorpb.FieldDescriptorProto_TYPE_DOUBLE,
+		descriptorpb.FieldDescriptorProto_TYPE_STRING,
+		descriptorpb.FieldDescriptorProto_TYPE_BYTES:
 		return true
 	default:
 		return false
@@ -322,14 +387,26 @@ func autoDiscoverMetadataFromFlags[FR FlagRegistrar[FS, F], FS FlagSet[F], F any
 	fieldLookup := map[uintptr]generic_flag{}
 	flagSet.VisitAll(func(flag F) {
 		g := newGenericFlag(flag)
-		if reflect.ValueOf(g.Value).Kind() == reflect.Ptr {
-			fieldLookup[reflect.ValueOf(g.Value).Pointer()] = newGenericFlag(flag)
+		v := reflect.ValueOf(g.Value)
+		if v.Kind() == reflect.Ptr {
+			vptr := v.Pointer()
+			if _, ok := fieldLookup[vptr]; !ok {
+				fieldLookup[vptr] = g
+			}
 		}
 	})
 
 	return func(f *builder.FieldBuilder, rf reflect.StructField) {
 		fieldPointer := reflect.ValueOf(fr).Pointer() + rf.Offset
 		if flag, ok := fieldLookup[fieldPointer]; ok {
+			// if f is a message type, the pointer could be ambiguous, since the
+			// address of the first field is the same as the address of the struct.
+			if f.GetType().GetType() == descriptorpb.FieldDescriptorProto_TYPE_MESSAGE {
+				flagType := reflect.TypeOf(flag.Value).Elem()
+				if flagType.Kind() != rf.Type.Kind() {
+					return
+				}
+			}
 			if flag.Usage != "" {
 				f.SetComments(builder.Comments{
 					LeadingComment: flag.Usage,
@@ -338,10 +415,10 @@ func autoDiscoverMetadataFromFlags[FR FlagRegistrar[FS, F], FS FlagSet[F], F any
 			if flag.DefValue != "" {
 				if f.Options == nil {
 					f.Options = &descriptorpb.FieldOptions{}
+					mutateExtension(f.Options, cli.E_Flag, func(ext *cli.FlagOptions) {
+						ext.Default = &flag.DefValue
+					})
 				}
-				mutateExtension(f.Options, cli.E_Flag, func(ext *cli.FlagOptions) {
-					ext.Default = flag.DefValue
-				})
 			}
 		}
 	}

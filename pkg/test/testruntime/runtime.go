@@ -3,14 +3,14 @@ package testruntime
 import (
 	"io"
 	"os"
-	"strings"
+	"testing"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
 )
 
 var (
-	IsTesting       = strings.HasSuffix(os.Args[0], ".test")
+	IsTesting       = testing.Testing()
 	IsGithubActions = os.Getenv("GITHUB_ACTIONS") == "true"
 	IsDrone         = os.Getenv("DRONE") == "true"
 	StdoutWriter    = lo.Ternary[io.Writer](IsTesting, ginkgo.GinkgoWriter, os.Stdout)

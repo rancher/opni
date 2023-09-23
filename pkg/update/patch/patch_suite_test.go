@@ -7,7 +7,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -16,6 +15,7 @@ import (
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/update/patch"
 	"github.com/spf13/afero"
+	"go.uber.org/mock/gomock"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/sync/errgroup"
 )

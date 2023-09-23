@@ -1,10 +1,10 @@
 syntax = "proto3";
-
-option go_package = "github.com/rancher/opni/internal/codegen/cli";
 package cli;
 
-import "google/protobuf/descriptor.proto";
 import "google/protobuf/any.proto";
+import "google/protobuf/descriptor.proto";
+
+option go_package = "github.com/rancher/opni/internal/codegen/cli";
 
 extend google.protobuf.FileOptions {
   GeneratorOptions generator = 25600;
@@ -25,33 +25,50 @@ extend google.protobuf.MethodOptions {
 
 enum ClientDependencyInjectionStrategy {
   InjectIntoContext = 0;
-  InjectAsArgument = 1;
+  InjectAsArgument  = 1;
 }
 
 message GeneratorOptions {
-  bool generate = 1;
-  bool generate_deepcopy = 2;
-  ClientDependencyInjectionStrategy client_dependency_injection = 3;
+  bool generate                        = 1;
+  bool generate_deepcopy               = 2;
+  bool generate_flags_for_all_messages = 3;
+
+  ClientDependencyInjectionStrategy client_dependency_injection = 4;
 }
 
 message FlagOptions {
-  string default = 1;
-  string env = 2;
-  bool secret = 3;
-  string type_override = 4;
-  bool skip = 5;
+  optional string default       = 1;
+  string          env           = 2;
+  bool            secret        = 3;
+  string          type_override = 4;
+  bool            skip          = 5;
 }
 
 message FlagSetOptions {
-  google.protobuf.Any default = 1;
+  google.protobuf.Any default   = 1;
+  bool                no_prefix = 2;
 }
 
 message CommandGroupOptions {
-  string use = 25601;
-  string group_id = 25602;
+  string use          = 25601;
+  string group_id     = 25602;
+  bool   enable_hooks = 25603;
 }
 
+enum EditScope {
+  // Allows all individual fields of the message to be edited individually.
+  // This option generates flags and uses them in the CLI.
+  EditFields = 0;
+  // The whole message is edited as a single unit. This option does not use
+  // flags, but instead enables editing the message with an editor, or from
+  // a file.
+  EditMessage = 1;
+}
 message CommandOptions {
-  string use = 25601;
+  string          use            = 25601;
+  repeated string aliases        = 25602;
   repeated string required_flags = 25603;
+  bool            skip           = 25604;
+  bool            enable_hooks   = 25605;
+  EditScope       granularity    = 25606;
 }

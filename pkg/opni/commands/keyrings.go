@@ -18,7 +18,7 @@ import (
 	"github.com/rancher/opni/pkg/keyring/ephemeral"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/machinery"
-	cliutil "github.com/rancher/opni/pkg/opni/util"
+	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap/zapcore"

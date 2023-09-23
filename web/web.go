@@ -2,13 +2,14 @@ package web
 
 import (
 	"embed"
+	"io/fs"
 )
 
 //go:embed all:dist
 var DistFS embed.FS
 
-func EmbeddedAssetsAvailable() bool {
-	f, err := DistFS.Open("dist")
+func WebAssetsAvailable(fs fs.FS) bool {
+	f, err := fs.Open("dist")
 	if err != nil {
 		return false
 	}

@@ -2,6 +2,7 @@ package metrics_test
 
 import (
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -10,6 +11,10 @@ import (
 )
 
 func TestMetrics(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+	SetDefaultEventuallyTimeout(5 * time.Second)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Metrics Suite")
 }

@@ -42,10 +42,10 @@ export function createAlertCondition(alertCondition: AlertCondition) {
 }
 
 export async function getAlertCondition(id: ConditionReference, vue: any): Promise<Condition> {
-  return (await getAlertConditionsWithStatus(vue, [], { groupIds: [id.groupId] })).find(c => c.id === id.id) as Condition;
+  return (await getAlertConditionsWithStatus(vue, { groupIds: [id.groupId] })).find(c => c.id === id.id) as Condition;
 }
 
-export async function getAlertConditionsWithStatus(vue: any, clusters: Cluster[], itemFilter?: { clusters?: string[], groupIds?: string[], alertTypes?: string[] }) {
+export async function getAlertConditionsWithStatus(vue: any, itemFilter?: { clusters?: string[], groupIds?: string[], alertTypes?: string[] }, clusters?: Cluster[]) {
   const response = (await axios.post<ListStatusResponse>('opni-api/AlertConditions/list/withStatus', { itemFilter })).data;
 
   return (Object.values(response.alertConditions) || []).map(conditionWithStatus => new Condition(conditionWithStatus, vue, clusters));

@@ -273,7 +273,7 @@ func (a *Agent) bootstrap(ctx context.Context) (keyring.Keyring, error) {
 	lg := a.logger
 
 	// Load the stored keyring, or bootstrap a new one if it doesn't exist
-	if _, err := a.keyringStore.Get(ctx); errors.Is(err, storage.ErrNotFound) {
+	if _, err := a.keyringStore.Get(ctx); storage.IsNotFound(err) {
 		lg.Info("performing initial bootstrap")
 		newKeyring, err := a.bootstrapper.Bootstrap(ctx, a.identityProvider)
 		if err != nil {

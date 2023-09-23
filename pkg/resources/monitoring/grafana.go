@@ -152,7 +152,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		})
 	}
 
-	if !r.mc.Spec.Grafana.Enabled {
+	if !r.mc.Spec.Grafana.GetEnabled() {
 		absentResources := append([]resources.Resource{
 			resources.Absent(grafana),
 			resources.Absent(datasource),
@@ -167,8 +167,8 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 	gatewayAuthProvider := r.gw.Spec.Auth.Provider
 
 	grafanaHostname := fmt.Sprintf("grafana.%s", gatewayHostname)
-	if r.mc.Spec.Grafana.Hostname != "" {
-		grafanaHostname = r.mc.Spec.Grafana.Hostname
+	if r.mc.Spec.Grafana.GetHostname() != "" {
+		grafanaHostname = r.mc.Spec.Grafana.GetHostname()
 	}
 
 	if strings.Contains(grafanaHostname, "://") {
@@ -180,9 +180,14 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		return nil, fmt.Errorf("invalid grafana hostname: %w", err)
 	}
 
+	tag := "10.1.1"
+	if r.mc.Spec.Grafana.GetVersion() != "" {
+		tag = strings.TrimSpace(r.mc.Spec.Grafana.GetVersion())
+	}
+
 	defaults := grafanav1alpha1.GrafanaSpec{
 		DashboardLabelSelector: []*metav1.LabelSelector{dashboardSelector},
-		BaseImage:              fmt.Sprintf("%s/grafana:%s", grafanaImageRepo, grafanaImageVersion),
+		BaseImage:              "grafana/grafana:" + tag,
 		Client: &grafanav1alpha1.GrafanaClient{
 			PreferService: lo.ToPtr(true),
 		},

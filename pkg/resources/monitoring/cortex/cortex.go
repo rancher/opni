@@ -53,14 +53,11 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 		return k8sutil.Requeue().ResultPtr()
 	}
 
-	config, err := r.config()
+	configs, configDigest, err := r.config()
 	if err != nil {
-		return nil, err
+		return k8sutil.RequeueErr(err).ResultPtr()
 	}
-	allResources = append(allResources, config)
-
-	runtimeConfig := r.runtimeConfig()
-	allResources = append(allResources, runtimeConfig)
+	allResources = append(allResources, configs...)
 
 	fallbackConfig := r.alertmanagerFallbackConfig()
 	allResources = append(allResources, fallbackConfig)
@@ -68,11 +65,8 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 	serviceAccount := r.serviceAccount()
 	allResources = append(allResources, serviceAccount)
 
-	deployments := r.deployments()
-	allResources = append(allResources, deployments...)
-
-	statefulSets := r.statefulSets()
-	allResources = append(allResources, statefulSets...)
+	workloads := r.cortexWorkloads(configDigest)
+	allResources = append(allResources, workloads...)
 
 	services := r.services()
 	allResources = append(allResources, services...)
@@ -82,7 +76,7 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 	}
 
 	// watch cortex components until they are healthy
-	if op := r.pollCortexHealth(append(deployments, statefulSets...)); op.ShouldRequeue() {
+	if op := r.pollCortexHealth(workloads); op.ShouldRequeue() {
 		return op.ResultPtr()
 	}
 

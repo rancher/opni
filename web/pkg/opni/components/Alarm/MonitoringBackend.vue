@@ -2,8 +2,9 @@
 import ArrayListSelect from '@shell/components/form/ArrayListSelect';
 import UnitInput from '@shell/components/form/UnitInput';
 import Loading from '@shell/components/Loading';
-import { AlertType } from '../../models/alerting/Condition';
-import { loadClusters, loadChoices } from './shared';
+import { createComputedTime } from '@pkg/opni/utils/computed';
+import { AlertType } from '@pkg/opni/models/alerting/Condition';
+import { mapClusterOptions, loadChoices } from './shared';
 
 const TYPE = 'monitoringBackend';
 
@@ -35,7 +36,7 @@ export default {
   },
 
   async fetch() {
-    await Promise.all([this.loadChoices(), this.loadClusters()]);
+    await this.loadChoices();
   },
 
   data() {
@@ -50,14 +51,12 @@ export default {
   methods: {
     async loadChoices() {
       await loadChoices(this, this.TYPE, this.ENUM);
-    },
-
-    async loadClusters() {
-      await loadClusters(this);
-    },
+    }
   },
 
   computed: {
+    ...mapClusterOptions(),
+
     monitoringBackendBackendComponentOptions() {
       const options = this.choices.backendComponents || [];
 
@@ -68,15 +67,7 @@ export default {
       return options;
     },
 
-    monitoringBackendFor: {
-      get() {
-        return Number.parseInt(this.value.for || '0');
-      },
-
-      set(value) {
-        this.$set(this.value, 'for', `${ (value || 0) }s`);
-      }
-    }
+    monitoringBackendFor: createComputedTime('value.for'),
   },
 };
 </script>

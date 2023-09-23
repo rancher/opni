@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/samber/lo"
@@ -13,7 +14,14 @@ import (
 
 func getExtension[T proto.Message](desc protoreflect.Descriptor, ext *protoimpl.ExtensionInfo) (out T, ok bool) {
 	if proto.HasExtension(desc.Options(), ext) {
-		out, ok = proto.GetExtension(desc.Options(), ext).(T)
+		defer func() {
+			if r := recover(); r != nil {
+				panic(fmt.Sprintf("in %s: %s: failed to get extension %s from descriptor %T: %v", desc.ParentFile().Path(), desc.FullName(), ext.Name, desc, r))
+			}
+		}()
+		// NB: proto.GetExtension does not work here. The line below does the same
+		// thing except it uses Value.Interface instead of InterfaceOf.
+		out, ok = desc.Options().ProtoReflect().Get(ext.TypeDescriptor()).Message().Interface().(T)
 	}
 	return
 }
@@ -63,11 +71,13 @@ func (f *FlagSetOptions) ForEachDefault(fieldMessage *protogen.Message, fn func(
 		return
 	}
 	dm := dynamicpb.NewMessage(fieldMessage.Desc)
-	f.Default.UnmarshalTo(dm)
+	if err := f.Default.UnmarshalTo(dm.Interface()); err != nil {
+		panic(err)
+	}
 	orderedRange(dm, fn)
 }
 
-func orderedRange(dm *dynamicpb.Message, fn func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool) {
+func orderedRange(dm protoreflect.Message, fn func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool) {
 	ordered := []lo.Tuple2[protoreflect.FieldDescriptor, protoreflect.Value]{}
 	dm.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
 		ordered = append(ordered, lo.T2(fd, v))

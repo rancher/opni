@@ -2,9 +2,11 @@ package backend
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 
+	"github.com/rancher/opni/pkg/agent"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/apis/node"
@@ -16,14 +18,13 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/google/go-cmp/cmp"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/storage"
@@ -36,10 +37,10 @@ import (
 type MetricsBackend struct {
 	capabilityv1.UnsafeBackendServer
 	node.UnsafeNodeMetricsCapabilityServer
-	node.UnsafeNodeConfigurationServer
-	cortexops.UnsafeCortexOpsServer
 	remoteread.UnsafeRemoteReadGatewayServer
 	MetricsBackendConfig
+	OpsBackend  *OpsServiceBackend
+	NodeBackend *NodeServiceBackend
 
 	nodeStatusMu sync.RWMutex
 	nodeStatus   map[string]*capabilityv1.NodeCapabilityStatus
@@ -52,24 +53,27 @@ type MetricsBackend struct {
 }
 
 var _ node.NodeMetricsCapabilityServer = (*MetricsBackend)(nil)
-var _ node.NodeConfigurationServer = (*MetricsBackend)(nil)
-var _ cortexops.CortexOpsServer = (*MetricsBackend)(nil)
 var _ remoteread.RemoteReadGatewayServer = (*MetricsBackend)(nil)
 
+type MetricsAgentClientSet interface {
+	agent.ClientSet
+	remoteread.RemoteReadAgentClient
+}
+
 type MetricsBackendConfig struct {
-	Logger              *zap.SugaredLogger                                         `validate:"required"`
-	StorageBackend      storage.Backend                                            `validate:"required"`
-	MgmtClient          managementv1.ManagementClient                              `validate:"required"`
-	NodeManagerClient   capabilityv1.NodeManagerClient                             `validate:"required"`
-	UninstallController *task.Controller                                           `validate:"required"`
-	ClusterDriver       drivers.ClusterDriver                                      `validate:"required"`
-	Delegate            streamext.StreamDelegate[remoteread.RemoteReadAgentClient] `validate:"required"`
-	KV                  *KVClients
+	Logger              *zap.SugaredLogger                              `validate:"required"`
+	StorageBackend      storage.Backend                                 `validate:"required"`
+	MgmtClient          managementv1.ManagementClient                   `validate:"required"`
+	UninstallController *task.Controller                                `validate:"required"`
+	ClusterDriver       drivers.ClusterDriver                           `validate:"required"`
+	Delegate            streamext.StreamDelegate[MetricsAgentClientSet] `validate:"required"`
+	KV                  *KVClients                                      `validate:"required"`
 }
 
 type KVClients struct {
-	DefaultCapabilitySpec storage.ValueStoreT[*node.MetricsCapabilitySpec]
-	NodeCapabilitySpecs   storage.KeyValueStoreT[*node.MetricsCapabilitySpec]
+	DefaultClusterConfigurationSpec storage.ValueStoreT[*cortexops.CapabilityBackendConfigSpec]
+	DefaultCapabilitySpec           storage.ValueStoreT[*node.MetricsCapabilitySpec]
+	NodeCapabilitySpecs             storage.KeyValueStoreT[*node.MetricsCapabilitySpec]
 }
 
 func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
@@ -83,30 +87,39 @@ func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
 	})
 }
 
-func (m *MetricsBackend) requestNodeSync(ctx context.Context, cluster *corev1.Reference) {
-	_, err := m.NodeManagerClient.RequestSync(ctx, &capabilityv1.SyncRequest{
-		Cluster: cluster,
-		Filter: &capabilityv1.Filter{
-			CapabilityNames: []string{wellknown.CapabilityMetrics},
-		},
-	})
+func (m *MetricsBackend) requestNodeSync(ctx context.Context, target *corev1.Reference) error {
+	if target == nil || target.Id == "" {
+		panic("bug: target must be non-nil and have a non-empty ID. this logic was recently changed - please update the caller")
+	}
+	_, err := m.Delegate.
+		WithTarget(target).
+		SyncNow(ctx, &capabilityv1.Filter{CapabilityNames: []string{wellknown.CapabilityMetrics}})
+	return err
+}
 
-	name := cluster.GetId()
-	if name == "" {
-		name = "(all)"
-	}
-	if err != nil {
+func (m *MetricsBackend) broadcastNodeSync(ctx context.Context) {
+	// keep any metadata in the context, but don't propagate cancellation
+	ctx = context.WithoutCancel(ctx)
+	var errs []error
+	m.Delegate.
+		WithBroadcastSelector(&corev1.ClusterSelector{}, func(reply any, msg *streamv1.BroadcastReplyList) error {
+			for _, resp := range msg.GetResponses() {
+				err := resp.GetReply().GetResponse().GetStatus().Err()
+				if err != nil {
+					target := resp.GetRef()
+					errs = append(errs, status.Errorf(codes.Internal, "failed to sync agent %s: %v", target.GetId(), err))
+				}
+			}
+			return nil
+		}).
+		SyncNow(ctx, &capabilityv1.Filter{
+			CapabilityNames: []string{wellknown.CapabilityMetrics},
+		})
+	if len(errs) > 0 {
 		m.Logger.With(
-			"cluster", name,
-			"capability", wellknown.CapabilityMetrics,
-			zap.Error(err),
-		).Warn("failed to request node sync; nodes may not be updated immediately")
-		return
+			zap.Error(errors.Join(errs...)),
+		).Warn("one or more agents failed to sync; they may not be updated immediately")
 	}
-	m.Logger.With(
-		"cluster", name,
-		"capability", wellknown.CapabilityMetrics,
-	).Info("node sync requested")
 }
 
 // Implements node.NodeMetricsCapabilityServer
@@ -234,55 +247,4 @@ func buildResponse(old, new *node.MetricsCapabilityConfig) *node.SyncResponse {
 		ConfigStatus:  node.ConfigStatus_NeedsUpdate,
 		UpdatedConfig: new,
 	}
-}
-
-func (m *MetricsBackend) GetDefaultConfiguration(ctx context.Context, _ *emptypb.Empty) (*node.MetricsCapabilitySpec, error) {
-	m.WaitForInit()
-	return m.getDefaultNodeSpec(ctx)
-}
-
-func (m *MetricsBackend) GetNodeConfiguration(ctx context.Context, node *v1.Reference) (*node.MetricsCapabilitySpec, error) {
-	m.WaitForInit()
-	return m.getNodeSpecOrDefault(ctx, node.GetId())
-}
-
-func (m *MetricsBackend) SetDefaultConfiguration(ctx context.Context, conf *node.MetricsCapabilitySpec) (*emptypb.Empty, error) {
-	m.WaitForInit()
-	var empty node.MetricsCapabilitySpec
-	if cmp.Equal(conf, &empty, protocmp.Transform()) {
-		if err := m.KV.DefaultCapabilitySpec.Delete(ctx); err != nil {
-			return nil, err
-		}
-		m.requestNodeSync(ctx, &corev1.Reference{})
-		return &emptypb.Empty{}, nil
-	}
-	if err := conf.Validate(); err != nil {
-		return nil, err
-	}
-	if err := m.KV.DefaultCapabilitySpec.Put(ctx, conf); err != nil {
-		return nil, err
-	}
-	m.requestNodeSync(ctx, &corev1.Reference{})
-	return &emptypb.Empty{}, nil
-}
-
-func (m *MetricsBackend) SetNodeConfiguration(ctx context.Context, req *node.NodeConfigRequest) (*emptypb.Empty, error) {
-	m.WaitForInit()
-	if req.Spec == nil {
-		if err := m.KV.NodeCapabilitySpecs.Delete(ctx, req.Node.GetId()); err != nil {
-			return nil, err
-		}
-		m.requestNodeSync(ctx, req.Node)
-		return &emptypb.Empty{}, nil
-	}
-	if err := req.Spec.Validate(); err != nil {
-		return nil, err
-	}
-
-	if err := m.KV.NodeCapabilitySpecs.Put(ctx, req.Node.GetId(), req.GetSpec()); err != nil {
-		return nil, err
-	}
-
-	m.requestNodeSync(ctx, req.Node)
-	return &emptypb.Empty{}, nil
 }

@@ -11,7 +11,7 @@ import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
@@ -35,7 +35,7 @@ var _ = Describe("Invalidated and clean up suite test", Ordered, Label("integrat
 		env = &test.Environment{}
 		Expect(env).NotTo(BeNil())
 		Expect(env.Start()).To(Succeed())
-		DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop, "Test Suite Finished")
 
 		alertopsClient := alertops.NewAlertingAdminClient(env.ManagementClientConn())
 		cortexOpsClient := cortexops.NewCortexOpsClient(env.ManagementClientConn())
@@ -43,13 +43,10 @@ var _ = Describe("Invalidated and clean up suite test", Ordered, Label("integrat
 		mgmtClient := env.NewManagementClient()
 		_, err := alertopsClient.InstallCluster(env.Context(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
-		_, err = cortexOpsClient.ConfigureCluster(env.Context(), &cortexops.ClusterConfiguration{
-			Mode: cortexops.DeploymentMode_AllInOne,
-			Storage: &storagev1.StorageSpec{
-				Backend: storagev1.Filesystem,
-			},
-		})
+		err = cortexops.InstallWithPreset(env.Context(), cortexOpsClient)
 		Expect(err).NotTo(HaveOccurred())
+		Expect(cortexops.WaitForReady(env.Context(), cortexOpsClient)).To(Succeed())
+
 		certsInfo, err := mgmtClient.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
 		fingerprint := certsInfo.Chain[len(certsInfo.Chain)-1].Fingerprint
@@ -72,11 +69,11 @@ var _ = Describe("Invalidated and clean up suite test", Ordered, Label("integrat
 			if alertingState.State != alertops.InstallState_Installed {
 				return fmt.Errorf("alerting cluster not yet installed")
 			}
-			cortexState, err := cortexOpsClient.GetClusterStatus(env.Context(), &emptypb.Empty{})
+			cortexState, err := cortexOpsClient.Status(env.Context(), &emptypb.Empty{})
 			if err != nil {
 				return err
 			}
-			if cortexState.State != cortexops.InstallState_Installed {
+			if cortexState.InstallState != driverutil.InstallState_Installed {
 				return fmt.Errorf("cortex cluster not yet installed")
 			}
 			_, err = alertingCondsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{})

@@ -21,7 +21,9 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type GatewayStreamApiExtensionPluginOptions struct {
@@ -155,8 +157,10 @@ func (e *gatewayStreamExtensionServerImpl) Connect(stream streamv1.Stream_Connec
 	e.logger.Debug("stream server started")
 
 	err = <-errC
-	if errors.Is(err, io.EOF) {
+	if errors.Is(err, io.EOF) || status.Code(err) == codes.OK {
 		e.logger.Debug("stream server exited")
+	} else if status.Code(err) == codes.Canceled {
+		e.logger.Debug("stream server closed")
 	} else {
 		e.logger.With(
 			zap.Error(err),
@@ -193,6 +197,8 @@ func (e *gatewayStreamExtensionServerImpl) ConnectInternal(stream apiextensions.
 	case err := <-errC:
 		if errors.Is(err, io.EOF) {
 			e.logger.Debug("stream disconnected")
+		} else if status.Code(err) == codes.Canceled {
+			e.logger.Debug("stream closed")
 		} else {
 			e.logger.With(
 				zap.Error(err),

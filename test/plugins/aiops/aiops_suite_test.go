@@ -25,6 +25,9 @@ var (
 )
 
 func TestAPIs(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
 	SetDefaultEventuallyTimeout(30 * time.Second)
 	SetDefaultEventuallyPollingInterval(100 * time.Millisecond)
 	RegisterFailHandler(Fail)

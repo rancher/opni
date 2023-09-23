@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -12,9 +11,10 @@ import (
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
-	"github.com/rancher/opni/pkg/test/mock/capability"
-	"github.com/rancher/opni/pkg/test/mock/storage"
+	mock_v1 "github.com/rancher/opni/pkg/test/mock/capability"
+	mock_storage "github.com/rancher/opni/pkg/test/mock/storage"
 	"github.com/rancher/opni/pkg/test/testlog"
+	"go.uber.org/mock/gomock"
 )
 
 var lg = testlog.Log

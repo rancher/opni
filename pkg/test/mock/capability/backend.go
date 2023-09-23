@@ -8,9 +8,9 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	v1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	v10 "github.com/rancher/opni/pkg/apis/core/v1"
+	gomock "go.uber.org/mock/gomock"
 	grpc "google.golang.org/grpc"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
@@ -514,132 +514,4 @@ func (m *MockUnsafeNodeServer) mustEmbedUnimplementedNodeServer() {
 func (mr *MockUnsafeNodeServerMockRecorder) mustEmbedUnimplementedNodeServer() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedNodeServer", reflect.TypeOf((*MockUnsafeNodeServer)(nil).mustEmbedUnimplementedNodeServer))
-}
-
-// MockNodeManagerClient is a mock of NodeManagerClient interface.
-type MockNodeManagerClient struct {
-	ctrl     *gomock.Controller
-	recorder *MockNodeManagerClientMockRecorder
-}
-
-// MockNodeManagerClientMockRecorder is the mock recorder for MockNodeManagerClient.
-type MockNodeManagerClientMockRecorder struct {
-	mock *MockNodeManagerClient
-}
-
-// NewMockNodeManagerClient creates a new mock instance.
-func NewMockNodeManagerClient(ctrl *gomock.Controller) *MockNodeManagerClient {
-	mock := &MockNodeManagerClient{ctrl: ctrl}
-	mock.recorder = &MockNodeManagerClientMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockNodeManagerClient) EXPECT() *MockNodeManagerClientMockRecorder {
-	return m.recorder
-}
-
-// RequestSync mocks base method.
-func (m *MockNodeManagerClient) RequestSync(ctx context.Context, in *v1.SyncRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{ctx, in}
-	for _, a := range opts {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "RequestSync", varargs...)
-	ret0, _ := ret[0].(*emptypb.Empty)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// RequestSync indicates an expected call of RequestSync.
-func (mr *MockNodeManagerClientMockRecorder) RequestSync(ctx, in interface{}, opts ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestSync", reflect.TypeOf((*MockNodeManagerClient)(nil).RequestSync), varargs...)
-}
-
-// MockNodeManagerServer is a mock of NodeManagerServer interface.
-type MockNodeManagerServer struct {
-	ctrl     *gomock.Controller
-	recorder *MockNodeManagerServerMockRecorder
-}
-
-// MockNodeManagerServerMockRecorder is the mock recorder for MockNodeManagerServer.
-type MockNodeManagerServerMockRecorder struct {
-	mock *MockNodeManagerServer
-}
-
-// NewMockNodeManagerServer creates a new mock instance.
-func NewMockNodeManagerServer(ctrl *gomock.Controller) *MockNodeManagerServer {
-	mock := &MockNodeManagerServer{ctrl: ctrl}
-	mock.recorder = &MockNodeManagerServerMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockNodeManagerServer) EXPECT() *MockNodeManagerServerMockRecorder {
-	return m.recorder
-}
-
-// RequestSync mocks base method.
-func (m *MockNodeManagerServer) RequestSync(arg0 context.Context, arg1 *v1.SyncRequest) (*emptypb.Empty, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RequestSync", arg0, arg1)
-	ret0, _ := ret[0].(*emptypb.Empty)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// RequestSync indicates an expected call of RequestSync.
-func (mr *MockNodeManagerServerMockRecorder) RequestSync(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestSync", reflect.TypeOf((*MockNodeManagerServer)(nil).RequestSync), arg0, arg1)
-}
-
-// mustEmbedUnimplementedNodeManagerServer mocks base method.
-func (m *MockNodeManagerServer) mustEmbedUnimplementedNodeManagerServer() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "mustEmbedUnimplementedNodeManagerServer")
-}
-
-// mustEmbedUnimplementedNodeManagerServer indicates an expected call of mustEmbedUnimplementedNodeManagerServer.
-func (mr *MockNodeManagerServerMockRecorder) mustEmbedUnimplementedNodeManagerServer() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedNodeManagerServer", reflect.TypeOf((*MockNodeManagerServer)(nil).mustEmbedUnimplementedNodeManagerServer))
-}
-
-// MockUnsafeNodeManagerServer is a mock of UnsafeNodeManagerServer interface.
-type MockUnsafeNodeManagerServer struct {
-	ctrl     *gomock.Controller
-	recorder *MockUnsafeNodeManagerServerMockRecorder
-}
-
-// MockUnsafeNodeManagerServerMockRecorder is the mock recorder for MockUnsafeNodeManagerServer.
-type MockUnsafeNodeManagerServerMockRecorder struct {
-	mock *MockUnsafeNodeManagerServer
-}
-
-// NewMockUnsafeNodeManagerServer creates a new mock instance.
-func NewMockUnsafeNodeManagerServer(ctrl *gomock.Controller) *MockUnsafeNodeManagerServer {
-	mock := &MockUnsafeNodeManagerServer{ctrl: ctrl}
-	mock.recorder = &MockUnsafeNodeManagerServerMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockUnsafeNodeManagerServer) EXPECT() *MockUnsafeNodeManagerServerMockRecorder {
-	return m.recorder
-}
-
-// mustEmbedUnimplementedNodeManagerServer mocks base method.
-func (m *MockUnsafeNodeManagerServer) mustEmbedUnimplementedNodeManagerServer() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "mustEmbedUnimplementedNodeManagerServer")
-}
-
-// mustEmbedUnimplementedNodeManagerServer indicates an expected call of mustEmbedUnimplementedNodeManagerServer.
-func (mr *MockUnsafeNodeManagerServerMockRecorder) mustEmbedUnimplementedNodeManagerServer() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedNodeManagerServer", reflect.TypeOf((*MockUnsafeNodeManagerServer)(nil).mustEmbedUnimplementedNodeManagerServer))
 }

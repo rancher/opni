@@ -3,19 +3,14 @@
 package commands
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
-	"os"
-	"os/exec"
-	"strings"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
-	cliutil "github.com/rancher/opni/pkg/opni/util"
+	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -31,7 +26,7 @@ func BuildMetricsConfigCmd() *cobra.Command {
 		Short: "View and configure the metrics capability",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			defaultConfig, err := nodeConfigClient.GetDefaultConfiguration(cmd.Context(), &emptypb.Empty{})
+			defaultConfig, err := nodeConfigClient.GetDefaultNodeConfiguration(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
 				return err
 			}
@@ -98,7 +93,7 @@ func BuildMetricsConfigSetCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				updated, err := editSpec(conf)
+				updated, err := cliutil.EditInteractive(conf)
 				if err != nil {
 					return err
 				}
@@ -213,11 +208,11 @@ func BuildMetricsConfigSetDefaultCmd() *cobra.Command {
 			} else {
 				// fetch the current spec, open it in an editor (json), and then
 				// parse the result
-				spec, err = nodeConfigClient.GetDefaultConfiguration(cmd.Context(), &emptypb.Empty{})
+				spec, err = nodeConfigClient.GetDefaultNodeConfiguration(cmd.Context(), &emptypb.Empty{})
 				if err != nil {
 					return err
 				}
-				updated, err := editSpec(spec)
+				updated, err := cliutil.EditInteractive(spec)
 				if err != nil {
 					return err
 				}
@@ -228,7 +223,7 @@ func BuildMetricsConfigSetDefaultCmd() *cobra.Command {
 				spec = updated
 			}
 
-			_, err = nodeConfigClient.SetDefaultConfiguration(cmd.Context(), spec)
+			_, err = nodeConfigClient.SetDefaultNodeConfiguration(cmd.Context(), spec)
 			if err != nil {
 				return err
 			}
@@ -245,7 +240,7 @@ func BuildMetricsConfigGetDefaultCmd() *cobra.Command {
 		Short: "Get the default metrics configuration",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			spec, err := nodeConfigClient.GetDefaultConfiguration(cmd.Context(), &emptypb.Empty{})
+			spec, err := nodeConfigClient.GetDefaultNodeConfiguration(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
 				return err
 			}
@@ -263,7 +258,7 @@ func BuildMetricsConfigResetDefaultCmd() *cobra.Command {
 		Short: "Reset the default metrics configuration",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, err := nodeConfigClient.SetDefaultConfiguration(cmd.Context(), &node.MetricsCapabilitySpec{})
+			_, err := nodeConfigClient.SetDefaultNodeConfiguration(cmd.Context(), &node.MetricsCapabilitySpec{})
 			if err != nil {
 				return err
 			}
@@ -280,117 +275,4 @@ func parseSpec(input string) (*node.MetricsCapabilitySpec, error) {
 		return nil, err
 	}
 	return spec, nil
-}
-
-var errAborted = errors.New("aborted by user")
-
-func editSpec(spec *node.MetricsCapabilitySpec, id ...string) (*node.MetricsCapabilitySpec, error) {
-	var err error
-	for {
-		var extraComments []string
-		if len(id) > 0 {
-			extraComments = []string{fmt.Sprintf("[id: %s]", id[0])}
-		}
-		if err != nil {
-			extraComments = []string{fmt.Sprintf("error: %v", err)}
-		}
-		var editedSpec *node.MetricsCapabilitySpec
-		editedSpec, err = tryEditSpec(spec, extraComments)
-		if err != nil {
-			if errors.Is(err, errAborted) {
-				return nil, err
-			}
-			continue
-		}
-		return editedSpec, nil
-	}
-}
-
-func tryEditSpec(spec *node.MetricsCapabilitySpec, extraComments []string) (*node.MetricsCapabilitySpec, error) {
-	jsonData, err := protojson.MarshalOptions{
-		Multiline:       true,
-		Indent:          "  ",
-		EmitUnpopulated: true,
-	}.Marshal(spec)
-	if err != nil {
-		return nil, err
-	}
-
-	for i, comment := range extraComments {
-		if !strings.HasPrefix(comment, "//") {
-			extraComments[i] = "// " + comment
-		}
-	}
-
-	// Add comments to the JSON
-	comments := append([]string{
-		"// Edit the metrics capability config below. Comments are ignored.",
-		"// If everything is deleted, the operation will be aborted.",
-	}, extraComments...)
-	specWithComments := strings.Join(append(comments, string(jsonData)), "\n")
-
-	// Create a temporary file for editing
-	tmpFile, err := os.CreateTemp("", "metrics-config-*.json")
-	if err != nil {
-		return nil, err
-	}
-	defer os.Remove(tmpFile.Name())
-
-	// Write the JSON with comments to the temporary file
-	if _, err := tmpFile.WriteString(specWithComments); err != nil {
-		return nil, err
-	}
-	if err := tmpFile.Close(); err != nil {
-		return nil, err
-	}
-
-	// Open the temporary file in the user's preferred editor
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		editor = "vim" // Default to 'vim' if no editor is set
-	}
-
-	args := []string{tmpFile.Name()}
-	if editor != "vi" {
-		// set jsonc syntax highlighting for editors other than vi
-		args = append(args, "+set ft=jsonc")
-	}
-
-	cmd := exec.Command(editor, args...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("editor command failed: %w", err)
-	}
-
-	// Read the edited JSON
-	editedBytes, err := os.ReadFile(tmpFile.Name())
-	if err != nil {
-		return nil, err
-	}
-
-	editedBytes = bytes.TrimSpace(editedBytes)
-
-	// Remove comments and empty lines
-	editedLines := strings.Split(string(editedBytes), "\n")
-	filteredLines := make([]string, 0, len(editedLines))
-	for _, line := range editedLines {
-		if !strings.HasPrefix(strings.TrimSpace(line), "//") {
-			filteredLines = append(filteredLines, line)
-		}
-	}
-
-	// If everything is deleted, abort the operation
-	if len(filteredLines) == 0 {
-		return nil, errAborted
-	}
-
-	// Unmarshal the edited JSON into a new spec
-	editedSpec := &node.MetricsCapabilitySpec{}
-	if err := protojson.Unmarshal([]byte(strings.Join(filteredLines, "\n")), editedSpec); err != nil {
-		return nil, err
-	}
-
-	return editedSpec, nil
 }

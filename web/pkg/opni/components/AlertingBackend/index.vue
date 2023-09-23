@@ -3,7 +3,6 @@ import {
   InstallState, getClusterConfiguration, configureCluster, getClusterStatus, installCluster, uninstallCluster
 } from '../../utils/requests/alerts';
 import { delay } from '../../utils/time';
-import { getAlertingCapabilities } from '../../utils/requests/capability';
 import Backend from '../Backend';
 import RadioGroup from '../Radio/RadioGroup';
 import CapabilityTable from '../CapabilityTable';
@@ -30,17 +29,16 @@ export default {
   data() {
     return {
       interval:      null,
-      loading:       false,
       statsInterval: null,
       modes:         [
         {
           label:   'Standalone',
-          value:   1,
+          value:   '1',
           tooltip: 'This will deploy a single AlertManager instance.'
         },
         {
           label:   'Highly Available',
-          value:   3,
+          value:   '3',
           tooltip: 'This will deploy multiple AlertManager instances in order to improve resiliency.'
         },
       ],
@@ -56,8 +54,12 @@ export default {
 
   methods: {
     async load() {
-      this.$set(this, 'config', await getClusterConfiguration());
-      this.$set(this.config, 'numReplicas', this.config.numReplicas || 1);
+      const config = await getClusterConfiguration();
+
+      this.$set(this, 'config', {
+        ...config,
+        numReplicas: `${ config.numReplicas || 1 }`
+      });
     },
 
     async disable() {
@@ -80,9 +82,13 @@ export default {
         await delay(3000);
       }
 
-      await configureCluster({
+      const newConfig = {
         ...config, ...this.config, resourceLimits: { ...this.config.resourceLimits, ...config.resourceLimits }
-      });
+      };
+
+      newConfig.numReplicas = Number.parseInt(newConfig.numReplicas);
+
+      await configureCluster(newConfig);
       this.load();
     },
     bannerMessage(status) {
@@ -134,9 +140,6 @@ export default {
         return null;
       }
     },
-    async loadCapabilities(parent) {
-      return await getAlertingCapabilities(parent);
-    },
   },
 };
 </script>
@@ -162,7 +165,7 @@ export default {
       </div>
     </template>
     <template #details>
-      <CapabilityTable :capability-provider="loadCapabilities" />
+      <CapabilityTable name="alerting" />
     </template>
   </Backend>
 </template>

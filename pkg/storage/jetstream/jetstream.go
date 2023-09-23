@@ -2,6 +2,7 @@ package jetstream
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -14,6 +15,9 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/runtime/protoiface"
 )
 
 const (
@@ -81,6 +85,10 @@ func NewJetStreamStore(ctx context.Context, conf *v1beta1.JetStreamStorageSpec, 
 		nats.MaxReconnects(-1),
 		nats.RetryOnFailedConnect(true),
 		nats.DisconnectErrHandler(func(c *nats.Conn, err error) {
+			if err == nil {
+				lg.Debug("jetstream client closed")
+				return
+			}
 			lg.With(
 				zap.Error(err),
 			).Warn("disconnected from jetstream")
@@ -189,6 +197,54 @@ func (s *JetStreamStore) KeyValueStore(prefix string) storage.KeyValueStore {
 	return &jetstreamKeyValueStore{
 		kv: bucket,
 	}
+}
+
+// here be dragons
+func jetstreamGrpcError(err error) error {
+	if err == nil {
+		return nil
+	}
+	code := codes.Unknown
+	details := []protoiface.MessageV1{}
+	switch err {
+	case nats.ErrKeyValueConfigRequired, nats.ErrInvalidBucketName, nats.ErrInvalidKey, nats.ErrBadBucket, nats.ErrHistoryToLarge:
+		code = codes.InvalidArgument
+	case nats.ErrBucketNotFound, nats.ErrKeyNotFound, nats.ErrKeyDeleted, nats.ErrNoKeysFound:
+		code = codes.NotFound
+	default:
+		var jserr nats.JetStreamError
+		if errors.As(err, &jserr) {
+			apierror := jserr.APIError()
+			switch apierror.ErrorCode {
+			case nats.JSErrCodeJetStreamNotEnabledForAccount, nats.JSErrCodeJetStreamNotEnabled:
+				code = codes.PermissionDenied
+			case nats.JSErrCodeInsufficientResourcesErr:
+				code = codes.ResourceExhausted
+			case nats.JSErrCodeStreamNotFound, nats.JSErrCodeConsumerNotFound, nats.JSErrCodeMessageNotFound:
+				code = codes.NotFound
+			case nats.JSErrCodeStreamNameInUse, nats.JSErrCodeConsumerNameExists, nats.JSErrCodeConsumerAlreadyExists:
+				code = codes.AlreadyExists
+			case nats.JSErrCodeBadRequest:
+				code = codes.InvalidArgument
+			case nats.JSErrCodeStreamWrongLastSequence:
+				if err.Error() == nats.ErrKeyExists.Error() {
+					// this error code is overloaded, only way to differentiate
+					// is by comparing the error message on the original wrapped error
+					code = codes.AlreadyExists
+				} else {
+					code = codes.Aborted
+					details = append(details, storage.ErrDetailsConflict)
+				}
+			}
+		}
+	}
+	se := status.New(code, err.Error())
+	if len(details) > 0 {
+		if errWithDetails, err := se.WithDetails(details...); err == nil {
+			se = errWithDetails
+		}
+	}
+	return se.Err()
 }
 
 func init() {

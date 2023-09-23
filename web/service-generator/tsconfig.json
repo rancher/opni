@@ -1,0 +1,30 @@
+{
+    "compilerOptions": {
+        "target": "es2017",
+        "module": "CommonJS",
+        "esModuleInterop": false,
+        // "importsNotUsedAsValues": "error",
+        "strict": true,
+        "noImplicitAny": true,
+        "strictNullChecks": true,
+        "strictFunctionTypes": true,
+        "strictBindCallApply": true,
+        "strictPropertyInitialization": true,
+        "noImplicitThis": true,
+        "useUnknownInCatchVariables": true,
+        "noUnusedLocals": true,
+        "noImplicitReturns": true,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitOverride": true,
+        "moduleResolution": "Node",
+        "skipLibCheck": false,
+        "resolveJsonModule": true,
+        "outDir": "./dist"
+    },
+    "include": [
+        "./src/index.ts"
+    ],
+    "exclude": [
+        "./node_modules/**/*"
+    ]
+}

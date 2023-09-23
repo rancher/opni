@@ -22,7 +22,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/metrics/compat"
-	cliutil "github.com/rancher/opni/pkg/opni/util"
+	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -374,7 +374,8 @@ func BuildCortexStatusCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			status, err := adminClient.GetCortexStatus(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
-				return err
+				fmt.Println(err)
+				// continue, status may contain partial information
 			}
 			switch outputFormat {
 			case "json":
@@ -384,7 +385,7 @@ func BuildCortexStatusCmd() *cobra.Command {
 			default:
 				return fmt.Errorf("unknown output format: %s", outputFormat)
 			}
-			return nil
+			return err
 		},
 	}
 	cmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table|json)")

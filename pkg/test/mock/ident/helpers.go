@@ -1,8 +1,8 @@
 package mock_ident
 
 import (
-	"github.com/golang/mock/gomock"
 	"github.com/rancher/opni/pkg/ident"
+	"go.uber.org/mock/gomock"
 )
 
 func NewTestIdentProvider(ctrl *gomock.Controller, id string) ident.Provider {

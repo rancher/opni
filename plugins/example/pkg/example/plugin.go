@@ -23,8 +23,10 @@ import (
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
+	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/storage/kvutil"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
@@ -48,6 +50,8 @@ type ExamplePlugin struct {
 
 	storageBackend      future.Future[storage.Backend]
 	uninstallController future.Future[*task.Controller]
+
+	configServerBackend ConfigServerBackend
 }
 
 var _ ExampleAPIExtensionServer = (*ExamplePlugin)(nil)
@@ -116,6 +120,14 @@ func (s *ExamplePlugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		return
 	}
 	s.uninstallController.Set(ctrl)
+
+	builder, _ := drivers.Get("example")
+	driver, _ := builder(s.ctx,
+		driverutil.NewOption("defaultConfigStore", kvutil.WithKey(system.NewKVStoreClient[*ConfigSpec](client), "/config/default")),
+		driverutil.NewOption("activeConfigStore", kvutil.WithKey(system.NewKVStoreClient[*ConfigSpec](client), "/config/active")),
+	)
+	s.configServerBackend.Initialize(driver)
+
 	<-s.ctx.Done()
 }
 
@@ -220,8 +232,10 @@ func Scheme(ctx context.Context) meta.Scheme {
 	future.Wait2(p.storageBackend, p.uninstallController, func(_ storage.Backend, _ *task.Controller) {
 		p.Initialize()
 	})
-	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(util.PackService(&ExampleAPIExtension_ServiceDesc, p)))
+	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(
+		util.PackService(&ExampleAPIExtension_ServiceDesc, p),
+		util.PackService(&Config_ServiceDesc, &p.configServerBackend),
+	))
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(p))
 	return scheme

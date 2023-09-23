@@ -26,7 +26,7 @@ var _ = Describe("In-Cluster Bootstrap", Ordered, Label("integration"), func() {
 		managementEndpoint = strings.TrimPrefix(conf.Spec.Management.GRPCListenAddress, "tcp://")
 
 		managementClient = env.NewManagementClient()
-		DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop, "Test Suite Finished")
 	})
 	It("should bootstrap using the management endpoint", func() {
 		bootstrapper := &bootstrap.InClusterBootstrapper{

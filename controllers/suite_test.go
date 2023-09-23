@@ -90,9 +90,9 @@ const (
 func TestAPIs(t *testing.T) {
 	SetDefaultEventuallyTimeout(30 * time.Second)
 	// SetDefaultEventuallyTimeout(24 * time.Hour) // For debugging
-	SetDefaultEventuallyPollingInterval(100 * time.Millisecond)
-	SetDefaultConsistentlyDuration(2 * time.Second)
-	SetDefaultConsistentlyPollingInterval(100 * time.Millisecond)
+	SetDefaultEventuallyPollingInterval(50 * time.Millisecond)
+	SetDefaultConsistentlyDuration(1 * time.Second)
+	SetDefaultConsistentlyPollingInterval(50 * time.Millisecond)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Controller Suite")
 }
@@ -129,6 +129,9 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	stopEnv, k8sManager, k8sClient = RunTestEnvironment(testEnv, true, false,
 		&controllers.CoreGatewayReconciler{},
 		&controllers.CoreMonitoringReconciler{},
+		&controllers.GrafanaReconciler{},
+		&controllers.GrafanaDashboardReconciler{},
+		&controllers.GrafanaDatasourceReconciler{},
 		&controllers.LoggingDataPrepperReconciler{},
 		&controllers.CoreAlertingReconciler{},
 		&controllers.AIOpniClusterReconciler{

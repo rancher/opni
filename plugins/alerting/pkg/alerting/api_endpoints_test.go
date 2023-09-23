@@ -22,7 +22,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	BeforeAll(func() {
 		env = &test.Environment{}
 		Expect(env.Start()).To(Succeed())
-		DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop, "Test Suite Finished")
 		endpointClient = alertingv1.NewAlertEndpointsClient(env.ManagementClientConn())
 		Expect(endpointClient).NotTo(BeNil())
 

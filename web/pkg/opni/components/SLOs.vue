@@ -1,9 +1,10 @@
 <script>
+import { mapGetters } from 'vuex';
 import SortableTable from '@shell/components/SortableTable';
 import Loading from '@shell/components/Loading';
+import GlobalEventBus from '@pkg/opni/utils/GlobalEventBus';
 import { InstallState, getClusterStatus } from '../utils/requests/alerts';
 import { getSLOs } from '../utils/requests/slo';
-import { getClusters } from '../utils/requests/management';
 import CloneToClustersDialog from './dialogs/CloneToClustersDialog';
 
 export default {
@@ -19,9 +20,7 @@ export default {
     return {
       loading:             false,
       statsInterval:       null,
-      clusters:            [],
       slos:                [],
-      hasOneMonitoring:  false,
       isAlertingEnabled: false,
       headers:             [
         {
@@ -53,13 +52,13 @@ export default {
   },
 
   created() {
-    this.$on('remove', this.onRemove);
+    GlobalEventBus.$on('remove', this.onRemove);
     this.$on('clone', this.onClone);
     this.statsInterval = setInterval(this.updateStatuses, 10000);
   },
 
   beforeDestroy() {
-    this.$off('remove');
+    GlobalEventBus.$off('remove');
     this.$off('clone');
     if (this.statsInterval) {
       clearInterval(this.statsInterval);
@@ -87,19 +86,7 @@ export default {
           return;
         }
 
-        const clusters = await getClusters(this);
-
-        this.$set(this, 'clusters', clusters);
-        const hasOneMonitoring = clusters.some(c => c.isCapabilityInstalled('metrics'));
-
-        this.$set(this, 'hasOneMonitoring', hasOneMonitoring);
-
-        if (!hasOneMonitoring) {
-          return;
-        }
-
-        this.$set(this, 'slos', await getSLOs(this, clusters));
-        await this.updateStatuses();
+        this.$set(this, 'slos', await getSLOs(this));
       } finally {
         this.loading = false;
       }
@@ -110,6 +97,14 @@ export default {
       await Promise.all(promises);
     }
   },
+
+  computed: {
+    ...mapGetters({ clusters: 'opni/clusters' }),
+
+    hasOneMonitoring() {
+      return this.clusters.some(c => c.isCapabilityInstalled('metrics'));
+    }
+  }
 };
 </script>
 <template>

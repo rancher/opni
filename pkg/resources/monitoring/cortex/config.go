@@ -1,197 +1,50 @@
 package cortex
 
 import (
-	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
-	"math"
-	"net/url"
-	"reflect"
-	"time"
+	"slices"
 
-	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/metrics"
-	"github.com/weaveworks/common/logging"
-	"github.com/weaveworks/common/server"
-
-	"github.com/cortexproject/cortex/pkg/alertmanager"
-	"github.com/cortexproject/cortex/pkg/alertmanager/alertstore"
-	"github.com/cortexproject/cortex/pkg/api"
-	"github.com/cortexproject/cortex/pkg/chunk/cache"
-	"github.com/cortexproject/cortex/pkg/compactor"
-	"github.com/cortexproject/cortex/pkg/cortex"
-	"github.com/cortexproject/cortex/pkg/cortex/storage"
-	"github.com/cortexproject/cortex/pkg/distributor"
-	"github.com/cortexproject/cortex/pkg/frontend"
-	v2 "github.com/cortexproject/cortex/pkg/frontend/v2"
-	"github.com/cortexproject/cortex/pkg/ingester"
-	"github.com/cortexproject/cortex/pkg/ingester/client"
-	"github.com/cortexproject/cortex/pkg/querier"
-	"github.com/cortexproject/cortex/pkg/querier/tenantfederation"
-	"github.com/cortexproject/cortex/pkg/querier/tripperware/queryrange"
-	"github.com/cortexproject/cortex/pkg/querier/worker"
-	"github.com/cortexproject/cortex/pkg/ring"
-	"github.com/cortexproject/cortex/pkg/ring/kv"
-	"github.com/cortexproject/cortex/pkg/ring/kv/memberlist"
-	"github.com/cortexproject/cortex/pkg/ruler"
-	"github.com/cortexproject/cortex/pkg/ruler/rulestore"
-	"github.com/cortexproject/cortex/pkg/storage/bucket"
-	"github.com/cortexproject/cortex/pkg/storage/bucket/azure"
 	"github.com/cortexproject/cortex/pkg/storage/bucket/filesystem"
-	"github.com/cortexproject/cortex/pkg/storage/bucket/gcs"
-	bucket_http "github.com/cortexproject/cortex/pkg/storage/bucket/http"
-	"github.com/cortexproject/cortex/pkg/storage/bucket/s3"
-	"github.com/cortexproject/cortex/pkg/storage/bucket/swift"
-	"github.com/cortexproject/cortex/pkg/storage/tsdb"
-	"github.com/cortexproject/cortex/pkg/storegateway"
-	"github.com/cortexproject/cortex/pkg/util/flagext"
-	"github.com/cortexproject/cortex/pkg/util/grpcclient"
-	"github.com/cortexproject/cortex/pkg/util/runtimeconfig"
-	"github.com/cortexproject/cortex/pkg/util/tls"
-	"github.com/cortexproject/cortex/pkg/util/validation"
-	kyamlv3 "github.com/kralicky/yaml/v3"
-	"github.com/prometheus/common/model"
-	"github.com/prometheus/prometheus/model/relabel"
-	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
-	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
-	"github.com/rancher/opni/pkg/resources"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/go-kit/log"
+	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
+	"github.com/rancher/opni/plugins/metrics/pkg/cortex/configutil"
 	"github.com/samber/lo"
+	"github.com/weaveworks/common/server"
+	"go.uber.org/zap"
+
+	"github.com/cortexproject/cortex/pkg/util/tls"
+	"github.com/rancher/opni/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func bucketHttpConfig(spec *storagev1.HTTPConfig) bucket_http.Config {
-	return bucket_http.Config{
-		IdleConnTimeout:       spec.GetIdleConnTimeout().AsDuration(),
-		ResponseHeaderTimeout: spec.GetResponseHeaderTimeout().AsDuration(),
-		InsecureSkipVerify:    spec.GetInsecureSkipVerify(),
-		TLSHandshakeTimeout:   spec.GetTlsHandshakeTimeout().AsDuration(),
-		ExpectContinueTimeout: spec.GetExpectContinueTimeout().AsDuration(),
-		MaxIdleConns:          int(spec.GetMaxIdleConns()),
-		MaxIdleConnsPerHost:   int(spec.GetMaxIdleConnsPerHost()),
-		MaxConnsPerHost:       int(spec.GetMaxConnsPerHost()),
-	}
-}
-
-func valueOrDefault[T any](t *T) (_ T) {
-	if t == nil {
-		return
-	}
-	return *t
-}
-
-type overrideMarshaler[T kyamlv3.Marshaler] struct {
-	fn func(T) (interface{}, error)
-}
-
-func (m *overrideMarshaler[T]) MarshalYAML(v interface{}) (interface{}, error) {
-	return m.fn(v.(T))
-}
-
-func newOverrideMarshaler[T kyamlv3.Marshaler](fn func(T) (interface{}, error)) *overrideMarshaler[T] {
-	return &overrideMarshaler[T]{
-		fn: fn,
-	}
-}
-
-func (r *Reconciler) config() (resources.Resource, error) {
-	if !r.mc.Spec.Cortex.Enabled {
-		return resources.Absent(&corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "cortex",
-				Namespace: r.mc.Namespace,
-				Labels:    cortexAppLabel,
-			},
-		}), nil
+func (r *Reconciler) config() ([]resources.Resource, string, error) {
+	if r.mc.Spec.Cortex.Enabled == nil || !*r.mc.Spec.Cortex.Enabled {
+		return []resources.Resource{
+			resources.Absent(&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cortex",
+					Namespace: r.mc.Namespace,
+					Labels:    cortexAppLabel,
+				},
+			}),
+			resources.Absent(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cortex-runtime-config",
+					Namespace: r.mc.Namespace,
+					Labels:    cortexAppLabel,
+				},
+			}),
+		}, "", nil
 	}
 
-	if r.mc.Spec.Cortex.Storage == nil {
-		r.logger.Warn("No cortex storage configured; using volatile EmptyDir storage. It is recommended to configure a storage backend.")
-		r.mc.Spec.Cortex.Storage = &storagev1.StorageSpec{
-			Backend: storagev1.Filesystem,
-			Filesystem: &storagev1.FilesystemStorageSpec{
-				Directory: "/data",
-			},
-		}
+	if r.mc.Spec.Cortex.CortexConfig == nil {
+		r.mc.Spec.Cortex.CortexConfig = &cortexops.CortexApplicationConfig{}
 	}
-
-	s3Spec := valueOrDefault(r.mc.Spec.Cortex.Storage.GetS3())
-	gcsSpec := valueOrDefault(r.mc.Spec.Cortex.Storage.GetGcs())
-	azureSpec := valueOrDefault(r.mc.Spec.Cortex.Storage.GetAzure())
-	swiftSpec := valueOrDefault(r.mc.Spec.Cortex.Storage.GetSwift())
-
-	storageConfig := bucket.Config{
-		Backend: r.mc.Spec.Cortex.Storage.GetBackend().String(),
-		S3: s3.Config{
-			Endpoint:   s3Spec.GetEndpoint(),
-			Region:     s3Spec.GetRegion(),
-			BucketName: s3Spec.GetBucketName(),
-			SecretAccessKey: flagext.Secret{
-				Value: s3Spec.GetSecretAccessKey(),
-			},
-			AccessKeyID:      s3Spec.GetAccessKeyID(),
-			Insecure:         s3Spec.GetInsecure(),
-			SignatureVersion: s3Spec.GetSignatureVersion(),
-			SSE: s3.SSEConfig{
-				Type:                 s3Spec.GetSse().GetType(),
-				KMSKeyID:             s3Spec.GetSse().GetKmsKeyID(),
-				KMSEncryptionContext: s3Spec.GetSse().GetKmsEncryptionContext(),
-			},
-			HTTP: s3.HTTPConfig{
-				Config: bucketHttpConfig(s3Spec.GetHttp()),
-			},
-		},
-		GCS: gcs.Config{
-			BucketName: gcsSpec.GetBucketName(),
-			ServiceAccount: flagext.Secret{
-				Value: gcsSpec.GetServiceAccount(),
-			},
-		},
-		Azure: azure.Config{
-			StorageAccountName: azureSpec.GetStorageAccountName(),
-			StorageAccountKey: flagext.Secret{
-				Value: azureSpec.GetStorageAccountKey(),
-			},
-			ContainerName: azureSpec.GetContainerName(),
-			Endpoint:      azureSpec.GetEndpoint(),
-			MaxRetries:    int(azureSpec.GetMaxRetries()),
-			Config:        bucketHttpConfig(azureSpec.GetHttp()),
-		},
-		Swift: swift.Config{
-			AuthVersion:       int(swiftSpec.GetAuthVersion()),
-			AuthURL:           swiftSpec.GetAuthURL(),
-			Username:          swiftSpec.GetUsername(),
-			UserDomainName:    swiftSpec.GetUserDomainName(),
-			UserDomainID:      swiftSpec.GetUserDomainID(),
-			UserID:            swiftSpec.GetUserID(),
-			Password:          swiftSpec.GetPassword(),
-			DomainID:          swiftSpec.GetDomainID(),
-			DomainName:        swiftSpec.GetDomainName(),
-			ProjectID:         swiftSpec.GetProjectID(),
-			ProjectName:       swiftSpec.GetProjectName(),
-			ProjectDomainID:   swiftSpec.GetProjectDomainID(),
-			ProjectDomainName: swiftSpec.GetProjectDomainName(),
-			RegionName:        swiftSpec.GetRegionName(),
-			ContainerName:     swiftSpec.GetContainerName(),
-			MaxRetries:        int(swiftSpec.GetMaxRetries()),
-			ConnectTimeout:    swiftSpec.GetConnectTimeout().AsDuration(),
-			RequestTimeout:    swiftSpec.GetRequestTimeout().AsDuration(),
-		},
-		Filesystem: filesystem.Config{
-			Directory: "/data/bucket",
-		},
-	}
-	logLevel := logging.Level{}
-	level := r.mc.Spec.Cortex.LogLevel
-	if level == "" {
-		level = "info"
-	}
-	if err := logLevel.Set(level); err != nil {
-		return nil, err
-	}
-	logFmt := logging.Format{}
-	logFmt.Set("json")
 
 	tlsCortexClientConfig := tls.ClientConfig{
 		CAPath:     "/run/cortex/certs/client/ca.crt",
@@ -209,250 +62,93 @@ func (r *Reconciler) config() (resources.Resource, error) {
 	tlsServerConfig := server.TLSConfig{
 		TLSCertPath: "/run/cortex/certs/server/tls.crt",
 		TLSKeyPath:  "/run/cortex/certs/server/tls.key",
-		ClientAuth:  "RequireAndVerifyClientCert",
 		ClientCAs:   "/run/cortex/certs/client/ca.crt",
+		ClientAuth:  "RequireAndVerifyClientCert",
 	}
 
-	isHA := r.mc.Spec.Cortex.DeploymentMode == corev1beta1.DeploymentModeHighlyAvailable
-
-	kvConfig := kv.Config{
-		Store: lo.Ternary(isHA, "memberlist", "inmemory"),
+	targetList := []string{}
+	for target := range r.mc.Spec.Cortex.CortexWorkloads.GetTargets() {
+		targetList = append(targetList, target)
 	}
-
-	var retentionPeriod time.Duration
-	if d := r.mc.Spec.Cortex.Storage.GetRetentionPeriod(); d != nil {
-		duration := d.AsDuration()
-		if duration > 0 && duration < 2*time.Hour {
-			r.logger.Warn("Storage retention period is below the minimum required (2 hours); using default retention period (unlimited)")
-		} else {
-			retentionPeriod = duration
-		}
-	}
-
-	config := cortex.Config{
-		AuthEnabled: true,
-		TenantFederation: tenantfederation.Config{
-			Enabled: true,
+	slices.Sort(targetList)
+	overriders := configutil.MergeOverrideLists(
+		[]configutil.CortexConfigOverrider{
+			configutil.NewOverrider(func(t *filesystem.Config) bool {
+				t.Directory = "/data"
+				return true
+			}),
 		},
-		API: api.Config{
-			PrometheusHTTPPrefix: "/prometheus",
-			ResponseCompression:  true,
-		},
-		Server: server.Config{
-			HTTPListenPort:                 8080,
-			GRPCListenPort:                 9095,
-			GPRCServerMaxConcurrentStreams: 10000,
-			GRPCServerMaxSendMsgSize:       100 << 20,
-			GPRCServerMaxRecvMsgSize:       100 << 20, // typo in upstream
-			GRPCTLSConfig:                  tlsServerConfig,
-			HTTPTLSConfig:                  tlsServerConfig,
-			LogLevel:                       logLevel,
-			LogFormat:                      logFmt,
-		},
-		Storage: storage.Config{
-			Engine: "blocks",
-		},
-		BlocksStorage: tsdb.BlocksStorageConfig{
-			TSDB: tsdb.TSDBConfig{
-				Dir:                   "/data/tsdb",
-				FlushBlocksOnShutdown: true,
-			},
-			Bucket: storageConfig,
-			BucketStore: tsdb.BucketStoreConfig{
-				BucketIndex: tsdb.BucketIndexConfig{
-					Enabled: true,
-				},
-				SyncDir:      "/data/tsdb-sync",
-				SyncInterval: 5 * time.Minute,
-				IndexCache: tsdb.IndexCacheConfig{
-					Backend: "inmemory",
-				},
-			},
-		},
-		RulerStorage: rulestore.Config{
-			Config: storageConfig,
-		},
-		RuntimeConfig: runtimeconfig.Config{
-			LoadPath: "/etc/cortex-runtime-config/runtime_config.yaml",
-		},
-		MemberlistKV: memberlist.KVConfig{
-			JoinMembers: lo.Ternary(isHA, flagext.StringSlice{"cortex-memberlist"}, nil),
-		},
-
-		Alertmanager: alertmanager.MultitenantAlertmanagerConfig{
-			DataDir: "/data/alertmanager",
-			AlertmanagerClient: alertmanager.ClientConfig{
-				TLSEnabled: true,
-				TLS:        tlsCortexClientConfig,
-			},
-			EnableAPI: true,
-			ExternalURL: flagext.URLValue{
-				URL: util.Must(url.Parse("/api/prom/alertmanager")),
-			},
-			FallbackConfigFile: "/etc/alertmanager/fallback.yaml",
-			ShardingEnabled:    isHA,
-			ShardingRing: alertmanager.RingConfig{
-				KVStore:           kvConfig,
-				ReplicationFactor: lo.Ternary(isHA, 3, 1),
-			},
-		},
-		AlertmanagerStorage: alertstore.Config{
-			Config: storageConfig,
-		},
-
-		Compactor: compactor.Config{
-			ShardingEnabled: isHA,
-			ShardingRing: compactor.RingConfig{
-				KVStore: kvConfig,
-			},
-			CleanupInterval: 5 * time.Minute,
-			DataDir:         "/data/compactor",
-		},
-		Distributor: distributor.Config{
-			PoolConfig: distributor.PoolConfig{
-				HealthCheckIngesters: true,
-			},
-			DistributorRing: distributor.RingConfig{
-				KVStore: kvConfig,
-			},
-			ShardByAllLabels: true,
-		},
-		Frontend: frontend.CombinedFrontendConfig{
-			FrontendV2: v2.Config{
-				GRPCClientConfig: grpcclient.Config{
-					TLSEnabled: true,
-					TLS:        tlsCortexClientConfig,
-				},
-			},
-		},
-		Worker: worker.Config{
-			FrontendAddress: fmt.Sprintf("cortex-query-frontend-headless.%s.svc.cluster.local:9095", r.mc.Namespace),
-			GRPCClientConfig: grpcclient.Config{
-				TLSEnabled: true,
-				TLS:        tlsCortexClientConfig,
-			},
-		},
-		Ingester: ingester.Config{
-			LifecyclerConfig: ring.LifecyclerConfig{
-				JoinAfter:     10 * time.Second,
-				NumTokens:     512,
-				ObservePeriod: 10 * time.Second,
-				RingConfig: ring.Config{
-					KVStore:           kvConfig,
-					ReplicationFactor: lo.Ternary(isHA, 3, 1),
-				},
-			},
-		},
-		IngesterClient: client.Config{
-			GRPCClientConfig: grpcclient.Config{
-				MaxSendMsgSize: 100 << 20,
-				TLSEnabled:     true,
-				TLS:            tlsCortexClientConfig,
-			},
-		},
-		Querier: querier.Config{
-			ActiveQueryTrackerDir: "/data/active-query-tracker",
-			StoreGatewayClient: querier.ClientConfig{
-				TLSEnabled: true,
-				TLS:        tlsCortexClientConfig,
-			},
-			AtModifierEnabled:   true,
-			QueryStoreForLabels: true,
-		},
-		QueryRange: queryrange.Config{
-			SplitQueriesByInterval: 24 * time.Hour,
-			AlignQueriesWithStep:   true,
-			CacheResults:           true,
-			ResultsCacheConfig: queryrange.ResultsCacheConfig{
-				CacheConfig: cache.Config{
-					EnableFifoCache: true,
-					Fifocache: cache.FifoCacheConfig{
-						Validity: 1 * time.Hour,
-					},
-				},
-			},
-		},
-		Ruler: ruler.Config{
-			AlertmanagerURL:          fmt.Sprintf("https://opni-internal.%s.svc:8080/plugin_alerting/alertmanager", r.mc.Namespace),
-			AlertmanangerEnableV2API: true,
-			EnableAPI:                true,
-			Notifier: ruler.NotifierConfig{
-				TLS: tlsGatewayClientConfig,
-			},
-			Ring: ruler.RingConfig{
-				KVStore: kvConfig,
-			},
-			ClientTLSConfig: grpcclient.Config{
-				TLSEnabled: true,
-				TLS:        tlsCortexClientConfig,
-			},
-			EnableSharding: isHA,
-		},
-		StoreGateway: storegateway.Config{
-			ShardingEnabled: isHA,
-			ShardingRing: storegateway.RingConfig{
-				KVStore:           kvConfig,
-				ReplicationFactor: lo.Ternary(isHA, 3, 1),
-			},
-		},
-		LimitsConfig: validation.Limits{
-			CompactorBlocksRetentionPeriod:     model.Duration(retentionPeriod),
-			IngestionRateStrategy:              "local",
-			IngestionRate:                      600000,
-			IngestionBurstSize:                 1000000,
-			MaxLocalSeriesPerUser:              math.MaxInt32,
-			MaxLocalSeriesPerMetric:            math.MaxInt32,
-			MaxLocalMetricsWithMetadataPerUser: math.MaxInt32,
-			MaxLocalMetadataPerMetric:          math.MaxInt32,
-			MaxGlobalSeriesPerUser:             math.MaxInt32,
-			MaxGlobalSeriesPerMetric:           math.MaxInt32,
-			MetricRelabelConfigs: []*relabel.Config{
-				metrics.OpniInternalLabelFilter(),
-			},
-		},
-	}
-
-	buf := new(bytes.Buffer)
-	encoder := kyamlv3.NewEncoder(buf)
-	encoder.SetAlwaysOmitEmpty(true)
-	encoder.OverrideMarshalerForType(reflect.TypeOf(flagext.Secret{}),
-		newOverrideMarshaler(func(s flagext.Secret) (any, error) {
-			return s.Value, nil
+		configutil.NewTargetsOverride(targetList...),
+		configutil.NewHostOverrides(configutil.StandardOverridesShape{
+			HttpListenAddress:      "0.0.0.0",
+			HttpListenPort:         8080,
+			GrpcListenAddress:      "0.0.0.0",
+			GrpcListenPort:         9095,
+			StorageDir:             "/data",
+			RuntimeConfig:          "/etc/cortex-runtime-config/runtime_config.yaml",
+			TLSServerConfig:        configutil.TLSServerConfigShape(tlsServerConfig),
+			TLSGatewayClientConfig: configutil.TLSClientConfigShape(tlsGatewayClientConfig),
+			TLSCortexClientConfig:  configutil.TLSClientConfigShape(tlsCortexClientConfig),
+		}),
+		configutil.NewImplementationSpecificOverrides(configutil.ImplementationSpecificOverridesShape{
+			QueryFrontendAddress: "cortex-query-frontend-headless:9095",
+			MemberlistJoinAddrs:  []string{"cortex-memberlist"},
+			AlertmanagerURL:      fmt.Sprintf("https://opni-internal.%s.svc:8080/plugin_alerting/alertmanager", r.mc.Namespace),
 		}),
 	)
-	err := encoder.Encode(config)
-	if err != nil {
-		return nil, err
-	}
 
-	secret := &corev1.Secret{
+	conf, rtConf, err := configutil.CortexAPISpecToCortexConfig(r.mc.Spec.Cortex.CortexConfig, overriders...)
+	if err != nil {
+		return nil, "", err
+	}
+	if err := conf.Validate(log.NewNopLogger()); err != nil {
+		r.logger.With(
+			zap.Error(err),
+		).Warn("Cortex config failed validation (ignoring)")
+	}
+	confBytes, err := configutil.MarshalCortexConfig(conf)
+	if err != nil {
+		r.logger.With(
+			zap.Error(err),
+		).Error("Failed to marshal cortex config (cannot continue)")
+		return nil, "", err
+	}
+	rtConfBytes, err := configutil.MarshalRuntimeConfig(rtConf)
+	if err != nil {
+		r.logger.With(
+			zap.Error(err),
+		).Error("Failed to marshal cortex runtime config (cannot continue)")
+		return nil, "", err
+	}
+	configSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex",
 			Namespace: r.mc.Namespace,
 			Labels:    cortexAppLabel,
 		},
 		Data: map[string][]byte{
-			"cortex.yaml": buf.Bytes(),
+			"cortex.yaml": confBytes,
 		},
 	}
-
-	ctrl.SetControllerReference(r.mc, secret, r.client.Scheme())
-	return resources.Present(secret), nil
-}
-
-func (r *Reconciler) runtimeConfig() resources.Resource {
-	cm := &corev1.ConfigMap{
+	runtimeConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex-runtime-config",
 			Namespace: r.mc.Namespace,
 			Labels:    cortexAppLabel,
 		},
 		Data: map[string]string{
-			"runtime_config.yaml": "{}",
+			"runtime_config.yaml": string(rtConfBytes),
 		},
 	}
-	ctrl.SetControllerReference(r.mc, cm, r.client.Scheme())
-	return resources.CreatedIff(r.mc.Spec.Cortex.Enabled, cm)
+
+	configDigestBytes := sha256.Sum256(confBytes)
+	configDigest := hex.EncodeToString(configDigestBytes[:])
+	ctrl.SetControllerReference(r.mc, configSecret, r.client.Scheme())
+	ctrl.SetControllerReference(r.mc, runtimeConfigMap, r.client.Scheme())
+	return []resources.Resource{
+		resources.Present(configSecret),
+		resources.Present(runtimeConfigMap),
+	}, configDigest, nil
 }
 
 func (r *Reconciler) alertmanagerFallbackConfig() resources.Resource {
@@ -481,5 +177,5 @@ mute_time_intervals: []`
 		},
 	}
 	ctrl.SetControllerReference(r.mc, cm, r.client.Scheme())
-	return resources.PresentIff(r.mc.Spec.Cortex.Enabled, cm)
+	return resources.PresentIff(lo.FromPtr(r.mc.Spec.Cortex.Enabled), cm)
 }

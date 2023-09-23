@@ -36,6 +36,9 @@ func init() {
 }
 
 func TestAlerting(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Alerting Suite")
 }
@@ -48,7 +51,7 @@ var _ = BeforeSuite(func() {
 		env = &test.Environment{}
 		Expect(env).NotTo(BeNil())
 		Expect(env.Start()).To(Succeed())
-		DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop, "Test Suite Finished")
 		tmpConfigDir = env.GenerateNewTempDirectory("alertmanager-config")
 		Expect(tmpConfigDir).NotTo(Equal(""))
 	})

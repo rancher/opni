@@ -2,23 +2,16 @@ package monitoring
 
 import (
 	"github.com/rancher/opni/pkg/resources"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (r *Reconciler) updateImageStatus() (bool, error) {
 	lg := r.logger
-	var image string
-	var pullPolicy corev1.PullPolicy
-	if imgOverride := r.mc.Spec.Cortex.Image.GetImageWithDefault(""); imgOverride != "" {
-		image = imgOverride
-	} else {
-		var err error
-		image, pullPolicy, err = resources.FindManagerImage(r.ctx, r.client)
-		if err != nil {
-			return false, err
-		}
+
+	image, pullPolicy, err := resources.FindManagerImage(r.ctx, r.client)
+	if err != nil {
+		return false, err
 	}
 
 	if r.mc.Status.Image != image {

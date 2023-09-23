@@ -37,7 +37,7 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc 
 	}
 
 	if idExists {
-		entry, err := m.systemKV.Get().Get(ctx, &system.Key{
+		entry, err := m.systemKV.Get().Get(ctx, &system.GetRequest{
 			Key: fmt.Sprintf("%s%s", opensearchPrefix, id),
 		})
 		if err != nil {
@@ -50,7 +50,7 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc 
 
 	query, _ := sjson.Set("", `query.term.cluster_id`, id)
 	if createNewJob {
-		_, err := m.systemKV.Get().Put(ctx, &system.KeyValue{
+		_, err := m.systemKV.Get().Put(ctx, &system.PutRequest{
 			Key:   fmt.Sprintf("%s%s", opensearchPrefix, id),
 			Value: []byte(pendingValue),
 		})
@@ -72,7 +72,7 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc 
 		respString := util.ReadString(resp.Body)
 		taskID := gjson.Get(respString, "task").String()
 		m.logger.Debugf("opensearch taskID is :%s", taskID)
-		_, err = m.systemKV.Get().Put(ctx, &system.KeyValue{
+		_, err = m.systemKV.Get().Put(ctx, &system.PutRequest{
 			Key:   fmt.Sprintf("%s%s", opensearchPrefix, id),
 			Value: []byte(taskID),
 		})
@@ -108,7 +108,7 @@ func (m *Manager) DeleteTaskStatus(ctx context.Context, id string, readyFunc ...
 		return DeleteFinishedWithErrors, nil
 	}
 
-	value, err := m.systemKV.Get().Get(ctx, &system.Key{
+	value, err := m.systemKV.Get().Get(ctx, &system.GetRequest{
 		Key: fmt.Sprintf("%s%s", opensearchPrefix, id),
 	})
 	if err != nil {
@@ -147,7 +147,7 @@ func (m *Manager) DeleteTaskStatus(ctx context.Context, id string, readyFunc ...
 		status = DeleteFinished
 	}
 
-	_, err = m.systemKV.Get().Delete(ctx, &system.Key{
+	_, err = m.systemKV.Get().Delete(ctx, &system.DeleteRequest{
 		Key: fmt.Sprintf("%s%s", opensearchPrefix, id),
 	})
 	if err != nil {

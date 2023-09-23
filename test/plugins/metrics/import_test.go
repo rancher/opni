@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -16,6 +15,7 @@ import (
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringclient "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -44,7 +44,7 @@ func (h blockingHttpHandler) ServeHTTP(w http.ResponseWriter, request *http.Requ
 		// select {} will block forever without using CPU.
 		select {}
 	case "/large":
-		uncompressed, err := proto.Marshal(&prompb.ReadResponse{
+		uncompressed, err := (&prompb.ReadResponse{
 			Results: []*prompb.QueryResult{
 				{
 					Timeseries: []*prompb.TimeSeries{
@@ -64,7 +64,7 @@ func (h blockingHttpHandler) ServeHTTP(w http.ResponseWriter, request *http.Requ
 					},
 				},
 			},
-		})
+		}).Marshal()
 		if err != nil {
 			panic(err)
 		}
@@ -134,7 +134,7 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 		By("starting test environment")
 		env = &test.Environment{}
 		Expect(env.Start()).To(Succeed())
-		DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop, "Test Suite Finished")
 
 		By("adding an agent")
 		managementClient := env.NewManagementClient()
@@ -149,8 +149,10 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 		_, errC := env.StartAgent(agentId, token, []string{certInfo.Chain[len(certInfo.Chain)-1].Fingerprint})
 		Eventually(errC).Should(Receive(BeNil()))
 
-		cortexCtx := waitctx.Background()
-		env.StartCortex(cortexCtx)
+		cortexOpsClient := cortexops.NewCortexOpsClient(env.ManagementClientConn())
+		err = cortexops.InstallWithPreset(env.Context(), cortexOpsClient)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cortexops.WaitForReady(env.Context(), cortexOpsClient)).To(Succeed())
 
 		By("adding prometheus resources to k8s")
 		k8sctx, ca := context.WithCancel(waitctx.Background())

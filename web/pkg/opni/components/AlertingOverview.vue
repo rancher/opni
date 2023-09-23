@@ -1,13 +1,13 @@
 <script>
+import { mapGetters } from 'vuex';
 import Loading from '@shell/components/Loading';
 import dayjs from 'dayjs';
-import ConditionFilter, { createDefaults as createConditionFilterDefaults, loadOptions as loadConditionFilterOptions } from '@pkg/opni/components/ConditionFilter';
+import ConditionFilter, { createDefaultFilters } from '@pkg/opni/components/ConditionFilter';
 import LoadingSpinnerOverlay from '@pkg/opni/components/LoadingSpinnerOverlay';
 import { TimelineType } from '../models/alerting/Condition';
 import {
   getAlertConditionsWithStatus, getConditionTimeline, getClusterStatus, InstallState, getAlarmNotifications
 } from '../utils/requests/alerts';
-import { getClusters } from '../utils/requests/management';
 
 export default {
   components: {
@@ -19,14 +19,14 @@ export default {
 
   data() {
     return {
-      conditionFilter:        createConditionFilterDefaults(),
+      conditionFilters:  createDefaultFilters(),
       now:               dayjs(),
-      loading:             false,
+      loading:           false,
       loadingTable:      false,
-      conditions:          [],
+      conditions:        [],
       groups:            [],
       isAlertingEnabled: false,
-      headers:             [
+      headers:           [
         {
           name:          'status',
           labelKey:      'opni.tableHeaders.status',
@@ -151,10 +151,7 @@ export default {
       return `<div class="tooltip-spinner"><i class="icon icon-spinner icon-spin" /></div>`;
     },
     async updateTimeline() {
-      const clusters = await getClusters(this);
-      const [conditions, response, conditionFilterOptions] = await Promise.all([getAlertConditionsWithStatus(this, clusters, this.conditionFilter.itemFilter), getConditionTimeline({ lookbackWindow: '24h', filters: this.conditionFilter.itemFilter }), loadConditionFilterOptions()]);
-
-      this.$set(this.conditionFilter, 'options', conditionFilterOptions);
+      const [conditions, response] = await Promise.all([getAlertConditionsWithStatus(this, this.conditionFilters), getConditionTimeline({ lookbackWindow: '24h', filters: this.conditionFilters })]);
 
       const DEFAULT_CLUSTER_ID = 'default';
       const UPSTREAM_CLUSTER_ID = 'UPSTREAM_CLUSTER_ID';
@@ -196,7 +193,7 @@ export default {
         }
       };
 
-      clusters.forEach((c) => {
+      this.clusters.forEach((c) => {
         groups[c.id] = {
           name:      c.nameDisplay,
           timelines: []
@@ -218,7 +215,7 @@ export default {
     async itemFilterChanged(itemFilter) {
       try {
         this.$set(this, 'loadingTable', true);
-        this.$set(this.conditionFilter, 'itemFilter', itemFilter);
+        this.$set(this, 'conditionFilters', itemFilter);
         await this.updateTimeline();
       } finally {
         this.$set(this, 'loadingTable', false);
@@ -226,8 +223,15 @@ export default {
     },
   },
   computed: {
+    ...mapGetters({ clusters: 'opni/clusters' }),
     hasTimelines() {
       return Object.values(this.groups).some(g => g.timelines.length > 0);
+    }
+  },
+
+  watch: {
+    'clusters.length'() {
+      this.updateTimeline();
     }
   }
 };
@@ -240,7 +244,7 @@ export default {
         <h1>Overview</h1>
       </div>
     </header>
-    <ConditionFilter class="mb-10" :options="conditionFilter.options" @item-filter-changed="itemFilterChanged" />
+    <ConditionFilter class="mb-10" @item-filter-changed="itemFilterChanged" />
     <LoadingSpinnerOverlay v-if="isAlertingEnabled" :loading="loadingTable">
       <table class="sortable-table top-divider" width="100%">
         <thead class="sortable-table top-divider">

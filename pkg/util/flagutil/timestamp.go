@@ -10,12 +10,14 @@ import (
 
 type timestamppbValue timestamppb.Timestamp
 
-func TimestamppbValue(val string, p **timestamppb.Timestamp) pflag.Value {
-	result, err := when.EN.Parse(val, time.Now())
-	if err != nil {
-		panic(err)
+func TimestamppbValue(val *string, p **timestamppb.Timestamp) pflag.Value {
+	if val != nil {
+		result, err := when.EN.Parse(*val, time.Now())
+		if err != nil {
+			panic(err)
+		}
+		*p = timestamppb.New(result.Time)
 	}
-	*p = timestamppb.New(result.Time)
 	return (*timestamppbValue)(*p)
 }
 

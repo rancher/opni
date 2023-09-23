@@ -3,8 +3,7 @@ import AsyncButton from '@shell/components/AsyncButton';
 import { Card } from '@components/Card';
 import RadioGroup from '@components/Form/Radio/RadioGroup';
 import { Banner } from '@components/Banner';
-import { uninstallCapability } from '../../utils/requests/management';
-import { exceptionToErrorsArray } from '../../utils/error';
+import { exceptionToErrorsArray } from '@pkg/opni/utils/error';
 
 export default {
   components: {
@@ -36,6 +35,7 @@ export default {
         this.$set(this, 'capabilities', [...this.capabilities, ...capabilities]);
       } else {
         this.$set(this, 'opened', true);
+        this.$set(this, 'deleteData', false);
         this.$set(this, 'capabilities', capabilities);
         this.$set(this, 'confirm', '');
         this.$modal.show('uninstall-capabilities-dialog');
@@ -46,7 +46,7 @@ export default {
       try {
         const uninstalls = this.capabilities
           .filter(cap => cap.isInstalled)
-          .map(cap => uninstallCapability(cap.rawCluster.id, cap.rawType, this.deleteData));
+          .map(cap => cap.uninstall(this.deleteData));
 
         await Promise.all(uninstalls);
         this.$emit('save');
@@ -57,12 +57,12 @@ export default {
     },
   },
   computed: {
-    clusters() {
-      return this.capabilities.map(c => c.rawCluster );
-    },
-
     label() {
       return (this.capabilities[0] || {}).nameDisplay;
+    },
+
+    showDeleteData() {
+      return (this.capabilities[0] || {}).type !== 'alerting';
     }
   }
 };
@@ -90,7 +90,7 @@ export default {
             {{ cap.clusterNameDisplay }}
           </li>
         </ul>
-        <div class="row">
+        <div v-if="showDeleteData" class="row mt-10">
           <div class="col span-12">
             <RadioGroup
               v-model="deleteData"
@@ -136,6 +136,10 @@ export default {
 
     .kv-item.key {
       padding-left: 1px;
+    }
+
+    hr {
+      display: none;
     }
   }
 }

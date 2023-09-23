@@ -7,20 +7,19 @@ import (
 	"dagger.io/dagger"
 )
 
-func NodeBase(client *dagger.Client) *dagger.Container {
-	return client.
-		Container().
-		Pipeline("Node Base Image").
-		From("node:14.20.0")
-}
-
-func GoBase(client *dagger.Client) *dagger.Container {
+func Base(client *dagger.Client) *dagger.Container {
 	return client.
 		Container().
 		Pipeline("Go Base Image").
-		From("golang:" + strings.TrimPrefix(runtime.Version(), "go")).
-		WithExec([]string{"apt-get", "update", "-y"}).
-		WithExec([]string{"apt-get", "install", "-y", "libnspr4", "libnss3", "libexpat1", "libfontconfig1", "libuuid1"})
+		From("cimg/go:"+strings.TrimPrefix(runtime.Version(), "go")+"-node").
+		WithUser("root").
+		WithEnvVariable("GOPATH", "/go").
+		WithEnvVariable("PATH", "/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin").
+		WithExec([]string{"apt-get", "update"}).
+		WithExec([]string{"apt-get", "install", "-y", "libnspr4", "libnss3", "libexpat1", "libfontconfig1", "libuuid1"}).
+		WithDirectory("/go", client.Directory(), dagger.ContainerWithDirectoryOpts{Owner: "1777"}).
+		WithDirectory("/go/src", client.Directory(), dagger.ContainerWithDirectoryOpts{Owner: "1777"}).
+		WithDirectory("/go/bin", client.Directory(), dagger.ContainerWithDirectoryOpts{Owner: "1777"})
 }
 
 type AlpineOptions struct {

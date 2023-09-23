@@ -2,8 +2,9 @@
 import LabeledSelect from '@shell/components/form/LabeledSelect';
 import UnitInput from '@shell/components/form/UnitInput';
 import Loading from '@shell/components/Loading';
-import { AlertType } from '../../models/alerting/Condition';
-import { loadClusters, loadChoices } from './shared';
+import { createComputedTime } from '@pkg/opni/utils/computed';
+import { AlertType } from '@pkg/opni/models/alerting/Condition';
+import { loadChoices, mapClusterOptions } from './shared';
 
 const TYPE = 'system';
 
@@ -35,12 +36,11 @@ export default {
   },
 
   async fetch() {
-    await Promise.all([this.loadChoices(), this.loadClusters()]);
+    await Promise.all([this.loadChoices()]);
   },
 
   data() {
     return {
-      clusterOptions: [],
       choices:        { clusters: [] },
       error:          '',
     };
@@ -50,13 +50,10 @@ export default {
     async loadChoices() {
       await loadChoices(this, this.TYPE, this.ENUM);
     },
-
-    async loadClusters() {
-      await loadClusters(this);
-    },
   },
 
   computed: {
+    ...mapClusterOptions(),
     systemClusterOptions() {
       const options = this.clusterOptions;
 
@@ -67,15 +64,7 @@ export default {
       return options;
     },
 
-    systemTimeout: {
-      get() {
-        return Number.parseInt(this.value.timeout || '0');
-      },
-
-      set(value) {
-        this.$set(this.value, 'timeout', `${ (value || 0) }s`);
-      }
-    },
+    systemTimeout: createComputedTime('value.timeout'),
   },
 };
 </script>

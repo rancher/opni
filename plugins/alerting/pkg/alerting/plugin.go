@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/rancher/opni/pkg/agent"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/metrics/collector"
@@ -29,7 +30,6 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/node_backend"
 	"go.uber.org/zap"
 
-	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
@@ -68,7 +68,7 @@ type Plugin struct {
 	mgmtClient          future.Future[managementv1.ManagementClient]
 	storageBackend      future.Future[storage.Backend]
 	capabilitySpecStore future.Future[node_backend.CapabilitySpecKV]
-	capabilityManager   future.Future[capabilityv1.NodeManagerClient]
+	delegate            future.Future[streamext.StreamDelegate[agent.ClientSet]]
 	adminClient         future.Future[cortexadmin.CortexAdminClient]
 	cortexOpsClient     future.Future[cortexops.CortexOpsClient]
 	natsConn            future.Future[*nats.Conn]
@@ -114,7 +114,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		mgmtClient:          future.New[managementv1.ManagementClient](),
 		storageBackend:      future.New[storage.Backend](),
 		capabilitySpecStore: future.New[node_backend.CapabilitySpecKV](),
-		capabilityManager:   future.New[capabilityv1.NodeManagerClient](),
+		delegate:            future.New[streamext.StreamDelegate[agent.ClientSet]](),
 
 		adminClient:     future.New[cortexadmin.CortexAdminClient](),
 		cortexOpsClient: future.New[cortexops.CortexOpsClient](),
@@ -160,14 +160,14 @@ func NewPlugin(ctx context.Context) *Plugin {
 		p.storageBackend,
 		p.mgmtClient,
 		p.capabilitySpecStore,
-		p.capabilityManager,
+		p.delegate,
 		func(
 			storageBackend storage.Backend,
 			mgmtClient managementv1.ManagementClient,
 			specStore node_backend.CapabilitySpecKV,
-			capabilityManager capabilityv1.NodeManagerClient,
+			delegate streamext.StreamDelegate[agent.ClientSet],
 		) {
-			p.node.Initialize(specStore, mgmtClient, capabilityManager, storageBackend)
+			p.node.Initialize(specStore, mgmtClient, delegate, storageBackend)
 		},
 	)
 

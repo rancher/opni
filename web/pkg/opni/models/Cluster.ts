@@ -1,7 +1,10 @@
-import { deleteCluster, getCluster } from '../utils/requests/management';
-import { LABEL_KEYS, Status } from './shared';
+import Vue, { reactive } from 'vue';
+import GlobalEventBus from '@pkg/opni/utils/GlobalEventBus';
+import { deleteCluster } from '@pkg/opni/utils/requests/management';
+import * as Core from '@pkg/opni/generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
+import { LABEL_KEYS } from './shared';
 import { Resource } from './Resource';
-import { TaskState } from './Capability';
+import { TaskState, Capability } from './Capability';
 
 export interface ClusterResponse {
   id: string;
@@ -80,35 +83,41 @@ export interface CapabilityStatuses {
 }
 
 export class Cluster extends Resource {
-  private base: ClusterResponse;
-  private healthBase: HealthResponse;
+  private base?: Core.Cluster;
+  private healthStatus?: Core.HealthStatus;
   private clusterStats: ClusterStats;
-  private capLogs: CapabilityLog[];
 
-  constructor(base: ClusterResponse, healthBase: HealthResponse, vue: any) {
+  constructor(vue: any) {
     super(vue);
-    this.base = base;
-    this.healthBase = healthBase;
     this.clusterStats = {
       ingestionRate: 0,
       numSeries:     0,
     } as ClusterStats;
-    this.capLogs = [];
+  }
+
+  static create(vue: any): Cluster {
+    return reactive(new Cluster(vue));
   }
 
   get status() {
-    if (!this.healthBase.status.connected) {
+    if (!this.healthStatus) {
+      return {
+        state:   'Success',
+        message: 'Loading'
+      };
+    }
+    if (!this.healthStatus?.status?.connected) {
       return {
         state:   'error',
         message: 'Disconnected'
       };
     }
 
-    if (!this.healthBase.health.ready) {
+    if (!this.healthStatus?.health?.ready) {
       return {
         state:        'warning',
         shortMessage: 'Degraded',
-        message:      this.healthBase.health.conditions.join(', ')
+        message:      this.healthStatus?.health?.conditions.join(', ')
       };
     }
 
@@ -119,7 +128,7 @@ export class Cluster extends Resource {
   }
 
   get isLocal(): boolean {
-    return this.healthBase.status?.sessionAttributes?.includes('local');
+    return this.healthStatus?.status?.sessionAttributes?.includes('local') || false;
   }
 
   get localIcon(): string {
@@ -131,25 +140,25 @@ export class Cluster extends Resource {
   }
 
   get nameDisplay(): string {
-    return this.name || this.base.id;
+    return this.name || this.base?.id || '';
   }
 
   get name(): string {
-    return this.base.metadata.labels[LABEL_KEYS.NAME];
+    return this.base?.metadata?.labels[LABEL_KEYS.NAME] || '';
   }
 
   get id(): string {
-    return this.base.id;
+    return this.base?.id || '';
   }
 
-  get labels(): any {
-    return this.base.metadata.labels;
+  get labels(): { [key: string]: string } {
+    return this.base?.metadata?.labels || {};
   }
 
   get visibleLabels(): { [key: string]: string } {
     const labels: any = {};
 
-    Object.entries(this.base.metadata.labels)
+    Object.entries(this.base?.metadata?.labels || {})
       .filter(([key]) => !key.includes('opni.io'))
       .forEach(([key, value]) => {
         labels[key] = value;
@@ -161,7 +170,7 @@ export class Cluster extends Resource {
   get hiddenLabels(): any {
     const labels: any = {};
 
-    Object.entries(this.base.metadata.labels)
+    Object.entries(this.base?.metadata?.labels || {})
       .filter(([key]) => key.includes('opni.io'))
       .forEach(([key, value]) => {
         labels[key] = value;
@@ -179,8 +188,12 @@ export class Cluster extends Resource {
     return this.base?.metadata?.capabilities?.map(capability => capability.name) || [];
   }
 
-  get capabilitiesRaw() {
-    return this.base.metadata.capabilities;
+  get capabilityModels(): Capability[] {
+    return this.base?.metadata?.capabilities?.map(capability => Capability.create(capability.name as any, this, this.vue) ) || [];
+  }
+
+  get capabilitiesRaw(): Core.ClusterCapability[] {
+    return this.base?.metadata?.capabilities || [];
   }
 
   isCapabilityInstalled(type: string) {
@@ -191,18 +204,6 @@ export class Cluster extends Resource {
     return [];
   }
 
-  get numSeries(): number {
-    return this.clusterStats?.numSeries;
-  }
-
-  get sampleRate(): number | undefined {
-    return Math.floor(this.clusterStats?.ingestionRate || 0);
-  }
-
-  get rulesRate(): number | undefined {
-    return this.clusterStats?.RuleIngestionRate;
-  }
-
   get stats(): ClusterStats {
     return this.clusterStats;
   }
@@ -211,14 +212,16 @@ export class Cluster extends Resource {
     this.clusterStats = stats;
   }
 
-  get capabilityLogs(): CapabilityLog[] {
-    return this.capLogs;
+  onClusterUpdated(cluster: Core.Cluster) {
+    Vue.set(this, 'base', cluster);
   }
 
-  async updateCapabilities(): Promise<void> {
-    const newCluster = await getCluster(this.id, this.vue);
+  onHealthStatusUpdated(healthStatus: Core.HealthStatus) {
+    Vue.set(this, 'healthStatus', healthStatus);
+  }
 
-    this.base.metadata.capabilities = newCluster.base.metadata.capabilities;
+  uninstallCapabilities() {
+    GlobalEventBus.$emit('uninstallCapabilities', this.capabilityModels);
   }
 
   get availableActions(): any[] {
@@ -255,15 +258,18 @@ export class Cluster extends Resource {
   }
 
   async remove() {
+    if (!this.base?.id) {
+      return;
+    }
     await deleteCluster(this.base.id);
     super.remove();
   }
 
   public promptRemove(resources = this) {
     if (this.capabilities.length > 0) {
-      this.vue.$emit('cantDeleteCluster', this);
+      GlobalEventBus.$emit('cantDeleteCluster', this);
     } else {
-      this.vue.$store.commit('action-menu/togglePromptRemove', resources, { root: true });
+      GlobalEventBus.$emit('promptRemove', resources);
     }
   }
 }

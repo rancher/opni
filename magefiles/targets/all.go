@@ -2,6 +2,8 @@ package targets
 
 import (
 	"context"
+	"os"
+	"slices"
 
 	"github.com/magefile/mage/mg"
 )
@@ -16,3 +18,9 @@ func Default(ctx context.Context) {
 
 // Does nothing
 func None() {}
+
+func takeArgv(arg0 string) (rest []string) {
+	idx := slices.Index(os.Args, arg0)
+	rest, os.Args = os.Args[idx:], os.Args[:idx]
+	return
+}

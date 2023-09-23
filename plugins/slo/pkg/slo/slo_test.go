@@ -16,7 +16,6 @@ import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/metrics/compat"
@@ -87,7 +86,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 	BeforeAll(func() {
 		env = &test.Environment{}
 		Expect(env.Start()).To(Succeed())
-		DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop, "Test Suite Finished")
 
 		client := env.NewManagementClient()
 		token, err := client.CreateBootstrapToken(env.Context(), &managementv1.CreateBootstrapTokenRequest{
@@ -97,13 +96,9 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 		info, err := client.CertsInfo(env.Context(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
 		opsClient := cortexops.NewCortexOpsClient(env.ManagementClientConn())
-		_, err = opsClient.ConfigureCluster(context.Background(), &cortexops.ClusterConfiguration{
-			Mode: cortexops.DeploymentMode_AllInOne,
-			Storage: &storagev1.StorageSpec{
-				Backend: storagev1.Filesystem,
-			},
-		})
+		err = cortexops.InstallWithPreset(env.Context(), opsClient)
 		Expect(err).NotTo(HaveOccurred())
+		Expect(cortexops.WaitForReady(env.Context(), opsClient)).To(Succeed())
 
 		_, errC := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint}, test.WithContext(env.Context()))
 		Eventually(errC).Should(Receive(BeNil()))

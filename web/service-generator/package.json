@@ -1,0 +1,29 @@
+{
+  "name": "service-generator",
+  "version": "0.0.1",
+  "description": "Stuff",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": "18"
+  },
+  "bin": {
+    "service-generator": "generate"
+  },
+  "scripts": {
+    "clean": "rm -rf ./dist/*",
+    "build": "tsc -p tsconfig.json"
+  },
+  "files": [
+    "bin"
+  ],
+  "dependencies": {
+    "@bufbuild/protobuf": "^1.3.0",
+    "@bufbuild/protoc-gen-es": "^1.3.0",
+    "@bufbuild/protoplugin": "^1.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.2.5",
+    "prettier": "^2.8.0",
+    "typescript": "^4.9.3"
+  }
+}

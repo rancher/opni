@@ -40,19 +40,27 @@ func (o *option[T]) Apply(dest any) error {
 
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
-		if !field.CanSet() {
+		if !field.CanSet() || !field.CanAddr() {
 			continue
 		}
 		tag := v.Type().Field(i).Tag.Get("option")
 		if tag == o.key {
-			val := reflect.ValueOf(o.value)
-			if val.IsZero() {
+			value := reflect.ValueOf(o.value)
+			if value.IsZero() {
 				return nil
 			}
-			if field.Type() != reflect.TypeOf(o.value) {
-				return fmt.Errorf("mismatched option types for key %q: %T != %T", tag, field.Interface(), o.value)
+			fieldType := field.Addr().Type().Elem()
+			valueType := value.Type()
+			var typesMatch bool
+			if fieldType.Kind() == reflect.Interface {
+				typesMatch = valueType.Implements(fieldType)
+			} else {
+				typesMatch = fieldType == valueType
 			}
-			field.Set(val)
+			if !typesMatch {
+				return fmt.Errorf("mismatched option types for key %q: expected %s, got %s", tag, fieldType.String(), valueType.String())
+			}
+			field.Set(value)
 			return nil
 		}
 	}

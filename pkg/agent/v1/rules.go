@@ -109,9 +109,7 @@ func (a *Agent) streamRulesToGateway(actx context.Context) error {
 			var docs [][]byte
 			select {
 			case <-ctx.Done():
-				lg.With(
-					zap.Error(ctx.Err()),
-				).Debug("rule discovery stream closing")
+				lg.Debug("rule discovery stream closed")
 				return
 			case docs = <-pending:
 			}
@@ -158,9 +156,7 @@ func (a *Agent) streamRulesToGateway(actx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			lg.With(
-				zap.Error(ctx.Err()),
-			).Warn("rule discovery stream closing")
+			lg.Debug("rule discovery stream closed")
 			return nil
 		case yamlDocs, ok := <-updateC:
 			if !ok {

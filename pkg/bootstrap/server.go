@@ -102,7 +102,7 @@ func (h *Server) Auth(ctx context.Context, authReq *bootstrapv1.BootstrapAuthReq
 	}
 	bootstrapToken, err := h.storage.GetToken(ctx, token.Reference())
 	if err != nil {
-		if errors.Is(err, storage.ErrNotFound) {
+		if storage.IsNotFound(err) {
 			return nil, util.StatusError(codes.PermissionDenied)
 		}
 		return nil, util.StatusError(codes.Unavailable)
@@ -130,7 +130,7 @@ func (h *Server) Auth(ctx context.Context, authReq *bootstrapv1.BootstrapAuthReq
 	var shouldEditExisting bool
 
 	if cluster, err := h.storage.GetCluster(ctx, existing); err != nil {
-		if !errors.Is(err, storage.ErrNotFound) {
+		if !storage.IsNotFound(err) {
 			return nil, status.Error(codes.Unavailable, err.Error())
 		}
 	} else {

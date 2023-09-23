@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -19,12 +18,6 @@ func TestTask(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Task Suite")
 }
-
-var ctrl *gomock.Controller
-
-var _ = BeforeSuite(func() {
-	ctrl = gomock.NewController(GinkgoT())
-})
 
 type SampleTaskConfig struct {
 	// Number of items to read from the input channel to complete the task

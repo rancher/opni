@@ -2,6 +2,7 @@ package cortex
 
 import (
 	"github.com/rancher/opni/pkg/resources"
+	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -12,34 +13,34 @@ func (r *Reconciler) services() []resources.Resource {
 	resources := []resources.Resource{
 		r.memberlistService(),
 	}
-	resources = append(resources, r.buildCortexWorkloadServices("alertmanager",
+	resources = append(resources, r.buildCortexWorkloadServices(alertmanager,
 		AddServiceMonitor(),
 	)...)
-	resources = append(resources, r.buildCortexWorkloadServices("compactor",
+	resources = append(resources, r.buildCortexWorkloadServices(compactor,
 		AddServiceMonitor(),
 	)...)
-	resources = append(resources, r.buildCortexWorkloadServices("purger",
+	resources = append(resources, r.buildCortexWorkloadServices(purger,
 		AddServiceMonitor(),
 	)...)
-	resources = append(resources, r.buildCortexWorkloadServices("distributor",
+	resources = append(resources, r.buildCortexWorkloadServices(distributor,
 		AddHeadlessService(true),
 		AddServiceMonitor(),
 	)...)
-	resources = append(resources, r.buildCortexWorkloadServices("ingester",
+	resources = append(resources, r.buildCortexWorkloadServices(ingester,
 		AddHeadlessService(false),
 		AddServiceMonitor(),
 	)...)
-	resources = append(resources, r.buildCortexWorkloadServices("querier",
+	resources = append(resources, r.buildCortexWorkloadServices(querier,
 		AddServiceMonitor(),
 	)...)
-	resources = append(resources, r.buildCortexWorkloadServices("query-frontend",
+	resources = append(resources, r.buildCortexWorkloadServices(queryFrontend,
 		AddHeadlessService(true),
 		AddServiceMonitor(),
 	)...)
-	resources = append(resources, r.buildCortexWorkloadServices("ruler",
+	resources = append(resources, r.buildCortexWorkloadServices(ruler,
 		AddServiceMonitor(),
 	)...)
-	resources = append(resources, r.buildCortexWorkloadServices("store-gateway",
+	resources = append(resources, r.buildCortexWorkloadServices(storeGateway,
 		AddHeadlessService(false),
 		AddServiceMonitor(),
 	)...)
@@ -71,5 +72,5 @@ func (r *Reconciler) memberlistService() resources.Resource {
 		},
 	}
 	ctrl.SetControllerReference(r.mc, memberlist, r.client.Scheme())
-	return resources.PresentIff(r.mc.Spec.Cortex.Enabled, memberlist)
+	return resources.PresentIff(lo.FromPtr(r.mc.Spec.Cortex.Enabled), memberlist)
 }

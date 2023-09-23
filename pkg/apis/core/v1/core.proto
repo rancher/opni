@@ -1,12 +1,16 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/pkg/apis/core/v1";
-
-import "google/protobuf/duration.proto";
-import "google/protobuf/timestamp.proto";
-import "google/protobuf/struct.proto";
-import "google/protobuf/empty.proto";
 
 package core;
+
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/rancher/opni/pkg/apis/core/v1";
+option (cli.generator) = {
+  generate: true
+};
 
 service Pinger {
   rpc Ping(google.protobuf.Empty) returns (PingResponse);
@@ -17,23 +21,23 @@ message PingResponse {
 }
 
 message BootstrapToken {
-  string tokenID = 1;
-  string secret = 2;
+  string                 tokenID  = 1;
+  string                 secret   = 2;
   BootstrapTokenMetadata metadata = 3;
 }
 
 message BootstrapTokenMetadata {
-  int64 leaseID = 1;
-  int64 ttl = 2;
-  int64 usageCount = 3;
-  map<string, string> labels = 4;
-  repeated TokenCapability capabilities = 5;
-  string resourceVersion = 6;
-  int64 maxUsages = 7;
+  int64                    leaseID         = 1;
+  int64                    ttl             = 2;
+  int64                    usageCount      = 3;
+  map<string, string>      labels          = 4;
+  repeated TokenCapability capabilities    = 5;
+  string                   resourceVersion = 6;
+  int64                    maxUsages       = 7;
 }
 
 message TokenCapability {
-  string type = 1;
+  string    type      = 1;
   Reference reference = 2;
 }
 
@@ -42,12 +46,12 @@ message BootstrapTokenList {
 }
 
 message Cluster {
-  string id = 1;
+  string          id       = 1;
   ClusterMetadata metadata = 2;
 }
 
 message ClusterMetadata {
-  map<string, string> labels = 1;
+  map<string, string>        labels       = 1;
   repeated ClusterCapability capabilities = 2;
 
   // read-only
@@ -60,9 +64,9 @@ message ClusterMetadata {
 }
 
 message LastKnownConnectionDetails {
-  google.protobuf.Timestamp time = 1;
-  string address = 2;
-  BuildInfo agentBuildInfo = 3;
+  google.protobuf.Timestamp time           = 1;
+  string                    address        = 2;
+  BuildInfo                 agentBuildInfo = 3;
   // plugin package id -> hash
   map<string, string> pluginVersions = 4;
 }
@@ -70,27 +74,27 @@ message LastKnownConnectionDetails {
 // Go build info types
 
 message BuildInfo {
-  string goVersion = 1;
-  string path = 2;
-  Module main = 3;
-  repeated Module deps = 4;
-  repeated BuildSetting settings = 5;
+  string                goVersion = 1;
+  string                path      = 2;
+  Module                main      = 3;
+  repeated Module       deps      = 4;
+  repeated BuildSetting settings  = 5;
 }
 
 message Module {
-  string path = 1;
+  string path    = 1;
   string version = 2;
-  string sum = 3;
+  string sum     = 3;
   Module replace = 4;
 }
 
 message BuildSetting {
-  string key = 1;
+  string key   = 1;
   string value = 2;
 }
 
 message ClusterCapability {
-  string name = 1;
+  string                    name              = 1;
   google.protobuf.Timestamp deletionTimestamp = 2;
 }
 
@@ -99,34 +103,34 @@ message ClusterList {
 }
 
 message LabelSelector {
-  map<string, string> matchLabels = 1;
+  map<string, string>               matchLabels      = 1;
   repeated LabelSelectorRequirement matchExpressions = 2;
 }
 
 message LabelSelectorRequirement {
-  string key = 1;
-  string operator = 2;
-  repeated string values = 3;
+  string          key      = 1;
+  string          operator = 2;
+  repeated string values   = 3;
 }
 
 enum MatchOptions {
   option allow_alias = true;
-  Default = 0;
-  EmptySelectorMatchesAll = 0;
+  Default                  = 0;
+  EmptySelectorMatchesAll  = 0;
   EmptySelectorMatchesNone = 1;
 }
 
 message ClusterSelector {
-  repeated string clusterIDs = 1;
-  LabelSelector labelSelector = 2;
-  MatchOptions matchOptions = 3;
+  repeated string clusterIDs    = 1;
+  LabelSelector   labelSelector = 2;
+  MatchOptions    matchOptions  = 3;
 }
 
 message Role {
-  string id = 1;
-  repeated string clusterIDs = 2;
-  LabelSelector matchLabels = 3;
-  RoleMetadata metadata = 4;
+  string          id          = 1;
+  repeated string clusterIDs  = 2;
+  LabelSelector   matchLabels = 3;
+  RoleMetadata    metadata    = 4;
 }
 
 message RoleMetadata {
@@ -135,10 +139,10 @@ message RoleMetadata {
 }
 
 message RoleBinding {
-  string id = 1;
-  string roleId = 2;
-  repeated string subjects = 3;
-  repeated string taints = 4;
+  string              id       = 1;
+  string              roleId   = 2;
+  repeated string     subjects = 3;
+  repeated string     taints   = 4;
   RoleBindingMetadata metadata = 5;
 }
 
@@ -156,13 +160,13 @@ message RoleBindingList {
 }
 
 message CertInfo {
-  string issuer = 1;
-  string subject = 2;
-  bool isCA = 3;
-  string notBefore = 4;
-  string notAfter = 5;
+  string issuer      = 1;
+  string subject     = 2;
+  bool   isCA        = 3;
+  string notBefore   = 4;
+  string notAfter    = 5;
   string fingerprint = 6;
-  bytes raw = 7;
+  bytes  raw         = 7;
 }
 
 message Reference {
@@ -178,16 +182,16 @@ message SubjectAccessRequest {
 }
 
 message Status {
-  google.protobuf.Timestamp timestamp = 1;
-  bool connected = 2;
-  repeated string sessionAttributes = 3;
+  google.protobuf.Timestamp timestamp         = 1;
+  bool                      connected         = 2;
+  repeated string           sessionAttributes = 3;
 }
 
 message Health {
-  google.protobuf.Timestamp timestamp = 1;
-  bool ready = 2;
-  repeated string conditions = 3;
-  map<string, string> annotations = 4;
+  google.protobuf.Timestamp timestamp   = 1;
+  bool                      ready       = 2;
+  repeated string           conditions  = 3;
+  map<string, string>       annotations = 4;
 }
 
 message HealthStatus {
@@ -197,23 +201,23 @@ message HealthStatus {
 
 message ClusterHealth {
   Reference cluster = 1;
-  Health health = 2;
+  Health    health  = 2;
 }
 
 message ClusterStatus {
   Reference cluster = 1;
-  Status status = 2;
+  Status    status  = 2;
 }
 
 message ClusterHealthStatus {
-  Reference cluster = 1;
+  Reference    cluster      = 1;
   HealthStatus healthStatus = 2;
 }
 
 message AlertLog {
-  core.Reference conditionId = 1;
-  google.protobuf.Timestamp timestamp = 2; // unix epoch timestamp
-  google.protobuf.Struct metadata  = 4;
+  core.Reference            conditionId = 1;
+  google.protobuf.Timestamp timestamp   = 2; // unix epoch timestamp
+  google.protobuf.Struct    metadata    = 4;
 }
 
 message AlertLogList {
@@ -222,47 +226,47 @@ message AlertLogList {
 
 message TimeRange {
   uint64 start = 1;
-  uint64 end = 2;
+  uint64 end   = 2;
 }
 
 enum TaskState {
-  Unknown = 0;
-  Pending = 1;
-  Running = 2;
+  Unknown   = 0;
+  Pending   = 1;
+  Running   = 2;
   Completed = 3;
-  Failed = 4;
-  Canceled = 6;
+  Failed    = 4;
+  Canceled  = 6;
 }
 
 // Represents a transition to a task state at a point in time.
 message StateTransition {
-  TaskState state = 1;
+  TaskState                 state     = 1;
   google.protobuf.Timestamp timestamp = 3;
 }
 
 enum TaskTrigger {
-  Start = 0;
-  End = 1;
-  Error = 2;
+  Start  = 0;
+  End    = 1;
+  Error  = 2;
   Cancel = 3;
 }
 
 message Progress {
   uint64 current = 1;
-  uint64 total = 2;
+  uint64 total   = 2;
 }
 
 message TaskStatus {
-  TaskState state = 1;
-  Progress progress = 2;
-  string metadata = 3;
-  repeated LogEntry logs = 4;
+  TaskState                state       = 1;
+  Progress                 progress    = 2;
+  string                   metadata    = 3;
+  repeated LogEntry        logs        = 4;
   repeated StateTransition transitions = 5;
 }
 
 message LogEntry {
-  string msg = 1;
-  int32 level = 2;
+  string                    msg       = 1;
+  int32                     level     = 2;
   google.protobuf.Timestamp timestamp = 3;
 }
 
@@ -298,8 +302,18 @@ message AuthInfo {
   bytes mac = 2061;
 }
 
-enum ConfigStatus{
-  Unkown = 0;
-  UpToDate = 1;
+enum ConfigStatus {
+  Unkown      = 0;
+  UpToDate    = 1;
   NeedsUpdate = 2;
+}
+
+message Revision {
+  // A numerical revision uniquely identifying a specific version of the resource.
+  // Larger values are newer, but this should otherwise be treated as opaque.
+  optional int64 revision = 1;
+  // An optional timestamp corresponding to the time the revision was created.
+  // Do not depend on this field being set; if it is, it is for informational
+  // purposes only.
+  google.protobuf.Timestamp timestamp = 2 [(cli.flag).skip = true];
 }

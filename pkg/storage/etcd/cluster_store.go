@@ -185,21 +185,21 @@ func (e *EtcdStore) WatchCluster(
 				}
 				for _, ev := range event.Events {
 					var eventType storage.WatchEventType
-					current := &corev1.Cluster{}
-					previous := &corev1.Cluster{}
 					switch ev.Type {
 					case mvccpb.DELETE:
 						eventType = storage.WatchEventDelete
 					case mvccpb.PUT:
-						eventType = storage.WatchEventUpdate
+						eventType = storage.WatchEventPut
 					default:
 						continue
 					}
 
-					if ev.Kv.Version == 0 {
-						// deleted
-						current = nil
-					} else {
+					event := storage.WatchEvent[*corev1.Cluster]{
+						EventType: eventType,
+					}
+
+					if ev.Kv != nil && ev.Kv.Value != nil {
+						current := &corev1.Cluster{}
 						if err := protojson.Unmarshal(ev.Kv.Value, current); err != nil {
 							e.Logger.With(
 								zap.Error(err),
@@ -207,22 +207,21 @@ func (e *EtcdStore) WatchCluster(
 							continue
 						}
 						current.SetResourceVersion(fmt.Sprint(ev.Kv.ModRevision))
+						event.Current = current
+					}
+					if ev.PrevKv != nil && ev.PrevKv.Value != nil {
+						previous := &corev1.Cluster{}
+						if err := protojson.Unmarshal(ev.PrevKv.Value, previous); err != nil {
+							e.Logger.With(
+								zap.Error(err),
+							).Error("error unmarshaling cluster")
+							continue
+						}
+						previous.SetResourceVersion(fmt.Sprint(ev.PrevKv.ModRevision))
+						event.Previous = previous
 					}
 
-					// if we get here, version is > 1 or 0, therefore PrevKv will always be set
-					if err := protojson.Unmarshal(ev.PrevKv.Value, previous); err != nil {
-						e.Logger.With(
-							zap.Error(err),
-						).Error("error unmarshaling cluster")
-						continue
-					}
-					previous.SetResourceVersion(fmt.Sprint(ev.PrevKv.ModRevision))
-
-					eventC <- storage.WatchEvent[*corev1.Cluster]{
-						EventType: eventType,
-						Current:   current,
-						Previous:  previous,
-					}
+					eventC <- event
 				}
 			}
 		}
@@ -253,13 +252,13 @@ func (e *EtcdStore) WatchClusters(
 		if knownCluster, ok := knownClusterMap[cluster.Id]; !ok {
 			// cluster was not known
 			initialEvents = append(initialEvents, storage.WatchEvent[*corev1.Cluster]{
-				EventType: storage.WatchEventCreate,
+				EventType: storage.WatchEventPut,
 				Current:   cluster,
 			})
 		} else if knownCluster.GetResourceVersion() != cluster.GetResourceVersion() {
 			// cluster was known, but resource version has changed
 			initialEvents = append(initialEvents, storage.WatchEvent[*corev1.Cluster]{
-				EventType: storage.WatchEventUpdate,
+				EventType: storage.WatchEventPut,
 				Current:   cluster,
 				Previous:  knownCluster,
 			})
@@ -311,7 +310,7 @@ func (e *EtcdStore) WatchClusters(
 						}
 						current.SetResourceVersion(fmt.Sprint(ev.Kv.CreateRevision))
 						previous = nil
-						eventType = storage.WatchEventCreate
+						eventType = storage.WatchEventPut
 					} else {
 						if ev.IsModify() {
 							if err := protojson.Unmarshal(ev.Kv.Value, current); err != nil {
@@ -321,7 +320,7 @@ func (e *EtcdStore) WatchClusters(
 								continue
 							}
 							current.SetResourceVersion(fmt.Sprint(ev.Kv.ModRevision))
-							eventType = storage.WatchEventUpdate
+							eventType = storage.WatchEventPut
 						} else {
 							// deleted
 							current = nil

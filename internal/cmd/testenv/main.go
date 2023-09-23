@@ -9,7 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -24,7 +24,6 @@ import (
 	v1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/dashboard"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
@@ -46,6 +45,7 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	_ "github.com/rancher/opni/plugins/alerting/test"
+	_ "github.com/rancher/opni/plugins/example/test"
 	_ "github.com/rancher/opni/plugins/logging/test"
 	_ "github.com/rancher/opni/plugins/metrics/test"
 	_ "github.com/rancher/opni/plugins/slo/test"
@@ -57,7 +57,9 @@ func main() {
 		enableGateway,
 		enableEtcd,
 		enableJetstream,
-		enableNodeExporter bool
+		enableNodeExporter,
+		noEmbeddedWebAssets,
+		headlessDashboard bool
 	)
 	var remoteGatewayAddress string
 	var agentIdSeed int64
@@ -68,6 +70,8 @@ func main() {
 	pflag.BoolVar(&enableNodeExporter, "enable-node-exporter", true, "enable node exporter")
 	pflag.StringVar(&remoteGatewayAddress, "remote-gateway-address", "", "remote gateway address")
 	pflag.Int64Var(&agentIdSeed, "agent-id-seed", 0, "random seed used for generating agent ids. if unset, uses a random seed.")
+	pflag.BoolVar(&noEmbeddedWebAssets, "no-embedded-web-assets", false, "serve web assets from web/dist instead of using embedded assets")
+	pflag.BoolVar(&headlessDashboard, "headless-dashboard", false, "run the dashboard without opening a browser window")
 
 	pflag.Parse()
 
@@ -233,7 +237,17 @@ func main() {
 			if !enableGateway {
 				return
 			}
-			dashboardSrv, err := dashboard.NewServer(&environment.GatewayConfig().Spec.Management)
+			opts := []dashboard.ServerOption{}
+			if noEmbeddedWebAssets {
+				absPath, err := filepath.Abs("web/")
+				if err != nil {
+					testlog.Log.Error(err)
+					return
+				}
+				fs := os.DirFS(absPath)
+				opts = append(opts, dashboard.WithAssetsFS(fs))
+			}
+			dashboardSrv, err := dashboard.NewServer(&environment.GatewayConfig().Spec.Management, opts...)
 			if err != nil {
 				testlog.Log.Error(err)
 				return
@@ -284,7 +298,9 @@ func main() {
 		switch rn {
 		case ' ':
 			startDashboard()
-			go browser.OpenURL(fmt.Sprintf("http://localhost:%d", environment.GetPorts().ManagementWeb))
+			if !headlessDashboard {
+				go browser.OpenURL(fmt.Sprintf("http://localhost:%d", environment.GetPorts().ManagementWeb))
+			}
 		case 'q':
 			closeOnce.Do(func() {
 				signal.Stop(c)
@@ -342,15 +358,24 @@ func main() {
 					testlog.Log.Info(chalk.Green.Color("Metrics backend configured"))
 				}()
 				opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
-				_, err := opsClient.ConfigureCluster(environment.Context(), &cortexops.ClusterConfiguration{
-					Mode: cortexops.DeploymentMode_AllInOne,
-					Storage: &storagev1.StorageSpec{
-						Backend: storagev1.Filesystem,
-						Filesystem: &storagev1.FilesystemStorageSpec{
-							Directory: path.Join(environment.GetTempDirectory(), "cortex", "data"),
-						},
-					},
-				})
+				presets, err := opsClient.ListPresets(context.Background(), &emptypb.Empty{})
+				if err != nil {
+					testlog.Log.Error(err)
+					return
+				}
+				if len(presets.Items) == 0 {
+					testlog.Log.Error("No presets available")
+					return
+				}
+				// take the first preset
+				preset := presets.Items[0]
+				_, err = opsClient.SetConfiguration(context.Background(), preset.GetSpec())
+				if err != nil {
+					testlog.Log.Error(err)
+					return
+				}
+
+				_, err = opsClient.Install(context.Background(), &emptypb.Empty{})
 				if err != nil {
 					testlog.Log.Error(err)
 				}
@@ -363,7 +388,7 @@ func main() {
 					testlog.Log.Info(chalk.Green.Color("Metrics backend uninstalled"))
 				}()
 				opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
-				_, err := opsClient.UninstallCluster(environment.Context(), &emptypb.Empty{})
+				_, err := opsClient.Uninstall(environment.Context(), &emptypb.Empty{})
 				if err != nil {
 					testlog.Log.Error(err)
 				}

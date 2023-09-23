@@ -13,8 +13,8 @@ import (
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/plugins"
-	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test/testlog"
+	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/grpc/codes"
@@ -83,7 +83,7 @@ var _ = Describe("Clusters", Ordered, Label("unit"), func() {
 					if event == nil {
 						break
 					}
-					Expect(event.Type).To(Equal(managementv1.WatchEventType_Created))
+					Expect(event.Type).To(Equal(managementv1.WatchEventType_Put))
 					Expect(ids).To(HaveKey(event.Cluster.Id))
 					cluster, err := tv.client.GetCluster(context.Background(), &corev1.Reference{
 						Id: event.Cluster.Id,
@@ -144,7 +144,7 @@ var _ = Describe("Clusters", Ordered, Label("unit"), func() {
 			defer GinkgoRecover()
 
 			for event := range events {
-				Expect(event.Type).To(Equal(managementv1.WatchEventType_Deleted))
+				Expect(event.Type).To(Equal(managementv1.WatchEventType_Delete))
 				Expect(event.Cluster).NotTo(BeNil())
 				Expect(event.Cluster.Id).NotTo(BeNil())
 				Expect(ids).To(HaveKey(event.Cluster.Id))
@@ -248,8 +248,7 @@ var _ = Describe("Clusters", Ordered, Label("unit"), func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		_, err = stream.Recv()
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring(storage.ErrNotFound.Error()))
+		Expect(err).To(testutil.MatchStatusCode(codes.NotFound))
 	})
 	It("should not allow editing immutable labels", func() {
 		c := &corev1.Cluster{

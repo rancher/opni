@@ -2,8 +2,9 @@
 import LabeledSelect from '@shell/components/form/LabeledSelect';
 import UnitInput from '@shell/components/form/UnitInput';
 import Loading from '@shell/components/Loading';
-import { AlertType } from '../../models/alerting/Condition';
-import { loadClusters, loadChoices } from './shared';
+import { createComputedTime } from '@pkg/opni/utils/computed';
+import { AlertType } from '@pkg/opni/models/alerting/Condition';
+import { mapClusterOptions, loadChoices } from './shared';
 
 const TYPE = 'kubeState';
 
@@ -39,29 +40,25 @@ export default {
   },
 
   async fetch() {
-    await Promise.all([this.loadChoices(), this.loadClusters()]);
+    await this.loadChoices();
   },
 
   data() {
     return {
       ...CONSTS,
-      clusterOptions: [],
-      clusters:       [],
-      choices:        { clusters: [] },
+      choices: { clusters: [] },
     };
   },
 
   methods: {
     async loadChoices() {
       await loadChoices(this, this.TYPE, this.ENUM);
-    },
-
-    async loadClusters() {
-      await loadClusters(this);
-    },
+    }
   },
 
   computed: {
+    ...mapClusterOptions(),
+
     kubeStateClusterOptions() {
       const options = this.clusterOptions;
 
@@ -124,15 +121,7 @@ export default {
       return options;
     },
 
-    kubeStateFor: {
-      get() {
-        return Number.parseInt(this.value.for || '0');
-      },
-
-      set(value) {
-        this.$set(this.value, 'for', `${ (value || 0) }s`);
-      }
-    },
+    kubeStateFor: createComputedTime('value.for'),
   },
 
   watch: {

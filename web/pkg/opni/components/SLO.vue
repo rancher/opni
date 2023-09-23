@@ -1,4 +1,5 @@
 <script>
+import { mapGetters } from 'vuex';
 import { LabeledInput } from '@components/Form/LabeledInput';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
 import ArrayList from '@shell/components/form/ArrayList';
@@ -9,7 +10,6 @@ import Tab from '@shell/components/Tabbed/Tab';
 import Tabbed from '@shell/components/Tabbed';
 import UnitInput from '@shell/components/form/UnitInput';
 import { exceptionToErrorsArray } from '../utils/error';
-import { getClusters } from '../utils/requests/management';
 import {
   createSLO, getMetrics, getServices, updateSLO, getEvents, getSLO
 } from '../utils/requests/slo';
@@ -35,12 +35,7 @@ export default {
 
   async fetch() {
     const sloRequest = this.$route.params.id ? getSLO(this.$route.params.id, this) : Promise.resolve(false);
-    const clustersRequest = getClusters();
-    const clusters = await clustersRequest;
 
-    this.$set(this, 'clusterOptions', clusters.map(c => ({ label: c.nameDisplay, value: c.id })));
-    // this.$set(this, 'rawServices', (await servicesRequest).filter(s => s.jobId));
-    // this.$set(this, 'serviceOptions', this.rawServices.map((s, i) => ({ label: s.nameDisplay, value: `${ i }` })));
     if (await sloRequest) {
       const slo = await sloRequest;
 
@@ -78,8 +73,7 @@ export default {
       name:                     '',
       loadingMetrics:           false,
 
-      cluster:                  null,
-      clusterOptions:           [],
+      cluster: null,
 
       service:                  null,
       servicesLoading:          false,
@@ -240,6 +234,12 @@ export default {
   },
 
   computed: {
+    ...mapGetters({ clusters: 'opni/clusters' }),
+
+    clusterOptions() {
+      return this.clusters.map(c => ({ label: c.nameDisplay, value: c.id }));
+    },
+
     isEdit() {
       return !!this.$route.params.id;
     },

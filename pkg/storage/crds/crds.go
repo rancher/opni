@@ -76,6 +76,8 @@ func NewCRDStore(opts ...CRDStoreOption) *CRDStore {
 	if options.restConfig == nil {
 		options.restConfig = util.Must(rest.InClusterConfig())
 	}
+	options.restConfig.QPS = 50
+	options.restConfig.Burst = 100
 	s := apis.NewScheme()
 	return &CRDStore{
 		CRDStoreOptions: options,

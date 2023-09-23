@@ -20,6 +20,8 @@ for f in example.com.crt intermediate_ca_3.crt intermediate_ca_2.crt intermediat
 done
 jq <<<"$jsonData" >fingerprints.json
 
+step certificate create "Dashboard" dashboard.crt dashboard.key --profile=self-signed --subtle --insecure --no-password --not-after=87600h --kty=RSA --san=localhost
+
 cd cortex || exit 1
 step certificate create "Test Cortex CA" root.crt root.key --profile=intermediate-ca --ca=../root_ca.crt --ca-key=../root_ca.key "${args[@]}"
 step certificate create "Test Cortex Client" client.crt client.key --profile=leaf --ca=root.crt --ca-key=root.key --san=localhost --san=127.0.0.1 "${args[@]}"

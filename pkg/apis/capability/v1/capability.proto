@@ -1,14 +1,14 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/pkg/apis/capability/v1";
-
-import "google/protobuf/empty.proto";
-import "google/protobuf/struct.proto";
-import "google/protobuf/duration.proto";
-import "google/protobuf/timestamp.proto";
-import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
-import "github.com/kralicky/totem/extensions.proto";
 
 package capability;
+
+import "github.com/kralicky/totem/extensions.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/rancher/opni/pkg/apis/capability/v1";
 
 service Backend {
   // Returns info about the backend, including capability name
@@ -26,8 +26,8 @@ service Backend {
   // cluster (node).
   rpc Status(core.Reference) returns (NodeCapabilityStatus);
 
-	// Requests the backend to clean up any resources it owns and prepare
-	// for uninstallation. This process is asynchronous. The status of the
+  // Requests the backend to clean up any resources it owns and prepare
+  // for uninstallation. This process is asynchronous. The status of the
   // operation can be queried using the UninstallStatus method, or canceled
   // using the CancelUninstall method.
   rpc Uninstall(UninstallRequest) returns (google.protobuf.Empty);
@@ -35,12 +35,12 @@ service Backend {
   // Gets the status of the uninstall task for the given cluster.
   rpc UninstallStatus(core.Reference) returns (core.TaskStatus);
 
-	// Cancels an uninstall task for the given cluster, if it is still pending.
+  // Cancels an uninstall task for the given cluster, if it is still pending.
   rpc CancelUninstall(core.Reference) returns (google.protobuf.Empty);
 
-	// Returns a go template string which will generate a shell command used to
-	// install the capability. This will be displayed to the user in the UI.
-	// See InstallerTemplateSpec above for the available template fields.
+  // Returns a go template string which will generate a shell command used to
+  // install the capability. This will be displayed to the user in the UI.
+  // See InstallerTemplateSpec above for the available template fields.
   rpc InstallerTemplate(google.protobuf.Empty) returns (InstallerTemplateResponse) {
     option deprecated = true;
   }
@@ -54,20 +54,16 @@ service Node {
   }
 }
 
-service NodeManager {
-  rpc RequestSync(SyncRequest) returns (google.protobuf.Empty);
-}
-
 message Details {
-  string name = 1;
-  string source = 2;
+  string          name    = 1;
+  string          source  = 2;
   repeated string drivers = 3;
 }
 
 message SyncRequest {
   // An empty cluster ID indicates that all clusters should be synced.
   core.Reference cluster = 1;
-  Filter filter = 2;
+  Filter         filter  = 2;
 }
 
 message Filter {
@@ -75,24 +71,24 @@ message Filter {
 }
 
 message InstallRequest {
-  core.Reference cluster = 1;
-  bool ignoreWarnings = 2;
+  core.Reference cluster        = 1;
+  bool           ignoreWarnings = 2;
 }
 
 enum InstallResponseStatus {
   Unknown = 0;
   Success = 1;
   Warning = 2;
-  Error = 3;
+  Error   = 3;
 }
 
 message InstallResponse {
-  InstallResponseStatus status = 1;
-  string message = 2;
+  InstallResponseStatus status  = 1;
+  string                message = 2;
 }
 
 message UninstallRequest {
-  core.Reference cluster = 1;
+  core.Reference         cluster = 1;
   google.protobuf.Struct options = 2;
 }
 
@@ -101,7 +97,7 @@ message InstallerTemplateResponse {
 }
 
 message NodeCapabilityStatus {
-  bool enabled = 1;
-  google.protobuf.Timestamp lastSync = 2;
-  repeated string conditions = 3;
+  bool                      enabled    = 1;
+  google.protobuf.Timestamp lastSync   = 2;
+  repeated string           conditions = 3;
 }

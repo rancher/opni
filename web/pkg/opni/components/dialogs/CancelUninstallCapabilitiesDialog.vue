@@ -1,8 +1,7 @@
 <script>
 import AsyncButton from '@shell/components/AsyncButton';
 import { Card } from '@components/Card';
-import { cancelCapabilityUninstall } from '../../utils/requests/management';
-import { exceptionToErrorsArray } from '../../utils/error';
+import { exceptionToErrorsArray } from '@pkg/opni/utils/error';
 
 export default {
   components: {
@@ -39,7 +38,7 @@ export default {
     async save(buttonDone) {
       try {
         const cancels = this.capabilities
-          .map(cap => cancelCapabilityUninstall(cap.rawCluster.id, cap.rawType));
+          .map(cap => cap.cancelUninstall());
 
         await Promise.all(cancels);
         this.$emit('save');
@@ -110,6 +109,10 @@ export default {
 
     .kv-item.key {
       padding-left: 1px;
+    }
+
+    hr {
+      display: none;
     }
   }
 }

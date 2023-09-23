@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 var (
@@ -80,6 +81,35 @@ func DeepCopy[T any](in *T) *T {
 
 func ProtoClone[T proto.Message](msg T) T {
 	return proto.Clone(msg).(T)
+}
+
+func NewMessage[T proto.Message]() T {
+	var t T
+	return t.ProtoReflect().New().Interface().(T)
+}
+
+func FieldByName[T proto.Message](name string) protoreflect.FieldDescriptor {
+	var t T
+	fields := t.ProtoReflect().Descriptor().Fields()
+	for i, l := 0, fields.Len(); i < l; i++ {
+		field := fields.Get(i)
+		if strings.EqualFold(string(field.Name()), name) {
+			return field
+		}
+	}
+	return nil
+}
+
+func FieldIndexByName[T proto.Message](name string) int {
+	var t T
+	fields := t.ProtoReflect().Descriptor().Fields()
+	for i, l := 0, fields.Len(); i < l; i++ {
+		field := fields.Get(i)
+		if strings.EqualFold(string(field.Name()), name) {
+			return i
+		}
+	}
+	return -1
 }
 
 func ReplaceFirstOccurrence[S ~[]T, T comparable](items S, old T, new T) S {

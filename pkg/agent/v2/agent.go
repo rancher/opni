@@ -234,7 +234,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		lg.Info("loaded existing keyring")
 		kr = existing
 		loadedExistingKeyring = true
-	} else if errors.Is(err, storage.ErrNotFound) {
+	} else if storage.IsNotFound(err) {
 		lg.Info("no existing keyring found, starting bootstrap process")
 		shouldBootstrap = true
 	} else {
@@ -518,9 +518,12 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 			*a.healthz &^= healthzGatewayNotConnected
 			a.healthzMu.Unlock()
 
-			lg.With(
-				zap.Error(errF.Get()), // this will block until an error is received
-			).Warn("disconnected from gateway")
+			err := errF.Get() // this will block until an error is received
+			if status.Code(err) == codes.Canceled {
+				lg.Info("gateway client stopped")
+			} else {
+				lg.With(zap.Error(errF.Get())).Warn("disconnected from gateway")
+			}
 
 			a.healthzMu.Lock()
 			*a.healthz |= healthzGatewayNotConnected
@@ -541,8 +544,5 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 		}
 		isRetry = true
 	}
-	lg.With(
-		zap.Error(ctx.Err()),
-	).Warn("shutting down gateway client")
 	return ctx.Err()
 }

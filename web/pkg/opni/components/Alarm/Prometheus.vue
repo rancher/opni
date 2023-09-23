@@ -3,8 +3,9 @@ import LabeledSelect from '@shell/components/form/LabeledSelect';
 import UnitInput from '@shell/components/form/UnitInput';
 import TextAreaAutoGrow from '@components/Form/TextArea/TextAreaAutoGrow';
 import Loading from '@shell/components/Loading';
-import { AlertType } from '../../models/alerting/Condition';
-import { loadClusters, loadChoices } from './shared';
+import { createComputedTime } from '@pkg/opni/utils/computed';
+import { AlertType } from '@pkg/opni/models/alerting/Condition';
+import { mapClusterOptions, loadChoices } from './shared';
 
 const TYPE = 'prometheusQuery';
 
@@ -41,12 +42,11 @@ export default {
   },
 
   async fetch() {
-    await Promise.all([this.loadChoices(), this.loadClusters()]);
+    await this.loadChoices();
   },
 
   data() {
     return {
-      clusterOptions: [],
       choices:        { clusters: [] },
       error:          '',
     };
@@ -56,13 +56,11 @@ export default {
     async loadChoices() {
       await loadChoices(this, this.TYPE, this.ENUM);
     },
-
-    async loadClusters() {
-      await loadClusters(this);
-    },
   },
 
   computed: {
+    ...mapClusterOptions(),
+
     prometheusQueryClusterOptions() {
       const options = this.clusterOptions;
 
@@ -73,14 +71,7 @@ export default {
       return options;
     },
 
-    prometheusQueryFor: {
-      get() {
-        return Math.floor(Number.parseInt(this.value.for || '0') / 60);
-      },
-      set(value) {
-        this.$set(this.value, 'for', `${ (value || 0) * 60 }s`);
-      }
-    }
+    prometheusQueryFor: createComputedTime('value.for', 60),
   },
 };
 </script>

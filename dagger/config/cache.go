@@ -65,6 +65,7 @@ func SetupCaches(client *dagger.Client, cacheMode string) Caches {
 			GoBin:        identity,
 			Mage:         identity,
 			Yarn:         identity,
+			NodeModules:  identity,
 			GolangciLint: identity,
 		}
 	}

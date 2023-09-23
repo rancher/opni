@@ -1,39 +1,62 @@
 package storage
 
 import (
+	"github.com/samber/lo"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/runtime/protoimpl"
 )
 
-var ErrNotFound = &NotFoundError{}
-var ErrAlreadyExists = &AlreadyExistsError{}
+var (
+	ErrNotFound      = status.Error(codes.NotFound, "not found")
+	ErrAlreadyExists = status.Error(codes.AlreadyExists, "already exists")
+	ErrConflict      = lo.Must(status.New(codes.Aborted, "conflict").WithDetails(ErrDetailsConflict)).Err()
+)
 
-type NotFoundError struct{}
+var (
+	ErrDetailsConflict      = &errdetails.ErrorInfo{Reason: "CONFLICT"}
+	ErrDetailsDiscontinuity = &errdetails.ErrorInfo{Reason: "DISCONTINUITY"}
+)
 
-func (e *NotFoundError) Error() string {
-	return "not found"
+// Use this instead of errors.Is(err, ErrNotFound). The implementation of Is()
+// for grpc status errors compares the error message, which can result in false negatives.
+func IsNotFound(err error) bool {
+	return status.Code(err) == codes.NotFound
 }
 
-func (e *NotFoundError) GRPCStatus() *status.Status {
-	return status.New(codes.NotFound, e.Error())
+// Use this instead of errors.Is(err, ErrAlreadyExists). The implementation of Is()
+// for grpc status errors compares the error message, which can result in false negatives.
+func IsAlreadyExists(err error) bool {
+	return status.Code(err) == codes.AlreadyExists
 }
 
-type AlreadyExistsError struct{}
-
-func (e *AlreadyExistsError) Error() string {
-	return "already exists"
-}
-
-func (e *AlreadyExistsError) GRPCStatus() *status.Status {
-	return status.New(codes.AlreadyExists, e.Error())
-}
-
-func IgnoreErrNotFound(err error) error {
-	if err == nil {
-		return nil
+// Use this instead of errors.Is(err, ErrConflict). The status code is too
+// generic to identify conflict errors, so there are additional details added
+// to conflict errors to disambiguate them.
+func IsConflict(err error) bool {
+	stat := status.Convert(err)
+	if stat.Code() != codes.Aborted {
+		return false
 	}
-	if _, ok := err.(*NotFoundError); ok {
-		return nil
+	for _, detail := range stat.Details() {
+		if proto.Equal(protoimpl.X.ProtoMessageV2Of(detail), ErrDetailsConflict) {
+			return true
+		}
 	}
-	return err
+	return false
+}
+
+func IsDiscontinuity(err error) bool {
+	stat := status.Convert(err)
+	if stat.Code() == codes.OK {
+		return false
+	}
+	for _, detail := range stat.Details() {
+		if info, ok := detail.(*errdetails.ErrorInfo); ok && info.Reason == "DISCONTINUITY" {
+			return true
+		}
+	}
+	return false
 }

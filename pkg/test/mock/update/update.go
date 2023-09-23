@@ -8,10 +8,10 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	prometheus "github.com/prometheus/client_golang/prometheus"
 	v1 "github.com/rancher/opni/pkg/apis/control/v1"
 	urn "github.com/rancher/opni/pkg/urn"
+	gomock "go.uber.org/mock/gomock"
 	grpc "google.golang.org/grpc"
 )
 

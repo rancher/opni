@@ -27,7 +27,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/kralicky/totem"
 	natsserver "github.com/nats-io/nats-server/v2/server"
@@ -76,6 +75,7 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
+	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -169,8 +169,8 @@ type Environment struct {
 	ports          ServicePorts
 	localAgentOnce sync.Once
 
-	runningAgents   map[string]RunningAgent
 	runningAgentsMu sync.Mutex
+	runningAgents   map[string]RunningAgent
 
 	gatewayConfig *v1beta1.GatewayConfig
 
@@ -178,6 +178,9 @@ type Environment struct {
 
 	nodeConfigOverridesMu sync.Mutex
 	nodeConfigOverrides   map[string]*OverridePrometheusConfig
+
+	managementServerMu sync.Mutex
+	managementServer   *management.Server
 }
 
 type EnvironmentOptions struct {
@@ -464,7 +467,19 @@ func (e *Environment) StartEmbeddedJetstream() (*nats.Conn, error) {
 	return nats.Connect(sUrl)
 }
 
-func (e *Environment) Stop() error {
+func (e *Environment) Stop(cause ...string) error {
+	lg := e.Logger
+	if lg == nil {
+		lg = testlog.Log
+	}
+	if len(cause) > 0 {
+		lg.With(
+			"cause", cause[0],
+		).Info("Stopping test environment")
+	} else {
+		lg.Info("Stopping test environment")
+	}
+
 	os.Unsetenv("NATS_SERVER_URL")
 	os.Unsetenv("NKEY_SEED_FILENAME")
 
@@ -707,75 +722,145 @@ func (e *Environment) startEtcd() {
 	lg.Info("Etcd started")
 }
 
-type cortexTemplateOptions struct {
-	HttpListenPort           int
-	GrpcListenPort           int
-	StorageDir               string
-	AlertmanagerProxyAddress string
-	CertDir                  string
+// These types match the types in plugins/metrics/pkg/cortex/configutil
+type CortexServerTlsConfig = struct {
+	TLSCertPath string
+	TLSKeyPath  string
+	ClientAuth  string
+	ClientCAs   string
+}
+type CortexClientTlsConfig = struct {
+	CertPath           string
+	KeyPath            string
+	CAPath             string
+	ServerName         string
+	InsecureSkipVerify bool
+}
+type CortexConfigOptions = struct {
+	HttpListenAddress      string
+	HttpListenPort         int
+	HttpListenNetwork      string
+	GrpcListenAddress      string
+	GrpcListenPort         int
+	GrpcListenNetwork      string
+	StorageDir             string
+	RuntimeConfig          string
+	TLSServerConfig        CortexServerTlsConfig
+	TLSGatewayClientConfig CortexClientTlsConfig
+	TLSCortexClientConfig  CortexClientTlsConfig
 }
 
-func (e *Environment) StartCortex(ctx context.Context) {
+type ImplementationSpecificOverrides = struct {
+	QueryFrontendAddress string
+	MemberlistJoinAddrs  []string
+	AlertmanagerURL      string
+}
+
+func (e *Environment) StartCortex(ctx context.Context, configBuilder func(CortexConfigOptions, ImplementationSpecificOverrides) ([]byte, []byte, error)) (context.Context, error) {
 	lg := e.Logger
-	configTemplate := testdata.TestData("cortex/config.yaml")
-	t := util.Must(template.New("config").Parse(string(configTemplate)))
-	configFile, err := os.Create(path.Join(e.tempDir, "cortex", "config.yaml"))
+	storageDir := path.Join(e.tempDir, "cortex")
+
+	configBytes, rtConfigBytes, err := configBuilder(CortexConfigOptions{
+		HttpListenAddress: "localhost",
+		HttpListenNetwork: "tcp",
+		HttpListenPort:    e.ports.CortexHTTP,
+		GrpcListenAddress: "localhost",
+		GrpcListenNetwork: "tcp",
+		GrpcListenPort:    e.ports.CortexGRPC,
+		StorageDir:        storageDir,
+		RuntimeConfig:     path.Join(storageDir, "runtime_config.yaml"),
+		TLSServerConfig: CortexServerTlsConfig{
+			TLSCertPath: path.Join(storageDir, "server.crt"),
+			TLSKeyPath:  path.Join(storageDir, "server.key"),
+			ClientCAs:   path.Join(storageDir, "root.crt"),
+			ClientAuth:  "RequireAndVerifyClientCert",
+		},
+		TLSGatewayClientConfig: CortexClientTlsConfig{
+			CertPath:   path.Join(e.certDir, "client.crt"),
+			KeyPath:    path.Join(e.certDir, "client.key"),
+			CAPath:     path.Join(e.certDir, "root_ca.crt"),
+			ServerName: "localhost",
+		},
+		TLSCortexClientConfig: CortexClientTlsConfig{
+			CertPath:   path.Join(storageDir, "client.crt"),
+			KeyPath:    path.Join(storageDir, "client.key"),
+			CAPath:     path.Join(storageDir, "root.crt"),
+			ServerName: "localhost",
+		},
+	}, ImplementationSpecificOverrides{
+		AlertmanagerURL: fmt.Sprintf("https://127.0.0.1:%d/plugin_alerting/alertmanager", e.ports.GatewayHTTP),
+	})
 	if err != nil {
 		panic(err)
 	}
-	if err := t.Execute(configFile, cortexTemplateOptions{
-		HttpListenPort:           e.ports.CortexHTTP,
-		GrpcListenPort:           e.ports.CortexGRPC,
-		StorageDir:               path.Join(e.tempDir, "cortex"),
-		AlertmanagerProxyAddress: fmt.Sprintf("https://127.0.0.1:%d/plugin_alerting/alertmanager", e.ports.GatewayHTTP),
-		CertDir:                  e.certDir,
-	}); err != nil {
-		panic(err)
-	}
-	configFile.Close()
-	bin := filepath.Join(e.TestBin, "../../bin/opni")
+
+	os.WriteFile(path.Join(storageDir, "config.yaml"), configBytes, 0644)
+	os.WriteFile(path.Join(storageDir, "runtime_config.yaml"), rtConfigBytes, 0644)
+
+	cortexBin := filepath.Join(e.TestBin, "../../bin/opni")
 	defaultArgs := []string{
-		"cortex", fmt.Sprintf("--config.file=%s", path.Join(e.tempDir, "cortex/config.yaml")),
+		"cortex", fmt.Sprintf("-config.file=%s", path.Join(storageDir, "config.yaml")),
 	}
-	cmd := exec.CommandContext(ctx, bin, defaultArgs...)
+	cmd := exec.CommandContext(ctx, cortexBin, defaultArgs...)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
 	plugins.ConfigureSysProcAttr(cmd)
-	session, err := testutil.StartCmd(cmd)
-	if err != nil {
-		if !errors.Is(ctx.Err(), context.Canceled) {
-			panic(err)
-		}
-		return
-	}
 	lg.Info("Waiting for cortex to start...")
-	for ctx.Err() == nil {
-		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("https://localhost:%d/ready", e.ports.CortexHTTP), nil)
-		client := http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: e.CortexTLSConfig(),
-			},
+	client := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: e.CortexTLSConfig(),
+		},
+	}
+
+	exited := lo.Async(cmd.Run)
+
+	retryCount := 0
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+READY:
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-exited:
+			return nil, errors.New("cortex exited unexpectedly")
+		case <-ticker.C:
+			reqContext, reqCancel := context.WithTimeout(ctx, 100*time.Millisecond)
+			req, _ := http.NewRequestWithContext(reqContext, http.MethodGet, fmt.Sprintf("https://localhost:%d/ready", e.ports.CortexHTTP), nil)
+			resp, err := client.Do(req)
+			reqCancel()
+			if err == nil && resp.StatusCode == http.StatusOK {
+				break READY
+			}
+			if resp != nil {
+				if retryCount%100 == 0 {
+					lg.With(
+						zap.Error(err),
+						"status", resp.Status,
+					).Info("Waiting for cortex to start...")
+				}
+				retryCount++
+			}
 		}
-		resp, err := client.Do(req)
-		if err == nil && resp.StatusCode == http.StatusOK {
-			break
-		}
-		if resp != nil {
-			lg.With(
-				zap.Error(err),
-				"status", resp.Status,
-			).Info("Waiting for cortex to start...")
-		}
-		time.Sleep(50 * time.Millisecond)
 	}
 	lg.With(
 		"httpAddress", fmt.Sprintf("https://localhost:%d", e.ports.CortexHTTP),
 		"grpcAddress", fmt.Sprintf("localhost:%d", e.ports.CortexGRPC),
 	).Info("Cortex started")
+	retCtx, retCa := context.WithCancel(ctx)
 	waitctx.Go(ctx, func() {
-		<-ctx.Done()
-		lg.Info("Cortex stopping...")
-		session.Wait()
-		lg.Info("Cortex stopped")
+		select {
+		case <-ctx.Done():
+			lg.Info("Cortex stopping...")
+			<-exited
+			lg.Info("Cortex stopped")
+			retCa()
+		case <-exited:
+			lg.Error("Cortex exited with error")
+			retCa()
+		}
 	})
+	return retCtx, nil
 }
 
 type PrometheusJob struct {
@@ -848,7 +933,10 @@ func (e *Environment) UnsafeStartPrometheus(ctx waitctx.PermissiveContext, opniA
 
 	agent := e.GetAgent(opniAgentId)
 	if agent.Agent == nil {
-		panic("test bug: agent not found: " + opniAgentId)
+		if e.ctx.Err() != nil {
+			return 0, e.ctx.Err()
+		}
+		return 0, fmt.Errorf("agent %s not found", opniAgentId)
 	}
 
 	if err := t.Execute(configFile, prometheusTemplateOptions{
@@ -873,9 +961,7 @@ func (e *Environment) UnsafeStartPrometheus(ctx waitctx.PermissiveContext, opniA
 	plugins.ConfigureSysProcAttr(cmd)
 	session, err := testutil.StartCmd(cmd)
 	if err != nil {
-		if !errors.Is(ctx.Err(), context.Canceled) {
-			return 0, err
-		}
+		return 0, fmt.Errorf("failed to start prometheus: %w", err)
 	}
 	lg.Info("Waiting for prometheus to start...")
 	for {
@@ -1381,8 +1467,13 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 			MetricsListenAddress: fmt.Sprintf("localhost:%d", e.ports.GatewayMetrics),
 			Management: v1beta1.ManagementSpec{
 				GRPCListenAddress: fmt.Sprintf("tcp://localhost:%d", e.ports.ManagementGRPC),
-				HTTPListenAddress: fmt.Sprintf("localhost:%d", e.ports.ManagementHTTP),
+				HTTPListenAddress: fmt.Sprintf(":%d", e.ports.ManagementHTTP),
 				WebListenAddress:  fmt.Sprintf("localhost:%d", e.ports.ManagementWeb),
+				// WebCerts: v1beta1.CertsSpec{
+				// 	CACertData:      dashboardCertData,
+				// 	ServingCertData: dashboardCertData,
+				// 	ServingKeyData:  dashboardKeyData,
+				// },
 			},
 			AuthProvider: "test",
 			Certs: v1beta1.CertsSpec{
@@ -1681,13 +1772,16 @@ func (e *Environment) startGateway() {
 		gateway.WithLifecycler(lifecycler),
 		gateway.WithExtraUpdateHandlers(noop.NewSyncServer()),
 	)
-	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g, pluginLoader,
+
+	e.managementServerMu.Lock()
+	defer e.managementServerMu.Unlock()
+
+	e.managementServer = management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g, pluginLoader,
 		management.WithCapabilitiesDataSource(g),
 		management.WithHealthStatusDataSource(g),
 		management.WithLifecycler(lifecycler),
 	)
-
-	g.MustRegisterCollector(m)
+	g.MustRegisterCollector(e.managementServer)
 
 	pluginLoader.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
 		lg.Infof("loaded %d plugins", numLoaded)
@@ -1696,10 +1790,12 @@ func (e *Environment) startGateway() {
 	pluginLoader.Hook(hooks.OnLoadingCompleted(func(int) {
 		waitctx.AddOne(e.ctx)
 		defer waitctx.Done(e.ctx)
-		if err := m.ListenAndServe(e.ctx); err != nil {
-			lg.With(
-				zap.Error(err),
-			).Warn("management server exited with error")
+		if err := e.managementServer.ListenAndServe(e.ctx); err != nil {
+			if errors.Is(err, context.Canceled) {
+				lg.Info("management server stopped")
+			} else {
+				lg.With(zap.Error(err)).Warn("management server exited with error")
+			}
 		}
 	}))
 
@@ -1707,9 +1803,11 @@ func (e *Environment) startGateway() {
 		waitctx.AddOne(e.ctx)
 		defer waitctx.Done(e.ctx)
 		if err := g.ListenAndServe(e.ctx); err != nil {
-			lg.With(
-				zap.Error(err),
-			).Warn("gateway server exited with error")
+			if errors.Is(err, context.Canceled) {
+				lg.Info("gateway stopped")
+			} else {
+				lg.With(zap.Error(err)).Warn("gateway server exited with error")
+			}
 		}
 	}))
 
@@ -1974,7 +2072,11 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		mu.Unlock()
 		errC <- nil
 		if err := a.ListenAndServe(options.ctx); err != nil {
-			testlog.Log.Errorf("agent %q exited: %v", id, err)
+			if errors.Is(err, context.Canceled) {
+				testlog.Log.Infof("agent %q stopped", id)
+			} else {
+				testlog.Log.With(zap.Error(err)).Error("agent exited with error")
+			}
 		}
 		e.runningAgentsMu.Lock()
 		delete(e.runningAgents, id)
@@ -2057,6 +2159,12 @@ func (e *Environment) CortexTLSConfig() *tls.Config {
 
 func (e *Environment) GatewayConfig() *v1beta1.GatewayConfig {
 	return e.gatewayConfig
+}
+
+func (e *Environment) ManagementServer() *management.Server {
+	e.managementServerMu.Lock()
+	defer e.managementServerMu.Unlock()
+	return e.managementServer
 }
 
 func (e *Environment) GetAlertingManagementWebhookEndpoint() string {

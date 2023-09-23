@@ -5,10 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
-	"os/signal"
 	"reflect"
 	"strings"
+	"syscall"
 
 	"github.com/bmatcuk/doublestar"
 	"github.com/magefile/mage/mg"
@@ -25,6 +24,16 @@ func (Test) All() error {
 	return sh.RunWithV(map[string]string{
 		"CGO_ENABLED": "1",
 	}, mg.GoCmd(), "test", "-race", "./...")
+}
+
+// Runs all tests in short mode
+func (Test) Short() error {
+	if testbinNeedsUpdate() {
+		mg.Deps(Test.Bin)
+	}
+	return sh.RunWithV(map[string]string{
+		"CGO_ENABLED": "1",
+	}, mg.GoCmd(), "test", "-race", "-short", "./...")
 }
 
 // Runs all tests with coverage analysis
@@ -94,28 +103,14 @@ LINES:
 
 // Runs the test environment
 func (Test) Env() {
+	args := takeArgv(os.Args[1])
 	// check if testbin exists
 	deps := []any{Build.Testenv}
 	if testbinNeedsUpdate() {
 		mg.Deps(Test.Bin)
 	}
 	mg.Deps(deps...)
-	cmd := exec.Command("bin/testenv", "--agent-id-seed=0")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	sigint := make(chan os.Signal, 1)
-	signal.Notify(sigint, os.Interrupt)
-	if err := cmd.Start(); err != nil {
-		panic(err)
-	}
-	proc := cmd.Process
-	go func() {
-		<-sigint
-		proc.Signal(os.Interrupt)
-	}()
-	if err := cmd.Wait(); err != nil {
-		panic(err)
-	}
+	syscall.Exec("bin/testenv", append([]string{"bin/testenv"}, args...), os.Environ())
 }
 
 const k8sVersion = "1.26.3"

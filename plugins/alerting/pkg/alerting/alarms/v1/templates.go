@@ -19,9 +19,9 @@ import (
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/metrics/compat"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/validation"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
-	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
@@ -692,11 +692,11 @@ func (p *AlarmServerComponent) fetchMonitoringBackendInfo(ctx context.Context) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to acquire cortex ops client %s", err)
 	}
-	state, err := cortexOps.GetClusterStatus(ctx, &emptypb.Empty{})
+	state, err := cortexOps.Status(ctx, &emptypb.Empty{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get monitoring backend status %s", err)
 	}
-	if state.State == cortexops.InstallState_NotInstalled || state.State == cortexops.InstallState_Unknown {
+	if state.InstallState == driverutil.InstallState_NotInstalled {
 		return nil, validation.Error("monitoring backend is not installed")
 	}
 	return &alertingv1.ListAlertTypeDetails{

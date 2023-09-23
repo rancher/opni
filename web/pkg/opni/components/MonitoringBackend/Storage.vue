@@ -3,7 +3,8 @@ import { LabeledInput } from '@components/Form/LabeledInput';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
 import { Checkbox } from '@components/Form/Checkbox';
 import UnitInput from '@shell/components/form/UnitInput';
-import { DeploymentMode, StorageBackend } from '@pkg/opni/utils/requests/monitoring';
+import { Storage } from '@pkg/opni/api/opni';
+import { createComputedDuration } from '@pkg/opni/utils/computed';
 import { S3_REGIONS, S3_REGION_TO_ENDPOINT } from '@pkg/opni/utils/storage';
 
 export const SECONDS_IN_DAY = 86400;
@@ -21,7 +22,7 @@ export default {
   },
 
   created() {
-    if (!this.value.storage.s3?.endpoint) {
+    if (!this.value.cortexConfig.storage?.s3?.endpoint) {
       this.updateEndpoint();
     }
   },
@@ -45,101 +46,53 @@ export default {
         { label: 'SSE-S3', value: 'SSE-S3' },
       ],
       SECONDS_IN_DAY,
-      StorageBackend,
-      DeploymentMode,
+      Storage,
     };
   },
 
   computed: {
     storageOptions() {
-      // only enable filesystem in standalone mode (0)
-      if (this.value.mode === DeploymentMode.AllInOne) {
-        return [
-          { label: 'Filesystem', value: StorageBackend.Filesystem },
-          { label: 'S3', value: StorageBackend.S3 }
-        ];
-      }
-
       return [
-        { label: 'S3', value: StorageBackend.S3 }
+        { label: 'Filesystem', value: 'filesystem' },
+        { label: 'S3', value: 's3' }
       ];
     },
 
-    s3RetentionPeriod: {
-      get() {
-        return Number.parseInt(this.value.storage.retentionPeriod || '0') / SECONDS_IN_DAY;
-      },
+    s3RetentionPeriod: createComputedDuration('value.cortexConfig.limits.compactorBlocksRetentionPeriod', SECONDS_IN_DAY),
 
-      set(value) {
-        this.$set(this.value.storage, 'retentionPeriod', `${ (value || 0) * SECONDS_IN_DAY }s`);
-      }
-    },
+    s3IdleConnTimeout: createComputedDuration('value.cortexConfig.storage.s3.http.idleConnTimeout'),
 
-    s3IdleConnTimeout: {
-      get() {
-        return Number.parseInt(this.value.storage.s3?.http?.idleConnTimeout || '0');
-      },
+    s3ResponseHeaderTimeout: createComputedDuration('value.cortexConfig.storage.s3.http.responseHeaderTimeout'),
 
-      set(value) {
-        this.$set(this.value.storage.s3.http, 'idleConnTimeout', `${ value || 0 }s`);
-      }
-    },
+    s3TlsHandshakeTimeout: createComputedDuration('value.cortexConfig.storage.s3.http.tlsHandshakeTimeout'),
 
-    s3ResponseHeaderTimeout: {
-      get() {
-        return Number.parseInt(this.value.storage.s3?.http?.responseHeaderTimeout || '0');
-      },
-
-      set(value) {
-        this.$set(this.value.storage.s3.http, 'responseHeaderTimeout', `${ value || 0 }s`);
-      }
-    },
-
-    s3TlsHandshakeTimeout: {
-      get() {
-        return Number.parseInt(this.value.storage.s3?.http?.tlsHandshakeTimeout || '0');
-      },
-
-      set(value) {
-        this.$set(this.value.storage.s3.http, 'tlsHandshakeTimeout', `${ value || 0 }s`);
-      }
-    },
-
-    s3ExpectContinueTimeout: {
-      get() {
-        return Number.parseInt(this.value.storage.s3?.http?.expectContinueTimeout || '0');
-      },
-
-      set(value) {
-        this.$set(this.value.storage.s3.http, 'expectContinueTimeout', `${ value || 0 }s`);
-      }
-    },
+    s3ExpectContinueTimeout: createComputedDuration('value.cortexConfig.storage.s3.http.expectContinueTimeout'),
   },
 
   methods: {
     updateEndpoint() {
-      if (this.value.storage.s3?.region) {
-        return this.$set(this.value.storage.s3, 'endpoint', `${ S3_REGION_TO_ENDPOINT[this.value.storage.s3.region] }`);
+      if (this.value.cortexConfig.storage?.s3?.region) {
+        return this.$set(this.value.cortexConfig.storage.s3, 'endpoint', `${ S3_REGION_TO_ENDPOINT[this.value.cortexConfig.storage.s3.region] }`);
       }
     },
-    watch: {
-      storageOptions() {
-        const vals = this.storageOptions.map(so => so.value);
+  },
+  watch: {
+    storageOptions() {
+      const vals = this.storageOptions.map(so => so.value);
 
-        if (!vals.includes(this.value.storage.backend)) {
-          this.$set(this.value.storage, 'backend', vals[0]);
-        }
+      if (!vals.includes(this.value.cortexConfig.storage.backend)) {
+        this.$set(this.value.cortexConfig.storage, 'backend', vals[0]);
       }
-    },
-  }
+    }
+  },
 };
 </script>
 <template>
   <div class="m-0">
     <div>
-      <div class="row" :class="{ border: value.storage.backend === StorageBackend.S3 }">
+      <div class="row" :class="{ border: value.cortexConfig.storage.backend === 's3' }">
         <div class="col span-6">
-          <LabeledSelect v-model="value.storage.backend" :options="storageOptions" label="Storage Type" />
+          <LabeledSelect v-model="value.cortexConfig.storage.backend" :options="storageOptions" label="Storage Type" />
         </div>
         <div class="col span-6">
           <UnitInput
@@ -151,32 +104,32 @@ export default {
           />
         </div>
       </div>
-      <div v-if="value.storage.backend === StorageBackend.S3" class="mt-15">
+      <div v-if="value.cortexConfig.storage.backend === 's3'" class="mt-15">
         <h3>Target</h3>
         <div class="row mb-10">
           <div class="col span-6">
-            <LabeledSelect v-model="value.storage.s3.region" :options="regions" label="Region" @input="updateEndpoint" />
+            <LabeledSelect v-model="value.cortexConfig.storage.s3.region" :options="regions" label="Region" @input="updateEndpoint" />
           </div>
           <div class="col span-6">
-            <LabeledInput v-model="value.storage.s3.bucketName" label="Bucket Name" :required="true" />
+            <LabeledInput v-model="value.cortexConfig.storage.s3.bucketName" label="Bucket Name" :required="true" />
           </div>
         </div>
         <div class="row mb-10 border">
           <div class="col span-6">
-            <LabeledInput v-model="value.storage.s3.endpoint" label="Endpoint" :required="true" />
+            <LabeledInput v-model="value.cortexConfig.storage.s3.endpoint" label="Endpoint" :required="true" />
           </div>
           <div class="col span-6 middle">
-            <Checkbox v-model="value.storage.s3.insecure" label="Insecure" />
+            <Checkbox v-model="value.cortexConfig.storage.s3.insecure" label="Insecure" />
           </div>
         </div>
         <h3>Access</h3>
         <div class="row mb-10">
           <div class="col span-6">
-            <LabeledInput v-model="value.storage.s3.accessKeyID" label="Access Key ID" :required="true" />
+            <LabeledInput v-model="value.cortexConfig.storage.s3.accessKeyId" label="Access Key ID" :required="true" />
           </div>
           <div class="col span-6">
             <LabeledInput
-              v-model="value.storage.s3.secretAccessKey"
+              v-model="value.cortexConfig.storage.s3.secretAccessKey"
               label="Secret Access Key"
               :required="true"
               type="password"
@@ -186,7 +139,7 @@ export default {
         <div class="row mb-10">
           <div class="col span-6">
             <LabeledSelect
-              v-model="value.storage.s3.signatureVersion"
+              v-model="value.cortexConfig.storage.s3.signatureVersion"
               :options="signatureVersionOptions"
               label="Signature Version"
             />
@@ -195,16 +148,16 @@ export default {
         <h3>Server Side Encryption</h3>
         <div class="row mb-10">
           <div class="col span-6">
-            <LabeledSelect v-model="value.storage.s3.sse.type" :options="sseTypes" label="Type" />
+            <LabeledSelect v-model="value.cortexConfig.storage.s3.sse.type" :options="sseTypes" label="Type" />
           </div>
         </div>
-        <div v-if="value.storage.s3.sse.type === 'SSE-KMS'" class="row mb-10">
+        <div v-if="value.cortexConfig.storage.s3.sse.type === 'SSE-KMS'" class="row mb-10">
           <div class="col span-6">
-            <LabeledInput v-model="value.storage.s3.sse.kmsKeyID" label="KMS Key Id" :required="true" />
+            <LabeledInput v-model="value.cortexConfig.storage.s3.sse.kmsKeyID" label="KMS Key Id" :required="true" />
           </div>
           <div class="col span-6">
             <LabeledInput
-              v-model="value.storage.s3.sse.kmsEncryptionContext"
+              v-model="value.cortexConfig.storage.s3.sse.kmsEncryptionContext"
               label="KMS Encryption Context"
               :required="true"
             />
@@ -234,7 +187,7 @@ export default {
             />
           </div>
           <div class="col span-3 middle">
-            <Checkbox v-model="value.storage.s3.http.insecureSkipVerify" label="Insecure Skip Verify" />
+            <Checkbox v-model="value.cortexConfig.storage.s3.http.insecureSkipVerify" label="Insecure Skip Verify" />
           </div>
           <div class="col span-5">
             <UnitInput
@@ -247,17 +200,19 @@ export default {
         </div>
         <div class="row mb-10">
           <div class="col span-4">
-            <UnitInput v-model="value.storage.s3.http.maxIdleConns" label="Max Idle Connections" suffix="" />
+            <UnitInput v-model="value.cortexConfig.storage.s3.http.maxIdleConnections" label="Max Idle Connections" suffix="" :input-exponent="0" base-unit="" />
           </div>
           <div class="col span-4">
             <UnitInput
-              v-model="value.storage.s3.http.maxIdleConnsPerHost"
+              v-model="value.cortexConfig.storage.s3.http.maxIdleConnectionsPerHost"
               label="Max Idle Connections Per Host"
               suffix=""
+              :input-exponent="0"
+              base-unit=""
             />
           </div>
           <div class="col span-4">
-            <UnitInput v-model="value.storage.s3.http.maxConnsPerHost" label="Max Connections Per Host" suffix="" />
+            <UnitInput v-model="value.cortexConfig.storage.s3.http.maxConnectionsPerHost" label="Max Connections Per Host" suffix="" :input-exponent="0" base-unit="" />
           </div>
         </div>
       </div>

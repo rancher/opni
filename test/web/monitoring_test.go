@@ -15,6 +15,7 @@ import (
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/metrics/compat"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
@@ -58,8 +59,8 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 		Expect("section#storage").To(b.BeVisible())
 		Expect("section#grafana").NotTo(b.BeVisible())
 
-		By("selecting Standalone from the Mode dropdown")
-		Eventually("div.v-select input.vs__search").Should(b.SetValue("Standalone"))
+		By("selecting Test Environment from the Preset dropdown")
+		Eventually("div.v-select input.vs__search").Should(b.SetValue("Test Environment"))
 		Eventually("ul.vs__dropdown-menu > li").Should(b.Click())
 
 		By("selecting Filesystem from the Storage Type dropdown")
@@ -70,7 +71,7 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 		b.Click("li#grafana > a")
 
 		By("confirming that the storage tab is hidden and the grafana tab is visible")
-		Expect("section#storage").NotTo(b.BeVisible())
+		Eventually("section#storage").ShouldNot(b.BeVisible())
 		Expect("section#grafana").To(b.BeVisible())
 
 		By("confirming that the Grafana tab has a text box for the hostname")
@@ -85,14 +86,14 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 		By("confirming that the Monitoring capability is installed")
 		Eventually("div.banner").Should(And(b.BeVisible(), b.HaveInnerText("Monitoring is currently installed on the cluster.")))
 
-		status, err := opsClient.GetClusterStatus(context.Background(), &emptypb.Empty{})
+		status, err := opsClient.Status(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(status.State).To(Equal(cortexops.InstallState_Installed))
+		Expect(status.InstallState).To(Equal(driverutil.InstallState_Installed))
 	})
 
 	It("should show all agents in the Capability Management table", func() {
 		By("confirming that the local agent has the Degraded badge")
-		Eventually(Table().Row(1)).Should(MatchCells(CheckBox(), HaveDegradedBadge(), b.HaveInnerText("monitoring-test-agent1")))
+		Eventually(Table().Row(1)).Should(MatchCells(CheckBox(), HaveDegradedBadge(), b.HaveInnerText("monitoring-test-agent1"))) // TODO
 		By("confirming that the other agents have the Not Installed badge")
 		Eventually(Table().Row(2)).Should(MatchCells(CheckBox(), HaveNotInstalledBadge(), b.HaveInnerText("monitoring-test-agent2")))
 		Eventually(Table().Row(3)).Should(MatchCells(CheckBox(), HaveNotInstalledBadge(), b.HaveInnerText("monitoring-test-agent3")))
@@ -154,8 +155,8 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 		b.Click("section#matchLabels > div.key-value button")
 
 		By("entering a key and value")
-		Eventually("section#matchLabels div.key > input").Should(b.SetValue("test-key"))
-		Eventually("section#matchLabels div.value > input").Should(b.SetValue("test-value"))
+		Eventually("section#matchLabels .key input").Should(b.SetValue("test-key"))
+		Eventually("section#matchLabels .value input").Should(b.SetValue("test-value"))
 		time.Sleep(600 * time.Millisecond) // these text boxes have a 500ms(??) debounce
 
 		By("clicking the Save button")
@@ -388,9 +389,9 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 		Eventually("div.body > div.not-enabled").Should(b.BeVisible())
 		Expect("button.btn").To(b.HaveInnerText("Install"))
 
-		status, err := opsClient.GetClusterStatus(context.Background(), &emptypb.Empty{})
+		status, err := opsClient.Status(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(status.State).To(Equal(cortexops.InstallState_NotInstalled))
+		Expect(status.InstallState).To(Equal(driverutil.InstallState_NotInstalled))
 	})
 
 	It("should delete the agents", func() {

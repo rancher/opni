@@ -27,7 +27,7 @@ var _ = BeforeSuite(func() {
 		env = &test.Environment{}
 		Expect(env).NotTo(BeNil())
 		Expect(env.Start(test.WithEnableNodeExporter(true))).To(Succeed())
-		DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop, "Test Suite Finished")
 		tmpConfigDir = env.GenerateNewTempDirectory("alertmanager-config")
 		Expect(tmpConfigDir).NotTo(Equal(""))
 	})

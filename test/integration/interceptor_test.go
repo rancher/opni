@@ -24,7 +24,7 @@ var _ = Describe("Gateway unary interceptor tests", Ordered, Label("integration"
 		client = env.NewManagementClient(test.WithClientCaching(10*1024, time.Minute))
 		ctx = env.Context()
 
-		DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop, "Test Suite Finished")
 	})
 
 	When("we use the gateway caching interceptors", func() {

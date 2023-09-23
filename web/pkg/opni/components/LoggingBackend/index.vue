@@ -3,12 +3,11 @@ import { LabeledInput } from '@components/Form/LabeledInput';
 import { cloneDeep } from 'lodash';
 import Tab from '@shell/components/Tabbed/Tab';
 import Tabbed from '@shell/components/Tabbed';
-import Backend from '../Backend';
-import CapabilityTable from '../CapabilityTable';
-import { getLoggingCapabilities } from '../../utils/requests/capability';
 import {
   getOpensearchCluster, GetOpensearchStatus, createOrUpdateOpensearchCluster, doUpgrade, upgradeAvailable, Status, deleteOpensearchCluster
-} from '../../utils/requests/loggingv2';
+} from '@pkg/opni/utils/requests/loggingv2';
+import Backend from '../Backend';
+import CapabilityTable from '../CapabilityTable';
 import DataPods from './DataPods';
 import IngestPods from './IngestPods';
 import ControlplanePods from './ControlplanePods';
@@ -133,10 +132,6 @@ export default {
       await createOrUpdateOpensearchCluster(modifiedConfig);
     },
 
-    async loadCapabilities(parent) {
-      return await getLoggingCapabilities(parent);
-    },
-
     async isEnabled() {
       const cluster = await getOpensearchCluster();
 
@@ -258,7 +253,7 @@ export default {
       </Tabbed>
     </template>
     <template #details>
-      <CapabilityTable :capability-provider="loadCapabilities" />
+      <CapabilityTable name="logging" />
     </template>
   </Backend>
 </template>

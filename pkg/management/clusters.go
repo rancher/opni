@@ -2,7 +2,6 @@ package management
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"maps"
@@ -50,7 +49,7 @@ func (m *Server) DeleteCluster(
 	// delete the cluster's keyring, if it exists
 	store := m.coreDataSource.StorageBackend().KeyringStore("gateway", cluster.Reference())
 	if err := store.Delete(ctx); err != nil {
-		if !errors.Is(err, storage.ErrNotFound) {
+		if !storage.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to delete keyring store for cluster %s: %w", cluster.Id, err)
 		}
 	}
@@ -94,16 +93,12 @@ func (m *Server) WatchClusters(
 		var c, o *corev1.Cluster
 		var eventType managementv1.WatchEventType
 		switch event.EventType {
-		case storage.WatchEventCreate:
-			eventType = managementv1.WatchEventType_Created
-			c = event.Current
-			o = event.Previous
-		case storage.WatchEventUpdate:
-			eventType = managementv1.WatchEventType_Updated
+		case storage.WatchEventPut:
+			eventType = managementv1.WatchEventType_Put
 			c = event.Current
 			o = event.Previous
 		case storage.WatchEventDelete:
-			eventType = managementv1.WatchEventType_Deleted
+			eventType = managementv1.WatchEventType_Delete
 			c = event.Previous
 			o = event.Previous
 		}
@@ -291,7 +286,7 @@ func (m *Server) resolveClusters(ctx context.Context, refs ...*corev1.Reference)
 	for i, ref := range refs {
 		cluster, err := m.coreDataSource.StorageBackend().GetCluster(ctx, ref)
 		if err != nil {
-			if errors.Is(err, storage.ErrNotFound) {
+			if storage.IsNotFound(err) {
 				continue
 			}
 			return nil, err

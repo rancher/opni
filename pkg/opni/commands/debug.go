@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -19,7 +18,7 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/machinery"
-	cliutil "github.com/rancher/opni/pkg/opni/util"
+	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/spf13/cobra"
 	"go.etcd.io/etcd/etcdctl/v3/ctlv3"
@@ -314,7 +313,7 @@ func BuildDebugImportAgentCmd() *cobra.Command {
 			_, err = backend.GetCluster(context.Background(), &corev1.Reference{Id: agentId})
 			if err == nil {
 				return fmt.Errorf("agent %q already exists", agentId)
-			} else if !errors.Is(err, storage.ErrNotFound) {
+			} else if !storage.IsNotFound(err) {
 				return fmt.Errorf("storage backend error: %w", err)
 			}
 

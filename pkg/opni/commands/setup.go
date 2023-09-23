@@ -11,7 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
-	cliutil "github.com/rancher/opni/pkg/opni/util"
+	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/spf13/cobra"
 )
@@ -25,11 +25,12 @@ func ConfigureManagementCommand(cmd *cobra.Command) {
 	if cmd.PersistentPreRunE == nil {
 		cmd.PersistentPreRunE = managementPreRunE
 	} else {
+		oldPreRunE := cmd.PersistentPreRunE
 		cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 			if err := managementPreRunE(cmd, args); err != nil {
 				return err
 			}
-			return cmd.PersistentPreRunE(cmd, args)
+			return oldPreRunE(cmd, args)
 		}
 	}
 }

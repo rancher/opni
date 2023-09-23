@@ -11,8 +11,10 @@ import (
 
 type durationpbValue durationpb.Duration
 
-func DurationpbValue(val time.Duration, p **durationpb.Duration) pflag.Value {
-	*p = durationpb.New(val)
+func DurationpbValue(val *time.Duration, p **durationpb.Duration) pflag.Value {
+	if val != nil {
+		*p = durationpb.New(*val)
+	}
 	return (*durationpbValue)(*p)
 }
 

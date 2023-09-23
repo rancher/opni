@@ -12,7 +12,6 @@ import (
 	v1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/pkg/slo/shared"
@@ -133,16 +132,12 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 	BeforeAll(func() {
 		env = &test.Environment{}
 		Expect(env.Start()).To(Succeed())
-		DeferCleanup(env.Stop)
+		DeferCleanup(env.Stop, "Test Suite Finished")
 
 		opsClient := cortexops.NewCortexOpsClient(env.ManagementClientConn())
-		_, err := opsClient.ConfigureCluster(context.Background(), &cortexops.ClusterConfiguration{
-			Mode: cortexops.DeploymentMode_AllInOne,
-			Storage: &storagev1.StorageSpec{
-				Backend: storagev1.Filesystem,
-			},
-		})
+		err := cortexops.InstallWithPreset(env.Context(), opsClient)
 		Expect(err).NotTo(HaveOccurred())
+		Expect(cortexops.WaitForReady(env.Context(), opsClient)).To(Succeed())
 
 		client = env.NewManagementClient()
 		token, err = client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{

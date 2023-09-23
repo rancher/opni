@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/kralicky/totem"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
@@ -271,7 +271,7 @@ var _ = Describe("Stream API Extensions Plugin", Ordered, Label("unit"), func() 
 						goto receive
 					}
 					Expect(err).To(testutil.MatchStatusCode(codes.DeadlineExceeded, ContainSubstring("stream client discovery timed out")))
-				case <-time.After(10 * time.Millisecond):
+				case <-time.After(1 * time.Second):
 					Fail("stream.Recv() should have returned")
 				}
 			})

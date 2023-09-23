@@ -2127,6 +2127,24 @@ spec:
                   httpListenAddress:
                     default: 0.0.0.0:11080
                     type: string
+                  webCerts:
+                    properties:
+                      caCert:
+                        type: string
+                      caCertData:
+                        format: byte
+                        type: string
+                      servingCert:
+                        type: string
+                      servingCertData:
+                        format: byte
+                        type: string
+                      servingKey:
+                        type: string
+                      servingKeyData:
+                        format: byte
+                        type: string
+                    type: object
                   webListenAddress:
                     default: 0.0.0.0:12080
                     type: string

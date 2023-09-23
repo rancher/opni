@@ -4,7 +4,6 @@ import (
 	"context"
 	"net"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
@@ -17,6 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/urn"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/streams"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"

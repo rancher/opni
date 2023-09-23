@@ -1,18 +1,24 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/metrics/apis/cortexops";
-
-import "google/protobuf/empty.proto";
-import "google/protobuf/duration.proto";
-import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
-import "google/api/annotations.proto";
-import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 
 package cortexops;
 
-option (cli.generator) = {
-  generate: true
-};
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
+import "github.com/rancher/opni/internal/cortex/config/compactor/compactor.proto";
+import "github.com/rancher/opni/internal/cortex/config/querier/querier.proto";
+import "github.com/rancher/opni/internal/cortex/config/runtimeconfig/runtimeconfig.proto";
+import "github.com/rancher/opni/internal/cortex/config/validation/limits.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
+import "github.com/rancher/opni/pkg/plugins/driverutil/types.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
 
+option go_package = "github.com/rancher/opni/plugins/metrics/apis/cortexops";
+option (cli.generator) = {
+  generate:          true
+  generate_deepcopy: true
+};
 
 // The CortexOps service contains setup and configuration lifecycle actions for the managed Cortex cluster.
 service CortexOps {
@@ -20,10 +26,61 @@ service CortexOps {
     use: "ops"
   };
 
-  // Gets the current configuration of the managed Cortex cluster.
-  rpc GetClusterConfiguration(google.protobuf.Empty) returns (ClusterConfiguration) {
+  // Returns the default implementation-specific configuration, or one previously set.
+  // If a default configuration was previously set using SetDefaultConfiguration, it
+  // returns that configuration. Otherwise, returns implementation-specific defaults.
+  // An optional revision argument can be provided to get a specific historical
+  // version of the configuration instead of the current configuration.
+  rpc GetDefaultConfiguration(driverutil.GetRequest) returns (CapabilityBackendConfigSpec) {
     option (cli.command) = {
-      use: "get-configuration";
+      use:          "config get-default"
+      enable_hooks: true
+    };
+    option (google.api.http) = {
+      get: "/configuration/default"
+    };
+  }
+
+  // Sets the default configuration that will be used as the base for future configuration changes.
+  // If no custom default configuration is set using this method,
+  // implementation-specific defaults may be chosen.
+  // If all fields are unset, this will clear any previously-set default configuration
+  // and revert back to the implementation-specific defaults.
+  //
+  // This API is different from the SetConfiguration API, and should not be necessary
+  // for most use cases. It can be used in situations where an additional persistence
+  // layer that is not driver-specific is desired.
+  rpc SetDefaultConfiguration(CapabilityBackendConfigSpec) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use:         "config set-default"
+      granularity: EditMessage
+    };
+    option (google.api.http) = {
+      put:  "/configuration/default"
+      body: "*"
+    };
+  }
+
+  // Resets the default configuration to the implementation-specific defaults.
+  // If a custom default configuration was previously set using SetDefaultConfiguration,
+  // this will clear it and revert back to the implementation-specific defaults.
+  // Otherwise, this will have no effect.
+  rpc ResetDefaultConfiguration(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "config reset-default"
+    };
+    option (google.api.http) = {
+      delete: "/configuration/default"
+    };
+  }
+
+  // Gets the current configuration of the managed Cortex cluster.
+  // An optional revision argument can be provided to get a specific historical
+  // version of the configuration instead of the current configuration.
+  rpc GetConfiguration(driverutil.GetRequest) returns (CapabilityBackendConfigSpec) {
+    option (cli.command) = {
+      use:          "config get"
+      enable_hooks: true
     };
     option (google.api.http) = {
       get: "/configuration"
@@ -31,19 +88,67 @@ service CortexOps {
   }
 
   // Updates the configuration of the managed Cortex cluster to match the provided configuration.
-  // If the cluster is not installed, it will be configured and installed.
+  // If the cluster is not installed, it will be configured, but remain disabled.
   // Otherwise, the already-installed cluster will be reconfigured.
+  // The provided configuration will be merged with the default configuration
+  // by directly overwriting fields. Slices and maps are overwritten and not combined.
+  // Subsequent calls to this API will merge inputs with the current configuration,
+  // not the default configuration.
+  // When updating an existing configuration, the revision number in the updated configuration
+  // must match the revision number of the existing configuration, otherwise a conflict
+  // error will be returned. The timestamp field of the revision is ignored.
   //
   // Note: some fields may contain secrets. The placeholder value "***" can be used to
   // keep an existing secret when updating the cluster configuration.
-  rpc ConfigureCluster(ClusterConfiguration) returns (google.protobuf.Empty) {
+  rpc SetConfiguration(CapabilityBackendConfigSpec) returns (google.protobuf.Empty) {
     option (cli.command) = {
-      use: "configure";
-      // required_flags: ["mode", "storage.backend"];
+      use:          "config set"
+      enable_hooks: true
+      granularity:  EditMessage
     };
     option (google.api.http) = {
-      post: "/configure"
+      put:  "/configuration"
       body: "*"
+    };
+  }
+
+  // Resets the configuration of the managed Cortex cluster to the current default configuration.
+  //
+  // The request may optionally contain a field mask to specify which fields should
+  // be preserved. Furthermore, if a mask is set, the request may also contain a patch
+  // object used to apply additional changes to the masked fields. These changes are
+  // applied atomically at the time of reset. Fields present in the patch object, but
+  // not in the mask, are ignored.
+  //
+  // For example, with the following message:
+  //   message Example {
+  //     optional int32 a = 1;
+  //     optional int32 b = 2;
+  //     optional int32 c = 3;
+  //   }
+  //
+  // and current state:
+  //   active:  { a: 1, b: 2, c: 3 }
+  //   default: { a: 4, b: 5, c: 6 }
+  //
+  // and reset request parameters:
+  // {
+  //   mask:    { paths: [ "a", "b" ] }
+  //   patch:   { a: 100 }
+  // }
+  //
+  // The resulting active configuration will be:
+  //  active:  {
+  //    a: 100, // masked, set to 100 via patch
+  //    b: 2,   // masked, but not set in patch, so left unchanged
+  //    c: 6,   // not masked, reset to default
+  //  }
+  rpc ResetConfiguration(ResetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "config reset"
+    };
+    option (google.api.http) = {
+      delete: "/configuration"
     };
   }
 
@@ -53,7 +158,7 @@ service CortexOps {
   // be reflected in the install state.
   // No guarantees are made about the contents of the metadata field; its
   // contents are strictly informational.
-  rpc GetClusterStatus(google.protobuf.Empty) returns (InstallStatus) {
+  rpc Status(google.protobuf.Empty) returns (driverutil.InstallStatus) {
     option (cli.command) = {
       use: "status";
     };
@@ -62,11 +167,23 @@ service CortexOps {
     };
   }
 
+  // Installs the managed Cortex cluster.
+  // The cluster will be installed using the current configuration, or the
+  // default configuration if none is explicitly set.
+  rpc Install(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "install";
+    };
+    option (google.api.http) = {
+      post: "/install"
+    };
+  }
+
   // Uninstalls the managed Cortex cluster.
   // Implementation details including error handling and system state requirements
   // are left to the cluster driver, and this API makes no guarantees about
   // the state of the cluster after the call completes (regardless of success).
-  rpc UninstallCluster(google.protobuf.Empty) returns (google.protobuf.Empty) {
+  rpc Uninstall(google.protobuf.Empty) returns (google.protobuf.Empty) {
     option (cli.command) = {
       use: "uninstall";
     };
@@ -74,152 +191,141 @@ service CortexOps {
       post: "/uninstall"
     };
   }
+
+  // Returns a static list of presets that can be used as a base for configuring the managed Cortex cluster.
+  // There are several ways to use the presets, depending
+  // on the desired behavior:
+  // 1. Set the default configuration to a preset spec, then use SetConfiguration
+  //    to fill in any additional required fields (credentials, etc)
+  // 2. Add the required fields to the default configuration, then use
+  //    SetConfiguration with a preset spec.
+  // 3. Leave the default configuration as-is, and use SetConfiguration with a
+  //    preset spec plus the required fields.
+  rpc ListPresets(google.protobuf.Empty) returns (PresetList) {
+    option (cli.command) = {
+      use: "presets list"
+    };
+    option (google.api.http) = {
+      get: "/presets"
+    };
+  }
+
+  // Show what changes would be made to a configuration without saving them.
+  // The request expects an action, target, and spec to be provided. These
+  // correspond roughly to the other APIs in this service.
+  //
+  // Configuring DryRunRequest:
+  // - Use the Active target for the SetConfiguration API, and the Default target
+  //   for the SetDefaultConfiguration API. Install and Uninstall actions do not
+  //   require a target.
+  // - Only the Set action requires a spec to be provided.
+  //
+  // Notes:
+  // - When DryRun is used on Install or Uninstall requests, the response will
+  //   contain modifications to the 'enabled' field only. This field is read-only
+  //   in the Set* APIs.
+  // - To validate the current configuration but keep it unchanged, use the
+  //   Set action with an empty spec.
+  // - Configurations returned by DryRun will always have an empty revision field.
+  rpc DryRun(DryRunRequest) returns (DryRunResponse) {
+    option (cli.command).skip = true;
+    option (google.api.http) = {
+      post: "/dry-run"
+      body: "*"
+    };
+  }
+
+  // Get a list of all past revisions of the configuration.
+  // Will return the history for either the active or default configuration
+  // depending on the specified target.
+  // The entries are ordered from oldest to newest, where the last entry is
+  // the current configuration.
+  rpc ConfigurationHistory(driverutil.ConfigurationHistoryRequest) returns (ConfigurationHistoryResponse) {
+    option (cli.command) = {
+      use: "config history"
+    };
+    option (google.api.http) = {
+      get: "/configuration/history"
+    };
+  }
 }
 
-enum InstallState {
-  Unknown = 0;
-  NotInstalled = 1;
-  Updating = 2;
-  Installed = 3;
-  Uninstalling = 4;
+message CapabilityBackendConfigSpec {
+  optional bool           enabled         = 1 [(cli.flag).skip = true];
+  core.Revision           revision        = 2 [(cli.flag).skip = true];
+  CortexWorkloadsConfig   cortexWorkloads = 4;
+  CortexApplicationConfig cortexConfig    = 5;
+  GrafanaConfig           grafana         = 9;
 }
 
-message InstallStatus {
-  InstallState state = 1;
-  string version = 2;
-  map<string, string> metadata = 3;
-}
-
-enum DeploymentMode {
-  // All components are together in a single process. Not recommended for production use.
-  AllInOne = 0;
-  // Components are distributed across multiple processes.
-  HighlyAvailable = 1;
-}
-
-message ClusterConfiguration {
-  // The deployment mode to use for Cortex.
-  DeploymentMode mode = 1;
-  storage.StorageSpec storage = 2;
-  GrafanaConfig grafana = 3;
-  Workloads workloads = 4;
-  CortexConfig cortex = 5;
-}
-
-message Workloads {
-  CortexWorkloadSpec distributor = 1 [(cli.flag_set).default = {[type.googleapis.com/cortexops.CortexWorkloadSpec]: {replicas: 1}}];
-  CortexWorkloadSpec ingester = 2;
-  CortexWorkloadSpec compactor = 3;
-  CortexWorkloadSpec storeGateway = 4;
-  CortexWorkloadSpec ruler = 5;
-  CortexWorkloadSpec queryFrontend = 6 [(cli.flag_set).default = {[type.googleapis.com/cortexops.CortexWorkloadSpec]: {replicas: 1}}];
-  CortexWorkloadSpec querier = 7;
-  CortexWorkloadSpec purger = 8 [(cli.flag_set).default = {[type.googleapis.com/cortexops.CortexWorkloadSpec]: {replicas: 1}}];
+message CortexWorkloadsConfig {
+  map<string, CortexWorkloadSpec> targets = 1 [(cli.flag).skip = true];
 }
 
 message CortexWorkloadSpec {
-  // Number of replicas to run for this workload. Should be an odd number.
-  int32 replicas = 1;
-  // Any additional arguments to pass to Cortex.
+  optional int32  replicas  = 1;
   repeated string extraArgs = 2;
 }
 
-message CortexConfig {
-  CompactorConfig compactor = 1;
-  QuerierConfig querier = 2;
-  DistributorConfig distributor = 3;
-  IngesterConfig ingester = 4;
-}
-
-message CompactorConfig {
-  // List of compaction time ranges
-  repeated google.protobuf.Duration blockRanges = 1 [(cli.flag).default="2h,12h,24h"];
-  // The frequency at which the compaction runs
-  google.protobuf.Duration compactionInterval = 2 [(cli.flag).default="1h"];
-  // How frequently compactor should run blocks cleanup and maintenance, as well as update the bucket index
-  google.protobuf.Duration cleanupInterval = 3 [(cli.flag).default="15m"];
-  // Time before a block marked for deletion is deleted from the bucket
-  google.protobuf.Duration deletionDelay = 4 [(cli.flag).default="12h"];
-  // For tenants marked for deletion, this is time between deleting of last block, and doing final cleanup (marker files, debug files) of the tenant
-  google.protobuf.Duration tenantCleanupDelay = 5 [(cli.flag).default="6h"];
-}
-
-message QuerierConfig {
-  // The timeout for a query
-  google.protobuf.Duration queryTimeout = 1 [(cli.flag).default="2m"];
-
-  // Maximum number of samples a single query can load into memory
-  int32 maxSamples = 2 [(cli.flag).default="50e6"];
-
-  // Maximum lookback beyond which queries are not sent to ingester. 0 means all queries are sent to ingester.
-  google.protobuf.Duration queryIngestersWithin = 3 [(cli.flag).default="0"];
-
-  // Maximum duration into the future you can query. 0 to disable
-  google.protobuf.Duration maxQueryIntoFuture = 4 [(cli.flag).default="10m"];
-
-  // The default evaluation interval or step size for subqueries
-  google.protobuf.Duration defaultEvaluationInterval = 5 [(cli.flag).default="1m"];
-
-  // The time after which a metric should be queried from storage and not just ingesters. 0 means all queries are sent to store.
-  // When running the blocks storage, if this option is enabled, the time range of the query sent to the store will be manipulated
-  // to ensure the query end is not more recent than 'now - query-store-after'.
-  google.protobuf.Duration queryStoreAfter = 6 [(cli.flag).default="0"];
-
-  // Time since the last sample after which a time series is considered stale and ignored by expression evaluations
-  google.protobuf.Duration lookbackDelta = 7 [(cli.flag).default="5m"];
-
-  // When distributor's sharding strategy is shuffle-sharding and this setting is > 0, queriers fetch in-memory series from
-  // the minimum set of required ingesters, selecting only ingesters which may have received series since 'now - lookback period'.
-  // The lookback period should be greater or equal than the configured 'query store after' and 'query ingesters within'.
-  // If this setting is 0, queriers always query all ingesters (ingesters shuffle sharding on read path is disabled).
-  google.protobuf.Duration shuffleShardingIngestersLookbackPeriod = 8 [(cli.flag).default="0"];
-
-  // The maximum number of unique series for which a query can fetch samples from each ingesters and blocks storage. This limit is enforced in the querier, ruler and store-gateway. 0 to disable
-  int32 maxFetchedSeriesPerQuery = 9 [(cli.flag).default="0"];
-}
-
-
-message DistributorConfig {
-  // Per-user ingestion rate limit in samples per second.
-  double ingestionRate = 1 [(cli.flag).default="600000"];
-
-  // Whether the ingestion rate limit should be applied individually to each distributor instance (local), or evenly shared across the cluster (global).
-  string ingestionRateStrategy = 2 [(cli.flag).default="local"];
-
-  // Per-user allowed ingestion burst size (in number of samples).
-  int32 ingestionBurstSize = 3 [(cli.flag).default="1000000"];
-}
-
-message IngesterConfig {
-  // The maximum number of active series per user, per ingester. 0 to disable.
-  int32 maxLocalSeriesPerUser = 1 [(cli.flag).default="0"];
-
-  // The maximum number of active series per metric name, per ingester. 0 to disable.
-  int32 maxLocalSeriesPerMetric = 2 [(cli.flag).default="0"];
-
-  // The maximum number of active series per user, across the cluster before replication. 0 to disable.
-  int32 maxGlobalSeriesPerUser = 3 [(cli.flag).default="0"];
-
-  // The maximum number of active series per metric name, across the cluster before replication. 0 to disable.
-  int32 maxGlobalSeriesPerMetric = 4 [(cli.flag).default="0"];
-
-  // The maximum number of active metrics with metadata per user, per ingester. 0 to disable.
-  int32 maxLocalMetricsWithMetadataPerUser = 5 [(cli.flag).default="0"];
-
-  // The maximum number of metadata per metric, per ingester. 0 to disable.
-  int32 maxLocalMetadataPerMetric = 6 [(cli.flag).default="0"];
-
-  // The maximum number of active metrics with metadata per user, across the cluster. 0 to disable.
-  int32 maxGlobalMetricsWithMetadataPerUser = 7 [(cli.flag).default="0"];
-
-  // The maximum number of metadata per metric, across the cluster. 0 to disable.
-  int32 maxGlobalMetadataPerMetric = 8 [(cli.flag).default="0"];
+message CortexApplicationConfig {
+  validation.Limits limits = 1 [(cli.flag_set) = {
+    default: {
+      [type.googleapis.com/validation.Limits]: {
+        // these are static overrides to the upstream defaults
+        compactor_blocks_retention_period: {seconds: 2592000} /* 30 days */
+        ingestion_rate: 600000
+        ingestion_burst_size: 1000000
+      }
+    }
+  }];
+  runtimeconfig.RuntimeConfigValues runtime_config = 2;
+  compactor.Config                  compactor      = 3;
+  querier.Config                    querier        = 4;
+  storage.Config                    storage        = 5;
+  optional string                   log_level      = 6 [(cli.flag).default = "debug"];
 }
 
 message GrafanaConfig {
   // Whether to deploy a managed Grafana instance.
-  bool enabled = 1 [(cli.flag).default="false"];
+  optional bool enabled = 1 [(cli.flag).default = "false"];
 
-  // DNS name at which Grafana will be available in the browser.
-  string hostname = 2;
+  // The version of Grafana to deploy.
+  optional string version = 2 [(cli.flag).default = "latest"];
+
+  optional string hostname = 3;
+}
+
+message PresetList {
+  repeated Preset items = 1;
+}
+
+message Preset {
+  core.Reference              id       = 1;
+  driverutil.PresetMetadata   metadata = 2;
+  CapabilityBackendConfigSpec spec     = 3;
+}
+
+message DryRunRequest {
+  driverutil.Target target = 1;
+  driverutil.Action action = 2;
+
+  CapabilityBackendConfigSpec spec = 3; // Set
+
+  CapabilityBackendConfigSpec patch = 4; // Reset
+  google.protobuf.FieldMask   mask  = 5 [(cli.flag).skip = true]; // Reset
+}
+
+message DryRunResponse {
+  CapabilityBackendConfigSpec         current          = 1;
+  CapabilityBackendConfigSpec         modified         = 2;
+  repeated driverutil.ValidationError validationErrors = 3;
+}
+
+message ConfigurationHistoryResponse {
+  repeated CapabilityBackendConfigSpec entries = 1;
+}
+
+message ResetRequest {
+  google.protobuf.FieldMask   mask  = 1 [(cli.flag).skip = true];
+  CapabilityBackendConfigSpec patch = 2 [(cli.flag).skip = true];
 }

@@ -276,11 +276,10 @@ func (b *Builder) run(ctx context.Context) error {
 }
 
 func (b *Builder) runInTreeBuilds(ctx context.Context) error {
-	goBase := b.goBase()
-	nodeBase := b.nodeBase()
+	base := b.base()
 	alpineBase := b.alpineBase()
 
-	goBuild := goBase.
+	goBuild := base.
 		Pipeline("Go Build").
 		With(installTools).
 		WithEnvVariable("CGO_ENABLED", "0").
@@ -298,11 +297,10 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		WithFile(b.ciTarget("charts")).
 		WithExec(mage([]string{"charts"}))
 
-	nodeBuild := nodeBase.
+	nodeBuild := generated.
 		Pipeline("Node Build").
-		WithDirectory(filepath.Join(b.workdir, "web"), b.sources.Directory("web")).
+		WithWorkdir(filepath.Join(b.workdir, "web")).
 		WithExec([]string{"ln", "-s", "/cache/node_modules", filepath.Join(b.workdir, "web", "node_modules")}).
-		WithExec([]string{"ls", "-halL", "node_modules"}).
 		WithExec(yarn([]string{"install", "--frozen-lockfile"})).
 		WithExec(yarn("build"))
 
@@ -316,7 +314,8 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 	opni := archives.
 		Pipeline("Build Opni").
 		WithMountedDirectory(webDist, nodeBuild.Directory(webDist)).
-		WithExec(mage([]string{"build:opni"}))
+		WithExec(mage([]string{"build:opni"})).
+		WithExec([]string{"bin/opni", "completion", "bash"}, dagger.ContainerWithExecOpts{RedirectStdout: "/etc/bash_completion.d/opni"})
 
 	minimal := archives.
 		Pipeline("Build Opni Minimal").
@@ -381,6 +380,7 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 		Pipeline("Full Image").
 		WithFile("/usr/bin/opni", opni.File(b.bin("opni"))).
 		WithDirectory("/var/lib/opni/plugins", plugins.Directory(b.bin("plugins"))).
+		WithDirectory("/etc/bash_completion.d", opni.Directory("/etc/bash_completion.d")).
 		WithEntrypoint([]string{"opni"})
 
 	minimalImage := alpineBase.

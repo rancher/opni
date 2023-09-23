@@ -3,8 +3,9 @@ import ArrayListSelect from '@shell/components/form/ArrayListSelect';
 import LabeledSelect from '@shell/components/form/LabeledSelect';
 import UnitInput from '@shell/components/form/UnitInput';
 import Loading from '@shell/components/Loading';
+import { createComputedTime } from '@pkg/opni/utils/computed';
 import { AlertType } from '../../models/alerting/Condition';
-import { loadClusters, loadChoices } from './shared';
+import { mapClusterOptions, loadChoices } from './shared';
 
 const TYPE = 'downstreamCapability';
 
@@ -41,7 +42,7 @@ export default {
   },
 
   async fetch() {
-    await Promise.all([this.loadChoices(), this.loadClusters()]);
+    await this.loadChoices();
   },
 
   data() {
@@ -57,13 +58,11 @@ export default {
     async loadChoices() {
       await loadChoices(this, this.TYPE, this.ENUM);
     },
-
-    async loadClusters() {
-      await loadClusters(this);
-    },
   },
 
   computed: {
+    ...mapClusterOptions(),
+
     downstreamCapabilityClusterOptions() {
       const options = this.clusterOptions;
 
@@ -73,15 +72,9 @@ export default {
 
       return options;
     },
-    downstreamCapabilityFor: {
-      get() {
-        return Number.parseInt(this.value.for || '0');
-      },
 
-      set(value) {
-        this.$set(this.value, 'for', `${ (value || 0) }s`);
-      }
-    },
+    downstreamCapabilityFor: createComputedTime('value.for'),
+
     downstreamCapabilityStateOptions() {
       if (!this.value.clusterId) {
         return [];

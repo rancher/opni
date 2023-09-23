@@ -1,0 +1,7 @@
+#!/usr/bin/env node
+/* eslint-disable */
+
+const { runNodeJs } = require("@bufbuild/protoplugin");
+const plugin = require("./dist/service-generator/src/index.js");
+
+runNodeJs(plugin.default);

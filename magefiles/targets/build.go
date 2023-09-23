@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
+	"path"
 	"strings"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
+	"github.com/magefile/mage/target"
 	"github.com/mholt/archiver/v4"
 )
 
@@ -40,6 +43,27 @@ func (Build) Linter(ctx context.Context) error {
 		Path:   "./internal/cmd/lint",
 		Output: "bin/lint",
 	})
+}
+
+// Build the typescript service generator plugin
+func (Build) TypescriptServiceGenerator() error {
+	if shouldGenerate, _ := target.Dir("web/service-generator/dist", "web/service-generator/src"); !shouldGenerate {
+		return nil
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	webPath := path.Join(cwd, "web")
+	command := exec.Command("yarn", "build:service-generator")
+	command.Dir = webPath
+	command.Stderr = os.Stderr
+	command.Stdout = os.Stdout
+	command.Stdin = os.Stdin
+
+	return command.Run()
 }
 
 type buildOpts struct {

@@ -16,7 +16,7 @@ var _ = Describe("ManagementWatcherHooks", Ordered, Label("unit"), func() {
 	BeforeAll(func() {
 		hooks = management.NewManagementWatcherHooks[*managementv1.WatchEvent](context.Background())
 		hooks.RegisterHook(func(event *managementv1.WatchEvent) bool {
-			return event.Type == managementv1.WatchEventType_Updated
+			return event.Type == managementv1.WatchEventType_Put
 		}, func(ctx context.Context, event *managementv1.WatchEvent) error {
 			count++
 			return nil
@@ -25,19 +25,14 @@ var _ = Describe("ManagementWatcherHooks", Ordered, Label("unit"), func() {
 
 	It("should ignore non-update events", func() {
 		hooks.HandleEvent(&managementv1.WatchEvent{
-			Type: managementv1.WatchEventType_Created,
-		})
-		Expect(count).To(Equal(0))
-
-		hooks.HandleEvent(&managementv1.WatchEvent{
-			Type: managementv1.WatchEventType_Deleted,
+			Type: managementv1.WatchEventType_Delete,
 		})
 		Expect(count).To(Equal(0))
 	})
 
 	It("should handle update events", func() {
 		hooks.HandleEvent(&managementv1.WatchEvent{
-			Type: managementv1.WatchEventType_Updated,
+			Type: managementv1.WatchEventType_Put,
 		})
 
 		Expect(count).To(Equal(1))

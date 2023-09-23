@@ -8,7 +8,7 @@ import (
 	"time"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/storage/kvutil"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
@@ -19,7 +19,7 @@ import (
 type Task struct {
 	id     string
 	cctx   context.Context // controller context
-	status storage.ValueStoreLocker[*corev1.TaskStatus]
+	status kvutil.ValueStoreLocker[*corev1.TaskStatus]
 	logger *zap.SugaredLogger
 }
 
@@ -99,7 +99,9 @@ func (t *Task) logTransition(transition *corev1.StateTransition) {
 func (t *Task) getStatus() *corev1.TaskStatus {
 	for {
 		select {
-		case result := <-lo.Async2(util.BindContext2(t.cctx, t.status.Get)):
+		case result := <-lo.Async2(func() (*corev1.TaskStatus, error) {
+			return t.status.Get(t.cctx)
+		}):
 			status, err := lo.Unpack2(result)
 			if err == nil {
 				return status

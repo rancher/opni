@@ -3,7 +3,6 @@ package challenges_test
 import (
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/auth/session"
@@ -11,6 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/keyring/ephemeral"
 	_ "github.com/rancher/opni/pkg/test/setup"
+	"go.uber.org/mock/gomock"
 )
 
 var (

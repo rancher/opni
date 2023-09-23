@@ -1,6 +1,7 @@
 <script>
 import ActionMenu from '@shell/components/ActionMenu';
 import PromptRemove from '@shell/components/PromptRemove';
+import GlobalEventBus from '@pkg/opni/utils/GlobalEventBus';
 import { createNavItemsFromNavigation } from '../utils/navigation';
 import { isStandalone } from '../utils/standalone';
 import { NAVIGATION } from '../router';
@@ -22,7 +23,7 @@ export default {
     return {
       // Assume home pages have routes where the name is the key to use for string lookup
       name:          this.$route.name,
-      allNavItems:   [],
+      allNavItems:  [],
     };
   },
 
@@ -33,7 +34,19 @@ export default {
       this.$set(this, 'allNavItems', allNavItems);
     },
 
-    isStandalone
+    isStandalone,
+
+    promptRemove(resources) {
+      this.$store.commit('action-menu/togglePromptRemove', resources, { root: true });
+    }
+  },
+
+  created() {
+    GlobalEventBus.$on('promptRemove', this.promptRemove);
+  },
+
+  beforeDestroy() {
+    GlobalEventBus.$off('promptRemove');
   },
 
   computed: {
@@ -68,7 +81,6 @@ export default {
       <ActionMenu />
       <PromptRemove />
     </div>
-  </div>
   </div>
 </template>
 

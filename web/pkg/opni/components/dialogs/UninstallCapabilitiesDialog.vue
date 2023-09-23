@@ -3,10 +3,7 @@ import AsyncButton from '@shell/components/AsyncButton';
 import { Card } from '@components/Card';
 import RadioGroup from '@components/Form/Radio/RadioGroup';
 import { Banner } from '@components/Banner';
-import { Management, Capability } from '@pkg/opni/api/opni';
-import { Struct } from '@bufbuild/protobuf';
 import { exceptionToErrorsArray } from '@pkg/opni/utils/error';
-import { Reference } from '@pkg/opni/generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
 
 export default {
   components: {
@@ -38,6 +35,7 @@ export default {
         this.$set(this, 'capabilities', [...this.capabilities, ...capabilities]);
       } else {
         this.$set(this, 'opened', true);
+        this.$set(this, 'deleteData', false);
         this.$set(this, 'capabilities', capabilities);
         this.$set(this, 'confirm', '');
         this.$modal.show('uninstall-capabilities-dialog');
@@ -48,20 +46,9 @@ export default {
       try {
         const uninstalls = this.capabilities
           .filter(cap => cap.isInstalled)
-          .map((cap) => {
-            const options = this.deleteData ? new Struct({ initialDelay: '1m' }) : undefined;
-
-            const uninstallRequest = new Capability.types.UninstallRequest({ cluster: new Reference({ id: cap.cluster.id }), options });
-            const capabilityUninstallRequest = new Management.types.CapabilityUninstallRequest({
-              name:   cap.type,
-              target: uninstallRequest
-            });
-
-            return Management.service.UninstallCapability(capabilityUninstallRequest);
-          });
+          .map(cap => cap.uninstall(this.deleteData));
 
         await Promise.all(uninstalls);
-        this.capabilities.forEach(cap => cap.updateCabilityLogs());
         this.$emit('save');
       } catch (err) {
         this.errors = exceptionToErrorsArray(err);
@@ -72,6 +59,10 @@ export default {
   computed: {
     label() {
       return (this.capabilities[0] || {}).nameDisplay;
+    },
+
+    showDeleteData() {
+      return (this.capabilities[0] || {}).type !== 'alerting';
     }
   }
 };
@@ -99,7 +90,7 @@ export default {
             {{ cap.clusterNameDisplay }}
           </li>
         </ul>
-        <div class="row">
+        <div v-if="showDeleteData" class="row mt-10">
           <div class="col span-12">
             <RadioGroup
               v-model="deleteData"

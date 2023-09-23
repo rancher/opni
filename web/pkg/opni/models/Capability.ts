@@ -1,11 +1,12 @@
 import Vue, { reactive } from 'vue';
 import { uninstallCapabilityStatus } from '@pkg/opni/utils/requests/management';
 import { exceptionToErrorsArray } from '@pkg/opni/utils/error';
-import { Management } from '@pkg/opni/api/opni';
+import { Management, Capability as CapabilityProto } from '@pkg/opni/api/opni';
 import { Reference } from '@pkg/opni/generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
 import { InstallRequest } from '@pkg/opni/generated/github.com/rancher/opni/pkg/apis/capability/v1/capability_pb';
 import GlobalEventBus from '@pkg/opni/utils/GlobalEventBus';
 import { CapabilityInstallRequest, CapabilityStatusRequest } from '@pkg/opni/generated/github.com/rancher/opni/pkg/apis/management/v1/management_pb';
+import { Struct, Value } from '@bufbuild/protobuf';
 import { Cluster } from './Cluster';
 import { Resource } from './Resource';
 
@@ -68,26 +69,21 @@ export interface ClusterStats {
   APIIngestionRate: number;
   RuleIngestionRate: number;
 }
+export type Type = 'alerting' | 'metrics' | 'logs';
 
-export interface CapabilityStatuses {
-  alerting?: CapabilityStatus;
-  metrics?: CapabilityStatus;
-  logs?: CapabilityStatus;
-}
 export class Capability extends Resource {
-  private type: keyof CapabilityStatuses;
+  private type: Type;
   private cluster: Cluster;
-  private capabilityStatus: CapabilityStatuses;
+  private capabilityStatus?: CapabilityStatus;
   private stats?: ClusterStats[];
 
-  constructor(type: keyof CapabilityStatuses, cluster: Cluster, vue: any) {
+  constructor(type: Type, cluster: Cluster, vue: any) {
     super(vue);
     this.type = type;
     this.cluster = cluster;
-    this.capabilityStatus = {};
   }
 
-  static create(type: keyof CapabilityStatuses, cluster: Cluster, vue: any): Capability {
+  static create(type: Type, cluster: Cluster, vue: any): Capability {
     return reactive(new Capability(type, cluster, vue));
   }
 
@@ -110,11 +106,9 @@ export class Capability extends Resource {
   }
 
   get status() {
-    const status = this.capabilityStatus[this.type];
-
-    return status || {
-      state:        'info',
-      shortMessage: 'Not Installed',
+    return this.capabilityStatus || {
+      state:        'success',
+      shortMessage: 'Loading',
     };
   }
 
@@ -138,7 +132,7 @@ export class Capability extends Resource {
     return this.cluster.capabilities;
   }
 
-  async updateCabilityLogs(): Promise<void> {
+  async updateCabilityLogs(dialog: boolean = false): Promise<void> {
     function getState(state: TaskState) {
       switch (state) {
       case TaskState.Completed:
@@ -152,61 +146,49 @@ export class Capability extends Resource {
       }
     }
 
-    if (this.capabilities.length === 0) {
-      Vue.set(this.capabilityStatus, this.type, {
-        state:        'info',
-        shortMessage: 'Not Installed',
-      });
-    }
+    try {
+      const capMeta = this.cluster.capabilitiesRaw?.find(c => c.name === this.type);
 
-    for (const i in this.capabilities) {
-      try {
-        const capability = this.capabilities[i] as (keyof CapabilityStatuses);
-        const capMeta = this.cluster.capabilitiesRaw?.find(c => c.name === capability);
+      if (!capMeta) {
+        Vue.set(this, 'capabilityStatus', {
+          state:        'info',
+          shortMessage: 'Not Installed',
+        });
+      } else if (capMeta?.deletionTimestamp) {
+        const log = await uninstallCapabilityStatus(this.cluster.id, this.type, this.vue);
+        const pending = log.state === TaskState.Pending || log.state === TaskState.Running || (this.capabilityStatus as any)?.pending || false;
+        const state = getState(log.state);
 
-        if (capMeta?.deletionTimestamp) {
-          const log = await uninstallCapabilityStatus(this.cluster.id, capability, this.vue);
-          const pending = log.state === TaskState.Pending || log.state === TaskState.Running || (this.capabilityStatus[capability] as any)?.pending || false;
-          const state = getState(log.state);
+        Vue.set(this, 'capabilityStatus', {
+          state,
+          shortMessage: pending ? 'Pending' : (log.state === TaskState.Completed ? 'Not Installed' : 'Uninstalling'),
+          message:      (log.logs || []).reverse()[0]?.msg,
+        });
+      } else {
+        const apiStatus = await Management.service.CapabilityStatus(new CapabilityStatusRequest({
+          cluster: new Reference({ id: this.cluster.id }),
+          name:    this.type,
+        }));
 
-          Vue.set(this.capabilityStatus, capability, {
-            state,
-            shortMessage: pending ? 'Pending' : (log.state === TaskState.Completed ? 'Not Installed' : 'Uninstalling'),
-            message:      (log.logs || []).reverse()[0]?.msg,
+        if (apiStatus.conditions?.length === 0) {
+          Vue.set(this, 'capabilityStatus', {
+            state:        'success',
+            shortMessage: 'Installed',
+          });
+        } else if (!apiStatus.enabled) {
+          Vue.set(this, 'capabilityStatus', {
+            state:        'warning',
+            shortMessage: 'Disabled',
           });
         } else {
-          const apiStatus = await Management.service.CapabilityStatus(new CapabilityStatusRequest({
-            cluster: new Reference({ id: this.cluster.id }),
-            name:    capability,
-          }));
-
-          if (apiStatus.conditions?.length === 0) {
-            Vue.set(this.capabilityStatus, capability, {
-              state:        'success',
-              shortMessage: 'Installed',
-            });
-          } else if (!apiStatus.enabled) {
-            Vue.set(this.capabilityStatus, capability, {
-              state:        'warning',
-              shortMessage: 'Disabled',
-            });
-          } else {
-            Vue.set(this.capabilityStatus, capability, {
-              state:        'warning',
-              shortMessage: 'Degraded',
-              message:      apiStatus.conditions?.join(', '),
-            });
-          }
-
           Vue.set(this, 'capabilityStatus', {
-            [capability]: {
-              state:        'success',
-              shortMessage: 'Installed',
-            }
+            state:        'warning',
+            shortMessage: 'Degraded',
+            message:      apiStatus.conditions?.join(', '),
           });
         }
-      } catch (ex) {}
-    }
+      }
+    } catch (ex) {}
   }
 
   get availableActions(): any[] {
@@ -216,17 +198,17 @@ export class Capability extends Resource {
         label:    'Install',
         icon:     'icon icon-upload',
         bulkable: true,
-        enabled:  !this.isCapabilityInstalled,
+        enabled:  !this.isCapabilityInstalled && !this.isCapabilityUninstalling,
       },
       {
-        action:   'uninstall',
+        action:   'uninstallPrompt',
         label:    'Uninstall',
         icon:     'icon icon-delete',
         bulkable: true,
-        enabled:  this.isCapabilityInstalled,
+        enabled:  this.isCapabilityInstalled && !this.isCapabilityUninstalling,
       },
       {
-        action:   'cancelUninstall',
+        action:   'cancelUninstallPrompt',
         label:    'Cancel Uninstall',
         icon:     'icon icon-x',
         bulkable: true,
@@ -235,11 +217,11 @@ export class Capability extends Resource {
     ];
   }
 
-  uninstall() {
+  uninstallPrompt() {
     GlobalEventBus.$emit('uninstallCapabilities', [this]);
   }
 
-  cancelUninstall() {
+  cancelUninstallPrompt() {
     GlobalEventBus.$emit('cancelUninstallCapabilities', [this]);
   }
 
@@ -254,9 +236,11 @@ export class Capability extends Resource {
         target: new InstallRequest({ cluster: new Reference({ id: this.cluster.id }) }),
       }));
 
-      this.updateCabilityLogs();
+      setTimeout(() => {
+        this.updateCabilityLogs();
+      }, 10);
     } catch (ex) {
-      Vue.set(this.capabilityStatus, this.type, {
+      Vue.set(this, 'capabilityStatus', {
         state:        'error',
         shortMessage: 'Error',
         message:      exceptionToErrorsArray(ex).join('; '),
@@ -264,10 +248,49 @@ export class Capability extends Resource {
     }
   }
 
-  clearCapabilityStatus(capabilities: (keyof CapabilityStatuses)[]) {
-    capabilities.forEach((capability) => {
-      Vue.set(this.capabilityStatus, capability, {});
-    });
+  async uninstall(deleteData: boolean = true) {
+    try {
+      const options = deleteData ? new Struct({ fields: { initialDelay: new Value({ kind: { case: 'stringValue', value: '60s' } }) } }) : undefined;
+
+      const uninstallRequest = new CapabilityProto.types.UninstallRequest({ cluster: new Reference({ id: this.cluster.id }), options });
+      const capabilityUninstallRequest = new Management.types.CapabilityUninstallRequest({
+        name:   this.type,
+        target: uninstallRequest
+      });
+
+      await Management.service.UninstallCapability(capabilityUninstallRequest);
+
+      setTimeout(() => {
+        this.updateCabilityLogs();
+      }, 10);
+    } catch (ex) {
+      Vue.set(this, 'capabilityStatus', {
+        state:        'error',
+        shortMessage: 'Error',
+        message:      exceptionToErrorsArray(ex).join('; '),
+      });
+    }
+  }
+
+  async cancelUninstall() {
+    try {
+      const cancelCapabilityUninstallRequest = new Management.types.CapabilityUninstallCancelRequest({
+        name:    this.type,
+        cluster: new Reference({ id: this.cluster.id })
+      });
+
+      await Management.service.CancelCapabilityUninstall(cancelCapabilityUninstallRequest);
+
+      setTimeout(() => {
+        this.updateCabilityLogs();
+      }, 10);
+    } catch (ex) {
+      Vue.set(this, 'capabilityStatus', {
+        state:        'error',
+        shortMessage: 'Error',
+        message:      exceptionToErrorsArray(ex).join('; '),
+      });
+    }
   }
 
   get isCapabilityUninstalling(): boolean {

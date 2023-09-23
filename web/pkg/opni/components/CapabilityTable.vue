@@ -82,7 +82,7 @@ export default {
   computed: { ...mapGetters({ clusters: 'opni/clusters' }) },
 
   watch: {
-    capabilities() {
+    'capabilities.length'() {
       this.loadStatus();
     },
 
@@ -96,11 +96,13 @@ export default {
 
   created() {
     GlobalEventBus.$on('uninstallCapabilities', this.openUninstallCapabilitiesDialog);
+    GlobalEventBus.$on('cancelUninstallCapabilities', this.openCancelUninstallCapabilitiesDialog);
     this.statusInterval = setInterval(this.loadStatus, 10000);
   },
 
   beforeDestroy() {
     GlobalEventBus.$off('uninstallCapabilities');
+    GlobalEventBus.$off('cancelUninstallCapabilities', this.openCancelUninstallCapabilitiesDialog);
     if (this.statusInterval) {
       clearInterval(this.statusInterval);
     }
@@ -139,9 +141,14 @@ export default {
     },
 
     async onDialogSave() {
-      await this.loadStatus();
       this.$refs.uninstallCapabilitiesDialog.close(false);
       this.$refs.cancelCapabilitiesDialog.close(false);
+
+      // Reset the interval so we don't have an untimely update
+      if (this.statusInterval) {
+        clearInterval(this.statusInterval);
+      }
+      this.statusInterval = setInterval(this.loadStatus, 10000);
     },
   },
 };

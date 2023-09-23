@@ -266,7 +266,11 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 			if cStatus.Distributor == nil {
 				return false, ts
 			}
-			for _, svc := range cStatus.Distributor.GetServices().GetServices() {
+			services := cStatus.GetDistributor().GetServices().GetServices()
+			if len(services) == 0 {
+				return false, ts
+			}
+			for _, svc := range services {
 				memberReports[svc.GetName()] = true
 				if svc.GetStatus() != "Running" {
 					return false, ts
@@ -276,12 +280,20 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 			if cStatus.Ingester == nil {
 				return false, ts
 			}
-			for _, member := range cStatus.Ingester.Memberlist.Members.Items {
+			members := cStatus.GetIngester().GetMemberlist().GetMembers().GetItems()
+			if len(members) == 0 {
+				return false, ts
+			}
+			for _, member := range members {
 				if _, ok := memberReports[member.Name]; !ok {
 					memberReports[member.Name] = true
 				}
 			}
-			for _, svc := range cStatus.Ingester.GetServices().GetServices() {
+			services := cStatus.GetIngester().GetServices().GetServices()
+			if len(services) == 0 {
+				return false, ts
+			}
+			for _, svc := range services {
 				memberReports[svc.GetName()] = true
 				if svc.GetStatus() != "Running" {
 					return false, ts
@@ -291,12 +303,20 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 			if cStatus.Ruler == nil {
 				return false, ts
 			}
-			for _, member := range cStatus.Ruler.Memberlist.Members.Items {
+			members := cStatus.GetRuler().GetMemberlist().GetMembers().GetItems()
+			if len(members) == 0 {
+				return false, ts
+			}
+			for _, member := range members {
 				if _, ok := memberReports[member.Name]; !ok {
 					memberReports[member.Name] = true
 				}
 			}
-			for _, svc := range cStatus.Ruler.GetServices().GetServices() {
+			services := cStatus.GetRuler().GetServices().GetServices()
+			if len(services) == 0 {
+				return false, ts
+			}
+			for _, svc := range services {
 				memberReports[svc.GetName()] = true
 				if svc.GetStatus() != "Running" {
 					return false, ts
@@ -306,7 +326,11 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 			if cStatus.Purger == nil {
 				return false, ts
 			}
-			for _, svc := range cStatus.Purger.GetServices().GetServices() {
+			services := cStatus.GetPurger().GetServices().GetServices()
+			if len(services) == 0 {
+				return false, ts
+			}
+			for _, svc := range services {
 				memberReports[svc.GetName()] = true
 				if svc.GetStatus() != "Running" {
 					return false, ts
@@ -316,12 +340,20 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 			if cStatus.Compactor == nil {
 				return false, ts
 			}
-			for _, member := range cStatus.Compactor.Memberlist.Members.Items {
+			members := cStatus.GetCompactor().GetMemberlist().GetMembers().GetItems()
+			if len(members) == 0 {
+				return false, ts
+			}
+			for _, member := range members {
 				if _, ok := memberReports[member.Name]; !ok {
 					memberReports[member.Name] = true
 				}
 			}
-			for _, svc := range cStatus.Compactor.GetServices().GetServices() {
+			services := cStatus.GetCompactor().GetServices().GetServices()
+			if len(services) == 0 {
+				return false, ts
+			}
+			for _, svc := range services {
 				memberReports[svc.GetName()] = true
 				if svc.GetStatus() != "Running" {
 					return false, ts
@@ -331,7 +363,11 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 			if cStatus.StoreGateway == nil {
 				return false, ts
 			}
-			for _, svc := range cStatus.StoreGateway.GetServices().GetServices() {
+			services := cStatus.GetStoreGateway().GetServices().GetServices()
+			if len(services) == 0 {
+				return false, ts
+			}
+			for _, svc := range services {
 				memberReports[svc.GetName()] = true
 				if svc.GetStatus() != "Running" {
 					return false, ts
@@ -341,7 +377,11 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 			if cStatus.QueryFrontend == nil {
 				return false, ts
 			}
-			for _, svc := range cStatus.QueryFrontend.GetServices().GetServices() {
+			services := cStatus.GetQueryFrontend().GetServices().GetServices()
+			if len(services) == 0 {
+				return false, ts
+			}
+			for _, svc := range services {
 				memberReports[svc.GetName()] = true
 				if svc.GetStatus() != "Running" {
 					return false, ts
@@ -351,7 +391,11 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 			if cStatus.Querier == nil {
 				return false, ts
 			}
-			for _, svc := range cStatus.Querier.GetServices().GetServices() {
+			services := cStatus.GetQuerier().GetServices().GetServices()
+			if len(services) == 0 {
+				return false, ts
+			}
+			for _, svc := range services {
 				memberReports[svc.GetName()] = true
 				if svc.GetStatus() != "Running" {
 					return false, ts

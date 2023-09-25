@@ -2,7 +2,6 @@ syntax = "proto3";
 
 package system;
 
-import "github.com/rancher/opni/pkg/apis/management/v1/management.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 

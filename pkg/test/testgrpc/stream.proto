@@ -1,7 +1,8 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/pkg/test/testgrpc";
 
 package testgrpc.stream;
+
+option go_package = "github.com/rancher/opni/pkg/test/testgrpc";
 
 service StreamService {
   rpc Stream(stream StreamRequest) returns (stream StreamResponse);

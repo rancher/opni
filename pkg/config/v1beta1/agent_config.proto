@@ -1,7 +1,8 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/pkg/config/v1beta1";
 
 package config.v1beta1;
+
+option go_package = "github.com/rancher/opni/pkg/config/v1beta1";
 
 message RulesSpec {
   DiscoverySpec discovery = 1;
@@ -9,18 +10,18 @@ message RulesSpec {
 
 message DiscoverySpec {
   PrometheusRulesSpec prometheusRules = 1;
-  FilesystemRulesSpec filesystem = 2;
+  FilesystemRulesSpec filesystem      = 2;
 
   string interval = 3;
 }
 
 message PrometheusRulesSpec {
   // Namespaces to search for rules in. If empty, will search all accessible
-	// namespaces.
+  // namespaces.
   repeated string searchNamespaces = 1;
 
-	// Kubeconfig to use for rule discovery. If nil, will use the in-cluster
-	// kubeconfig.
+  // Kubeconfig to use for rule discovery. If nil, will use the in-cluster
+  // kubeconfig.
   optional string kubeconfig = 2;
 }
 

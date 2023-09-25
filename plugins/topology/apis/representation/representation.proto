@@ -1,38 +1,36 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/topology/apis/representation";
-
-import "google/protobuf/empty.proto";
-import "google/api/http.proto";
-import "google/api/annotations.proto";
-import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 
 package representation;
 
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "google/api/annotations.proto";
+
+option go_package = "github.com/rancher/opni/plugins/topology/apis/representation";
+
 service TopologyRepresentation {
-    // opni internal use
-    rpc GetGraph(core.Reference) returns (TopologyGraph) {}
+  // opni internal use
+  rpc GetGraph(core.Reference) returns (TopologyGraph);
 
-    // cluster id  --> kubernetes graph SVG
-    rpc RenderGraph(core.Reference) returns (DOTRepresentation)  {
-        option(google.api.http) = {
-            post: "/topology/render"
-            body: "*"
-        };
-    }
-
+  // cluster id  --> kubernetes graph SVG
+  rpc RenderGraph(core.Reference) returns (DOTRepresentation) {
+    option (google.api.http) = {
+      post: "/topology/render"
+      body: "*"
+    };
+  }
 }
 
 message TopologyGraph {
-    core.Reference id = 1;
-    bytes data = 2;
-    GraphRepr repr = 3;
+  core.Reference id   = 1;
+  bytes          data = 2;
+  GraphRepr      repr = 3;
 }
 
 enum GraphRepr {
-    None = 0;
-    KubectlGraph = 1;
+  None         = 0;
+  KubectlGraph = 1;
 }
 
 message DOTRepresentation {
-    string rawDotFormat = 1;
+  string rawDotFormat = 1;
 }

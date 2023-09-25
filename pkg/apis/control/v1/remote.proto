@@ -2,7 +2,6 @@ syntax = "proto3";
 
 package control;
 
-import "github.com/kralicky/totem/extensions.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/protobuf/empty.proto";
 

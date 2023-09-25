@@ -1,55 +1,56 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/alerting/pkg/apis/node";
-
-import "google/protobuf/empty.proto";
-import "google/api/annotations.proto";
-import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 
 package alerting.node;
 
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/rancher/opni/plugins/alerting/pkg/apis/node";
+
 service NodeAlertingCapability {
-    rpc Sync(AlertingCapabilityConfig) returns (SyncResponse) {
-        option (google.api.http) = {
-            post: "/v1/node/sync"
-            body: "*"
-        };
-    }
+  rpc Sync(AlertingCapabilityConfig) returns (SyncResponse) {
+    option (google.api.http) = {
+      post: "/v1/node/sync"
+      body: "*"
+    };
+  }
 }
 
-service AlertingNodeConfiguration{
-    rpc GetDefaultConfiguration(google.protobuf.Empty) returns (AlertingCapabilitySpec) {
-        option (google.api.http) = {
-          get: "/node_config"
-        };
-      }
-      rpc SetDefaultConfiguration(AlertingCapabilitySpec) returns (google.protobuf.Empty) {
-        option (google.api.http) = {
-          put: "/node_config"
-          body: "*"
-        };
-      }
-      rpc GetNodeConfiguration(core.Reference) returns (AlertingCapabilitySpec) {
-        option (google.api.http) = {
-          get: "/node_config/{id}"
-        };
-      }
-      rpc SetNodeConfiguration(NodeConfigRequest) returns (google.protobuf.Empty) {
-        option (google.api.http) = {
-          put: "/node_config/{node.id}"
-          body: "*"
-        };
-      }
+service AlertingNodeConfiguration {
+  rpc GetDefaultConfiguration(google.protobuf.Empty) returns (AlertingCapabilitySpec) {
+    option (google.api.http) = {
+      get: "/node_config"
+    };
+  }
+  rpc SetDefaultConfiguration(AlertingCapabilitySpec) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put:  "/node_config"
+      body: "*"
+    };
+  }
+  rpc GetNodeConfiguration(core.Reference) returns (AlertingCapabilitySpec) {
+    option (google.api.http) = {
+      get: "/node_config/{id}"
+    };
+  }
+  rpc SetNodeConfiguration(NodeConfigRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put:  "/node_config/{node.id}"
+      body: "*"
+    };
+  }
 }
 
 message NodeConfigRequest {
-    core.Reference node = 1;
-    AlertingCapabilitySpec spec = 2;
+  core.Reference         node = 1;
+  AlertingCapabilitySpec spec = 2;
 }
 
 message AlertingCapabilityConfig {
-    bool enabled = 1;
-    repeated string conditions = 2;
-    AlertingCapabilitySpec spec = 3;
+  bool                   enabled    = 1;
+  repeated string        conditions = 2;
+  AlertingCapabilitySpec spec       = 3;
 }
 
 message AlertingCapabilitySpec {
@@ -57,11 +58,10 @@ message AlertingCapabilitySpec {
 }
 
 message RuleDiscoverySpec {
-   bool enabled = 1;
+  bool enabled = 1;
 }
 
-  
 message SyncResponse {
-    core.ConfigStatus configStatus = 1;
-    AlertingCapabilityConfig updatedConfig = 2;
+  core.ConfigStatus        configStatus  = 1;
+  AlertingCapabilityConfig updatedConfig = 2;
 }

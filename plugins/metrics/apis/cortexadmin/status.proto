@@ -1,25 +1,26 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/metrics/apis/cortexadmin";
-import "google/protobuf/timestamp.proto";
-
 
 package cortexadmin;
 
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/rancher/opni/plugins/metrics/apis/cortexadmin";
+
 message CortexStatus {
-  DistributorStatus distributor = 1;
-  IngesterStatus ingester = 2;
-  RulerStatus ruler = 3;
-  PurgerStatus purger = 4;
-  CompactorStatus compactor = 5;
-  StoreGatewayStatus storeGateway = 6;
-  QueryFrontendStatus queryFrontend = 7;
-  QuerierStatus querier = 8;
-  google.protobuf.Timestamp timestamp = 9;
+  DistributorStatus         distributor   = 1;
+  IngesterStatus            ingester      = 2;
+  RulerStatus               ruler         = 3;
+  PurgerStatus              purger        = 4;
+  CompactorStatus           compactor     = 5;
+  StoreGatewayStatus        storeGateway  = 6;
+  QueryFrontendStatus       queryFrontend = 7;
+  QuerierStatus             querier       = 8;
+  google.protobuf.Timestamp timestamp     = 9;
 }
 
 // Status of an individual cortex service (module)
 message ServiceStatus {
-  string name = 1;
+  string name   = 1;
   string status = 2;
 }
 
@@ -29,12 +30,12 @@ message ServiceStatusList {
 
 // Status of a single shard in a ring
 message ShardStatus {
-  string id = 1;
-  string state = 2;
-  string address = 3;
-  string timestamp = 4;
+  string id                  = 1;
+  string state               = 2;
+  string address             = 3;
+  string timestamp           = 4;
   string registeredTimestamp = 5;
-  string zone = 6;
+  string zone                = 6;
 }
 
 message ShardStatusList {
@@ -43,10 +44,10 @@ message ShardStatusList {
 
 // Status of a single member of a memberlist
 message MemberStatus {
-  string name = 1;
+  string name    = 1;
   string address = 2;
-  uint32 port = 3;
-  int32 state = 4;
+  uint32 port    = 3;
+  int32  state   = 4;
 }
 
 message MemberStatusList {
@@ -63,27 +64,27 @@ message MemberlistStatus {
 }
 
 message RingStatus {
-  bool enabled = 1;
-  ShardStatusList shards = 2;
+  bool            enabled = 1;
+  ShardStatusList shards  = 2;
 }
 
 // Cortex services
 
 message DistributorStatus {
-  ServiceStatusList services = 1;
-  RingStatus ingesterRing = 2;
+  ServiceStatusList services     = 1;
+  RingStatus        ingesterRing = 2;
 }
 
 message IngesterStatus {
-  ServiceStatusList services = 1;
-  MemberlistStatus memberlist = 2;
-  RingStatus ring = 3;
+  ServiceStatusList services   = 1;
+  MemberlistStatus  memberlist = 2;
+  RingStatus        ring       = 3;
 }
 
 message RulerStatus {
-  ServiceStatusList services = 1;
-  MemberlistStatus memberlist = 2;
-  RingStatus ring = 3;
+  ServiceStatusList services   = 1;
+  MemberlistStatus  memberlist = 2;
+  RingStatus        ring       = 3;
 }
 
 message PurgerStatus {
@@ -91,15 +92,15 @@ message PurgerStatus {
 }
 
 message CompactorStatus {
-  ServiceStatusList services = 1;
-  MemberlistStatus memberlist = 2;
-  RingStatus ring = 3;
+  ServiceStatusList services   = 1;
+  MemberlistStatus  memberlist = 2;
+  RingStatus        ring       = 3;
 }
 
 message StoreGatewayStatus {
-  ServiceStatusList services = 1;
-  MemberlistStatus memberlist = 2;
-  RingStatus ring = 3;
+  ServiceStatusList services   = 1;
+  MemberlistStatus  memberlist = 2;
+  RingStatus        ring       = 3;
 }
 
 message QueryFrontendStatus {
@@ -107,6 +108,6 @@ message QueryFrontendStatus {
 }
 
 message QuerierStatus {
-  ServiceStatusList services = 1;
-  MemberlistStatus memberlist = 2;
+  ServiceStatusList services   = 1;
+  MemberlistStatus  memberlist = 2;
 }

@@ -1,32 +1,30 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/topology/apis/orchestrator";
-
-
-import "google/protobuf/empty.proto";
-import "google/api/http.proto";
-import "google/api/annotations.proto";
-import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 
 package orchestrator;
 
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/rancher/opni/plugins/topology/apis/orchestrator";
+
 service TopologyOrchestrator {
-    rpc GetClusterStatus(google.protobuf.Empty) returns (InstallStatus){
-        option (google.api.http) = {
-            get: "/cluster/status"
-        };
-    }
+  rpc GetClusterStatus(google.protobuf.Empty) returns (InstallStatus) {
+    option (google.api.http) = {
+      get: "/cluster/status"
+    };
+  }
 }
 
 enum InstallState {
-    Unknown = 0;
-    NotInstalled = 1;
-    Updating = 2;
-    Installed = 3;
-    Uninstalling = 4;
+  Unknown      = 0;
+  NotInstalled = 1;
+  Updating     = 2;
+  Installed    = 3;
+  Uninstalling = 4;
 }
 
 message InstallStatus {
-    InstallState state = 1;
-    string version = 2;
-    map<string, string> metadata = 3;
+  InstallState        state    = 1;
+  string              version  = 2;
+  map<string, string> metadata = 3;
 }

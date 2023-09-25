@@ -3,9 +3,7 @@ syntax = "proto3";
 package remotewrite;
 
 import "github.com/cortexproject/cortex/pkg/cortexpb/cortex.proto";
-import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
-import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/rancher/opni/plugins/metrics/apis/remotewrite";
 

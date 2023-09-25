@@ -1,7 +1,8 @@
 syntax = "proto3";
+
 option go_package = "github.com/rancher/opni/pkg/test/testgrpc";
 
-message TestSecret{
-    string username = 1;
-    string password = 2;
+message TestSecret {
+  string username = 1;
+  string password = 2;
 }

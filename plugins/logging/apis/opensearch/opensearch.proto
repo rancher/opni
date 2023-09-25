@@ -1,10 +1,11 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/logging/apis/opensearch";
 
 package opensearch;
 
+option go_package = "github.com/rancher/opni/plugins/logging/apis/opensearch";
+
 service Opensearch {
-  rpc GetDetails(ClusterReference) returns(OpensearchDetails);
+  rpc GetDetails(ClusterReference) returns (OpensearchDetails);
 }
 
 message ClusterReference {
@@ -12,8 +13,8 @@ message ClusterReference {
 }
 
 message OpensearchDetails {
-  string Username = 1;
-  string Password = 2;
-  string ExternalURL = 3;
-  bool TracingEnabled = 4;
+  string Username       = 1;
+  string Password       = 2;
+  string ExternalURL    = 3;
+  bool   TracingEnabled = 4;
 }

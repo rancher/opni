@@ -1,132 +1,124 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/pkg/apis/alerting/v1";
-
-import "google/protobuf/duration.proto";
-import "google/protobuf/struct.proto";
-import "google/protobuf/empty.proto";
-import "google/protobuf/descriptor.proto";
-import "google/protobuf/timestamp.proto";
-import "google/api/http.proto";
-import "google/api/annotations.proto";
-import "google/rpc/status.proto";
-
-import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
-import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
-
 
 package alerting;
+
+import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/descriptor.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/rancher/opni/pkg/apis/alerting/v1";
 
 // Opni-Alerting internal use
 service AlertNotifications {
   rpc TestAlertEndpoint(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post : "/test"
-      body : "*"
+      post: "/test"
+      body: "*"
     };
   }
 
   rpc TriggerAlerts(TriggerAlertsRequest) returns (TriggerAlertsResponse) {
     option (google.api.http) = {
-      post : "/trigger"
-      body : "*"
+      post: "/trigger"
+      body: "*"
     };
   }
 
-  rpc ResolveAlerts(ResolveAlertsRequest) returns (ResolveAlertsResponse) {}
+  rpc ResolveAlerts(ResolveAlertsRequest) returns (ResolveAlertsResponse);
 
   rpc PushNotification(Notification) returns (google.protobuf.Empty) {
-    option(google.api.http) = {
-      post : "/push"
-      body : "*"
+    option (google.api.http) = {
+      post: "/push"
+      body: "*"
     };
   }
-  
-  // In the cache we evict the keys with the highest (priority,severity) 
-  // according to the given filter 
+
+  // In the cache we evict the keys with the highest (priority,severity)
+  // according to the given filter
   // but return the filtered messages sorted by timestamp.
-  rpc ListNotifications(ListNotificationRequest) 
-    returns (ListMessageResponse) {
+  rpc ListNotifications(ListNotificationRequest) returns (ListMessageResponse) {
     option (google.api.http) = {
-      post : "/notifications/list"
-      body : "*"
+      post: "/notifications/list"
+      body: "*"
     };
   }
 
   // best-effort listing of alarm messages for a given window
   // messages with low frequency and severity are dropped frequently
   // so may not show up with their associated incident
-  rpc ListAlarmMessages(ListAlarmMessageRequest) 
-    returns (ListMessageResponse) {
+  rpc ListAlarmMessages(ListAlarmMessageRequest) returns (ListMessageResponse) {
     option (google.api.http) = {
-      post : "/alarms/list"
-      body : "*"
+      post: "/alarms/list"
+      body: "*"
     };
   }
 
-  rpc ListRoutingRelationships(google.protobuf.Empty) 
-    returns (ListRoutingRelationshipsResponse) {}
+  rpc ListRoutingRelationships(google.protobuf.Empty) returns (ListRoutingRelationshipsResponse);
 }
 
 message ListAlarmMessageRequest {
   // defaults to 100 most severe (frequency + severity heuristic)
-  alerting.ConditionReference conditionId = 1;
-  repeated string fingerprints = 2;
-  google.protobuf.Timestamp start = 3;
-  google.protobuf.Timestamp end = 4;
+  alerting.ConditionReference conditionId  = 1;
+  repeated string             fingerprints = 2;
+  google.protobuf.Timestamp   start        = 3;
+  google.protobuf.Timestamp   end          = 4;
 }
 
-message ListNotificationRequest{
+message ListNotificationRequest {
   // defaults to 100 most severe (frequency + severity heuristic)
   optional int32 limit = 1;
 
-  repeated alerting.OpniSeverity severityFilters = 2;
+  repeated alerting.OpniSeverity severityFilters     = 2;
   repeated alerting.GoldenSignal goldenSignalFilters = 3;
 }
 
-message ListMessageResponse{
+message ListMessageResponse {
   repeated MessageInstance items = 1;
 }
 
-
-message Notification{
+message Notification {
   string title = 1;
-  string body = 2;
+  string body  = 2;
   // sets notification properties, for example
   // severity, golden signal, dedupe keys, group keys etc...
-  // 
-  // It is recommended to set severity, golden signal, 
-  // dedupe keys and group keys 
-  map<string,string> properties = 3;
+  //
+  // It is recommended to set severity, golden signal,
+  // dedupe keys and group keys
+  map<string, string> properties = 3;
 }
 
 message MessageInstance {
-  google.protobuf.Timestamp receivedAt = 1;
+  google.protobuf.Timestamp receivedAt    = 1;
   google.protobuf.Timestamp lastUpdatedAt = 2;
-  Notification notification = 3;
-  map<string,string> startDetails = 4;
-  map<string,string> lastDetails = 5;
+  Notification              notification  = 3;
+  map<string, string>       startDetails  = 4;
+  map<string, string>       lastDetails   = 5;
 }
+
 // opni-alerting internal use
 message TriggerAlertsRequest {
-  core.Reference conditionId = 1;
-  string namespace = 2;
-  string conditionName = 3;
-  map<string, string> annotations = 4;
-  map<string, string> labels = 5;
+  core.Reference      conditionId   = 1;
+  string              namespace     = 2;
+  string              conditionName = 3;
+  map<string, string> annotations   = 4;
+  map<string, string> labels        = 5;
 }
 
 message TriggerAlertsResponse {}
 
 message ResolveAlertsRequest {
-  core.Reference conditionId = 1;
-  string namespace = 2;
-  string conditionName = 3;
-  map<string, string> annotations = 4;
-  map<string, string> labels = 5;
+  core.Reference      conditionId   = 1;
+  string              namespace     = 2;
+  string              conditionName = 3;
+  map<string, string> annotations   = 4;
+  map<string, string> labels        = 5;
 }
 
 message ResolveAlertsResponse {}
 
-message ListRoutingRelationshipsResponse{
+message ListRoutingRelationshipsResponse {
   map<string, alerting.ConditionReferenceList> routingRelationships = 1;
 }

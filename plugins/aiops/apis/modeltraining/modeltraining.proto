@@ -1,10 +1,12 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/aiops/apis/modeltraining";
-import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
-import "google/protobuf/empty.proto";
-import "google/api/annotations.proto";
 
 package modeltraining;
+
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/rancher/opni/plugins/aiops/apis/modeltraining";
 
 service ModelTraining {
   rpc TrainModel(ModelTrainingParametersList) returns (ModelTrainingResponse) {
@@ -15,7 +17,7 @@ service ModelTraining {
   }
   rpc PutModelTrainingStatus(ModelStatus) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      put: "/model/current_status"
+      put:  "/model/current_status"
       body: "*"
     };
   }
@@ -42,8 +44,8 @@ service ModelTraining {
 }
 
 message GPUInfo {
-  string name = 1;
-  string capacity = 2;
+  string name        = 1;
+  string capacity    = 2;
   string allocatable = 3;
 }
 
@@ -52,7 +54,7 @@ message GPUInfoList {
 }
 
 message ModelStatus {
-  string status = 1;
+  string                  status     = 1;
   ModelTrainingStatistics statistics = 2;
 }
 
@@ -61,8 +63,8 @@ message ModelTrainingResponse {
 }
 
 message ModelTrainingParameters {
-  string clusterId = 1;
-  string namespace = 2;
+  string clusterId  = 1;
+  string namespace  = 2;
   string deployment = 3;
 }
 
@@ -71,19 +73,19 @@ message ModelTrainingParametersList {
 }
 
 message ModelTrainingStatistics {
-  int64 timeElapsed = 1;
-  int64 percentageCompleted = 2;
-  int64 remainingTime = 3;
-  int64 currentEpoch = 4;
-  double modelAccuracy = 5;
-  string stage = 6;
+  int64  timeElapsed         = 1;
+  int64  percentageCompleted = 2;
+  int64  remainingTime       = 3;
+  int64  currentEpoch        = 4;
+  double modelAccuracy       = 5;
+  string stage               = 6;
 }
 
 message WorkloadAggregation {
-  string clusterId = 1;
-  string namespace = 2;
+  string clusterId  = 1;
+  string namespace  = 2;
   string deployment = 3;
-  int64 logCount = 4;
+  int64  logCount   = 4;
 }
 
 message WorkloadAggregationList {

@@ -1,15 +1,15 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/alerting/pkg/apis/rules";
-
-import "google/protobuf/empty.proto";
-import "google/protobuf/duration.proto";
-import "google/api/annotations.proto";
-import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 
 package alerting.rules;
 
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/rancher/opni/plugins/alerting/pkg/apis/rules";
+
 service RuleSync {
-    rpc SyncRules(RuleManifest) returns (google.protobuf.Empty) {}
+  rpc SyncRules(RuleManifest) returns (google.protobuf.Empty);
 }
 
 message RuleManifest {
@@ -17,11 +17,11 @@ message RuleManifest {
 }
 
 message Rule {
-    core.Reference ruleId = 1;
-    core.Reference groupId = 2;
-    string name = 3;
-    string expr = 4;
-    google.protobuf.Duration duration = 5;
-    map<string,string> labels = 6;
-    map<string,string> annotations = 7;
+  core.Reference           ruleId      = 1;
+  core.Reference           groupId     = 2;
+  string                   name        = 3;
+  string                   expr        = 4;
+  google.protobuf.Duration duration    = 5;
+  map<string, string>      labels      = 6;
+  map<string, string>      annotations = 7;
 }

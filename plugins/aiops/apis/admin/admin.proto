@@ -1,76 +1,76 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/aiops/apis/admin";
-
-import "google/protobuf/empty.proto";
-import "google/api/http.proto";
-import "google/api/annotations.proto";
 
 package admin;
 
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/rancher/opni/plugins/aiops/apis/admin";
+
 service AIAdmin {
-    rpc GetAISettings(google.protobuf.Empty) returns(AISettings) {
-        option (google.api.http) = {
-            get: "/ai/settings"
-        };
-    }
-    rpc PutAISettings(AISettings) returns(google.protobuf.Empty) {
-        option (google.api.http) = {
-            put: "/ai/settings"
-        };
-    }
-    rpc DeleteAISettings(google.protobuf.Empty) returns(google.protobuf.Empty) {
-        option (google.api.http) = {
-            delete: "/ai/settings"
-        };
-    }
-    rpc UpgradeAvailable(google.protobuf.Empty) returns(UpgradeAvailableResponse) {
-        option (google.api.http) = {
-            get: "/ai/upgrade"
-        };
-    }
-    rpc DoUpgrade(google.protobuf.Empty) returns(google.protobuf.Empty) {
-        option (google.api.http) = {
-            post: "/ai/upgrade"
-        };
-    }
-    rpc GetRuntimeClasses(google.protobuf.Empty) returns(RuntimeClassResponse) {
-        option (google.api.http) = {
-            get: "/ai/runtimeclasses"
-        };
-    }
+  rpc GetAISettings(google.protobuf.Empty) returns (AISettings) {
+    option (google.api.http) = {
+      get: "/ai/settings"
+    };
+  }
+  rpc PutAISettings(AISettings) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/ai/settings"
+    };
+  }
+  rpc DeleteAISettings(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/ai/settings"
+    };
+  }
+  rpc UpgradeAvailable(google.protobuf.Empty) returns (UpgradeAvailableResponse) {
+    option (google.api.http) = {
+      get: "/ai/upgrade"
+    };
+  }
+  rpc DoUpgrade(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/ai/upgrade"
+    };
+  }
+  rpc GetRuntimeClasses(google.protobuf.Empty) returns (RuntimeClassResponse) {
+    option (google.api.http) = {
+      get: "/ai/runtimeclasses"
+    };
+  }
 }
 
 message PretrainedModel {
-    optional string httpSource = 2;
-    optional string imageSource = 3;
-    optional int32 replicas = 4;
+  optional string httpSource  = 2;
+  optional string imageSource = 3;
+  optional int32  replicas    = 4;
 }
 
 message GPUSettings {
-    optional string runtimeClass = 1;
+  optional string runtimeClass = 1;
 }
 
 message AISettings {
-    optional GPUSettings gpuSettings = 1;
-    optional int32 drainReplicas = 2;
-    optional PretrainedModel controlplane = 3;
-    optional PretrainedModel rancher = 4;
-    optional PretrainedModel longhorn = 5;
-    optional S3Settings s3Settings = 6;
+  optional GPUSettings     gpuSettings   = 1;
+  optional int32           drainReplicas = 2;
+  optional PretrainedModel controlplane  = 3;
+  optional PretrainedModel rancher       = 4;
+  optional PretrainedModel longhorn      = 5;
+  optional S3Settings      s3Settings    = 6;
 }
 
 message UpgradeAvailableResponse {
-    optional bool UpgradePending = 1;
+  optional bool UpgradePending = 1;
 }
 
 message RuntimeClassResponse {
-    repeated string RuntimeClasses = 1;
+  repeated string RuntimeClasses = 1;
 }
 
 message S3Settings {
-    string endpoint = 1;
-    string accessKey = 2;
-    string secretKey = 3;
-    optional string nulogBucket = 4;
-    optional string drainBucket = 5;
+  string          endpoint    = 1;
+  string          accessKey   = 2;
+  string          secretKey   = 3;
+  optional string nulogBucket = 4;
+  optional string drainBucket = 5;
 }

@@ -1,7 +1,8 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/pkg/apis/bootstrap/v1";
 
 package bootstrap;
+
+option go_package = "github.com/rancher/opni/pkg/apis/bootstrap/v1";
 
 service Bootstrap {
   rpc Join(BootstrapJoinRequest) returns (BootstrapJoinResponse);
@@ -15,9 +16,9 @@ message BootstrapJoinResponse {
 }
 
 message BootstrapAuthRequest {
-  string ClientID = 1;
-  bytes ClientPubKey = 2;
-  string Capability = 3;
+  string ClientID     = 1;
+  bytes  ClientPubKey = 2;
+  string Capability   = 3;
 }
 
 message BootstrapAuthResponse {

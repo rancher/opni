@@ -1,99 +1,88 @@
 syntax = "proto3";
 package alerting;
 
+import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/descriptor.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
 option go_package = "github.com/rancher/opni/pkg/apis/alerting/v1";
 
-import "google/protobuf/duration.proto";
-import "google/protobuf/struct.proto";
-import "google/protobuf/empty.proto";
-import "google/protobuf/descriptor.proto";
-import "google/protobuf/timestamp.proto";
-import "google/api/http.proto";
-import "google/api/annotations.proto";
-import "google/rpc/status.proto";
-
-import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
-import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.proto";
-import "github.com/rancher/opni/pkg/apis/alerting/v1/alerting.notification.proto";
-
-
-service AlertEndpoints{
+service AlertEndpoints {
   // -------- CRUD for alerting endpoints ----
 
   rpc CreateAlertEndpoint(AlertEndpoint) returns (core.Reference) {
     option (google.api.http) = {
-      post : "/configure"
-      body : "*"
+      post: "/configure"
+      body: "*"
     };
   }
 
   rpc GetAlertEndpoint(core.Reference) returns (AlertEndpoint) {
     option (google.api.http) = {
-      post : "/list/{id}"
-      body : "*"
+      post: "/list/{id}"
+      body: "*"
     };
   }
-
 
   // update the endpoint to opt in/out of opni notifications
   rpc ToggleNotifications(ToggleRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post : "/toggleNotifications"
-      body : "*"
+      post: "/toggleNotifications"
+      body: "*"
     };
   }
 
-  rpc ListAlertEndpoints(ListAlertEndpointsRequest)
-      returns (AlertEndpointList) {
+  rpc ListAlertEndpoints(ListAlertEndpointsRequest) returns (AlertEndpointList) {
     option (google.api.http) = {
-      get : "/list"
+      get: "/list"
     };
   }
 
-  // when forceUpdate = false, 
+  // when forceUpdate = false,
   // returns a list of conditions this would affect(if none, applies the update)
-  // when forceUpdate = true, 
+  // when forceUpdate = true,
   //  updates everything without warning
-  rpc UpdateAlertEndpoint(UpdateAlertEndpointRequest)
-      returns (alerting.ConditionReferenceList) {
+  rpc UpdateAlertEndpoint(UpdateAlertEndpointRequest) returns (alerting.ConditionReferenceList) {
     option (google.api.http) = {
-      put : "/configure"
-      body : "*"
+      put:  "/configure"
+      body: "*"
     };
   }
 
   // when forceDelete = false,
   // returns a list of conditions this would affect(if none, applies the delete)
   // when forceDelete = true
-  // deletes and applies the consequences of those changes 
+  // deletes and applies the consequences of those changes
   // to everything without warning
-  rpc DeleteAlertEndpoint(DeleteAlertEndpointRequest) 
-  returns (ConditionReferenceList) {
+  rpc DeleteAlertEndpoint(DeleteAlertEndpointRequest) returns (ConditionReferenceList) {
     option (google.api.http) = {
-      post : "/delete"
-      body : "*"
+      post: "/delete"
+      body: "*"
     };
   }
 }
 
-
 message AlertEndpoint {
-  string name = 1;
+  string name        = 1;
   string description = 2;
   oneof endpoint {
-    SlackEndpoint slack = 5;
-    EmailEndpoint email = 6;
+    SlackEndpoint     slack     = 5;
+    EmailEndpoint     email     = 6;
     PagerDutyEndpoint pagerDuty = 7;
-    WebhookEndpoint webhook = 8;
+    WebhookEndpoint   webhook   = 8;
   }
   // properties are used to flag properties of endpoints, for
   // example opting into opni notifications
-  // Properties starting with "_" are private 
-  map<string,string> properties = 9;
+  // Properties starting with "_" are private
+  map<string, string> properties = 9;
 
   // the following are read only for consumers of the API
   google.protobuf.Timestamp lastUpdated = 3;
-  string id = 4;
+  string                    id          = 4;
 }
 
 message EndpointImplementation {
@@ -107,7 +96,7 @@ message EndpointImplementation {
 }
 message SlackEndpoint {
   string webhookUrl = 1;
-  string channel = 2;
+  string channel    = 2;
 }
 
 message EmailEndpoint {
@@ -130,56 +119,56 @@ message EmailEndpoint {
 message PagerDutyEndpoint {
   // default global ruleset -> event rules screen
   string integrationKey = 1;
-  string serviceKey = 2;
+  string serviceKey     = 2;
 }
 
 message WebhookEndpoint {
-  string url = 1;
+  string     url        = 1;
   HTTPConfig httpConfig = 2;
-  int32 maxAlerts = 3;
+  int32      maxAlerts  = 3;
 }
 
 message HTTPConfig {
-  BasicAuth basicAuth = 1;
-  Authorization authorization = 2;
-  OAuth2 oauth2 = 3;
-  bool enabled_http2 = 4;
-  string proxy_url = 5;
-  bool follow_redirects = 6;
-  TLSConfig tls_config = 7;
+  BasicAuth     basicAuth        = 1;
+  Authorization authorization    = 2;
+  OAuth2        oauth2           = 3;
+  bool          enabled_http2    = 4;
+  string        proxy_url        = 5;
+  bool          follow_redirects = 6;
+  TLSConfig     tls_config       = 7;
 }
 
 message BasicAuth {
-  string username = 1;
-  string password = 2;
+  string username      = 1;
+  string password      = 2;
   string password_file = 3;
 }
 
 message Authorization {
-  string type = 1;
+  string type            = 1;
   string credentialsFile = 2;
-  string credentials = 3;
+  string credentials     = 3;
 }
 
 message OAuth2 {
-  string clientId = 1;
-  string clientSecret = 2;
-  string clientSecretFile = 3;
-  repeated string scopes = 4;
-  string tokenUrl = 5;
-  map<string, string> endpointParams = 6;
-  string proxyUrl = 7;
-  TLSConfig tlsConfig = 8;
+  string              clientId         = 1;
+  string              clientSecret     = 2;
+  string              clientSecretFile = 3;
+  repeated string     scopes           = 4;
+  string              tokenUrl         = 5;
+  map<string, string> endpointParams   = 6;
+  string              proxyUrl         = 7;
+  TLSConfig           tlsConfig        = 8;
 }
 
 message TLSConfig {
-  string caFile = 1;
-  string certFile = 2;
-  string keyFile = 3;
-  string serverName = 4;
-  bool insecureSkipVerify = 5;
-  string minVersion = 6;
-  string maxVersion = 7;
+  string caFile             = 1;
+  string certFile           = 2;
+  string keyFile            = 3;
+  string serverName         = 4;
+  bool   insecureSkipVerify = 5;
+  string minVersion         = 6;
+  string maxVersion         = 7;
 }
 
 message AlertEndpointList {
@@ -187,21 +176,21 @@ message AlertEndpointList {
 }
 
 message AlertEndpointWithId {
-  AlertEndpoint endpoint = 1;
-  core.Reference id = 2;
+  AlertEndpoint  endpoint = 1;
+  core.Reference id       = 2;
 }
 
 message ListAlertEndpointsRequest {}
 
 message UpdateAlertEndpointRequest {
-  bool forceUpdate = 1;
-  core.Reference id = 2;
-  AlertEndpoint updateAlert = 3;
+  bool           forceUpdate = 1;
+  core.Reference id          = 2;
+  AlertEndpoint  updateAlert = 3;
 }
 
 message DeleteAlertEndpointRequest {
-  bool  forceDelete = 1;
-  core.Reference id = 2;
+  bool           forceDelete = 1;
+  core.Reference id          = 2;
 }
 
 message TestAlertEndpointRequest {
@@ -210,7 +199,6 @@ message TestAlertEndpointRequest {
 
 // will contain details in a future iteration
 message TestAlertEndpointResponse {}
-
 
 message FullAttachedEndpoints {
   repeated FullAttachedEndpoint items = 1;
@@ -221,7 +209,7 @@ message FullAttachedEndpoints {
   // How long to wait before sending notifications on new condition that has
   // already fired recently (default= 10m)
   optional google.protobuf.Duration throttlingDuration = 4;
-  EndpointImplementation details = 5;
+  EndpointImplementation            details            = 5;
 }
 
 message RateLimitingConfig {
@@ -230,14 +218,14 @@ message RateLimitingConfig {
   // how often to resend alert messages on active alerts (default =10m)
   optional google.protobuf.Duration repeatInterval = 2;
   // How long to wait before sending notifications on new condition that has
-  // already fired recently (default= 10m) 
+  // already fired recently (default= 10m)
   optional google.protobuf.Duration throttlingDuration = 3;
 }
 
-message FullAttachedEndpoint{
-  string endpointId = 1;
-  AlertEndpoint alertEndpoint = 2;
-  EndpointImplementation details = 3;
+message FullAttachedEndpoint {
+  string                 endpointId    = 1;
+  AlertEndpoint          alertEndpoint = 2;
+  EndpointImplementation details       = 3;
 }
 
 // Empty means no attached endpoints
@@ -250,17 +238,16 @@ message AttachedEndpoints {
   // How long to wait before sending notifications on new condition that has
   // already fired recently (default= 10m)
   optional google.protobuf.Duration throttlingDuration = 4;
-  EndpointImplementation details = 5;
+  EndpointImplementation            details            = 5;
 }
 
 message AttachedEndpoint {
   string endpointId = 1;
 }
 
-
 // opni-alerting internal use
 message RoutingNode {
-  core.Reference conditionId = 1;
+  core.Reference        conditionId           = 1;
   FullAttachedEndpoints fullAttachedEndpoints = 2;
 }
 
@@ -276,7 +263,7 @@ message RoutingRelationships {
 
 // opni-alerting internal use
 message EndpointMetadata {
-  int32 position = 1;
+  int32  position     = 1;
   string endpointType = 2;
 }
 

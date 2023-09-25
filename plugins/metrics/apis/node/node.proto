@@ -2,11 +2,9 @@ syntax = "proto3";
 
 package node.metrics;
 
-import "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "github.com/rancher/opni/pkg/config/v1beta1/agent_config.proto";
 import "google/api/annotations.proto";
-import "google/api/http.proto";
 import "google/protobuf/descriptor.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
@@ -67,7 +65,7 @@ message MetricsCapabilitySpec {
   config.v1beta1.RulesSpec rules = 1;
   oneof driver {
     PrometheusSpec prometheus = 2;
-    OTELSpec otel = 3;
+    OTELSpec       otel       = 3;
   }
 }
 

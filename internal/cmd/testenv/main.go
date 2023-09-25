@@ -24,6 +24,7 @@ import (
 	v1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/dashboard"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
@@ -481,20 +482,33 @@ func main() {
 				testlog.Log.Error(err)
 				return
 			}
-			if _, err := client.CreateRole(environment.Context(), &corev1.Role{
-				Id: "testenv-role",
-				MatchLabels: &corev1.LabelSelector{
-					MatchLabels: map[string]string{
-						"visible": "true",
+			if _, err := client.CreateBackendRole(environment.Context(), &corev1.BackendRole{
+				Capability: &corev1.CapabilityType{
+					Name: wellknown.CapabilityMetrics,
+				},
+				Role: &corev1.Role{
+					Id: "testenv-role",
+					Permissions: []*corev1.PermissionItem{
+						{
+							MatchLabels: &corev1.LabelSelector{
+								MatchLabels: map[string]string{
+									"visible": "true",
+								},
+							},
+							Verbs: []*corev1.PermissionVerb{
+								{Verb: "GET"},
+							},
+							Type: string(corev1.PermissionTypeCluster),
+						},
 					},
 				},
 			}); err != nil {
 				testlog.Log.Error(err)
 			}
 			if _, err := client.CreateRoleBinding(environment.Context(), &corev1.RoleBinding{
-				Id:       "testenv-rb",
-				RoleId:   "testenv-role",
-				Subjects: []string{"testenv"},
+				Id:      "testenv-rb",
+				RoleIds: []string{"testenv-role"},
+				Subject: "testenv",
 			}); err != nil {
 				testlog.Log.Error(err)
 			}

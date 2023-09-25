@@ -167,9 +167,14 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 		Eventually(Table().Row(1).Col(4)).Should(HaveBadge("bubble", "test-key=test-value"))
 
 		By("confirming that the role exists")
-		role, err := mgmtClient.GetRole(context.Background(), &corev1.Reference{Id: "test-role"})
+		role, err := mgmtClient.GetBackendRole(context.Background(), &corev1.BackendRoleRequest{
+			Capability: &corev1.CapabilityType{
+				Name: wellknown.CapabilityMetrics,
+			},
+			RoleRef: &corev1.Reference{Id: "test-role"},
+		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(role.MatchLabels.MatchLabels).To(HaveKeyWithValue("test-key", "test-value"))
+		Expect(role.Permissions[0].MatchLabels.MatchLabels).To(HaveKeyWithValue("test-key", "test-value"))
 	})
 
 	It("should configure role bindings", func() {
@@ -206,8 +211,8 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 		By("confirming that the role binding exists")
 		roleBinding, err := mgmtClient.GetRoleBinding(context.Background(), &corev1.Reference{Id: "test-role-binding"})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(roleBinding.Subjects).To(ConsistOf("test-subject"))
-		Expect(roleBinding.RoleId).To(Equal("test-role"))
+		Expect(roleBinding.Subject).To(Equal("test-subject"))
+		Expect(roleBinding.RoleIds).To(ConsistOf("test-role"))
 	})
 
 	doQuery := func() (*http.Response, error) {

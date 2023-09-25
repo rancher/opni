@@ -74,15 +74,28 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label("int
 			Expect(err).NotTo(HaveOccurred())
 
 			//http request to the gateway endpoint including auth header
-			_, err = client.CreateRole(context.Background(), &corev1.Role{
-				Id:         "test-role",
-				ClusterIDs: []string{"test-cluster-id"},
+			_, err = client.CreateBackendRole(context.Background(), &corev1.BackendRole{
+				Capability: &corev1.CapabilityType{
+					Name: wellknown.CapabilityMetrics,
+				},
+				Role: &corev1.Role{
+					Id: "test-role",
+					Permissions: []*corev1.PermissionItem{
+						{
+							Type: string(corev1.PermissionTypeCluster),
+							Verbs: []*corev1.PermissionVerb{
+								{Verb: "GET"},
+							},
+							Ids: []string{"test-cluster-id"},
+						},
+					},
+				},
 			})
 			Expect(err).NotTo(HaveOccurred())
 			_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
-				Id:       "test-role-binding",
-				RoleId:   "test-role",
-				Subjects: []string{"user@example.com"},
+				Id:      "test-role-binding",
+				RoleIds: []string{"test-role"},
+				Subject: "user@example.com",
 			})
 			Expect(err).NotTo(HaveOccurred())
 			tlsConfig := environment.GatewayClientTLSConfig()

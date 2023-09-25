@@ -12,6 +12,7 @@ import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
@@ -25,6 +26,9 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 	var adminClient cortexadmin.CortexAdminClient
 	agentId := "agent-1"
 	userId := "user-1"
+	capability := &corev1.CapabilityType{
+		Name: wellknown.CapabilityMetrics,
+	}
 	BeforeAll(func() {
 		environment = &test.Environment{}
 		Expect(environment.Start()).To(Succeed())
@@ -67,15 +71,26 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 
 		adminClient = cortexadmin.NewCortexAdminClient(environment.ManagementClientConn())
 
-		_, err = client.CreateRole(context.Background(), &corev1.Role{
-			Id:         "role-1",
-			ClusterIDs: []string{agentId},
+		_, err = client.CreateBackendRole(context.Background(), &corev1.BackendRole{
+			Capability: capability,
+			Role: &corev1.Role{
+				Id: "test-role",
+				Permissions: []*corev1.PermissionItem{
+					{
+						Type: string(corev1.PermissionTypeCluster),
+						Verbs: []*corev1.PermissionVerb{
+							{Verb: "GET"},
+						},
+						Ids: []string{agentId},
+					},
+				},
+			},
 		})
 		Expect(err).NotTo(HaveOccurred())
 		_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
-			Id:       "role-binding-1",
-			RoleId:   "role-1",
-			Subjects: []string{userId},
+			Id:      "role-binding-1",
+			RoleIds: []string{"role-1"},
+			Subject: userId,
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})

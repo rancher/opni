@@ -34,7 +34,11 @@ func (m *MetricsBackend) GetAvailablePermissions(_ context.Context, _ *emptypb.E
 
 func (m *MetricsBackend) GetRole(ctx context.Context, in *v1.Reference) (*v1.Role, error) {
 	m.WaitForInit()
-	return m.RolesStore.GetRole(ctx, in)
+	role, err := m.KV.RolesStore.Get(ctx, in.GetId())
+	if err != nil {
+		return nil, err
+	}
+	return role, nil
 }
 
 func (m *MetricsBackend) CreateRole(ctx context.Context, in *v1.Role) (*emptypb.Empty, error) {
@@ -43,7 +47,8 @@ func (m *MetricsBackend) CreateRole(ctx context.Context, in *v1.Role) (*emptypb.
 	}
 
 	m.WaitForInit()
-	err := m.RolesStore.CreateRole(ctx, in)
+
+	err := m.KV.RolesStore.Put(ctx, in.GetId(), in)
 	return &emptypb.Empty{}, err
 }
 
@@ -54,33 +59,45 @@ func (m *MetricsBackend) UpdateRole(ctx context.Context, in *v1.Role) (*emptypb.
 
 	m.WaitForInit()
 
-	oldRole, err := m.RolesStore.GetRole(ctx, in.Reference())
+	oldRole, err := m.KV.RolesStore.Get(ctx, in.Reference().GetId())
 	if err != nil {
 		return &emptypb.Empty{}, err
 	}
 
-	_, err = m.RolesStore.UpdateRole(ctx, oldRole.Reference(), func(role *v1.Role) {
-		role.Permissions = in.GetPermissions()
-		role.Metadata = in.GetMetadata()
-	})
+	oldRole.Permissions = in.GetPermissions()
+	oldRole.Metadata = in.GetMetadata()
+	err = m.KV.RolesStore.Put(ctx, oldRole.Reference().GetId(), oldRole)
 	return &emptypb.Empty{}, err
 }
 
 func (m *MetricsBackend) DeleteRole(ctx context.Context, in *v1.Reference) (*emptypb.Empty, error) {
 	m.WaitForInit()
-	err := m.RolesStore.DeleteRole(ctx, in)
+	err := m.KV.RolesStore.Delete(ctx, in.GetId())
 	return &emptypb.Empty{}, err
 }
 
 func (m *MetricsBackend) ListRoles(ctx context.Context, _ *emptypb.Empty) (*v1.RoleList, error) {
 	m.WaitForInit()
-	return m.RolesStore.ListRoles(ctx)
+	keys, err := m.KV.RolesStore.ListKeys(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+
+	roles := &v1.ReferenceList{}
+	for _, key := range keys {
+		roles.Items = append(roles.Items, &v1.Reference{
+			Id: key,
+		})
+	}
+	return &v1.RoleList{
+		Items: roles,
+	}, nil
 }
 
 func (m *MetricsBackend) AccessHeader(ctx context.Context, roles *v1.ReferenceList) (rbac.RBACHeader, error) {
 	allowedClusters := map[string]struct{}{}
 	for _, role := range roles.GetItems() {
-		role, err := m.RolesStore.GetRole(ctx, role)
+		role, err := m.KV.RolesStore.Get(ctx, role.GetId())
 		if err != nil {
 			m.Logger.With(
 				zap.Error(err),

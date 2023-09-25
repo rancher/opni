@@ -64,11 +64,10 @@ type MetricsAgentClientSet interface {
 type MetricsBackendConfig struct {
 	Logger              *zap.SugaredLogger `validate:"required"`
 	StorageBackend      storage.Backend
-	RolesStore          storage.RBACStore                                          `validate:"required"`
-	MgmtClient          managementv1.ManagementClient                              `validate:"required"`
-	UninstallController *task.Controller                                           `validate:"required"`
-	ClusterDriver       drivers.ClusterDriver                                      `validate:"required"`
-	Delegate            streamext.StreamDelegate[remoteread.RemoteReadAgentClient] `validate:"required"`
+	MgmtClient          managementv1.ManagementClient                   `validate:"required"`
+	UninstallController *task.Controller                                `validate:"required"`
+	ClusterDriver       drivers.ClusterDriver                           `validate:"required"`
+	Delegate            streamext.StreamDelegate[MetricsAgentClientSet] `validate:"required"`
 	KV                  *KVClients
 }
 
@@ -76,6 +75,7 @@ type KVClients struct {
 	DefaultClusterConfigurationSpec storage.ValueStoreT[*cortexops.CapabilityBackendConfigSpec]
 	DefaultCapabilitySpec           storage.ValueStoreT[*node.MetricsCapabilitySpec]
 	NodeCapabilitySpecs             storage.KeyValueStoreT[*node.MetricsCapabilitySpec]
+	RolesStore                      storage.RoleStore
 }
 
 func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {

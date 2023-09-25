@@ -13,6 +13,7 @@ import (
 	"github.com/lestrrat-go/jwx/jwk"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/test/testlog"
 
@@ -31,19 +32,24 @@ var _ = Describe("Server", Ordered, Label("integration", "slow"), func() {
 		DeferCleanup(env.Stop, "Test Suite Finished")
 
 		client := env.NewManagementClient()
-		client.CreateRole(context.Background(), &corev1.Role{
-			Id: "admin",
-			Permissions: []*corev1.PermissionItem{
-				{
-					Type: string(corev1.PermissionTypeCluster),
-					Verbs: []*corev1.PermissionVerb{
-						{Verb: "GET"},
-					},
-					MatchLabels: &corev1.LabelSelector{
-						MatchExpressions: []*corev1.LabelSelectorRequirement{
-							{
-								Key:      "foo",
-								Operator: "Exists",
+		client.CreateBackendRole(context.Background(), &corev1.BackendRole{
+			Capability: &corev1.CapabilityType{
+				Name: wellknown.CapabilityMetrics,
+			},
+			Role: &corev1.Role{
+				Id: "admin",
+				Permissions: []*corev1.PermissionItem{
+					{
+						Type: string(corev1.PermissionTypeCluster),
+						Verbs: []*corev1.PermissionVerb{
+							{Verb: "GET"},
+						},
+						MatchLabels: &corev1.LabelSelector{
+							MatchExpressions: []*corev1.LabelSelectorRequirement{
+								{
+									Key:      "foo",
+									Operator: "Exists",
+								},
 							},
 						},
 					},

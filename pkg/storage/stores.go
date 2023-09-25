@@ -42,14 +42,6 @@ type ClusterStore interface {
 	ListClusters(ctx context.Context, matchLabels *corev1.LabelSelector, matchOptions corev1.MatchOptions) (*corev1.ClusterList, error)
 }
 
-type RBACStore interface {
-	CreateRole(context.Context, *corev1.Role) error
-	UpdateRole(ctx context.Context, ref *corev1.Reference, mutator RoleMutator) (*corev1.Role, error)
-	DeleteRole(context.Context, *corev1.Reference) error
-	GetRole(context.Context, *corev1.Reference) (*corev1.Role, error)
-	ListRoles(context.Context) (*corev1.RoleList, error)
-}
-
 type RoleBindingStore interface {
 	CreateRoleBinding(context.Context, *corev1.RoleBinding) error
 	UpdateRoleBinding(ctx context.Context, ref *corev1.Reference, mutator RoleBindingMutator) (*corev1.RoleBinding, error)
@@ -141,6 +133,8 @@ type KeyValueStoreT[T any] interface {
 	ListKeys(ctx context.Context, prefix string, opts ...ListOpt) ([]string, error)
 	History(ctx context.Context, key string, opts ...HistoryOpt) ([]KeyRevision[T], error)
 }
+
+type RoleStore = KeyValueStoreT[*corev1.Role]
 
 type ValueStoreT[T any] interface {
 	Put(ctx context.Context, value T, opts ...PutOpt) error

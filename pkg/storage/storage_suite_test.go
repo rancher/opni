@@ -1,7 +1,6 @@
 package storage_test
 
 import (
-	"context"
 	"reflect"
 	"strings"
 	"testing"
@@ -146,18 +145,4 @@ func appendClusterIDsToRole(role *corev1.Role, ids ...string) {
 		Verbs: getVerb(),
 		Ids:   ids,
 	})
-}
-
-var rbacStore storage.RBACStore
-
-func rb(id string, subject string, roleNames ...string) func() *corev1.RoleBinding {
-	return func() *corev1.RoleBinding {
-		rb := &corev1.RoleBinding{
-			Id:      id,
-			RoleIds: roleNames,
-			Subject: subject,
-		}
-		storage.ApplyRoleBindingTaints(context.Background(), rbacStore, rb)
-		return rb
-	}
 }

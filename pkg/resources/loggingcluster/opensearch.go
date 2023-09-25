@@ -28,6 +28,7 @@ var (
 			{
 				IndexPatterns: []string{
 					"logs*",
+					"ss4o_traces-kubernetes-opni*",
 				},
 				AllowedActions: []string{
 					"read",

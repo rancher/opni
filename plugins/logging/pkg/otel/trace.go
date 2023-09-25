@@ -89,7 +89,7 @@ func (f *TraceForwarder) Export(
 		return nil, status.Errorf(codes.Unavailable, "collector is unavailable")
 	}
 	clusterID := cluster.StreamAuthorizedID(ctx)
-	addTraceToResourceSpans(request, clusterIDKey, clusterID)
+	addValueToSpanAttributes(request, clusterIDKey, clusterID)
 
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
@@ -110,28 +110,34 @@ func (f *TraceForwarder) Export(
 	for i := 0; i < len(values); i += 2 {
 		key := values[i]
 		value := values[i+1]
-		addTraceToResourceSpans(request, key, value)
+		addValueToSpanAttributes(request, key, value)
 	}
 
 	return f.forwardTrace(ctx, request)
 }
 
-func addTraceToResourceSpans(request *coltracepb.ExportTraceServiceRequest, key, value string) {
-	traces := request.GetResourceSpans()
-	for _, trace := range traces {
-		resource := trace.GetResource()
-		if resource != nil && !keyExists(resource.GetAttributes(), key) {
-			resource.Attributes = append(resource.Attributes, &otlpcommonv1.KeyValue{
-				Key: key,
-				Value: &otlpcommonv1.AnyValue{
-					Value: &otlpcommonv1.AnyValue_StringValue{
-						StringValue: value,
-					},
-				},
-			})
+func addValueToSpanAttributes(request *coltracepb.ExportTraceServiceRequest, key, value string) {
+	resourceSpans := request.GetResourceSpans()
+	for _, resourceSpan := range resourceSpans {
+		scopeSpans := resourceSpan.GetScopeSpans()
+		for _, scopeSpan := range scopeSpans {
+			spans := scopeSpan.GetSpans()
+			for _, span := range spans {
+				if span != nil && !keyExists(span.GetAttributes(), key) {
+					span.Attributes = append(span.Attributes, &otlpcommonv1.KeyValue{
+						Key: key,
+						Value: &otlpcommonv1.AnyValue{
+							Value: &otlpcommonv1.AnyValue_StringValue{
+								StringValue: value,
+							},
+						},
+					})
+				}
+			}
 		}
+		resourceSpan.ScopeSpans = scopeSpans
 	}
-	request.ResourceSpans = traces
+	request.ResourceSpans = resourceSpans
 }
 
 func (f *TraceForwarder) forwardTrace(

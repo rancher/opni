@@ -57,6 +57,7 @@ func ClusterStatusDescription(s ClusterStatus, extraInfo ...string) string {
 
 var defaultIndices = []string{
 	"logs*",
+	"ss4o_traces-kubernetes-opni*",
 	"opni-cluster-metadata",
 }
 

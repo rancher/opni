@@ -88,7 +88,7 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 
 	templates := []opensearchtypes.IndexTemplateSpec{
 		OpniLogTemplate,
-		opniSpanTemplate,
+		OpniSpanTemplate,
 	}
 
 	for _, template := range templates {
@@ -118,12 +118,12 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 		return
 	}
 
-	retErr = reconciler.MaybeBootstrapIndex(LogIndexPrefix, LogIndexAlias, OldIndexPrefixes)
+	retErr = reconciler.MaybeBootstrapIndex(LogIndexPrefix, LogIndexAlias, OldLogIndexPrefixes)
 	if retErr != nil {
 		return
 	}
 
-	retErr = reconciler.MaybeBootstrapIndex(spanIndexPrefix, spanIndexAlias, oldTracingIndexPrefixes)
+	retErr = reconciler.MaybeBootstrapIndex(SpanIndexPrefix, SpanIndexAlias, OldSpanIndexPrefixes)
 	if retErr != nil {
 		return
 	}

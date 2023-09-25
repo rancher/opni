@@ -85,7 +85,7 @@ processors:
       - set(attributes["kubernetes_component"], attributes["k8s.pod.labels.component"]) where attributes["k8s.pod.labels.tier"] == "control-plane"
 
 exporters:
-  opensearch/logs:
+  opensearch:
     http:
       endpoint: {{ .Endpoint }}
       tls:
@@ -93,30 +93,23 @@ exporters:
         cert_file: /etc/otel/certs/tls.crt
         key_file: /etc/otel/certs/tls.key
     logs_index: {{ .WriteIndex }}
+    dataset: kubernetes
+    namespace: opni
     mapping:
       mode: flatten_attributes
       timestamp_field: time
       unix_timestamp: true
       dedup: true
       dedot: false
-  opensearch/traces:
-    dataset: kubernetes
-    namespace: opni
-    http:
-      endpoint: {{ .Endpoint }}
-      tls:
-        ca_file: /etc/otel/chain.crt
-        cert_file: /etc/otel/certs/tls.crt
-        key_file: /etc/otel/certs/tls.key
 service:
   pipelines:
     logs:
       receivers: ["otlp"]
       processors: ["resource", "attributes", "transform"]
-      exporters: ["opensearch/logs"]
+      exporters: ["opensearch"]
     traces:
       receivers: ["otlp"]
-      exporters: ["opensearch/traces"]
+      exporters: ["opensearch"]
 `))
 )
 

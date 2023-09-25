@@ -153,10 +153,10 @@ func (r *Reconciler) getAggregatorOTELConfig() otel.AggregatorOTELConfig {
 
 }
 
-func (r *Reconciler) receiverConfig() (retData []byte, logReceivers []string, retErr error) {
+func (r *Reconciler) receiverConfig() (retData []byte, retReceivers []string, retErr error) {
 	if r.collector.Spec.LoggingConfig != nil {
 		retData = append(retData, []byte(templateLogAgentK8sReceiver)...)
-		logReceivers = append(logReceivers, logReceiverK8s)
+		retReceivers = append(retReceivers, logReceiverK8s)
 
 		config, err := r.fetchLoggingCollectorConfig()
 		if err != nil {
@@ -171,7 +171,7 @@ func (r *Reconciler) receiverConfig() (retData []byte, logReceivers []string, re
 		}
 		retData = append(retData, data...)
 		if len(auditLogsReceiver) > 0 {
-			logReceivers = append(logReceivers, auditLogsReceiver)
+			retReceivers = append(retReceivers, auditLogsReceiver)
 		}
 
 		receiver, data, err := r.generateDistributionReceiver(config)
@@ -181,7 +181,7 @@ func (r *Reconciler) receiverConfig() (retData []byte, logReceivers []string, re
 		}
 		retData = append(retData, data...)
 		if len(receiver) > 0 {
-			logReceivers = append(logReceivers, receiver...)
+			retReceivers = append(retReceivers, receiver...)
 		}
 	}
 	if r.collector.Spec.MetricsConfig != nil {

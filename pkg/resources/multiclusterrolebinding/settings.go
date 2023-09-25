@@ -16,10 +16,11 @@ const (
 	LogIndexAlias        = "logs"
 	LogIndexTemplateName = "logs_rollover_mapping"
 
-	tracingPolicyName           = "tracing-policy"
-	spanIndexPrefix             = "otel-v1-apm-span"
-	spanIndexAlias              = "otel-v1-apm-span"
-	spanIndexTemplateName       = "span-mapping"
+	TracePolicyName       = "tracing-policy"
+	SpanIndexPrefix       = "ss4o_traces-kubernetes-opni-v0.5.4"
+	SpanIndexAlias        = "ss4o_traces-kubernetes-opni"
+	SpanIndexTemplateName = "traces_rollover_mapping"
+
 	serviceMapIndexName         = "otel-v1-apm-service-map"
 	serviceMapTemplateName      = "servicemap-mapping"
 	preProcessingPipelineName   = "opni-ingest-pipeline"
@@ -29,8 +30,8 @@ const (
 )
 
 var (
-	oldTracingIndexPrefixes = []string{}
-	OldIndexPrefixes        = []string{
+	OldSpanIndexPrefixes []string
+	OldLogIndexPrefixes  = []string{
 		"logs-v0.1.3*",
 		"logs-v0.5.1*",
 	}
@@ -50,8 +51,9 @@ var (
 			{
 				IndexPatterns: []string{
 					"logs*",
+					"ss4o_traces-kubernetes-opni*",
 					serviceMapIndexName,
-					fmt.Sprintf("%s*", spanIndexPrefix),
+					fmt.Sprintf("%s*", SpanIndexPrefix),
 				},
 				AllowedActions: []string{
 					"index",
@@ -62,20 +64,19 @@ var (
 		},
 	}
 
-	opniSpanTemplate = opensearchtypes.IndexTemplateSpec{
-		TemplateName: spanIndexTemplateName,
+	OpniSpanTemplate = opensearchtypes.IndexTemplateSpec{
+		TemplateName: SpanIndexTemplateName,
 		IndexPatterns: []string{
-			fmt.Sprintf("%s*", spanIndexPrefix),
+			fmt.Sprintf("%s*", SpanIndexPrefix),
 		},
 		Template: opensearchtypes.TemplateSpec{
 			Settings: opensearchtypes.TemplateSettingsSpec{
 				NumberOfShards:   1,
 				NumberOfReplicas: 1,
-				ISMPolicyID:      tracingPolicyName,
-				RolloverAlias:    spanIndexAlias,
+				ISMPolicyID:      TracePolicyName,
+				RolloverAlias:    SpanIndexAlias,
 			},
 			Mappings: opensearchtypes.TemplateMappingsSpec{
-				DateDetection: lo.ToPtr(false),
 				DynamicTemplates: []map[string]opensearchtypes.DynamicTemplateSpec{
 					{
 						"resource_attributes_map": opensearchtypes.DynamicTemplateSpec{
@@ -102,7 +103,7 @@ var (
 						IgnoreAbove: 256,
 						Type:        "keyword",
 					},
-					"spanId": {
+					"id": {
 						IgnoreAbove: 256,
 						Type:        "keyword",
 					},
@@ -114,48 +115,25 @@ var (
 						IgnoreAbove: 1024,
 						Type:        "keyword",
 					},
-					"traceGroup": {
-						IgnoreAbove: 1024,
-						Type:        "keyword",
-					},
-					"traceGroupFields": {
-						Properties: map[string]opensearchtypes.PropertySettings{
-							"endTime": {
-								Type: "date_nanos",
-							},
-							"durationInNanos": {
-								Type: "long",
-							},
-							"statusCode": {
-								Type: "integer",
-							},
-						},
-					},
 					"kind": {
 						IgnoreAbove: 128,
 						Type:        "keyword",
 					},
 					"startTime": {
-						Type: "date_nanos",
+						Type: "date",
 					},
 					"endTime": {
-						Type: "date_nanos",
+						Type: "date",
 					},
 					"status": {
 						Properties: map[string]opensearchtypes.PropertySettings{
 							"code": {
-								Type: "integer",
+								Type: "keyword",
 							},
 							"message": {
 								Type: "keyword",
 							},
 						},
-					},
-					"serviceName": {
-						Type: "keyword",
-					},
-					"durationInNanos": {
-						Type: "long",
 					},
 					"events": {
 						Type: "nested",
@@ -421,7 +399,7 @@ func (r *Reconciler) logISMPolicy() opensearchtypes.ISMPolicySpec {
 func (r *Reconciler) traceISMPolicy() opensearchtypes.ISMPolicySpec {
 	return opensearchtypes.ISMPolicySpec{
 		ISMPolicyIDSpec: &opensearchtypes.ISMPolicyIDSpec{
-			PolicyID:   tracingPolicyName,
+			PolicyID:   TracePolicyName,
 			MarshallID: false,
 		},
 		Description:  "Opni policy with hot-warm-cold workflow",
@@ -523,7 +501,7 @@ func (r *Reconciler) traceISMPolicy() opensearchtypes.ISMPolicySpec {
 		ISMTemplate: []opensearchtypes.ISMTemplateSpec{
 			{
 				IndexPatterns: []string{
-					fmt.Sprintf("%s*", spanIndexPrefix),
+					fmt.Sprintf("%s*", SpanIndexPrefix),
 				},
 				Priority: 100,
 			},

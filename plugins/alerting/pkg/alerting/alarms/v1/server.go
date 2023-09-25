@@ -398,6 +398,8 @@ func (a *AlarmServerComponent) ActivateSilence(ctx context.Context, req *alertin
 			return nil, shared.WithInternalServerErrorf("failed to deactivate existing silence : %s", err)
 		}
 	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 	newId, err := a.Client.SilenceClient().PostSilence(ctx, req.ConditionId.Id, req.Duration.AsDuration(), silenceID)
 	if err != nil {
 		return nil, err
@@ -426,6 +428,8 @@ func (a *AlarmServerComponent) DeactivateSilence(ctx context.Context, ref *alert
 	if existing.Silence == nil {
 		return nil, validation.Errorf("could not find existing silence for condition %s", ref.Id)
 	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 	if err := a.Client.SilenceClient().DeleteSilence(ctx, existing.Silence.SilenceId); err != nil {
 		return nil, err
 	}

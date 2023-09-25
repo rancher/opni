@@ -28,7 +28,6 @@ export default {
       name:             '',
       roleName:         '',
       subjects:         [],
-      taints:           [],
       clusterIds:       [],
       matchLabels:      {},
       matchExpressions: [],

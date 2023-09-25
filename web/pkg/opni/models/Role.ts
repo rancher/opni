@@ -13,14 +13,29 @@ export interface MatchLabel {
     matchExpressions: MatchExpression[]
 }
 
+export interface Verb {
+  verb: string;
+}
+
+export interface Permission {
+  ids: string[];
+  type: string;
+  matchLabels: MatchLabel;
+  verbs: Verb[];
+}
+
 export interface RoleResponse {
   id: string;
-  clusterIDs: string[];
-  matchLabels: MatchLabel
+  permissions: Permission[];
+  matchLabels: MatchLabel;
 }
 
 export interface RolesResponse {
-  items: RoleResponse[];
+  items: ReferenceList;
+}
+
+export interface ReferenceList {
+  items: string[];
 }
 
 export class Role extends Resource {
@@ -44,7 +59,11 @@ export class Role extends Resource {
     }
 
     get clusterIds() {
-      return this.base.clusterIDs;
+      var merged: string[] = [];
+      this.base.permissions.forEach(perm => {
+        perm.ids.forEach(id => merged.push(id));
+      });
+      return merged.filter(n => n);
     }
 
     get clusters() {
@@ -66,7 +85,11 @@ export class Role extends Resource {
     }
 
     get matchExpressionsDisplay() {
-      return this.base.matchLabels.matchExpressions.map(this.formatMatchExpression);
+      var matchExpressions: string[] = [];
+      this.base.permissions.forEach(perm => {
+        matchExpressions.push(...perm.matchLabels.matchExpressions.map(this.formatMatchExpression))
+      })
+      return matchExpressions;
     }
 
     formatMatchExpression(matchExpression: MatchExpression) {

@@ -6,7 +6,7 @@ import { Management } from '../../api/opni';
 import { WatchClustersRequest } from '../../generated/github.com/rancher/opni/pkg/apis/management/v1/management_pb';
 import { TokensResponse, Token } from '../../models/Token';
 import { CapabilityStatusResponse } from '../../models/Cluster';
-import { MatchLabel, Role, RolesResponse } from '../../models/Role';
+import { MatchLabel, Role, RoleResponse, RolesResponse } from '../../models/Role';
 import { RoleBinding, RoleBindingsResponse } from '../../models/RoleBinding';
 import { GatewayConfig, ConfigDocument } from '../../models/Config';
 import { LABEL_KEYS } from '../../models/shared';
@@ -139,19 +139,31 @@ export function deleteCluster(id: string): Promise<undefined> {
   return axios.delete(`opni-api/Management/clusters/${ id }`);
 }
 
-export async function getRoles(vue: any): Promise<Role[]> {
-  const rolesResponse = (await axios.get<RolesResponse>(`opni-api/Management/roles`)).data.items;
+export async function listRoles(vue: any): Promise<string[]> {
+  const rolesList = (await axios.get<RolesResponse>(`opni-api/Management/rbac/backends/metrics/roles`)).data.items.items;
 
-  return rolesResponse.map(roleResponse => new Role(roleResponse, vue));
+  return rolesList;
+}
+
+export async function getRole(id: string, vue: any): Promise<Role> {
+  const roleResponse = (await axios.get<RoleResponse>(`opni-api/Management/rbac/backends/metrics/roles/${ id }`)).data;
+
+  return new Role(roleResponse, vue)
 }
 
 export function deleteRole(id: string): Promise<undefined> {
-  return axios.delete(`opni-api/Management/roles/${ id }`);
+  return axios.delete(`opni-api/Management/rbac/backends/metrics/roles/${ id }`);
 }
 
 export async function createRole(name: string, clusterIDs: string[], matchLabels: MatchLabel) {
-  (await axios.post<any>(`opni-api/Management/roles`, {
-    id: name, clusterIDs, matchLabels
+  const permissions = [{
+    ids: clusterIDs,
+    type: "cluster",
+    matchLabels: matchLabels,
+    verbs: [{verb: "GET"}],
+  }];
+  (await axios.post<any>(`opni-api/Management/rbac/backends/metrics/roles`, {
+    id: name, permissions
   }));
 }
 

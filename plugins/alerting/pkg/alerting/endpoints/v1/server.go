@@ -88,9 +88,11 @@ func (e *EndpointServerComponent) UpdateAlertEndpoint(ctx context.Context, req *
 	if !e.Initialized() {
 		return nil, status.Error(codes.Unavailable, "Endpoint server is not yet available")
 	}
-	if err := unredactSecrets(ctx, e.endpointStorage.Get(), req.Id.Id, req.GetUpdateAlert()); err != nil {
+
+	if err := e.unredactSecrets(ctx, e.endpointStorage.Get(), req.Id.Id, req.GetUpdateAlert()); err != nil {
 		return nil, err
 	}
+
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -221,7 +223,7 @@ func (e *EndpointServerComponent) ListAlertEndpoints(
 	return &alertingv1.AlertEndpointList{Items: items}, nil
 }
 
-func unredactSecrets(
+func (e *EndpointServerComponent) unredactSecrets(
 	ctx context.Context,
 	store spec.EndpointStorage,
 	endpointId string,

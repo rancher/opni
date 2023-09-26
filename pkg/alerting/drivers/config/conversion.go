@@ -53,15 +53,25 @@ func ToWebhook(endp *alertingv1.WebhookEndpoint) *WebhookConfig {
 			}
 		}
 	}
-	webhookURL, err := url.Parse(endp.GetUrl())
-	if err != nil {
-		panic(err)
+	if endp.GetUrl() != "" {
+		webhookURL, err := url.Parse(endp.GetUrl())
+		if err != nil {
+			panic(err)
+		}
+		return &WebhookConfig{
+			HTTPConfig: httpConfig,
+			URL: &amCfg.URL{
+				URL: webhookURL,
+			},
+			URLFile:   endp.GetUrlFile(),
+			MaxAlerts: uint64(endp.MaxAlerts),
+		}
 	}
+
 	return &WebhookConfig{
 		HTTPConfig: httpConfig,
-		URL: &amCfg.URL{
-			URL: webhookURL,
-		},
-		MaxAlerts: uint64(endp.MaxAlerts),
+		URL:        nil,
+		URLFile:    endp.GetUrlFile(),
+		MaxAlerts:  uint64(endp.MaxAlerts),
 	}
 }

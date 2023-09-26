@@ -61,7 +61,7 @@ if cfg.get('defaultRegistry') != None:
   default_registry(cfg.get('defaultRegistry'))
 
 custom_build("rancher/opni",
-  command="go run ./dagger --images.opni.push --images.opni.repo=${EXPECTED_REF/:*} --images.opni.tag=${EXPECTED_REF/*:}",
+  command="go run ./dagger --images.opni.push --images.opni.repo=${EXPECTED_IMAGE} --images.opni.tag=${EXPECTED_TAG}",
   deps=['controllers', 'apis', 'pkg', 'plugins'],
   ignore=ignore,
   skips_local_docker=True,

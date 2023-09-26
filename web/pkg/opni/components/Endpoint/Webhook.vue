@@ -98,6 +98,9 @@ export default {
       <div class="col span-6">
         <LabeledInput v-model="value.url" label="URL" :required="true" />
       </div>
+      <div class="col span-6">
+        <LabeledInput v-model="value.urlFile" label="URL File" />
+      </div>
       <div class="col span-2 middle">
         <Checkbox v-model="value.httpConfig.enabledHttp2" label="Use HTTP2" />
       </div>

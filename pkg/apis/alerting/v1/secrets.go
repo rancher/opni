@@ -23,7 +23,9 @@ func (e *AlertEndpoint) RedactSecrets() {
 }
 
 func (w *WebhookEndpoint) RedactSecrets() {
-	w.Url = storagev1.Redacted
+	if w.Url != "" {
+		w.Url = storagev1.Redacted
+	}
 	if w.HttpConfig != nil {
 		if w.HttpConfig.BasicAuth != nil {
 			w.HttpConfig.BasicAuth.Password = storagev1.Redacted
@@ -62,16 +64,22 @@ func (e *AlertEndpoint) UnredactSecrets(unredacted *AlertEndpoint) {
 }
 
 func (w *WebhookEndpoint) UnredactSecrets(unredacted *WebhookEndpoint) {
-	w.Url = unredacted.GetUrl()
+	if unredacted.GetUrl() != "" && w.Url == storagev1.Redacted {
+		w.Url = unredacted.GetUrl()
+	}
 	if w.HttpConfig != nil && unredacted != nil {
-		if w.HttpConfig.BasicAuth != nil && unredacted.HttpConfig.BasicAuth != nil {
+		if w.HttpConfig.BasicAuth != nil &&
+			unredacted.HttpConfig.BasicAuth != nil &&
+			w.HttpConfig.BasicAuth.Password == storagev1.Redacted {
 			w.HttpConfig.BasicAuth.Password = unredacted.HttpConfig.BasicAuth.Password
 		}
-		if w.HttpConfig.Authorization != nil && unredacted.HttpConfig.Authorization != nil {
+		if w.HttpConfig.Authorization != nil &&
+			unredacted.HttpConfig.Authorization != nil &&
+			w.HttpConfig.Authorization.Credentials == storagev1.Redacted {
 			w.HttpConfig.Authorization.Credentials = unredacted.HttpConfig.Authorization.Credentials
 		}
 		if w.HttpConfig.Oauth2 != nil && unredacted.HttpConfig.Oauth2 != nil {
-			if w.HttpConfig.Oauth2.ClientSecret != "" {
+			if w.HttpConfig.Oauth2.ClientSecret != "" && w.HttpConfig.Oauth2.ClientSecret == storagev1.Redacted {
 				w.HttpConfig.Oauth2.ClientSecret = unredacted.HttpConfig.Oauth2.ClientSecret
 			}
 		}

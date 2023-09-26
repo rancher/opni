@@ -94,7 +94,7 @@ require (
 	github.com/prometheus/procfs v0.11.1
 	github.com/prometheus/prometheus v0.46.1-0.20230818184859-4d8e380269da
 	github.com/pulumi/pulumi/sdk/v3 v3.68.0
-	github.com/qmuntal/stateless v1.6.3
+	github.com/qmuntal/stateless v1.6.7
 	github.com/rancher/charts-build-scripts v0.0.0-00010101000000-000000000000
 	github.com/rancher/kubernetes-provider-detector v0.1.5
 	github.com/rancher/wrangler v1.1.1-0.20230419173538-80fdf092be3b

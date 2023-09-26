@@ -31,7 +31,7 @@ type AlarmServerComponent struct {
 	util.Initializer
 	ctx context.Context
 
-	mu sync.Mutex
+	mu sync.RWMutex
 	server.Config
 
 	logger *zap.SugaredLogger

@@ -204,7 +204,10 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 			).Warn("failed to connect to spliced stream, skipping")
 			continue
 		}
-
+		var correlationId string
+		if values := headerMd.Get("x-correlation"); len(values) == 1 {
+			correlationId = values[0]
+		}
 		if err := ts.Splice(splicedStream,
 			totem.WithName(name),
 			totem.WithTracerOptions(resource.WithAttributes(
@@ -222,10 +225,6 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 		defer func() {
 			if errf.IsSet() {
 				return
-			}
-			var correlationId string
-			if values := headerMd.Get("x-correlation"); len(values) == 1 {
-				correlationId = values[0]
 			}
 			if _, err := streamClient.Notify(ctx, &streamv1.StreamEvent{
 				Type:          streamv1.EventType_DiscoveryComplete,

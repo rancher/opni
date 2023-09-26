@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -84,7 +85,7 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label("int
 						{
 							Type: string(corev1.PermissionTypeCluster),
 							Verbs: []*corev1.PermissionVerb{
-								{Verb: "GET"},
+								corev1.VerbGet(),
 							},
 							Ids: []string{"test-cluster-id"},
 						},
@@ -96,6 +97,9 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label("int
 				Id:      "test-role-binding",
 				RoleIds: []string{"test-role"},
 				Subject: "user@example.com",
+				Metadata: &corev1.RoleBindingMetadata{
+					Capability: lo.ToPtr(wellknown.CapabilityMetrics),
+				},
 			})
 			Expect(err).NotTo(HaveOccurred())
 			tlsConfig := environment.GatewayClientTLSConfig()

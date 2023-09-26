@@ -23,7 +23,7 @@ var _ = Describe("Management API Roles Management Tests", Ordered, Label("integr
 	var capability *corev1.CapabilityType
 	BeforeAll(func() {
 		capability = &corev1.CapabilityType{
-			Name: wellknown.CapabilityMetrics,
+			Name: wellknown.CapabilityExample,
 		}
 		environment = &test.Environment{}
 		Expect(environment.Start()).To(Succeed())
@@ -100,7 +100,7 @@ var _ = Describe("Management API Roles Management Tests", Ordered, Label("integr
 					Type: string(corev1.PermissionTypeCluster),
 					Ids:  []string{"updated-test-cluster"},
 					MatchLabels: &corev1.LabelSelector{
-						MatchLabels: map[string]string{"test-label": "updates-test-value"},
+						MatchLabels: map[string]string{"test-label": "updated-test-value"},
 					},
 					Verbs: []*corev1.PermissionVerb{
 						{Verb: "GET"},

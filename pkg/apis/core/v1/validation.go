@@ -114,9 +114,9 @@ func (r *Role) Validate() error {
 		if perm.Type == "" {
 			return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "permission type")
 		}
-		for _, clusterID := range perm.Ids {
-			if err := validation.ValidateID(clusterID); err != nil {
-				return fmt.Errorf("%w: %q", err, clusterID)
+		for _, id := range perm.Ids {
+			if err := validation.ValidateID(id); err != nil {
+				return fmt.Errorf("%w: %q", err, id)
 			}
 		}
 		if len(lo.Uniq(perm.Ids)) != len(perm.Ids) {
@@ -148,7 +148,7 @@ func (rb *RoleBinding) Validate() error {
 		return err
 	}
 	if len(rb.RoleIds) == 0 {
-		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "subjects")
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "roleIds")
 	}
 	for _, roleId := range rb.RoleIds {
 		if err := validation.ValidateID(roleId); err != nil {

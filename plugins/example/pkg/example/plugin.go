@@ -44,11 +44,13 @@ type ExamplePlugin struct {
 	UnsafeExampleAPIExtensionServer
 	UnsafeExampleUnaryExtensionServer
 	capabilityv1.UnsafeBackendServer
+	capabilityv1.UnsafeRBACManagerServer
 	system.UnimplementedSystemPluginClient
 	ctx    context.Context
 	logger *zap.SugaredLogger
 
 	storageBackend      future.Future[storage.Backend]
+	rbacStorage         future.Future[storage.RoleStore]
 	uninstallController future.Future[*task.Controller]
 
 	configServerBackend ConfigServerBackend
@@ -127,6 +129,8 @@ func (s *ExamplePlugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		driverutil.NewOption("activeConfigStore", kvutil.WithKey(system.NewKVStoreClient[*ConfigSpec](client), "/config/active")),
 	)
 	s.configServerBackend.Initialize(driver)
+
+	s.rbacStorage.Set(kvutil.WithPrefix(system.NewKVStoreClient[*corev1.Role](client), "/roles"))
 
 	<-s.ctx.Done()
 }
@@ -220,16 +224,85 @@ func (s *ExamplePlugin) InstallerTemplate(context.Context, *emptypb.Empty) (*cap
 	return nil, status.Errorf(codes.Unimplemented, "method InstallerTemplate not implemented")
 }
 
+func (s *ExamplePlugin) GetAvailablePermissions(_ context.Context, _ *emptypb.Empty) (*corev1.AvailablePermissions, error) {
+	return &corev1.AvailablePermissions{
+		Items: []*corev1.PermissionDescription{
+			{
+				Type: string(corev1.PermissionTypeCluster),
+				Verbs: []*corev1.PermissionVerb{
+					corev1.VerbGet(),
+				},
+			},
+		},
+	}, nil
+}
+
+func (s *ExamplePlugin) GetRole(ctx context.Context, in *corev1.Reference) (*corev1.Role, error) {
+	role, err := s.rbacStorage.Get().Get(ctx, in.GetId())
+	if err != nil {
+		return nil, err
+	}
+	return role, nil
+}
+
+func (s *ExamplePlugin) CreateRole(ctx context.Context, in *corev1.Role) (*emptypb.Empty, error) {
+	_, err := s.rbacStorage.Get().Get(ctx, in.Reference().GetId())
+	if err == nil {
+		return nil, storage.ErrAlreadyExists
+	}
+	if !storage.IsNotFound(err) {
+		return nil, err
+	}
+	err = s.rbacStorage.Get().Put(ctx, in.GetId(), in)
+	return &emptypb.Empty{}, err
+}
+
+func (s *ExamplePlugin) UpdateRole(ctx context.Context, in *corev1.Role) (*emptypb.Empty, error) {
+	store := s.rbacStorage.Get()
+	oldRole, err := store.Get(ctx, in.Reference().GetId())
+	if err != nil {
+		return &emptypb.Empty{}, err
+	}
+
+	oldRole.Permissions = in.GetPermissions()
+	oldRole.Metadata = in.GetMetadata()
+	err = store.Put(ctx, oldRole.Reference().GetId(), oldRole)
+	return &emptypb.Empty{}, err
+}
+
+func (s *ExamplePlugin) DeleteRole(ctx context.Context, in *corev1.Reference) (*emptypb.Empty, error) {
+	err := s.rbacStorage.Get().Delete(ctx, in.GetId())
+	return &emptypb.Empty{}, err
+}
+
+func (s *ExamplePlugin) ListRoles(ctx context.Context, _ *emptypb.Empty) (*corev1.RoleList, error) {
+	keys, err := s.rbacStorage.Get().ListKeys(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+
+	roles := &corev1.ReferenceList{}
+	for _, key := range keys {
+		roles.Items = append(roles.Items, &corev1.Reference{
+			Id: key,
+		})
+	}
+	return &corev1.RoleList{
+		Items: roles,
+	}, nil
+}
+
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := &ExamplePlugin{
 		ctx:                 ctx,
 		logger:              logger.NewPluginLogger().Named("example"),
 		storageBackend:      future.New[storage.Backend](),
+		rbacStorage:         future.New[storage.RoleStore](),
 		uninstallController: future.New[*task.Controller](),
 	}
 
-	future.Wait2(p.storageBackend, p.uninstallController, func(_ storage.Backend, _ *task.Controller) {
+	future.Wait3(p.storageBackend, p.uninstallController, p.rbacStorage, func(_ storage.Backend, _ *task.Controller, _ storage.RoleStore) {
 		p.Initialize()
 	})
 	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(
@@ -238,6 +311,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	))
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(p))
+	scheme.Add(capability.CapabilityRBACPluginID, capability.NewRBACPlugin(p))
 	return scheme
 }
 

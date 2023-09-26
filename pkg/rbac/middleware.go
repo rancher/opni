@@ -22,15 +22,18 @@ func (m *middleware) Handle(c *gin.Context) {
 	}
 	roleList, err := m.fetchRoles(userID)
 	if err != nil {
+		m.Logger.With("error", err).Error("failed to fetch roles")
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 	headers, err := m.Provider.AccessHeader(context.Background(), roleList)
 	if err != nil {
+		m.Logger.With("error", err).Error("failed to get list of headers")
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 	if len(headers) == 0 {
+		m.Logger.Debug("no headers returned")
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
@@ -53,14 +56,6 @@ func (m *middleware) fetchRoles(userID string) (*corev1.ReferenceList, error) {
 	roleList := &corev1.ReferenceList{}
 	for _, binding := range bindings.GetItems() {
 		if binding.GetSubject() == userID && binding.GetMetadata().GetCapability() == m.Capability {
-			if taints := binding.Taints; len(taints) > 0 {
-				m.Logger.With(
-					"roleBinding", binding.Id,
-					"role", binding.Id,
-					"taints", binding.Taints,
-				).Warn("skipping tained rolebinding")
-				continue
-			}
 			for _, roleId := range binding.GetRoleIds() {
 				roleList.Items = append(roleList.Items, &corev1.Reference{
 					Id: roleId,

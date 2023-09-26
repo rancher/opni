@@ -15,7 +15,7 @@ const (
 	CapabilityRBACPluginID    = "opni.backends.RBAC"
 	ServiceID                 = "capability.Backend"
 	NodeServiceID             = "capability.Node"
-	RBACServiceID             = "capability.RBAC"
+	RBACServiceID             = "capability.RBACManager"
 )
 
 type capabilityBackendPlugin struct {

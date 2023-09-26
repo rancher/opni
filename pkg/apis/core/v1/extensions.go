@@ -93,3 +93,18 @@ func (r *Revision) Set(revision int64) {
 		*r.Revision = revision
 	}
 }
+
+func VerbGet() *PermissionVerb {
+	return &PermissionVerb{
+		Verb: "GET",
+	}
+}
+
+func (v *PermissionVerb) InList(in []*PermissionVerb) bool {
+	for _, verb := range in {
+		if v.GetVerb() == verb.GetVerb() {
+			return true
+		}
+	}
+	return false
+}

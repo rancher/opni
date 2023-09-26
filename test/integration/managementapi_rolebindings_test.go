@@ -12,7 +12,6 @@ import (
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testutil"
 )
@@ -26,27 +25,6 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 		Expect(environment.Start()).To(Succeed())
 		DeferCleanup(environment.Stop)
 		client = environment.NewManagementClient()
-
-		_, err := client.CreateBackendRole(context.Background(), &corev1.BackendRole{
-			Capability: &corev1.CapabilityType{
-				Name: wellknown.CapabilityMetrics,
-			},
-			Role: &corev1.Role{
-				Id: "test-role",
-				Permissions: []*corev1.PermissionItem{
-					{
-						MatchLabels: &corev1.LabelSelector{
-							MatchLabels: map[string]string{"test": "test"},
-						},
-						Type: string(corev1.PermissionTypeCluster),
-						Verbs: []*corev1.PermissionVerb{
-							{Verb: "GET"},
-						},
-					},
-				},
-			},
-		})
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	//#endregion
@@ -135,7 +113,7 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 			Subject: "test-subject",
 		})
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("missing required field: roleId"))
+		Expect(err.Error()).To(ContainSubstring("missing required field: roleIds"))
 
 		_, err = client.GetRoleBinding(context.Background(), &corev1.Reference{
 			Id: "test-rolebinding2",
@@ -152,11 +130,10 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		rbInfo, err := client.GetRoleBinding(context.Background(), &corev1.Reference{
+		_, err := client.GetRoleBinding(context.Background(), &corev1.Reference{
 			Id: "test-rolebinding2",
 		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(rbInfo.Taints).To(ContainElement("role not found"))
 	})
 
 	It("cannot create rolebindings without an Id", func() {
@@ -173,7 +150,7 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 			Id:      "test-rolebinding3",
 			RoleIds: []string{"test-role"},
 		})
-		Expect(err).To(testutil.MatchStatusCode(codes.InvalidArgument, ContainSubstring("missing required field: subjects")))
+		Expect(err).To(testutil.MatchStatusCode(codes.InvalidArgument, ContainSubstring("missing required field: subject")))
 
 		_, err = client.GetRoleBinding(context.Background(), &corev1.Reference{
 			Id: "test-rolebinding3",

@@ -3,7 +3,6 @@ package backend
 import (
 	"context"
 	"fmt"
-	"slices"
 	"sort"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -56,7 +55,7 @@ func (r *RBACBackend) GetAvailablePermissions(_ context.Context, _ *emptypb.Empt
 			{
 				Type: string(v1.PermissionTypeCluster),
 				Verbs: []*v1.PermissionVerb{
-					{Verb: string(storage.ClusterVerbGet)},
+					v1.VerbGet(),
 				},
 			},
 		},
@@ -79,7 +78,15 @@ func (r *RBACBackend) CreateRole(ctx context.Context, in *v1.Role) (*emptypb.Emp
 
 	r.WaitForInit()
 
-	err := r.RoleStore.Put(ctx, in.GetId(), in)
+	_, err := r.RoleStore.Get(ctx, in.Reference().GetId())
+	if err == nil {
+		return nil, storage.ErrAlreadyExists
+	}
+	if !storage.IsNotFound(err) {
+		return nil, err
+	}
+
+	err = r.RoleStore.Put(ctx, in.GetId(), in)
 	return &emptypb.Empty{}, err
 }
 
@@ -137,12 +144,7 @@ func (r *RBACBackend) AccessHeader(ctx context.Context, roles *v1.ReferenceList)
 			continue
 		}
 		for _, permission := range role.Permissions {
-			if permission.Type == string(v1.PermissionTypeCluster) && slices.Contains(
-				permission.GetVerbs(),
-				&v1.PermissionVerb{
-					Verb: string(storage.ClusterVerbGet),
-				},
-			) {
+			if permission.Type == string(v1.PermissionTypeCluster) && v1.VerbGet().InList(permission.GetVerbs()) {
 				// Add explicitly-allowed clusters to the list
 				for _, clusterID := range permission.GetIds() {
 					allowedClusters[clusterID] = struct{}{}

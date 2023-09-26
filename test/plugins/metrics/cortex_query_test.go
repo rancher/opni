@@ -16,6 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -74,12 +75,12 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 		_, err = client.CreateBackendRole(context.Background(), &corev1.BackendRole{
 			Capability: capability,
 			Role: &corev1.Role{
-				Id: "test-role",
+				Id: "role-1",
 				Permissions: []*corev1.PermissionItem{
 					{
 						Type: string(corev1.PermissionTypeCluster),
 						Verbs: []*corev1.PermissionVerb{
-							{Verb: "GET"},
+							corev1.VerbGet(),
 						},
 						Ids: []string{agentId},
 					},
@@ -91,6 +92,9 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 			Id:      "role-binding-1",
 			RoleIds: []string{"role-1"},
 			Subject: userId,
+			Metadata: &corev1.RoleBindingMetadata{
+				Capability: lo.ToPtr(wellknown.CapabilityMetrics),
+			},
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})

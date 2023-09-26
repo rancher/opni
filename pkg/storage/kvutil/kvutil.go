@@ -2,6 +2,7 @@ package kvutil
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	"github.com/rancher/opni/pkg/storage"
@@ -68,7 +69,15 @@ func (s *kvStorePrefixImpl[T]) Delete(ctx context.Context, key string, opts ...s
 }
 
 func (s *kvStorePrefixImpl[T]) ListKeys(ctx context.Context, prefix string, opts ...storage.ListOpt) ([]string, error) {
-	return s.base.ListKeys(ctx, s.prefix+prefix, opts...)
+	keys, err := s.base.ListKeys(ctx, s.prefix+prefix, opts...)
+	if err != nil {
+		return []string{}, err
+	}
+	retKeys := make([]string, len(keys))
+	for i, key := range keys {
+		retKeys[i] = strings.TrimPrefix(key, s.prefix)
+	}
+	return retKeys, nil
 }
 
 func (s *kvStorePrefixImpl[T]) History(ctx context.Context, key string, opts ...storage.HistoryOpt) ([]storage.KeyRevision[T], error) {

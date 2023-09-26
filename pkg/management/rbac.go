@@ -50,6 +50,9 @@ func (s *Server) UpdateBackendRole(ctx context.Context, in *corev1.BackendRole) 
 }
 
 func (s *Server) DeleteBackendRole(ctx context.Context, in *corev1.BackendRoleRequest) (*emptypb.Empty, error) {
+	if err := validation.Validate(in.GetRoleRef()); err != nil {
+		return nil, err
+	}
 	client, err := s.rbacManagerStore.Get(in.GetCapability().GetName())
 	if err != nil {
 		return nil, err
@@ -58,6 +61,9 @@ func (s *Server) DeleteBackendRole(ctx context.Context, in *corev1.BackendRoleRe
 }
 
 func (s *Server) GetBackendRole(ctx context.Context, in *corev1.BackendRoleRequest) (*corev1.Role, error) {
+	if err := validation.Validate(in.GetRoleRef()); err != nil {
+		return nil, err
+	}
 	client, err := s.rbacManagerStore.Get(in.GetCapability().GetName())
 	if err != nil {
 		return nil, err
@@ -70,7 +76,7 @@ func (s *Server) ListBackendRoles(ctx context.Context, in *corev1.CapabilityType
 	if err != nil {
 		return nil, err
 	}
-	return client.ListRoles(ctx, nil)
+	return client.ListRoles(ctx, &emptypb.Empty{})
 }
 
 func (s *Server) CreateRoleBinding(ctx context.Context, in *corev1.RoleBinding) (*emptypb.Empty, error) {

@@ -11,6 +11,7 @@ import (
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
@@ -69,10 +70,11 @@ func (p *HttpApiServer) ConfigureRoutes(router *gin.Engine) {
 	router.Use(logger.GinLogger(p.Logger), gin.Recovery())
 
 	rbacMiddleware := rbac.NewMiddleware(rbac.MiddlewareConfig{
-		Provider: p.RBAC,
-		Codec:    orgIDCodec,
-		Store:    p.StorageBackend,
-		Logger:   p.Logger.Named("middleware"),
+		Provider:   p.RBAC,
+		Codec:      orgIDCodec,
+		Store:      p.StorageBackend,
+		Logger:     p.Logger.Named("middleware"),
+		Capability: wellknown.CapabilityMetrics,
 	})
 	authMiddleware, ok := p.AuthMiddlewares[p.Config.AuthProvider]
 	if !ok {

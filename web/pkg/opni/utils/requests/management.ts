@@ -178,8 +178,11 @@ export function deleteRoleBinding(id: string): Promise<undefined> {
 }
 
 export async function createRoleBinding(name: string, roleName: string, subjects: string[]) {
+  const metadata = {
+    capability: "metrics",
+  };
   (await axios.post<any>(`opni-api/Management/rolebindings`, {
-    id: name, roleId: roleName, subjects
+    id: name, roleId: roleName, subjects, metadata
   }));
 }
 

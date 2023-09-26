@@ -2,14 +2,10 @@ package cli
 
 import (
 	"fmt"
-	"slices"
 
-	"github.com/samber/lo"
-	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/runtime/protoimpl"
-	"google.golang.org/protobuf/types/dynamicpb"
 )
 
 func getExtension[T proto.Message](desc protoreflect.Descriptor, ext *protoimpl.ExtensionInfo) (out T, ok bool) {
@@ -63,32 +59,5 @@ func applyOptions(desc protoreflect.Descriptor, out proto.Message) {
 	}
 	if ok {
 		proto.Merge(out, opts)
-	}
-}
-
-func (f *FlagSetOptions) ForEachDefault(fieldMessage *protogen.Message, fn func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool) {
-	if f.Default == nil {
-		return
-	}
-	dm := dynamicpb.NewMessage(fieldMessage.Desc)
-	if err := f.Default.UnmarshalTo(dm.Interface()); err != nil {
-		panic(err)
-	}
-	orderedRange(dm, fn)
-}
-
-func orderedRange(dm protoreflect.Message, fn func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool) {
-	ordered := []lo.Tuple2[protoreflect.FieldDescriptor, protoreflect.Value]{}
-	dm.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
-		ordered = append(ordered, lo.T2(fd, v))
-		return true
-	})
-	slices.SortFunc(ordered, func(a, b lo.Tuple2[protoreflect.FieldDescriptor, protoreflect.Value]) int {
-		return int(a.A.Number() - b.A.Number())
-	})
-	for _, t := range ordered {
-		if !fn(t.A, t.B) {
-			return
-		}
 	}
 }

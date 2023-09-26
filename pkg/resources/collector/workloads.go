@@ -30,7 +30,7 @@ const (
 	collectorImage     = "rancher-sandbox/opni-otel-collector"
 	collectorVersion   = "v0.1.4-rc1-0.85.0"
 	reloaderImage      = "rancher-sandbox/config-reloader"
-	reloaderVersion    = "v0.1.4-rc1-0.85.0"
+	reloaderVersion    = "v0.1.2"
 
 	otelColBinaryName  = "otelcol-custom"
 	otelConfigDir      = "/etc/otel"

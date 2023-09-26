@@ -34,7 +34,7 @@ const (
 
 	otelColBinaryName  = "otelcol-custom"
 	otelConfigDir      = "/etc/otel"
-	otelFileStorageDir = "/etc/otel/filestorage"
+	otelFileStorageDir = "/var/otel/filestorage"
 
 	otlpGRPCPort    = int32(4317)
 	rke2AgentLogDir = "/var/lib/rancher/rke2/agent/logs/"

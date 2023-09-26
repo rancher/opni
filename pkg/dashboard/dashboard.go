@@ -108,12 +108,10 @@ func (ws *Server) ListenAndServe(ctx waitctx.RestrictiveContext) error {
 	lg.With(
 		"address", listener.Addr(),
 	).Info("ui server starting")
-	// proxyTracer := otel.Tracer("dashboard-proxy")
 	webFsTracer := otel.Tracer("webfs")
 	router := gin.New()
 	router.Use(
 		gin.Recovery(),
-		gin.Logger(),
 		logger.GinLogger(ws.logger),
 		otelgin.Middleware("opni-ui"),
 	)
@@ -152,64 +150,7 @@ func (ws *Server) ListenAndServe(ctx waitctx.RestrictiveContext) error {
 		).Panic("failed to parse management API URL")
 		return err
 	}
-
 	router.Any("/opni-api/*any", gin.WrapH(http.StripPrefix("/opni-api", httputil.NewSingleHostReverseProxy(mgmtUrl))))
-	// router.Any("/opni-api/*any", gin.WrapH(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-	// 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-	// 	_, span := proxyTracer.Start(
-	// 		ctx,
-	// 		r.URL.Path,
-	// 		func() (tr []trace.SpanStartOption) {
-	// 			for k, v := range r.Header {
-	// 				tr = append(tr, trace.WithAttributes(attribute.String(k, strings.Join(v, ","))))
-
-	// 			}
-	// 			tr = append(tr, trace.WithAttributes(attribute.String("proxy-method", r.Method)))
-	// 			tr = append(tr, trace.WithAttributes(attribute.String("proxy-url", mgmtUrl.String())))
-	// 			return tr
-	// 		}()...,
-	// 	)
-
-	// 	defer func() {
-	// 		cancel()
-	// 		span.End()
-	// 	}()
-
-	// 	// round-trip to the management API
-	// 	// strip the prefix /opni-api/
-	// 	u := *mgmtUrl
-	// 	u.Path = r.URL.Path[len("/opni-api/"):]
-
-	// 	req, err := http.NewRequestWithContext(ctx, r.Method, u.String(), r.Body)
-	// 	if err != nil {
-	// 		lg.With(
-	// 			zap.Error(err),
-	// 		).Error("failed to create request")
-	// 		rw.WriteHeader(http.StatusInternalServerError)
-	// 		return
-	// 	}
-	// 	req.Header = r.Header
-	// 	resp, err := http.DefaultClient.Do(req)
-	// 	if err != nil {
-	// 		lg.With(
-	// 			zap.Error(err),
-	// 		).Error("failed to round-trip management api request")
-	// 		if errors.Is(err, ctx.Err()) {
-	// 			rw.WriteHeader(http.StatusGatewayTimeout)
-	// 			return
-	// 		}
-	// 		rw.WriteHeader(http.StatusInternalServerError)
-	// 		return
-	// 	}
-	// 	defer resp.Body.Close()
-	// 	for k, v := range resp.Header {
-	// 		for _, vv := range v {
-	// 			rw.Header().Add(k, vv)
-	// 		}
-	// 	}
-	// 	rw.WriteHeader(resp.StatusCode)
-	// 	io.Copy(rw, resp.Body)
-	// })))
 
 	for _, h := range ws.extraHandlers {
 		router.Handle(h.method, h.prefix, h.handler...)

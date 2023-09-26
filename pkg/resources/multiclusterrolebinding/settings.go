@@ -53,7 +53,6 @@ var (
 					"logs*",
 					"ss4o_traces-kubernetes-opni*",
 					serviceMapIndexName,
-					fmt.Sprintf("%s*", SpanIndexPrefix),
 				},
 				AllowedActions: []string{
 					"index",
@@ -96,6 +95,12 @@ var (
 					},
 				},
 				Properties: map[string]opensearchtypes.PropertySettings{
+					"timestamp": {
+						Type: "date",
+					},
+					"time": {
+						Type: "date",
+					},
 					"cluster_id": {
 						Type: "keyword",
 					},

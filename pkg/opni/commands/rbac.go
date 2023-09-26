@@ -212,8 +212,7 @@ func BuildRoleBindingsUpdateCmd() *cobra.Command {
 		Short: "Update a role binding",
 		Args:  cobra.MinimumNArgs(3),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			switch len(args) {
-			case 0:
+			if len(args) == 0 {
 				return completeRoleBindings(cmd, args, toComplete)
 			}
 

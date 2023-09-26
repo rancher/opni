@@ -75,7 +75,7 @@ func (s *JetStreamStore) DeleteRoleBinding(_ context.Context, ref *corev1.Refere
 	return s.kv.RoleBindings.Delete(ref.Id)
 }
 
-func (s *JetStreamStore) GetRoleBinding(ctx context.Context, ref *corev1.Reference) (*corev1.RoleBinding, error) {
+func (s *JetStreamStore) GetRoleBinding(_ context.Context, ref *corev1.Reference) (*corev1.RoleBinding, error) {
 	entry, err := s.kv.RoleBindings.Get(ref.Id)
 	if err != nil {
 		if errors.Is(err, nats.ErrKeyNotFound) || (errors.Is(err, nats.ErrInvalidKey) && ref.GetId() == "") {

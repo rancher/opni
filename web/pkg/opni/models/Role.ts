@@ -27,7 +27,6 @@ export interface Permission {
 export interface RoleResponse {
   id: string;
   permissions: Permission[];
-  matchLabels: MatchLabel;
 }
 
 export interface RolesResponse {
@@ -100,7 +99,11 @@ export class Role extends Resource {
     }
 
     get matchLabelsDisplay() {
-      return Object.entries(this.base.matchLabels.matchLabels).map(([key, value]) => `${ key }=${ value }`);
+      var kvs: [string, string][] = [];
+      this.base.permissions.forEach(perm => {
+        kvs.push(...Object.entries(perm.matchLabels.matchLabels))
+      });
+      return kvs.map(([key, value]) => `${ key }=${ value }`);
     }
 
     get availableActions(): any[] {

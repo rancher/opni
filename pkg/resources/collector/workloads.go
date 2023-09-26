@@ -26,14 +26,11 @@ const (
 	mainKey       = "config.yaml"
 	aggregatorKey = "aggregator.yaml"
 
-	// TODO(jaehnri): update when https://github.com/rancher-sandbox/opni-otel-collector/pull/13 is merged
-	collectorImageRepo = "docker.io"
-	collectorImage     = "jaehnri/otel-collector"
-	collectorVersion   = "latest"
-
-	reloaderImageRepo = "ghcr.io"
-	reloaderImage     = "rancher-sandbox/config-reloader"
-	reloaderVersion   = "v0.1.2"
+	collectorImageRepo = "ghcr.io"
+	collectorImage     = "rancher-sandbox/opni-otel-collector"
+	collectorVersion   = "v0.1.4-rc1-0.85.0"
+	reloaderImage      = "rancher-sandbox/config-reloader"
+	reloaderVersion    = "v0.1.4-rc1-0.85.0"
 
 	otelColBinaryName  = "otelcol-custom"
 	otelConfigDir      = "/etc/otel"
@@ -586,7 +583,7 @@ func (r *Reconciler) configReloaderImageSpec() opnimeta.ImageSpec {
 	return opnimeta.ImageResolver{
 		Version:     reloaderVersion,
 		ImageName:   reloaderImage,
-		DefaultRepo: reloaderImageRepo,
+		DefaultRepo: collectorImageRepo,
 		ImageOverride: func() *opnimeta.ImageSpec {
 			if r.collector.Spec.ConfigReloader != nil {
 				return &r.collector.Spec.ConfigReloader.ImageSpec

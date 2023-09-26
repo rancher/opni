@@ -15,7 +15,7 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/rbac"
-	"github.com/rancher/opni/plugins/metrics/pkg/backend"
+	"github.com/rancher/opni/plugins/metrics/pkg/util"
 	"go.uber.org/zap"
 )
 
@@ -75,7 +75,7 @@ type rawPromJSONData struct {
 }
 
 func (a *MultiTenantRuleAggregator) Handle(c *gin.Context) {
-	ids := backend.AuthorizedClusterIDs(c)
+	ids := util.AuthorizedClusterIDs(c)
 	a.logger.With(
 		"request", c.FullPath(),
 	).Debugf("aggregating query over %d tenants", len(ids))

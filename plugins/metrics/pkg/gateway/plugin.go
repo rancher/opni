@@ -44,6 +44,7 @@ type Plugin struct {
 	cortexHttp        cortex.HttpApiServer
 	cortexRemoteWrite cortex.RemoteWriteForwarder
 	metrics           backend.MetricsBackend
+	rbac              backend.RBACBackend
 	uninstallRunner   cortex.UninstallTaskRunner
 
 	config              future.Future[*v1beta1.GatewayConfig]
@@ -166,7 +167,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 			})
 		})
 
-	future.Wait6(p.mgmtClient, p.cortexClientSet, p.config, p.cortexTlsConfig, p.storageBackend, p.authMw,
+	future.Wait7(p.mgmtClient, p.cortexClientSet, p.config, p.cortexTlsConfig, p.storageBackend, p.authMw, p.backendKvClients,
 		func(
 			mgmtApi managementv1.ManagementClient,
 			cortexClientSet cortex.ClientSet,
@@ -174,7 +175,13 @@ func NewPlugin(ctx context.Context) *Plugin {
 			tlsConfig *tls.Config,
 			storageBackend storage.Backend,
 			authMiddlewares map[string]auth.Middleware,
+			kv *backend.KVClients,
 		) {
+			p.rbac.Initialize(backend.RBACBackendConfig{
+				Logger:         p.logger.Named("rbac"),
+				RoleStore:      kv.RolesStore,
+				StorageBackend: storageBackend,
+			})
 			p.cortexHttp.Initialize(cortex.HttpApiServerConfig{
 				PluginContext:    p.ctx,
 				ManagementClient: mgmtApi,
@@ -184,8 +191,10 @@ func NewPlugin(ctx context.Context) *Plugin {
 				Logger:           p.logger.Named("cortex-http"),
 				StorageBackend:   storageBackend,
 				AuthMiddlewares:  authMiddlewares,
+				RBAC:             &p.rbac,
 			})
 		})
+
 	return p
 }
 
@@ -209,7 +218,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 		util.PackService(&node.NodeConfiguration_ServiceDesc, p.metrics.NodeBackend),
 	))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.metrics))
-	scheme.Add(capability.CapabilityRBACPluginID, capability.NewRBACPlugin(&p.metrics))
+	scheme.Add(capability.CapabilityRBACPluginID, capability.NewRBACPlugin(&p.rbac))
 	scheme.Add(metrics.MetricsPluginID, metrics.NewPlugin(p))
 	return scheme
 }

@@ -47,7 +47,7 @@ type HttpApiServerConfig struct {
 	Logger           *zap.SugaredLogger            `validate:"required"`
 	StorageBackend   storage.Backend               `validate:"required"`
 	AuthMiddlewares  map[string]auth.Middleware    `validate:"required"`
-	Backend          backend.MetricsBackend        `validate:"required"`
+	RBAC             *backend.RBACBackend          `validate:"required"`
 }
 
 func (p *HttpApiServer) Initialize(config HttpApiServerConfig) {
@@ -69,7 +69,7 @@ func (p *HttpApiServer) ConfigureRoutes(router *gin.Engine) {
 	router.Use(logger.GinLogger(p.Logger), gin.Recovery())
 
 	rbacMiddleware := rbac.NewMiddleware(rbac.MiddlewareConfig{
-		Provider: &p.Backend,
+		Provider: p.RBAC,
 		Codec:    orgIDCodec,
 		Store:    p.StorageBackend,
 		Logger:   p.Logger.Named("middleware"),
@@ -104,7 +104,7 @@ func (p *HttpApiServer) ConfigureRoutes(router *gin.Engine) {
 
 func (p *HttpApiServer) configureAlertmanager(router *gin.Engine, f *forwarders, m *middlewares) {
 	orgIdLimiter := func(c *gin.Context) {
-		ids := backend.AuthorizedClusterIDs(c)
+		ids := metricsutil.AuthorizedClusterIDs(c)
 		if len(ids) > 1 {
 			user, _ := rbac.AuthorizedUserID(c)
 			p.Logger.With(

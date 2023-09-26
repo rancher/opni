@@ -6,20 +6,51 @@ import (
 	"slices"
 	"sort"
 
-	"github.com/gin-gonic/gin"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/rbac"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
+	"github.com/rancher/opni/plugins/metrics/pkg/constants"
+	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
+	metricsutil "github.com/rancher/opni/plugins/metrics/pkg/util"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-const (
-	AuthorizedClusterIDsKey = "authorized_cluster_ids"
-)
+type RBACBackend struct {
+	capabilityv1.UnsafeRBACManagerServer
+	RBACBackendConfig
+	util.Initializer
+}
 
-func (m *MetricsBackend) GetAvailablePermissions(_ context.Context, _ *emptypb.Empty) (*v1.AvailablePermissions, error) {
+type RBACBackendConfig struct {
+	Logger         *zap.SugaredLogger `validate:"required"`
+	RoleStore      storage.RoleStore
+	StorageBackend storage.Backend
+}
+
+func (r *RBACBackend) Initialize(conf RBACBackendConfig) {
+	r.InitOnce(func() {
+		if err := metricsutil.Validate.Struct(conf); err != nil {
+			panic(err)
+		}
+		r.RBACBackendConfig = conf
+	})
+}
+
+func (r *RBACBackend) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
+	// Info must not block
+	return &capabilityv1.Details{
+		Name:    wellknown.CapabilityMetrics,
+		Source:  "plugin_metrics",
+		Drivers: drivers.ClusterDrivers.List(),
+	}, nil
+}
+
+func (r *RBACBackend) GetAvailablePermissions(_ context.Context, _ *emptypb.Empty) (*v1.AvailablePermissions, error) {
 	return &v1.AvailablePermissions{
 		Items: []*v1.PermissionDescription{
 			{
@@ -32,53 +63,53 @@ func (m *MetricsBackend) GetAvailablePermissions(_ context.Context, _ *emptypb.E
 	}, nil
 }
 
-func (m *MetricsBackend) GetRole(ctx context.Context, in *v1.Reference) (*v1.Role, error) {
-	m.WaitForInit()
-	role, err := m.KV.RolesStore.Get(ctx, in.GetId())
+func (r *RBACBackend) GetRole(ctx context.Context, in *v1.Reference) (*v1.Role, error) {
+	r.WaitForInit()
+	role, err := r.RoleStore.Get(ctx, in.GetId())
 	if err != nil {
 		return nil, err
 	}
 	return role, nil
 }
 
-func (m *MetricsBackend) CreateRole(ctx context.Context, in *v1.Role) (*emptypb.Empty, error) {
+func (r *RBACBackend) CreateRole(ctx context.Context, in *v1.Role) (*emptypb.Empty, error) {
 	if err := validation.Validate(in); err != nil {
 		return &emptypb.Empty{}, err
 	}
 
-	m.WaitForInit()
+	r.WaitForInit()
 
-	err := m.KV.RolesStore.Put(ctx, in.GetId(), in)
+	err := r.RoleStore.Put(ctx, in.GetId(), in)
 	return &emptypb.Empty{}, err
 }
 
-func (m *MetricsBackend) UpdateRole(ctx context.Context, in *v1.Role) (*emptypb.Empty, error) {
+func (r *RBACBackend) UpdateRole(ctx context.Context, in *v1.Role) (*emptypb.Empty, error) {
 	if err := validation.Validate(in); err != nil {
 		return &emptypb.Empty{}, err
 	}
 
-	m.WaitForInit()
+	r.WaitForInit()
 
-	oldRole, err := m.KV.RolesStore.Get(ctx, in.Reference().GetId())
+	oldRole, err := r.RoleStore.Get(ctx, in.Reference().GetId())
 	if err != nil {
 		return &emptypb.Empty{}, err
 	}
 
 	oldRole.Permissions = in.GetPermissions()
 	oldRole.Metadata = in.GetMetadata()
-	err = m.KV.RolesStore.Put(ctx, oldRole.Reference().GetId(), oldRole)
+	err = r.RoleStore.Put(ctx, oldRole.Reference().GetId(), oldRole)
 	return &emptypb.Empty{}, err
 }
 
-func (m *MetricsBackend) DeleteRole(ctx context.Context, in *v1.Reference) (*emptypb.Empty, error) {
-	m.WaitForInit()
-	err := m.KV.RolesStore.Delete(ctx, in.GetId())
+func (r *RBACBackend) DeleteRole(ctx context.Context, in *v1.Reference) (*emptypb.Empty, error) {
+	r.WaitForInit()
+	err := r.RoleStore.Delete(ctx, in.GetId())
 	return &emptypb.Empty{}, err
 }
 
-func (m *MetricsBackend) ListRoles(ctx context.Context, _ *emptypb.Empty) (*v1.RoleList, error) {
-	m.WaitForInit()
-	keys, err := m.KV.RolesStore.ListKeys(ctx, "")
+func (r *RBACBackend) ListRoles(ctx context.Context, _ *emptypb.Empty) (*v1.RoleList, error) {
+	r.WaitForInit()
+	keys, err := r.RoleStore.ListKeys(ctx, "")
 	if err != nil {
 		return nil, err
 	}
@@ -94,12 +125,12 @@ func (m *MetricsBackend) ListRoles(ctx context.Context, _ *emptypb.Empty) (*v1.R
 	}, nil
 }
 
-func (m *MetricsBackend) AccessHeader(ctx context.Context, roles *v1.ReferenceList) (rbac.RBACHeader, error) {
+func (r *RBACBackend) AccessHeader(ctx context.Context, roles *v1.ReferenceList) (rbac.RBACHeader, error) {
 	allowedClusters := map[string]struct{}{}
 	for _, role := range roles.GetItems() {
-		role, err := m.KV.RolesStore.Get(ctx, role.GetId())
+		role, err := r.RoleStore.Get(ctx, role.GetId())
 		if err != nil {
-			m.Logger.With(
+			r.Logger.With(
 				zap.Error(err),
 				"role", role.GetId(),
 			).Warn("error looking up role")
@@ -117,7 +148,7 @@ func (m *MetricsBackend) AccessHeader(ctx context.Context, roles *v1.ReferenceLi
 					allowedClusters[clusterID] = struct{}{}
 				}
 				// Add any clusters to the list which match the role's label selector
-				filteredList, err := m.StorageBackend.ListClusters(ctx, permission.MatchLabels,
+				filteredList, err := r.StorageBackend.ListClusters(ctx, permission.MatchLabels,
 					v1.MatchOptions_EmptySelectorMatchesNone)
 				if err != nil {
 					return nil, fmt.Errorf("failed to list clusters: %w", err)
@@ -139,16 +170,8 @@ func (m *MetricsBackend) AccessHeader(ctx context.Context, roles *v1.ReferenceLi
 		return sortedReferences[i].Id < sortedReferences[j].Id
 	})
 	return rbac.RBACHeader{
-		AuthorizedClusterIDsKey: &v1.ReferenceList{
+		constants.AuthorizedClusterIDsKey: &v1.ReferenceList{
 			Items: sortedReferences,
 		},
 	}, nil
-}
-
-func AuthorizedClusterIDs(c *gin.Context) []string {
-	value, ok := c.Get(AuthorizedClusterIDsKey)
-	if !ok {
-		return nil
-	}
-	return value.([]string)
 }

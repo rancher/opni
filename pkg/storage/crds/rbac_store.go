@@ -41,7 +41,7 @@ func (c *CRDStore) UpdateRoleBinding(ctx context.Context, ref *corev1.Reference,
 		mutator(clone.Spec)
 		rb = clone.Spec
 		err = c.client.Update(ctx, clone)
-		rb.SetResourceVersion(clone.GetObjectMeta().GetResourceVersion())
+		rb.SetResourceVersion(clone.GetResourceVersion())
 		return err
 	})
 	if err != nil {

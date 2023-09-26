@@ -23,7 +23,7 @@ const (
 	configKey = "config.yaml"
 
 	// TODO: Change back to opni-otel-collector image
-	preprocessorVersion   = "latest"
+	preprocessorVersion   = "opensearch-exporter"
 	preprocessorImageRepo = "docker.io/jaehnri"
 	preprocessorImage     = "otel-collector"
 	otlpGRPCPort          = 4317

@@ -5,8 +5,6 @@ import (
 	"fmt"
 )
 
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen +object +paths=.
-
 // +k8s:deepcopy-gen=true
 type WellKnownConfiguration struct {
 	Issuer                            string   `json:"issuer,omitempty"`

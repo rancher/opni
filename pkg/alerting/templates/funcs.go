@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/prometheus/common/model"
+	"github.com/rancher/opni/pkg/util"
 )
 
 func floatToTime(v float64) (*time.Time, error) {
@@ -45,53 +46,8 @@ func convertToFloat(i any) (float64, error) {
 var errNaNOrInf = errors.New("value is NaN or Inf")
 
 var DefaultTemplateFuncs = template.FuncMap{
-	"humanize": func(i any) (string, error) {
-		v, err := convertToFloat(i)
-		if err != nil {
-			return "", err
-		}
-		if v == 0 || math.IsNaN(v) || math.IsInf(v, 0) {
-			return fmt.Sprintf("%.4g", v), nil
-		}
-		if math.Abs(v) >= 1 {
-			prefix := ""
-			for _, p := range []string{"k", "M", "G", "T", "P", "E", "Z", "Y"} {
-				if math.Abs(v) < 1000 {
-					break
-				}
-				prefix = p
-				v /= 1000
-			}
-			return fmt.Sprintf("%.4g%s", v, prefix), nil
-		}
-		prefix := ""
-		for _, p := range []string{"m", "u", "n", "p", "f", "a", "z", "y"} {
-			if math.Abs(v) >= 1 {
-				break
-			}
-			prefix = p
-			v *= 1000
-		}
-		return fmt.Sprintf("%.4g%s", v, prefix), nil
-	},
-	"humanize1024": func(i any) (string, error) {
-		v, err := convertToFloat(i)
-		if err != nil {
-			return "", err
-		}
-		if math.Abs(v) <= 1 || math.IsNaN(v) || math.IsInf(v, 0) {
-			return fmt.Sprintf("%.4g", v), nil
-		}
-		prefix := ""
-		for _, p := range []string{"ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi", "Yi"} {
-			if math.Abs(v) < 1024 {
-				break
-			}
-			prefix = p
-			v /= 1024
-		}
-		return fmt.Sprintf("%.4g%s", v, prefix), nil
-	},
+	"humanize":     util.Humanize,
+	"humanize1024": util.Humanize1024,
 	"humanizeDuration": func(i any) (string, error) {
 		v, err := convertToFloat(i)
 		if err != nil {

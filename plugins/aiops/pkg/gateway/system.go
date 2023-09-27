@@ -64,7 +64,6 @@ FETCH:
 			}, cluster)
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
-					s.Logger.Info("waiting for k8s object")
 					continue
 				}
 				s.Logger.Errorf("failed to check k8s object: %v", err)

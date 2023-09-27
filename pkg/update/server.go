@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
 
@@ -53,7 +54,11 @@ func (s *UpdateServer) SyncManifest(ctx context.Context, manifest *controlv1.Upd
 		).Warn("could not sync agent manifest")
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	s.logger.With(
+	agentPeer, ok := peer.FromContext(ctx)
+	if ok {
+		lg = lg.With("agent", agentPeer.Addr.String())
+	}
+	lg.With(
 		"strategy", strategy,
 	).Info("syncing agent manifest")
 
@@ -73,8 +78,8 @@ func (s *UpdateServer) SyncManifest(ctx context.Context, manifest *controlv1.Upd
 	}
 
 	lg.With(
-		"patches", len(patchList.GetItems()),
-	).Info("computed updates")
+		"summary", patchList.Summary(),
+	).Info("sending sync results")
 
 	return &controlv1.SyncResults{
 		RequiredPatches: patchList,

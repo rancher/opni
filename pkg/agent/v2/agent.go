@@ -12,19 +12,6 @@ import (
 
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	"github.com/rancher/opni/pkg/ident/identserver"
-	"github.com/rancher/opni/pkg/update"
-	"github.com/rancher/opni/pkg/urn"
-	"github.com/rancher/opni/pkg/versions"
-	"github.com/samber/lo"
-	"github.com/spf13/afero"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/encoding/protojson"
-
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
@@ -33,6 +20,7 @@ import (
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/health/annotations"
 	"github.com/rancher/opni/pkg/ident"
+	"github.com/rancher/opni/pkg/ident/identserver"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/machinery"
@@ -43,8 +31,19 @@ import (
 	"github.com/rancher/opni/pkg/plugins/types"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/trust"
+	"github.com/rancher/opni/pkg/update"
+	"github.com/rancher/opni/pkg/urn"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/fwd"
+	"github.com/rancher/opni/pkg/versions"
+	"github.com/samber/lo"
+	"github.com/spf13/afero"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 var ErrRebootstrap = errors.New("re-bootstrap requested")
@@ -347,9 +346,10 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 		Logger: a.Logger.Named("agent-updater"),
 	}
 	pluginSyncConf := update.SyncConfig{
-		Client: syncClient,
-		Syncer: a.pluginSyncer,
-		Logger: a.Logger.Named("plugin-updater"),
+		Client:      syncClient,
+		StatsClient: a.gatewayClient,
+		Syncer:      a.pluginSyncer,
+		Logger:      a.Logger.Named("plugin-updater"),
 	}
 
 	for _, conf := range []update.SyncConfig{agentSyncConf, pluginSyncConf} {

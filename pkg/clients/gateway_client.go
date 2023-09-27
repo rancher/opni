@@ -5,6 +5,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"math"
+	"net"
+	"strings"
 	"sync"
 
 	"github.com/rancher/opni/pkg/auth/challenges"
@@ -34,6 +36,7 @@ import (
 
 type GatewayClient interface {
 	grpc.ServiceRegistrar
+	ConnStatsQuerier
 	// credentials.PerRPCCredentials
 	// Connect returns a ClientConnInterface connected to the streaming server.
 	// The connection remains active until the provided context is canceled.
@@ -60,15 +63,10 @@ func NewGatewayClient(
 	}
 
 	lg := logger.New().Named("gateway-client")
-	cc, err := dial(ctx, address, id, kr, tlsConfig, lg)
+	ncc, cc, err := dial(ctx, address, id, kr, tlsConfig, lg)
 	if err != nil {
 		return nil, err
 	}
-
-	go func() {
-		<-ctx.Done()
-		cc.Close()
-	}()
 
 	client := &gatewayClient{
 		cc:     cc,
@@ -76,6 +74,17 @@ func NewGatewayClient(
 		logger: lg,
 	}
 
+	go func() {
+		select {
+		case nc := <-ncc:
+			client.ncMu.Lock()
+			client.nc = nc
+			client.ncMu.Unlock()
+			<-ctx.Done()
+		case <-ctx.Done():
+		}
+		cc.Close()
+	}()
 	return client, nil
 }
 
@@ -86,6 +95,8 @@ type splicedConn struct {
 
 type gatewayClient struct {
 	cc     *grpc.ClientConn
+	ncMu   sync.Mutex
+	nc     net.Conn
 	id     string
 	logger *zap.SugaredLogger
 
@@ -114,22 +125,24 @@ func (gc *gatewayClient) RegisterSplicedStream(cc grpc.ClientConnInterface, name
 	})
 }
 
-func dial(ctx context.Context, address, id string, kr keyring.Keyring, tlsConfig *tls.Config, lg *zap.SugaredLogger) (*grpc.ClientConn, error) {
+func dial(ctx context.Context, address, id string, kr keyring.Keyring, tlsConfig *tls.Config, lg *zap.SugaredLogger) (<-chan net.Conn, *grpc.ClientConn, error) {
 	authChallenge, err := authv2.NewClientChallenge(kr, id, lg)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	sessionAttrChallenge, err := session.NewClientChallenge(kr)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	challengeHandler := challenges.Chained(
 		authChallenge,
 		challenges.If(sessionAttrChallenge.HasAttributes).Then(sessionAttrChallenge),
 	)
-	return grpc.DialContext(ctx, address,
+	ncc := make(chan net.Conn)
+
+	cc, err := grpc.DialContext(ctx, address,
 		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
 		grpc.WithChainStreamInterceptor(
 			otelgrpc.StreamClientInterceptor(),
@@ -141,7 +154,25 @@ func dial(ctx context.Context, address, id string, kr keyring.Keyring, tlsConfig
 			grpc.MaxCallSendMsgSize(math.MaxInt32),
 			grpc.MaxCallRecvMsgSize(math.MaxInt32),
 		),
+		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			var err error
+			var nc net.Conn
+			if strings.Contains(addr, "://") {
+				nc, err = util.DialProtocol(ctx, addr)
+			} else {
+				nc, err = net.Dial("tcp4", addr)
+			}
+			if err != nil {
+				return nil, err
+			}
+			select {
+			case ncc <- nc:
+			default:
+			}
+			return nc, err
+		}),
 	)
+	return ncc, cc, err
 }
 
 func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterface, errf future.Future[error]) {

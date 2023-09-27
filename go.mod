@@ -54,6 +54,7 @@ require (
 	github.com/jhump/protoreflect v1.15.1
 	github.com/jwalton/go-supportscolor v1.1.0
 	github.com/karlseguin/ccache/v3 v3.0.3
+	github.com/kazegusuri/channelzcli v0.0.0-20230307031351-17bac34c51ca
 	github.com/klauspost/compress v1.16.7
 	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
 	github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c
@@ -161,8 +162,6 @@ require (
 	sigs.k8s.io/node-feature-discovery-operator v0.2.1-0.20230131182250-99b8584e2745
 	sigs.k8s.io/yaml v1.3.0
 )
-
-require github.com/minio/highwayhash v1.0.2 // indirect
 
 require (
 	cloud.google.com/go v0.110.7 // indirect
@@ -388,6 +387,7 @@ require (
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect
 	github.com/miekg/dns v1.1.55 // indirect
+	github.com/minio/highwayhash v1.0.2 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/minio/minio-go/v7 v7.0.63
 	github.com/minio/sha256-simd v1.0.1 // indirect

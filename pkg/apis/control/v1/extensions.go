@@ -75,6 +75,35 @@ func (l *PatchList) Sort() {
 	})
 }
 
+func (l *PatchList) Summary() string {
+	builder := strings.Builder{}
+	fmt.Fprintf(&builder, "%d entries", len(l.Items))
+	if len(l.Items) > 0 {
+		fmt.Fprintf(&builder, ": ")
+		updatesByOperation := map[PatchOp]int{}
+		for _, entry := range l.Items {
+			updatesByOperation[entry.GetOp()]++
+		}
+		separator := ""
+		if updatesByOperation[PatchOp_Create] > 0 {
+			fmt.Fprintf(&builder, "%d new", updatesByOperation[PatchOp_Create])
+			separator = ", "
+		}
+		if updatesByOperation[PatchOp_Update] > 0 {
+			fmt.Fprintf(&builder, "%s%d updated", separator, updatesByOperation[PatchOp_Update])
+			separator = ", "
+		}
+		if updatesByOperation[PatchOp_Remove] > 0 {
+			fmt.Fprintf(&builder, "%s%d removed", separator, updatesByOperation[PatchOp_Remove])
+			separator = ", "
+		}
+		if updatesByOperation[PatchOp_Rename] > 0 {
+			fmt.Fprintf(&builder, "%s%d renamed", separator, updatesByOperation[PatchOp_Rename])
+		}
+	}
+	return builder.String()
+}
+
 const (
 	updateStrategyKey = "update-strategy"
 	manifestDigestKey = "manifest-digest"

@@ -139,7 +139,7 @@ export function deleteCluster(id: string): Promise<undefined> {
   return axios.delete(`opni-api/Management/clusters/${ id }`);
 }
 
-export async function listRoles(vue: any): Promise<Role[]> {
+export async function getRoles(vue: any): Promise<Role[]> {
   const rolesList = (await axios.get<RolesResponse>(`opni-api/Management/rbac/backend/metrics/roles`)).data.items;
 
   return rolesList.map(ref => (

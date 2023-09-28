@@ -3,7 +3,7 @@
 /* eslint-disable */
 
 import { APIExtensionInfoList, CapabilityInstallerRequest, CapabilityInstallerResponse, CapabilityInstallRequest, CapabilityList, CapabilityStatusRequest, CapabilityUninstallCancelRequest, CapabilityUninstallRequest, CertsInfoResponse, CreateBootstrapTokenRequest, DashboardSettings, EditClusterRequest, GatewayConfig, ListClustersRequest, UpdateConfigRequest, WatchClustersRequest, WatchEvent } from "./management_pb";
-import { BootstrapToken, BootstrapTokenList, Cluster, ClusterHealthStatus, ClusterList, HealthStatus, Reference, ReferenceList, Role, RoleBinding, RoleBindingList, RoleList, SubjectAccessRequest, TaskStatus } from "../../core/v1/core_pb";
+import { AvailablePermissions, BackendRole, BackendRoleRequest, BootstrapToken, BootstrapTokenList, CapabilityType, CapabilityTypeList, Cluster, ClusterHealthStatus, ClusterList, HealthStatus, Reference, Role, RoleBinding, RoleBindingList, RoleList, TaskStatus } from "../../core/v1/core_pb";
 import { axios } from "@pkg/opni/utils/axios";
 import { Socket } from "@pkg/opni/utils/socket";
 import { EVENT_CONNECT_ERROR, EVENT_CONNECTED, EVENT_CONNECTING, EVENT_DISCONNECT_ERROR, EVENT_MESSAGE } from "@shell/utils/socket";
@@ -293,7 +293,52 @@ export async function EditCluster(input: EditClusterRequest): Promise<Cluster> {
 }
 
 
-export async function CreateRole(input: Role): Promise<void> {
+export async function ListRBACBackends(): Promise<CapabilityTypeList> {
+  try {
+    return (await axios.request({
+    transformResponse: resp => CapabilityTypeList.fromBinary(new Uint8Array(resp)),
+      method: 'get',
+      responseType: 'arraybuffer',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Accept': 'application/octet-stream',
+      },
+      url: `/opni-api/Management/rbac/backend`
+    })).data;
+  } catch (ex) {
+    if (ex?.response?.data) {
+      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      console.error(s);
+    }
+    throw ex;
+  }
+}
+
+
+export async function GetAvailableBackendPermissions(input: CapabilityType): Promise<AvailablePermissions> {
+  try {
+    return (await axios.request({
+    transformResponse: resp => AvailablePermissions.fromBinary(new Uint8Array(resp)),
+      method: 'get',
+      responseType: 'arraybuffer',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Accept': 'application/octet-stream',
+      },
+      url: `/opni-api/Management/rbac/backend/${input.name}/permissions`,
+    data: input?.toBinary() as ArrayBuffer
+    })).data;
+  } catch (ex) {
+    if (ex?.response?.data) {
+      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      console.error(s);
+    }
+    throw ex;
+  }
+}
+
+
+export async function CreateBackendRole(input: BackendRole): Promise<void> {
   try {
     return (await axios.request({
       method: 'post',
@@ -302,7 +347,7 @@ export async function CreateRole(input: Role): Promise<void> {
         'Content-Type': 'application/octet-stream',
         'Accept': 'application/octet-stream',
       },
-      url: `/opni-api/Management/roles`,
+      url: `/opni-api/Management/rbac/backend/${input.capability.name}/roles`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
@@ -315,7 +360,7 @@ export async function CreateRole(input: Role): Promise<void> {
 }
 
 
-export async function UpdateRole(input: Role): Promise<void> {
+export async function UpdateBackendRole(input: BackendRole): Promise<void> {
   try {
     return (await axios.request({
       method: 'put',
@@ -324,7 +369,7 @@ export async function UpdateRole(input: Role): Promise<void> {
         'Content-Type': 'application/octet-stream',
         'Accept': 'application/octet-stream',
       },
-      url: `/opni-api/Management/roles`,
+      url: `/opni-api/Management/rbac/backend/${input.capability.name}/roles`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
@@ -337,7 +382,7 @@ export async function UpdateRole(input: Role): Promise<void> {
 }
 
 
-export async function DeleteRole(input: Reference): Promise<void> {
+export async function DeleteBackendRole(input: BackendRoleRequest): Promise<void> {
   try {
     return (await axios.request({
       method: 'delete',
@@ -346,7 +391,7 @@ export async function DeleteRole(input: Reference): Promise<void> {
         'Content-Type': 'application/octet-stream',
         'Accept': 'application/octet-stream',
       },
-      url: `/opni-api/Management/roles/${input.id}`,
+      url: `/opni-api/Management/rbac/backend/${input.capability.name}/roles/${input.roleRef.id}`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
@@ -359,7 +404,7 @@ export async function DeleteRole(input: Reference): Promise<void> {
 }
 
 
-export async function GetRole(input: Reference): Promise<Role> {
+export async function GetBackendRole(input: BackendRoleRequest): Promise<Role> {
   try {
     return (await axios.request({
     transformResponse: resp => Role.fromBinary(new Uint8Array(resp)),
@@ -369,7 +414,30 @@ export async function GetRole(input: Reference): Promise<Role> {
         'Content-Type': 'application/octet-stream',
         'Accept': 'application/octet-stream',
       },
-      url: `/opni-api/Management/roles/${input.id}`,
+      url: `/opni-api/Management/rbac/backend/${input.capability.name}/roles/${input.roleRef.id}`,
+    data: input?.toBinary() as ArrayBuffer
+    })).data;
+  } catch (ex) {
+    if (ex?.response?.data) {
+      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      console.error(s);
+    }
+    throw ex;
+  }
+}
+
+
+export async function ListBackendRoles(input: CapabilityType): Promise<RoleList> {
+  try {
+    return (await axios.request({
+    transformResponse: resp => RoleList.fromBinary(new Uint8Array(resp)),
+      method: 'get',
+      responseType: 'arraybuffer',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Accept': 'application/octet-stream',
+      },
+      url: `/opni-api/Management/rbac/backend/${input.name}/roles`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
@@ -471,28 +539,6 @@ export async function GetRoleBinding(input: Reference): Promise<RoleBinding> {
 }
 
 
-export async function ListRoles(): Promise<RoleList> {
-  try {
-    return (await axios.request({
-    transformResponse: resp => RoleList.fromBinary(new Uint8Array(resp)),
-      method: 'get',
-      responseType: 'arraybuffer',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Accept': 'application/octet-stream',
-      },
-      url: `/opni-api/Management/roles`
-    })).data;
-  } catch (ex) {
-    if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
-      console.error(s);
-    }
-    throw ex;
-  }
-}
-
-
 export async function ListRoleBindings(): Promise<RoleBindingList> {
   try {
     return (await axios.request({
@@ -504,29 +550,6 @@ export async function ListRoleBindings(): Promise<RoleBindingList> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/rolebindings`
-    })).data;
-  } catch (ex) {
-    if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
-      console.error(s);
-    }
-    throw ex;
-  }
-}
-
-
-export async function SubjectAccess(input: SubjectAccessRequest): Promise<ReferenceList> {
-  try {
-    return (await axios.request({
-    transformResponse: resp => ReferenceList.fromBinary(new Uint8Array(resp)),
-      method: 'get',
-      responseType: 'arraybuffer',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Accept': 'application/octet-stream',
-      },
-      url: `/opni-api/Management/subjectaccess`,
-    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {

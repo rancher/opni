@@ -918,61 +918,6 @@ export class ClusterSelector extends Message<ClusterSelector> {
 }
 
 /**
- * @generated from message core.Role
- */
-export class Role extends Message<Role> {
-  /**
-   * @generated from field: string id = 1;
-   */
-  id = "";
-
-  /**
-   * @generated from field: repeated string clusterIDs = 2;
-   */
-  clusterIDs: string[] = [];
-
-  /**
-   * @generated from field: core.LabelSelector matchLabels = 3;
-   */
-  matchLabels?: LabelSelector;
-
-  /**
-   * @generated from field: core.RoleMetadata metadata = 4;
-   */
-  metadata?: RoleMetadata;
-
-  constructor(data?: PartialMessage<Role>) {
-    super();
-    proto3.util.initPartial(data, this);
-  }
-
-  static readonly runtime: typeof proto3 = proto3;
-  static readonly typeName = "core.Role";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 2, name: "clusterIDs", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
-    { no: 3, name: "matchLabels", kind: "message", T: LabelSelector },
-    { no: 4, name: "metadata", kind: "message", T: RoleMetadata },
-  ]);
-
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Role {
-    return new Role().fromBinary(bytes, options);
-  }
-
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): Role {
-    return new Role().fromJson(jsonValue, options);
-  }
-
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): Role {
-    return new Role().fromJsonString(jsonString, options);
-  }
-
-  static equals(a: Role | PlainMessage<Role> | undefined, b: Role | PlainMessage<Role> | undefined): boolean {
-    return proto3.util.equals(Role, a, b);
-  }
-}
-
-/**
  * @generated from message core.RoleMetadata
  */
 export class RoleMetadata extends Message<RoleMetadata> {
@@ -1083,6 +1028,13 @@ export class RoleBindingMetadata extends Message<RoleBindingMetadata> {
    */
   resourceVersion = "";
 
+  /**
+   * immutable after creation
+   *
+   * @generated from field: optional string capability = 2;
+   */
+  capability?: string;
+
   constructor(data?: PartialMessage<RoleBindingMetadata>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1092,6 +1044,7 @@ export class RoleBindingMetadata extends Message<RoleBindingMetadata> {
   static readonly typeName = "core.RoleBindingMetadata";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "resourceVersion", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "capability", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RoleBindingMetadata {
@@ -1108,43 +1061,6 @@ export class RoleBindingMetadata extends Message<RoleBindingMetadata> {
 
   static equals(a: RoleBindingMetadata | PlainMessage<RoleBindingMetadata> | undefined, b: RoleBindingMetadata | PlainMessage<RoleBindingMetadata> | undefined): boolean {
     return proto3.util.equals(RoleBindingMetadata, a, b);
-  }
-}
-
-/**
- * @generated from message core.RoleList
- */
-export class RoleList extends Message<RoleList> {
-  /**
-   * @generated from field: repeated core.Role items = 1;
-   */
-  items: Role[] = [];
-
-  constructor(data?: PartialMessage<RoleList>) {
-    super();
-    proto3.util.initPartial(data, this);
-  }
-
-  static readonly runtime: typeof proto3 = proto3;
-  static readonly typeName = "core.RoleList";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "items", kind: "message", T: Role, repeated: true },
-  ]);
-
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RoleList {
-    return new RoleList().fromBinary(bytes, options);
-  }
-
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RoleList {
-    return new RoleList().fromJson(jsonValue, options);
-  }
-
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RoleList {
-    return new RoleList().fromJsonString(jsonString, options);
-  }
-
-  static equals(a: RoleList | PlainMessage<RoleList> | undefined, b: RoleList | PlainMessage<RoleList> | undefined): boolean {
-    return proto3.util.equals(RoleList, a, b);
   }
 }
 
@@ -1182,6 +1098,424 @@ export class RoleBindingList extends Message<RoleBindingList> {
 
   static equals(a: RoleBindingList | PlainMessage<RoleBindingList> | undefined, b: RoleBindingList | PlainMessage<RoleBindingList> | undefined): boolean {
     return proto3.util.equals(RoleBindingList, a, b);
+  }
+}
+
+/**
+ * @generated from message core.CapabilityType
+ */
+export class CapabilityType extends Message<CapabilityType> {
+  /**
+   * @generated from field: string name = 2;
+   */
+  name = "";
+
+  constructor(data?: PartialMessage<CapabilityType>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "core.CapabilityType";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 2, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CapabilityType {
+    return new CapabilityType().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): CapabilityType {
+    return new CapabilityType().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): CapabilityType {
+    return new CapabilityType().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: CapabilityType | PlainMessage<CapabilityType> | undefined, b: CapabilityType | PlainMessage<CapabilityType> | undefined): boolean {
+    return proto3.util.equals(CapabilityType, a, b);
+  }
+}
+
+/**
+ * @generated from message core.CapabilityTypeList
+ */
+export class CapabilityTypeList extends Message<CapabilityTypeList> {
+  /**
+   * @generated from field: repeated string names = 2;
+   */
+  names: string[] = [];
+
+  constructor(data?: PartialMessage<CapabilityTypeList>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "core.CapabilityTypeList";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 2, name: "names", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CapabilityTypeList {
+    return new CapabilityTypeList().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): CapabilityTypeList {
+    return new CapabilityTypeList().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): CapabilityTypeList {
+    return new CapabilityTypeList().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: CapabilityTypeList | PlainMessage<CapabilityTypeList> | undefined, b: CapabilityTypeList | PlainMessage<CapabilityTypeList> | undefined): boolean {
+    return proto3.util.equals(CapabilityTypeList, a, b);
+  }
+}
+
+/**
+ * @generated from message core.PermissionVerb
+ */
+export class PermissionVerb extends Message<PermissionVerb> {
+  /**
+   * @generated from field: string verb = 1;
+   */
+  verb = "";
+
+  constructor(data?: PartialMessage<PermissionVerb>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "core.PermissionVerb";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "verb", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PermissionVerb {
+    return new PermissionVerb().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): PermissionVerb {
+    return new PermissionVerb().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): PermissionVerb {
+    return new PermissionVerb().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: PermissionVerb | PlainMessage<PermissionVerb> | undefined, b: PermissionVerb | PlainMessage<PermissionVerb> | undefined): boolean {
+    return proto3.util.equals(PermissionVerb, a, b);
+  }
+}
+
+/**
+ * @generated from message core.PermissionDescription
+ */
+export class PermissionDescription extends Message<PermissionDescription> {
+  /**
+   * @generated from field: string type = 1;
+   */
+  type = "";
+
+  /**
+   * @generated from field: repeated core.PermissionVerb verbs = 2;
+   */
+  verbs: PermissionVerb[] = [];
+
+  constructor(data?: PartialMessage<PermissionDescription>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "core.PermissionDescription";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "type", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "verbs", kind: "message", T: PermissionVerb, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PermissionDescription {
+    return new PermissionDescription().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): PermissionDescription {
+    return new PermissionDescription().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): PermissionDescription {
+    return new PermissionDescription().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: PermissionDescription | PlainMessage<PermissionDescription> | undefined, b: PermissionDescription | PlainMessage<PermissionDescription> | undefined): boolean {
+    return proto3.util.equals(PermissionDescription, a, b);
+  }
+}
+
+/**
+ * @generated from message core.AvailablePermissions
+ */
+export class AvailablePermissions extends Message<AvailablePermissions> {
+  /**
+   * @generated from field: repeated core.PermissionDescription items = 1;
+   */
+  items: PermissionDescription[] = [];
+
+  constructor(data?: PartialMessage<AvailablePermissions>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "core.AvailablePermissions";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "items", kind: "message", T: PermissionDescription, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AvailablePermissions {
+    return new AvailablePermissions().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): AvailablePermissions {
+    return new AvailablePermissions().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): AvailablePermissions {
+    return new AvailablePermissions().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: AvailablePermissions | PlainMessage<AvailablePermissions> | undefined, b: AvailablePermissions | PlainMessage<AvailablePermissions> | undefined): boolean {
+    return proto3.util.equals(AvailablePermissions, a, b);
+  }
+}
+
+/**
+ * @generated from message core.PermissionItem
+ */
+export class PermissionItem extends Message<PermissionItem> {
+  /**
+   * @generated from field: string type = 1;
+   */
+  type = "";
+
+  /**
+   * @generated from field: repeated core.PermissionVerb verbs = 2;
+   */
+  verbs: PermissionVerb[] = [];
+
+  /**
+   * @generated from field: repeated string ids = 3;
+   */
+  ids: string[] = [];
+
+  /**
+   * @generated from field: core.LabelSelector matchLabels = 4;
+   */
+  matchLabels?: LabelSelector;
+
+  constructor(data?: PartialMessage<PermissionItem>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "core.PermissionItem";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "type", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "verbs", kind: "message", T: PermissionVerb, repeated: true },
+    { no: 3, name: "ids", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 4, name: "matchLabels", kind: "message", T: LabelSelector },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PermissionItem {
+    return new PermissionItem().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): PermissionItem {
+    return new PermissionItem().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): PermissionItem {
+    return new PermissionItem().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: PermissionItem | PlainMessage<PermissionItem> | undefined, b: PermissionItem | PlainMessage<PermissionItem> | undefined): boolean {
+    return proto3.util.equals(PermissionItem, a, b);
+  }
+}
+
+/**
+ * @generated from message core.Role
+ */
+export class Role extends Message<Role> {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id = "";
+
+  /**
+   * @generated from field: repeated core.PermissionItem permissions = 2;
+   */
+  permissions: PermissionItem[] = [];
+
+  /**
+   * @generated from field: core.RoleMetadata metadata = 3;
+   */
+  metadata?: RoleMetadata;
+
+  constructor(data?: PartialMessage<Role>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "core.Role";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "permissions", kind: "message", T: PermissionItem, repeated: true },
+    { no: 3, name: "metadata", kind: "message", T: RoleMetadata },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Role {
+    return new Role().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): Role {
+    return new Role().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): Role {
+    return new Role().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: Role | PlainMessage<Role> | undefined, b: Role | PlainMessage<Role> | undefined): boolean {
+    return proto3.util.equals(Role, a, b);
+  }
+}
+
+/**
+ * @generated from message core.BackendRole
+ */
+export class BackendRole extends Message<BackendRole> {
+  /**
+   * @generated from field: core.CapabilityType capability = 1;
+   */
+  capability?: CapabilityType;
+
+  /**
+   * @generated from field: core.Role role = 2;
+   */
+  role?: Role;
+
+  constructor(data?: PartialMessage<BackendRole>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "core.BackendRole";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "capability", kind: "message", T: CapabilityType },
+    { no: 2, name: "role", kind: "message", T: Role },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BackendRole {
+    return new BackendRole().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): BackendRole {
+    return new BackendRole().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): BackendRole {
+    return new BackendRole().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: BackendRole | PlainMessage<BackendRole> | undefined, b: BackendRole | PlainMessage<BackendRole> | undefined): boolean {
+    return proto3.util.equals(BackendRole, a, b);
+  }
+}
+
+/**
+ * @generated from message core.BackendRoleRequest
+ */
+export class BackendRoleRequest extends Message<BackendRoleRequest> {
+  /**
+   * @generated from field: core.CapabilityType capability = 1;
+   */
+  capability?: CapabilityType;
+
+  /**
+   * @generated from field: core.Reference roleRef = 2;
+   */
+  roleRef?: Reference;
+
+  constructor(data?: PartialMessage<BackendRoleRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "core.BackendRoleRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "capability", kind: "message", T: CapabilityType },
+    { no: 2, name: "roleRef", kind: "message", T: Reference },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BackendRoleRequest {
+    return new BackendRoleRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): BackendRoleRequest {
+    return new BackendRoleRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): BackendRoleRequest {
+    return new BackendRoleRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: BackendRoleRequest | PlainMessage<BackendRoleRequest> | undefined, b: BackendRoleRequest | PlainMessage<BackendRoleRequest> | undefined): boolean {
+    return proto3.util.equals(BackendRoleRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message core.RoleList
+ */
+export class RoleList extends Message<RoleList> {
+  /**
+   * @generated from field: repeated core.Reference items = 1;
+   */
+  items: Reference[] = [];
+
+  constructor(data?: PartialMessage<RoleList>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "core.RoleList";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "items", kind: "message", T: Reference, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RoleList {
+    return new RoleList().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RoleList {
+    return new RoleList().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RoleList {
+    return new RoleList().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: RoleList | PlainMessage<RoleList> | undefined, b: RoleList | PlainMessage<RoleList> | undefined): boolean {
+    return proto3.util.equals(RoleList, a, b);
   }
 }
 

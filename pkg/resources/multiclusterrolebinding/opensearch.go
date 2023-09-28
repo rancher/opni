@@ -159,6 +159,11 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 		if retErr != nil {
 			return
 		}
+	} else {
+		retErr = reconciler.DeleteNeuralSearchModel()
+		if retErr != nil {
+			return
+		}
 	}
 
 	if opensearchCluster.Spec.Dashboards.Enable {

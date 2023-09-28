@@ -373,40 +373,40 @@ func (a *NeuralSearchAPI) MaybeCreateModelGroup(ctx context.Context) (string, er
 	return registerModelResp.ModelGroupID, nil
 }
 
-func (a *NeuralSearchAPI) MaybeCreateRegisteredModel(ctx context.Context, groupID string, customUrl string) (string, error) {
+func (a *NeuralSearchAPI) MaybeGetExistingModelId(ctx context.Context) (string, error) {
 	resp, err := a.PostSearchExistingModel(ctx)
 	if err != nil {
 		return "", err
 	}
 
-	// todo extract into helper function ModelAlreadyRegistered(customUrl) (bool, error)
-	if resp.StatusCode != http.StatusNotFound {
-		modelSearchResp := types.ModelGroupSearchResp{}
-		err = json.NewDecoder(resp.Body).Decode(&modelSearchResp)
-		if err != nil {
-			return "", err
-		}
-
-		if modelSearchResp.ModelGroupHits.Hits != nil {
-			modelUploaded := len(modelSearchResp.ModelGroupHits.Hits) > 0
-			// todo configure model with url to see what field the url appears in when searching
-			//urlMatchesExisting := true
-			if modelUploaded {
-				//if modelSearchResp.ModelGroupHits.Hits[0].Source.Url
-				return modelSearchResp.ModelGroupHits.Hits[0].Source.ModelID, nil
-			}
-		}
+	if resp.StatusCode == http.StatusNotFound {
+		return "", nil
+	}
+	modelSearchResp := types.ModelGroupSearchResp{}
+	err = json.NewDecoder(resp.Body).Decode(&modelSearchResp)
+	if err != nil {
+		return "", err
 	}
 
-	// TODO if the customURL changed, register a new model instead of returning the existing model
+	modelID := ""
+	if modelSearchResp.ModelGroupHits.Hits != nil {
+		modelUploaded := len(modelSearchResp.ModelGroupHits.Hits) > 0
+		if modelUploaded {
+			modelID = modelSearchResp.ModelGroupHits.Hits[0].Source.ModelID
+		}
+	}
+	return modelID, nil
+}
+
+func (a *NeuralSearchAPI) RegisterNeuralSearchModel(ctx context.Context, groupID string, customUrl string) (string, error) {
 	if customUrl != "" {
-		resp, err = a.PostEnableRegisterViaUrl(ctx)
+		resp, err := a.PostEnableRegisterViaUrl(ctx)
 		if err != nil {
 			return "", fmt.Errorf("failed to enable model register via url: %s, error: %s", resp.String(), err)
 		}
 	}
 
-	resp, err = a.PostRegisterModel(ctx, groupID, customUrl)
+	resp, err := a.PostRegisterModel(ctx, groupID, customUrl)
 	if err != nil {
 		return "", err
 	}

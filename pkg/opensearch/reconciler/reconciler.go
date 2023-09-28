@@ -964,11 +964,19 @@ func (r *Reconciler) CreateNeuralSearchModel(customUrl string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to enable model access control: %s", resp.String())
 	}
-	modelGroupID, err := r.osClient.NeuralSearch.MaybeCreateModelGroup(r.ctx)
+	groupID, err := r.osClient.NeuralSearch.MaybeCreateModelGroup(r.ctx)
 	if err != nil {
 		return "", err
 	}
-	modelID, err := r.osClient.NeuralSearch.MaybeCreateRegisteredModel(r.ctx, modelGroupID, customUrl)
+	existingModelID, err := r.osClient.NeuralSearch.MaybeGetExistingModelId(r.ctx)
+	if err != nil {
+		return "", err
+	}
+	if existingModelID != "" {
+		return existingModelID, nil
+	}
+
+	modelID, err := r.osClient.NeuralSearch.RegisterNeuralSearchModel(r.ctx, groupID, customUrl)
 	if err != nil {
 		return "", err
 	}

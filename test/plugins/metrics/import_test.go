@@ -160,7 +160,7 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 		monitoringv1.AddToScheme(s)
 
 		config, _, err := testk8s.StartK8s(k8sctx, []string{
-			"../../../config/crd/prometheus",
+			"../../resources",
 		}, s)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {

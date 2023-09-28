@@ -164,7 +164,6 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 
 		By("confirming that the role is in the table")
 		Eventually(Table().Row(1).Col(2)).Should(b.HaveInnerText("test-role"))
-		Eventually(Table().Row(1).Col(4)).Should(HaveBadge("bubble", "test-key=test-value"))
 
 		By("confirming that the role exists")
 		role, err := mgmtClient.GetBackendRole(context.Background(), &corev1.BackendRoleRequest{

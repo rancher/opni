@@ -42,7 +42,6 @@ func (conf SyncConfig) DoSync(ctx context.Context) error {
 	statsDone := make(chan struct{})
 	go func() {
 		defer close(statsDone)
-		var prevStats *clients.ConnStats
 		startTime := time.Now()
 		var printStats func(string)
 		if conf.StatsClient == nil {
@@ -60,12 +59,10 @@ func (conf SyncConfig) DoSync(ctx context.Context) error {
 					lg.With(zap.Error(err)).Warn("failed to query connection stats")
 					return
 				}
-				if prevStats == nil {
-					prevStats = &stats
-					return
+				rate, err := util.Humanize(stats.DeliveryRate())
+				if err != nil {
+					rate = "0"
 				}
-				_, rx := stats.CalcThroughput(*prevStats)
-				rxStr, _ := util.Humanize(rx)
 				recvdStr := stats.HumanizedBytesReceived()
 				elapsedTime := time.Since(startTime)
 				mins := elapsedTime / time.Minute
@@ -73,11 +70,9 @@ func (conf SyncConfig) DoSync(ctx context.Context) error {
 				secs := elapsedTime / time.Second
 				elapsedTime -= secs * time.Second
 				millis := elapsedTime / time.Millisecond
-				lg.Debugf("%s%s | %sB/s | %02d:%02d.%03d", msg, recvdStr, rxStr, mins, secs, millis)
-				prevStats = &stats
+				lg.Debugf("%s%sB | %sB/s | %02d:%02d.%03d", msg, recvdStr, rate, mins, secs, millis)
 			}
 		}
-		printStats("")
 		for {
 			select {
 			case <-ticker.C:

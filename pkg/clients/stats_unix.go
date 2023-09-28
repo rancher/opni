@@ -23,17 +23,9 @@ type ConnStats struct {
 	Raw       unix.TCPInfo
 }
 
-// Computes the tx/rx throughput by comparing against a previous snapshot.
-func (c *ConnStats) CalcThroughput(since ConnStats) (txRate uint64, rxRate uint64) {
-	dt := c.Timestamp.Sub(since.Timestamp).Seconds()
-	if dt <= 0 {
-		return 0, 0
-	}
-	dsent := (c.Raw.Bytes_sent - since.Raw.Bytes_sent)
-	drecvd := (c.Raw.Bytes_received - since.Raw.Bytes_received)
-	txRate = uint64(float64(dsent) / dt)
-	rxRate = uint64(float64(drecvd) / dt)
-	return
+// Returns the socket throughput in bytes per second
+func (c *ConnStats) DeliveryRate() uint64 {
+	return c.Raw.Delivery_rate
 }
 
 func (c *ConnStats) RTT() time.Duration {

@@ -103,7 +103,7 @@ func completeRoleBindings(cmd *cobra.Command, args []string, toComplete string, 
 			continue
 		}
 		if strings.HasPrefix(roleBinding.Id, toComplete) {
-			comps = append(comps, fmt.Sprintf("%s\t%s", roleBinding.Id, fmt.Sprintf("roles: %v, subject: %s", roleBinding.RoleIds, roleBinding.Subject)))
+			comps = append(comps, fmt.Sprintf("%s\t%s", roleBinding.Id, fmt.Sprintf("role: %v, subjects: %s", roleBinding.RoleId, roleBinding.Subjects)))
 		}
 	}
 	return comps, cobra.ShellCompDirectiveNoFileComp

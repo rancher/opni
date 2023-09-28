@@ -211,8 +211,8 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 		By("confirming that the role binding exists")
 		roleBinding, err := mgmtClient.GetRoleBinding(context.Background(), &corev1.Reference{Id: "test-role-binding"})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(roleBinding.Subject).To(Equal("test-subject"))
-		Expect(roleBinding.RoleIds).To(ConsistOf("test-role"))
+		Expect(roleBinding.Subjects).To(ConsistOf("test-subject"))
+		Expect(roleBinding.RoleId).To(Equal("test-role"))
 	})
 
 	doQuery := func() (*http.Response, error) {

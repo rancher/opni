@@ -506,9 +506,9 @@ func main() {
 				testlog.Log.Error(err)
 			}
 			if _, err := client.CreateRoleBinding(environment.Context(), &corev1.RoleBinding{
-				Id:      "testenv-rb",
-				RoleIds: []string{"testenv-role"},
-				Subject: "testenv",
+				Id:       "testenv-rb",
+				RoleId:   "testenv-role",
+				Subjects: []string{"testenv"},
 			}); err != nil {
 				testlog.Log.Error(err)
 			}

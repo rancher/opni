@@ -121,9 +121,9 @@ func (r *RBACBackend) ListRoles(ctx context.Context, _ *emptypb.Empty) (*v1.Role
 		return nil, err
 	}
 
-	roles := &v1.ReferenceList{}
+	roles := []*v1.Reference{}
 	for _, key := range keys {
-		roles.Items = append(roles.Items, &v1.Reference{
+		roles = append(roles, &v1.Reference{
 			Id: key,
 		})
 	}

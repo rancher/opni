@@ -139,31 +139,38 @@ export function deleteCluster(id: string): Promise<undefined> {
   return axios.delete(`opni-api/Management/clusters/${ id }`);
 }
 
-export async function listRoles(vue: any): Promise<string[]> {
-  const rolesList = (await axios.get<RolesResponse>(`opni-api/Management/rbac/backends/metrics/roles`)).data.items.items;
+export async function listRoles(vue: any): Promise<Role[]> {
+  const rolesList = (await axios.get<RolesResponse>(`opni-api/Management/rbac/backend/metrics/roles`)).data.items;
 
-  return rolesList;
+  return rolesList.map(ref => (
+    new Role({id: ref.id, permissions: []}, vue)
+  ));
 }
 
 export async function getRole(id: string, vue: any): Promise<Role> {
-  const roleResponse = (await axios.get<RoleResponse>(`opni-api/Management/rbac/backends/metrics/roles/${ id }`)).data;
+  const roleResponse = (await axios.get<RoleResponse>(`opni-api/Management/rbac/backend/metrics/roles/${ id }`)).data;
 
   return new Role(roleResponse, vue)
 }
 
 export function deleteRole(id: string): Promise<undefined> {
-  return axios.delete(`opni-api/Management/rbac/backends/metrics/roles/${ id }`);
+  return axios.delete(`opni-api/Management/rbac/backend/metrics/roles/${ id }`);
 }
 
 export async function createRole(name: string, clusterIDs: string[], matchLabels: MatchLabel) {
+  const capability: string = "metrics"
   const permissions = [{
     ids: clusterIDs,
     type: "cluster",
     matchLabels: matchLabels,
     verbs: [{verb: "GET"}],
   }];
-  (await axios.post<any>(`opni-api/Management/rbac/backends/metrics/roles`, {
-    id: name, permissions
+  const role = {
+    id: name,
+    permissions: permissions,
+  };
+  (await axios.post<any>(`opni-api/Management/rbac/backend/metrics/roles`, {
+    capability: { name: capability }, role
   }));
 }
 

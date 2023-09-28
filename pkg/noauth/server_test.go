@@ -57,9 +57,9 @@ var _ = Describe("Server", Ordered, Label("integration", "slow"), func() {
 			},
 		})
 		client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
-			Id:      "admin-rb",
-			RoleIds: []string{"admin"},
-			Subject: "admin@example.com",
+			Id:       "admin-rb",
+			RoleId:   "admin",
+			Subjects: []string{"admin@example.com"},
 		})
 		addr := env.GatewayConfig().Spec.Management.GRPCListenAddress
 		addr = strings.TrimPrefix(addr, "tcp://")

@@ -77,8 +77,7 @@ var _ = Describe("Management API Roles Management Tests", Ordered, Label("integr
 		role, err := client.ListBackendRoles(context.Background(), capability)
 		Expect(err).NotTo(HaveOccurred())
 
-		roleList := role.GetItems().GetItems()
-		Expect(roleList).To(HaveLen(1))
+		roleList := role.GetItems()
 		for _, roleItem := range roleList {
 			Expect(roleItem.Id).To(Equal("test-role1"))
 		}

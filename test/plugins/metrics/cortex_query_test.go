@@ -89,9 +89,9 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
-			Id:      "role-binding-1",
-			RoleIds: []string{"role-1"},
-			Subject: userId,
+			Id:       "role-binding-1",
+			RoleId:   "role-1",
+			Subjects: []string{userId},
 			Metadata: &corev1.RoleBindingMetadata{
 				Capability: lo.ToPtr(wellknown.CapabilityMetrics),
 			},

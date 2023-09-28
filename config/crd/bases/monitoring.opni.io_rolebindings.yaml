@@ -35,12 +35,12 @@ spec:
                   resourceVersion:
                     type: string
                 type: object
-              roleIds:
+              roleId:
+                type: string
+              subjects:
                 items:
                   type: string
                 type: array
-              subject:
-                type: string
               taints:
                 items:
                   type: string

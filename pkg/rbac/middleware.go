@@ -8,6 +8,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 )
 
 type middleware struct {
@@ -55,12 +56,10 @@ func (m *middleware) fetchRoles(userID string) (*corev1.ReferenceList, error) {
 	}
 	roleList := &corev1.ReferenceList{}
 	for _, binding := range bindings.GetItems() {
-		if binding.GetSubject() == userID && binding.GetMetadata().GetCapability() == m.Capability {
-			for _, roleId := range binding.GetRoleIds() {
-				roleList.Items = append(roleList.Items, &corev1.Reference{
-					Id: roleId,
-				})
-			}
+		if slices.Contains(binding.GetSubjects(), userID) {
+			roleList.Items = append(roleList.Items, &corev1.Reference{
+				Id: binding.RoleId,
+			})
 		}
 	}
 	return roleList, nil

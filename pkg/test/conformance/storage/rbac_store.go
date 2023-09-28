@@ -61,8 +61,8 @@ func RBACStoreTestSuite[T storage.RoleBindingStore](
 
 				prevVersion := fetched.GetResourceVersion()
 				rbInfo, err := ts.UpdateRoleBinding(context.Background(), rb.Reference(), func(r *corev1.RoleBinding) {
-					r.RoleIds = []string{"test-role"}
-					r.Subject = "test-subject"
+					r.RoleId = "test-role"
+					r.Subjects = []string{"test-subject"}
 				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(rbInfo.GetResourceVersion()).NotTo(BeEmpty())
@@ -70,8 +70,8 @@ func RBACStoreTestSuite[T storage.RoleBindingStore](
 				if integer, err := strconv.Atoi(rbInfo.GetResourceVersion()); err == nil {
 					Expect(integer).To(BeNumerically(">", util.Must(strconv.Atoi(prevVersion))))
 				}
-				Expect(rbInfo.RoleIds).To(Equal([]string{"test-role"}))
-				Expect(rbInfo.Subject).To(Equal("test-subject"))
+				Expect(rbInfo.RoleId).To(Equal("test-role"))
+				Expect(rbInfo.Subjects).To(Equal([]string{"test-subject"}))
 			})
 			It("should handle multiple concurrent update requests on the same role binding", func() {
 				rb := &corev1.RoleBinding{
@@ -89,8 +89,8 @@ func RBACStoreTestSuite[T storage.RoleBindingStore](
 						defer wg.Done()
 						<-start
 						ts.UpdateRoleBinding(context.Background(), rb.Reference(), func(r *corev1.RoleBinding) {
-							r.RoleIds = []string{"concurrent-test-role"}
-							r.Subject = "concurrent-test-subject"
+							r.RoleId = "concurrent-test-role"
+							r.Subjects = []string{"concurrent-test-subject"}
 						})
 					}()
 				}
@@ -99,8 +99,8 @@ func RBACStoreTestSuite[T storage.RoleBindingStore](
 
 				rbInfo, err := ts.GetRoleBinding(context.Background(), rb.Reference())
 				Expect(err).NotTo(HaveOccurred())
-				Expect(rbInfo.RoleIds).To(Equal([]string{"concurrent-test-role"}))
-				Expect(rbInfo.Subject).To(Equal("concurrent-test-subject"))
+				Expect(rbInfo.RoleId).To(Equal("concurrent-test-role"))
+				Expect(rbInfo.Subjects).To(Equal([]string{"concurrent-test-subject"}))
 			})
 			It("should delete role bindings", func() {
 				all, err := ts.ListRoleBindings(context.Background())
@@ -130,7 +130,7 @@ func RBACStoreTestSuite[T storage.RoleBindingStore](
 					Id: "does-not-exist",
 				}
 				_, err := ts.UpdateRoleBinding(context.Background(), rb.Reference(), func(r *corev1.RoleBinding) {
-					r.RoleIds = []string{"test-role"}
+					r.RoleId = "test-role"
 				})
 				Expect(err).To(MatchError(storage.ErrNotFound))
 			})

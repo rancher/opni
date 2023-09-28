@@ -27,7 +27,7 @@ export default {
     return {
       name:             '',
       roleName:         '',
-      subjects:         [],
+      subject:         '',
       clusterIds:       [],
       matchLabels:      {},
       matchExpressions: [],

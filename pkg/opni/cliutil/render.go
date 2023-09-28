@@ -110,7 +110,7 @@ func RenderClusterList(list *corev1.ClusterList, status []*corev1.HealthStatus) 
 
 func RenderRole(role *corev1.Role) string {
 	return RenderRoleList(&corev1.RoleList{
-		Items: &corev1.ReferenceList{Items: []*corev1.Reference{{Id: role.GetId()}}},
+		Items: []*corev1.Reference{{Id: role.GetId()}},
 	})
 }
 
@@ -118,7 +118,7 @@ func RenderRoleList(list *corev1.RoleList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	w.AppendHeader(table.Row{"ID", "SELECTOR", "CLUSTER IDS"})
-	for _, role := range list.GetItems().GetItems() {
+	for _, role := range list.GetItems() {
 		w.AppendRow(table.Row{role.Id})
 	}
 	return w.Render()
@@ -145,7 +145,7 @@ func RenderRoleBindingList(list *corev1.RoleBindingList) string {
 	}
 	w.AppendHeader(header)
 	for _, b := range list.Items {
-		row := table.Row{b.Id, b.Subject, strings.Join(b.RoleIds, "\n")}
+		row := table.Row{b.Id, b.RoleId, strings.Join(b.Subjects, "\n")}
 		if anyRolesHaveTaints {
 			row = append(row, chalk.Red.Color(strings.Join(b.Taints, "\n")))
 		}

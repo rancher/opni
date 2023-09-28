@@ -16,7 +16,9 @@ func (s *Server) renderLoginPage(w http.ResponseWriter, r *http.Request) {
 	}
 	knownusers := map[string]struct{}{}
 	for _, rb := range rbs.Items {
-		knownusers[rb.Subject] = struct{}{}
+		for _, subject := range rb.Subjects {
+			knownusers[subject] = struct{}{}
+		}
 	}
 	allUsersSorted := make([]string, 0, len(knownusers))
 	for u := range knownusers {

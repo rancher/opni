@@ -107,8 +107,8 @@ func (s *Server) UpdateRoleBinding(
 	}
 
 	_, err = s.coreDataSource.StorageBackend().UpdateRoleBinding(ctx, oldRb.Reference(), func(rb *corev1.RoleBinding) {
-		rb.RoleIds = in.GetRoleIds()
-		rb.Subject = in.GetSubject()
+		rb.RoleId = in.GetRoleId()
+		rb.Subjects = in.GetSubjects()
 		rb.Metadata = in.GetMetadata()
 	})
 	return &emptypb.Empty{}, err

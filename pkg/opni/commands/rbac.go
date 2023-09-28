@@ -181,7 +181,7 @@ func BuildRoleBindingsCmd() *cobra.Command {
 
 func BuildRoleBindingsCreateCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "create <rolebinding-id> <user-id> <role-id>...",
+		Use:   "create <rolebinding-id> <role-id> <user-id>...",
 		Short: "Create a role binding",
 		Args:  cobra.MinimumNArgs(3),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -189,9 +189,9 @@ func BuildRoleBindingsCreateCmd() *cobra.Command {
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			rb := &corev1.RoleBinding{
-				Id:      args[0],
-				Subject: args[1],
-				RoleIds: args[2:],
+				Id:       args[0],
+				RoleId:   args[1],
+				Subjects: args[2:],
 			}
 			_, err := mgmtClient.CreateRoleBinding(cmd.Context(), rb)
 			if err != nil {
@@ -208,7 +208,7 @@ func BuildRoleBindingsCreateCmd() *cobra.Command {
 
 func BuildRoleBindingsUpdateCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "update <rolebinding-id> <user-id> <role-id>...",
+		Use:   "update <rolebinding-id> <role-id> <user-id>...",
 		Short: "Update a role binding",
 		Args:  cobra.MinimumNArgs(3),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -220,9 +220,9 @@ func BuildRoleBindingsUpdateCmd() *cobra.Command {
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			rb := &corev1.RoleBinding{
-				Id:      args[0],
-				Subject: args[1],
-				RoleIds: args[2:],
+				Id:       args[0],
+				RoleId:   args[1],
+				Subjects: args[2:],
 			}
 			_, err := mgmtClient.UpdateRoleBinding(cmd.Context(), rb)
 			if err != nil {

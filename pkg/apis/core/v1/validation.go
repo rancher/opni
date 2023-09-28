@@ -138,21 +138,21 @@ func (rb *RoleBinding) Validate() error {
 	if rb.Id == "" {
 		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "id")
 	}
-	if rb.Subject == "" {
-		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "subject")
+	if rb.RoleId == "" {
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "roleId")
 	}
 	if err := validation.ValidateID(rb.Id); err != nil {
 		return fmt.Errorf("%w: %q", err, rb.Id)
 	}
-	if err := validation.ValidateSubject(rb.Subject); err != nil {
-		return err
+	if err := validation.ValidateID(rb.RoleId); err != nil {
+		return fmt.Errorf("%w: %q", err, rb.RoleId)
 	}
-	if len(rb.RoleIds) == 0 {
-		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "roleIds")
+	if len(rb.Subjects) == 0 {
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "subjects")
 	}
-	for _, roleId := range rb.RoleIds {
-		if err := validation.ValidateID(roleId); err != nil {
-			return fmt.Errorf("%w: %q", err, roleId)
+	for _, subject := range rb.Subjects {
+		if err := validation.ValidateSubject(subject); err != nil {
+			return err
 		}
 	}
 	return nil

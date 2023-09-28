@@ -1,6 +1,7 @@
 import { deleteRole } from '../utils/requests/management';
 import { findBy } from '../utils/array';
 import { Resource } from './Resource';
+import { Reference } from '../generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
 
 export interface MatchExpression {
     key: string;
@@ -30,11 +31,7 @@ export interface RoleResponse {
 }
 
 export interface RolesResponse {
-  items: ReferenceList;
-}
-
-export interface ReferenceList {
-  items: string[];
+  items: Reference[];
 }
 
 export class Role extends Resource {

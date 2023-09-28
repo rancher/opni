@@ -94,9 +94,9 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label("int
 			})
 			Expect(err).NotTo(HaveOccurred())
 			_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
-				Id:      "test-role-binding",
-				RoleIds: []string{"test-role"},
-				Subject: "user@example.com",
+				Id:       "test-role-binding",
+				RoleId:   "test-role",
+				Subjects: []string{"user@example.com"},
 				Metadata: &corev1.RoleBindingMetadata{
 					Capability: lo.ToPtr(wellknown.CapabilityMetrics),
 				},

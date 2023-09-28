@@ -112,10 +112,10 @@ var _ = Describe("Deep Copy", Label("unit"), func() {
 
 	It("should deep copy rolebindings", func() {
 		roleBinding := &v1.RoleBinding{
-			Id:      "foo",
-			Subject: "foo",
-			RoleIds: []string{"foo"},
-			Taints:  []string{"foo"},
+			Id:       "foo",
+			Subjects: []string{"foo"},
+			RoleId:   "foo",
+			Taints:   []string{"foo"},
 		}
 
 		roleBindingCopy1 := roleBinding.DeepCopy()
@@ -123,13 +123,13 @@ var _ = Describe("Deep Copy", Label("unit"), func() {
 		roleBinding.DeepCopyInto(roleBindingCopy2)
 
 		Expect(roleBinding.Id).To(Equal(roleBindingCopy1.Id))
-		Expect(roleBinding.Subject).To(Equal(roleBindingCopy1.Subject))
-		Expect(roleBinding.RoleIds).To(Equal(roleBindingCopy1.RoleIds))
+		Expect(roleBinding.Subjects).To(Equal(roleBindingCopy1.Subjects))
+		Expect(roleBinding.RoleId).To(Equal(roleBindingCopy1.RoleId))
 		Expect(roleBinding.Taints).To(Equal(roleBindingCopy1.Taints))
 
 		Expect(roleBinding.Id).To(Equal(roleBindingCopy2.Id))
-		Expect(roleBinding.Subject).To(Equal(roleBindingCopy2.Subject))
-		Expect(roleBinding.RoleIds).To(Equal(roleBindingCopy2.RoleIds))
+		Expect(roleBinding.Subjects).To(Equal(roleBindingCopy2.Subjects))
+		Expect(roleBinding.RoleId).To(Equal(roleBindingCopy2.RoleId))
 		Expect(roleBinding.Taints).To(Equal(roleBindingCopy2.Taints))
 	})
 })

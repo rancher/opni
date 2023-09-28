@@ -281,9 +281,9 @@ func (s *ExamplePlugin) ListRoles(ctx context.Context, _ *emptypb.Empty) (*corev
 		return nil, err
 	}
 
-	roles := &corev1.ReferenceList{}
+	roles := []*corev1.Reference{}
 	for _, key := range keys {
-		roles.Items = append(roles.Items, &corev1.Reference{
+		roles = append(roles, &corev1.Reference{
 			Id: key,
 		})
 	}

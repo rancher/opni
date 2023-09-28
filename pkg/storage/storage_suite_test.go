@@ -1,14 +1,12 @@
 package storage_test
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/storage"
 	_ "github.com/rancher/opni/pkg/test/setup"
 )
 
@@ -116,7 +114,7 @@ func role(id string, clusterIdOrSelector ...interface{}) func() *corev1.Role {
 			case *corev1.LabelSelector:
 				r.Permissions = append(r.Permissions, &corev1.PermissionItem{
 					Type:        string(corev1.PermissionTypeCluster),
-					Verbs:       getVerb(),
+					Verbs:       []*corev1.PermissionVerb{corev1.VerbGet()},
 					MatchLabels: v,
 				})
 			}
@@ -125,24 +123,16 @@ func role(id string, clusterIdOrSelector ...interface{}) func() *corev1.Role {
 	}
 }
 
-func getVerb() []*corev1.PermissionVerb {
-	return []*corev1.PermissionVerb{
-		{
-			Verb: string(storage.ClusterVerbGet),
-		},
-	}
-}
-
 func appendClusterIDsToRole(role *corev1.Role, ids ...string) {
 	for _, permission := range role.GetPermissions() {
-		if permission.Type == string(corev1.PermissionTypeCluster) && reflect.DeepEqual(permission.GetVerbs(), getVerb()) {
+		if permission.Type == string(corev1.PermissionTypeCluster) && corev1.VerbGet().InList(permission.GetVerbs()) {
 			permission.Ids = append(permission.Ids, ids...)
 			return
 		}
 	}
 	role.Permissions = append(role.Permissions, &corev1.PermissionItem{
 		Type:  string(corev1.PermissionTypeCluster),
-		Verbs: getVerb(),
+		Verbs: []*corev1.PermissionVerb{corev1.VerbGet()},
 		Ids:   ids,
 	})
 }

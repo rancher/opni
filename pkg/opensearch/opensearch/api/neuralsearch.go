@@ -136,15 +136,15 @@ func generateModelRegisterBody(groupID string, customUrl string) io.Reader {
 		Format:                opensearchtypes.ModelFormat,
 		ModelGroupID:          groupID,
 		ModelContentHashValue: opensearchtypes.ModelContentHashValue,
+		ModelConfig: opensearchtypes.ModelConfig{
+			ModelType:     opensearchtypes.ModelTypeBert,
+			Dimension:     opensearchtypes.EmbeddingDimension,
+			FrameworkType: opensearchtypes.FrameworkType,
+		},
 	}
 
 	if customUrl != "" {
 		modelBody.CustomUrl = customUrl
-		modelBody.ModelConfig = opensearchtypes.ModelConfig{
-			ModelType:     opensearchtypes.ModelTypeBert,
-			Dimension:     opensearchtypes.EmbeddingDimension,
-			FrameworkType: opensearchtypes.FrameworkType,
-		}
 	}
 
 	return opensearchutil.NewJSONReader(modelBody)
@@ -168,18 +168,18 @@ func generateGetSearchLogsBody(query string, modelID string, results int) io.Rea
 	return opensearchutil.NewJSONReader(queryBody)
 }
 
-func generateEnableModelAccessControlBody() io.Reader {
-	return opensearchutil.NewJSONReader(opensearchtypes.EnableMlAccessControl)
+func generateConfigureModelSettingsBody() io.Reader {
+	return opensearchutil.NewJSONReader(opensearchtypes.ConfigureMlSettings)
 }
 
 func generateEnableRegisterViaUrlBody() io.Reader {
 	return opensearchutil.NewJSONReader(opensearchtypes.EnableRegisterViaUrl)
 }
 
-func (a *NeuralSearchAPI) PostEnableModelAccessControl(ctx context.Context) (*Response, error) {
+func (a *NeuralSearchAPI) PostConfigureModelSettings(ctx context.Context) (*Response, error) {
 	method := http.MethodPost
 	path := clusterSettingsPath
-	body := generateEnableModelAccessControlBody()
+	body := generateConfigureModelSettingsBody()
 
 	req, err := http.NewRequest(method, path, body)
 	if err != nil {

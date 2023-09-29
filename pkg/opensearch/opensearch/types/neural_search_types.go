@@ -34,9 +34,10 @@ var (
 		},
 	}
 
-	EnableMlAccessControl = MlSettings{
+	ConfigureMlSettings = MlSettings{
 		Transient: TransientMlSettings{
 			ModelAccessControlEnabled: true,
+			AutoRedeployEnabled:       true,
 		},
 	}
 
@@ -82,6 +83,7 @@ type MlSettings struct {
 type TransientMlSettings struct {
 	ModelAccessControlEnabled bool `json:"plugins.ml_commons.model_access_control_enabled,omitempty"`
 	RegisterViaUrlEnabled     bool `json:"plugins.ml_commons.allow_registering_model_via_url,omitempty"`
+	AutoRedeployEnabled       bool `json:"plugins.ml_commons.model_auto_redeploy.enable,omitempty"`
 }
 
 type MethodSpec struct {

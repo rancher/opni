@@ -960,7 +960,7 @@ func (r *Reconciler) shouldUpdateIngestPipelineForNeuralSearch(pipelineName stri
 }
 
 func (r *Reconciler) CreateNeuralSearchModel(customUrl string) (string, error) {
-	resp, err := r.osClient.NeuralSearch.PostEnableModelAccessControl(r.ctx)
+	resp, err := r.osClient.NeuralSearch.PostConfigureModelSettings(r.ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to enable model access control: %s", resp.String())
 	}
@@ -968,18 +968,17 @@ func (r *Reconciler) CreateNeuralSearchModel(customUrl string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	existingModelID, err := r.osClient.NeuralSearch.MaybeGetExistingModelId(r.ctx)
+	modelID, err := r.osClient.NeuralSearch.MaybeGetExistingModelId(r.ctx)
 	if err != nil {
 		return "", err
 	}
-	if existingModelID != "" {
-		return existingModelID, nil
+	if modelID == "" {
+		modelID, err = r.osClient.NeuralSearch.RegisterNeuralSearchModel(r.ctx, groupID, customUrl)
+		if err != nil {
+			return "", err
+		}
 	}
 
-	modelID, err := r.osClient.NeuralSearch.RegisterNeuralSearchModel(r.ctx, groupID, customUrl)
-	if err != nil {
-		return "", err
-	}
 	err = r.osClient.NeuralSearch.DeployNeuralSearchModel(r.ctx, modelID)
 	if err != nil {
 		return "", err

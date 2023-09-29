@@ -10,6 +10,7 @@ import "google/protobuf/timestamp.proto";
 option go_package = "github.com/rancher/opni/pkg/apis/core/v1";
 option (cli.generator) = {
   generate: true
+  generate_deepcopy: true
 };
 
 service Pinger {

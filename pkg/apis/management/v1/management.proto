@@ -18,7 +18,6 @@ option go_package = "github.com/rancher/opni/pkg/apis/management/v1";
 
 option (cli.generator) = {
   generate:          true
-  generate_deepcopy: true
 };
 
 service Management {

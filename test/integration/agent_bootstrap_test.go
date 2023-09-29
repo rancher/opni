@@ -20,7 +20,6 @@ import (
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/waitctx"
 )
 
 //#region Test Setup
@@ -257,7 +256,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, testrunti
 			Expect(err).NotTo(HaveOccurred())
 
 			id := uuid.NewString()
-			ctx, cancel := context.WithCancel(waitctx.Background())
+			ctx, cancel := context.WithCancel(context.Background())
 			_, errC := environment.StartAgent(id, token, []string{fingerprint}, test.WithContext(ctx))
 
 			Eventually(errC).Should(Receive(BeNil()))
@@ -334,12 +333,12 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, testrunti
 		})
 		When("it has an existing keyring", func() {
 			It("should start successfully", func() {
-				ctx, ca := context.WithCancel(waitctx.Background())
-				_, errC := environment.StartAgent(id, token, []string{fingerprint}, test.WithContext(ctx))
+				ctx, ca := context.WithCancel(context.Background())
+				actx, errC := environment.StartAgent(id, token, []string{fingerprint}, test.WithContext(ctx))
 				Eventually(errC).Should(Receive(BeNil()))
 
 				ca()
-				waitctx.Wait(ctx)
+				<-actx.Done()
 
 				_, errC = environment.StartAgent(id, nil, nil)
 				Eventually(errC).Should(Receive(BeNil()))

@@ -5,11 +5,9 @@ import (
 
 	"emperror.dev/errors"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -39,7 +37,7 @@ func WithDialOptions(options ...grpc.DialOption) ManagementClientOption {
 	}
 }
 
-func NewManagementClient(ctx waitctx.PermissiveContext, opts ...ManagementClientOption) (managementv1.ManagementClient, error) {
+func NewManagementClient(ctx context.Context, opts ...ManagementClientOption) (managementv1.ManagementClient, error) {
 	options := ManagementClientOptions{
 		address: managementv1.DefaultManagementSocket(),
 		dialOptions: []grpc.DialOption{
@@ -53,9 +51,10 @@ func NewManagementClient(ctx waitctx.PermissiveContext, opts ...ManagementClient
 	if err != nil {
 		return nil, err
 	}
-	waitctx.Permissive.Go(ctx, func() {
-		cc.WaitForStateChange(ctx, connectivity.Shutdown)
+	context.AfterFunc(ctx, func() {
+		cc.Close()
 	})
+
 	return managementv1.NewManagementClient(cc), nil
 }
 

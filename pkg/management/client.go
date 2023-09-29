@@ -1,8 +1,9 @@
 package management
 
 import (
+	"context"
+
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -33,7 +34,7 @@ func WithDialOptions(options ...grpc.DialOption) ManagementClientOption {
 	}
 }
 
-func NewClient(ctx waitctx.RestrictiveContext, opts ...ManagementClientOption) (managementv1.ManagementClient, error) {
+func NewClient(ctx context.Context, opts ...ManagementClientOption) (managementv1.ManagementClient, error) {
 	options := ManagementClientOptions{
 		listenAddr: managementv1.DefaultManagementSocket(),
 		dialOptions: []grpc.DialOption{
@@ -47,8 +48,7 @@ func NewClient(ctx waitctx.RestrictiveContext, opts ...ManagementClientOption) (
 	if err != nil {
 		return nil, err
 	}
-	waitctx.Go(ctx, func() {
-		<-ctx.Done()
+	context.AfterFunc(ctx, func() {
 		cc.Close()
 	})
 	return managementv1.NewManagementClient(cc), nil

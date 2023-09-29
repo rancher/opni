@@ -20,7 +20,6 @@ import (
 	openidauth "github.com/rancher/opni/pkg/auth/openid"
 	"github.com/rancher/opni/pkg/noauth"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/pkg/util/waitctx"
 )
 
 var _ = Describe("Server", Ordered, Label("integration", "slow"), func() {
@@ -59,7 +58,7 @@ var _ = Describe("Server", Ordered, Label("integration", "slow"), func() {
 			Port:                  ports[0],
 			Logger:                testlog.Log,
 		})
-		ctx, ca := context.WithCancel(waitctx.Background())
+		ctx, ca := context.WithCancel(context.Background())
 		go srv.ListenAndServe(ctx)
 		DeferCleanup(ca)
 	})

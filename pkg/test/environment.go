@@ -69,9 +69,7 @@ import (
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/samber/lo"
-	"github.com/ttacon/chalk"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
@@ -179,8 +177,7 @@ type Environment struct {
 	nodeConfigOverridesMu sync.Mutex
 	nodeConfigOverrides   map[string]*OverridePrometheusConfig
 
-	managementServerMu sync.Mutex
-	managementServer   *management.Server
+	shutdownHooks []func()
 }
 
 type EnvironmentOptions struct {
@@ -407,10 +404,6 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		e.startJetstream()
 	}
 
-	if options.enableDisconnectServer {
-		e.StartAgentDisconnectServer()
-	}
-
 	if options.enableNodeExporter {
 		e.StartNodeExporter()
 	}
@@ -485,7 +478,16 @@ func (e *Environment) Stop(cause ...string) error {
 
 	if e.cancel != nil {
 		e.cancel()
-		waitctx.WaitWithTimeout(e.ctx, 40*time.Second, 20*time.Second)
+		var wg sync.WaitGroup
+		for _, h := range e.shutdownHooks {
+			wg.Add(1)
+			h := h
+			go func() {
+				defer wg.Done()
+				h()
+			}()
+		}
+		wg.Wait()
 	}
 	if e.embeddedJS != nil {
 		e.embeddedJS.Shutdown()
@@ -499,13 +501,17 @@ func (e *Environment) Stop(cause ...string) error {
 	return nil
 }
 
+func (e *Environment) addShutdownHook(fn func()) {
+	e.shutdownHooks = append(e.shutdownHooks, fn)
+}
+
 type envContextKeyType struct{}
 
 var envContextKey = envContextKeyType{}
 
 func (e *Environment) initCtx() {
 	e.once.Do(func() {
-		e.ctx, e.cancel = context.WithCancel(context.WithValue(waitctx.Background(), envContextKey, e))
+		e.ctx, e.cancel = context.WithCancel(context.WithValue(context.Background(), envContextKey, e))
 	})
 }
 
@@ -573,8 +579,7 @@ func (e *Environment) startJetstream() {
 		panic("failed to write jetstream auth config")
 	}
 	lg.Info("Waiting for jetstream to start...")
-	waitctx.Go(e.ctx, func() {
-		<-e.ctx.Done()
+	e.addShutdownHook(func() {
 		session.Wait()
 	})
 	for e.ctx.Err() == nil {
@@ -669,8 +674,7 @@ func (e *Environment) StartEmbeddedAlertManager(
 		"address", fmt.Sprintf("http://localhost:%d", ports.ApiPort),
 		"opni-address", fmt.Sprintf("http://localhost:%d", opniPort)).
 		Info("AlertManager started")
-	waitctx.Permissive.Go(ctx, func() {
-		<-ctx.Done()
+	e.addShutdownHook(func() {
 		cmd, _ := session.G()
 		if cmd != nil {
 			cmd.Signal(os.Signal(syscall.SIGTERM))
@@ -705,8 +709,7 @@ func (e *Environment) startEtcd() {
 	}
 
 	lg.Info("Waiting for etcd to start...")
-	waitctx.Go(e.ctx, func() {
-		<-e.ctx.Done()
+	e.addShutdownHook(func() {
 		session.Wait()
 	})
 	for e.ctx.Err() == nil {
@@ -802,8 +805,6 @@ func (e *Environment) StartCortex(ctx context.Context, configBuilder func(Cortex
 		"cortex", fmt.Sprintf("-config.file=%s", path.Join(storageDir, "config.yaml")),
 	}
 	cmd := exec.CommandContext(ctx, cortexBin, defaultArgs...)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
 	plugins.ConfigureSysProcAttr(cmd)
 	lg.Info("Waiting for cortex to start...")
 	client := http.Client{
@@ -848,7 +849,7 @@ READY:
 		"grpcAddress", fmt.Sprintf("localhost:%d", e.ports.CortexGRPC),
 	).Info("Cortex started")
 	retCtx, retCa := context.WithCancel(ctx)
-	waitctx.Go(ctx, func() {
+	go func() {
 		select {
 		case <-ctx.Done():
 			lg.Info("Cortex stopping...")
@@ -859,7 +860,7 @@ READY:
 			lg.Error("Cortex exited with error")
 			retCa()
 		}
-	})
+	}()
 	return retCtx, nil
 }
 
@@ -896,7 +897,7 @@ func (e *Environment) SetPrometheusNodeConfigOverride(agentId string, override *
 
 // `prometheus/config.yaml` is the default monitoring config.
 // `slo/prometheus/config.yaml` is the default SLO config.
-func (e *Environment) UnsafeStartPrometheus(ctx waitctx.PermissiveContext, opniAgentId string, override ...*OverridePrometheusConfig) (int, error) {
+func (e *Environment) UnsafeStartPrometheus(ctx context.Context, opniAgentId string, override ...*OverridePrometheusConfig) (context.Context, error) {
 	if len(override) == 0 {
 		e.nodeConfigOverridesMu.Lock()
 		if v, ok := e.nodeConfigOverrides[opniAgentId]; ok {
@@ -912,7 +913,7 @@ func (e *Environment) UnsafeStartPrometheus(ctx waitctx.PermissiveContext, opniA
 
 	configTemplate = string(testdata.TestData("prometheus/config.yaml"))
 	if len(override) > 1 {
-		return 0, errors.New("Too many overrides, only one is allowed")
+		return nil, errors.New("Too many overrides, only one is allowed")
 	}
 	if len(override) == 1 && override[0] != nil {
 		configTemplate = override[0].configContents
@@ -920,23 +921,23 @@ func (e *Environment) UnsafeStartPrometheus(ctx waitctx.PermissiveContext, opniA
 	}
 	t, err := template.New("").Parse(configTemplate)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	promDir := path.Join(e.tempDir, "prometheus", opniAgentId)
 	if err := os.MkdirAll(promDir, 0755); err != nil {
-		return 0, err
+		return nil, err
 	}
 	configFile, err := os.Create(path.Join(promDir, "config.yaml"))
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	agent := e.GetAgent(opniAgentId)
 	if agent.Agent == nil {
 		if e.ctx.Err() != nil {
-			return 0, e.ctx.Err()
+			return nil, e.ctx.Err()
 		}
-		return 0, fmt.Errorf("agent %s not found", opniAgentId)
+		return nil, fmt.Errorf("agent %s not found", opniAgentId)
 	}
 
 	if err := t.Execute(configFile, prometheusTemplateOptions{
@@ -944,7 +945,7 @@ func (e *Environment) UnsafeStartPrometheus(ctx waitctx.PermissiveContext, opniA
 		OpniAgentAddress: agent.Agent.ListenAddress(),
 		Jobs:             jobs,
 	}); err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	configFile.Close()
@@ -959,14 +960,12 @@ func (e *Environment) UnsafeStartPrometheus(ctx waitctx.PermissiveContext, opniA
 	}
 	cmd := exec.CommandContext(ctx, prometheusBin, defaultArgs...)
 	plugins.ConfigureSysProcAttr(cmd)
-	session, err := testutil.StartCmd(cmd)
-	if err != nil {
-		return 0, fmt.Errorf("failed to start prometheus: %w", err)
-	}
+
+	exited := lo.Async(cmd.Run)
 	lg.Info("Waiting for prometheus to start...")
 	for {
 		if ctx.Err() != nil {
-			return 0, fmt.Errorf("failed to start prometheus: %w", ctx.Err())
+			return nil, fmt.Errorf("failed to start prometheus: %w", ctx.Err())
 		}
 		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/-/ready", port))
 		if err == nil {
@@ -982,13 +981,21 @@ func (e *Environment) UnsafeStartPrometheus(ctx waitctx.PermissiveContext, opniA
 		"dir", promDir,
 		"agentId", opniAgentId,
 	).Info("Prometheus started")
-	waitctx.Permissive.Go(ctx, func() {
-		<-ctx.Done()
-		cmd.Process.Kill()
-		session.Wait()
-		os.RemoveAll(promDir)
-	})
-	return port, nil
+
+	retCtx, retCa := context.WithCancel(ctx)
+	go func() {
+		select {
+		case <-ctx.Done():
+			lg.Info("Prometheus stopping...")
+			<-exited
+			lg.Info("Prometheus stopped")
+			retCa()
+		case <-exited:
+			lg.Error("Prometheus exited with error")
+			retCa()
+		}
+	}()
+	return retCtx, nil
 }
 
 type TestNodeConfig struct {
@@ -1037,22 +1044,22 @@ func (t TestAggregatorConfig) MetricReceivers() []string {
 	return res
 }
 
-func (e *Environment) StartOTELCollectorContext(ctx waitctx.PermissiveContext, opniAgentId string, spec *otel.OTELSpec) error {
+func (e *Environment) StartOTELCollectorContext(ctx context.Context, opniAgentId string, spec *otel.OTELSpec) (context.Context, error) {
 	otelDir := path.Join(e.tempDir, "otel", opniAgentId)
 	os.MkdirAll(otelDir, 0755)
 
 	receiverFile, err := os.Create(path.Join(otelDir, "receiver.yaml"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	configFile, err := os.Create(path.Join(otelDir, "config.yaml"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	aggregatorFile, err := os.Create(path.Join(otelDir, "aggregator.yaml"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	agent := e.GetAgent(opniAgentId)
@@ -1095,7 +1102,7 @@ func (e *Environment) StartOTELCollectorContext(ctx waitctx.PermissiveContext, o
 	t := util.Must(otel.OTELTemplates.ParseFS(testdata.TestDataFS, "testdata/otel/base.tmpl"))
 	aggregatorTmpl := util.Must(t.Parse(`{{template "aggregator-config" .}}`))
 	if err := aggregatorTmpl.Execute(aggregatorFile, aggregatorCfg); err != nil {
-		return err
+		return nil, err
 	}
 	// the pattern we use in production is node -> aggregator -> agent
 	nodeCfg := TestNodeConfig{
@@ -1114,12 +1121,12 @@ func (e *Environment) StartOTELCollectorContext(ctx waitctx.PermissiveContext, o
 	}
 	receiverTmpl := util.Must(t.Parse(`{{template "node-receivers" .}}`))
 	if err := receiverTmpl.Execute(receiverFile, nodeCfg); err != nil {
-		return err
+		return nil, err
 	}
 	receiverFile.Close()
 	mainTmpl := util.Must(t.Parse(`{{template "node-config" .}}`))
 	if err := mainTmpl.Execute(configFile, nodeCfg); err != nil {
-		return err
+		return nil, err
 	}
 	configFile.Close()
 	otelColBin := path.Join(e.TestBin, "otelcol-custom")
@@ -1135,20 +1142,12 @@ func (e *Environment) StartOTELCollectorContext(ctx waitctx.PermissiveContext, o
 	nodeCmd.Cancel = func() error {
 		return nodeCmd.Process.Signal(syscall.SIGINT)
 	}
-	nodeSession, err := testutil.StartCmd(nodeCmd)
-	if err != nil {
-		return err
-	}
+	nodeExited := lo.Async(nodeCmd.Run)
+
 	e.Logger.Infof("launching process: `%s %s`", otelColBin, strings.Join(aggregatorArgs, " "))
 	aggregatorCmd := exec.CommandContext(ctx, otelColBin, aggregatorArgs...)
 	plugins.ConfigureSysProcAttr(aggregatorCmd)
-	aggregatorCmd.Cancel = func() error {
-		return aggregatorCmd.Process.Signal(syscall.SIGINT)
-	}
-	aggregatorSession, err := testutil.StartCmd(aggregatorCmd)
-	if err != nil {
-		return err
-	}
+	aggregatorExited := lo.Async(aggregatorCmd.Run)
 
 	// wait for aggregator health to be ok
 
@@ -1170,17 +1169,28 @@ func (e *Environment) StartOTELCollectorContext(ctx waitctx.PermissiveContext, o
 	}
 	if !ready {
 		e.Logger.Error("timed out waiting for collector to start")
-		return fmt.Errorf("timed out waiting for collector to start")
+		return nil, fmt.Errorf("timed out waiting for collector to start")
 	}
 	e.Logger.Info("collector started")
 
+	retCtx, retCa := context.WithCancel(ctx)
 	go func() {
-		<-ctx.Done()
-		aggregatorSession.Wait()
-		nodeSession.Wait()
+		select {
+		case <-ctx.Done():
+			e.Logger.Info("collector stopping...")
+			<-nodeExited
+			<-aggregatorExited
+			e.Logger.Info("collector stopped")
+			retCa()
+		case <-nodeExited:
+			e.Logger.Error("collector node exited with error")
+			retCa()
+		case <-aggregatorExited:
+			e.Logger.Error("collector aggregator exited with error")
+			retCa()
+		}
 	}()
-
-	return nil
+	return retCtx, nil
 }
 
 // Starts a server that exposes Prometheus metrics
@@ -1217,18 +1227,14 @@ func (e *Environment) StartInstrumentationServer() (int, chan struct{}) {
 		MaxHeaderBytes: 1 << 20,
 	}
 	done := make(chan struct{})
-	waitctx.Restrictive.Go(e.ctx, func() {
-		go func() {
-			err := autoInstrumentationServer.ListenAndServe()
-			if !errors.Is(err, http.ErrServerClosed) {
-				panic(err)
-			}
-		}()
-		defer autoInstrumentationServer.Shutdown(context.Background())
-		select {
-		case <-e.ctx.Done():
-		case <-done:
+	go func() {
+		err := autoInstrumentationServer.ListenAndServe()
+		if !errors.Is(err, http.ErrServerClosed) {
+			panic(err)
 		}
+	}()
+	e.addShutdownHook(func() {
+		autoInstrumentationServer.Shutdown(context.Background())
 	})
 	return port, done
 }
@@ -1302,61 +1308,17 @@ func (e *Environment) StartMockKubernetesMetricServer() (port int) {
 		WriteTimeout:   1 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
-	waitctx.Permissive.Go(e.ctx, func() {
-		go func() {
-			err := autoKubernetesMetricsServer.ListenAndServe()
-			if err != http.ErrServerClosed {
-				panic(err)
-			}
-		}()
-		defer autoKubernetesMetricsServer.Shutdown(context.Background())
-		select {
-		case <-e.ctx.Done():
+	go func() {
+		err := autoKubernetesMetricsServer.ListenAndServe()
+		if err != http.ErrServerClosed {
+			panic(err)
 		}
+	}()
+	e.addShutdownHook(func() {
+		autoKubernetesMetricsServer.Shutdown(context.Background())
 	})
 
 	return port
-}
-
-func (e *Environment) StartAgentDisconnectServer() {
-	setDisconnect := func(w http.ResponseWriter, r *http.Request) {
-		agentListMu.Lock()
-		defer agentListMu.Unlock()
-		agent := r.URL.Query().Get("agent")
-		if agent == "" {
-			e.Logger.Error("agent not specified")
-			return
-		}
-		if _, ok := agentList[agent]; !ok {
-			e.Logger.Error("could not find agent to disconnect")
-			return
-		}
-		agentList[agent]()
-		delete(agentList, agent)
-	}
-	mux := http.NewServeMux()
-	mux.HandleFunc("/disconnect", setDisconnect)
-
-	disconnectServer := &http.Server{
-		Addr:           fmt.Sprintf("127.0.0.1:%d", e.ports.DisconnectPort),
-		Handler:        mux,
-		ReadTimeout:    1 * time.Second,
-		WriteTimeout:   1 * time.Second,
-		MaxHeaderBytes: 1 << 20,
-	}
-	waitctx.Permissive.Go(e.ctx, func() {
-		go func() {
-			err := disconnectServer.ListenAndServe()
-			if err != http.ErrServerClosed {
-				panic(err)
-			}
-		}()
-		defer disconnectServer.Shutdown(context.Background())
-		select {
-		case <-e.ctx.Done():
-		}
-	})
-	testlog.Log.Infof(chalk.Green.Color("Agent Disconnect server listening on %d"), e.ports.DisconnectPort)
 }
 
 func (e *Environment) StartNodeExporter() {
@@ -1384,8 +1346,7 @@ func (e *Environment) StartNodeExporter() {
 		time.Sleep(time.Second)
 	}
 	e.Logger.With("address", fmt.Sprintf("http://localhost:%d", e.ports.NodeExporterPort)).Info("Node exporter started")
-	waitctx.Go(e.ctx, func() {
-		<-e.ctx.Done()
+	e.addShutdownHook(func() {
 		session.Wait()
 	})
 }
@@ -1709,39 +1670,21 @@ func (e *Environment) NewAlertEndpointsClient() alertingv1.AlertEndpointsClient 
 	if !e.enableGateway {
 		e.Logger.Panic("gateway disabled")
 	}
-	c, err := alertingv1.NewEndpointsClient(e.ctx,
-		alertingv1.WithListenAddress(fmt.Sprintf("localhost:%d", e.ports.ManagementGRPC)),
-		alertingv1.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))))
-	if err != nil {
-		panic(err)
-	}
-	return c
+	return alertingv1.NewAlertEndpointsClient(e.ManagementClientConn())
 }
 
 func (e *Environment) NewAlertConditionsClient() alertingv1.AlertConditionsClient {
 	if !e.enableGateway {
 		e.Logger.Panic("gateway disabled")
 	}
-	c, err := alertingv1.NewConditionsClient(e.ctx,
-		alertingv1.WithListenAddress(fmt.Sprintf("localhost:%d", e.ports.ManagementGRPC)),
-		alertingv1.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))))
-	if err != nil {
-		panic(err)
-	}
-	return c
+	return alertingv1.NewAlertConditionsClient(e.ManagementClientConn())
 }
 
 func (e *Environment) NewAlertNotificationsClient() alertingv1.AlertNotificationsClient {
 	if !e.enableGateway {
 		e.Logger.Panic("gateway disabled")
 	}
-	c, err := alertingv1.NewNotificationsClient(e.ctx,
-		alertingv1.WithListenAddress(fmt.Sprintf("localhost:%d", e.ports.ManagementGRPC)),
-		alertingv1.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))))
-	if err != nil {
-		panic(err)
-	}
-	return c
+	return alertingv1.NewAlertNotificationsClient(e.ManagementClientConn())
 }
 
 func (e *Environment) PrometheusAPIEndpoint() string {
@@ -1773,46 +1716,49 @@ func (e *Environment) startGateway() {
 		gateway.WithExtraUpdateHandlers(noop.NewSyncServer()),
 	)
 
-	e.managementServerMu.Lock()
-	defer e.managementServerMu.Unlock()
-
-	e.managementServer = management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g, pluginLoader,
+	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g, pluginLoader,
 		management.WithCapabilitiesDataSource(g),
 		management.WithHealthStatusDataSource(g),
 		management.WithLifecycler(lifecycler),
 	)
-	g.MustRegisterCollector(e.managementServer)
+	g.MustRegisterCollector(m)
 
+	doneLoadingPlugins := make(chan struct{})
 	pluginLoader.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
 		lg.Infof("loaded %d plugins", numLoaded)
+		close(doneLoadingPlugins)
 	}))
-
-	pluginLoader.Hook(hooks.OnLoadingCompleted(func(int) {
-		waitctx.AddOne(e.ctx)
-		defer waitctx.Done(e.ctx)
-		if err := e.managementServer.ListenAndServe(e.ctx); err != nil {
-			if errors.Is(err, context.Canceled) {
-				lg.Info("management server stopped")
-			} else {
-				lg.With(zap.Error(err)).Warn("management server exited with error")
-			}
-		}
-	}))
-
-	pluginLoader.Hook(hooks.OnLoadingCompleted(func(int) {
-		waitctx.AddOne(e.ctx)
-		defer waitctx.Done(e.ctx)
-		if err := g.ListenAndServe(e.ctx); err != nil {
-			if errors.Is(err, context.Canceled) {
-				lg.Info("gateway stopped")
-			} else {
-				lg.With(zap.Error(err)).Warn("gateway server exited with error")
-			}
-		}
-	}))
-
 	lg.Info("Loading gateway plugins...")
 	globalTestPlugins.LoadPlugins(e.ctx, pluginLoader, pluginmeta.ModeGateway)
+
+	select {
+	case <-doneLoadingPlugins:
+	case <-e.ctx.Done():
+		return
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := g.ListenAndServe(e.ctx)
+		if errors.Is(err, context.Canceled) {
+			lg.Info("gateway server stopped")
+		} else if err != nil {
+			lg.With(zap.Error(err)).Warn("gateway server exited with error")
+		}
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := m.ListenAndServe(e.ctx)
+		if errors.Is(err, context.Canceled) {
+			lg.Info("management server stopped")
+		} else if err != nil {
+			lg.With(zap.Error(err)).Warn("management server exited with error")
+		}
+	}()
+	e.addShutdownHook(wg.Wait)
 
 	lg.Info("Waiting for gateway to start...")
 	started := false
@@ -1919,16 +1865,19 @@ func (e *Environment) DeleteAgent(id string) error {
 	return err
 }
 
-func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins []string, opts ...StartAgentOption) (int, <-chan error) {
+func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins []string, opts ...StartAgentOption) (context.Context, <-chan error) {
 	options := &StartAgentOptions{
 		version:    e.defaultAgentVersion,
 		ctx:        e.ctx,
-		listenPort: freeport.GetFreePort(),
+		listenPort: 0,
 	}
 	options.apply(e.defaultAgentOpts...)
 	options.apply(opts...)
 	if !e.enableGateway && options.remoteGatewayAddress == "" {
 		e.Logger.Panic("gateway disabled")
+	}
+	if options.listenPort == 0 {
+		options.listenPort = freeport.GetFreePort()
 	}
 
 	errC := make(chan error, 2)
@@ -2003,19 +1952,22 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		"version", options.version,
 	).Info("starting agent")
 
+	canceledCtx, ca := context.WithCancel(context.Background())
+	ca()
+
 	var bootstrapper bootstrap.Bootstrapper
 	if token != nil && len(pins) > 0 {
 		bt, err := tokens.FromBootstrapToken(token)
 		if err != nil {
 			errC <- err
-			return 0, errC
+			return canceledCtx, errC
 		}
 		publicKeyPins := make([]*pkp.PublicKeyPin, len(pins))
 		for i, pin := range pins {
 			d, err := pkp.DecodePin(pin)
 			if err != nil {
 				errC <- err
-				return 0, errC
+				return canceledCtx, errC
 			}
 			publicKeyPins[i] = d
 		}
@@ -2027,7 +1979,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		strategy, err := conf.Build()
 		if err != nil {
 			errC <- err
-			return 0, errC
+			return canceledCtx, errC
 		}
 		bootstrapper = &bootstrap.ClientConfigV2{
 			Token:         bt,
@@ -2037,7 +1989,9 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 	}
 	var a agent.AgentInterface
 	mu := &sync.Mutex{}
-	waitctx.Permissive.Go(options.ctx, func() {
+	agentCtx, cancel := context.WithCancel(options.ctx)
+	go func() {
+		defer cancel()
 		mu.Lock()
 		switch options.version {
 		case "v2":
@@ -2081,8 +2035,8 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		e.runningAgentsMu.Lock()
 		delete(e.runningAgents, id)
 		e.runningAgentsMu.Unlock()
-	})
-	return options.listenPort, errC
+	}()
+	return agentCtx, errC
 }
 
 func (e *Environment) GetAgent(id string) RunningAgent {
@@ -2159,12 +2113,6 @@ func (e *Environment) CortexTLSConfig() *tls.Config {
 
 func (e *Environment) GatewayConfig() *v1beta1.GatewayConfig {
 	return e.gatewayConfig
-}
-
-func (e *Environment) ManagementServer() *management.Server {
-	e.managementServerMu.Lock()
-	defer e.managementServerMu.Unlock()
-	return e.managementServer
 }
 
 func (e *Environment) GetAlertingManagementWebhookEndpoint() string {
@@ -2284,8 +2232,7 @@ func (e *Environment) StartGrafana(extraDockerArgs ...string) {
 		}
 	}
 
-	waitctx.Go(e.ctx, func() {
-		<-e.ctx.Done()
+	e.addShutdownHook(func() {
 		session.Wait()
 	})
 }

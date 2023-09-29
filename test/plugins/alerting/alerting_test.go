@@ -88,7 +88,6 @@ type agentWithContext struct {
 	id string
 	context.Context
 	context.CancelFunc
-	port int
 }
 
 func BuildAlertingClusterIntegrationTests(
@@ -316,10 +315,9 @@ func BuildAlertingClusterIntegrationTests(
 					for i := 0; i < numAgents; i++ {
 						ctxCa, ca := context.WithCancel(env.Context())
 						id := agentIdFunc(i)
-						port, errC := env.StartAgent(id, token, []string{fingerprint}, test.WithContext(ctxCa))
+						_, errC := env.StartAgent(id, token, []string{fingerprint}, test.WithContext(ctxCa))
 						Eventually(errC).Should(Receive(BeNil()))
 						agents = append(agents, &agentWithContext{
-							port:       port,
 							CancelFunc: ca,
 							Context:    ctxCa,
 							id:         id,

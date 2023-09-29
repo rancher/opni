@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/test/testk8s"
 	"github.com/rancher/opni/pkg/util/k8sutil"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -21,7 +20,7 @@ var _ = Describe("Cluster Utils", Ordered, Label("unit", "slow"), func() {
 	var kubeconfigPath string
 	BeforeAll(func() {
 		var err error
-		ctx, ca := context.WithCancel(waitctx.Background())
+		ctx, ca := context.WithCancel(context.Background())
 		restConfig, _, err = testk8s.StartK8s(ctx, nil, runtime.NewScheme())
 		Expect(err).NotTo(HaveOccurred())
 		tempFile, err := os.CreateTemp("", "test-kubeconfig")
@@ -43,10 +42,7 @@ var _ = Describe("Cluster Utils", Ordered, Label("unit", "slow"), func() {
 		}
 		err = clientcmd.WriteToFile(*apiConfig, kubeconfigPath)
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() {
-			ca()
-			waitctx.Wait(ctx)
-		})
+		DeferCleanup(ca)
 	})
 	Describe("NewK8sClient", func() {
 		When("a kubeconfig is given", func() {

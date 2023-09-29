@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"sync/atomic"
-	"time"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/rancher/opni/pkg/config"
@@ -17,15 +16,17 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/management"
+	"github.com/rancher/opni/pkg/noauth"
 	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/update/noop"
-	"github.com/rancher/opni/pkg/util/waitctx"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/rest"
 
 	_ "github.com/rancher/opni/pkg/oci/kubernetes"
@@ -40,12 +41,10 @@ func BuildGatewayCmd() *cobra.Command {
 	lg := logger.New()
 	var configLocation string
 
-	run := func() error {
+	run := func(ctx context.Context) error {
 		tracing.Configure("gateway")
 
 		objects := cliutil.LoadConfigObjectsOrDie(configLocation, lg)
-
-		ctx, cancel := context.WithCancel(waitctx.Background())
 
 		inCluster := true
 		restconfig, err := rest.InClusterConfig()
@@ -57,16 +56,15 @@ func BuildGatewayCmd() *cobra.Command {
 			}
 		}
 
-		var fCancel context.CancelFunc
 		if inCluster {
 			features.PopulateFeatures(ctx, restconfig)
-			fCancel = features.FeatureList.WatchConfigMap()
-		} else {
-			fCancel = cancel
+			fCancel := features.FeatureList.WatchConfigMap()
+			context.AfterFunc(ctx, fCancel)
 		}
 
 		machinery.LoadAuthProviders(ctx, objects)
 		var gatewayConfig *v1beta1.GatewayConfig
+		var noauthServer *noauth.Server
 		found := objects.Visit(
 			func(config *v1beta1.GatewayConfig) {
 				if gatewayConfig == nil {
@@ -74,19 +72,8 @@ func BuildGatewayCmd() *cobra.Command {
 				}
 			},
 			func(ap *v1beta1.AuthProvider) {
-				// noauth is a special case, we need to start a noauth server but only
-				// once - other auth provider consumers such as plugins can load
-				// auth providers themselves, but we don't want them to start their
-				// own noauth server.
 				if ap.Name == "noauth" {
-					server := machinery.NewNoauthServer(ctx, ap)
-					waitctx.Go(ctx, func() {
-						if err := server.ListenAndServe(ctx); err != nil {
-							lg.With(
-								zap.Error(err),
-							).Warn("noauth server exited with error")
-						}
-					})
+					noauthServer = machinery.NewNoauthServer(ctx, ap)
 				}
 			},
 		)
@@ -115,49 +102,66 @@ func BuildGatewayCmd() *cobra.Command {
 
 		g.MustRegisterCollector(m)
 
-		// start web server
-		d, err := dashboard.NewServer(&gatewayConfig.Spec.Management)
-		if err != nil {
-			lg.With(
-				zap.Error(err),
-			).Error("failed to initialize web dashboard")
-		} else {
-			pluginLoader.Hook(hooks.OnLoadingCompleted(func(int) {
-				waitctx.AddOne(ctx)
-				defer waitctx.Done(ctx)
-				if err := d.ListenAndServe(ctx); err != nil {
-					lg.With(
-						zap.Error(err),
-					).Warn("dashboard server exited with error")
-				}
-			}))
-		}
-
+		doneLoadingPlugins := make(chan struct{})
 		pluginLoader.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
 			lg.Infof("loaded %d plugins", numLoaded)
+			close(doneLoadingPlugins)
 		}))
-
-		pluginLoader.Hook(hooks.OnLoadingCompleted(func(int) {
-			waitctx.AddOne(ctx)
-			defer waitctx.Done(ctx)
-			if err := m.ListenAndServe(ctx); err != nil {
-				lg.With(
-					zap.Error(err),
-				).Warn("management server exited with error")
-			}
-		}))
-
-		pluginLoader.Hook(hooks.OnLoadingCompleted(func(int) {
-			waitctx.AddOne(ctx)
-			defer waitctx.Done(ctx)
-			if err := g.ListenAndServe(ctx); err != nil {
-				lg.With(
-					zap.Error(err),
-				).Warn("gateway server exited with error")
-			}
-		}))
-
 		pluginLoader.LoadPlugins(ctx, gatewayConfig.Spec.Plugins.Dir, plugins.GatewayScheme)
+		select {
+		case <-doneLoadingPlugins:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+
+		var eg errgroup.Group
+		eg.Go(func() error {
+			err := g.ListenAndServe(ctx)
+			if errors.Is(err, context.Canceled) {
+				lg.Info("gateway server stopped")
+			} else if err != nil {
+				lg.With(zap.Error(err)).Warn("gateway server exited with error")
+			}
+			return err
+		})
+		eg.Go(func() error {
+			err := m.ListenAndServe(ctx)
+			if errors.Is(err, context.Canceled) {
+				lg.Info("management server stopped")
+			} else if err != nil {
+				lg.With(zap.Error(err)).Warn("management server exited with error")
+			}
+			return err
+		})
+
+		d, err := dashboard.NewServer(&gatewayConfig.Spec.Management)
+		if err != nil {
+			lg.With(zap.Error(err)).Error("failed to start dashboard server")
+		} else {
+			eg.Go(func() error {
+				err := d.ListenAndServe(ctx)
+				if errors.Is(err, context.Canceled) {
+					lg.Info("dashboard server stopped")
+				} else if err != nil {
+					lg.With(zap.Error(err)).Warn("dashboard server exited with error")
+				}
+				return err
+			})
+		}
+
+		if noauthServer != nil {
+			eg.Go(func() error {
+				err := noauthServer.ListenAndServe(ctx)
+				if errors.Is(err, context.Canceled) {
+					lg.Info("noauth server stopped")
+				} else if err != nil {
+					lg.With(zap.Error(err)).Warn("noauth server exited with error")
+				}
+				return err
+			})
+		}
+
+		errC := lo.Async(eg.Wait)
 
 		style := chalk.Yellow.NewStyle().
 			WithBackground(chalk.ResetColor).
@@ -186,24 +190,32 @@ func BuildGatewayCmd() *cobra.Command {
 			}
 		}()
 
-		<-reloadC
-		lg.Info(style.Style("waiting for servers to shut down"))
-		fCancel()
-		cancel()
-		waitctx.WaitWithTimeout(ctx, 60*time.Second, 10*time.Second)
-
-		atomic.StoreUint32(&plugin.Killed, 0)
-		lg.Info(style.Style("--- reloading ---"))
-		return nil
+		shutDownPlugins := func() {
+			lg.Info("shutting down plugins")
+			plugin.CleanupClients()
+			lg.Info("all plugins shut down")
+		}
+		select {
+		case <-reloadC:
+			shutDownPlugins()
+			atomic.StoreUint32(&plugin.Killed, 0)
+			lg.Info(style.Style("--- reloading ---"))
+			return nil
+		case err := <-errC:
+			shutDownPlugins()
+			return err
+		}
 	}
 
 	serveCmd := &cobra.Command{
 		Use:   "gateway",
-		Short: "Run the Opni Monitoring Gateway",
+		Short: "Run the Opni Gateway",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			defer waitctx.RecoverTimeout()
 			for {
-				if err := run(); err != nil {
+				if err := run(cmd.Context()); err != nil {
+					if err == cmd.Context().Err() {
+						return nil
+					}
 					return err
 				}
 			}

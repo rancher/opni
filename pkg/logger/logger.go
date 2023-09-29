@@ -6,12 +6,10 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/kralicky/gpkg/sync"
-	"github.com/lmittmann/tint"
 	slogmulti "github.com/samber/slog-multi"
 	slogsampling "github.com/samber/slog-sampling"
 	"github.com/ttacon/chalk"
@@ -29,42 +27,30 @@ var (
  Observability + AIOps for Kubernetes
 `
 
-	levelToColor = map[slog.Level]chalk.Color{
-		slog.LevelDebug: chalk.Magenta,
-		slog.LevelInfo:  chalk.Blue,
-		slog.LevelWarn:  chalk.Yellow,
-		slog.LevelError: chalk.Red,
-	}
-
-	levelToColorString = make(map[any]string, len(levelToColor))
 	DefaultLogLevel    = slog.LevelDebug
 	DefaultWriter      io.Writer
 	DefaultAddSource   = true
 	DefaultDisableTime = false
 	pluginGroupPrefix  = "plugin"
 	NoRepeatInterval   = 365 * 24 * time.Hour // arbitrarily long time to denote one-time sampling
+	TimeFormat         = "2006 Jan 02 15:04:05"
+	errKey             = "err"
 )
 
-func init() {
-	for level, color := range levelToColor {
-		levelToColorString[level.String()] = color.Color(level.String())
-	}
-}
+var logSampler = &sampler{}
 
 func AsciiLogo() string {
 	return asciiLogo
 }
 
-var s = &sampler{}
-
 type LoggerOptions struct {
-	Level       slog.Level
-	AddSource   bool
-	DisableTime bool
-	Color       *bool
-	Writer      io.Writer
-	Sampling    *slogsampling.ThresholdSamplingOption
-	ReplaceAttr func(groups []string, a slog.Attr) slog.Attr
+	Level        slog.Level
+	AddSource    bool
+	ReplaceAttr  func(groups []string, a slog.Attr) slog.Attr
+	Writer       io.Writer
+	ColorEnabled bool
+	DisableTime  bool
+	Sampling     *slogsampling.ThresholdSamplingOption
 }
 
 func ParseLevel(lvl string) slog.Level {
@@ -74,7 +60,10 @@ func ParseLevel(lvl string) slog.Level {
 }
 
 func Err(e error) slog.Attr {
-	return tint.Err(e)
+	if e != nil {
+		e = noAllocErr{e}
+	}
+	return slog.Any(errKey, e)
 }
 
 type LoggerOption func(*LoggerOptions)
@@ -99,7 +88,7 @@ func WithWriter(w io.Writer) LoggerOption {
 
 func WithColor(color bool) LoggerOption {
 	return func(o *LoggerOptions) {
-		o.Color = &color
+		o.ColorEnabled = color
 	}
 }
 
@@ -121,78 +110,29 @@ func WithSampling(cfg *slogsampling.ThresholdSamplingOption) LoggerOption {
 			Tick:      cfg.Tick,
 			Threshold: cfg.Threshold,
 			Rate:      cfg.Rate,
-			OnDropped: s.onDroppedHook,
+			OnDropped: logSampler.onDroppedHook,
 		}
-	}
-}
-
-func logWithDroppedCount(a slog.Attr) slog.Attr {
-	key := a.Value.String()
-	count, _ := s.dropped.LoadOrStore(key, 0)
-	if count > 0 {
-		numDropped, _ := s.dropped.LoadAndDelete(key)
-		return slog.String(a.Key, fmt.Sprintf("x%d %s", numDropped+1, key))
-	}
-	return a
-}
-
-func trimSourcePath(a slog.Attr) string {
-	source := a.Value.Any().(*slog.Source)
-	dir, file := filepath.Split(source.File)
-	source.File = filepath.Join(filepath.Base(dir), file)
-	return fmt.Sprintf("%s:%d", source.File, source.Line)
-}
-
-func ConfigureOptions(opts *LoggerOptions) *slog.HandlerOptions {
-	return &slog.HandlerOptions{
-		Level:     opts.Level,
-		AddSource: opts.AddSource,
-		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
-			switch a.Key {
-			case slog.MessageKey:
-				return logWithDroppedCount(a)
-			case slog.SourceKey:
-				trimmedPath := trimSourcePath(a)
-				groupName := strings.Join(groups, ".")
-				return slog.String(a.Key, fmt.Sprintf("%s %s", groupName, trimmedPath))
-			default:
-				return a
-			}
-		},
-	}
-}
-
-func ConfigureColorOptions(opts *LoggerOptions) *tint.Options {
-	return &tint.Options{
-		Level:     opts.Level,
-		AddSource: opts.AddSource,
-		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
-			switch a.Key {
-			case slog.MessageKey:
-				logWithDroppedCount(a)
-			case slog.LevelKey:
-				return slog.String(a.Key, levelToColorString[a.Value.String()])
-			case slog.SourceKey:
-				trimmedPath := TextStyle(trimSourcePath(a), chalk.Dim)
-				groupName := strings.Join(groups, ".")
-				if len(groups) > 0 && groups[0] == "plugin" {
-					groupName = chalk.Cyan.Color(groupName)
-				} else {
-					groupName = chalk.Green.Color(groupName)
+		o.ReplaceAttr = func(groups []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.MessageKey {
+				msg := a.Value.String()
+				count, _ := logSampler.dropped.LoadOrStore(msg, 0)
+				if count > 0 {
+					numDropped, _ := logSampler.dropped.LoadAndDelete(msg)
+					a.Value = slog.StringValue(fmt.Sprintf("x%d %s", numDropped+1, msg))
 				}
-				return slog.String(a.Key, fmt.Sprintf("%s %s", groupName, trimmedPath))
 			}
 			return a
-		},
+		}
 	}
 }
 
 func New(opts ...LoggerOption) *slog.Logger {
 	options := &LoggerOptions{
-		Level:       DefaultLogLevel,
-		AddSource:   DefaultAddSource,
-		DisableTime: DefaultDisableTime,
-		Writer:      DefaultWriter,
+		Writer:       DefaultWriter,
+		ColorEnabled: ColorEnabled(),
+		Level:        DefaultLogLevel,
+		AddSource:    DefaultAddSource,
+		DisableTime:  DefaultDisableTime,
 	}
 
 	options.apply(opts...)
@@ -201,21 +141,7 @@ func New(opts ...LoggerOption) *slog.Logger {
 		DefaultWriter = os.Stdout
 	}
 
-	var color bool
-	if options.Color != nil {
-		color = *options.Color
-	} else {
-		color = ColorEnabled()
-	}
-
-	var handler slog.Handler
-	if !color {
-		formatted := ConfigureOptions(options)
-		handler = slog.NewTextHandler(options.Writer, formatted)
-	} else {
-		colorFormatted := ConfigureColorOptions(options)
-		handler = tint.NewHandler(options.Writer, colorFormatted)
-	}
+	handler := newColorHandler(options.Writer, options)
 
 	if options.Sampling != nil {
 		return slog.New(slogmulti.
@@ -230,8 +156,8 @@ func NewNop() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{}))
 }
 
-func NewPluginLogger() *slog.Logger {
-	return New().WithGroup("plugin")
+func NewPluginLogger(opts ...LoggerOption) *slog.Logger {
+	return New(opts...).WithGroup(pluginGroupPrefix)
 }
 
 type sampler struct {
@@ -253,8 +179,8 @@ func NewZap(opts ...LoggerOption) *zap.SugaredLogger {
 
 	options.apply(opts...)
 	var color bool
-	if options.Color != nil {
-		color = *options.Color
+	if options.ColorEnabled {
+		color = options.ColorEnabled
 	} else {
 		color = ColorEnabled()
 	}

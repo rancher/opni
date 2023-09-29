@@ -2,15 +2,14 @@ syntax = "proto3";
 
 package capability;
 
-import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 import "github.com/kralicky/totem/extensions.proto";
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/rancher/opni/pkg/apis/capability/v1";
-
 option (cli.generator) = {
   generate: true
 };
@@ -105,7 +104,7 @@ message InstallResponse {
 
 message UninstallRequest {
   core.Reference         cluster = 1;
-  google.protobuf.Struct options = 2;
+  google.protobuf.Struct options = 2 [(cli.flag).skip = true];
 }
 
 message InstallerTemplateResponse {

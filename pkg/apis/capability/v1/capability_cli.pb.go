@@ -12,7 +12,6 @@ import (
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	structpb "google.golang.org/protobuf/types/known/structpb"
 	strings "strings"
 )
 
@@ -572,10 +571,6 @@ func (in *UninstallRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 		in.Cluster = &v1.Reference{}
 	}
 	fs.AddFlagSet(in.Cluster.FlagSet(append(prefix, "cluster")...))
-	if in.Options == nil {
-		in.Options = &structpb.Struct{}
-	}
-	fs.AddFlagSet(in.Options.FlagSet(append(prefix, "options")...))
 	return fs
 }
 
@@ -583,30 +578,5 @@ func (in *Filter) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Filter", pflag.ExitOnError)
 	fs.SortFlags = true
 	fs.StringSliceVar(&in.CapabilityNames, strings.Join(append(prefix, "capability-names"), "."), nil, "")
-	return fs
-}
-
-func (in *InstallRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("InstallRequest", pflag.ExitOnError)
-	fs.SortFlags = true
-	if in.Cluster == nil {
-		in.Cluster = &v1.Reference{}
-	}
-	fs.AddFlagSet(in.Cluster.FlagSet(append(prefix, "cluster")...))
-	fs.BoolVar(&in.IgnoreWarnings, strings.Join(append(prefix, "ignore-warnings"), "."), false, "")
-	return fs
-}
-
-func (in *UninstallRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("UninstallRequest", pflag.ExitOnError)
-	fs.SortFlags = true
-	if in.Cluster == nil {
-		in.Cluster = &v1.Reference{}
-	}
-	fs.AddFlagSet(in.Cluster.FlagSet(append(prefix, "cluster")...))
-	if in.Options == nil {
-		in.Options = &structpb.Struct{}
-	}
-	fs.AddFlagSet(in.Options.FlagSet(append(prefix, "options")...))
 	return fs
 }

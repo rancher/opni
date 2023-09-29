@@ -1,12 +1,9 @@
-//go:build !minimal
-
-package cliutil
+package cortexadmin
 
 import (
 	"fmt"
 	"strings"
 
-	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -19,7 +16,7 @@ import (
 	"github.com/samber/lo"
 )
 
-func RenderClusterListWithStats(list *corev1.ClusterList, status []*corev1.HealthStatus, stats *cortexadmin.UserIDStatsList) string {
+func RenderClusterListWithStats(list *corev1.ClusterList, status []*corev1.HealthStatus, stats *UserIDStatsList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	if stats == nil {
@@ -58,7 +55,7 @@ func RenderClusterListWithStats(list *corev1.ClusterList, status []*corev1.Healt
 	return w.Render()
 }
 
-func RenderCortexClusterStatus(status *cortexadmin.CortexStatus) string {
+func RenderCortexClusterStatus(status *CortexStatus) string {
 	tables := []string{
 		renderCortexServiceStatus(status),
 	}
@@ -97,7 +94,7 @@ func RenderCortexClusterStatus(status *cortexadmin.CortexStatus) string {
 	return strings.Join(tables, "\n\n")
 }
 
-func renderCortexServiceStatus(status *cortexadmin.CortexStatus) string {
+func renderCortexServiceStatus(status *CortexStatus) string {
 	w := table.NewWriter()
 	w.SetTitle("Cortex Services")
 	w.SetStyle(table.StyleColoredDark)
@@ -154,7 +151,7 @@ func renderCortexServiceStatus(status *cortexadmin.CortexStatus) string {
 	return w.Render()
 }
 
-func renderShardStatus(title string, status *cortexadmin.ShardStatusList) string {
+func renderShardStatus(title string, status *ShardStatusList) string {
 	w := table.NewWriter()
 	w.SetTitle(title)
 	w.SetStyle(table.StyleColoredDark)
@@ -176,7 +173,7 @@ func renderShardStatus(title string, status *cortexadmin.ShardStatusList) string
 	return w.Render()
 }
 
-func renderMemberlistStatus(title string, status *cortexadmin.MemberStatusList) string {
+func renderMemberlistStatus(title string, status *MemberStatusList) string {
 	w := table.NewWriter()
 	w.SetTitle(title)
 	w.SetStyle(table.StyleColoredDark)
@@ -199,7 +196,7 @@ func renderMemberlistStatus(title string, status *cortexadmin.MemberStatusList) 
 }
 
 func servicesByName[T interface {
-	GetServices() *cortexadmin.ServiceStatusList
+	GetServices() *ServiceStatusList
 }](t T) map[string]string {
 	services := map[string]string{}
 	for _, s := range t.GetServices().GetServices() {
@@ -262,6 +259,19 @@ type MetricsNodeConfigInfo struct {
 	HasCapability bool
 	Spec          *node.MetricsCapabilitySpec
 	IsDefault     bool
+}
+
+func RenderCortexRules(resp *ListRulesResponse) string {
+	w := table.NewWriter()
+	w.SetStyle(table.StyleColoredDark)
+	w.AppendHeader(table.Row{"cluster", "namespace", "group name", "rule name", "type", "health", "alert state"})
+
+	for _, group := range resp.Data.Groups {
+		for _, rule := range group.Rules {
+			w.AppendRow(table.Row{group.ClusterId, group.File, group.Name, rule.Name, rule.Type, rule.Health, rule.State})
+		}
+	}
+	return w.Render()
 }
 
 func RenderMetricsNodeConfigs(nodes []MetricsNodeConfigInfo, defaultConfig *node.MetricsCapabilitySpec) string {

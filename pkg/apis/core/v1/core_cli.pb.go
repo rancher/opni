@@ -68,6 +68,109 @@ func BuildPingerPingCmd() *cobra.Command {
 	return cmd
 }
 
+func (in *Reference) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Reference", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringVar(&in.Id, strings.Join(append(prefix, "id"), "."), "", "")
+	return fs
+}
+
+func (in *LabelSelector) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("LabelSelector", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringToStringVar(&in.MatchLabels, strings.Join(append(prefix, "match-labels"), "."), nil, "")
+	return fs
+}
+
+func (in *CapabilityType) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("CapabilityType", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringVar(&in.Name, strings.Join(append(prefix, "name"), "."), "", "")
+	return fs
+}
+
+func (in *BackendRole) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("BackendRole", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Capability == nil {
+		in.Capability = &CapabilityType{}
+	}
+	fs.AddFlagSet(in.Capability.FlagSet(append(prefix, "capability")...))
+	if in.Role == nil {
+		in.Role = &Role{}
+	}
+	fs.AddFlagSet(in.Role.FlagSet(append(prefix, "role")...))
+	return fs
+}
+
+func (in *CapabilityType) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("CapabilityType", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringVar(&in.Name, strings.Join(append(prefix, "name"), "."), "", "")
+	return fs
+}
+
+func (in *Role) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Role", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringVar(&in.Id, strings.Join(append(prefix, "id"), "."), "", "")
+	if in.Metadata == nil {
+		in.Metadata = &RoleMetadata{}
+	}
+	fs.AddFlagSet(in.Metadata.FlagSet(append(prefix, "metadata")...))
+	return fs
+}
+
+func (in *RoleMetadata) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("RoleMetadata", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringVar(&in.ResourceVersion, strings.Join(append(prefix, "resource-version"), "."), "", "read-only")
+	return fs
+}
+
+func (in *BackendRoleRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("BackendRoleRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Capability == nil {
+		in.Capability = &CapabilityType{}
+	}
+	fs.AddFlagSet(in.Capability.FlagSet(append(prefix, "capability")...))
+	if in.RoleRef == nil {
+		in.RoleRef = &Reference{}
+	}
+	fs.AddFlagSet(in.RoleRef.FlagSet(append(prefix, "role-ref")...))
+	return fs
+}
+
+func (in *Reference) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Reference", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringVar(&in.Id, strings.Join(append(prefix, "id"), "."), "", "")
+	return fs
+}
+
+func (in *RoleBinding) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("RoleBinding", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringVar(&in.Id, strings.Join(append(prefix, "id"), "."), "", "")
+	fs.StringVar(&in.RoleId, strings.Join(append(prefix, "role-id"), "."), "", "")
+	fs.StringSliceVar(&in.Subjects, strings.Join(append(prefix, "subjects"), "."), nil, "")
+	fs.StringSliceVar(&in.Taints, strings.Join(append(prefix, "taints"), "."), nil, "")
+	if in.Metadata == nil {
+		in.Metadata = &RoleBindingMetadata{}
+	}
+	fs.AddFlagSet(in.Metadata.FlagSet(append(prefix, "metadata")...))
+	return fs
+}
+
+func (in *RoleBindingMetadata) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("RoleBindingMetadata", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringVar(&in.ResourceVersion, strings.Join(append(prefix, "resource-version"), "."), "", "read-only")
+	fs.Var(flagutil.StringPtrValue(nil, &in.Capability), strings.Join(append(prefix, "capability"), "."), "immutable after creation")
+	return fs
+}
+
 func (in *Revision) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Revision", pflag.ExitOnError)
 	fs.SortFlags = true

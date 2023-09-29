@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package management;
 
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 import "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/api/annotations.proto";
@@ -14,6 +15,11 @@ import "google/protobuf/timestamp.proto";
 import "google/rpc/status.proto";
 
 option go_package = "github.com/rancher/opni/pkg/apis/management/v1";
+
+option (cli.generator) = {
+  generate:          true
+  generate_deepcopy: true
+};
 
 service Management {
   rpc CreateBootstrapToken(CreateBootstrapTokenRequest) returns (core.BootstrapToken) {

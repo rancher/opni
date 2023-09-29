@@ -301,13 +301,6 @@ func (in *SetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	return fs
 }
 
-func (in *Reference) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("Reference", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.StringVar(&in.Id, strings.Join(append(prefix, "id"), "."), "", "")
-	return fs
-}
-
 func (in *ExampleValue) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("ExampleValue", pflag.ExitOnError)
 	fs.SortFlags = true

@@ -95,28 +95,45 @@ service Management {
     };
   }
   rpc CreateBackendRole(core.BackendRole) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use:         "backend-roles create"
+      granularity: EditMessage
+    };
     option (google.api.http) = {
       post: "/rbac/backend/{capability.name}/roles"
       body: "*"
     };
   }
   rpc UpdateBackendRole(core.BackendRole) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use:         "backend-roles update"
+      granularity: EditMessage
+    };
     option (google.api.http) = {
       put: "/rbac/backend/{capability.name}/roles"
       body: "*"
     };
   }
   rpc DeleteBackendRole(core.BackendRoleRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use:         "backend-roles delete"
+    };
     option (google.api.http) = {
       delete: "/rbac/backend/{capability.name}/roles/{roleRef.id}"
     };
   }
   rpc GetBackendRole(core.BackendRoleRequest) returns (core.Role) {
+    option (cli.command) = {
+      use:         "backend-roles get"
+    };
     option (google.api.http) = {
       get: "/rbac/backend/{capability.name}/roles/{roleRef.id}"
     };
   }
   rpc ListBackendRoles(core.CapabilityType) returns (core.RoleList) {
+    option (cli.command) = {
+      use:         "backend-roles list"
+    };
     option (google.api.http) = {
       get: "/rbac/backend/{name}/roles"
     };

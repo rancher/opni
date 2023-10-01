@@ -457,7 +457,7 @@ HTTP handlers for this method:
 func BuildManagementCreateBackendRoleCmd() *cobra.Command {
 	in := &v1.BackendRole{}
 	cmd := &cobra.Command{
-		Use:   "create-backend-role",
+		Use:   "backend-role create",
 		Short: "",
 		Long: `
 HTTP handlers for this method:
@@ -471,6 +471,17 @@ HTTP handlers for this method:
 				cmd.PrintErrln("failed to get client from context")
 				return nil
 			}
+			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
+				if edited, err := cliutil.EditInteractive(in); err != nil {
+					return err
+				} else {
+					in = edited
+				}
+			} else if fileName := cmd.Flags().Lookup("file").Value.String(); fileName != "" {
+				if err := cliutil.LoadFromFile(in, fileName); err != nil {
+					return err
+				}
+			}
 			if in == nil {
 				return errors.New("no input provided")
 			}
@@ -481,14 +492,17 @@ HTTP handlers for this method:
 			return nil
 		},
 	}
-	cmd.Flags().AddFlagSet(in.FlagSet())
+	cmd.Flags().StringP("file", "f", "", "path to a file containing the config, or - to read from stdin")
+	cmd.Flags().BoolP("interactive", "i", false, "edit the config interactively in an editor")
+	cmd.MarkFlagsMutuallyExclusive("file", "interactive")
+	cmd.MarkFlagFilename("file")
 	return cmd
 }
 
 func BuildManagementUpdateBackendRoleCmd() *cobra.Command {
 	in := &v1.BackendRole{}
 	cmd := &cobra.Command{
-		Use:   "update-backend-role",
+		Use:   "backend-role update",
 		Short: "",
 		Long: `
 HTTP handlers for this method:
@@ -502,6 +516,17 @@ HTTP handlers for this method:
 				cmd.PrintErrln("failed to get client from context")
 				return nil
 			}
+			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
+				if edited, err := cliutil.EditInteractive(in); err != nil {
+					return err
+				} else {
+					in = edited
+				}
+			} else if fileName := cmd.Flags().Lookup("file").Value.String(); fileName != "" {
+				if err := cliutil.LoadFromFile(in, fileName); err != nil {
+					return err
+				}
+			}
 			if in == nil {
 				return errors.New("no input provided")
 			}
@@ -512,14 +537,17 @@ HTTP handlers for this method:
 			return nil
 		},
 	}
-	cmd.Flags().AddFlagSet(in.FlagSet())
+	cmd.Flags().StringP("file", "f", "", "path to a file containing the config, or - to read from stdin")
+	cmd.Flags().BoolP("interactive", "i", false, "edit the config interactively in an editor")
+	cmd.MarkFlagsMutuallyExclusive("file", "interactive")
+	cmd.MarkFlagFilename("file")
 	return cmd
 }
 
 func BuildManagementDeleteBackendRoleCmd() *cobra.Command {
 	in := &v1.BackendRoleRequest{}
 	cmd := &cobra.Command{
-		Use:   "delete-backend-role",
+		Use:   "backend-role delete",
 		Short: "",
 		Long: `
 HTTP handlers for this method:
@@ -550,7 +578,7 @@ HTTP handlers for this method:
 func BuildManagementGetBackendRoleCmd() *cobra.Command {
 	in := &v1.BackendRoleRequest{}
 	cmd := &cobra.Command{
-		Use:   "get-backend-role",
+		Use:   "backend-role get",
 		Short: "",
 		Long: `
 HTTP handlers for this method:
@@ -582,7 +610,7 @@ HTTP handlers for this method:
 func BuildManagementListBackendRolesCmd() *cobra.Command {
 	in := &v1.CapabilityType{}
 	cmd := &cobra.Command{
-		Use:   "list-backend-roles",
+		Use:   "backend-role list",
 		Short: "",
 		Long: `
 HTTP handlers for this method:

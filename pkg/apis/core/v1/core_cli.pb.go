@@ -580,13 +580,6 @@ func (in *RoleMetadata) FlagSet(prefix ...string) *pflag.FlagSet {
 	return fs
 }
 
-func (in *Revision) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("Revision", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.Var(flagutil.IntPtrValue(nil, &in.Revision), strings.Join(append(prefix, "revision"), "."), "A numerical revision uniquely identifying a specific version of the resource.")
-	return fs
-}
-
 func (in *LabelSelector) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("LabelSelector", pflag.ExitOnError)
 	fs.SortFlags = true
@@ -648,5 +641,12 @@ func (in *RoleBindingMetadata) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.SortFlags = true
 	fs.StringVar(&in.ResourceVersion, strings.Join(append(prefix, "resource-version"), "."), "", "read-only")
 	fs.Var(flagutil.StringPtrValue(nil, &in.Capability), strings.Join(append(prefix, "capability"), "."), "immutable after creation")
+	return fs
+}
+
+func (in *Revision) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Revision", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Var(flagutil.IntPtrValue(nil, &in.Revision), strings.Join(append(prefix, "revision"), "."), "A numerical revision uniquely identifying a specific version of the resource.")
 	return fs
 }

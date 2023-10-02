@@ -6,6 +6,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/test"
+	_ "github.com/rancher/opni/pkg/test/setup"
+	"github.com/rancher/opni/pkg/test/testruntime"
 )
 
 var env *test.Environment
@@ -16,8 +18,10 @@ func TestOtel(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	env = &test.Environment{
-		TestBin: "../../../../testbin/bin",
-	}
-	Expect(env).NotTo(BeNil())
+	testruntime.IfIntegration(func() {
+		env = &test.Environment{
+			TestBin: "../../../../testbin/bin",
+		}
+		Expect(env).NotTo(BeNil())
+	})
 })

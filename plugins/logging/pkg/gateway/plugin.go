@@ -154,6 +154,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 					OpniPreprocessingPort,
 				)),
 				otel.WithDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
+				otel.WithPrivileged(true),
 			),
 			otel.NewTraceForwarder(
 				otel.WithLogger(lg.WithGroup("otel-trace-forwarder")),
@@ -163,6 +164,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 					OpniPreprocessingPort,
 				)),
 				otel.WithDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
+				otel.WithPrivileged(true),
 			)),
 	}
 

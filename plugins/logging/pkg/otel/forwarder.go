@@ -24,6 +24,10 @@ type forwarderOptions struct {
 	cc                       grpc.ClientConnInterface
 	lg                       *zap.SugaredLogger
 	dialOptions              []grpc.DialOption
+
+	// privileged marks if the agent has a stream authorized clusterID available in
+	// the current context.
+	privileged bool
 }
 
 type ForwarderOption func(*forwarderOptions)
@@ -58,9 +62,15 @@ func WithDialOptions(opts ...grpc.DialOption) ForwarderOption {
 	}
 }
 
+func WithPrivileged(privileged bool) ForwarderOption {
+	return func(o *forwarderOptions) {
+		o.privileged = privileged
+	}
+}
+
 func (f *Forwarder) BackgroundInitClient() {
 	f.LogsForwarder.Client.BackgroundInitClient(f.initializeLogsForwarder)
-	f.TraceForwarder.Client.BackgroundInitClient(f.initializeTraceForwarder)
+	f.TraceForwarder.Client.BackgroundInitClient(f.InitializeTraceForwarder)
 }
 
 func (f *Forwarder) ConfigureRoutes(router *gin.Engine) {

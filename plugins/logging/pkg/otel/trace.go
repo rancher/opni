@@ -48,7 +48,7 @@ func (f *TraceForwarder) SetClient(cc grpc.ClientConnInterface) {
 	f.Client.SetClient(client)
 }
 
-func (f *TraceForwarder) initializeTraceForwarder() coltracepb.TraceServiceClient {
+func (f *TraceForwarder) InitializeTraceForwarder() coltracepb.TraceServiceClient {
 	if f.cc == nil {
 		ctx := context.Background()
 		expBackoff := backoff.Exponential(
@@ -88,8 +88,11 @@ func (f *TraceForwarder) Export(
 		f.lg.Error("collector is unavailable")
 		return nil, status.Errorf(codes.Unavailable, "collector is unavailable")
 	}
-	clusterID := cluster.StreamAuthorizedID(ctx)
-	addValueToSpanAttributes(request, clusterIDKey, clusterID)
+
+	if f.privileged {
+		clusterID := cluster.StreamAuthorizedID(ctx)
+		addValueToSpanAttributes(request, clusterIDKey, clusterID)
+	}
 
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {

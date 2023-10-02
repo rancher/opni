@@ -35,8 +35,12 @@ func NewPlugin(ctx context.Context) *Plugin {
 		logger: lg,
 		node:   NewLoggingNode(ct, lg),
 		otelForwarder: otel.NewForwarder(
-			otel.NewLogsForwarder(otel.WithLogger(lg.WithGroup("otel-logs-forwarder"))),
-			otel.NewTraceForwarder(otel.WithLogger(lg.WithGroup("otel-trace-forwarder"))),
+			otel.NewLogsForwarder(
+				otel.WithLogger(lg.WithGroup("otel-logs-forwarder")),
+				otel.WithPrivileged(true)),
+			otel.NewTraceForwarder(
+				otel.WithLogger(lg.WithGroup("otel-trace-forwarder")),
+				otel.WithPrivileged(true)),
 		),
 	}
 

@@ -79,7 +79,7 @@ func BuildAlertingSyncer() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&syncerAlertManagerConfigFilePath, addSyncerPrefix("alertmanager.config.file"), shared.ConfigMountPath, "the alertmanager config file to sync to")
 	cmd.Flags().StringVar(&syncerListenAddress, addSyncerPrefix("listen.address"), ":8080", "the address to listen on")
-	cmd.Flags().StringVar(&syncerAlertManagerAddress, addSyncerPrefix("alertmanager.address"), "http://localhost:9093", "the address of the remote alertmanager instance to sync")
+	cmd.Flags().StringVar(&syncerAlertManagerAddress, addSyncerPrefix("alertmanager.address"), "localhost:9093", "the address of the remote alertmanager instance to sync")
 	cmd.Flags().Int64Var(&syncerPprofPort, addSyncerPrefix("pprof.port"), 0, "the port to listen on for pprof")
 	cmd.Flags().Int64Var(&syncerProfileBlockRate, addSyncerPrefix("profile.block-rate"), 0, "the rate at which to profile blocking operations")
 	cmd.Flags().StringVar(&syncerGatewayJoinAddress, addSyncerPrefix("gateway.join.address"), "", "the address of the gateway to join")

@@ -70,7 +70,7 @@ func init() {
 
 type TestEnvAlertingClusterDriverOptions struct {
 	AlertingOptions *shared.AlertingClusterOptions `option:"alertingOptions"`
-	Subscribers     []chan []client.AlertingPeer   `option:"subscribers"`
+	Subscribers     []chan client.AlertingClient   `option:"subscribers"`
 }
 
 type TestEnvAlertingClusterDriver struct {
@@ -89,8 +89,7 @@ type TestEnvAlertingClusterDriver struct {
 	client.AlertingClient
 
 	embdServerAddress string
-
-	subscribers []chan []client.AlertingPeer
+	subscribers       []chan client.AlertingClient
 }
 
 var (
@@ -195,14 +194,14 @@ func (l *TestEnvAlertingClusterDriver) ConfigureCluster(_ context.Context, confi
 	peers := []client.AlertingPeer{}
 	for _, inst := range l.managedInstances {
 		peers = append(peers, client.AlertingPeer{
-			ApiAddress:      fmt.Sprintf("http://127.0.0.1:%d", inst.AlertManagerPort),
-			EmbeddedAddress: fmt.Sprintf("http://%s", l.embdServerAddress),
+			ApiAddress:      fmt.Sprintf("127.0.0.1:%d", inst.AlertManagerPort),
+			EmbeddedAddress: l.embdServerAddress,
 		})
 	}
 	l.AlertingClient.MemberlistClient().SetKnownPeers(peers)
 
 	for _, subscriber := range l.subscribers {
-		subscriber <- peers
+		subscriber <- l.AlertingClient.Clone()
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -221,6 +220,7 @@ func (l *TestEnvAlertingClusterDriver) GetClusterStatus(ctx context.Context, _ *
 		}, nil
 	}
 	if err := l.AlertingClient.StatusClient().Ready(ctx); err != nil {
+		l.logger.Error(err)
 		return &alertops.InstallStatus{
 			State: alertops.InstallState_InstallUpdating,
 		}, nil
@@ -248,23 +248,33 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(_ context.Context, _ *empt
 			l.StartAlertingBackendServer(l.env.Context(), l.ConfigFile),
 		)
 	}
-	l.AlertingClient = client.NewClient(
-		nil,
-		fmt.Sprintf("http://127.0.0.1:%d", l.managedInstances[0].AlertManagerPort),
-		fmt.Sprintf("http://%s", l.embdServerAddress),
+	var err error
+	l.AlertingClient, err = client.NewClient(
+		client.WithAlertManagerAddress(
+			fmt.Sprintf("127.0.0.1:%d", l.managedInstances[0].AlertManagerPort),
+		),
+		client.WithProxyAddress(
+			fmt.Sprintf("127.0.0.1:%d", l.managedInstances[0].AlertManagerPort),
+		),
+		client.WithQuerierAddress(
+			l.embdServerAddress,
+		),
 	)
+	if err != nil {
+		panic(err)
+	}
 
 	peers := []client.AlertingPeer{}
 	for _, inst := range l.managedInstances {
 		peers = append(peers, client.AlertingPeer{
-			ApiAddress:      fmt.Sprintf("http://127.0.0.1:%d", inst.AlertManagerPort),
-			EmbeddedAddress: fmt.Sprintf("http://%s", l.embdServerAddress),
+			ApiAddress:      fmt.Sprintf("127.0.0.1:%d", inst.AlertManagerPort),
+			EmbeddedAddress: l.embdServerAddress,
 		})
 	}
 	l.AlertingClient.MemberlistClient().SetKnownPeers(peers)
 
 	for _, subscriber := range l.subscribers {
-		subscriber <- peers
+		subscriber <- l.AlertingClient
 	}
 
 	l.enabled.Store(true)
@@ -291,7 +301,7 @@ func (l *TestEnvAlertingClusterDriver) UninstallCluster(_ context.Context, _ *al
 	l.managedInstances = []AlertingServerUnit{}
 	l.enabled.Store(false)
 	for _, subscriber := range l.subscribers {
-		subscriber <- []client.AlertingPeer{}
+		subscriber <- l.AlertingClient
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -327,8 +337,8 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	syncerArgs := []string{
 		"alerting-server",
 		fmt.Sprintf("--syncer.alertmanager.config.file=%s", configFilePath),
-		fmt.Sprintf("--syncer.listen.address=:%d", syncerPort),
-		fmt.Sprintf("--syncer.alertmanager.address=%s", "http://127.0.0.1:"+strconv.Itoa(webPort)),
+		fmt.Sprintf("--syncer.listen.address=127.0.0.1:%d", syncerPort),
+		fmt.Sprintf("--syncer.alertmanager.address=%s", "127.0.0.1:"+strconv.Itoa(webPort)),
 		fmt.Sprintf("--syncer.gateway.join.address=%s", ":"+strings.Split(l.env.GatewayConfig().Spec.Management.GRPCListenAddress, ":")[2]),
 		"syncer",
 	}
@@ -340,11 +350,12 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	alertmanagerArgs := []string{
 		"alerting-server",
 		"alertmanager",
+		"--log.level=error",
+		"--log.format=json",
 		fmt.Sprintf("--config.file=%s", configFilePath),
-		fmt.Sprintf("--web.listen-address=:%d", webPort),
-		fmt.Sprintf("--cluster.listen-address=:%d", clusterPort),
+		fmt.Sprintf("--web.listen-address=127.0.0.1:%d", webPort),
+		fmt.Sprintf("--cluster.listen-address=127.0.0.1:%d", clusterPort),
 		"--storage.path=/tmp/data",
-		// "--log.level=debug",
 	}
 
 	if len(l.managedInstances) > 0 {

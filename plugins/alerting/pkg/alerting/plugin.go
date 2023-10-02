@@ -2,7 +2,6 @@ package alerting
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/rancher/opni/pkg/agent"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -11,6 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	metricsExporter "github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting/proxy"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	metricsdk "go.opentelemetry.io/otel/sdk/metric"
@@ -18,7 +18,6 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/server"
-	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
@@ -47,6 +46,7 @@ func (p *Plugin) Components() []server.ServerComponent {
 		p.NotificationServerComponent,
 		p.EndpointServerComponent,
 		p.AlarmServerComponent,
+		p.httpProxy,
 	}
 }
 
@@ -61,7 +61,7 @@ type Plugin struct {
 	storageClientSet future.Future[spec.AlertingClientSet]
 
 	client.AlertingClient
-	clusterNotifier chan []client.AlertingPeer
+	clusterNotifier chan client.AlertingClient
 	clusterDriver   future.Future[drivers.ClusterDriver]
 	syncController  SyncController
 
@@ -85,7 +85,8 @@ type Plugin struct {
 
 	node node_backend.AlertingNodeBackend
 
-	httpProxy *HttpApiServer
+	httpProxy *proxy.ProxyServer
+	hsServer  *healthStatusServer
 }
 
 var (
@@ -102,13 +103,17 @@ func NewPlugin(ctx context.Context) *Plugin {
 		metricsdk.WithReader(metricReader),
 	))
 	collector := collector.NewCollectorServer(metricReader)
+	alertingClient, err := client.NewClient()
+	if err != nil {
+		panic(err)
+	}
 	p := &Plugin{
 		ctx:    ctx,
 		logger: lg,
 
 		storageClientSet: storageClientSet,
 
-		clusterNotifier: make(chan []client.AlertingPeer),
+		clusterNotifier: make(chan client.AlertingClient),
 		clusterDriver:   future.New[drivers.ClusterDriver](),
 
 		mgmtClient:          future.New[managementv1.ManagementClient](),
@@ -125,20 +130,18 @@ func NewPlugin(ctx context.Context) *Plugin {
 
 		CollectorServer: collector,
 
-		AlertingClient: client.NewClient(
-			nil,
-			fmt.Sprintf("http://%s:9093", shared.AlertmanagerService),
-			fmt.Sprintf("http://%s:3000", shared.AlertmanagerService),
-		),
+		AlertingClient: alertingClient,
 	}
 
 	p.syncController = NewSyncController(p.logger.With("component", "sync-controller"))
-	p.httpProxy = NewHttpApiServer(
-		lg.With("component", "http-proxy"),
-		p.AlertingClient,
+	p.hsServer = newHealthStatusServer(
 		p.ready,
 		p.healthy,
 	)
+	p.httpProxy = proxy.NewProxyServer(
+		lg.With("component", "http-proxy"),
+	)
+
 	p.node = *node_backend.NewAlertingNodeBackend(
 		p.logger.With("component", "node-backend"),
 	)
@@ -236,7 +239,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
-	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p.httpProxy))
+	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p))
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
 		managementext.NewPlugin(
 			util.PackService(

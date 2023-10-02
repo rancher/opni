@@ -333,8 +333,24 @@ func (a *AlertingClusterManager) Info(_ context.Context, _ *emptypb.Empty) (*ale
 }
 
 func (a *AlertingClusterManager) notify(replicas int) {
+	aClient, err := alertingClient.NewClient(
+		alertingClient.WithAlertManagerAddress(
+			fmt.Sprintf("%s:9093", shared.AlertmanagerService),
+		),
+		alertingClient.WithProxyAddress(
+			fmt.Sprintf("%s:9093", shared.AlertmanagerService),
+		),
+		alertingClient.WithQuerierAddress(
+			fmt.Sprintf("%s:3000", shared.AlertmanagerService),
+		),
+	)
+	if err != nil {
+		panic(err)
+	}
+	peers := listPeers(replicas)
+	aClient.MemberlistClient().SetKnownPeers(peers)
 	for _, sub := range a.Subscribers {
-		sub <- listPeers(replicas)
+		sub <- aClient
 	}
 }
 

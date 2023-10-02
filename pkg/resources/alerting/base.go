@@ -207,7 +207,7 @@ func (r *Reconciler) syncerArgs() []string {
 	return []string{
 		fmt.Sprintf("--syncer.alertmanager.config.file=%s", r.configPath()),
 		fmt.Sprintf("--syncer.listen.address=:%d", 4000),
-		fmt.Sprintf("--syncer.alertmanager.address=%s", fmt.Sprintf("http://localhost:%d", 9093)),
+		fmt.Sprintf("--syncer.alertmanager.address=%s", fmt.Sprintf("localhost:%d", 9093)),
 		fmt.Sprintf("--syncer.gateway.join.address=opni-internal:%s", gatewayPort),
 	}
 }

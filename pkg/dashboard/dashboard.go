@@ -15,7 +15,6 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/web"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel"
@@ -83,7 +82,7 @@ func NewServer(config *v1beta1.ManagementSpec, opts ...ServerOption) (*Server, e
 	}, nil
 }
 
-func (ws *Server) ListenAndServe(ctx waitctx.RestrictiveContext) error {
+func (ws *Server) ListenAndServe(ctx context.Context) error {
 	lg := ws.logger
 	var listener net.Listener
 	if ws.config.WebCerts != nil {

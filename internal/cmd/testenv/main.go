@@ -28,11 +28,9 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/test/testlog"
-	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/spf13/pflag"
 	"github.com/ttacon/chalk"
@@ -139,8 +137,9 @@ func main() {
 			ctx, ca := context.WithCancel(context.Background())
 			agentCancelFuncs = append(agentCancelFuncs, ca)
 			agentCancelMu.Unlock()
-			port, errC := environment.StartAgent(body.ID, token.ToBootstrapToken(), body.Pins,
-				append(startOpts, test.WithAgentVersion("v2"), test.WithContext(ctx))...)
+			port := freeport.GetFreePort()
+			_, errC := environment.StartAgent(body.ID, token.ToBootstrapToken(), body.Pins,
+				append(startOpts, test.WithAgentVersion("v2"), test.WithContext(ctx), test.WithListenPort(port))...)
 			if err := <-errC; err != nil {
 				rw.WriteHeader(http.StatusInternalServerError)
 				rw.Write([]byte(err.Error()))
@@ -282,15 +281,13 @@ func main() {
 			url := fmt.Sprintf("http://localhost:%d/debug/pprof/%s", environment.GetPorts().TestEnvironment, path)
 			port := freeport.GetFreePort()
 			cmd := exec.CommandContext(environment.Context(), "go", "tool", "pprof", "-http", fmt.Sprintf("localhost:%d", port), url)
-			session, err := testutil.StartCmd(cmd)
-			if err != nil {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Start(); err != nil {
 				testlog.Log.Error(err)
-			} else {
-				waitctx.Go(environment.Context(), func() {
-					<-environment.Context().Done()
-					session.Wait()
-				})
+				return
 			}
+			go cmd.Wait()
 			testlog.Log.Infof("Starting pprof server on %s", url)
 			return
 		}

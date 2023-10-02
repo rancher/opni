@@ -12,7 +12,6 @@ import (
 	"github.com/rancher/opni/pkg/test/testk8s"
 	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/util/notifier"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -105,7 +104,7 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("integration"
 	var k8sClient client.Client
 	var finder notifier.Finder[rules.RuleGroup]
 	BeforeAll(func() {
-		ctx, ca := context.WithCancel(waitctx.Background())
+		ctx, ca := context.WithCancel(context.Background())
 
 		s := scheme.Scheme
 		monitoringcoreosv1.AddToScheme(s)
@@ -117,10 +116,7 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("integration"
 			Scheme: s,
 		})
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() {
-			ca()
-			waitctx.Wait(ctx)
-		})
+		DeferCleanup(ca)
 
 		Expect(k8sClient.Create(context.Background(), &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{

@@ -11,7 +11,6 @@ import (
 	mock_capability "github.com/rancher/opni/pkg/test/mock/capability"
 	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -48,13 +47,12 @@ var _ = Describe("Server", Ordered, Label("unit"), func() {
 		conf := &v1beta1.ManagementSpec{
 			HTTPListenAddress: "127.0.0.1:0",
 		}
-		ctx := waitctx.Background()
-		server := management.NewServer(ctx, conf, tv.coreDataSource, plugins.NoopLoader)
-		Expect(server.ListenAndServe(ctx).Error()).To(ContainSubstring("GRPCListenAddress not configured"))
+		server := management.NewServer(context.Background(), conf, tv.coreDataSource, plugins.NoopLoader)
+		Expect(server.ListenAndServe(context.Background()).Error()).To(ContainSubstring("GRPCListenAddress not configured"))
 
 		By("checking that invalid config fields cause errors")
 		conf.GRPCListenAddress = "foo://bar"
-		Expect(server.ListenAndServe(ctx)).To(MatchError(util.ErrUnsupportedProtocolScheme))
+		Expect(server.ListenAndServe(context.Background())).To(MatchError(util.ErrUnsupportedProtocolScheme))
 	})
 	It("should allow querying capabilities from the data source", func() {
 		list, err := tv.client.ListCapabilities(context.Background(), &emptypb.Empty{})

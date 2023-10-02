@@ -9,7 +9,6 @@ import (
 	"net"
 	"slices"
 
-	"github.com/hashicorp/go-plugin"
 	"github.com/prometheus/client_golang/prometheus"
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
 	bootstrapv2 "github.com/rancher/opni/pkg/apis/bootstrap/v2"
@@ -39,7 +38,6 @@ import (
 	k8sserver "github.com/rancher/opni/pkg/update/kubernetes/server"
 	patchserver "github.com/rancher/opni/pkg/update/patch/server"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/samber/lo"
 	"github.com/spf13/afero"
 	"go.uber.org/zap"
@@ -297,13 +295,6 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		grpcServer:      grpcServer,
 		statusQuerier:   monitor,
 	}
-
-	waitctx.Go(ctx, func() {
-		<-ctx.Done()
-		lg.Info("shutting down plugins")
-		plugin.CleanupClients()
-		lg.Info("all plugins shut down")
-	})
 
 	return g
 }

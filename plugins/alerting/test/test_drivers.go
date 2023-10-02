@@ -35,7 +35,6 @@ import (
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	node_drivers "github.com/rancher/opni/plugins/alerting/pkg/agent/drivers"
 	alerting_drivers "github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
@@ -398,8 +397,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	}
 
 	l.logger.With("address", fmt.Sprintf("http://127.0.0.1:%d", webPort)).Info("AlertManager started")
-	waitctx.Permissive.Go(ctx, func() {
-		<-ctx.Done()
+	context.AfterFunc(ctx, func() {
 		cmd, _ := session.G()
 		if cmd != nil {
 			cmd.Signal(os.Signal(syscall.SIGTERM))

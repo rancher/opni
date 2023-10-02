@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"time"
 
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
 	"github.com/rancher/opni/controllers"
@@ -16,7 +15,6 @@ import (
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/manager"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/versions"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap/zapcore"
@@ -185,7 +183,7 @@ func BuildManagerCmd() *cobra.Command {
 			return err
 		}
 
-		ctx, cancel := context.WithCancel(waitctx.FromContext(signalCtx))
+		ctx, cancel := context.WithCancel(signalCtx)
 
 		features.PopulateFeatures(ctx, ctrl.GetConfigOrDie())
 		features.FeatureList.WatchConfigMap()
@@ -197,13 +195,13 @@ func BuildManagerCmd() *cobra.Command {
 		}
 
 		errC := make(chan struct{})
-		waitctx.Go(ctx, func() {
+		go func() {
 			setupLog.Info("starting manager")
 			if err := mgr.Start(ctx); err != nil {
 				setupLog.Error(err, "error running manager")
 				close(errC)
 			}
-		})
+		}()
 
 		reloadC := make(chan struct{})
 		go func() {
@@ -216,8 +214,7 @@ func BuildManagerCmd() *cobra.Command {
 		case <-reloadC:
 			setupLog.Info("reload signal received")
 			cancel()
-			// wait for graceful shutdown
-			waitctx.Wait(ctx, 5*time.Second)
+			<-errC
 			return nil
 		case <-errC:
 			setupLog.Error(nil, "error running manager")

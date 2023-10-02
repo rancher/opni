@@ -25,7 +25,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/flagutil"
 	"github.com/rancher/opni/pkg/util/notifier"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
@@ -103,8 +102,10 @@ type TestEnvMetricsClusterDriver struct {
 	status     atomic.Pointer[installStatusLocker]
 	configLock sync.RWMutex
 
-	cortexCtx    context.Context
-	cortexCancel context.CancelFunc
+	cortexCtx          context.Context
+	cortexCancel       context.CancelFunc
+	cortexCmdCtx       context.Context
+	stopCortexCmdAfter func()
 
 	Env             *test.Environment
 	ResourceVersion string
@@ -210,15 +211,12 @@ func (d *TestEnvMetricsClusterDriver) onActiveConfigChanged(old, new *cortexops.
 		zap.Any("new", new),
 	).Info("Config changed")
 
-	oldCtx, oldCancel := d.cortexCtx, d.cortexCancel
-
-	ctx, ca := context.WithCancel(waitctx.FromContext(d.Env.Context()))
-	d.cortexCtx = ctx
-	d.cortexCancel = ca
-
-	if oldCancel != nil {
-		oldCancel()
-		waitctx.Wait(oldCtx)
+	if d.cortexCancel != nil {
+		if new.GetEnabled() && d.stopCortexCmdAfter != nil {
+			d.stopCortexCmdAfter()
+		}
+		d.cortexCancel()
+		<-d.cortexCmdCtx.Done()
 	}
 
 	// NB: apply changes to currentStatus instead of d.status in this function
@@ -244,7 +242,11 @@ func (d *TestEnvMetricsClusterDriver) onActiveConfigChanged(old, new *cortexops.
 		s.AppState = driverutil.ApplicationState_Pending
 	})
 
-	cmdCtx, err := d.Env.StartCortex(ctx, func(cco test.CortexConfigOptions, iso test.ImplementationSpecificOverrides) ([]byte, []byte, error) {
+	ctx, ca := context.WithCancel(d.Env.Context())
+	d.cortexCancel = ca
+
+	var err error
+	d.cortexCmdCtx, err = d.Env.StartCortex(ctx, func(cco test.CortexConfigOptions, iso test.ImplementationSpecificOverrides) ([]byte, []byte, error) {
 		overriders := configutil.MergeOverrideLists(
 			configutil.NewHostOverrides(cco),
 			configutil.NewImplementationSpecificOverrides(iso),
@@ -309,7 +311,7 @@ func (d *TestEnvMetricsClusterDriver) onActiveConfigChanged(old, new *cortexops.
 		return
 	}
 
-	context.AfterFunc(cmdCtx, func() {
+	context.AfterFunc(d.cortexCmdCtx, func() {
 		currentStatus.Use(func(s *driverutil.InstallStatus) {
 			s.AppState = driverutil.ApplicationState_Failed
 			s.Warnings = append(s.Warnings, fmt.Sprintf("error: cortex exited unexpectedly"))
@@ -371,6 +373,7 @@ type TestEnvPrometheusNodeDriver struct {
 	prometheusMu     sync.Mutex
 	prometheusCtx    context.Context
 	prometheusCancel context.CancelFunc
+	prometheusCmdCtx context.Context
 }
 
 func (d *TestEnvPrometheusNodeDriver) ConfigureRuleGroupFinder(config *v1beta1.RulesSpec) notifier.Finder[rules.RuleGroup] {
@@ -399,15 +402,13 @@ func (d *TestEnvPrometheusNodeDriver) ConfigureNode(nodeId string, conf *node.Me
 	if exists && !shouldExist {
 		lg.Info("stopping prometheus")
 		d.prometheusCancel()
-		waitctx.Wait(d.prometheusCtx)
-		d.prometheusCancel = nil
-		d.prometheusCtx = nil
+		<-d.prometheusCmdCtx.Done()
 	} else if !exists && shouldExist {
 		lg.Info("starting prometheus")
 		ctx, ca := context.WithCancel(d.env.Context())
-		ctx = waitctx.FromContext(ctx)
 		// this is the only place where UnsafeStartPrometheus is safe
-		_, err := d.env.UnsafeStartPrometheus(ctx, nodeId)
+		var err error
+		d.prometheusCmdCtx, err = d.env.UnsafeStartPrometheus(ctx, nodeId)
 		if err != nil {
 			defer ca()
 			if errors.Is(err, context.Canceled) {
@@ -440,6 +441,7 @@ type TestEnvOtelNodeDriver struct {
 	otelMu     sync.Mutex
 	otelCtx    context.Context
 	otelCancel context.CancelFunc
+	otelCmdCtx context.Context
 }
 
 // ConfigureNode implements drivers.MetricsNodeDriver.
@@ -464,14 +466,12 @@ func (d *TestEnvOtelNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsC
 	if exists && !shouldExist {
 		lg.Info("stopping otel")
 		d.otelCancel()
-		waitctx.Wait(d.otelCtx)
-		d.otelCancel = nil
-		d.otelCtx = nil
+		<-d.otelCmdCtx.Done()
 	} else if !exists && shouldExist {
 		lg.Info("starting otel")
 		ctx, ca := context.WithCancel(d.env.Context())
-		ctx = waitctx.FromContext(ctx)
-		err := d.env.StartOTELCollectorContext(ctx, nodeId, node.CompatOTELStruct(conf.GetSpec().GetOtel()))
+		var err error
+		d.otelCmdCtx, err = d.env.StartOTELCollectorContext(ctx, nodeId, node.CompatOTELStruct(conf.GetSpec().GetOtel()))
 		if err != nil {
 			lg.With("err", err).Error("failed to configure otel collector")
 			ca()

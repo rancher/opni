@@ -8,7 +8,6 @@ import (
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/ident/kubernetes"
 	"github.com/rancher/opni/pkg/test/testk8s"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -20,14 +19,11 @@ var _ = Describe("Kubernetes", Ordered, Label("integration", "slow"), func() {
 	var restConfig *rest.Config
 	BeforeAll(func() {
 		var err error
-		ctx, ca := context.WithCancel(waitctx.Background())
+		ctx, ca := context.WithCancel(context.Background())
 		restConfig, _, err = testk8s.StartK8s(ctx, nil, scheme.Scheme)
 		Expect(err).NotTo(HaveOccurred())
 
-		DeferCleanup(func() {
-			ca()
-			waitctx.Wait(ctx)
-		})
+		DeferCleanup(ca)
 	})
 	It("should obtain a unique identifier from a kubernetes cluster", func() {
 		ident.RegisterProvider("k8s-test", func(_ ...any) ident.Provider {

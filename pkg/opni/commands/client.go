@@ -3,12 +3,9 @@
 package commands
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
 	"github.com/rancher/opni/apis"
@@ -21,7 +18,6 @@ import (
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/manager"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/versions"
 	"github.com/rancher/wrangler/pkg/crd"
 	"github.com/spf13/cobra"
@@ -59,158 +55,130 @@ func BuildClientCmd() *cobra.Command {
 		opniCentral  bool
 	)
 
-	run := func(signalCtx context.Context) error {
-		tracing.Configure("client")
-
-		if echoVersion {
-			fmt.Println(versions.Version)
-			return nil
-		}
-
-		if os.Getenv("DO_NOT_TRACK") == "1" {
-			disableUsage = true
-		}
-
-		level, err := zapcore.ParseLevel(logLevel)
-		if err != nil {
-			return err
-		}
-
-		ctrl.SetLogger(k8sutil.NewControllerRuntimeLogger(level))
-
-		config := ctrl.GetConfigOrDie()
-
-		mgr, err := ctrl.NewManager(config, ctrl.Options{
-			Scheme:                 scheme,
-			MetricsBindAddress:     metricsAddr,
-			Port:                   9443,
-			HealthProbeBindAddress: probeAddr,
-			LeaderElection:         false,
-		})
-		if err != nil {
-			setupLog.Error(err, "unable to start client manager")
-			return err
-		}
-
-		crdFactory, err := crd.NewFactoryFromClient(config)
-		if err != nil {
-			setupLog.Error(err, "unable to create crd factory")
-			return err
-		}
-
-		var upgradeChecker *upgraderesponder.UpgradeChecker
-		if !(disableUsage || common.DisableUsage) {
-			upgradeRequester := manager.UpgradeRequester{
-				Version:     versions.Version,
-				InstallType: manager.InstallTypeAgent,
-			}
-			upgradeRequester.SetupLoggerWithManager(mgr)
-			setupLog.Info("Usage tracking enabled", "current-version", versions.Version)
-			upgradeChecker = upgraderesponder.NewUpgradeChecker(upgradeResponderAddress, &upgradeRequester)
-			upgradeChecker.Start()
-			defer upgradeChecker.Stop()
-		}
-
-		// Apply CRDs
-		crds := []crd.CRD{}
-		for _, crdFunc := range []crdFunc{
-			opnicorev1beta1.CollectorCRD,
-			loggingv1beta1.CollectorConfigCRD,
-			monitoringv1beta1.CollectorConfigCRD,
-			opnicorev1beta1.KeyringCRD,
-		} {
-			crd, err := crdFunc()
-			if err != nil {
-				setupLog.Error(err, "failed to create crd")
-				return err
-			}
-			crds = append(crds, *crd)
-		}
-
-		// Only create prometheus crds if they don't already exist
-		for _, crdFunc := range []crdFunc{
-			monitoringv1beta1.ServiceMonitorCRD,
-			monitoringv1beta1.PodMonitorCRD,
-			// Need to include Prometheus CRD for deletes even if we're not using prometheus
-			monitoringv1beta1.PrometheusCRD,
-			monitoringv1beta1.PrometheusAgentCRD,
-		} {
-			crd, err := crdFunc()
-			if err != nil {
-				setupLog.Error(err, "failed to create crd")
-				return err
-			}
-			name := strings.ToLower(crd.PluralName + "." + crd.GVK.Group)
-			_, err = crdFactory.CRDClient.ApiextensionsV1().CustomResourceDefinitions().Get(signalCtx, name, metav1.GetOptions{})
-			if err != nil {
-				if k8serrors.IsNotFound(err) {
-					crds = append(crds, *crd)
-				} else {
-					setupLog.Error(err, "failed to get crd")
-					return err
-				}
-			}
-		}
-
-		err = crdFactory.BatchCreateCRDs(signalCtx, crds...).BatchWait()
-		if err != nil {
-			setupLog.Error(err, "failed to apply crds")
-			return err
-		}
-
-		if err = (&controllers.CoreCollectorReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Core Collector")
-			return err
-		}
-
-		// +kubebuilder:scaffold:builder
-
-		if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
-			setupLog.Error(err, "unable to set up health check")
-			return err
-		}
-		if err := mgr.AddReadyzCheck("check", healthz.Ping); err != nil {
-			setupLog.Error(err, "unable to set up ready check")
-			return err
-		}
-
-		ctx, cancel := context.WithCancel(waitctx.FromContext(signalCtx))
-
-		errC := make(chan struct{})
-		waitctx.Go(ctx, func() {
-			setupLog.Info("starting manager")
-			if err := mgr.Start(ctx); err != nil {
-				setupLog.Error(err, "error running manager")
-				close(errC)
-			}
-		})
-
-		reloadC := make(chan struct{})
-
-		select {
-		case <-reloadC:
-			setupLog.Info("reload signal received")
-			cancel()
-			// wait for graceful shutdown
-			waitctx.Wait(ctx, 5*time.Second)
-			return nil
-		case <-errC:
-			setupLog.Error(nil, "error running manager")
-			cancel()
-			return errors.New("error running manager")
-		}
-	}
-
 	cmd := &cobra.Command{
 		Use:   "client",
 		Short: "Run the Opni Client Manager",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			signalCtx := ctrl.SetupSignalHandler()
-			for {
-				if err := run(signalCtx); err != nil {
+			tracing.Configure("client")
+
+			if echoVersion {
+				fmt.Println(versions.Version)
+				return nil
+			}
+
+			if os.Getenv("DO_NOT_TRACK") == "1" {
+				disableUsage = true
+			}
+
+			level, err := zapcore.ParseLevel(logLevel)
+			if err != nil {
+				return err
+			}
+
+			ctrl.SetLogger(k8sutil.NewControllerRuntimeLogger(level))
+
+			config := ctrl.GetConfigOrDie()
+
+			mgr, err := ctrl.NewManager(config, ctrl.Options{
+				Scheme:                 scheme,
+				MetricsBindAddress:     metricsAddr,
+				Port:                   9443,
+				HealthProbeBindAddress: probeAddr,
+				LeaderElection:         false,
+			})
+			if err != nil {
+				setupLog.Error(err, "unable to start client manager")
+				return err
+			}
+
+			crdFactory, err := crd.NewFactoryFromClient(config)
+			if err != nil {
+				setupLog.Error(err, "unable to create crd factory")
+				return err
+			}
+
+			var upgradeChecker *upgraderesponder.UpgradeChecker
+			if !(disableUsage || common.DisableUsage) {
+				upgradeRequester := manager.UpgradeRequester{
+					Version:     versions.Version,
+					InstallType: manager.InstallTypeAgent,
+				}
+				upgradeRequester.SetupLoggerWithManager(mgr)
+				setupLog.Info("Usage tracking enabled", "current-version", versions.Version)
+				upgradeChecker = upgraderesponder.NewUpgradeChecker(upgradeResponderAddress, &upgradeRequester)
+				upgradeChecker.Start()
+				defer upgradeChecker.Stop()
+			}
+
+			// Apply CRDs
+			crds := []crd.CRD{}
+			for _, crdFunc := range []crdFunc{
+				opnicorev1beta1.CollectorCRD,
+				loggingv1beta1.CollectorConfigCRD,
+				monitoringv1beta1.CollectorConfigCRD,
+				opnicorev1beta1.KeyringCRD,
+			} {
+				crd, err := crdFunc()
+				if err != nil {
+					setupLog.Error(err, "failed to create crd")
 					return err
 				}
+				crds = append(crds, *crd)
 			}
+
+			// Only create prometheus crds if they don't already exist
+			for _, crdFunc := range []crdFunc{
+				monitoringv1beta1.ServiceMonitorCRD,
+				monitoringv1beta1.PodMonitorCRD,
+				// Need to include Prometheus CRD for deletes even if we're not using prometheus
+				monitoringv1beta1.PrometheusCRD,
+				monitoringv1beta1.PrometheusAgentCRD,
+			} {
+				crd, err := crdFunc()
+				if err != nil {
+					setupLog.Error(err, "failed to create crd")
+					return err
+				}
+				name := strings.ToLower(crd.PluralName + "." + crd.GVK.Group)
+				_, err = crdFactory.CRDClient.ApiextensionsV1().CustomResourceDefinitions().Get(cmd.Context(), name, metav1.GetOptions{})
+				if err != nil {
+					if k8serrors.IsNotFound(err) {
+						crds = append(crds, *crd)
+					} else {
+						setupLog.Error(err, "failed to get crd")
+						return err
+					}
+				}
+			}
+
+			err = crdFactory.BatchCreateCRDs(cmd.Context(), crds...).BatchWait()
+			if err != nil {
+				setupLog.Error(err, "failed to apply crds")
+				return err
+			}
+
+			if err = (&controllers.CoreCollectorReconciler{}).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "Core Collector")
+				return err
+			}
+
+			// +kubebuilder:scaffold:builder
+
+			if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
+				setupLog.Error(err, "unable to set up health check")
+				return err
+			}
+			if err := mgr.AddReadyzCheck("check", healthz.Ping); err != nil {
+				setupLog.Error(err, "unable to set up ready check")
+				return err
+			}
+
+			setupLog.Info("starting manager")
+			if err := mgr.Start(cmd.Context()); err != nil {
+				setupLog.Error(err, "error running manager")
+				return err
+			}
+			return nil
 		},
 	}
 

@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"testing"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,7 +20,6 @@ import (
 	_ "github.com/rancher/opni/pkg/test/setup"
 	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/pkg/test/testlog"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc"
 )
@@ -64,7 +62,7 @@ func setupManagementServer(vars **testVars, pl plugins.LoaderInterface, opts ...
 		} else {
 			tv.ctrl = gomock.NewController(GinkgoT())
 		}
-		ctx, ca := context.WithCancel(waitctx.Background())
+		ctx, ca := context.WithCancel(context.Background())
 		tv.storageBackend = mock_storage.NewTestStorageBackend(ctx, tv.ctrl)
 		ports := freeport.GetFreePorts(2)
 		conf := &v1beta1.ManagementSpec{
@@ -96,9 +94,6 @@ func setupManagementServer(vars **testVars, pl plugins.LoaderInterface, opts ...
 		tv.grpcEndpoint = fmt.Sprintf("127.0.0.1:%d", ports[0])
 		tv.httpEndpoint = fmt.Sprintf("http://127.0.0.1:%d", ports[1])
 		*vars = tv
-		DeferCleanup(func() {
-			ca()
-			waitctx.Wait(ctx, 5*time.Second)
-		})
+		DeferCleanup(ca)
 	}
 }

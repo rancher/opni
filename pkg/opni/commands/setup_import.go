@@ -3,6 +3,7 @@
 package commands
 
 import (
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 	"github.com/spf13/cobra"
 )
@@ -24,17 +25,7 @@ func ConfigureImportCommand(cmd *cobra.Command) {
 	}
 }
 
-func importPreRunE(cmd *cobra.Command, _ []string) error {
-	if managementListenAddress == "" {
-		panic("bug: managementListenAddress is empty")
-	}
-
-	client, err := remoteread.NewGatewayClient(cmd.Context(), remoteread.WithListenAddress(managementListenAddress))
-	if err != nil {
-		return err
-	}
-
-	remoteReadClient = client
-
+func importPreRunE(_ *cobra.Command, _ []string) error {
+	remoteReadClient = remoteread.NewRemoteReadGatewayClient(managementv1.UnderlyingConn(mgmtClient))
 	return nil
 }

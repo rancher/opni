@@ -10,7 +10,6 @@ import (
 	"github.com/rancher/opni/apis"
 	_ "github.com/rancher/opni/pkg/test/setup"
 	"github.com/rancher/opni/pkg/test/testk8s"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,7 +36,7 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	ctx, ca := context.WithCancel(waitctx.Background())
+	ctx, ca := context.WithCancel(context.Background())
 	var err error
 
 	restConfig, scheme, err = testk8s.StartK8s(ctx, []string{
@@ -59,9 +58,5 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	DeferCleanup(func() {
-		By("tearing down the test environment")
-		ca()
-		waitctx.Wait(ctx)
-	})
+	DeferCleanup(ca)
 })

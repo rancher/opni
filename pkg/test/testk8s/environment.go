@@ -10,14 +10,13 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
-func StartManager(ctx waitctx.PermissiveContext, restConfig *rest.Config, scheme *k8sruntime.Scheme, reconcilers ...Reconciler) ctrl.Manager {
+func StartManager(ctx context.Context, restConfig *rest.Config, scheme *k8sruntime.Scheme, reconcilers ...Reconciler) ctrl.Manager {
 	ports := freeport.GetFreePorts(2)
 
 	manager := util.Must(ctrl.NewManager(restConfig, ctrl.Options{
@@ -28,15 +27,15 @@ func StartManager(ctx waitctx.PermissiveContext, restConfig *rest.Config, scheme
 	for _, reconciler := range reconcilers {
 		util.Must(reconciler.SetupWithManager(manager))
 	}
-	waitctx.Permissive.Go(ctx, func() {
+	go func() {
 		if err := manager.Start(ctx); err != nil {
 			panic(err)
 		}
-	})
+	}()
 	return manager
 }
 
-func StartK8s(ctx waitctx.PermissiveContext, crdDirs []string, scheme *k8sruntime.Scheme) (*rest.Config, *k8sruntime.Scheme, error) {
+func StartK8s(ctx context.Context, crdDirs []string, scheme *k8sruntime.Scheme) (*rest.Config, *k8sruntime.Scheme, error) {
 	port := freeport.GetFreePort()
 
 	testbin, err := test.FindTestBin()
@@ -68,6 +67,9 @@ func StartK8s(ctx waitctx.PermissiveContext, crdDirs []string, scheme *k8sruntim
 	if err != nil {
 		return nil, nil, err
 	}
+	context.AfterFunc(ctx, func() {
+		k8sEnv.Stop()
+	})
 
 	// wait for the apiserver to be ready
 	readyCount := 0
@@ -85,11 +87,6 @@ func StartK8s(ctx waitctx.PermissiveContext, crdDirs []string, scheme *k8sruntim
 		readyCount = 0
 		time.Sleep(100 * time.Millisecond)
 	}
-
-	waitctx.Permissive.Go(ctx, func() {
-		<-ctx.Done()
-		k8sEnv.Stop()
-	})
 
 	return cfg, scheme, nil
 }

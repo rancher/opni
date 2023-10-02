@@ -9,12 +9,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/prometheus/model/rulefmt"
-	"github.com/rancher/opni/pkg/test/mock/rules"
+	mock_rules "github.com/rancher/opni/pkg/test/mock/rules"
 	"github.com/samber/lo"
 
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/util/notifier"
-	"github.com/rancher/opni/pkg/util/waitctx"
 )
 
 var _ = Describe("Update Notifier", Label("unit"), func() {
@@ -112,7 +111,7 @@ var _ = Describe("Update Notifier", Label("unit"), func() {
 		}
 		contexts := make([]ctxCa, count)
 		for i := 0; i < count; i++ {
-			ctx, ca := context.WithCancel(waitctx.Background())
+			ctx, ca := context.WithCancel(context.Background())
 			contexts[i] = ctxCa{
 				ctx: ctx,
 				ca:  ca,
@@ -134,7 +133,6 @@ var _ = Describe("Update Notifier", Label("unit"), func() {
 
 		for i := 0; i < count; i++ {
 			contexts[i].ca()
-			waitctx.Wait(contexts[i].ctx, 5*time.Second)
 		}
 
 		go un.Refresh(context.Background())

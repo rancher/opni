@@ -28,7 +28,6 @@ import (
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/waitctx"
 
 	_ "github.com/rancher/opni/pkg/ident/kubernetes"
 	_ "github.com/rancher/opni/pkg/plugins/apis"
@@ -47,8 +46,6 @@ func BuildAgentV2Cmd() *cobra.Command {
 		Use:   "agentv2",
 		Short: "Run the v2 agent",
 		Run: func(cmd *cobra.Command, args []string) {
-			ctx, ca := context.WithCancel(waitctx.FromContext(cmd.Context()))
-			defer ca()
 
 			tracing.Configure("agentv2")
 			agentlg := logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(logLevel))))
@@ -94,7 +91,7 @@ func BuildAgentV2Cmd() *cobra.Command {
 				}
 			}
 
-			p, err := agentv2.New(ctx, agentConfig,
+			p, err := agentv2.New(cmd.Context(), agentConfig,
 				agentv2.WithBootstrapper(bootstrapper),
 				agentv2.WithRebootstrap(rebootstrap),
 			)
@@ -103,7 +100,12 @@ func BuildAgentV2Cmd() *cobra.Command {
 				return
 			}
 
-			err = p.ListenAndServe(ctx)
+			err = p.ListenAndServe(cmd.Context())
+
+			agentlg.Info("shutting down plugins")
+			plugin.CleanupClients()
+			agentlg.Info("all plugins shut down")
+
 			if err != nil {
 				const rebootstrapArg = "--re-bootstrap"
 				var shouldRestart bool
@@ -121,19 +123,15 @@ func BuildAgentV2Cmd() *cobra.Command {
 					agentlg.With(
 						zap.Error(err),
 					).Warn("preparing to restart agent")
-					ca()
-					plugin.CleanupClients()
-					waitctx.Wait(ctx)
+
 					agentlg.Info(chalk.Yellow.Color("--- restarting agent ---"))
 					args := append(lo.Without(os.Args, withoutArgs...), extraArgs...)
 					panic(syscall.Exec(os.Args[0], args, os.Environ()))
 				}
-				agentlg.Error(err)
-				return
+				if !errors.Is(err, context.Canceled) {
+					agentlg.Error(err)
+				}
 			}
-
-			<-ctx.Done()
-			waitctx.Wait(ctx)
 		},
 	}
 	cmd.Flags().StringVar(&configFile, "config", "", "Absolute path to a config file")

@@ -19,6 +19,7 @@ import (
 	"github.com/rancher/opni/pkg/metrics"
 	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
@@ -77,10 +78,11 @@ var _ = Describe("Tenant Impersonation", Ordered, Label("integration"), func() {
 
 		fp := certs.Chain[len(certs.Chain)-1].Fingerprint
 
-		agent1Port, errC := env.StartAgent("agent1", token, []string{fp}, test.WithAgentVersion("v2"), test.WithLocalAgent())
+		agentPorts := freeport.GetFreePorts(2)
+		_, errC := env.StartAgent("agent1", token, []string{fp}, test.WithAgentVersion("v2"), test.WithLocalAgent(), test.WithListenPort(agentPorts[0]))
 		Eventually(errC).Should(Receive(BeNil()))
 
-		agent2Port, errC := env.StartAgent("agent2", token, []string{fp}, test.WithAgentVersion("v2"))
+		_, errC = env.StartAgent("agent2", token, []string{fp}, test.WithAgentVersion("v2"), test.WithListenPort(agentPorts[1]))
 		Eventually(errC).Should(Receive(BeNil()))
 
 		err = cortexops.InstallWithPreset(env.Context(), cortexOpsClient)
@@ -104,13 +106,13 @@ var _ = Describe("Tenant Impersonation", Ordered, Label("integration"), func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		agent1RwClient, err = remote.NewWriteClient("agent1", &remote.ClientConfig{
-			URL:     &config.URL{URL: util.Must(url.Parse(fmt.Sprintf("http://127.0.0.1:%d/api/agent/push", agent1Port)))},
+			URL:     &config.URL{URL: util.Must(url.Parse(fmt.Sprintf("http://127.0.0.1:%d/api/agent/push", agentPorts[0])))},
 			Timeout: model.Duration(time.Second * 10),
 		})
 		Expect(err).NotTo(HaveOccurred())
 
 		agent2RwClient, err = remote.NewWriteClient("agent2", &remote.ClientConfig{
-			URL:     &config.URL{URL: util.Must(url.Parse(fmt.Sprintf("http://127.0.0.1:%d/api/agent/push", agent2Port)))},
+			URL:     &config.URL{URL: util.Must(url.Parse(fmt.Sprintf("http://127.0.0.1:%d/api/agent/push", agentPorts[1])))},
 			Timeout: model.Duration(time.Second * 10),
 		})
 		Expect(err).NotTo(HaveOccurred())

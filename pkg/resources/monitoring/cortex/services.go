@@ -10,39 +10,52 @@ import (
 )
 
 func (r *Reconciler) services() []resources.Resource {
+	svcOpts := []CortexServiceOption{
+		AddServiceMonitor(),
+	}
+	if targets := r.mc.Spec.Cortex.CortexWorkloads.GetTargets(); len(targets) == 1 &&
+		lo.ValueOr(targets, all, nil) != nil {
+		svcOpts = append(svcOpts, WithTargetLabelOverride(all))
+	}
+
 	resources := []resources.Resource{
 		r.memberlistService(),
 	}
-	resources = append(resources, r.buildCortexWorkloadServices(alertmanager,
-		AddServiceMonitor(),
+	resources = append(resources, r.buildCortexWorkloadServices(
+		alertmanager,
+		svcOpts...,
 	)...)
-	resources = append(resources, r.buildCortexWorkloadServices(compactor,
-		AddServiceMonitor(),
+	resources = append(resources, r.buildCortexWorkloadServices(
+		compactor,
+		svcOpts...,
 	)...)
-	resources = append(resources, r.buildCortexWorkloadServices(purger,
-		AddServiceMonitor(),
+	resources = append(resources, r.buildCortexWorkloadServices(
+		purger,
+		svcOpts...,
 	)...)
-	resources = append(resources, r.buildCortexWorkloadServices(distributor,
-		AddHeadlessService(true),
-		AddServiceMonitor(),
+	resources = append(resources, r.buildCortexWorkloadServices(
+		distributor,
+		append(svcOpts, AddHeadlessService(true))...,
 	)...)
-	resources = append(resources, r.buildCortexWorkloadServices(ingester,
-		AddHeadlessService(false),
-		AddServiceMonitor(),
+	resources = append(resources, r.buildCortexWorkloadServices(
+		ingester,
+		append(svcOpts, AddHeadlessService(false))...,
 	)...)
-	resources = append(resources, r.buildCortexWorkloadServices(querier,
-		AddServiceMonitor(),
+	resources = append(resources, r.buildCortexWorkloadServices(
+		querier,
+		svcOpts...,
 	)...)
-	resources = append(resources, r.buildCortexWorkloadServices(queryFrontend,
-		AddHeadlessService(true),
-		AddServiceMonitor(),
+	resources = append(resources, r.buildCortexWorkloadServices(
+		queryFrontend,
+		append(svcOpts, AddHeadlessService(true))...,
 	)...)
-	resources = append(resources, r.buildCortexWorkloadServices(ruler,
-		AddServiceMonitor(),
+	resources = append(resources, r.buildCortexWorkloadServices(
+		ruler,
+		svcOpts...,
 	)...)
-	resources = append(resources, r.buildCortexWorkloadServices(storeGateway,
-		AddHeadlessService(false),
-		AddServiceMonitor(),
+	resources = append(resources, r.buildCortexWorkloadServices(
+		storeGateway,
+		append(svcOpts, AddHeadlessService(false))...,
 	)...)
 	return resources
 }

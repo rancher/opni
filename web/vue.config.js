@@ -48,12 +48,8 @@ baseConfig.devServer.proxy = {
 
 baseConfig.configureWebpack = (config) => {
   config.cache = { type: 'filesystem' };
-  const comitHash = require('child_process').execSync('git rev-parse HEAD').toString().trim();
 
-  config.plugins.push(new webpack.DefinePlugin({
-    'process.env.isStandalone': JSON.stringify(isStandalone),
-    'process.env.commitHash':   JSON.stringify(comitHash)
-  }));
+  config.plugins.push(new webpack.DefinePlugin({ 'process.env.isStandalone': JSON.stringify(isStandalone) }));
 
   baseConfigureWebpack(config);
 };

@@ -37,20 +37,26 @@ import (
 //		}
 //	}
 func NewBaseConfigServer[
+	G GetRequestType,
+	S SetRequestType[T],
 	R ResetRequestType[T],
+	H HistoryRequestType,
 	HR HistoryResponseType[T],
 	T InstallableConfigType[T],
 ](
 	defaultStore, activeStore storage.ValueStoreT[T],
 	loadDefaultsFunc DefaultLoaderFunc[T],
-) *BaseConfigServer[R, HR, T] {
-	return &BaseConfigServer[R, HR, T]{
+) *BaseConfigServer[G, S, R, H, HR, T] {
+	return &BaseConfigServer[G, S, R, H, HR, T]{
 		tracker: NewDefaultingConfigTracker[T](defaultStore, activeStore, loadDefaultsFunc),
 	}
 }
 
 type BaseConfigServer[
+	G GetRequestType,
+	S SetRequestType[T],
 	R ResetRequestType[T],
+	H HistoryRequestType,
 	HR HistoryResponseType[T],
 	T InstallableConfigType[T],
 ] struct {
@@ -58,17 +64,17 @@ type BaseConfigServer[
 }
 
 // GetConfiguration implements ConfigurableServerInterface.
-func (s *BaseConfigServer[R, HR, T]) GetConfiguration(ctx context.Context, in *GetRequest) (T, error) {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) GetConfiguration(ctx context.Context, in G) (T, error) {
 	return s.tracker.GetConfigOrDefault(ctx, in.GetRevision())
 }
 
 // GetDefaultConfiguration implements ConfigurableServerInterface.
-func (s *BaseConfigServer[R, HR, T]) GetDefaultConfiguration(ctx context.Context, in *GetRequest) (T, error) {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) GetDefaultConfiguration(ctx context.Context, in G) (T, error) {
 	return s.tracker.GetDefaultConfig(ctx, in.GetRevision())
 }
 
 // Install implements ConfigurableServerInterface.
-func (s *BaseConfigServer[R, HR, T]) Install(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) Install(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	var t T
 	t = t.ProtoReflect().New().Interface().(T)
 	s.setEnabled(t, lo.ToPtr(true))
@@ -80,7 +86,7 @@ func (s *BaseConfigServer[R, HR, T]) Install(ctx context.Context, _ *emptypb.Emp
 }
 
 // ResetDefaultConfiguration implements ConfigurableServerInterface.
-func (s *BaseConfigServer[R, HR, T]) ResetDefaultConfiguration(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) ResetDefaultConfiguration(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	if err := s.tracker.ResetDefaultConfig(ctx); err != nil {
 		return nil, err
 	}
@@ -88,7 +94,7 @@ func (s *BaseConfigServer[R, HR, T]) ResetDefaultConfiguration(ctx context.Conte
 }
 
 // ResetConfiguration implements ConfigurableServerInterface.
-func (s *BaseConfigServer[R, HR, T]) ResetConfiguration(ctx context.Context, in R) (*emptypb.Empty, error) {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) ResetConfiguration(ctx context.Context, in R) (*emptypb.Empty, error) {
 	// If T contains a field named "enabled", assume it has installation semantics
 	// and ensure a non-nil mask is always passed to ResetConfig. This ensures
 	// the active config is never deleted from the underlying store, and therefore
@@ -114,25 +120,25 @@ func (s *BaseConfigServer[R, HR, T]) ResetConfiguration(ctx context.Context, in 
 }
 
 // SetConfiguration implements ConfigurableServerInterface.
-func (s *BaseConfigServer[R, HR, T]) SetConfiguration(ctx context.Context, t T) (*emptypb.Empty, error) {
-	s.setEnabled(t, nil)
-	if err := s.tracker.ApplyConfig(ctx, t); err != nil {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) SetConfiguration(ctx context.Context, in S) (*emptypb.Empty, error) {
+	s.setEnabled(in.GetSpec(), nil)
+	if err := s.tracker.ApplyConfig(ctx, in.GetSpec()); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
 // SetDefaultConfiguration implements ConfigurableServerInterface.
-func (s *BaseConfigServer[R, HR, T]) SetDefaultConfiguration(ctx context.Context, t T) (*emptypb.Empty, error) {
-	s.setEnabled(t, nil)
-	if err := s.tracker.SetDefaultConfig(ctx, t); err != nil {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) SetDefaultConfiguration(ctx context.Context, in S) (*emptypb.Empty, error) {
+	s.setEnabled(in.GetSpec(), nil)
+	if err := s.tracker.SetDefaultConfig(ctx, in.GetSpec()); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
 // Uninstall implements ConfigurableServerInterface.
-func (s *BaseConfigServer[R, HR, T]) Uninstall(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) Uninstall(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	var t T
 	t = t.ProtoReflect().New().Interface().(T)
 	s.setEnabled(t, lo.ToPtr(false))
@@ -143,7 +149,7 @@ func (s *BaseConfigServer[R, HR, T]) Uninstall(ctx context.Context, _ *emptypb.E
 	return &emptypb.Empty{}, nil
 }
 
-func (s *BaseConfigServer[R, HR, T]) setEnabled(t T, enabled *bool) {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) setEnabled(t T, enabled *bool) {
 	field := util.FieldByName[T]("enabled")
 	if field == nil {
 		return
@@ -156,21 +162,21 @@ func (s *BaseConfigServer[R, HR, T]) setEnabled(t T, enabled *bool) {
 	}
 }
 
-func (s *BaseConfigServer[R, HR, T]) ConfigurationHistory(ctx context.Context, req *ConfigurationHistoryRequest) (HR, error) {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) ConfigurationHistory(ctx context.Context, in H) (HR, error) {
 	options := []storage.HistoryOpt{
-		storage.IncludeValues(req.GetIncludeValues()),
+		storage.IncludeValues(in.GetIncludeValues()),
 	}
-	if req.Revision != nil {
-		options = append(options, storage.WithRevision(req.GetRevision().GetRevision()))
+	if in.GetRevision() != nil {
+		options = append(options, storage.WithRevision(in.GetRevision().GetRevision()))
 	}
-	revisions, err := s.tracker.History(ctx, req.GetTarget(), options...)
+	revisions, err := s.tracker.History(ctx, in.GetTarget(), options...)
 	resp := util.NewMessage[HR]()
 	if err != nil {
 		return resp, err
 	}
 	entries := resp.ProtoReflect().Mutable(util.FieldByName[HR]("entries")).List()
 	for _, rev := range revisions {
-		if req.IncludeValues {
+		if in.GetIncludeValues() {
 			spec := rev.Value()
 			SetRevision(spec, rev.Revision(), rev.Timestamp())
 			entries.Append(protoreflect.ValueOfMessage(spec.ProtoReflect()))
@@ -183,6 +189,6 @@ func (s *BaseConfigServer[R, HR, T]) ConfigurationHistory(ctx context.Context, r
 	return resp, nil
 }
 
-func (s *BaseConfigServer[R, HR, T]) Tracker() *DefaultingConfigTracker[T] {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) Tracker() *DefaultingConfigTracker[T] {
 	return s.tracker
 }

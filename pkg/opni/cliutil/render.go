@@ -9,9 +9,7 @@ import (
 	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/prometheus/common/model"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/tokens"
-	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/samber/lo"
 	"github.com/ttacon/chalk"
 )
@@ -247,21 +245,6 @@ func RenderAccessMatrix(am AccessMatrix) string {
 	return w.Render()
 }
 
-func RenderCapabilityList(list *managementv1.CapabilityList) string {
-	w := table.NewWriter()
-	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"NAME", "SOURCE", "DRIVERS", "CLUSTERS"})
-	for _, c := range list.Items {
-		w.AppendRow(table.Row{
-			c.GetDetails().GetName(),
-			c.GetDetails().GetSource(),
-			strings.Join(c.GetDetails().GetDrivers(), ","),
-			c.GetNodeCount(),
-		})
-	}
-	return w.Render()
-}
-
 func RenderMetricSamples(samples []*model.Sample) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
@@ -277,19 +260,6 @@ func RenderMetricSamples(samples []*model.Sample) string {
 			continue
 		}
 		w.AppendRow(table.Row{s.Metric["namespace"], user, s.Value})
-	}
-	return w.Render()
-}
-
-func RenderCortexRules(resp *cortexadmin.ListRulesResponse) string {
-	w := table.NewWriter()
-	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"cluster", "namespace", "group name", "rule name", "type", "health", "alert state"})
-
-	for _, group := range resp.Data.Groups {
-		for _, rule := range group.Rules {
-			w.AppendRow(table.Row{group.ClusterId, group.File, group.Name, rule.Name, rule.Type, rule.Health, rule.State})
-		}
 	}
 	return w.Render()
 }

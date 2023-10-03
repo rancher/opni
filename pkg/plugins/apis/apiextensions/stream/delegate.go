@@ -15,6 +15,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// TODO: move this elsewhere and use it in the delegate server to allow connecting
+// the server to itself
+
 // Aggregator allows the user to aggregate the responses from a broadcast request, and store the result in reply.
 type Aggregator func(reply any, msg *streamv1.BroadcastReplyList) error
 

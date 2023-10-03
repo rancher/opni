@@ -253,9 +253,9 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ConfigClient interface {
 	GetDefaultConfiguration(ctx context.Context, in *driverutil.GetRequest, opts ...grpc.CallOption) (*ConfigSpec, error)
-	SetDefaultConfiguration(ctx context.Context, in *ConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	SetDefaultConfiguration(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetConfiguration(ctx context.Context, in *driverutil.GetRequest, opts ...grpc.CallOption) (*ConfigSpec, error)
-	SetConfiguration(ctx context.Context, in *ConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	SetConfiguration(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ResetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ResetConfiguration(ctx context.Context, in *ResetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DryRun(ctx context.Context, in *DryRunRequest, opts ...grpc.CallOption) (*DryRunResponse, error)
@@ -279,7 +279,7 @@ func (c *configClient) GetDefaultConfiguration(ctx context.Context, in *driverut
 	return out, nil
 }
 
-func (c *configClient) SetDefaultConfiguration(ctx context.Context, in *ConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *configClient) SetDefaultConfiguration(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, Config_SetDefaultConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -297,7 +297,7 @@ func (c *configClient) GetConfiguration(ctx context.Context, in *driverutil.GetR
 	return out, nil
 }
 
-func (c *configClient) SetConfiguration(ctx context.Context, in *ConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *configClient) SetConfiguration(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, Config_SetConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -347,9 +347,9 @@ func (c *configClient) ConfigurationHistory(ctx context.Context, in *driverutil.
 // for forward compatibility
 type ConfigServer interface {
 	GetDefaultConfiguration(context.Context, *driverutil.GetRequest) (*ConfigSpec, error)
-	SetDefaultConfiguration(context.Context, *ConfigSpec) (*emptypb.Empty, error)
+	SetDefaultConfiguration(context.Context, *SetRequest) (*emptypb.Empty, error)
 	GetConfiguration(context.Context, *driverutil.GetRequest) (*ConfigSpec, error)
-	SetConfiguration(context.Context, *ConfigSpec) (*emptypb.Empty, error)
+	SetConfiguration(context.Context, *SetRequest) (*emptypb.Empty, error)
 	ResetDefaultConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	ResetConfiguration(context.Context, *ResetRequest) (*emptypb.Empty, error)
 	DryRun(context.Context, *DryRunRequest) (*DryRunResponse, error)
@@ -364,13 +364,13 @@ type UnimplementedConfigServer struct {
 func (UnimplementedConfigServer) GetDefaultConfiguration(context.Context, *driverutil.GetRequest) (*ConfigSpec, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDefaultConfiguration not implemented")
 }
-func (UnimplementedConfigServer) SetDefaultConfiguration(context.Context, *ConfigSpec) (*emptypb.Empty, error) {
+func (UnimplementedConfigServer) SetDefaultConfiguration(context.Context, *SetRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetDefaultConfiguration not implemented")
 }
 func (UnimplementedConfigServer) GetConfiguration(context.Context, *driverutil.GetRequest) (*ConfigSpec, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetConfiguration not implemented")
 }
-func (UnimplementedConfigServer) SetConfiguration(context.Context, *ConfigSpec) (*emptypb.Empty, error) {
+func (UnimplementedConfigServer) SetConfiguration(context.Context, *SetRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetConfiguration not implemented")
 }
 func (UnimplementedConfigServer) ResetDefaultConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
@@ -417,7 +417,7 @@ func _Config_GetDefaultConfiguration_Handler(srv interface{}, ctx context.Contex
 }
 
 func _Config_SetDefaultConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ConfigSpec)
+	in := new(SetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -429,7 +429,7 @@ func _Config_SetDefaultConfiguration_Handler(srv interface{}, ctx context.Contex
 		FullMethod: Config_SetDefaultConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ConfigServer).SetDefaultConfiguration(ctx, req.(*ConfigSpec))
+		return srv.(ConfigServer).SetDefaultConfiguration(ctx, req.(*SetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -453,7 +453,7 @@ func _Config_GetConfiguration_Handler(srv interface{}, ctx context.Context, dec 
 }
 
 func _Config_SetConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ConfigSpec)
+	in := new(SetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -465,7 +465,7 @@ func _Config_SetConfiguration_Handler(srv interface{}, ctx context.Context, dec 
 		FullMethod: Config_SetConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ConfigServer).SetConfiguration(ctx, req.(*ConfigSpec))
+		return srv.(ConfigServer).SetConfiguration(ctx, req.(*SetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

@@ -1,0 +1,180 @@
+syntax = "proto3";
+
+package node.metrics.config;
+
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "github.com/rancher/opni/pkg/config/v1beta1/agent_config.proto";
+import "github.com/rancher/opni/pkg/plugins/driverutil/types.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/descriptor.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+
+option go_package = "github.com/rancher/opni/plugins/metrics/apis/node";
+option (cli.generator) = {
+  generate: true
+};
+
+// The NodeConfiguration service allows for per-node configuration of the
+// metrics capability.
+// Served as a management API extension.
+service NodeConfiguration {
+  option (cli.command_group) = {
+    use: "config"
+  };
+  rpc GetDefaultConfiguration(driverutil.GetRequest) returns (MetricsCapabilityConfig) {
+    option (cli.command) = {
+      use: "config get-default"
+    };
+    option (google.api.http) = {
+      get: "/node_config"
+    };
+  }
+  rpc SetDefaultConfiguration(SetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "config set-default"
+      granularity: EditMessage;
+    };
+    option (google.api.http) = {
+      put:  "/node_config"
+      body: "*"
+    };
+  }
+  rpc ResetDefaultConfiguration(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "config reset-default"
+    };
+    option (google.api.http) = {
+      delete: "/node_config"
+    };
+  }
+
+  rpc GetConfiguration(NodeGetRequest) returns (MetricsCapabilityConfig) {
+    option (cli.command) = {
+      use: "config get"
+    };
+    option (google.api.http) = {
+      get: "/node_config/{id}"
+    };
+  }
+  rpc SetConfiguration(NodeSetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "config set"
+      granularity: EditMessage;
+    };
+    option (google.api.http) = {
+      put:  "/node_config/{node.id}"
+      body: "*"
+    };
+  }
+  rpc ResetConfiguration(NodeResetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "config reset"
+    };
+    option (google.api.http) = {
+      delete: "/node_config/{node.id}"
+    };
+  }
+  rpc ConfigurationHistory(ConfigurationHistoryRequest) returns (ConfigurationHistoryResponse) {
+    option (cli.command) = {
+      use: "config history"
+    };
+    option (google.api.http) = {
+      get: "/node_config/{node.id}/history"
+    };
+  }
+}
+
+// This message is strictly an implementation detail and used for sync request/response only.
+// It is NOT persisted to the key-value store.
+message MetricsCapabilityStatus {
+  // Note: this field is not used as part of an installable config type. It is
+  // older and kept for compatibility purposes.
+  bool enabled = 1;
+  // If enabled is false, conditions may contain a list of relevant status
+  // messages describing why the capability is disabled.
+  repeated string         conditions = 2;
+  MetricsCapabilityConfig spec       = 3;
+}
+
+// This message is the persisted configuration for a single node, or the
+// default configuration for all nodes.
+message MetricsCapabilityConfig {
+  core.Revision revision = 5;
+
+  .config.v1beta1.RulesSpec rules = 1 [(cli.flag_set).default = {
+    [type.googleapis.com/config.v1beta1.RulesSpec]: {
+      discovery: {
+        prometheusRules: {
+          searchNamespaces: [""]; // search all namespaces
+        }
+      }
+    }
+  }];
+
+  optional string driver     = 4 [(cli.flag).default = "prometheus"];
+  PrometheusSpec  prometheus = 2;
+  OTELSpec        otel       = 3;
+}
+
+message PrometheusSpec {
+  optional string image = 1 [(cli.flag).default = "quay.io/prometheus/prometheus:latest"];
+  reserved 2;
+}
+
+message ScrapeConfig {
+  optional string jobName        = 1;
+  repeated string targets        = 2;
+  optional string scrapeInterval = 3;
+}
+
+message OTELSpec {
+  repeated ScrapeConfig additionalScrapeConfigs = 1;
+  WALConfig             wal                     = 2;
+  optional bool         hostMetrics             = 3;
+}
+
+message WALConfig {
+  optional bool            enabled           = 1;
+  optional int64           bufferSize        = 2;
+  google.protobuf.Duration truncateFrequency = 3;
+}
+
+enum ConfigStatus {
+  Unknown     = 0;
+  UpToDate    = 1;
+  NeedsUpdate = 2;
+}
+
+message ConfigurationHistoryResponse {
+  repeated MetricsCapabilityConfig entries = 1;
+}
+
+message NodeResetRequest {
+  core.Reference            node  = 1;
+  google.protobuf.FieldMask mask  = 2 [(cli.flag).skip = true];
+  MetricsCapabilityConfig   patch = 3 [(cli.flag).skip = true];
+}
+
+message NodeGetRequest {
+  core.Reference node     = 1;
+  core.Revision  revision = 2;
+}
+
+message NodeSetRequest {
+  core.Reference          node = 1;
+  MetricsCapabilityConfig spec = 2;
+}
+
+message SetRequest {
+  MetricsCapabilityConfig spec = 2;
+}
+
+message ConfigurationHistoryRequest {
+  core.Reference    node          = 1;
+  driverutil.Target target        = 2;
+  core.Revision     revision      = 3 [(cli.flag_set).no_prefix = true];
+  bool              includeValues = 4 [(cli.flag).default = "true"];
+}

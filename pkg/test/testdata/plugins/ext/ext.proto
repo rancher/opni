@@ -131,13 +131,17 @@ message BazRequest {
 }
 
 message SampleConfiguration {
-  optional bool       enabled       = 1;
-  core.Revision       revision      = 2 [(cli.flag).skip = true];
+  optional bool       enabled       = 1 [(cli.flag).skip = true];
+  core.Revision       revision      = 2;
   optional string     stringField   = 3;
   optional string     secretField   = 4 [(cli.flag).secret = true];
   map<string, string> mapField      = 5;
   repeated string     repeatedField = 6;
   SampleMessage       messageField  = 7;
+}
+
+message SampleSetRequest {
+  SampleConfiguration spec = 2;
 }
 
 message SampleDryRunRequest {

@@ -16,12 +16,26 @@ import (
 )
 
 type ExampleDriver interface {
-	driverutil.ConfigServer[*ConfigSpec, *ResetRequest, *HistoryResponse]
+	driverutil.ConfigServer[
+		*ConfigSpec,
+		*driverutil.GetRequest,
+		*SetRequest,
+		*ResetRequest,
+		*driverutil.ConfigurationHistoryRequest,
+		*HistoryResponse,
+	]
 	driverutil.DryRunServer[*ConfigSpec, *DryRunRequest, *DryRunResponse]
 }
 
 type DriverImpl struct {
-	*driverutil.BaseConfigServer[*ResetRequest, *HistoryResponse, *ConfigSpec]
+	*driverutil.BaseConfigServer[
+		*driverutil.GetRequest,
+		*SetRequest,
+		*ResetRequest,
+		*driverutil.ConfigurationHistoryRequest,
+		*HistoryResponse,
+		*ConfigSpec,
+	]
 }
 
 var drivers = driverutil.NewDriverCache[ExampleDriver]()
@@ -33,7 +47,13 @@ type ExampleDriverImplOptions struct {
 
 func NewExampleDriverImpl(options ExampleDriverImplOptions) *DriverImpl {
 	return &DriverImpl{
-		BaseConfigServer: driverutil.NewBaseConfigServer[*ResetRequest, *HistoryResponse](
+		BaseConfigServer: driverutil.NewBaseConfigServer[
+			*driverutil.GetRequest,
+			*SetRequest,
+			*ResetRequest,
+			*driverutil.ConfigurationHistoryRequest,
+			*HistoryResponse,
+		](
 			options.DefaultConfigStore,
 			options.ActiveConfigStore,
 			flagutil.LoadDefaults,
@@ -121,12 +141,12 @@ func (b *ConfigServerBackend) ResetDefaultConfiguration(ctx context.Context, in 
 	return b.driver.ResetDefaultConfiguration(ctx, in)
 }
 
-func (b *ConfigServerBackend) SetConfiguration(ctx context.Context, in *ConfigSpec) (*emptypb.Empty, error) {
+func (b *ConfigServerBackend) SetConfiguration(ctx context.Context, in *SetRequest) (*emptypb.Empty, error) {
 	b.WaitForInit()
 	return b.driver.SetConfiguration(ctx, in)
 }
 
-func (b *ConfigServerBackend) SetDefaultConfiguration(ctx context.Context, in *ConfigSpec) (*emptypb.Empty, error) {
+func (b *ConfigServerBackend) SetDefaultConfiguration(ctx context.Context, in *SetRequest) (*emptypb.Empty, error) {
 	b.WaitForInit()
 	return b.driver.SetDefaultConfiguration(ctx, in)
 }

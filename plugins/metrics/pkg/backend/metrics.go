@@ -4,17 +4,16 @@ import (
 	"context"
 	"errors"
 	"sync"
-	"sync/atomic"
 
 	"github.com/rancher/opni/pkg/agent"
-	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/util/flagutil"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -41,9 +40,6 @@ type MetricsBackend struct {
 	MetricsBackendConfig
 	OpsBackend  *OpsServiceBackend
 	NodeBackend *NodeServiceBackend
-
-	nodeStatusMu sync.RWMutex
-	nodeStatus   map[string]*capabilityv1.NodeCapabilityStatus
 
 	// the stored remoteread.Target should never have their status populated
 	remoteReadTargetMu sync.RWMutex
@@ -72,8 +68,8 @@ type MetricsBackendConfig struct {
 
 type KVClients struct {
 	DefaultClusterConfigurationSpec storage.ValueStoreT[*cortexops.CapabilityBackendConfigSpec]
-	DefaultCapabilitySpec           storage.ValueStoreT[*node.MetricsCapabilitySpec]
-	NodeCapabilitySpecs             storage.KeyValueStoreT[*node.MetricsCapabilitySpec]
+	DefaultCapabilitySpec           storage.ValueStoreT[*node.MetricsCapabilityConfig]
+	NodeCapabilitySpecs             storage.KeyValueStoreT[*node.MetricsCapabilityConfig]
 }
 
 func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
@@ -82,8 +78,8 @@ func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
 			panic(err)
 		}
 		m.MetricsBackendConfig = conf
-		m.nodeStatus = make(map[string]*capabilityv1.NodeCapabilityStatus)
 		m.remoteReadTargets = make(map[string]*remoteread.Target)
+		m.NodeBackend.srv = driverutil.NewDefaultingActiveKeyedConfigTracker(conf.KV.DefaultCapabilitySpec, conf.KV.NodeCapabilitySpecs, flagutil.LoadDefaults)
 	})
 }
 
@@ -170,63 +166,43 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 		"time", status.LastSync.AsTime(),
 	).Debugf("synced node")
 
-	nodeSpec, err := m.getNodeSpecOrDefault(ctx, id)
+	nodeSpec, err := m.NodeBackend.GetConfiguration(ctx, &driverutil.GetRequest{})
 	if err != nil {
 		return nil, err
 	}
 	return buildResponse(req.GetCurrentConfig(), &node.MetricsCapabilityConfig{
-		Enabled:    enabled,
+		Enabled:    &enabled,
 		Conditions: conditions,
-		Spec:       nodeSpec,
+		Spec:       nodeSpec.GetSpec(),
 	}), nil
 }
 
-var (
-	// The "default" default node spec. Exported for testing purposes.
-	FallbackDefaultNodeSpec atomic.Pointer[node.MetricsCapabilitySpec]
-)
+// func (m *MetricsBackend) getDefaultNodeSpec(ctx context.Context) (*node.MetricsCapabilitySpec, error) {
+// 	nodeSpec, err := m.KV.DefaultCapabilitySpec.Get(ctx)
+// 	if status.Code(err) == codes.NotFound {
+// 		nodeSpec = FallbackDefaultNodeSpec.Load()
+// 	} else if err != nil {
+// 		m.Logger.With(zap.Error(err)).Error("failed to get default capability spec")
+// 		return nil, status.Errorf(codes.Unavailable, "failed to get default capability spec: %v", err)
+// 	}
+// 	grpc.SetTrailer(ctx, node.DefaultConfigMetadata())
+// 	return nodeSpec, nil
+// }
 
-func init() {
-	FallbackDefaultNodeSpec.Store(&node.MetricsCapabilitySpec{
-		Rules: &v1beta1.RulesSpec{
-			Discovery: &v1beta1.DiscoverySpec{
-				PrometheusRules: &v1beta1.PrometheusRulesSpec{},
-			},
-		},
-		Driver: &node.MetricsCapabilitySpec_Prometheus{
-			Prometheus: &node.PrometheusSpec{
-				DeploymentStrategy: "externalPromOperator",
-			},
-		},
-	})
-}
-
-func (m *MetricsBackend) getDefaultNodeSpec(ctx context.Context) (*node.MetricsCapabilitySpec, error) {
-	nodeSpec, err := m.KV.DefaultCapabilitySpec.Get(ctx)
-	if status.Code(err) == codes.NotFound {
-		nodeSpec = FallbackDefaultNodeSpec.Load()
-	} else if err != nil {
-		m.Logger.With(zap.Error(err)).Error("failed to get default capability spec")
-		return nil, status.Errorf(codes.Unavailable, "failed to get default capability spec: %v", err)
-	}
-	grpc.SetTrailer(ctx, node.DefaultConfigMetadata())
-	return nodeSpec, nil
-}
-
-func (m *MetricsBackend) getNodeSpecOrDefault(ctx context.Context, id string) (*node.MetricsCapabilitySpec, error) {
-	nodeSpec, err := m.KV.NodeCapabilitySpecs.Get(ctx, id)
-	if status.Code(err) == codes.NotFound {
-		return m.getDefaultNodeSpec(ctx)
-	} else if err != nil {
-		m.Logger.With(zap.Error(err)).Error("failed to get node capability spec")
-		return nil, status.Errorf(codes.Unavailable, "failed to get node capability spec: %v", err)
-	}
-	// handle the case where an older config is now invalid: reset to factory default
-	if err := nodeSpec.Validate(); err != nil {
-		return m.getDefaultNodeSpec(ctx)
-	}
-	return nodeSpec, nil
-}
+// func (m *MetricsBackend) getNodeSpecOrDefault(ctx context.Context, id string) (*node.MetricsCapabilitySpec, error) {
+// 	nodeSpec, err := m.KV.NodeCapabilitySpecs.Get(ctx, id)
+// 	if status.Code(err) == codes.NotFound {
+// 		return m.getDefaultNodeSpec(ctx)
+// 	} else if err != nil {
+// 		m.Logger.With(zap.Error(err)).Error("failed to get node capability spec")
+// 		return nil, status.Errorf(codes.Unavailable, "failed to get node capability spec: %v", err)
+// 	}
+// 	// handle the case where an older config is now invalid: reset to factory default
+// 	if err := nodeSpec.Validate(); err != nil {
+// 		return m.getDefaultNodeSpec(ctx)
+// 	}
+// 	return nodeSpec, nil
+// }
 
 // the calling function must have exclusive ownership of both old and new
 func buildResponse(old, new *node.MetricsCapabilityConfig) *node.SyncResponse {

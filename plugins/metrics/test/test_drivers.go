@@ -97,7 +97,14 @@ func (l *installStatusLocker) Use(f func(*driverutil.InstallStatus)) {
 
 type TestEnvMetricsClusterDriver struct {
 	cortexops.UnsafeCortexOpsServer
-	*driverutil.BaseConfigServer[*cortexops.ResetRequest, *cortexops.ConfigurationHistoryResponse, *cortexops.CapabilityBackendConfigSpec]
+	*driverutil.BaseConfigServer[
+		*driverutil.GetRequest,
+		*cortexops.SetRequest,
+		*cortexops.ResetRequest,
+		*driverutil.ConfigurationHistoryRequest,
+		*cortexops.ConfigurationHistoryResponse,
+		*cortexops.CapabilityBackendConfigSpec,
+	]
 
 	status     atomic.Pointer[installStatusLocker]
 	configLock sync.RWMutex
@@ -186,7 +193,10 @@ func NewTestEnvMetricsClusterDriver(env *test.Environment) *TestEnvMetricsCluste
 		}
 	}()
 	configSrv := driverutil.NewBaseConfigServer[
+		*driverutil.GetRequest,
+		*cortexops.SetRequest,
 		*cortexops.ResetRequest,
+		*driverutil.ConfigurationHistoryRequest,
 		*cortexops.ConfigurationHistoryResponse,
 	](defaultStore, activeStore, flagutil.LoadDefaults)
 

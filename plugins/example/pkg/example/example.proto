@@ -42,7 +42,7 @@ service Config {
       use: "get-default"
     };
   }
-  rpc SetDefaultConfiguration(ConfigSpec) returns (google.protobuf.Empty) {
+  rpc SetDefaultConfiguration(SetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
       use: "set-default"
       granularity: EditMessage;
@@ -53,7 +53,7 @@ service Config {
       use: "get"
     };
   }
-  rpc SetConfiguration(ConfigSpec) returns (google.protobuf.Empty) {
+  rpc SetConfiguration(SetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
       use: "set"
       granularity: EditMessage;
@@ -82,7 +82,7 @@ service Config {
 
 message ConfigSpec {
   optional bool    enabled    = 1 [(cli.flag).skip = true];
-  core.Revision    revision   = 2 [(cli.flag).skip = true];
+  core.Revision    revision   = 2;
   optional string  stringVar  = 3;
   optional int32   intVar     = 4;
   optional bool    boolVar    = 5;
@@ -118,4 +118,8 @@ message HistoryResponse {
 message Message {
   repeated string     stringSliceVar = 1;
   map<string, string> stringMapVar   = 2;
+}
+
+message SetRequest {
+  ConfigSpec spec = 1;
 }

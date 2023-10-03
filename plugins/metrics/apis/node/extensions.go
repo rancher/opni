@@ -6,7 +6,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func (m *MetricsCapabilitySpec) RuleDiscoveryEnabled() bool {
+func (m *MetricsCapabilityConfig) RuleDiscoveryEnabled() bool {
 	return m.Rules != nil && m.Rules.Discovery != nil
 }
 
@@ -35,17 +35,17 @@ func CompatOTELStruct(in *OTELSpec) *otel.OTELSpec {
 	}
 	if in.Wal != nil {
 		out.Wal = &otel.WALConfig{
-			Enabled:           in.Wal.Enabled,
-			BufferSize:        in.Wal.BufferSize,
-			TruncateFrequency: in.Wal.TruncateFrequency,
+			Enabled:           in.GetWal().GetEnabled(),
+			BufferSize:        in.GetWal().GetBufferSize(),
+			TruncateFrequency: in.GetWal().GetTruncateFrequency(),
 		}
 	}
 
 	for _, s := range in.AdditionalScrapeConfigs {
 		out.AdditionalScrapeConfigs = append(out.AdditionalScrapeConfigs, &otel.ScrapeConfig{
-			JobName:        s.JobName,
-			Targets:        s.Targets,
-			ScrapeInterval: s.ScrapeInterval,
+			JobName:        s.GetJobName(),
+			Targets:        s.GetTargets(),
+			ScrapeInterval: s.GetScrapeInterval(),
 		})
 	}
 	return out

@@ -8,7 +8,6 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/nsf/jsondiff"
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/plugins/driverutil/complete"
@@ -30,12 +29,21 @@ import (
 //
 //	rollback.BuildCmd("rollback", NewXClientFromContext)
 func BuildCmd[
-	C driverutil.Client[T, R, D, DR, HR],
 	T driverutil.ConfigType[T],
+	G driverutil.GetRequestType,
+	S driverutil.SetRequestType[T],
 	R driverutil.ResetRequestType[T],
 	D driverutil.DryRunRequestType[T],
 	DR driverutil.DryRunResponseType[T],
+	H driverutil.HistoryRequestType,
 	HR driverutil.HistoryResponseType[T],
+	C interface {
+		driverutil.GetClient[T, G]
+		driverutil.SetClient[T, S]
+		driverutil.ResetClient[T, R]
+		driverutil.DryRunClient[T, D, DR]
+		driverutil.HistoryClient[T, H, HR]
+	},
 ](use string, newClientFunc func(context.Context) (C, bool)) *cobra.Command {
 	var (
 		revision   *int64
@@ -43,6 +51,9 @@ func BuildCmd[
 		diffFull   bool
 		diffFormat string
 	)
+	var getRequest = util.NewMessage[G]()
+	var historyRequest = util.NewMessage[H]()
+
 	cmd := &cobra.Command{
 		Use:   use,
 		Short: `Revert the active or default configuration to a previous revision.`,
@@ -86,26 +97,26 @@ the secret values will not change from the current configuration.
 
 			switch target {
 			case driverutil.Target_ActiveConfiguration:
+				withoutRevision := util.ProtoClone(getRequest)
+				driverutil.UnsetRevision(withoutRevision)
 				var err error
-				currentConfig, err = client.GetConfiguration(cmd.Context(), &driverutil.GetRequest{})
+				currentConfig, err = client.GetConfiguration(cmd.Context(), withoutRevision)
 				if err != nil {
 					return err
 				}
-				targetConfig, err = client.GetConfiguration(cmd.Context(), &driverutil.GetRequest{
-					Revision: corev1.NewRevision(*revision),
-				})
+				targetConfig, err = client.GetConfiguration(cmd.Context(), getRequest)
 				if err != nil {
 					return err
 				}
 			case driverutil.Target_DefaultConfiguration:
+				withoutRevision := util.ProtoClone(getRequest)
+				driverutil.UnsetRevision(withoutRevision)
 				var err error
-				currentConfig, err = client.GetDefaultConfiguration(cmd.Context(), &driverutil.GetRequest{})
+				currentConfig, err = client.GetDefaultConfiguration(cmd.Context(), withoutRevision)
 				if err != nil {
 					return err
 				}
-				targetConfig, err = client.GetDefaultConfiguration(cmd.Context(), &driverutil.GetRequest{
-					Revision: corev1.NewRevision(*revision),
-				})
+				targetConfig, err = client.GetDefaultConfiguration(cmd.Context(), getRequest)
 				if err != nil {
 					return err
 				}
@@ -277,15 +288,15 @@ the secret values will not change from the current configuration.
 					// reset using a mask that includes all present fields in the target config,
 					// and the target config as the patch.
 					resetReq := util.NewMessage[R]()
-
-					rm := resetReq.ProtoReflect()
-					rmd := rm.Descriptor()
-					rm.Set(rmd.Fields().ByName("mask"), protoreflect.ValueOfMessage(fieldmask.ByPresence(targetConfig.ProtoReflect()).ProtoReflect()))
-					rm.Set(rmd.Fields().ByName("patch"), protoreflect.ValueOfMessage(targetConfig.ProtoReflect()))
+					resetReq.ProtoReflect().Set(util.FieldByName[S]("mask"), protoreflect.ValueOfMessage(fieldmask.ByPresence(targetConfig.ProtoReflect()).ProtoReflect()))
+					resetReq.ProtoReflect().Set(util.FieldByName[S]("patch"), protoreflect.ValueOfMessage(targetConfig.ProtoReflect()))
 
 					_, err = client.ResetConfiguration(cmd.Context(), resetReq)
 				case driverutil.Target_DefaultConfiguration:
-					_, err = client.SetDefaultConfiguration(cmd.Context(), targetConfig)
+					setReq := util.NewMessage[S]()
+					setReq.ProtoReflect().Set(util.FieldByName[S]("spec"), protoreflect.ValueOfMessage(targetConfig.ProtoReflect()))
+
+					_, err = client.SetDefaultConfiguration(cmd.Context(), setReq)
 				}
 				if err != nil {
 					cmd.PrintErrln("rollback failed:", err)
@@ -295,26 +306,34 @@ the secret values will not change from the current configuration.
 			}
 		},
 	}
-	cmd.Flags().Var(flagutil.IntPtrValue(nil, &revision), "revision", "revision to rollback to")
-	cmd.Flags().Var(flagutil.EnumValue(&target), "target", "the configuration type to rollback")
-	cmd.PersistentFlags().BoolVar(&diffFull, "diff-full", false, "show full diff, including all unchanged fields")
-	cmd.PersistentFlags().StringVar(&diffFormat, "diff-format", "console", "diff format (console, json, html)")
 
+	// adds --revision and any other custom flags defined on G
+	cmd.Flags().AddFlagSet(getRequest.FlagSet())
 	cmd.MarkFlagRequired("revision")
-
-	cmd.RegisterFlagCompletionFunc("target", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return []string{"ActiveConfiguration", "DefaultConfiguration"}, cobra.ShellCompDirectiveDefault
-	})
-	cmd.RegisterFlagCompletionFunc("diff-format", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return []string{"console", "json", "html"}, cobra.ShellCompDirectiveDefault
-	})
 	cmd.RegisterFlagCompletionFunc("revision", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		cliutil.BasePreRunE(cmd, args)
 		client, ok := newClientFunc(cmd.Context())
 		if !ok {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
-		return complete.Revisions(cmd.Context(), target, client)
+		return complete.Revisions(cmd.Context(), historyRequest, client)
+	})
+
+	// adds --target and any other custom flags defined on H. H also would
+	// add the --revision flag again, but because it has already been added
+	// by the G flagset, it will be ignored.
+	cmd.Flags().AddFlagSet(historyRequest.FlagSet())
+	flagutil.SetDefValue(cmd.Flags(), "include-values", "true")
+	cmd.Flags().MarkHidden("include-values")
+
+	cmd.PersistentFlags().BoolVar(&diffFull, "diff-full", false, "show full diff, including all unchanged fields")
+	cmd.PersistentFlags().StringVar(&diffFormat, "diff-format", "console", "diff format (console, json, html)")
+
+	cmd.RegisterFlagCompletionFunc("target", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"ActiveConfiguration", "DefaultConfiguration"}, cobra.ShellCompDirectiveDefault
+	})
+	cmd.RegisterFlagCompletionFunc("diff-format", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"console", "json", "html"}, cobra.ShellCompDirectiveDefault
 	})
 	return cmd
 }

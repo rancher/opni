@@ -11,6 +11,8 @@ import store from './store';
 
 // Init the package
 export default function(plugin: IPlugin, context: any) {
+  console.log(`%cThe UI is currently at this commit: ${ process.env.commitHash }`, 'color: #a453b9;');
+
   // Auto-import model, detail, edit from the folders
   importTypes(plugin);
 

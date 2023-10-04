@@ -9,22 +9,22 @@ import (
 type EvaluatorContext struct {
 	Ctx     context.Context
 	Cancel  context.CancelFunc
-	running atomic.Bool
+	running *atomic.Bool
 }
 
 type Runner struct {
 	// conditionId -> subsriber pull context cancel func
-	systemConditionUpdateListeners map[string]EvaluatorContext
-	systemConditionMu              sync.Mutex
+	systemConditionUpdateListeners map[string]*EvaluatorContext
+	systemConditionMu              *sync.Mutex
 }
 
 func NewRunner() *Runner {
 	return &Runner{
-		systemConditionUpdateListeners: make(map[string]EvaluatorContext),
+		systemConditionUpdateListeners: make(map[string]*EvaluatorContext),
 	}
 }
 
-func (n *Runner) AddSystemConfigListener(conditionId string, eCtx EvaluatorContext) {
+func (n *Runner) AddSystemConfigListener(conditionId string, eCtx *EvaluatorContext) {
 	n.systemConditionMu.Lock()
 	defer n.systemConditionMu.Unlock()
 	if oldContext, ok := n.systemConditionUpdateListeners[conditionId]; ok {

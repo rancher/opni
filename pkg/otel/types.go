@@ -6,6 +6,8 @@ import (
 
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/collector/processor/batchprocessor"
+	"go.opentelemetry.io/collector/processor/memorylimiterprocessor"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"gopkg.in/yaml.v2"
 )
@@ -35,6 +37,7 @@ type AggregatorConfig struct {
 	Metrics       MetricsConfig
 	Containerized bool
 	LogLevel      string
+	OTELConfig    OTELConfigSpec
 }
 
 type LoggingConfig struct {
@@ -57,6 +60,14 @@ type OTELSpec struct {
 	AdditionalScrapeConfigs []*ScrapeConfig `json:"additionalScrapeConfigs,omitempty"`
 	Wal                     *WALConfig      `json:"wal,omitempty"`
 	HostMetrics             *bool           `json:"hostMetrics,omitempty"`
+}
+
+type OTELConfigSpec struct {
+	// Batch Processor Configs
+	BatchProcessor batchprocessor.Config `json:"batch,omitempty"`
+
+	// Memory Limiter Processor Configs
+	MemoryLimiterProcessor memorylimiterprocessor.Config `json:"memoryLimiter,omitempty"`
 }
 
 type ScrapeConfig struct {

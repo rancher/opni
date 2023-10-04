@@ -1,6 +1,7 @@
 package v1beta1
 
 import (
+	"github.com/rancher/opni/pkg/otel"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/wrangler/pkg/crd"
 	"github.com/rancher/wrangler/pkg/schemas/openapi"
@@ -24,6 +25,7 @@ type CollectorSpec struct {
 	MetricsConfig      *corev1.LocalObjectReference `json:"metricsConfig,omitempty"`
 	ConfigReloader     *ConfigReloaderSpec          `json:"configReloader,omitempty"`
 	LogLevel           string                       `json:"logLevel,omitempty"`
+	OTELSpec           *otel.OTELConfigSpec         `json:"otel,omitempty"`
 }
 
 type ConfigReloaderSpec struct {

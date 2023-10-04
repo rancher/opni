@@ -5,6 +5,7 @@
 package v1beta1
 
 import (
+	"github.com/rancher/opni/pkg/otel"
 	"github.com/rancher/opni/pkg/util/meta"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
@@ -399,6 +400,11 @@ func (in *CollectorSpec) DeepCopyInto(out *CollectorSpec) {
 	if in.ConfigReloader != nil {
 		in, out := &in.ConfigReloader, &out.ConfigReloader
 		*out = new(ConfigReloaderSpec)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.OTELSpec != nil {
+		in, out := &in.OTELSpec, &out.OTELSpec
+		*out = new(otel.OTELConfigSpec)
 		(*in).DeepCopyInto(*out)
 	}
 }

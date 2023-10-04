@@ -73,6 +73,7 @@ func (r *Reconciler) getAggregatorConfig(
 		AgentEndpoint: r.collector.Spec.AgentEndpoint,
 		Containerized: true,
 		LogLevel:      r.collector.Spec.LogLevel,
+		OTELConfig:    *r.collector.Spec.OTELSpec,
 	}
 }
 

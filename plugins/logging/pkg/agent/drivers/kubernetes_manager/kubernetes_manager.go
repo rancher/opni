@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/cisco-open/k8s-objectmatcher/patch"
 	"github.com/lestrrat-go/backoff/v2"
@@ -21,6 +22,8 @@ import (
 	"github.com/rancher/opni/plugins/logging/apis/node"
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/collector/processor/batchprocessor"
+	"go.opentelemetry.io/collector/processor/memorylimiterprocessor"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -323,6 +326,21 @@ func (m *KubernetesManagerDriver) buildEmptyCollector() *opnicorev1beta1.Collect
 			},
 			SystemNamespace: m.Namespace,
 			AgentEndpoint:   otel.AgentEndpoint(serviceName),
+			OTELSpec: &otel.OTELConfigSpec{
+				MemoryLimiterProcessor: memorylimiterprocessor.Config{
+					MemoryLimitMiB:      1000,
+					MemorySpikeLimitMiB: 350,
+					CheckInterval:       1 * time.Second,
+				},
+				BatchProcessor: batchprocessor.Config{
+					SendBatchSize: 1000,
+					Timeout:       15 * time.Second,
+				},
+				// OTLPSendingQueue: exporterhelper.QueueSettings{
+				// 	NumConsumers: 4,
+				// 	QueueSize:    100,
+				// },
+			},
 		},
 	}
 }

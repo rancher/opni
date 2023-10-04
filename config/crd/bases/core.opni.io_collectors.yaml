@@ -69,10 +69,45 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
-              otel:
+              otelSpec:
                 properties:
-                  batch: {}
-                  memoryLimiter: {}
+                  batch:
+                    properties:
+                      metadataCardinalityLimit:
+                        format: int32
+                        type: integer
+                      metadataKeys:
+                        items:
+                          type: string
+                        type: array
+                      sendBatchMaxSize:
+                        format: int32
+                        type: integer
+                      sendBatchSize:
+                        format: int32
+                        type: integer
+                      timeout:
+                        format: int64
+                        type: integer
+                    type: object
+                  memoryLimiter:
+                    properties:
+                      checkInterval:
+                        format: int64
+                        type: integer
+                      limitMib:
+                        format: int32
+                        type: integer
+                      limitPercentage:
+                        format: int32
+                        type: integer
+                      spikeLimitMib:
+                        format: int32
+                        type: integer
+                      spikeLimitPercentage:
+                        format: int32
+                        type: integer
+                    type: object
                 type: object
               systemNamespace:
                 type: string

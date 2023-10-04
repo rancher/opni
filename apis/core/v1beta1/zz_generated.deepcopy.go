@@ -402,8 +402,8 @@ func (in *CollectorSpec) DeepCopyInto(out *CollectorSpec) {
 		*out = new(ConfigReloaderSpec)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.OTELSpec != nil {
-		in, out := &in.OTELSpec, &out.OTELSpec
+	if in.OTELConfigSpec != nil {
+		in, out := &in.OTELConfigSpec, &out.OTELConfigSpec
 		*out = new(otel.OTELConfigSpec)
 		(*in).DeepCopyInto(*out)
 	}

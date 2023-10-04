@@ -149,11 +149,15 @@ func BuildRoutingLogicTest(
 
 				By("running alertmanager with this config")
 				amPort, ca := alerting.RunAlertManager(env, router, tmpConfigDir, step+".yaml")
-				alertingClient = client.NewClient(
-					nil,
-					fmt.Sprintf("http://localhost:%d", amPort),
-					fmt.Sprintf("http://localhost:%d", 0),
+				alertingClient, err = client.NewClient(
+					client.WithAlertManagerAddress(
+						fmt.Sprintf("127.0.0.1:%d", amPort),
+					),
+					client.WithQuerierAddress(
+						fmt.Sprintf("127.0.0.1:%d", 0),
+					),
 				)
+				Expect(err).To(Succeed())
 				defer ca()
 				By("sending alerts to each condition in the router")
 				for _, spec := range suiteSpec.specs {
@@ -184,11 +188,15 @@ func BuildRoutingLogicTest(
 				}
 
 				amPort2, ca2 := alerting.RunAlertManager(env, router, tmpConfigDir, step+".yaml")
-				alertingClient2 = client.NewClient(
-					nil,
-					fmt.Sprintf("http://localhost:%d", amPort2),
-					fmt.Sprintf("http://localhost:%d", 0),
+				alertingClient2, err = client.NewClient(
+					client.WithAlertManagerAddress(
+						fmt.Sprintf("127.0.0.1:%d", amPort2),
+					),
+					client.WithQuerierAddress(
+						fmt.Sprintf("127.0.0.1:%d", 0),
+					),
 				)
+				Expect(err).To(Succeed())
 				defer ca2()
 				By("sending alerts to each condition in the router")
 				for _, spec := range suiteSpec.specs {
@@ -224,11 +232,15 @@ func BuildRoutingLogicTest(
 				By("send an an alert to each specs")
 				amPort3, ca3 := alerting.RunAlertManager(env, router, tmpConfigDir, step+".yaml")
 				defer ca3()
-				alertingClient3 = client.NewClient(
-					nil,
-					fmt.Sprintf("http://localhost:%d", amPort3),
-					fmt.Sprintf("http://localhost:%d", 0),
+				alertingClient3, err = client.NewClient(
+					client.WithAlertManagerAddress(
+						fmt.Sprintf("127.0.0.1:%d", amPort3),
+					),
+					client.WithQuerierAddress(
+						fmt.Sprintf("127.0.0.1:%d", 0),
+					),
 				)
+				Expect(err).To(Succeed())
 				By("sending alerts to each condition in the router")
 				for _, spec := range suiteSpec.specs {
 					err := alertingClient3.AlertClient().PostAlarm(context.TODO(), client.AlertObject{
@@ -265,11 +277,15 @@ type testSpec struct {
 // FIXME: this expects that the router interface implementations builds things in the format specified by OpniRouterV1
 func (t testSpecSuite) ExpectAlertsToBeRouted(amPort int) error {
 	By("getting the AlertManager state")
-	alertingClient := client.NewClient(
-		nil,
-		fmt.Sprintf("http://localhost:%d", amPort),
-		fmt.Sprintf("http://localhost:%d", 0),
+	alertingClient, err := client.NewClient(
+		client.WithAlertManagerAddress(
+			fmt.Sprintf("127.0.0.1:%d", amPort),
+		),
+		client.WithQuerierAddress(
+			fmt.Sprintf("127.0.0.1:%d", 0),
+		),
 	)
+	Expect(err).To(Succeed())
 	ags, err := alertingClient.ListAlerts(context.Background())
 	Expect(err).To(Succeed())
 	for _, spec := range t.specs {

@@ -79,7 +79,7 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		p.configureDriver(p.ctx,
 			driverutil.NewOption("alertingOptions", opt),
 			driverutil.NewOption("logger", p.logger.Named("alerting-manager")),
-			driverutil.NewOption("subscribers", []chan []alertingClient.AlertingPeer{p.clusterNotifier}),
+			driverutil.NewOption("subscribers", []chan alertingClient.AlertingClient{p.clusterNotifier}),
 		)
 	})
 	go p.handleDriverNotifications()
@@ -200,11 +200,10 @@ func (p *Plugin) handleDriverNotifications() {
 		case <-p.ctx.Done():
 			p.logger.Info("shutting down cluster driver update handler")
 			return
-		case knownPeers := <-p.clusterNotifier:
-			p.logger.Infof("updating known peers : %v", knownPeers)
-			p.AlertingClient.MemberlistClient().SetKnownPeers(knownPeers)
+		case client := <-p.clusterNotifier:
+			p.logger.Infof("updating alerting client based on cluster status : %v", client)
 			serverCfg := server.Config{
-				Client: p.AlertingClient,
+				Client: client.Clone(),
 			}
 			for _, comp := range p.Components() {
 				comp.SetConfig(serverCfg)
@@ -231,8 +230,8 @@ func listPeers(replicas int) []alertingClient.AlertingPeer {
 	peers := []alertingClient.AlertingPeer{}
 	for i := 0; i < replicas; i++ {
 		peers = append(peers, alertingClient.AlertingPeer{
-			ApiAddress:      fmt.Sprintf("http://%s-%d.%s:9093", shared.AlertmanagerService, i, shared.AlertmanagerService),
-			EmbeddedAddress: fmt.Sprintf("http://%s-%d.%s:3000", shared.AlertmanagerService, i, shared.AlertmanagerService),
+			ApiAddress:      fmt.Sprintf("%s-%d.%s:9093", shared.AlertmanagerService, i, shared.AlertmanagerService),
+			EmbeddedAddress: fmt.Sprintf("%s-%d.%s:3000", shared.AlertmanagerService, i, shared.AlertmanagerService),
 		})
 	}
 	return peers

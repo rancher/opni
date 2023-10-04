@@ -16,7 +16,6 @@ type ClusterDriver interface {
 	// have this capability enabled. If this function returns an error, the
 	// node will be set to disabled instead, and the error will be logged.
 	ShouldDisableNode(*corev1.Reference) error
-
 	GetDefaultReceiver() *config.WebhookConfig
 }
 

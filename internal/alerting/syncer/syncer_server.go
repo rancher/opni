@@ -88,12 +88,18 @@ func (a *AlertManagerSyncerV1) Initialize(
 		}
 		a.whoami = whoami
 		a.lg.Infof("starting alerting syncer server as identity %s", a.whoami)
-
-		a.alertingClient = client.NewClient(
-			nil,
-			a.serverConfig.AlertmanagerAddress,
-			a.serverConfig.HookListenAddress,
+		var initErr error
+		a.alertingClient, initErr = client.NewClient(
+			client.WithAlertManagerAddress(
+				a.serverConfig.AlertmanagerAddress,
+			),
+			client.WithQuerierAddress(
+				a.serverConfig.HookListenAddress,
+			),
 		)
+		if initErr != nil {
+			panic(initErr)
+		}
 		gatewayClient, err := clients.FromExtension(
 			ctx,
 			mgmtClient,
@@ -170,9 +176,9 @@ func (a *AlertManagerSyncerV1) recvMsgs(
 					a.lg.Errorf("failed to receive sync config message: %s", err)
 					break
 				}
-				a.lg.Infof("received sync (%s) config message", syncReq.SyncId)
+				a.lg.Debugf("received sync (%s) config message", syncReq.SyncId)
 				if a.lastSyncId == syncReq.SyncId {
-					a.lg.Infof("already up to date")
+					a.lg.Debug("already up to date")
 					goto RECV
 				}
 				syncState := alertops.SyncState_Synced

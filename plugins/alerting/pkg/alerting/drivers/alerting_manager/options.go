@@ -15,5 +15,5 @@ type AlertingDriverOptions struct {
 	ConfigKey          string                               `option:"configKey"`
 	InternalRoutingKey string                               `option:"internalRoutingKey"`
 	AlertingOptions    *shared.AlertingClusterOptions       `option:"alertingOptions"`
-	Subscribers        []chan []alertingClient.AlertingPeer `option:"subscribers"`
+	Subscribers        []chan alertingClient.AlertingClient `option:"subscribers"`
 }

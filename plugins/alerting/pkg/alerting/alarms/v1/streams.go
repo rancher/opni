@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
@@ -157,8 +158,9 @@ func (p *AlarmServerComponent) onSystemConditionCreate(conditionId, conditionNam
 		evaluator.EvaluateLoop()
 	}()
 	p.runner.AddSystemConfigListener(conditionId, &EvaluatorContext{
-		Ctx:    evaluator.evaluationCtx,
-		Cancel: evaluator.cancelEvaluation,
+		Ctx:     evaluator.evaluationCtx,
+		Cancel:  evaluator.cancelEvaluation,
+		running: &atomic.Bool{},
 	})
 	return nil
 }
@@ -249,8 +251,9 @@ func (p *AlarmServerComponent) onDownstreamCapabilityConditionCreate(conditionId
 		evaluator.EvaluateLoop()
 	}()
 	p.runner.AddSystemConfigListener(conditionId, &EvaluatorContext{
-		Ctx:    evaluator.evaluationCtx,
-		Cancel: evaluator.cancelEvaluation,
+		Ctx:     evaluator.evaluationCtx,
+		Cancel:  evaluator.cancelEvaluation,
+		running: &atomic.Bool{},
 	})
 	return nil
 }
@@ -487,8 +490,9 @@ func (p *AlarmServerComponent) onCortexClusterStatusCreate(conditionId, conditio
 		evaluator.EvaluateLoop()
 	}()
 	p.runner.AddSystemConfigListener(conditionId, &EvaluatorContext{
-		Ctx:    evaluator.evaluationCtx,
-		Cancel: evaluator.cancelEvaluation,
+		Ctx:     evaluator.evaluationCtx,
+		Cancel:  evaluator.cancelEvaluation,
+		running: &atomic.Bool{},
 	})
 	return nil
 }

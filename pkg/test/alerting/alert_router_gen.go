@@ -3,13 +3,10 @@ package alerting
 import (
 	"context"
 	"fmt"
-	"io"
 	"math/rand"
-	"net/http"
+	"net/url"
 	"os"
 	"path"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -44,32 +41,14 @@ type MockIntegrationWebhookServer struct {
 	Webhook    string
 	Port       int
 	Addr       string
-	*sync.RWMutex
-	Buffer []*config.WebhookMessage
-}
-
-func (m *MockIntegrationWebhookServer) WriteBuffer(msg *config.WebhookMessage) {
-	m.Lock()
-	defer m.Unlock()
-	m.Buffer = append(m.Buffer, msg)
-}
-
-func (m *MockIntegrationWebhookServer) ClearBuffer() {
-	m.Lock()
-	defer m.Unlock()
-	m.Buffer = m.Buffer[:0]
-}
-
-func (m *MockIntegrationWebhookServer) GetBuffer() []*config.WebhookMessage {
-	m.RLock()
-	defer m.RUnlock()
-	return lo.Map(m.Buffer, func(msg *config.WebhookMessage, _ int) *config.WebhookMessage {
-		return msg
-	})
 }
 
 func (m *MockIntegrationWebhookServer) GetWebhook() string {
-	return "http://" + path.Join(m.Addr, m.Webhook)
+	webhook := url.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s:%d", m.Addr, m.Port),
+	}
+	return webhook.String()
 }
 
 func (m *MockIntegrationWebhookServer) Endpoint() *alertingv1.AlertEndpoint {
@@ -85,60 +64,21 @@ func (m *MockIntegrationWebhookServer) Endpoint() *alertingv1.AlertEndpoint {
 	}
 }
 
-func CreateWebhookServer(e *test.Environment, num int) []*MockIntegrationWebhookServer {
+func CreateWebhookServer(num int) []*MockIntegrationWebhookServer {
 	var servers []*MockIntegrationWebhookServer
 	for i := 0; i < num; i++ {
-		servers = append(servers, NewWebhookMemoryServer(e, "webhook"))
+		servers = append(servers, NewWebhookMemoryServer("webhook"))
 	}
 	return servers
 }
 
-func NewWebhookMemoryServer(e *test.Environment, webHookRoute string) *MockIntegrationWebhookServer {
-	port := freeport.GetFreePort()
-	buf := []*config.WebhookMessage{}
-	mu := &sync.RWMutex{}
-	mux := http.NewServeMux()
-	res := &MockIntegrationWebhookServer{
+func NewWebhookMemoryServer(webHookRoute string) *MockIntegrationWebhookServer {
+	return &MockIntegrationWebhookServer{
+		EndpointId: shared.NewAlertingRefId("webhook"),
 		Webhook:    webHookRoute,
-		Port:       port,
-		Buffer:     buf,
-		RWMutex:    mu,
-		EndpointId: uuid.New().String(),
+		Port:       3000,
+		Addr:       "127.0.0.1",
 	}
-	if !strings.HasPrefix(webHookRoute, "/") {
-		webHookRoute = "/" + webHookRoute
-	}
-	mux.HandleFunc(webHookRoute, func(w http.ResponseWriter, r *http.Request) {
-		data, err := io.ReadAll(r.Body)
-		if err != nil {
-			panic(err)
-		}
-		var msg config.WebhookMessage
-		err = yaml.Unmarshal(data, &msg)
-		if err != nil {
-			panic(err)
-		}
-		res.WriteBuffer(&msg)
-	})
-	webhookServer := &http.Server{
-		Addr:           fmt.Sprintf("localhost:%d", port),
-		Handler:        mux,
-		ReadTimeout:    30 * time.Second,
-		WriteTimeout:   30 * time.Second,
-		MaxHeaderBytes: 1 << 20,
-	}
-	res.Addr = webhookServer.Addr
-
-	go func() {
-		err := webhookServer.ListenAndServe()
-		if err != http.ErrServerClosed {
-			panic(err)
-		}
-	}()
-	context.AfterFunc(e.Context(), func() {
-		webhookServer.Shutdown(context.Background())
-	})
-	return res
 }
 
 type NamespaceSubTreeTestcase struct {

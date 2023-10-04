@@ -42,8 +42,7 @@ func buildPrerequisites() error {
 	return cmd.Run()
 }
 
-// FIXME: https://github.com/rancher/opni/issues/1754
-var _ = XDescribe("Agent Memory Tests", Ordered, Serial, Label("integration", "slow"), func() {
+var _ = Describe("Agent Memory Tests", Ordered, Serial, Label("integration", "slow"), func() {
 	var environment *test.Environment
 	var client managementv1.ManagementClient
 	var fingerprint string

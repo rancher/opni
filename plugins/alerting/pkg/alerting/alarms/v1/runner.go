@@ -21,6 +21,7 @@ type Runner struct {
 func NewRunner() *Runner {
 	return &Runner{
 		systemConditionUpdateListeners: make(map[string]*EvaluatorContext),
+		systemConditionMu:              &sync.Mutex{},
 	}
 }
 

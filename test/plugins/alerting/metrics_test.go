@@ -2,12 +2,19 @@ package alerting_test
 
 import (
 	"context"
+	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	alertmanagerv2 "github.com/prometheus/alertmanager/api/v2/models"
+	"github.com/rancher/opni/pkg/alerting/message"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -27,12 +34,22 @@ import (
 
 var _ = Describe("metrics and alerting", Ordered, Label("integration"), func() {
 	var env *test.Environment
+	var httpProxyClient *http.Client
 	agents := []string{"agent1", "agent2", "agent3"}
 	agentAlertingEndpoints := map[string][]*alerting.MockIntegrationWebhookServer{}
 	BeforeAll(func() {
 		env = &test.Environment{}
 		Expect(env).NotTo(BeNil())
 		Expect(env.Start()).To(Succeed())
+		tlsConfig := env.GatewayClientTLSConfig()
+		httpProxyClient = &http.Client{
+			Transport: &http.Transport{
+				DialTLS: func(network, addr string) (net.Conn, error) {
+					conn, err := tls.Dial(network, addr, tlsConfig)
+					return conn, err
+				},
+			},
+		}
 		DeferCleanup(env.Stop, "Test Suite Finished")
 	})
 	When("When we use alerting on metrics", func() {
@@ -88,7 +105,7 @@ var _ = Describe("metrics and alerting", Ordered, Label("integration"), func() {
 			alertConditionsClient := env.NewAlertConditionsClient()
 			By("creating webhook endpoints for receiving the prometheus alerting")
 			for _, agent := range agents {
-				webhooks := alerting.CreateWebhookServer(env, 2)
+				webhooks := alerting.CreateWebhookServer(2)
 				for _, webhook := range webhooks {
 					ref, err := alertEndpointsClient.CreateAlertEndpoint(env.Context(), webhook.Endpoint())
 					Expect(err).To(Succeed())
@@ -173,7 +190,7 @@ var _ = Describe("metrics and alerting", Ordered, Label("integration"), func() {
 					return fmt.Errorf("unexpected amount of alert conditions %d. expected %d", len(statuses.GetAlertConditions()), 3)
 				}
 				return nil
-			}).Should(Succeed())
+			}, time.Second*3, time.Millisecond*200).Should(Succeed())
 		})
 
 		Specify("the metrics -> alerting pipeline should be functional", FlakeAttempts(4), func() {
@@ -277,42 +294,72 @@ var _ = Describe("metrics and alerting", Ordered, Label("integration"), func() {
 				return errors.Join(errs...)
 			}, time.Second*10, time.Millisecond*500).Should(Succeed())
 
-			By("verifying the webhook endpoints have received the message if sanity metrics are firing")
+			By("verifying the alerts are routed to the correct endpoints in alertmanager ")
+
+			alertingProxyGET := fmt.Sprintf("https://%s/plugin_alerting/alertmanager/api/v2/alerts/groups", env.GatewayConfig().Spec.HTTPListenAddress)
+			req, err := http.NewRequestWithContext(env.Context(), http.MethodGet, alertingProxyGET, nil)
+			Expect(err).To(Succeed())
+
+			conditionsToMatch, err := alertConditionsClient.ListAlertConditions(
+				env.Context(),
+				&alertingv1.ListAlertConditionRequest{
+					Clusters:   agents,
+					AlertTypes: []alertingv1.AlertType{alertingv1.AlertType_PrometheusQuery},
+				},
+			)
+			Expect(err).To(Succeed())
+
 			Eventually(func() error {
-				errs := []error{}
-				numFiring := 0 //FIXME: metrics agent test_driver does not always send metrics
-				for agent, webhooks := range agentAlertingEndpoints {
-					statuses, err := alertConditionsClient.ListAlertConditionsWithStatus(env.Context(), &alertingv1.ListStatusRequest{
-						States: []alertingv1.AlertConditionState{
-							alertingv1.AlertConditionState_Firing,
-						},
-						ItemFilter: &alertingv1.ListAlertConditionRequest{
-							Clusters:   []string{agent},
-							Severities: []alertingv1.OpniSeverity{},
-							Labels:     []string{},
-							AlertTypes: []alertingv1.AlertType{
-								alertingv1.AlertType_PrometheusQuery,
-							},
-						},
-					})
-					if err != nil {
-						errs = append(errs, err)
-						continue
-					}
-					if len(statuses.GetAlertConditions()) > 0 {
-						numFiring++
-						for _, webhook := range webhooks {
-							if len(webhook.GetBuffer()) == 0 {
-								errs = append(errs, fmt.Errorf("no messages received on webhook %s for agent %s", webhook.EndpointId, agent))
+				resp, err := httpProxyClient.Do(req)
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				if resp.StatusCode != http.StatusOK {
+					return fmt.Errorf("expected proxy to return status OK, instead got : %d, %s", resp.StatusCode, resp.Status)
+				}
+				res := alertmanagerv2.AlertGroups{}
+				if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+					return err
+				}
+				if len(res) == 0 {
+					return fmt.Errorf("expected to get empty alertgroup from alertmanager")
+				}
+
+				for _, cond := range conditionsToMatch.GetItems() {
+					condId := cond.GetAlertCondition().GetId()
+					found := false
+					attachedEndpoints := cond.GetAlertCondition().GetAttachedEndpoints().GetItems()
+					for _, ag := range res {
+						for _, alert := range ag.Alerts {
+							uuid, ok := alert.Labels[message.NotificationPropertyOpniUuid]
+							if ok && uuid == condId {
+								foundMatchingRecv := true
+								if len(attachedEndpoints) > 0 {
+									foundMatchingRecv = false
+									for _, recv := range alert.Receivers {
+										if recv.Name != nil && strings.Contains(*recv.Name, condId) {
+											foundMatchingRecv = true
+											break
+										}
+									}
+								}
+								if foundMatchingRecv {
+									found = true
+									break
+								}
 							}
 						}
+						if found {
+							break
+						}
+					}
+					if !found {
+						return fmt.Errorf("could not find alert for condition %s, %v", condId, res)
 					}
 				}
-				if numFiring == 0 {
-					errs = append(errs, errors.New("no sanity metrics are firing, definitely investigate"))
-				}
-				return errors.Join(errs...)
-			}, time.Second*30, time.Millisecond*500).Should(Succeed())
+				return nil
+			}).Should(Succeed())
 		})
 	})
 })

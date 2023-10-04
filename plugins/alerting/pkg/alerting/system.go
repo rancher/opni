@@ -201,7 +201,7 @@ func (p *Plugin) handleDriverNotifications() {
 			p.logger.Info("shutting down cluster driver update handler")
 			return
 		case client := <-p.clusterNotifier:
-			p.logger.Info(fmt.Sprintf("updating alerting client based on cluster status : %v", client))
+			p.logger.Info("updating alerting client based on cluster status")
 			serverCfg := server.Config{
 				Client: client.Clone(),
 			}

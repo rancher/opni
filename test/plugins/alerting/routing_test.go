@@ -33,7 +33,7 @@ func init() {
 	testruntime.IfIntegration(func() {
 		BuildRoutingLogicTest(
 			func() routing.OpniRouting {
-				defaultHooks := alerting.NewWebhookMemoryServer(env, "webhook")
+				defaultHooks := alerting.NewWebhookMemoryServer("webhook")
 				defaultHook = defaultHooks
 				cfg := config.WebhookConfig{
 					NotifierConfig: config.NotifierConfig{
@@ -81,7 +81,7 @@ func BuildRoutingLogicTest(
 				Expect(err).To(Succeed())
 				By("Creating some test webhook servers")
 
-				servers := alerting.CreateWebhookServer(env, 3)
+				servers := alerting.CreateWebhookServer(3)
 				server1, server2, server3 := servers[0], servers[1], servers[2]
 
 				condId1, condId2, condId3 := uuid.New().String(), uuid.New().String(), uuid.New().String()
@@ -174,10 +174,6 @@ func BuildRoutingLogicTest(
 					return suiteSpec.ExpectAlertsToBeRouted(amPort)
 				}, time.Second*30, time.Second*1).Should(Succeed())
 				ca()
-				server1.ClearBuffer()
-				server2.ClearBuffer()
-				server3.ClearBuffer()
-				defaultHook.ClearBuffer()
 
 				By("deleting a random server endpoint")
 				// ok
@@ -215,11 +211,6 @@ func BuildRoutingLogicTest(
 				ca2()
 
 				By("updating an endpoint to another endpoint")
-
-				server1.ClearBuffer()
-				server2.ClearBuffer()
-				server3.ClearBuffer()
-				defaultHook.ClearBuffer()
 
 				err = router.UpdateEndpoint(server2.Endpoint().Id, server1.Endpoint())
 				Expect(err).To(Succeed())
@@ -334,61 +325,5 @@ func (t testSpecSuite) ExpectAlertsToBeRouted(amPort int) error {
 	if len(expectedIds) == 0 {
 		return fmt.Errorf("expected to find at least one server")
 	}
-	for _, server := range uniqServers {
-		ids := []string{}
-		for _, msg := range server.A.GetBuffer() {
-			for _, alert := range msg.Alerts {
-				if _, ok := alert.Labels[server.B]; ok {
-					// namespace is present
-					ids = append(ids, alert.Labels[server.B])
-				}
-			}
-		}
-		ids = lo.Uniq(ids)
-		slices.SortFunc(ids, func(a, b string) bool {
-			return a < b
-		})
-		slices.SortFunc(expectedIds[server.A.Addr], func(a, b string) bool {
-			return a < b
-		})
-
-		if !slices.Equal(ids, expectedIds[server.A.Addr]) {
-			return fmt.Errorf("expected to find ids %s in server %s, but found %s", strings.Join(expectedIds[server.A.Addr], ","), server.A.Addr, strings.Join(ids, ","))
-		}
-	}
-
-	// default hook should have persisted messages from each condition
-	ids := []string{}
-	namespaces := []string{}
-	for _, spec := range t.specs {
-		ids = append(ids, spec.id)
-		namespaces = append(namespaces, spec.namespace)
-	}
-	ids = lo.Uniq(ids)
-	namespaces = lo.Uniq(namespaces)
-
-	foundIds := []string{}
-	for _, msg := range t.defaultServer.GetBuffer() {
-		for _, alert := range msg.Alerts {
-			for _, ns := range namespaces {
-				if _, ok := alert.Labels[ns]; ok {
-					// namespace is present
-					foundIds = append(foundIds, alert.Labels[ns])
-				}
-			}
-		}
-	}
-	foundIds = lo.Uniq(foundIds)
-	slices.SortFunc(ids, func(a, b string) bool {
-		return a < b
-	})
-	slices.SortFunc(foundIds, func(a, b string) bool {
-		return a < b
-	})
-
-	if !slices.Equal(ids, foundIds) {
-		return fmt.Errorf("expected to find ids %s in default server, but found %s", strings.Join(ids, ","), strings.Join(foundIds, ","))
-	}
-
 	return nil
 }

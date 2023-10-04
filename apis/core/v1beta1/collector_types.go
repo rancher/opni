@@ -25,7 +25,7 @@ type CollectorSpec struct {
 	MetricsConfig      *corev1.LocalObjectReference `json:"metricsConfig,omitempty"`
 	ConfigReloader     *ConfigReloaderSpec          `json:"configReloader,omitempty"`
 	LogLevel           string                       `json:"logLevel,omitempty"`
-	OTELSpec           *otel.OTELConfigSpec         `json:"otel,omitempty"`
+	OTELConfigSpec     *otel.OTELConfigSpec         `json:"otelSpec,omitempty"`
 }
 
 type ConfigReloaderSpec struct {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/collector/exporter/otlphttpexporter"
 	"go.opentelemetry.io/collector/processor/batchprocessor"
 	"go.opentelemetry.io/collector/processor/memorylimiterprocessor"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -42,7 +43,7 @@ type AggregatorConfig struct {
 
 type AggregatorOTELConfig struct {
 	Processors *AggregatorOTELProcessors
-	// Exporters  *AggregatorOTELExporters
+	Exporters  *AggregatorOTELExporters
 }
 
 type AggregatorOTELProcessors struct {
@@ -50,9 +51,9 @@ type AggregatorOTELProcessors struct {
 	MemoryLimiter memorylimiterprocessor.Config
 }
 
-// type AggregatorOTELExporters struct {
-// 	OTLPHTTP otlphttpexporter.Config
-// }
+type AggregatorOTELExporters struct {
+	OTLPHTTP otlphttpexporter.Config
+}
 
 type LoggingConfig struct {
 	Enabled   bool

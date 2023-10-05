@@ -12,6 +12,8 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/collector/exporter/exporterhelper"
+	"go.opentelemetry.io/collector/exporter/otlphttpexporter"
 	"go.opentelemetry.io/collector/processor/batchprocessor"
 	"go.opentelemetry.io/collector/processor/memorylimiterprocessor"
 	appsv1 "k8s.io/api/apps/v1"
@@ -92,15 +94,15 @@ func (r *Reconciler) getAggregatorConfig(
 					MetadataCardinalityLimit: r.collector.Spec.OTELConfigSpec.Processors.Batch.MetadataCardinalityLimit,
 				},
 			},
-			// Exporters: &otel.AggregatorOTELExporters{
-			// 	OTLPHTTP: otlphttpexporter.Config{
-			// 		QueueSettings: exporterhelper.QueueSettings{
-			// 			Enabled:      r.collector.Spec.OTELConfigSpec.Exporters.OTLPHTTP.SendingQueue.Enabled,
-			// 			NumConsumers: r.collector.Spec.OTELConfigSpec.Exporters.OTLPHTTP.SendingQueue.NumConsumers,
-			// 			QueueSize:    r.collector.Spec.OTELConfigSpec.Exporters.OTLPHTTP.SendingQueue.QueueSize,
-			// 		},
-			// 	},
-			// },
+			Exporters: &otel.AggregatorOTELExporters{
+				OTLPHTTP: otlphttpexporter.Config{
+					QueueSettings: exporterhelper.QueueSettings{
+						Enabled:      r.collector.Spec.OTELConfigSpec.Exporters.OTLPHTTP.SendingQueue.Enabled,
+						NumConsumers: r.collector.Spec.OTELConfigSpec.Exporters.OTLPHTTP.SendingQueue.NumConsumers,
+						QueueSize:    r.collector.Spec.OTELConfigSpec.Exporters.OTLPHTTP.SendingQueue.QueueSize,
+					},
+				},
+			},
 		},
 	}
 }

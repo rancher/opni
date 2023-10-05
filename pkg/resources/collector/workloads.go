@@ -12,6 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/collector/processor/batchprocessor"
 	"go.opentelemetry.io/collector/processor/memorylimiterprocessor"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -77,13 +78,29 @@ func (r *Reconciler) getAggregatorConfig(
 		OTELConfig: otel.AggregatorOTELConfig{
 			Processors: &otel.AggregatorOTELProcessors{
 				MemoryLimiter: memorylimiterprocessor.Config{
-					CheckInterval:         r.collector.Spec.OTELConfigSpec.MemoryLimiterProcessor.CheckInterval,
-					MemoryLimitMiB:        r.collector.Spec.OTELConfigSpec.MemoryLimiterProcessor.MemoryLimitMiB,
-					MemorySpikeLimitMiB:   r.collector.Spec.OTELConfigSpec.MemoryLimiterProcessor.MemorySpikeLimitMiB,
-					MemoryLimitPercentage: r.collector.Spec.OTELConfigSpec.MemoryLimiterProcessor.MemoryLimitPercentage,
-					MemorySpikePercentage: r.collector.Spec.OTELConfigSpec.MemoryLimiterProcessor.MemorySpikePercentage,
+					CheckInterval:         r.collector.Spec.OTELConfigSpec.Processors.MemoryLimiter.CheckInterval,
+					MemoryLimitMiB:        r.collector.Spec.OTELConfigSpec.Processors.MemoryLimiter.MemoryLimitMiB,
+					MemorySpikeLimitMiB:   r.collector.Spec.OTELConfigSpec.Processors.MemoryLimiter.MemorySpikeLimitMiB,
+					MemoryLimitPercentage: r.collector.Spec.OTELConfigSpec.Processors.MemoryLimiter.MemoryLimitPercentage,
+					MemorySpikePercentage: r.collector.Spec.OTELConfigSpec.Processors.MemoryLimiter.MemorySpikePercentage,
+				},
+				Batch: batchprocessor.Config{
+					Timeout:                  r.collector.Spec.OTELConfigSpec.Processors.Batch.Timeout,
+					SendBatchSize:            r.collector.Spec.OTELConfigSpec.Processors.Batch.SendBatchSize,
+					SendBatchMaxSize:         r.collector.Spec.OTELConfigSpec.Processors.Batch.SendBatchMaxSize,
+					MetadataKeys:             r.collector.Spec.OTELConfigSpec.Processors.Batch.MetadataKeys,
+					MetadataCardinalityLimit: r.collector.Spec.OTELConfigSpec.Processors.Batch.MetadataCardinalityLimit,
 				},
 			},
+			// Exporters: &otel.AggregatorOTELExporters{
+			// 	OTLPHTTP: otlphttpexporter.Config{
+			// 		QueueSettings: exporterhelper.QueueSettings{
+			// 			Enabled:      r.collector.Spec.OTELConfigSpec.Exporters.OTLPHTTP.SendingQueue.Enabled,
+			// 			NumConsumers: r.collector.Spec.OTELConfigSpec.Exporters.OTLPHTTP.SendingQueue.NumConsumers,
+			// 			QueueSize:    r.collector.Spec.OTELConfigSpec.Exporters.OTLPHTTP.SendingQueue.QueueSize,
+			// 		},
+			// 	},
+			// },
 		},
 	}
 }

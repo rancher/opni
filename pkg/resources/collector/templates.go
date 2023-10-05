@@ -269,8 +269,9 @@ receivers:
 
 processors:
   batch:
-    send_batch_size: 1000
-    timeout: 15s
+    timeout: {{ .OTELConfig.Processors.Batch.Timeout }}
+    send_batch_size: {{ .OTELConfig.Processors.Batch.SendBatchSize }}
+    send_batch_max_size: timeout: {{ .OTELConfig.Processors.Batch.SendBatchMaxSize }} 
   memory_limiter:
     limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemoryLimitMiB }}
     spike_limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemorySpikeLimitMiB }}

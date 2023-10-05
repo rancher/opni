@@ -26,7 +26,7 @@ type CollectorSpec struct {
 	MetricsConfig      *corev1.LocalObjectReference `json:"metricsConfig,omitempty"`
 	ConfigReloader     *ConfigReloaderSpec          `json:"configReloader,omitempty"`
 	LogLevel           string                       `json:"logLevel,omitempty"`
-	OTELConfigSpec     *OTELConfigSpec              `json:"otelSpec,omitempty"`
+	OTELConfigSpec     *OTELConfigSpec              `json:"otelCollectorSpec,omitempty"`
 }
 
 type ConfigReloaderSpec struct {
@@ -34,26 +34,35 @@ type ConfigReloaderSpec struct {
 }
 
 type OTELConfigSpec struct {
-	// Memory Limiter Processor Configs
-	MemoryLimiterProcessor MemoryLimiterConfig `json:"memoryLimiter,omitempty"`
+	Processors OTELProcessors `json:"processors,omitempty"`
+	Exporters  OTELExporters  `json:"exporters,omitempty"`
 }
 
-// MemoryLimiterConfig defines configuration for the memoryLimiter processor.
-type MemoryLimiterConfig struct {
+type OTELProcessors struct {
+	Batch         BatchProcessorConfig         `json:"batch,omitempty"`
+	MemoryLimiter MemoryLimiterProcessorConfig `json:"memoryLimiter,omitempty"`
+}
+
+type OTELExporters struct {
+	OTLPHTTP OTLPHTTPExporterConfig `json:"otlphttp,omitempty"`
+}
+
+type MemoryLimiterProcessorConfig struct {
 	// CheckInterval is the time between measurements of memory usage for the
 	// purposes of avoiding going over the limits. Defaults to zero, so no
 	// checks will be performed.
-	//+kubebuilder:default="1s"
+	// +kubebuilder:default="1s"
+	// +kubebuilder:validation:Format=duration
 	CheckInterval time.Duration `json:"checkInterval,omitempty"`
 
 	// MemoryLimitMiB is the maximum amount of memory, in MiB, targeted to be
 	// allocated by the process.
-	//+kubebuilder:default=1000
+	// +kubebuilder:default=1000
 	MemoryLimitMiB uint32 `json:"limitMib,omitempty"`
 
 	// MemorySpikeLimitMiB is the maximum, in MiB, spike expected between the
 	// measurements of memory usage.
-	//+kubebuilder:default=350
+	// +kubebuilder:default=350
 	MemorySpikeLimitMiB uint32 `json:"spikeLimitMib,omitempty"`
 
 	// MemoryLimitPercentage is the maximum amount of memory, in %, targeted to be
@@ -63,6 +72,54 @@ type MemoryLimiterConfig struct {
 	// MemorySpikePercentage is the maximum, in percents against the total memory,
 	// spike expected between the measurements of memory usage.
 	MemorySpikePercentage uint32 `json:"spikeLimitPercentage,omitempty"`
+}
+
+type BatchProcessorConfig struct {
+	// Timeout sets the time after which a batch will be sent regardless of size.
+	// When this is set to zero, batched data will be sent immediately.
+	// +kubebuilder:default="15s"
+	// +kubebuilder:validation:Format=duration
+	Timeout time.Duration `json:"timeout,omitempty"`
+
+	// SendBatchSize is the size of a batch which after hit, will trigger it to be sent.
+	// When this is set to zero, the batch size is ignored and data will be sent immediately
+	// subject to only send_batch_max_size.
+	// +kubebuilder:default=1000
+	SendBatchSize uint32 `json:"sendBatchSize,omitempty"`
+
+	// SendBatchMaxSize is the maximum size of a batch. It must be larger than SendBatchSize.
+	// Larger batches are split into smaller units.
+	// Default value is 0, that means no maximum size.
+	SendBatchMaxSize uint32 `json:"sendBatchMaxSize,omitempty"`
+
+	// MetadataKeys is a list of client.Metadata keys that will be
+	// used to form distinct batchers.  If this setting is empty,
+	// a single batcher instance will be used.  When this setting
+	// is not empty, one batcher will be used per distinct
+	// combination of values for the listed metadata keys.
+	//
+	// Empty value and unset metadata are treated as distinct cases.
+	//
+	// Entries are case-insensitive.  Duplicated entries will
+	// trigger a validation error.
+	MetadataKeys []string `json:"metadataKeys,omitempty"`
+
+	// MetadataCardinalityLimit indicates the maximum number of
+	// batcher instances that will be created through a distinct
+	// combination of MetadataKeys.
+	MetadataCardinalityLimit uint32 `json:"metadataCardinalityLimit,omitempty"`
+}
+
+type OTLPHTTPSendingQueue struct {
+	// Enabled indicates whether to not enqueue batches before sending to the consumerSender.
+	Enabled bool `json:"enabled,omitempty"`
+	// NumConsumers is the number of consumers from the queue.
+	NumConsumers int `json:"numConsumers,omitempty"`
+	// QueueSize is the maximum number of batches allowed in queue at a given time.
+	QueueSize int `json:"queueSize,omitempty"`
+}
+type OTLPHTTPExporterConfig struct {
+	SendingQueue OTLPHTTPSendingQueue `json:"sendingQueue,omitempty"`
 }
 
 // CollectorStatus defines the observed state of Collector

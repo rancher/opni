@@ -336,6 +336,15 @@ func (m *KubernetesManagerDriver) buildEmptyCollector() *opnicorev1beta1.Collect
 						Timeout:       15 * time.Second,
 					},
 				},
+				Exporters: opnicorev1beta1.OTELExporters{
+					OTLPHTTP: opnicorev1beta1.OTLPHTTPExporterConfig{
+						SendingQueue: opnicorev1beta1.OTLPHTTPSendingQueue{
+							Enabled:      true,
+							NumConsumers: 4,
+							QueueSize:    100,
+						},
+					},
+				},
 			},
 		},
 	}

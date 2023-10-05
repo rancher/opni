@@ -272,9 +272,9 @@ processors:
     send_batch_size: 1000
     timeout: 15s
   memory_limiter:
-    limit_mib: 1000
-    spike_limit_mib: 350 
-    check_interval: 1s
+    limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemoryLimitMiB }}
+    spike_limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemorySpikeLimitMiB }}
+    check_interval: {{ .OTELConfig.Processors.MemoryLimiter.CheckInterval }}
   transform:
     log_statements:
     - context: log

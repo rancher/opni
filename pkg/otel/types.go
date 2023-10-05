@@ -3,10 +3,11 @@ package otel
 import (
 	"bytes"
 	"fmt"
-	"time"
 
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/collector/processor/batchprocessor"
+	"go.opentelemetry.io/collector/processor/memorylimiterprocessor"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"gopkg.in/yaml.v2"
 )
@@ -36,7 +37,21 @@ type AggregatorConfig struct {
 	Metrics       MetricsConfig
 	Containerized bool
 	LogLevel      string
-	OTELConfig    OTELConfigSpec
+	OTELConfig    AggregatorOTELConfig
+}
+
+type AggregatorOTELConfig struct {
+	Processors *AggregatorOTELProcessors
+	Exporters  *AggregatorOTELExporters
+}
+
+type AggregatorOTELProcessors struct {
+	Batch         batchprocessor.Config
+	MemoryLimiter memorylimiterprocessor.Config
+}
+
+type AggregatorOTELExporters struct {
+	OTLPHTTP string // otlphttpexporter.Config
 }
 
 type LoggingConfig struct {
@@ -59,72 +74,6 @@ type OTELSpec struct {
 	AdditionalScrapeConfigs []*ScrapeConfig `json:"additionalScrapeConfigs,omitempty"`
 	Wal                     *WALConfig      `json:"wal,omitempty"`
 	HostMetrics             *bool           `json:"hostMetrics,omitempty"`
-}
-
-type OTELConfigSpec struct {
-	// Batch Processor Configs
-	BatchProcessor BatchConfig `json:"batch,omitempty"`
-
-	// Memory Limiter Processor Configs
-	MemoryLimiterProcessor MemoryLimiterConfig `json:"memoryLimiter,omitempty"`
-}
-
-// BatchConfig defines configuration for batch processor.
-type BatchConfig struct {
-	// Timeout sets the time after which a batch will be sent regardless of size.
-	// When this is set to zero, batched data will be sent immediately.
-	Timeout time.Duration `json:"timeout,omitempty"`
-
-	// SendBatchSize is the size of a batch which after hit, will trigger it to be sent.
-	// When this is set to zero, the batch size is ignored and data will be sent immediately
-	// subject to only send_batch_max_size.
-	SendBatchSize uint32 `json:"sendBatchSize,omitempty"`
-
-	// SendBatchMaxSize is the maximum size of a batch. It must be larger than SendBatchSize.
-	// Larger batches are split into smaller units.
-	// Default value is 0, that means no maximum size.
-	SendBatchMaxSize uint32 `json:"sendBatchMaxSize,omitempty"`
-
-	// MetadataKeys is a list of client.Metadata keys that will be
-	// used to form distinct batchers.  If this setting is empty,
-	// a single batcher instance will be used.  When this setting
-	// is not empty, one batcher will be used per distinct
-	// combination of values for the listed metadata keys.
-	//
-	// Empty value and unset metadata are treated as distinct cases.
-	//
-	// Entries are case-insensitive.  Duplicated entries will
-	// trigger a validation error.
-	MetadataKeys []string `json:"metadataKeys,omitempty"`
-
-	// MetadataCardinalityLimit indicates the maximum number of
-	// batcher instances that will be created through a distinct
-	// combination of MetadataKeys.
-	MetadataCardinalityLimit uint32 `json:"metadataCardinalityLimit,omitempty"`
-}
-
-// MemoryLimiterConfig defines configuration for memory memoryLimiter processor.
-type MemoryLimiterConfig struct {
-	// CheckInterval is the time between measurements of memory usage for the
-	// purposes of avoiding going over the limits. Defaults to zero, so no
-	// checks will be performed.
-	CheckInterval time.Duration `json:"checkInterval,omitempty"`
-
-	// MemoryLimitMiB is the maximum amount of memory, in MiB, targeted to be
-	// allocated by the process.
-	MemoryLimitMiB uint32 `json:"limitMib,omitempty"`
-
-	// MemorySpikeLimitMiB is the maximum, in MiB, spike expected between the
-	// measurements of memory usage.
-	MemorySpikeLimitMiB uint32 `json:"spikeLimitMib,omitempty"`
-
-	// MemoryLimitPercentage is the maximum amount of memory, in %, targeted to be
-	// allocated by the process. The fixed memory settings MemoryLimitMiB has a higher precedence.
-	MemoryLimitPercentage uint32 `json:"limitPercentage,omitempty"`
-
-	// MemorySpikePercentage is the maximum, in percents against the total memory,
-	// spike expected between the measurements of memory usage.
-	MemorySpikePercentage uint32 `json:"spikeLimitPercentage,omitempty"`
 }
 
 type ScrapeConfig struct {

@@ -324,20 +324,12 @@ func (m *KubernetesManagerDriver) buildEmptyCollector() *opnicorev1beta1.Collect
 			},
 			SystemNamespace: m.Namespace,
 			AgentEndpoint:   otel.AgentEndpoint(serviceName),
-			OTELConfigSpec: &otel.OTELConfigSpec{
-				MemoryLimiterProcessor: otel.MemoryLimiterConfig{
+			OTELConfigSpec: &opnicorev1beta1.OTELConfigSpec{
+				MemoryLimiterProcessor: opnicorev1beta1.MemoryLimiterConfig{
 					MemoryLimitMiB:      1000,
 					MemorySpikeLimitMiB: 350,
 					CheckInterval:       1 * time.Second,
 				},
-				BatchProcessor: otel.BatchConfig{
-					SendBatchSize: 1000,
-					Timeout:       15 * time.Second,
-				},
-				// OTLPSendingQueue: exporterhelper.QueueSettings{
-				// 	NumConsumers: 4,
-				// 	QueueSize:    100,
-				// },
 			},
 		},
 	}

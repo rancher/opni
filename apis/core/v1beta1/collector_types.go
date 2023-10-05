@@ -1,7 +1,8 @@
 package v1beta1
 
 import (
-	"github.com/rancher/opni/pkg/otel"
+	"time"
+
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/wrangler/pkg/crd"
 	"github.com/rancher/wrangler/pkg/schemas/openapi"
@@ -25,11 +26,43 @@ type CollectorSpec struct {
 	MetricsConfig      *corev1.LocalObjectReference `json:"metricsConfig,omitempty"`
 	ConfigReloader     *ConfigReloaderSpec          `json:"configReloader,omitempty"`
 	LogLevel           string                       `json:"logLevel,omitempty"`
-	OTELConfigSpec     *otel.OTELConfigSpec         `json:"otelSpec,omitempty"`
+	OTELConfigSpec     *OTELConfigSpec              `json:"otelSpec,omitempty"`
 }
 
 type ConfigReloaderSpec struct {
 	opnimeta.ImageSpec `json:",inline,omitempty"`
+}
+
+type OTELConfigSpec struct {
+	// Memory Limiter Processor Configs
+	MemoryLimiterProcessor MemoryLimiterConfig `json:"memoryLimiter,omitempty"`
+}
+
+// MemoryLimiterConfig defines configuration for the memoryLimiter processor.
+type MemoryLimiterConfig struct {
+	// CheckInterval is the time between measurements of memory usage for the
+	// purposes of avoiding going over the limits. Defaults to zero, so no
+	// checks will be performed.
+	//+kubebuilder:default="1s"
+	CheckInterval time.Duration `json:"checkInterval,omitempty"`
+
+	// MemoryLimitMiB is the maximum amount of memory, in MiB, targeted to be
+	// allocated by the process.
+	//+kubebuilder:default=1000
+	MemoryLimitMiB uint32 `json:"limitMib,omitempty"`
+
+	// MemorySpikeLimitMiB is the maximum, in MiB, spike expected between the
+	// measurements of memory usage.
+	//+kubebuilder:default=350
+	MemorySpikeLimitMiB uint32 `json:"spikeLimitMib,omitempty"`
+
+	// MemoryLimitPercentage is the maximum amount of memory, in %, targeted to be
+	// allocated by the process. The fixed memory settings MemoryLimitMiB has a higher precedence.
+	MemoryLimitPercentage uint32 `json:"limitPercentage,omitempty"`
+
+	// MemorySpikePercentage is the maximum, in percents against the total memory,
+	// spike expected between the measurements of memory usage.
+	MemorySpikePercentage uint32 `json:"spikeLimitPercentage,omitempty"`
 }
 
 // CollectorStatus defines the observed state of Collector

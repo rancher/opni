@@ -12,6 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/collector/processor/memorylimiterprocessor"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,7 +74,17 @@ func (r *Reconciler) getAggregatorConfig(
 		AgentEndpoint: r.collector.Spec.AgentEndpoint,
 		Containerized: true,
 		LogLevel:      r.collector.Spec.LogLevel,
-		OTELConfig:    *r.collector.Spec.OTELSpec,
+		OTELConfig: otel.AggregatorOTELConfig{
+			Processors: &otel.AggregatorOTELProcessors{
+				MemoryLimiter: memorylimiterprocessor.Config{
+					CheckInterval:         r.collector.Spec.OTELConfigSpec.MemoryLimiterProcessor.CheckInterval,
+					MemoryLimitMiB:        r.collector.Spec.OTELConfigSpec.MemoryLimiterProcessor.MemoryLimitMiB,
+					MemorySpikeLimitMiB:   r.collector.Spec.OTELConfigSpec.MemoryLimiterProcessor.MemorySpikeLimitMiB,
+					MemoryLimitPercentage: r.collector.Spec.OTELConfigSpec.MemoryLimiterProcessor.MemoryLimitPercentage,
+					MemorySpikePercentage: r.collector.Spec.OTELConfigSpec.MemoryLimiterProcessor.MemorySpikePercentage,
+				},
+			},
+		},
 	}
 }
 

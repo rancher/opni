@@ -69,28 +69,71 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
-              otelSpec:
+              otelCollectorSpec:
                 properties:
-                  memoryLimiter:
+                  exporters:
                     properties:
-                      checkInterval:
-                        default: 1s
-                        format: int64
-                        type: integer
-                      limitMib:
-                        default: 1000
-                        format: int32
-                        type: integer
-                      limitPercentage:
-                        format: int32
-                        type: integer
-                      spikeLimitMib:
-                        default: 350
-                        format: int32
-                        type: integer
-                      spikeLimitPercentage:
-                        format: int32
-                        type: integer
+                      otlphttp:
+                        properties:
+                          sendingQueue:
+                            properties:
+                              enabled:
+                                type: boolean
+                              numConsumers:
+                                type: integer
+                              queueSize:
+                                type: integer
+                            type: object
+                        type: object
+                    type: object
+                  processors:
+                    properties:
+                      batch:
+                        properties:
+                          metadataCardinalityLimit:
+                            format: int32
+                            type: integer
+                          metadataKeys:
+                            items:
+                              type: string
+                            type: array
+                          sendBatchMaxSize:
+                            format: int32
+                            type: integer
+                          sendBatchSize:
+                            default: 1000
+                            format: int32
+                            type: integer
+                          timeout:
+                            allOf:
+                            - format: int64
+                            - format: duration
+                            default: 15s
+                            type: integer
+                        type: object
+                      memoryLimiter:
+                        properties:
+                          checkInterval:
+                            allOf:
+                            - format: int64
+                            - format: duration
+                            default: 1s
+                            type: integer
+                          limitMib:
+                            default: 1000
+                            format: int32
+                            type: integer
+                          limitPercentage:
+                            format: int32
+                            type: integer
+                          spikeLimitMib:
+                            default: 350
+                            format: int32
+                            type: integer
+                          spikeLimitPercentage:
+                            format: int32
+                            type: integer
+                        type: object
                     type: object
                 type: object
               systemNamespace:

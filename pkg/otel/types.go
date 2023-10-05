@@ -42,7 +42,7 @@ type AggregatorConfig struct {
 
 type AggregatorOTELConfig struct {
 	Processors *AggregatorOTELProcessors
-	Exporters  *AggregatorOTELExporters
+	// Exporters  *AggregatorOTELExporters
 }
 
 type AggregatorOTELProcessors struct {
@@ -50,9 +50,9 @@ type AggregatorOTELProcessors struct {
 	MemoryLimiter memorylimiterprocessor.Config
 }
 
-type AggregatorOTELExporters struct {
-	OTLPHTTP string // otlphttpexporter.Config
-}
+// type AggregatorOTELExporters struct {
+// 	OTLPHTTP otlphttpexporter.Config
+// }
 
 type LoggingConfig struct {
 	Enabled   bool

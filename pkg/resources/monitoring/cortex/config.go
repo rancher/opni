@@ -165,7 +165,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			UserDomainName:    swiftSpec.GetUserDomainName(),
 			UserDomainID:      swiftSpec.GetUserDomainID(),
 			UserID:            swiftSpec.GetUserID(),
-			Password:          swiftSpec.GetPassword(),
+			Password:          flagext.Secret{Value: swiftSpec.GetPassword()},
 			DomainID:          swiftSpec.GetDomainID(),
 			DomainName:        swiftSpec.GetDomainName(),
 			ProjectID:         swiftSpec.GetProjectID(),

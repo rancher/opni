@@ -111,11 +111,9 @@ func (r *Reconciler) getAggregatorConfig(
 					MemorySpikePercentage: aggregatorOTELCfg.Processors.MemoryLimiter.MemorySpikePercentage,
 				},
 				Batch: batchprocessor.Config{
-					Timeout:                  aggregatorOTELCfg.Processors.Batch.Timeout,
-					SendBatchSize:            aggregatorOTELCfg.Processors.Batch.SendBatchSize,
-					SendBatchMaxSize:         aggregatorOTELCfg.Processors.Batch.SendBatchMaxSize,
-					MetadataKeys:             aggregatorOTELCfg.Processors.Batch.MetadataKeys,
-					MetadataCardinalityLimit: aggregatorOTELCfg.Processors.Batch.MetadataCardinalityLimit,
+					Timeout:          aggregatorOTELCfg.Processors.Batch.Timeout,
+					SendBatchSize:    aggregatorOTELCfg.Processors.Batch.SendBatchSize,
+					SendBatchMaxSize: aggregatorOTELCfg.Processors.Batch.SendBatchMaxSize,
 				},
 			},
 			Exporters: &otel.AggregatorOTELExporters{

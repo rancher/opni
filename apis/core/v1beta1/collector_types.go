@@ -113,23 +113,6 @@ type BatchProcessorConfig struct {
 	// Larger batches are split into smaller units.
 	// Default value is 0, that means no maximum size.
 	SendBatchMaxSize uint32 `json:"sendBatchMaxSize,omitempty"`
-
-	// MetadataKeys is a list of client.Metadata keys that will be
-	// used to form distinct batchers.  If this setting is empty,
-	// a single batcher instance will be used.  When this setting
-	// is not empty, one batcher will be used per distinct
-	// combination of values for the listed metadata keys.
-	//
-	// Empty value and unset metadata are treated as distinct cases.
-	//
-	// Entries are case-insensitive.  Duplicated entries will
-	// trigger a validation error.
-	MetadataKeys []string `json:"metadataKeys,omitempty"`
-
-	// MetadataCardinalityLimit indicates the maximum number of
-	// batcher instances that will be created through a distinct
-	// combination of MetadataKeys.
-	MetadataCardinalityLimit uint32 `json:"metadataCardinalityLimit,omitempty"`
 }
 
 // CollectorSendingQueue has the attributes that we want to make
@@ -145,9 +128,18 @@ type CollectorSendingQueue struct {
 	QueueSize int `json:"queueSize,omitempty"`
 }
 
+// CollectorSendingQueue has the attributes that we want to make
+// available from otlpexporter.Config.
+// Also, we extend it with the JSON struct tags needed in order to kubebuilder
+// and controller-gen work.
 type OTLPExporterConfig struct {
 	SendingQueue CollectorSendingQueue `json:"sendingQueue,omitempty"`
 }
+
+// CollectorSendingQueue has the attributes that we want to make
+// available from otlphttpexporter.Config.
+// Also, we extend it with the JSON struct tags needed in order to kubebuilder
+// and controller-gen work.
 type OTLPHTTPExporterConfig struct {
 	SendingQueue CollectorSendingQueue `json:"sendingQueue,omitempty"`
 }

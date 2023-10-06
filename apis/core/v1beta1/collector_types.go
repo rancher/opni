@@ -1,6 +1,7 @@
 package v1beta1
 
 import (
+	"k8s.io/apimachinery/pkg/runtime"
 	"time"
 
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
@@ -164,6 +165,11 @@ type Collector struct {
 	Status CollectorStatus `json:"status,omitempty"`
 }
 
+func (c Collector) DeepCopyObject() runtime.Object {
+	//TODO implement me
+	panic("implement me")
+}
+
 //+kubebuilder:object:root=true
 
 // CollectorList contains a list of Collector
@@ -185,6 +191,52 @@ func CollectorCRD() (*crd.CRD, error) {
 		Schema:       schema,
 		NonNamespace: true,
 	}, nil
+}
+
+func NewDefaultAggregatorOTELConfigSpec() *AggregatorOTELConfigSpec {
+	return &AggregatorOTELConfigSpec{
+		Processors: AggregatorOTELProcessors{
+			MemoryLimiter: MemoryLimiterProcessorConfig{
+				MemoryLimitMiB:      1000,
+				MemorySpikeLimitMiB: 350,
+				CheckInterval:       1 * time.Second,
+			},
+			Batch: BatchProcessorConfig{
+				SendBatchSize: 1000,
+				Timeout:       15 * time.Second,
+			},
+		},
+		Exporters: AggregatorOTELExporters{
+			OTLPHTTP: OTLPHTTPExporterConfig{
+				SendingQueue: CollectorSendingQueue{
+					Enabled:      true,
+					NumConsumers: 4,
+					QueueSize:    100,
+				},
+			},
+		},
+	}
+}
+
+func NewDefaultNodeOTELConfigSpec() *NodeOTELConfigSpec {
+	return &NodeOTELConfigSpec{
+		Processors: NodeOTELProcessors{
+			MemoryLimiter: MemoryLimiterProcessorConfig{
+				MemoryLimitMiB:      250,
+				MemorySpikeLimitMiB: 50,
+				CheckInterval:       1 * time.Second,
+			},
+		},
+		Exporters: NodeOTELExporters{
+			OTLP: OTLPExporterConfig{
+				SendingQueue: CollectorSendingQueue{
+					Enabled:      true,
+					NumConsumers: 4,
+					QueueSize:    100,
+				},
+			},
+		},
+	}
 }
 
 func init() {

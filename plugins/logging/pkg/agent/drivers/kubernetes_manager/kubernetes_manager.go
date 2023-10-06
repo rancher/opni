@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/cisco-open/k8s-objectmatcher/patch"
 	"github.com/lestrrat-go/backoff/v2"
@@ -322,48 +321,10 @@ func (m *KubernetesManagerDriver) buildEmptyCollector() *opnicorev1beta1.Collect
 			ImageSpec: opnimeta.ImageSpec{
 				ImagePullPolicy: lo.ToPtr(corev1.PullAlways),
 			},
-			SystemNamespace: m.Namespace,
-			AgentEndpoint:   otel.AgentEndpoint(serviceName),
-			AggregatorOTELConfigSpec: &opnicorev1beta1.AggregatorOTELConfigSpec{
-				Processors: opnicorev1beta1.AggregatorOTELProcessors{
-					MemoryLimiter: opnicorev1beta1.MemoryLimiterProcessorConfig{
-						MemoryLimitMiB:      1000,
-						MemorySpikeLimitMiB: 350,
-						CheckInterval:       1 * time.Second,
-					},
-					Batch: opnicorev1beta1.BatchProcessorConfig{
-						SendBatchSize: 1000,
-						Timeout:       15 * time.Second,
-					},
-				},
-				Exporters: opnicorev1beta1.AggregatorOTELExporters{
-					OTLPHTTP: opnicorev1beta1.OTLPHTTPExporterConfig{
-						SendingQueue: opnicorev1beta1.CollectorSendingQueue{
-							Enabled:      true,
-							NumConsumers: 4,
-							QueueSize:    100,
-						},
-					},
-				},
-			},
-			NodeOTELConfigSpec: &opnicorev1beta1.NodeOTELConfigSpec{
-				Processors: opnicorev1beta1.NodeOTELProcessors{
-					MemoryLimiter: opnicorev1beta1.MemoryLimiterProcessorConfig{
-						MemoryLimitMiB:      250,
-						MemorySpikeLimitMiB: 50,
-						CheckInterval:       1 * time.Second,
-					},
-				},
-				Exporters: opnicorev1beta1.NodeOTELExporters{
-					OTLP: opnicorev1beta1.OTLPExporterConfig{
-						SendingQueue: opnicorev1beta1.CollectorSendingQueue{
-							Enabled:      true,
-							NumConsumers: 4,
-							QueueSize:    100,
-						},
-					},
-				},
-			},
+			SystemNamespace:          m.Namespace,
+			AgentEndpoint:            otel.AgentEndpoint(serviceName),
+			AggregatorOTELConfigSpec: opnicorev1beta1.NewDefaultAggregatorOTELConfigSpec(),
+			NodeOTELConfigSpec:       opnicorev1beta1.NewDefaultNodeOTELConfigSpec(),
 		},
 	}
 }

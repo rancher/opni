@@ -58,7 +58,7 @@ func (r *Reconciler) aggregatorConfigMapName() string {
 }
 
 func (r *Reconciler) getDaemonConfig(loggingReceivers []string) otel.NodeConfig {
-	nodeConfig := otel.NodeConfig{
+	return otel.NodeConfig{
 		Instance: r.collector.Name,
 		Logs: otel.LoggingConfig{
 			Enabled:   r.collector.Spec.LoggingConfig != nil,
@@ -69,8 +69,6 @@ func (r *Reconciler) getDaemonConfig(loggingReceivers []string) otel.NodeConfig 
 		LogLevel:      r.collector.Spec.LogLevel,
 		OTELConfig:    r.getDaemonOTELConfig(),
 	}
-
-	return nodeConfig
 }
 
 func (r *Reconciler) getDaemonOTELConfig() otel.NodeOTELConfig {
@@ -104,7 +102,7 @@ func (r *Reconciler) getDaemonOTELConfig() otel.NodeOTELConfig {
 func (r *Reconciler) getAggregatorConfig(
 	metricsCfg otel.MetricsConfig,
 ) otel.AggregatorConfig {
-	aggregatorCfg := otel.AggregatorConfig{
+	return otel.AggregatorConfig{
 		LogsEnabled:   r.collector.Spec.LoggingConfig != nil,
 		Metrics:       metricsCfg,
 		AgentEndpoint: r.collector.Spec.AgentEndpoint,
@@ -112,8 +110,6 @@ func (r *Reconciler) getAggregatorConfig(
 		LogLevel:      r.collector.Spec.LogLevel,
 		OTELConfig:    r.getAggregatorOTELConfig(),
 	}
-
-	return aggregatorCfg
 }
 
 func (r *Reconciler) getAggregatorOTELConfig() otel.AggregatorOTELConfig {

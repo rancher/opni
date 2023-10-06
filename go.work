@@ -2,7 +2,6 @@ go 1.21
 
 use (
 	.
-	../../ragu
 	./dagger
 	./infra
 )

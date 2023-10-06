@@ -19,34 +19,52 @@ const (
 )
 
 type CollectorSpec struct {
-	opnimeta.ImageSpec `json:",inline,omitempty"`
-	AgentEndpoint      string                       `json:"agentEndpoint,omitempty"`
-	SystemNamespace    string                       `json:"systemNamespace,omitempty"`
-	LoggingConfig      *corev1.LocalObjectReference `json:"loggingConfig,omitempty"`
-	MetricsConfig      *corev1.LocalObjectReference `json:"metricsConfig,omitempty"`
-	ConfigReloader     *ConfigReloaderSpec          `json:"configReloader,omitempty"`
-	LogLevel           string                       `json:"logLevel,omitempty"`
-	OTELConfigSpec     *OTELConfigSpec              `json:"otelCollectorSpec,omitempty"`
+	opnimeta.ImageSpec       `json:",inline,omitempty"`
+	AgentEndpoint            string                       `json:"agentEndpoint,omitempty"`
+	SystemNamespace          string                       `json:"systemNamespace,omitempty"`
+	LoggingConfig            *corev1.LocalObjectReference `json:"loggingConfig,omitempty"`
+	MetricsConfig            *corev1.LocalObjectReference `json:"metricsConfig,omitempty"`
+	ConfigReloader           *ConfigReloaderSpec          `json:"configReloader,omitempty"`
+	LogLevel                 string                       `json:"logLevel,omitempty"`
+	AggregatorOTELConfigSpec *AggregatorOTELConfigSpec    `json:"aggregatorOtelCollectorSpec,omitempty"`
+	NodeOTELConfigSpec       *NodeOTELConfigSpec          `json:"nodeOtelCollectorSpec,omitempty"`
 }
 
 type ConfigReloaderSpec struct {
 	opnimeta.ImageSpec `json:",inline,omitempty"`
 }
 
-type OTELConfigSpec struct {
-	Processors OTELProcessors `json:"processors,omitempty"`
-	Exporters  OTELExporters  `json:"exporters,omitempty"`
+type AggregatorOTELConfigSpec struct {
+	Processors AggregatorOTELProcessors `json:"processors,omitempty"`
+	Exporters  AggregatorOTELExporters  `json:"exporters,omitempty"`
 }
 
-type OTELProcessors struct {
+type AggregatorOTELProcessors struct {
 	Batch         BatchProcessorConfig         `json:"batch,omitempty"`
 	MemoryLimiter MemoryLimiterProcessorConfig `json:"memoryLimiter,omitempty"`
 }
 
-type OTELExporters struct {
+type AggregatorOTELExporters struct {
 	OTLPHTTP OTLPHTTPExporterConfig `json:"otlphttp,omitempty"`
 }
 
+type NodeOTELConfigSpec struct {
+	Processors NodeOTELProcessors `json:"processors,omitempty"`
+	Exporters  NodeOTELExporters  `json:"exporters,omitempty"`
+}
+
+type NodeOTELProcessors struct {
+	MemoryLimiter MemoryLimiterProcessorConfig `json:"memoryLimiter,omitempty"`
+}
+
+type NodeOTELExporters struct {
+	OTLP OTLPExporterConfig `json:"otlp,omitempty"`
+}
+
+// MemoryLimiterProcessorConfig has the attributes that we want to make
+// available from memorylimiterexporter.Config.
+// Also, we extend it with the JSON struct tags needed in order to kubebuilder
+// and controller-gen work.
 type MemoryLimiterProcessorConfig struct {
 	// CheckInterval is the time between measurements of memory usage for the
 	// purposes of avoiding going over the limits. Defaults to zero, so no
@@ -74,6 +92,10 @@ type MemoryLimiterProcessorConfig struct {
 	MemorySpikePercentage uint32 `json:"spikeLimitPercentage,omitempty"`
 }
 
+// BatchProcessorConfig has the attributes that we want to make
+// available from batchprocessor.Config.
+// Also, we extend it with the JSON struct tags needed in order to kubebuilder
+// and controller-gen work.
 type BatchProcessorConfig struct {
 	// Timeout sets the time after which a batch will be sent regardless of size.
 	// When this is set to zero, batched data will be sent immediately.
@@ -110,7 +132,11 @@ type BatchProcessorConfig struct {
 	MetadataCardinalityLimit uint32 `json:"metadataCardinalityLimit,omitempty"`
 }
 
-type OTLPHTTPSendingQueue struct {
+// CollectorSendingQueue has the attributes that we want to make
+// available from exporterhelper.QueueSettings.
+// Also, we extend it with the JSON struct tags needed in order to kubebuilder
+// and controller-gen work.
+type CollectorSendingQueue struct {
 	// Enabled indicates whether to not enqueue batches before sending to the consumerSender.
 	Enabled bool `json:"enabled,omitempty"`
 	// NumConsumers is the number of consumers from the queue.
@@ -118,8 +144,12 @@ type OTLPHTTPSendingQueue struct {
 	// QueueSize is the maximum number of batches allowed in queue at a given time.
 	QueueSize int `json:"queueSize,omitempty"`
 }
+
+type OTLPExporterConfig struct {
+	SendingQueue CollectorSendingQueue `json:"sendingQueue,omitempty"`
+}
 type OTLPHTTPExporterConfig struct {
-	SendingQueue OTLPHTTPSendingQueue `json:"sendingQueue,omitempty"`
+	SendingQueue CollectorSendingQueue `json:"sendingQueue,omitempty"`
 }
 
 // CollectorStatus defines the observed state of Collector

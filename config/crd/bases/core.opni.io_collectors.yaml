@@ -49,13 +49,6 @@ spec:
                     properties:
                       batch:
                         properties:
-                          metadataCardinalityLimit:
-                            format: int32
-                            type: integer
-                          metadataKeys:
-                            items:
-                              type: string
-                            type: array
                           sendBatchMaxSize:
                             format: int32
                             type: integer

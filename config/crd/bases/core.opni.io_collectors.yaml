@@ -28,48 +28,7 @@ spec:
             properties:
               agentEndpoint:
                 type: string
-              configReloader:
-                properties:
-                  image:
-                    type: string
-                  imagePullPolicy:
-                    type: string
-                  imagePullSecrets:
-                    items:
-                      properties:
-                        name:
-                          type: string
-                      type: object
-                      x-kubernetes-map-type: atomic
-                    type: array
-                type: object
-              image:
-                type: string
-              imagePullPolicy:
-                type: string
-              imagePullSecrets:
-                items:
-                  properties:
-                    name:
-                      type: string
-                  type: object
-                  x-kubernetes-map-type: atomic
-                type: array
-              logLevel:
-                type: string
-              loggingConfig:
-                properties:
-                  name:
-                    type: string
-                type: object
-                x-kubernetes-map-type: atomic
-              metricsConfig:
-                properties:
-                  name:
-                    type: string
-                type: object
-                x-kubernetes-map-type: atomic
-              otelCollectorSpec:
+              aggregatorOtelCollectorSpec:
                 properties:
                   exporters:
                     properties:
@@ -111,6 +70,91 @@ spec:
                             default: 15s
                             type: integer
                         type: object
+                      memoryLimiter:
+                        properties:
+                          checkInterval:
+                            allOf:
+                            - format: int64
+                            - format: duration
+                            default: 1s
+                            type: integer
+                          limitMib:
+                            default: 1000
+                            format: int32
+                            type: integer
+                          limitPercentage:
+                            format: int32
+                            type: integer
+                          spikeLimitMib:
+                            default: 350
+                            format: int32
+                            type: integer
+                          spikeLimitPercentage:
+                            format: int32
+                            type: integer
+                        type: object
+                    type: object
+                type: object
+              configReloader:
+                properties:
+                  image:
+                    type: string
+                  imagePullPolicy:
+                    type: string
+                  imagePullSecrets:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    type: array
+                type: object
+              image:
+                type: string
+              imagePullPolicy:
+                type: string
+              imagePullSecrets:
+                items:
+                  properties:
+                    name:
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
+              logLevel:
+                type: string
+              loggingConfig:
+                properties:
+                  name:
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
+              metricsConfig:
+                properties:
+                  name:
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
+              nodeOtelCollectorSpec:
+                properties:
+                  exporters:
+                    properties:
+                      otlp:
+                        properties:
+                          sendingQueue:
+                            properties:
+                              enabled:
+                                type: boolean
+                              numConsumers:
+                                type: integer
+                              queueSize:
+                                type: integer
+                            type: object
+                        type: object
+                    type: object
+                  processors:
+                    properties:
                       memoryLimiter:
                         properties:
                           checkInterval:

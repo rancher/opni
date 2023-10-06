@@ -128,8 +128,9 @@ cloud.google.com/go/compute v1.23.0/go.mod h1:4tCnrn48xsqlwSAiLf1HXMQk8CONslYbdi
 cloud.google.com/go/compute/metadata v0.1.0/go.mod h1:Z1VN+bulIf6bt4P/C37K4DyZYZEXYonfTBHHFPO/4UU=
 cloud.google.com/go/compute/metadata v0.2.0/go.mod h1:zFmK7XCadkQkj6TtorcaGlCW1hT1fIilQDwofLpJ20k=
 cloud.google.com/go/compute/metadata v0.2.1/go.mod h1:jgHgmJd2RKBGzXqF5LR2EZMGxBkeanZ9wwa75XHJgOM=
-cloud.google.com/go/compute/metadata v0.2.3 h1:mg4jlk7mCAj6xXp9UJ4fjI9VUI5rubuGBW5aJ7UnBMY=
 cloud.google.com/go/compute/metadata v0.2.3/go.mod h1:VAV5nSsACxMJvgaAuX6Pk2AawlZn8kiOGuCv6gTkwuA=
+cloud.google.com/go/compute/metadata v0.2.4-0.20230617002413-005d2dfb6b68 h1:aRVqY1p2IJaBGStWMsQMpkAa83cPkCDLl80eOj0Rbz4=
+cloud.google.com/go/compute/metadata v0.2.4-0.20230617002413-005d2dfb6b68/go.mod h1:1a3eRNYX12fs5UABBIXS8HXVvQbX9hRB/RkEBPORpe8=
 cloud.google.com/go/contactcenterinsights v1.3.0/go.mod h1:Eu2oemoePuEFc/xKFPjbTuPSj0fYJcPls9TFlPNnHHY=
 cloud.google.com/go/contactcenterinsights v1.4.0/go.mod h1:L2YzkGbPsv+vMQMCADxJoT9YiTTnSEd6fEvCeHTYVck=
 cloud.google.com/go/container v1.6.0/go.mod h1:Xazp7GjJSeUYo688S+6J5V+n/t+G5sKBTFkKNudGRxg=
@@ -2031,8 +2032,8 @@ github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5/go.mod h1:iIss55rK
 github.com/philhofer/fwd v1.0.0/go.mod h1:gk3iGcWd9+svBvR0sR+KPcfE+RNWozjowpeBVG3ZVNU=
 github.com/pierrec/lz4 v1.0.2-0.20190131084431-473cd7ce01a1/go.mod h1:3/3N9NVKO0jef7pBehbT1qWhCMrIgbYNnFAZCqQ5LRc=
 github.com/pierrec/lz4 v2.0.5+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
-github.com/pierrec/lz4/v4 v4.1.16 h1:kQPfno+wyx6C5572ABwV+Uo3pDFzQ7yhyGchSyRda0c=
-github.com/pierrec/lz4/v4 v4.1.16/go.mod h1:gZWDp/Ze/IJXGXf23ltt2EXimqmTUXEy0GFuRQyBid4=
+github.com/pierrec/lz4/v4 v4.1.17 h1:kV4Ip+/hUBC+8T6+2EgburRtkE9ef4nbY3f4dFhGjMc=
+github.com/pierrec/lz4/v4 v4.1.17/go.mod h1:gZWDp/Ze/IJXGXf23ltt2EXimqmTUXEy0GFuRQyBid4=
 github.com/pjbgf/sha1cd v0.3.0 h1:4D5XXmUUBUl/xQ6IjCkEAbqXskkq/4O7LmGn0AqMDs4=
 github.com/pjbgf/sha1cd v0.3.0/go.mod h1:nZ1rrWOcGJ5uZgEEVL1VUM9iRQiZvWdbZjkKyFzPPsI=
 github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 h1:KoWmjvw+nsYOo29YJK9vDA65RGE3NrOnUtO7a+RF9HU=
@@ -2514,6 +2515,8 @@ go.opentelemetry.io/collector/consumer v0.80.0 h1:IQfkrNvZ6/ZkfQs/d6JENgfYPE3g3N
 go.opentelemetry.io/collector/consumer v0.80.0/go.mod h1://MinWlTMlL44B8WvUzLnYWBKgxfgGE8grpxoUiL9aQ=
 go.opentelemetry.io/collector/exporter v0.80.0 h1:BjwrMGhlrJ6IyhOOkPruzycCk7dv6vuf+VORzsVtcLI=
 go.opentelemetry.io/collector/exporter v0.80.0/go.mod h1:qcvFsxN8AaSxJ60WxSF0zGUTCMhGBWY3Coa9iiONWbg=
+go.opentelemetry.io/collector/exporter/otlpexporter v0.80.0 h1:WQOuXDt40i50lyS3JFIBp0dKEAltt54oERk7klBB5LQ=
+go.opentelemetry.io/collector/exporter/otlpexporter v0.80.0/go.mod h1:vfD1P2bcPeK9Df77wzWX897teeBcCvnxA9aNRxDM3ks=
 go.opentelemetry.io/collector/exporter/otlphttpexporter v0.80.0 h1:2rd+t/LCr7nOOBiHKaeSVbJKHmFbANkUMnumGYVCBCM=
 go.opentelemetry.io/collector/exporter/otlphttpexporter v0.80.0/go.mod h1:vBz0hJe32gAEp8LWb8e7VwA96h6qlRxToy2acYV6lKw=
 go.opentelemetry.io/collector/extension v0.80.0 h1:Nx2QpwBAwcEcCVpqqqJIzpkhniGRhLC5Tr5s+e5H5p0=

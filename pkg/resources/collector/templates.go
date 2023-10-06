@@ -194,15 +194,16 @@ exporters:
     tls:
       insecure: true
     sending_queue:
-      num_consumers: 4
-      queue_size: 100
+      enabled: {{ .OTELConfig.Exporters.OTLP.SendingQueue.Enabled }}
+      num_consumers: {{ .OTELConfig.Exporters.OTLP.SendingQueue.NumConsumers }}
+      queue_size: {{ .OTELConfig.Exporters.OTLP.SendingQueue.QueueSize }}
     retry_on_failure:
       enabled: true
 processors:
   memory_limiter:
-    limit_mib: 250
-    spike_limit_mib: 50
-    check_interval: 1s
+    limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemoryLimitMiB }}
+    spike_limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemorySpikeLimitMiB }}
+    check_interval: {{ .OTELConfig.Processors.MemoryLimiter.CheckInterval }}
   k8sattributes:
     passthrough: false
     pod_association:

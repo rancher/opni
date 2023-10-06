@@ -58,7 +58,7 @@ func (r *Reconciler) aggregatorConfigMapName() string {
 
 func (r *Reconciler) getDaemonConfig(loggingReceivers []string) otel.NodeConfig {
 	nodeOTELCfg := r.collector.Spec.NodeOTELConfigSpec
-	return otel.NodeConfig{
+	nodeConfig := otel.NodeConfig{
 		Instance: r.collector.Name,
 		Logs: otel.LoggingConfig{
 			Enabled:   r.collector.Spec.LoggingConfig != nil,
@@ -67,7 +67,10 @@ func (r *Reconciler) getDaemonConfig(loggingReceivers []string) otel.NodeConfig 
 		Metrics:       lo.FromPtr(r.getMetricsConfig()),
 		Containerized: true,
 		LogLevel:      r.collector.Spec.LogLevel,
-		OTELConfig: otel.NodeOTELConfig{
+	}
+
+	if nodeOTELCfg != nil {
+		nodeConfig.OTELConfig = otel.NodeOTELConfig{
 			Processors: &otel.NodeOTELProcessors{
 				MemoryLimiter: memorylimiterprocessor.Config{
 					CheckInterval:         nodeOTELCfg.Processors.MemoryLimiter.CheckInterval,
@@ -86,22 +89,26 @@ func (r *Reconciler) getDaemonConfig(loggingReceivers []string) otel.NodeConfig 
 					},
 				},
 			},
-		},
+		}
 	}
+
+	return nodeConfig
 }
 
 func (r *Reconciler) getAggregatorConfig(
 	metricsCfg otel.MetricsConfig,
 ) otel.AggregatorConfig {
-	aggregatorOTELCfg := r.collector.Spec.AggregatorOTELConfigSpec
-
-	return otel.AggregatorConfig{
+	aggregatorCfg := otel.AggregatorConfig{
 		LogsEnabled:   r.collector.Spec.LoggingConfig != nil,
 		Metrics:       metricsCfg,
 		AgentEndpoint: r.collector.Spec.AgentEndpoint,
 		Containerized: true,
 		LogLevel:      r.collector.Spec.LogLevel,
-		OTELConfig: otel.AggregatorOTELConfig{
+	}
+
+	aggregatorOTELCfg := r.collector.Spec.AggregatorOTELConfigSpec
+	if aggregatorOTELCfg != nil {
+		aggregatorCfg.OTELConfig = otel.AggregatorOTELConfig{
 			Processors: &otel.AggregatorOTELProcessors{
 				MemoryLimiter: memorylimiterprocessor.Config{
 					CheckInterval:         aggregatorOTELCfg.Processors.MemoryLimiter.CheckInterval,
@@ -125,8 +132,10 @@ func (r *Reconciler) getAggregatorConfig(
 					},
 				},
 			},
-		},
+		}
 	}
+
+	return aggregatorCfg
 }
 
 func (r *Reconciler) receiverConfig() (retData []byte, retReceivers []string, retErr error) {

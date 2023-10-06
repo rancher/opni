@@ -1,7 +1,6 @@
 package v1beta1
 
 import (
-	"k8s.io/apimachinery/pkg/runtime"
 	"time"
 
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
@@ -163,11 +162,6 @@ type Collector struct {
 
 	Spec   CollectorSpec   `json:"spec,omitempty"`
 	Status CollectorStatus `json:"status,omitempty"`
-}
-
-func (c Collector) DeepCopyObject() runtime.Object {
-	//TODO implement me
-	panic("implement me")
 }
 
 //+kubebuilder:object:root=true

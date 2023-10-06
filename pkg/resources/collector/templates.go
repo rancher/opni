@@ -271,7 +271,7 @@ processors:
   batch:
     timeout: {{ .OTELConfig.Processors.Batch.Timeout }}
     send_batch_size: {{ .OTELConfig.Processors.Batch.SendBatchSize }}
-    send_batch_max_size: timeout: {{ .OTELConfig.Processors.Batch.SendBatchMaxSize }} 
+    send_batch_max_size: {{ .OTELConfig.Processors.Batch.SendBatchMaxSize }} 
   memory_limiter:
     limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemoryLimitMiB }}
     spike_limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemorySpikeLimitMiB }}

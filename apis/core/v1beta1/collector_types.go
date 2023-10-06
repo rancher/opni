@@ -69,18 +69,14 @@ type MemoryLimiterProcessorConfig struct {
 	// CheckInterval is the time between measurements of memory usage for the
 	// purposes of avoiding going over the limits. Defaults to zero, so no
 	// checks will be performed.
-	// +kubebuilder:default="1s"
-	// +kubebuilder:validation:Format=duration
 	CheckInterval time.Duration `json:"checkInterval,omitempty"`
 
 	// MemoryLimitMiB is the maximum amount of memory, in MiB, targeted to be
 	// allocated by the process.
-	// +kubebuilder:default=1000
 	MemoryLimitMiB uint32 `json:"limitMib,omitempty"`
 
 	// MemorySpikeLimitMiB is the maximum, in MiB, spike expected between the
 	// measurements of memory usage.
-	// +kubebuilder:default=350
 	MemorySpikeLimitMiB uint32 `json:"spikeLimitMib,omitempty"`
 
 	// MemoryLimitPercentage is the maximum amount of memory, in %, targeted to be
@@ -99,14 +95,11 @@ type MemoryLimiterProcessorConfig struct {
 type BatchProcessorConfig struct {
 	// Timeout sets the time after which a batch will be sent regardless of size.
 	// When this is set to zero, batched data will be sent immediately.
-	// +kubebuilder:default="15s"
-	// +kubebuilder:validation:Format=duration
 	Timeout time.Duration `json:"timeout,omitempty"`
 
 	// SendBatchSize is the size of a batch which after hit, will trigger it to be sent.
 	// When this is set to zero, the batch size is ignored and data will be sent immediately
 	// subject to only send_batch_max_size.
-	// +kubebuilder:default=1000
 	SendBatchSize uint32 `json:"sendBatchSize,omitempty"`
 
 	// SendBatchMaxSize is the maximum size of a batch. It must be larger than SendBatchSize.

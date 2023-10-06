@@ -53,33 +53,24 @@ spec:
                             format: int32
                             type: integer
                           sendBatchSize:
-                            default: 1000
                             format: int32
                             type: integer
                           timeout:
-                            allOf:
-                            - format: int64
-                            - format: duration
-                            default: 15s
+                            format: int64
                             type: integer
                         type: object
                       memoryLimiter:
                         properties:
                           checkInterval:
-                            allOf:
-                            - format: int64
-                            - format: duration
-                            default: 1s
+                            format: int64
                             type: integer
                           limitMib:
-                            default: 1000
                             format: int32
                             type: integer
                           limitPercentage:
                             format: int32
                             type: integer
                           spikeLimitMib:
-                            default: 350
                             format: int32
                             type: integer
                           spikeLimitPercentage:
@@ -151,20 +142,15 @@ spec:
                       memoryLimiter:
                         properties:
                           checkInterval:
-                            allOf:
-                            - format: int64
-                            - format: duration
-                            default: 1s
+                            format: int64
                             type: integer
                           limitMib:
-                            default: 1000
                             format: int32
                             type: integer
                           limitPercentage:
                             format: int32
                             type: integer
                           spikeLimitMib:
-                            default: 350
                             format: int32
                             type: integer
                           spikeLimitPercentage:

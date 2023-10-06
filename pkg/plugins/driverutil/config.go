@@ -498,54 +498,52 @@ func NewDefaultingActiveKeyedConfigTracker[T ConfigType[T]](
 	defaultStore storage.ValueStoreT[T],
 	activeStore storage.KeyValueStoreT[T],
 	loadDefaultsFunc DefaultLoaderFunc[T],
-) *DefaultingActiveKeyedConfigTracker[T] {
-	return &DefaultingActiveKeyedConfigTracker[T]{
-		tracker: NewDefaultingConfigTracker[T](defaultStore, &contextKeyedValueStore[T]{
-			base: activeStore,
-		}, loadDefaultsFunc),
-	}
+) *DefaultingConfigTracker[T] {
+	return NewDefaultingConfigTracker[T](defaultStore, &contextKeyedValueStore[T]{
+		base: activeStore,
+	}, loadDefaultsFunc)
 }
 
-func (ct *DefaultingActiveKeyedConfigTracker[T]) GetDefaultConfig(ctx context.Context, key string, atRevision ...*corev1.Revision) (t T, err error) {
-	return ct.tracker.GetDefaultConfig(contextWithKey(ctx, key), atRevision...)
-}
+// func (ct *DefaultingActiveKeyedConfigTracker[T]) GetDefaultConfig(ctx context.Context, key string, atRevision ...*corev1.Revision) (t T, err error) {
+// 	return ct.tracker.GetDefaultConfig(contextWithKey(ctx, key), atRevision...)
+// }
 
-func (ct *DefaultingActiveKeyedConfigTracker[T]) GetConfig(ctx context.Context, key string, atRevision ...*corev1.Revision) (t T, err error) {
-	return ct.tracker.GetConfig(contextWithKey(ctx, key), atRevision...)
-}
+// func (ct *DefaultingActiveKeyedConfigTracker[T]) GetConfig(ctx context.Context, key string, atRevision ...*corev1.Revision) (t T, err error) {
+// 	return ct.tracker.GetConfig(contextWithKey(ctx, key), atRevision...)
+// }
 
-func (ct *DefaultingActiveKeyedConfigTracker[T]) ResetConfig(ctx context.Context, key string, mask *fieldmaskpb.FieldMask, patch T) (err error) {
-	return ct.tracker.ResetConfig(contextWithKey(ctx, key), mask, patch)
-}
+// func (ct *DefaultingActiveKeyedConfigTracker[T]) ResetConfig(ctx context.Context, key string, mask *fieldmaskpb.FieldMask, patch T) (err error) {
+// 	return ct.tracker.ResetConfig(contextWithKey(ctx, key), mask, patch)
+// }
 
-func (ct *DefaultingActiveKeyedConfigTracker[T]) GetConfigOrDefault(ctx context.Context, key string, atRevision ...*corev1.Revision) (t T, err error) {
-	return ct.tracker.GetConfigOrDefault(contextWithKey(ctx, key), atRevision...)
-}
+// func (ct *DefaultingActiveKeyedConfigTracker[T]) GetConfigOrDefault(ctx context.Context, key string, atRevision ...*corev1.Revision) (t T, err error) {
+// 	return ct.tracker.GetConfigOrDefault(contextWithKey(ctx, key), atRevision...)
+// }
 
-func (ct *DefaultingActiveKeyedConfigTracker[T]) ApplyConfig(ctx context.Context, key string, newConfig T) (err error) {
-	return ct.tracker.ApplyConfig(contextWithKey(ctx, key), newConfig)
-}
+// func (ct *DefaultingActiveKeyedConfigTracker[T]) ApplyConfig(ctx context.Context, key string, newConfig T) (err error) {
+// 	return ct.tracker.ApplyConfig(contextWithKey(ctx, key), newConfig)
+// }
 
-func (ct *DefaultingActiveKeyedConfigTracker[T]) DryRun(ctx context.Context, key string, req DryRunRequestType[T]) (res *DryRunResults[T], err error) {
-	return ct.tracker.DryRun(contextWithKey(ctx, key), req)
-}
+// func (ct *DefaultingActiveKeyedConfigTracker[T]) DryRun(ctx context.Context, key string, req DryRunRequestType[T]) (res *DryRunResults[T], err error) {
+// 	return ct.tracker.DryRun(contextWithKey(ctx, key), req)
+// }
 
-func (ct *DefaultingActiveKeyedConfigTracker[T]) History(ctx context.Context, key string, target Target, opts ...storage.HistoryOpt) (res []storage.KeyRevision[T], err error) {
-	return ct.tracker.History(contextWithKey(ctx, key), target, opts...)
-}
+// func (ct *DefaultingActiveKeyedConfigTracker[T]) History(ctx context.Context, key string, target Target, opts ...storage.HistoryOpt) (res []storage.KeyRevision[T], err error) {
+// 	return ct.tracker.History(contextWithKey(ctx, key), target, opts...)
+// }
 
-func (ct *DefaultingActiveKeyedConfigTracker[T]) DryRunApplyConfig(ctx context.Context, key string, newConfig T) (res DryRunResults[T], err error) {
-	return ct.tracker.DryRunApplyConfig(contextWithKey(ctx, key), newConfig)
-}
+// func (ct *DefaultingActiveKeyedConfigTracker[T]) DryRunApplyConfig(ctx context.Context, key string, newConfig T) (res DryRunResults[T], err error) {
+// 	return ct.tracker.DryRunApplyConfig(contextWithKey(ctx, key), newConfig)
+// }
 
-func (ct *DefaultingActiveKeyedConfigTracker[T]) DryRunSetDefaultConfig(ctx context.Context, key string, newDefault T) (res DryRunResults[T], err error) {
-	return ct.tracker.DryRunSetDefaultConfig(contextWithKey(ctx, key), newDefault)
-}
+// func (ct *DefaultingActiveKeyedConfigTracker[T]) DryRunSetDefaultConfig(ctx context.Context, key string, newDefault T) (res DryRunResults[T], err error) {
+// 	return ct.tracker.DryRunSetDefaultConfig(contextWithKey(ctx, key), newDefault)
+// }
 
-func (ct *DefaultingActiveKeyedConfigTracker[T]) DryRunResetDefaultConfig(ctx context.Context, key string) (res DryRunResults[T], err error) {
-	return ct.tracker.DryRunResetDefaultConfig(contextWithKey(ctx, key))
-}
+// func (ct *DefaultingActiveKeyedConfigTracker[T]) DryRunResetDefaultConfig(ctx context.Context, key string) (res DryRunResults[T], err error) {
+// 	return ct.tracker.DryRunResetDefaultConfig(contextWithKey(ctx, key))
+// }
 
-func (ct *DefaultingActiveKeyedConfigTracker[T]) DryRunResetConfig(ctx context.Context, key string, mask *fieldmaskpb.FieldMask, patch T) (res DryRunResults[T], err error) {
-	return ct.tracker.DryRunResetConfig(contextWithKey(ctx, key), mask, patch)
-}
+// func (ct *DefaultingActiveKeyedConfigTracker[T]) DryRunResetConfig(ctx context.Context, key string, mask *fieldmaskpb.FieldMask, patch T) (res DryRunResults[T], err error) {
+// 	return ct.tracker.DryRunResetConfig(contextWithKey(ctx, key), mask, patch)
+// }

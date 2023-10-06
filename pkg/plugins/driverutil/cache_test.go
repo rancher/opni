@@ -12,14 +12,14 @@ import (
 	"github.com/samber/lo"
 )
 
-var _ = Describe("DriverCache", Label("unit"), func() {
+var _ = Describe("Cache", Label("unit"), func() {
 	type driverStub int
-	var driverCache driverutil.DriverCache[driverStub]
-	var driverBuilders map[string]driverutil.DriverBuilder[driverStub]
+	var driverCache driverutil.Cache[driverStub]
+	var driverBuilders map[string]driverutil.Builder[driverStub]
 
 	BeforeEach(func() {
-		driverCache = driverutil.NewDriverCache[driverStub]()
-		driverBuilders = map[string]driverutil.DriverBuilder[driverStub]{}
+		driverCache = driverutil.NewCache[driverStub]()
+		driverBuilders = map[string]driverutil.Builder[driverStub]{}
 		for i := 0; i < 100; i++ {
 			db := func(ctx context.Context, opts ...driverutil.Option) (driverStub, error) {
 				return driverStub(i), nil

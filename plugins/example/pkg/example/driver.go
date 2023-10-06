@@ -38,7 +38,7 @@ type DriverImpl struct {
 	]
 }
 
-var drivers = driverutil.NewDriverCache[ExampleDriver]()
+var drivers = driverutil.NewCache[ExampleDriver]()
 
 type ExampleDriverImplOptions struct {
 	DefaultConfigStore storage.ValueStoreT[*ConfigSpec] `option:"defaultConfigStore"`

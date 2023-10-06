@@ -402,7 +402,7 @@ func main() {
 				}
 				// take the first preset
 				preset := presets.Items[0]
-				_, err = opsClient.SetConfiguration(context.Background(), preset.GetSpec())
+				_, err = opsClient.SetConfiguration(context.Background(), &cortexops.SetRequest{Spec: preset.GetSpec()})
 				if err != nil {
 					testlog.Log.Error(err)
 					return

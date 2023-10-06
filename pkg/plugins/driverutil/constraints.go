@@ -11,11 +11,13 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
-type Driver any
-
 type InstallableConfigType[T any] interface {
 	ConfigType[T]
 	GetEnabled() bool
+}
+
+type ContextKeyable interface {
+	ContextKey() string
 }
 
 type Revisioner interface {

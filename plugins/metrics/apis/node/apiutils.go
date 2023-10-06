@@ -3,22 +3,11 @@ package node
 import driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
 
 type SpecializedConfigServer interface {
-	driverutil.BasicDefaultServer[
+	driverutil.ConfigServer[
 		*MetricsCapabilityConfig,
-		*driverutil.GetRequest,
+		*GetRequest,
 		*SetRequest,
-	]
-	driverutil.BasicActiveServer[
-		*MetricsCapabilityConfig,
-		*NodeGetRequest,
-		*NodeSetRequest,
-	]
-	driverutil.ResetServer[
-		*MetricsCapabilityConfig,
-		*NodeResetRequest,
-	]
-	driverutil.HistoryServer[
-		*MetricsCapabilityConfig,
+		*ResetRequest,
 		*ConfigurationHistoryRequest,
 		*ConfigurationHistoryResponse,
 	]

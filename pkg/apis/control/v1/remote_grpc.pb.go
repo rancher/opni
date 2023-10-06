@@ -49,21 +49,19 @@ func (c *healthClient) GetHealth(ctx context.Context, in *emptypb.Empty, opts ..
 }
 
 // HealthServer is the server API for Health service.
-// All implementations must embed UnimplementedHealthServer
+// All implementations should embed UnimplementedHealthServer
 // for forward compatibility
 type HealthServer interface {
 	GetHealth(context.Context, *emptypb.Empty) (*v1.Health, error)
-	mustEmbedUnimplementedHealthServer()
 }
 
-// UnimplementedHealthServer must be embedded to have forward compatible implementations.
+// UnimplementedHealthServer should be embedded to have forward compatible implementations.
 type UnimplementedHealthServer struct {
 }
 
 func (UnimplementedHealthServer) GetHealth(context.Context, *emptypb.Empty) (*v1.Health, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetHealth not implemented")
 }
-func (UnimplementedHealthServer) mustEmbedUnimplementedHealthServer() {}
 
 // UnsafeHealthServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to HealthServer will
@@ -139,21 +137,19 @@ func (c *healthListenerClient) UpdateHealth(ctx context.Context, in *v1.Health, 
 }
 
 // HealthListenerServer is the server API for HealthListener service.
-// All implementations must embed UnimplementedHealthListenerServer
+// All implementations should embed UnimplementedHealthListenerServer
 // for forward compatibility
 type HealthListenerServer interface {
 	UpdateHealth(context.Context, *v1.Health) (*emptypb.Empty, error)
-	mustEmbedUnimplementedHealthListenerServer()
 }
 
-// UnimplementedHealthListenerServer must be embedded to have forward compatible implementations.
+// UnimplementedHealthListenerServer should be embedded to have forward compatible implementations.
 type UnimplementedHealthListenerServer struct {
 }
 
 func (UnimplementedHealthListenerServer) UpdateHealth(context.Context, *v1.Health) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateHealth not implemented")
 }
-func (UnimplementedHealthListenerServer) mustEmbedUnimplementedHealthListenerServer() {}
 
 // UnsafeHealthListenerServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to HealthListenerServer will
@@ -229,21 +225,19 @@ func (c *updateSyncClient) SyncManifest(ctx context.Context, in *UpdateManifest,
 }
 
 // UpdateSyncServer is the server API for UpdateSync service.
-// All implementations must embed UnimplementedUpdateSyncServer
+// All implementations should embed UnimplementedUpdateSyncServer
 // for forward compatibility
 type UpdateSyncServer interface {
 	SyncManifest(context.Context, *UpdateManifest) (*SyncResults, error)
-	mustEmbedUnimplementedUpdateSyncServer()
 }
 
-// UnimplementedUpdateSyncServer must be embedded to have forward compatible implementations.
+// UnimplementedUpdateSyncServer should be embedded to have forward compatible implementations.
 type UnimplementedUpdateSyncServer struct {
 }
 
 func (UnimplementedUpdateSyncServer) SyncManifest(context.Context, *UpdateManifest) (*SyncResults, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SyncManifest not implemented")
 }
-func (UnimplementedUpdateSyncServer) mustEmbedUnimplementedUpdateSyncServer() {}
 
 // UnsafeUpdateSyncServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to UpdateSyncServer will

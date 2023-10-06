@@ -2,7 +2,6 @@ package drivers
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
@@ -13,7 +12,7 @@ import (
 )
 
 type MetricsNodeConfigurator interface {
-	ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) error
+	ConfigureNode(nodeId string, conf *node.MetricsCapabilityStatus) error
 }
 
 type MetricsNodeDriver interface {
@@ -22,14 +21,4 @@ type MetricsNodeDriver interface {
 	ConfigureRuleGroupFinder(config *v1beta1.RulesSpec) notifier.Finder[rules.RuleGroup]
 }
 
-var NodeDrivers = driverutil.NewDriverCache[MetricsNodeDriver]()
-
-type ConfigurationError struct {
-	NodeId string
-	Cfg    *node.MetricsCapabilityConfig
-	Err    error
-}
-
-func (e *ConfigurationError) Error() string {
-	return fmt.Errorf("error configuring node %s: %w", e.NodeId, e.Err).Error()
-}
+var NodeDrivers = driverutil.NewCache[MetricsNodeDriver]()

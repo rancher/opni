@@ -396,7 +396,7 @@ func (d *TestEnvPrometheusNodeDriver) ConfigureRuleGroupFinder(config *v1beta1.R
 var _ metrics_agent_drivers.MetricsNodeDriver = (*TestEnvPrometheusNodeDriver)(nil)
 
 // ConfigureNode implements drivers.MetricsNodeDriver
-func (d *TestEnvPrometheusNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) error {
+func (d *TestEnvPrometheusNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityStatus) error {
 	lg := d.env.Logger.With(
 		"node", nodeId,
 		"driver", "prometheus",
@@ -455,7 +455,7 @@ type TestEnvOtelNodeDriver struct {
 }
 
 // ConfigureNode implements drivers.MetricsNodeDriver.
-func (d *TestEnvOtelNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) error {
+func (d *TestEnvOtelNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityStatus) error {
 	lg := d.env.Logger.With(
 		"node", nodeId,
 		"driver", "otel",

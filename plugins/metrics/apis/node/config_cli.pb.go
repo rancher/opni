@@ -10,7 +10,6 @@ import (
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	v1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
-	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
 	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
@@ -62,12 +61,24 @@ Served as a management API extension.
 	return cmd
 }
 
+var buildHooks_NodeConfigurationGetDefaultConfiguration []func(*cobra.Command)
+
+func addBuildHook_NodeConfigurationGetDefaultConfiguration(hook func(*cobra.Command)) {
+	buildHooks_NodeConfigurationGetDefaultConfiguration = append(buildHooks_NodeConfigurationGetDefaultConfiguration, hook)
+}
+
 func BuildNodeConfigurationGetDefaultConfigurationCmd() *cobra.Command {
-	in := &driverutil.GetRequest{}
+	in := &GetRequest{}
 	cmd := &cobra.Command{
 		Use:   "config get-default",
-		Short: "",
+		Short: "Returns the default implementation-specific configuration, or one previously set.",
 		Long: `
+If a default configuration was previously set using SetDefaultConfiguration, it
+returns that configuration. Otherwise, returns implementation-specific defaults.
+
+An optional revision argument can be provided to get a specific historical
+version of the configuration instead of the current configuration.
+
 HTTP handlers for this method:
 - GET /node_config
 `[1:],
@@ -91,6 +102,9 @@ HTTP handlers for this method:
 		},
 	}
 	cmd.Flags().AddFlagSet(in.FlagSet())
+	for _, hook := range buildHooks_NodeConfigurationGetDefaultConfiguration {
+		hook(cmd)
+	}
 	return cmd
 }
 
@@ -98,8 +112,21 @@ func BuildNodeConfigurationSetDefaultConfigurationCmd() *cobra.Command {
 	in := &SetRequest{}
 	cmd := &cobra.Command{
 		Use:   "config set-default",
-		Short: "",
+		Short: "Sets the default configuration that will be used as the base for future configuration changes.",
 		Long: `
+If no custom default configuration is set using this method, implementation-specific
+defaults may be chosen.
+
+Unlike with SetConfiguration, the input is not merged with the existing configuration,
+instead replacing it directly.
+
+If the revision field is set, the server will reject the request if the current
+revision does not match the provided revision.
+
+This API is different from the SetConfiguration API, and should not be necessary
+for most use cases. It can be used in situations where an additional persistence
+layer that is not driver-specific is desired.
+
 HTTP handlers for this method:
 - PUT /node_config
 `[1:],
@@ -142,8 +169,12 @@ HTTP handlers for this method:
 func BuildNodeConfigurationResetDefaultConfigurationCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config reset-default",
-		Short: "",
+		Short: "Resets the default configuration to the implementation-specific defaults.",
 		Long: `
+If a custom default configuration was previously set using SetDefaultConfiguration,
+it will be replaced with the implementation-specific defaults. Otherwise,
+this will have no effect.
+
 HTTP handlers for this method:
 - DELETE /node_config
 `[1:],
@@ -165,12 +196,31 @@ HTTP handlers for this method:
 	return cmd
 }
 
+var buildHooks_NodeConfigurationGetConfiguration []func(*cobra.Command)
+
+func addBuildHook_NodeConfigurationGetConfiguration(hook func(*cobra.Command)) {
+	buildHooks_NodeConfigurationGetConfiguration = append(buildHooks_NodeConfigurationGetConfiguration, hook)
+}
+
 func BuildNodeConfigurationGetConfigurationCmd() *cobra.Command {
-	in := &NodeGetRequest{}
+	in := &GetRequest{}
 	cmd := &cobra.Command{
 		Use:   "config get",
-		Short: "",
+		Short: "Gets the current configuration, or the default configuration if not set.",
 		Long: `
+This configuration is maintained and versioned separately from the default
+configuration, and has different semantics regarding merging and persistence.
+
+The active configuration can be set using SetConfiguration. Then, future
+calls to GetConfiguration will return that configuration instead of falling
+back to the default.
+
+An optional revision argument can be provided to get a specific historical
+version of the configuration instead of the current configuration.
+This revision value can be obtained from the revision field of a previous
+call to GetConfiguration, or from the revision field of one of the history
+entries returned by GetConfigurationHistory.
+
 HTTP handlers for this method:
 - GET /node_config/{id}
 `[1:],
@@ -194,15 +244,54 @@ HTTP handlers for this method:
 		},
 	}
 	cmd.Flags().AddFlagSet(in.FlagSet())
+	for _, hook := range buildHooks_NodeConfigurationGetConfiguration {
+		hook(cmd)
+	}
 	return cmd
 }
 
+var buildHooks_NodeConfigurationSetConfiguration []func(*cobra.Command)
+
+func addBuildHook_NodeConfigurationSetConfiguration(hook func(*cobra.Command)) {
+	buildHooks_NodeConfigurationSetConfiguration = append(buildHooks_NodeConfigurationSetConfiguration, hook)
+}
+
 func BuildNodeConfigurationSetConfigurationCmd() *cobra.Command {
-	in := &NodeSetRequest{}
+	in := &SetRequest{}
 	cmd := &cobra.Command{
 		Use:   "config set",
-		Short: "",
+		Short: "Updates the active configuration by merging the input with the current active configuration.",
 		Long: `
+If there is no active configuration, the input will be merged with the default configuration.
+
+The merge is performed by replacing all *present* fields in the input with the
+corresponding fields in the target. Slices and maps are overwritten and not combined.
+Any *non-present* fields in the input are ignored, and the corresponding fields
+in the target are left unchanged.
+
+Field presence is defined by the protobuf spec. The following kinds of fields
+have presence semantics:
+- Messages
+- Repeated fields (scalars or messages)
+- Maps
+- Optional scalars
+Non-optional scalars do *not* have presence semantics, and are always treated
+as present for the purposes of merging. For this reason, it is not recommended
+to use non-optional scalars in messages intended to be used with this API.
+
+Subsequent calls to this API will merge inputs with the previous active configuration,
+not the default configuration.
+
+When updating an existing configuration, the revision number in the input configuration
+must match the revision number of the existing configuration, otherwise a conflict
+error will be returned. The timestamp field of the revision is ignored for this purpose.
+
+Some fields in the configuration may be marked as secrets. These fields are
+write-only from this API, and the placeholder value "***" will be returned in
+place of the actual value when getting the configuration.
+When setting the configuration, the same placeholder value can be used to indicate
+the existing value should be preserved.
+
 HTTP handlers for this method:
 - PUT /node_config/{node.id}
 `[1:],
@@ -239,15 +328,48 @@ HTTP handlers for this method:
 	cmd.Flags().BoolP("interactive", "i", false, "edit the config interactively in an editor")
 	cmd.MarkFlagsMutuallyExclusive("file", "interactive")
 	cmd.MarkFlagFilename("file")
+	for _, hook := range buildHooks_NodeConfigurationSetConfiguration {
+		hook(cmd)
+	}
 	return cmd
 }
 
 func BuildNodeConfigurationResetConfigurationCmd() *cobra.Command {
-	in := &NodeResetRequest{}
+	in := &ResetRequest{}
 	cmd := &cobra.Command{
 		Use:   "config reset",
-		Short: "",
+		Short: "Resets the active configuration to the current default configuration.",
 		Long: `
+The request may optionally contain a field mask to specify which fields should
+be preserved. Furthermore, if a mask is set, the request may also contain a patch
+object used to apply additional changes to the masked fields. These changes are
+applied atomically at the time of reset. Fields present in the patch object, but
+not in the mask, are ignored.
+
+For example, with the following message:
+message Example {
+ optional int32 a = 1;
+ optional int32 b = 2;
+ optional int32 c = 3;
+}
+
+and current state:
+ active:  { a: 1, b: 2, c: 3 }
+ default: { a: 4, b: 5, c: 6 }
+
+and reset request parameters:
+ {
+   mask:  { paths: [ "a", "b" ] }
+   patch: { a: 100 }
+ }
+
+The resulting active configuration will be:
+ active: {
+   a: 100, // masked, set to 100 via patch
+   b: 2,   // masked, but not set in patch, so left unchanged
+   c: 6,   // not masked, reset to default
+ }
+
 HTTP handlers for this method:
 - DELETE /node_config/{node.id}
 `[1:],
@@ -277,8 +399,14 @@ func BuildNodeConfigurationConfigurationHistoryCmd() *cobra.Command {
 	in := &ConfigurationHistoryRequest{}
 	cmd := &cobra.Command{
 		Use:   "config history",
-		Short: "",
+		Short: "Get a list of all past revisions of the configuration.",
 		Long: `
+Will return the history for either the active or default configuration
+depending on the specified target.
+
+The entries are ordered from oldest to newest, where the last entry is
+the current configuration.
+
 HTTP handlers for this method:
 - GET /node_config/{node.id}/history
 `[1:],
@@ -308,9 +436,27 @@ HTTP handlers for this method:
 	return cmd
 }
 
+func (in *GetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("GetRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Node == nil {
+		in.Node = &v1.Reference{}
+	}
+	fs.AddFlagSet(in.Node.FlagSet(append(prefix, "node")...))
+	if in.Revision == nil {
+		in.Revision = &v1.Revision{}
+	}
+	fs.AddFlagSet(in.Revision.FlagSet(append(prefix, "revision")...))
+	return fs
+}
+
 func (in *SetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("SetRequest", pflag.ExitOnError)
 	fs.SortFlags = true
+	if in.Node == nil {
+		in.Node = &v1.Reference{}
+	}
+	fs.AddFlagSet(in.Node.FlagSet(append(prefix, "node")...))
 	if in.Spec == nil {
 		in.Spec = &MetricsCapabilityConfig{}
 	}
@@ -330,7 +476,7 @@ func (in *MetricsCapabilityConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	}
 	fs.AddFlagSet(in.Rules.FlagSet(append(prefix, "rules")...))
 	flagutil.SetDefValue(fs, strings.Join(append(prefix, "rules", "discovery.prometheus-rules.search-namespaces"), "."), `[""]`)
-	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("prometheus"), &in.Driver), strings.Join(append(prefix, "driver"), "."), "")
+	fs.Var(flagutil.EnumPtrValue(nil, &in.Driver), strings.Join(append(prefix, "driver"), "."), "")
 	if in.Prometheus == nil {
 		in.Prometheus = &PrometheusSpec{}
 	}
@@ -369,36 +515,8 @@ func (in *WALConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	return fs
 }
 
-func (in *NodeGetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("NodeGetRequest", pflag.ExitOnError)
-	fs.SortFlags = true
-	if in.Node == nil {
-		in.Node = &v1.Reference{}
-	}
-	fs.AddFlagSet(in.Node.FlagSet(append(prefix, "node")...))
-	if in.Revision == nil {
-		in.Revision = &v1.Revision{}
-	}
-	fs.AddFlagSet(in.Revision.FlagSet(append(prefix, "revision")...))
-	return fs
-}
-
-func (in *NodeSetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("NodeSetRequest", pflag.ExitOnError)
-	fs.SortFlags = true
-	if in.Node == nil {
-		in.Node = &v1.Reference{}
-	}
-	fs.AddFlagSet(in.Node.FlagSet(append(prefix, "node")...))
-	if in.Spec == nil {
-		in.Spec = &MetricsCapabilityConfig{}
-	}
-	fs.AddFlagSet(in.Spec.FlagSet(append(prefix, "spec")...))
-	return fs
-}
-
-func (in *NodeResetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("NodeResetRequest", pflag.ExitOnError)
+func (in *ResetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("ResetRequest", pflag.ExitOnError)
 	fs.SortFlags = true
 	if in.Node == nil {
 		in.Node = &v1.Reference{}

@@ -59,15 +59,14 @@ func (c *remoteTopologyClient) SyncTopology(ctx context.Context, in *Payload, op
 }
 
 // RemoteTopologyServer is the server API for RemoteTopology service.
-// All implementations must embed UnimplementedRemoteTopologyServer
+// All implementations should embed UnimplementedRemoteTopologyServer
 // for forward compatibility
 type RemoteTopologyServer interface {
 	Push(context.Context, *Payload) (*emptypb.Empty, error)
 	SyncTopology(context.Context, *Payload) (*emptypb.Empty, error)
-	mustEmbedUnimplementedRemoteTopologyServer()
 }
 
-// UnimplementedRemoteTopologyServer must be embedded to have forward compatible implementations.
+// UnimplementedRemoteTopologyServer should be embedded to have forward compatible implementations.
 type UnimplementedRemoteTopologyServer struct {
 }
 
@@ -77,7 +76,6 @@ func (UnimplementedRemoteTopologyServer) Push(context.Context, *Payload) (*empty
 func (UnimplementedRemoteTopologyServer) SyncTopology(context.Context, *Payload) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SyncTopology not implemented")
 }
-func (UnimplementedRemoteTopologyServer) mustEmbedUnimplementedRemoteTopologyServer() {}
 
 // UnsafeRemoteTopologyServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to RemoteTopologyServer will

@@ -19,18 +19,8 @@ import (
 	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
 	"github.com/jhump/protoreflect/grpcreflect"
 	gsync "github.com/kralicky/gpkg/sync"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
-	"google.golang.org/genproto/googleapis/api/annotations"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/emptypb"
-
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
@@ -38,6 +28,17 @@ import (
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
 	"github.com/rancher/opni/pkg/util"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/genproto/googleapis/api/annotations"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func (m *Server) APIExtensions(context.Context, *emptypb.Empty) (*managementv1.APIExtensionInfoList, error) {
@@ -55,6 +56,7 @@ func (m *Server) APIExtensions(context.Context, *emptypb.Empty) (*managementv1.A
 
 type UnknownStreamMetadata struct {
 	Conn            *grpc.ClientConn
+	Status          *health.ServingStatus
 	InputType       *desc.MessageDescriptor
 	OutputType      *desc.MessageDescriptor
 	ServerStreaming bool
@@ -86,11 +88,25 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.L
 				).Error("failed to resolve extension service")
 				return
 			}
-
 			svcName := sd.GetName()
 			lg.With(
 				"name", svcName,
 			).Info("loading service")
+
+			client := apiextensions.NewManagementAPIExtensionClient(cc)
+			healthChecker := health.ServiceHealthChecker{
+				HealthCheckMethod: apiextensions.ManagementAPIExtension_CheckHealth_FullMethodName,
+				Service:           svcName,
+			}
+			servingStatus := &health.ServingStatus{}
+			if err := healthChecker.Start(ctx, cc, servingStatus.Set); err != nil {
+				lg.With(
+					zap.Error(err),
+					zap.String("service", svcName),
+				).Error("failed to start health checker for api extension service")
+				return
+			}
+
 			for _, mtd := range svcDesc.GetMethods() {
 				fullName := fmt.Sprintf("/%s/%s", svcName, mtd.GetName())
 				lg.With(
@@ -99,6 +115,7 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.L
 
 				methodTable.Store(fullName, &UnknownStreamMetadata{
 					Conn:            cc,
+					Status:          servingStatus,
 					InputType:       mtd.GetInputType(),
 					OutputType:      mtd.GetOutputType(),
 					ServerStreaming: mtd.IsServerStreaming(),
@@ -121,11 +138,11 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.L
 				).Info("service has no http rules")
 			}
 
-			client := apiextensions.NewManagementAPIExtensionClient(cc)
 			m.apiExtMu.Lock()
 			m.apiExtensions = append(m.apiExtensions, apiExtension{
 				client:      client,
 				clientConn:  cc,
+				status:      servingStatus,
 				serviceDesc: svcDesc,
 				httpRules:   httpRules,
 			})
@@ -135,6 +152,12 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.L
 
 	return func(ctx context.Context, fullMethodName string) (context.Context, *UnknownStreamMetadata, error) {
 		if conn, ok := methodTable.Load(fullMethodName); ok {
+			switch conn.Status.Get() {
+			case healthpb.HealthCheckResponse_NOT_SERVING:
+				return nil, nil, status.Error(codes.Unavailable, "service is not ready or has been shut down")
+			case healthpb.HealthCheckResponse_SERVICE_UNKNOWN:
+				return nil, nil, status.Error(codes.Internal, "unknown service")
+			}
 			md, _ := metadata.FromIncomingContext(ctx)
 			ctx = metadata.NewOutgoingContext(ctx, md.Copy())
 			return ctx, conn, nil
@@ -164,7 +187,9 @@ func (m *Server) configureManagementHttpApi(ctx context.Context, mux *runtime.Se
 
 	rules := loadHttpRuleDescriptors(desc)
 
-	m.configureServiceStubHandlers(mux, stub, desc, rules)
+	status := &health.ServingStatus{} // local server, which is always serving
+	status.Set(healthpb.HealthCheckResponse_SERVING)
+	m.configureServiceStubHandlers(mux, stub, desc, rules, status)
 	return nil
 }
 
@@ -175,7 +200,7 @@ func (m *Server) configureHttpApiExtensions(mux *runtime.ServeMux) {
 		stub := grpcdynamic.NewStub(ext.clientConn)
 		svcDesc := ext.serviceDesc
 		httpRules := ext.httpRules
-		m.configureServiceStubHandlers(mux, stub, svcDesc, httpRules)
+		m.configureServiceStubHandlers(mux, stub, svcDesc, httpRules, ext.status)
 	}
 }
 
@@ -184,6 +209,7 @@ func (m *Server) configureServiceStubHandlers(
 	stub grpcdynamic.Stub,
 	svcDesc *desc.ServiceDescriptor,
 	httpRules []*managementv1.HTTPRuleDescriptor,
+	svcStatus *health.ServingStatus,
 ) {
 	lg := m.logger
 
@@ -210,7 +236,7 @@ func (m *Server) configureServiceStubHandlers(
 
 		qualifiedPath := fmt.Sprintf("/%s%s", svcDesc.GetName(), path)
 
-		if err := mux.HandlePath(method, qualifiedPath, newHandler(stub, svcDesc, mux, rule, path)); err != nil {
+		if err := mux.HandlePath(method, qualifiedPath, newHandler(stub, svcDesc, mux, rule, svcStatus, path)); err != nil {
 			lg.With(
 				zap.Error(err),
 				zap.String("method", method),
@@ -256,6 +282,7 @@ func newHandler(
 	svcDesc *desc.ServiceDescriptor,
 	mux *runtime.ServeMux,
 	rule *managementv1.HTTPRuleDescriptor,
+	svcStatus *health.ServingStatus,
 	path string,
 ) runtime.HandlerFunc {
 	lg := logger.New().Named("apiext")
@@ -275,6 +302,17 @@ func newHandler(
 		if methodDesc == nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
 				status.Errorf(codes.Unimplemented, "unknown method %q", rule.Method.GetName()))
+			return
+		}
+
+		switch svcStatus.Get() {
+		case healthpb.HealthCheckResponse_NOT_SERVING:
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
+				status.Error(codes.Unavailable, "service is not ready or has been shut down"))
+			return
+		case healthpb.HealthCheckResponse_SERVICE_UNKNOWN:
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
+				status.Error(codes.Internal, "unknown service"))
 			return
 		}
 

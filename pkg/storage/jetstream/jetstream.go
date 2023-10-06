@@ -194,6 +194,13 @@ func (s *JetStreamStore) KeyringStore(prefix string, ref *corev1.Reference) stor
 	}
 }
 
+func (s *JetStreamStore) LockManager(prefix string) storage.LockManager {
+	return &LockManager{
+		js:  s.js,
+		ctx: s.ctx,
+	}
+}
+
 func (s *JetStreamStore) KeyValueStore(prefix string) storage.KeyValueStore {
 	// sanitize bucket name
 	prefix = strings.ReplaceAll(strings.ReplaceAll(prefix, "/", "-"), ".", "_")

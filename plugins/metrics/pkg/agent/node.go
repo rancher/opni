@@ -53,7 +53,7 @@ type MetricsNode struct {
 	targetRunner   TargetRunner
 
 	configMu sync.RWMutex
-	config   *node.MetricsCapabilityConfig
+	config   *node.MetricsCapabilityStatus
 
 	listeners  []drivers.MetricsNodeConfigurator
 	conditions health.ConditionTracker
@@ -294,7 +294,7 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 }
 
 // requires identityClientMu to be held (either R or W)
-func (m *MetricsNode) updateConfig(ctx context.Context, config *node.MetricsCapabilityConfig) error {
+func (m *MetricsNode) updateConfig(ctx context.Context, config *node.MetricsCapabilityStatus) error {
 	id, err := m.identityClient.Whoami(ctx, &emptypb.Empty{})
 	if err != nil {
 		m.logger.With(zap.Error(err)).Errorf("error fetching node id", err)

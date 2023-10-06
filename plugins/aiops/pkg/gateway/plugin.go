@@ -38,6 +38,17 @@ type AIOpsPlugin struct {
 	statisticsKv    future.Future[nats.KeyValue]
 }
 
+// ManagementServices implements managementext.ManagementAPIExtension.
+func (p *AIOpsPlugin) ManagementServices() []util.ServicePackInterface {
+	return []util.ServicePackInterface{
+		util.PackService[modeltraining.ModelTrainingServer](&modeltraining.ModelTraining_ServiceDesc, p),
+		util.PackService[admin.AIAdminServer](&admin.AIAdmin_ServiceDesc, p),
+	}
+}
+
+// UseServiceController implements managementext.ManagementAPIExtension.
+func (*AIOpsPlugin) UseServiceController(s managementext.ServiceController) {}
+
 type PluginOptions struct {
 	storageNamespace  string
 	version           string
@@ -179,9 +190,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 	go p.setOpensearchConnection()
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
-	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(
-		util.PackService(&modeltraining.ModelTraining_ServiceDesc, p),
-		util.PackService(&admin.AIAdmin_ServiceDesc, p),
-	))
+	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(p))
 	return scheme
 }

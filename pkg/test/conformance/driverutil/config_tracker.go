@@ -122,11 +122,6 @@ func DefaultingConfigTrackerTestSuite[
 				Expect(conf).To(testutil.ProtoEqual(newDefault))
 			})
 			When("applying configurations with secrets", func() {
-				// if T.SecretsRedactor is driverutil.NoopSecretsRedactor[T], skip this test
-				var t driverutil.SecretsRedactor[T] = newDefaults()
-				if _, ok := t.(driverutil.NoopSecretsRedactor[T]); ok {
-					Skip("T is NoopSecretsRedactor")
-				}
 				It("should correctly redact secrets", func() {
 					newDefault := mustGen()
 					err := configTracker.SetDefaultConfig(ctx, newDefault)
@@ -243,11 +238,6 @@ func DefaultingConfigTrackerTestSuite[
 					})
 				})
 				When("applying with redacted placeholders", func() {
-					// if T.SecretsRedactor is driverutil.NoopSecretsRedactor[T], skip this test
-					var t driverutil.SecretsRedactor[T] = newDefaults()
-					if _, ok := t.(driverutil.NoopSecretsRedactor[T]); ok {
-						Skip("T is NoopSecretsRedactor")
-					}
 					It("should preserve the underlying secret value", func() {
 						defaults := newDefaults()
 						Expect(configTracker.SetDefaultConfig(ctx, defaults)).To(Succeed())
@@ -468,11 +458,6 @@ func DefaultingConfigTrackerTestSuite[
 		When("querying history", func() {
 			When("values are requested", func() {
 				It("should redact secrets", func() {
-					var t driverutil.SecretsRedactor[T] = newDefaults()
-					if _, ok := t.(driverutil.NoopSecretsRedactor[T]); ok {
-						Skip("T is NoopSecretsRedactor")
-					}
-
 					cfg1 := mustGen()
 					Expect(configTracker.SetDefaultConfig(ctx, cfg1)).To(Succeed())
 					cfg1WithRev, err := configTracker.GetDefaultConfig(ctx)

@@ -49,21 +49,18 @@ func (c *nodeAlertingCapabilityClient) Sync(ctx context.Context, in *AlertingCap
 }
 
 // NodeAlertingCapabilityServer is the server API for NodeAlertingCapability service.
-// All implementations must embed UnimplementedNodeAlertingCapabilityServer
+// All implementations should embed UnimplementedNodeAlertingCapabilityServer
 // for forward compatibility
 type NodeAlertingCapabilityServer interface {
 	Sync(context.Context, *AlertingCapabilityConfig) (*SyncResponse, error)
-	mustEmbedUnimplementedNodeAlertingCapabilityServer()
 }
 
-// UnimplementedNodeAlertingCapabilityServer must be embedded to have forward compatible implementations.
+// UnimplementedNodeAlertingCapabilityServer should be embedded to have forward compatible implementations.
 type UnimplementedNodeAlertingCapabilityServer struct {
 }
 
 func (UnimplementedNodeAlertingCapabilityServer) Sync(context.Context, *AlertingCapabilityConfig) (*SyncResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Sync not implemented")
-}
-func (UnimplementedNodeAlertingCapabilityServer) mustEmbedUnimplementedNodeAlertingCapabilityServer() {
 }
 
 // UnsafeNodeAlertingCapabilityServer may be embedded to opt out of forward compatibility for this service.
@@ -173,17 +170,16 @@ func (c *alertingNodeConfigurationClient) SetNodeConfiguration(ctx context.Conte
 }
 
 // AlertingNodeConfigurationServer is the server API for AlertingNodeConfiguration service.
-// All implementations must embed UnimplementedAlertingNodeConfigurationServer
+// All implementations should embed UnimplementedAlertingNodeConfigurationServer
 // for forward compatibility
 type AlertingNodeConfigurationServer interface {
 	GetDefaultConfiguration(context.Context, *emptypb.Empty) (*AlertingCapabilitySpec, error)
 	SetDefaultConfiguration(context.Context, *AlertingCapabilitySpec) (*emptypb.Empty, error)
 	GetNodeConfiguration(context.Context, *v1.Reference) (*AlertingCapabilitySpec, error)
 	SetNodeConfiguration(context.Context, *NodeConfigRequest) (*emptypb.Empty, error)
-	mustEmbedUnimplementedAlertingNodeConfigurationServer()
 }
 
-// UnimplementedAlertingNodeConfigurationServer must be embedded to have forward compatible implementations.
+// UnimplementedAlertingNodeConfigurationServer should be embedded to have forward compatible implementations.
 type UnimplementedAlertingNodeConfigurationServer struct {
 }
 
@@ -198,8 +194,6 @@ func (UnimplementedAlertingNodeConfigurationServer) GetNodeConfiguration(context
 }
 func (UnimplementedAlertingNodeConfigurationServer) SetNodeConfiguration(context.Context, *NodeConfigRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetNodeConfiguration not implemented")
-}
-func (UnimplementedAlertingNodeConfigurationServer) mustEmbedUnimplementedAlertingNodeConfigurationServer() {
 }
 
 // UnsafeAlertingNodeConfigurationServer may be embedded to opt out of forward compatibility for this service.

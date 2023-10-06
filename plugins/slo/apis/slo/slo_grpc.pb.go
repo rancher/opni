@@ -174,7 +174,7 @@ func (c *sLOClient) Preview(ctx context.Context, in *CreateSLORequest, opts ...g
 }
 
 // SLOServer is the server API for SLO service.
-// All implementations must embed UnimplementedSLOServer
+// All implementations should embed UnimplementedSLOServer
 // for forward compatibility
 type SLOServer interface {
 	CreateSLO(context.Context, *CreateSLORequest) (*v1.Reference, error)
@@ -193,10 +193,9 @@ type SLOServer interface {
 	// Returns a status enum badge for a given SLO
 	Status(context.Context, *v1.Reference) (*SLOStatus, error)
 	Preview(context.Context, *CreateSLORequest) (*SLOPreviewResponse, error)
-	mustEmbedUnimplementedSLOServer()
 }
 
-// UnimplementedSLOServer must be embedded to have forward compatible implementations.
+// UnimplementedSLOServer should be embedded to have forward compatible implementations.
 type UnimplementedSLOServer struct {
 }
 
@@ -236,7 +235,6 @@ func (UnimplementedSLOServer) Status(context.Context, *v1.Reference) (*SLOStatus
 func (UnimplementedSLOServer) Preview(context.Context, *CreateSLORequest) (*SLOPreviewResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Preview not implemented")
 }
-func (UnimplementedSLOServer) mustEmbedUnimplementedSLOServer() {}
 
 // UnsafeSLOServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to SLOServer will

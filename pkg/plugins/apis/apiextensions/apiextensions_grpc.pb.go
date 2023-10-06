@@ -11,6 +11,7 @@ import (
 	totem "github.com/kralicky/totem"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
+	grpc_health_v1 "google.golang.org/grpc/health/grpc_health_v1"
 	status "google.golang.org/grpc/status"
 	descriptorpb "google.golang.org/protobuf/types/descriptorpb"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -23,6 +24,8 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	ManagementAPIExtension_Descriptors_FullMethodName = "/apiextensions.ManagementAPIExtension/Descriptors"
+	ManagementAPIExtension_CheckHealth_FullMethodName = "/apiextensions.ManagementAPIExtension/CheckHealth"
+	ManagementAPIExtension_WatchHealth_FullMethodName = "/apiextensions.ManagementAPIExtension/WatchHealth"
 )
 
 // ManagementAPIExtensionClient is the client API for ManagementAPIExtension service.
@@ -30,6 +33,8 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ManagementAPIExtensionClient interface {
 	Descriptors(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceDescriptorProtoList, error)
+	CheckHealth(ctx context.Context, in *grpc_health_v1.HealthCheckRequest, opts ...grpc.CallOption) (*grpc_health_v1.HealthCheckResponse, error)
+	WatchHealth(ctx context.Context, in *grpc_health_v1.HealthCheckRequest, opts ...grpc.CallOption) (ManagementAPIExtension_WatchHealthClient, error)
 }
 
 type managementAPIExtensionClient struct {
@@ -49,22 +54,68 @@ func (c *managementAPIExtensionClient) Descriptors(ctx context.Context, in *empt
 	return out, nil
 }
 
+func (c *managementAPIExtensionClient) CheckHealth(ctx context.Context, in *grpc_health_v1.HealthCheckRequest, opts ...grpc.CallOption) (*grpc_health_v1.HealthCheckResponse, error) {
+	out := new(grpc_health_v1.HealthCheckResponse)
+	err := c.cc.Invoke(ctx, ManagementAPIExtension_CheckHealth_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementAPIExtensionClient) WatchHealth(ctx context.Context, in *grpc_health_v1.HealthCheckRequest, opts ...grpc.CallOption) (ManagementAPIExtension_WatchHealthClient, error) {
+	stream, err := c.cc.NewStream(ctx, &ManagementAPIExtension_ServiceDesc.Streams[0], ManagementAPIExtension_WatchHealth_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &managementAPIExtensionWatchHealthClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ManagementAPIExtension_WatchHealthClient interface {
+	Recv() (*grpc_health_v1.HealthCheckResponse, error)
+	grpc.ClientStream
+}
+
+type managementAPIExtensionWatchHealthClient struct {
+	grpc.ClientStream
+}
+
+func (x *managementAPIExtensionWatchHealthClient) Recv() (*grpc_health_v1.HealthCheckResponse, error) {
+	m := new(grpc_health_v1.HealthCheckResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // ManagementAPIExtensionServer is the server API for ManagementAPIExtension service.
-// All implementations must embed UnimplementedManagementAPIExtensionServer
+// All implementations should embed UnimplementedManagementAPIExtensionServer
 // for forward compatibility
 type ManagementAPIExtensionServer interface {
 	Descriptors(context.Context, *emptypb.Empty) (*ServiceDescriptorProtoList, error)
-	mustEmbedUnimplementedManagementAPIExtensionServer()
+	CheckHealth(context.Context, *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error)
+	WatchHealth(*grpc_health_v1.HealthCheckRequest, ManagementAPIExtension_WatchHealthServer) error
 }
 
-// UnimplementedManagementAPIExtensionServer must be embedded to have forward compatible implementations.
+// UnimplementedManagementAPIExtensionServer should be embedded to have forward compatible implementations.
 type UnimplementedManagementAPIExtensionServer struct {
 }
 
 func (UnimplementedManagementAPIExtensionServer) Descriptors(context.Context, *emptypb.Empty) (*ServiceDescriptorProtoList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Descriptors not implemented")
 }
-func (UnimplementedManagementAPIExtensionServer) mustEmbedUnimplementedManagementAPIExtensionServer() {
+func (UnimplementedManagementAPIExtensionServer) CheckHealth(context.Context, *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CheckHealth not implemented")
+}
+func (UnimplementedManagementAPIExtensionServer) WatchHealth(*grpc_health_v1.HealthCheckRequest, ManagementAPIExtension_WatchHealthServer) error {
+	return status.Errorf(codes.Unimplemented, "method WatchHealth not implemented")
 }
 
 // UnsafeManagementAPIExtensionServer may be embedded to opt out of forward compatibility for this service.
@@ -96,6 +147,45 @@ func _ManagementAPIExtension_Descriptors_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ManagementAPIExtension_CheckHealth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(grpc_health_v1.HealthCheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementAPIExtensionServer).CheckHealth(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ManagementAPIExtension_CheckHealth_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementAPIExtensionServer).CheckHealth(ctx, req.(*grpc_health_v1.HealthCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ManagementAPIExtension_WatchHealth_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(grpc_health_v1.HealthCheckRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ManagementAPIExtensionServer).WatchHealth(m, &managementAPIExtensionWatchHealthServer{stream})
+}
+
+type ManagementAPIExtension_WatchHealthServer interface {
+	Send(*grpc_health_v1.HealthCheckResponse) error
+	grpc.ServerStream
+}
+
+type managementAPIExtensionWatchHealthServer struct {
+	grpc.ServerStream
+}
+
+func (x *managementAPIExtensionWatchHealthServer) Send(m *grpc_health_v1.HealthCheckResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // ManagementAPIExtension_ServiceDesc is the grpc.ServiceDesc for ManagementAPIExtension service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -107,8 +197,18 @@ var ManagementAPIExtension_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Descriptors",
 			Handler:    _ManagementAPIExtension_Descriptors_Handler,
 		},
+		{
+			MethodName: "CheckHealth",
+			Handler:    _ManagementAPIExtension_CheckHealth_Handler,
+		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "WatchHealth",
+			Handler:       _ManagementAPIExtension_WatchHealth_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "github.com/rancher/opni/pkg/plugins/apis/apiextensions/apiextensions.proto",
 }
 
@@ -141,21 +241,19 @@ func (c *hTTPAPIExtensionClient) Configure(ctx context.Context, in *CertConfig, 
 }
 
 // HTTPAPIExtensionServer is the server API for HTTPAPIExtension service.
-// All implementations must embed UnimplementedHTTPAPIExtensionServer
+// All implementations should embed UnimplementedHTTPAPIExtensionServer
 // for forward compatibility
 type HTTPAPIExtensionServer interface {
 	Configure(context.Context, *CertConfig) (*HTTPAPIExtensionConfig, error)
-	mustEmbedUnimplementedHTTPAPIExtensionServer()
 }
 
-// UnimplementedHTTPAPIExtensionServer must be embedded to have forward compatible implementations.
+// UnimplementedHTTPAPIExtensionServer should be embedded to have forward compatible implementations.
 type UnimplementedHTTPAPIExtensionServer struct {
 }
 
 func (UnimplementedHTTPAPIExtensionServer) Configure(context.Context, *CertConfig) (*HTTPAPIExtensionConfig, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Configure not implemented")
 }
-func (UnimplementedHTTPAPIExtensionServer) mustEmbedUnimplementedHTTPAPIExtensionServer() {}
 
 // UnsafeHTTPAPIExtensionServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to HTTPAPIExtensionServer will
@@ -253,21 +351,19 @@ func (x *streamAPIExtensionConnectInternalClient) Recv() (*totem.RPC, error) {
 }
 
 // StreamAPIExtensionServer is the server API for StreamAPIExtension service.
-// All implementations must embed UnimplementedStreamAPIExtensionServer
+// All implementations should embed UnimplementedStreamAPIExtensionServer
 // for forward compatibility
 type StreamAPIExtensionServer interface {
 	ConnectInternal(StreamAPIExtension_ConnectInternalServer) error
-	mustEmbedUnimplementedStreamAPIExtensionServer()
 }
 
-// UnimplementedStreamAPIExtensionServer must be embedded to have forward compatible implementations.
+// UnimplementedStreamAPIExtensionServer should be embedded to have forward compatible implementations.
 type UnimplementedStreamAPIExtensionServer struct {
 }
 
 func (UnimplementedStreamAPIExtensionServer) ConnectInternal(StreamAPIExtension_ConnectInternalServer) error {
 	return status.Errorf(codes.Unimplemented, "method ConnectInternal not implemented")
 }
-func (UnimplementedStreamAPIExtensionServer) mustEmbedUnimplementedStreamAPIExtensionServer() {}
 
 // UnsafeStreamAPIExtensionServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to StreamAPIExtensionServer will
@@ -353,21 +449,19 @@ func (c *unaryAPIExtensionClient) UnaryDescriptor(ctx context.Context, in *empty
 }
 
 // UnaryAPIExtensionServer is the server API for UnaryAPIExtension service.
-// All implementations must embed UnimplementedUnaryAPIExtensionServer
+// All implementations should embed UnimplementedUnaryAPIExtensionServer
 // for forward compatibility
 type UnaryAPIExtensionServer interface {
 	UnaryDescriptor(context.Context, *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error)
-	mustEmbedUnimplementedUnaryAPIExtensionServer()
 }
 
-// UnimplementedUnaryAPIExtensionServer must be embedded to have forward compatible implementations.
+// UnimplementedUnaryAPIExtensionServer should be embedded to have forward compatible implementations.
 type UnimplementedUnaryAPIExtensionServer struct {
 }
 
 func (UnimplementedUnaryAPIExtensionServer) UnaryDescriptor(context.Context, *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UnaryDescriptor not implemented")
 }
-func (UnimplementedUnaryAPIExtensionServer) mustEmbedUnimplementedUnaryAPIExtensionServer() {}
 
 // UnsafeUnaryAPIExtensionServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to UnaryAPIExtensionServer will

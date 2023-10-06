@@ -8,7 +8,6 @@ package node
 
 import (
 	context "context"
-	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -34,12 +33,123 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type NodeConfigurationClient interface {
-	GetDefaultConfiguration(ctx context.Context, in *driverutil.GetRequest, opts ...grpc.CallOption) (*MetricsCapabilityConfig, error)
+	// Returns the default implementation-specific configuration, or one previously set.
+	//
+	// If a default configuration was previously set using SetDefaultConfiguration, it
+	// returns that configuration. Otherwise, returns implementation-specific defaults.
+	//
+	// An optional revision argument can be provided to get a specific historical
+	// version of the configuration instead of the current configuration.
+	GetDefaultConfiguration(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*MetricsCapabilityConfig, error)
+	// Sets the default configuration that will be used as the base for future configuration changes.
+	// If no custom default configuration is set using this method, implementation-specific
+	// defaults may be chosen.
+	//
+	// Unlike with SetConfiguration, the input is not merged with the existing configuration,
+	// instead replacing it directly.
+	//
+	// If the revision field is set, the server will reject the request if the current
+	// revision does not match the provided revision.
+	//
+	// This API is different from the SetConfiguration API, and should not be necessary
+	// for most use cases. It can be used in situations where an additional persistence
+	// layer that is not driver-specific is desired.
 	SetDefaultConfiguration(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Resets the default configuration to the implementation-specific defaults.
+	//
+	// If a custom default configuration was previously set using SetDefaultConfiguration,
+	// it will be replaced with the implementation-specific defaults. Otherwise,
+	// this will have no effect.
 	ResetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	GetConfiguration(ctx context.Context, in *NodeGetRequest, opts ...grpc.CallOption) (*MetricsCapabilityConfig, error)
-	SetConfiguration(ctx context.Context, in *NodeSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	ResetConfiguration(ctx context.Context, in *NodeResetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Gets the current configuration, or the default configuration if not set.
+	//
+	// This configuration is maintained and versioned separately from the default
+	// configuration, and has different semantics regarding merging and persistence.
+	//
+	// The active configuration can be set using SetConfiguration. Then, future
+	// calls to GetConfiguration will return that configuration instead of falling
+	// back to the default.
+	//
+	// An optional revision argument can be provided to get a specific historical
+	// version of the configuration instead of the current configuration.
+	// This revision value can be obtained from the revision field of a previous
+	// call to GetConfiguration, or from the revision field of one of the history
+	// entries returned by GetConfigurationHistory.
+	GetConfiguration(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*MetricsCapabilityConfig, error)
+	// Updates the active configuration by merging the input with the current active configuration.
+	// If there is no active configuration, the input will be merged with the default configuration.
+	//
+	// The merge is performed by replacing all *present* fields in the input with the
+	// corresponding fields in the target. Slices and maps are overwritten and not combined.
+	// Any *non-present* fields in the input are ignored, and the corresponding fields
+	// in the target are left unchanged.
+	//
+	// Field presence is defined by the protobuf spec. The following kinds of fields
+	// have presence semantics:
+	// - Messages
+	// - Repeated fields (scalars or messages)
+	// - Maps
+	// - Optional scalars
+	// Non-optional scalars do *not* have presence semantics, and are always treated
+	// as present for the purposes of merging. For this reason, it is not recommended
+	// to use non-optional scalars in messages intended to be used with this API.
+	//
+	// Subsequent calls to this API will merge inputs with the previous active configuration,
+	// not the default configuration.
+	//
+	// When updating an existing configuration, the revision number in the input configuration
+	// must match the revision number of the existing configuration, otherwise a conflict
+	// error will be returned. The timestamp field of the revision is ignored for this purpose.
+	//
+	// Some fields in the configuration may be marked as secrets. These fields are
+	// write-only from this API, and the placeholder value "***" will be returned in
+	// place of the actual value when getting the configuration.
+	// When setting the configuration, the same placeholder value can be used to indicate
+	// the existing value should be preserved.
+	SetConfiguration(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Resets the active configuration to the current default configuration.
+	//
+	// The request may optionally contain a field mask to specify which fields should
+	// be preserved. Furthermore, if a mask is set, the request may also contain a patch
+	// object used to apply additional changes to the masked fields. These changes are
+	// applied atomically at the time of reset. Fields present in the patch object, but
+	// not in the mask, are ignored.
+	//
+	// For example, with the following message:
+	//
+	//	message Example {
+	//	 optional int32 a = 1;
+	//	 optional int32 b = 2;
+	//	 optional int32 c = 3;
+	//	}
+	//
+	// and current state:
+	//
+	//	active:  { a: 1, b: 2, c: 3 }
+	//	default: { a: 4, b: 5, c: 6 }
+	//
+	// and reset request parameters:
+	//
+	//	{
+	//	  mask:  { paths: [ "a", "b" ] }
+	//	  patch: { a: 100 }
+	//	}
+	//
+	// The resulting active configuration will be:
+	//
+	//	active: {
+	//	  a: 100, // masked, set to 100 via patch
+	//	  b: 2,   // masked, but not set in patch, so left unchanged
+	//	  c: 6,   // not masked, reset to default
+	//	}
+	ResetConfiguration(ctx context.Context, in *ResetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Get a list of all past revisions of the configuration.
+	//
+	// Will return the history for either the active or default configuration
+	// depending on the specified target.
+	//
+	// The entries are ordered from oldest to newest, where the last entry is
+	// the current configuration.
 	ConfigurationHistory(ctx context.Context, in *ConfigurationHistoryRequest, opts ...grpc.CallOption) (*ConfigurationHistoryResponse, error)
 }
 
@@ -51,7 +161,7 @@ func NewNodeConfigurationClient(cc grpc.ClientConnInterface) NodeConfigurationCl
 	return &nodeConfigurationClient{cc}
 }
 
-func (c *nodeConfigurationClient) GetDefaultConfiguration(ctx context.Context, in *driverutil.GetRequest, opts ...grpc.CallOption) (*MetricsCapabilityConfig, error) {
+func (c *nodeConfigurationClient) GetDefaultConfiguration(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*MetricsCapabilityConfig, error) {
 	out := new(MetricsCapabilityConfig)
 	err := c.cc.Invoke(ctx, NodeConfiguration_GetDefaultConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -78,7 +188,7 @@ func (c *nodeConfigurationClient) ResetDefaultConfiguration(ctx context.Context,
 	return out, nil
 }
 
-func (c *nodeConfigurationClient) GetConfiguration(ctx context.Context, in *NodeGetRequest, opts ...grpc.CallOption) (*MetricsCapabilityConfig, error) {
+func (c *nodeConfigurationClient) GetConfiguration(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*MetricsCapabilityConfig, error) {
 	out := new(MetricsCapabilityConfig)
 	err := c.cc.Invoke(ctx, NodeConfiguration_GetConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -87,7 +197,7 @@ func (c *nodeConfigurationClient) GetConfiguration(ctx context.Context, in *Node
 	return out, nil
 }
 
-func (c *nodeConfigurationClient) SetConfiguration(ctx context.Context, in *NodeSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *nodeConfigurationClient) SetConfiguration(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, NodeConfiguration_SetConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -96,7 +206,7 @@ func (c *nodeConfigurationClient) SetConfiguration(ctx context.Context, in *Node
 	return out, nil
 }
 
-func (c *nodeConfigurationClient) ResetConfiguration(ctx context.Context, in *NodeResetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *nodeConfigurationClient) ResetConfiguration(ctx context.Context, in *ResetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, NodeConfiguration_ResetConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -115,24 +225,134 @@ func (c *nodeConfigurationClient) ConfigurationHistory(ctx context.Context, in *
 }
 
 // NodeConfigurationServer is the server API for NodeConfiguration service.
-// All implementations must embed UnimplementedNodeConfigurationServer
+// All implementations should embed UnimplementedNodeConfigurationServer
 // for forward compatibility
 type NodeConfigurationServer interface {
-	GetDefaultConfiguration(context.Context, *driverutil.GetRequest) (*MetricsCapabilityConfig, error)
+	// Returns the default implementation-specific configuration, or one previously set.
+	//
+	// If a default configuration was previously set using SetDefaultConfiguration, it
+	// returns that configuration. Otherwise, returns implementation-specific defaults.
+	//
+	// An optional revision argument can be provided to get a specific historical
+	// version of the configuration instead of the current configuration.
+	GetDefaultConfiguration(context.Context, *GetRequest) (*MetricsCapabilityConfig, error)
+	// Sets the default configuration that will be used as the base for future configuration changes.
+	// If no custom default configuration is set using this method, implementation-specific
+	// defaults may be chosen.
+	//
+	// Unlike with SetConfiguration, the input is not merged with the existing configuration,
+	// instead replacing it directly.
+	//
+	// If the revision field is set, the server will reject the request if the current
+	// revision does not match the provided revision.
+	//
+	// This API is different from the SetConfiguration API, and should not be necessary
+	// for most use cases. It can be used in situations where an additional persistence
+	// layer that is not driver-specific is desired.
 	SetDefaultConfiguration(context.Context, *SetRequest) (*emptypb.Empty, error)
+	// Resets the default configuration to the implementation-specific defaults.
+	//
+	// If a custom default configuration was previously set using SetDefaultConfiguration,
+	// it will be replaced with the implementation-specific defaults. Otherwise,
+	// this will have no effect.
 	ResetDefaultConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	GetConfiguration(context.Context, *NodeGetRequest) (*MetricsCapabilityConfig, error)
-	SetConfiguration(context.Context, *NodeSetRequest) (*emptypb.Empty, error)
-	ResetConfiguration(context.Context, *NodeResetRequest) (*emptypb.Empty, error)
+	// Gets the current configuration, or the default configuration if not set.
+	//
+	// This configuration is maintained and versioned separately from the default
+	// configuration, and has different semantics regarding merging and persistence.
+	//
+	// The active configuration can be set using SetConfiguration. Then, future
+	// calls to GetConfiguration will return that configuration instead of falling
+	// back to the default.
+	//
+	// An optional revision argument can be provided to get a specific historical
+	// version of the configuration instead of the current configuration.
+	// This revision value can be obtained from the revision field of a previous
+	// call to GetConfiguration, or from the revision field of one of the history
+	// entries returned by GetConfigurationHistory.
+	GetConfiguration(context.Context, *GetRequest) (*MetricsCapabilityConfig, error)
+	// Updates the active configuration by merging the input with the current active configuration.
+	// If there is no active configuration, the input will be merged with the default configuration.
+	//
+	// The merge is performed by replacing all *present* fields in the input with the
+	// corresponding fields in the target. Slices and maps are overwritten and not combined.
+	// Any *non-present* fields in the input are ignored, and the corresponding fields
+	// in the target are left unchanged.
+	//
+	// Field presence is defined by the protobuf spec. The following kinds of fields
+	// have presence semantics:
+	// - Messages
+	// - Repeated fields (scalars or messages)
+	// - Maps
+	// - Optional scalars
+	// Non-optional scalars do *not* have presence semantics, and are always treated
+	// as present for the purposes of merging. For this reason, it is not recommended
+	// to use non-optional scalars in messages intended to be used with this API.
+	//
+	// Subsequent calls to this API will merge inputs with the previous active configuration,
+	// not the default configuration.
+	//
+	// When updating an existing configuration, the revision number in the input configuration
+	// must match the revision number of the existing configuration, otherwise a conflict
+	// error will be returned. The timestamp field of the revision is ignored for this purpose.
+	//
+	// Some fields in the configuration may be marked as secrets. These fields are
+	// write-only from this API, and the placeholder value "***" will be returned in
+	// place of the actual value when getting the configuration.
+	// When setting the configuration, the same placeholder value can be used to indicate
+	// the existing value should be preserved.
+	SetConfiguration(context.Context, *SetRequest) (*emptypb.Empty, error)
+	// Resets the active configuration to the current default configuration.
+	//
+	// The request may optionally contain a field mask to specify which fields should
+	// be preserved. Furthermore, if a mask is set, the request may also contain a patch
+	// object used to apply additional changes to the masked fields. These changes are
+	// applied atomically at the time of reset. Fields present in the patch object, but
+	// not in the mask, are ignored.
+	//
+	// For example, with the following message:
+	//
+	//	message Example {
+	//	 optional int32 a = 1;
+	//	 optional int32 b = 2;
+	//	 optional int32 c = 3;
+	//	}
+	//
+	// and current state:
+	//
+	//	active:  { a: 1, b: 2, c: 3 }
+	//	default: { a: 4, b: 5, c: 6 }
+	//
+	// and reset request parameters:
+	//
+	//	{
+	//	  mask:  { paths: [ "a", "b" ] }
+	//	  patch: { a: 100 }
+	//	}
+	//
+	// The resulting active configuration will be:
+	//
+	//	active: {
+	//	  a: 100, // masked, set to 100 via patch
+	//	  b: 2,   // masked, but not set in patch, so left unchanged
+	//	  c: 6,   // not masked, reset to default
+	//	}
+	ResetConfiguration(context.Context, *ResetRequest) (*emptypb.Empty, error)
+	// Get a list of all past revisions of the configuration.
+	//
+	// Will return the history for either the active or default configuration
+	// depending on the specified target.
+	//
+	// The entries are ordered from oldest to newest, where the last entry is
+	// the current configuration.
 	ConfigurationHistory(context.Context, *ConfigurationHistoryRequest) (*ConfigurationHistoryResponse, error)
-	mustEmbedUnimplementedNodeConfigurationServer()
 }
 
-// UnimplementedNodeConfigurationServer must be embedded to have forward compatible implementations.
+// UnimplementedNodeConfigurationServer should be embedded to have forward compatible implementations.
 type UnimplementedNodeConfigurationServer struct {
 }
 
-func (UnimplementedNodeConfigurationServer) GetDefaultConfiguration(context.Context, *driverutil.GetRequest) (*MetricsCapabilityConfig, error) {
+func (UnimplementedNodeConfigurationServer) GetDefaultConfiguration(context.Context, *GetRequest) (*MetricsCapabilityConfig, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDefaultConfiguration not implemented")
 }
 func (UnimplementedNodeConfigurationServer) SetDefaultConfiguration(context.Context, *SetRequest) (*emptypb.Empty, error) {
@@ -141,19 +361,18 @@ func (UnimplementedNodeConfigurationServer) SetDefaultConfiguration(context.Cont
 func (UnimplementedNodeConfigurationServer) ResetDefaultConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResetDefaultConfiguration not implemented")
 }
-func (UnimplementedNodeConfigurationServer) GetConfiguration(context.Context, *NodeGetRequest) (*MetricsCapabilityConfig, error) {
+func (UnimplementedNodeConfigurationServer) GetConfiguration(context.Context, *GetRequest) (*MetricsCapabilityConfig, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetConfiguration not implemented")
 }
-func (UnimplementedNodeConfigurationServer) SetConfiguration(context.Context, *NodeSetRequest) (*emptypb.Empty, error) {
+func (UnimplementedNodeConfigurationServer) SetConfiguration(context.Context, *SetRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetConfiguration not implemented")
 }
-func (UnimplementedNodeConfigurationServer) ResetConfiguration(context.Context, *NodeResetRequest) (*emptypb.Empty, error) {
+func (UnimplementedNodeConfigurationServer) ResetConfiguration(context.Context, *ResetRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResetConfiguration not implemented")
 }
 func (UnimplementedNodeConfigurationServer) ConfigurationHistory(context.Context, *ConfigurationHistoryRequest) (*ConfigurationHistoryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ConfigurationHistory not implemented")
 }
-func (UnimplementedNodeConfigurationServer) mustEmbedUnimplementedNodeConfigurationServer() {}
 
 // UnsafeNodeConfigurationServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to NodeConfigurationServer will
@@ -167,7 +386,7 @@ func RegisterNodeConfigurationServer(s grpc.ServiceRegistrar, srv NodeConfigurat
 }
 
 func _NodeConfiguration_GetDefaultConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(driverutil.GetRequest)
+	in := new(GetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -179,7 +398,7 @@ func _NodeConfiguration_GetDefaultConfiguration_Handler(srv interface{}, ctx con
 		FullMethod: NodeConfiguration_GetDefaultConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeConfigurationServer).GetDefaultConfiguration(ctx, req.(*driverutil.GetRequest))
+		return srv.(NodeConfigurationServer).GetDefaultConfiguration(ctx, req.(*GetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -221,7 +440,7 @@ func _NodeConfiguration_ResetDefaultConfiguration_Handler(srv interface{}, ctx c
 }
 
 func _NodeConfiguration_GetConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NodeGetRequest)
+	in := new(GetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -233,13 +452,13 @@ func _NodeConfiguration_GetConfiguration_Handler(srv interface{}, ctx context.Co
 		FullMethod: NodeConfiguration_GetConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeConfigurationServer).GetConfiguration(ctx, req.(*NodeGetRequest))
+		return srv.(NodeConfigurationServer).GetConfiguration(ctx, req.(*GetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _NodeConfiguration_SetConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NodeSetRequest)
+	in := new(SetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -251,13 +470,13 @@ func _NodeConfiguration_SetConfiguration_Handler(srv interface{}, ctx context.Co
 		FullMethod: NodeConfiguration_SetConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeConfigurationServer).SetConfiguration(ctx, req.(*NodeSetRequest))
+		return srv.(NodeConfigurationServer).SetConfiguration(ctx, req.(*SetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _NodeConfiguration_ResetConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NodeResetRequest)
+	in := new(ResetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -269,7 +488,7 @@ func _NodeConfiguration_ResetConfiguration_Handler(srv interface{}, ctx context.
 		FullMethod: NodeConfiguration_ResetConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeConfigurationServer).ResetConfiguration(ctx, req.(*NodeResetRequest))
+		return srv.(NodeConfigurationServer).ResetConfiguration(ctx, req.(*ResetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

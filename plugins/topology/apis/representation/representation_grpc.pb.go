@@ -61,17 +61,16 @@ func (c *topologyRepresentationClient) RenderGraph(ctx context.Context, in *v1.R
 }
 
 // TopologyRepresentationServer is the server API for TopologyRepresentation service.
-// All implementations must embed UnimplementedTopologyRepresentationServer
+// All implementations should embed UnimplementedTopologyRepresentationServer
 // for forward compatibility
 type TopologyRepresentationServer interface {
 	// opni internal use
 	GetGraph(context.Context, *v1.Reference) (*TopologyGraph, error)
 	// cluster id  --> kubernetes graph SVG
 	RenderGraph(context.Context, *v1.Reference) (*DOTRepresentation, error)
-	mustEmbedUnimplementedTopologyRepresentationServer()
 }
 
-// UnimplementedTopologyRepresentationServer must be embedded to have forward compatible implementations.
+// UnimplementedTopologyRepresentationServer should be embedded to have forward compatible implementations.
 type UnimplementedTopologyRepresentationServer struct {
 }
 
@@ -80,8 +79,6 @@ func (UnimplementedTopologyRepresentationServer) GetGraph(context.Context, *v1.R
 }
 func (UnimplementedTopologyRepresentationServer) RenderGraph(context.Context, *v1.Reference) (*DOTRepresentation, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RenderGraph not implemented")
-}
-func (UnimplementedTopologyRepresentationServer) mustEmbedUnimplementedTopologyRepresentationServer() {
 }
 
 // UnsafeTopologyRepresentationServer may be embedded to opt out of forward compatibility for this service.

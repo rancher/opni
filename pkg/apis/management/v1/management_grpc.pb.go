@@ -473,7 +473,7 @@ func (c *managementClient) UpdateDashboardSettings(ctx context.Context, in *Dash
 }
 
 // ManagementServer is the server API for Management service.
-// All implementations must embed UnimplementedManagementServer
+// All implementations should embed UnimplementedManagementServer
 // for forward compatibility
 type ManagementServer interface {
 	CreateBootstrapToken(context.Context, *CreateBootstrapTokenRequest) (*v1.BootstrapToken, error)
@@ -513,10 +513,9 @@ type ManagementServer interface {
 	CancelCapabilityUninstall(context.Context, *CapabilityUninstallCancelRequest) (*emptypb.Empty, error)
 	GetDashboardSettings(context.Context, *emptypb.Empty) (*DashboardSettings, error)
 	UpdateDashboardSettings(context.Context, *DashboardSettings) (*emptypb.Empty, error)
-	mustEmbedUnimplementedManagementServer()
 }
 
-// UnimplementedManagementServer must be embedded to have forward compatible implementations.
+// UnimplementedManagementServer should be embedded to have forward compatible implementations.
 type UnimplementedManagementServer struct {
 }
 
@@ -625,7 +624,6 @@ func (UnimplementedManagementServer) GetDashboardSettings(context.Context, *empt
 func (UnimplementedManagementServer) UpdateDashboardSettings(context.Context, *DashboardSettings) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateDashboardSettings not implemented")
 }
-func (UnimplementedManagementServer) mustEmbedUnimplementedManagementServer() {}
 
 // UnsafeManagementServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to ManagementServer will

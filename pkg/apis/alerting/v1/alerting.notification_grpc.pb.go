@@ -121,7 +121,7 @@ func (c *alertNotificationsClient) ListRoutingRelationships(ctx context.Context,
 }
 
 // AlertNotificationsServer is the server API for AlertNotifications service.
-// All implementations must embed UnimplementedAlertNotificationsServer
+// All implementations should embed UnimplementedAlertNotificationsServer
 // for forward compatibility
 type AlertNotificationsServer interface {
 	TestAlertEndpoint(context.Context, *v1.Reference) (*emptypb.Empty, error)
@@ -137,10 +137,9 @@ type AlertNotificationsServer interface {
 	// so may not show up with their associated incident
 	ListAlarmMessages(context.Context, *ListAlarmMessageRequest) (*ListMessageResponse, error)
 	ListRoutingRelationships(context.Context, *emptypb.Empty) (*ListRoutingRelationshipsResponse, error)
-	mustEmbedUnimplementedAlertNotificationsServer()
 }
 
-// UnimplementedAlertNotificationsServer must be embedded to have forward compatible implementations.
+// UnimplementedAlertNotificationsServer should be embedded to have forward compatible implementations.
 type UnimplementedAlertNotificationsServer struct {
 }
 
@@ -165,7 +164,6 @@ func (UnimplementedAlertNotificationsServer) ListAlarmMessages(context.Context, 
 func (UnimplementedAlertNotificationsServer) ListRoutingRelationships(context.Context, *emptypb.Empty) (*ListRoutingRelationshipsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListRoutingRelationships not implemented")
 }
-func (UnimplementedAlertNotificationsServer) mustEmbedUnimplementedAlertNotificationsServer() {}
 
 // UnsafeAlertNotificationsServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to AlertNotificationsServer will

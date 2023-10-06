@@ -47,21 +47,19 @@ func (c *nodeMetricsCapabilityClient) Sync(ctx context.Context, in *SyncRequest,
 }
 
 // NodeMetricsCapabilityServer is the server API for NodeMetricsCapability service.
-// All implementations must embed UnimplementedNodeMetricsCapabilityServer
+// All implementations should embed UnimplementedNodeMetricsCapabilityServer
 // for forward compatibility
 type NodeMetricsCapabilityServer interface {
 	Sync(context.Context, *SyncRequest) (*SyncResponse, error)
-	mustEmbedUnimplementedNodeMetricsCapabilityServer()
 }
 
-// UnimplementedNodeMetricsCapabilityServer must be embedded to have forward compatible implementations.
+// UnimplementedNodeMetricsCapabilityServer should be embedded to have forward compatible implementations.
 type UnimplementedNodeMetricsCapabilityServer struct {
 }
 
 func (UnimplementedNodeMetricsCapabilityServer) Sync(context.Context, *SyncRequest) (*SyncResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Sync not implemented")
 }
-func (UnimplementedNodeMetricsCapabilityServer) mustEmbedUnimplementedNodeMetricsCapabilityServer() {}
 
 // UnsafeNodeMetricsCapabilityServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to NodeMetricsCapabilityServer will

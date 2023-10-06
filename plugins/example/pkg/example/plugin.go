@@ -54,6 +54,20 @@ type ExamplePlugin struct {
 	configServerBackend ConfigServerBackend
 }
 
+// ManagementServices implements managementext.ManagementAPIExtension.
+func (p *ExamplePlugin) ManagementServices() []util.ServicePackInterface {
+	return []util.ServicePackInterface{
+		util.PackService[ExampleAPIExtensionServer](&ExampleAPIExtension_ServiceDesc, p),
+		util.PackService[ConfigServer](&Config_ServiceDesc, &p.configServerBackend),
+	}
+}
+
+// UseServiceController implements managementext.ManagementAPIExtension.
+func (p *ExamplePlugin) UseServiceController(sc managementext.ServiceController) {
+	sc.SetServingStatus(ExampleAPIExtension_ServiceDesc.ServiceName, managementext.Serving)
+	sc.SetServingStatus(Config_ServiceDesc.ServiceName, managementext.Serving)
+}
+
 var _ ExampleAPIExtensionServer = (*ExamplePlugin)(nil)
 var _ ExampleUnaryExtensionServer = (*ExamplePlugin)(nil)
 
@@ -232,10 +246,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	future.Wait2(p.storageBackend, p.uninstallController, func(_ storage.Backend, _ *task.Controller) {
 		p.Initialize()
 	})
-	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(
-		util.PackService(&ExampleAPIExtension_ServiceDesc, p),
-		util.PackService(&Config_ServiceDesc, &p.configServerBackend),
-	))
+	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(p))
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(p))
 	return scheme

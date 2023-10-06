@@ -1,4 +1,4 @@
-package cortex
+package stream
 
 import (
 	"bytes"
@@ -10,63 +10,61 @@ import (
 	"github.com/cortexproject/cortex/pkg/cortexpb"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/auth/session"
-	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/metrics"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
-	metricsutil "github.com/rancher/opni/plugins/metrics/pkg/util"
+	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
+	"github.com/rancher/opni/plugins/metrics/pkg/types"
 	"github.com/weaveworks/common/user"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type RemoteWriteForwarder struct {
-	remotewrite.UnsafeRemoteWriteServer
-	RemoteWriteForwarderConfig
-	interceptors map[string]RequestInterceptor
+var (
+	cIngestBytesByID     metric.Int64Counter
+	cRemoteWriteRequests metric.Int64Counter
+)
 
-	util.Initializer
+type RemoteWriteServer struct {
+	sc types.StreamServiceContext
+
+	interceptors    map[string]cortex.RequestInterceptor
+	cortexClientSet cortex.ClientSet
 }
 
-var _ remotewrite.RemoteWriteServer = (*RemoteWriteForwarder)(nil)
+var _ remotewrite.RemoteWriteServer = (*RemoteWriteServer)(nil)
 
-type RemoteWriteForwarderConfig struct {
-	CortexClientSet ClientSet                  `validate:"required"`
-	Config          *v1beta1.GatewayConfigSpec `validate:"required"`
-	Logger          *zap.SugaredLogger         `validate:"required"`
-}
-
-func (f *RemoteWriteForwarder) Initialize(conf RemoteWriteForwarderConfig) {
-	f.InitOnce(func() {
-		if err := metricsutil.Validate.Struct(conf); err != nil {
-			panic(err)
+func (f *RemoteWriteServer) Activate(ctx types.StreamServiceContext) error {
+	clientSet, err := ctx.Memoize(cortex.ClientSetKey, func() (any, error) {
+		tlsConfig, err := cortex.LoadTLSConfig(ctx.GatewayConfig())
+		if err != nil {
+			return nil, err
 		}
-		f.RemoteWriteForwarderConfig = conf
-
-		f.interceptors = map[string]RequestInterceptor{
-			"local": NewFederatingInterceptor(InterceptorConfig{
-				IdLabelName: metrics.LabelImpersonateAs,
-			}),
-		}
+		return cortex.NewClientSet(ctx, &ctx.GatewayConfig().Spec.Cortex, tlsConfig)
 	})
+	if err != nil {
+		return err
+	}
+	f.cortexClientSet = clientSet.(cortex.ClientSet)
+	f.interceptors = map[string]cortex.RequestInterceptor{
+		"local": cortex.NewFederatingInterceptor(cortex.InterceptorConfig{
+			IdLabelName: metrics.LabelImpersonateAs,
+		}),
+	}
+	f.sc = ctx
+	return nil
 }
 
-var passthrough = &passthroughInterceptor{}
+var passthrough = &cortex.PassthroughInterceptor{}
 
-func (f *RemoteWriteForwarder) Push(ctx context.Context, writeReq *cortexpb.WriteRequest) (_ *cortexpb.WriteResponse, pushErr error) {
-	if !f.Initialized() {
-		return nil, util.StatusError(codes.Unavailable)
-	}
-
+func (f *RemoteWriteServer) Push(ctx context.Context, writeReq *cortexpb.WriteRequest) (_ *cortexpb.WriteResponse, pushErr error) {
 	clusterId := cluster.StreamAuthorizedID(ctx)
 
-	var interceptor RequestInterceptor = passthrough
+	var interceptor cortex.RequestInterceptor = passthrough
 	attributes := session.StreamAuthorizedAttributes(ctx)
 	for _, attr := range attributes {
 		if i, ok := f.interceptors[attr.Name()]; ok {
@@ -131,17 +129,14 @@ func (f *RemoteWriteForwarder) Push(ctx context.Context, writeReq *cortexpb.Writ
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	wr, err := interceptor.Intercept(ctx, writeReq, f.CortexClientSet.Distributor().Push)
+	wr, err := interceptor.Intercept(ctx, writeReq, f.cortexClientSet.Distributor().Push)
 
 	cortexpb.ReuseSlice(writeReq.Timeseries)
 
 	return wr, err
 }
 
-func (f *RemoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewrite.Payload) (_ *emptypb.Empty, syncErr error) {
-	if !f.Initialized() {
-		return nil, util.StatusError(codes.Unavailable)
-	}
+func (f *RemoteWriteServer) SyncRules(ctx context.Context, payload *remotewrite.Payload) (_ *emptypb.Empty, syncErr error) {
 	clusterId := cluster.StreamAuthorizedID(ctx)
 
 	ctx, span := otel.Tracer("plugin_metrics").Start(ctx, "remoteWriteForwarder.SyncRules",
@@ -150,7 +145,7 @@ func (f *RemoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewri
 
 	defer func() {
 		if syncErr != nil {
-			f.Logger.With(
+			f.sc.Logger().With(
 				"err", syncErr,
 				"clusterId", clusterId,
 			).Error("error syncing rules to cortex")
@@ -158,7 +153,7 @@ func (f *RemoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewri
 	}()
 	url := fmt.Sprintf(
 		"https://%s/api/v1/rules/%s",
-		f.Config.Cortex.Ruler.HTTPAddress,
+		f.sc.GatewayConfig().Spec.Cortex.Ruler.HTTPAddress,
 		"synced", // set the namespace to synced to differentiate from user rules
 	)
 
@@ -173,7 +168,7 @@ func (f *RemoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewri
 	for k, v := range payload.Headers {
 		req.Header.Add(k, v)
 	}
-	resp, err := f.CortexClientSet.HTTP().Do(req)
+	resp, err := f.cortexClientSet.HTTP().Do(req)
 	if err != nil {
 		return nil, err
 	}

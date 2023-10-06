@@ -3,7 +3,7 @@
 /* eslint-disable */
 
 import { ConfigurationHistoryRequest, GetRequest, InstallStatus } from "../../../../pkg/plugins/driverutil/types_pb";
-import { CapabilityBackendConfigSpec, ConfigurationHistoryResponse, DryRunRequest, DryRunResponse, PresetList, ResetRequest } from "./cortexops_pb";
+import { CapabilityBackendConfigSpec, ConfigurationHistoryResponse, DryRunRequest, DryRunResponse, PresetList, ResetRequest, SetRequest } from "./cortexops_pb";
 import { axios } from "@pkg/opni/utils/axios";
 
 
@@ -30,7 +30,7 @@ export async function GetDefaultConfiguration(input: GetRequest): Promise<Capabi
 }
 
 
-export async function SetDefaultConfiguration(input: CapabilityBackendConfigSpec): Promise<void> {
+export async function SetDefaultConfiguration(input: SetRequest): Promise<void> {
   try {
     return (await axios.request({
       method: 'put',
@@ -96,7 +96,7 @@ export async function GetConfiguration(input: GetRequest): Promise<CapabilityBac
 }
 
 
-export async function SetConfiguration(input: CapabilityBackendConfigSpec): Promise<void> {
+export async function SetConfiguration(input: SetRequest): Promise<void> {
   try {
     return (await axios.request({
       method: 'put',

@@ -49,21 +49,19 @@ func (c *identityClient) Whoami(ctx context.Context, in *emptypb.Empty, opts ...
 }
 
 // IdentityServer is the server API for Identity service.
-// All implementations must embed UnimplementedIdentityServer
+// All implementations should embed UnimplementedIdentityServer
 // for forward compatibility
 type IdentityServer interface {
 	Whoami(context.Context, *emptypb.Empty) (*v1.Reference, error)
-	mustEmbedUnimplementedIdentityServer()
 }
 
-// UnimplementedIdentityServer must be embedded to have forward compatible implementations.
+// UnimplementedIdentityServer should be embedded to have forward compatible implementations.
 type UnimplementedIdentityServer struct {
 }
 
 func (UnimplementedIdentityServer) Whoami(context.Context, *emptypb.Empty) (*v1.Reference, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Whoami not implemented")
 }
-func (UnimplementedIdentityServer) mustEmbedUnimplementedIdentityServer() {}
 
 // UnsafeIdentityServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to IdentityServer will

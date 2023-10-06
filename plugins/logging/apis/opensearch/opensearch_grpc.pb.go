@@ -47,21 +47,19 @@ func (c *opensearchClient) GetDetails(ctx context.Context, in *ClusterReference,
 }
 
 // OpensearchServer is the server API for Opensearch service.
-// All implementations must embed UnimplementedOpensearchServer
+// All implementations should embed UnimplementedOpensearchServer
 // for forward compatibility
 type OpensearchServer interface {
 	GetDetails(context.Context, *ClusterReference) (*OpensearchDetails, error)
-	mustEmbedUnimplementedOpensearchServer()
 }
 
-// UnimplementedOpensearchServer must be embedded to have forward compatible implementations.
+// UnimplementedOpensearchServer should be embedded to have forward compatible implementations.
 type UnimplementedOpensearchServer struct {
 }
 
 func (UnimplementedOpensearchServer) GetDetails(context.Context, *ClusterReference) (*OpensearchDetails, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDetails not implemented")
 }
-func (UnimplementedOpensearchServer) mustEmbedUnimplementedOpensearchServer() {}
 
 // UnsafeOpensearchServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to OpensearchServer will

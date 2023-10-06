@@ -183,7 +183,7 @@ func (x *extBidirectionalStreamClient) Recv() (*FooResponse, error) {
 }
 
 // ExtServer is the server API for Ext service.
-// All implementations must embed UnimplementedExtServer
+// All implementations should embed UnimplementedExtServer
 // for forward compatibility
 type ExtServer interface {
 	Foo(context.Context, *FooRequest) (*FooResponse, error)
@@ -193,10 +193,9 @@ type ExtServer interface {
 	ServerStream(*FooRequest, Ext_ServerStreamServer) error
 	ClientStream(Ext_ClientStreamServer) error
 	BidirectionalStream(Ext_BidirectionalStreamServer) error
-	mustEmbedUnimplementedExtServer()
 }
 
-// UnimplementedExtServer must be embedded to have forward compatible implementations.
+// UnimplementedExtServer should be embedded to have forward compatible implementations.
 type UnimplementedExtServer struct {
 }
 
@@ -221,7 +220,6 @@ func (UnimplementedExtServer) ClientStream(Ext_ClientStreamServer) error {
 func (UnimplementedExtServer) BidirectionalStream(Ext_BidirectionalStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method BidirectionalStream not implemented")
 }
-func (UnimplementedExtServer) mustEmbedUnimplementedExtServer() {}
 
 // UnsafeExtServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to ExtServer will
@@ -453,21 +451,19 @@ func (c *ext2Client) Foo(ctx context.Context, in *FooRequest, opts ...grpc.CallO
 }
 
 // Ext2Server is the server API for Ext2 service.
-// All implementations must embed UnimplementedExt2Server
+// All implementations should embed UnimplementedExt2Server
 // for forward compatibility
 type Ext2Server interface {
 	Foo(context.Context, *FooRequest) (*FooResponse, error)
-	mustEmbedUnimplementedExt2Server()
 }
 
-// UnimplementedExt2Server must be embedded to have forward compatible implementations.
+// UnimplementedExt2Server should be embedded to have forward compatible implementations.
 type UnimplementedExt2Server struct {
 }
 
 func (UnimplementedExt2Server) Foo(context.Context, *FooRequest) (*FooResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Foo not implemented")
 }
-func (UnimplementedExt2Server) mustEmbedUnimplementedExt2Server() {}
 
 // UnsafeExt2Server may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to Ext2Server will

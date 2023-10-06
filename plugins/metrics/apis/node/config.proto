@@ -24,14 +24,19 @@ service NodeConfiguration {
   option (cli.command_group) = {
     use: "config"
   };
-  rpc GetDefaultConfiguration(driverutil.GetRequest) returns (MetricsCapabilityConfig) {
+
+  // {{ template "GetDefaultConfiguration" }}
+  rpc GetDefaultConfiguration(GetRequest) returns (MetricsCapabilityConfig) {
     option (cli.command) = {
-      use: "config get-default"
+      use:          "config get-default"
+      enable_hooks: true
     };
     option (google.api.http) = {
       get: "/node_config"
     };
   }
+
+  // {{ template "SetDefaultConfiguration" }}
   rpc SetDefaultConfiguration(SetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
       use: "config set-default"
@@ -42,6 +47,8 @@ service NodeConfiguration {
       body: "*"
     };
   }
+
+  // {{ template "ResetDefaultConfiguration" }}
   rpc ResetDefaultConfiguration(google.protobuf.Empty) returns (google.protobuf.Empty) {
     option (cli.command) = {
       use: "config reset-default"
@@ -51,17 +58,22 @@ service NodeConfiguration {
     };
   }
 
-  rpc GetConfiguration(NodeGetRequest) returns (MetricsCapabilityConfig) {
+  // {{ template "GetConfiguration" }}
+  rpc GetConfiguration(GetRequest) returns (MetricsCapabilityConfig) {
     option (cli.command) = {
-      use: "config get"
+      use:          "config get"
+      enable_hooks: true
     };
     option (google.api.http) = {
       get: "/node_config/{id}"
     };
   }
-  rpc SetConfiguration(NodeSetRequest) returns (google.protobuf.Empty) {
+
+  // {{ template "SetConfiguration" }}
+  rpc SetConfiguration(SetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
       use: "config set"
+      enable_hooks: true
       granularity: EditMessage;
     };
     option (google.api.http) = {
@@ -69,7 +81,9 @@ service NodeConfiguration {
       body: "*"
     };
   }
-  rpc ResetConfiguration(NodeResetRequest) returns (google.protobuf.Empty) {
+
+  // {{ template "ResetConfiguration" }}
+  rpc ResetConfiguration(ResetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
       use: "config reset"
     };
@@ -77,6 +91,8 @@ service NodeConfiguration {
       delete: "/node_config/{node.id}"
     };
   }
+
+  // {{ template "ConfigurationHistory" }}
   rpc ConfigurationHistory(ConfigurationHistoryRequest) returns (ConfigurationHistoryResponse) {
     option (cli.command) = {
       use: "config history"
@@ -114,7 +130,12 @@ message MetricsCapabilityConfig {
     }
   }];
 
-  optional string driver     = 4 [(cli.flag).default = "prometheus"];
+  enum Driver {
+    None          = 0;
+    Prometheus    = 1;
+    OpenTelemetry = 2;
+  }
+  optional Driver driver     = 4 [(cli.flag).default = "Prometheus"];
   PrometheusSpec  prometheus = 2;
   OTELSpec        otel       = 3;
 }
@@ -152,28 +173,24 @@ message ConfigurationHistoryResponse {
   repeated MetricsCapabilityConfig entries = 1;
 }
 
-message NodeResetRequest {
-  core.Reference            node  = 1;
+message ResetRequest {
+  core.Reference            node  = 1; // Only used for active config requests
   google.protobuf.FieldMask mask  = 2 [(cli.flag).skip = true];
   MetricsCapabilityConfig   patch = 3 [(cli.flag).skip = true];
 }
 
-message NodeGetRequest {
-  core.Reference node     = 1;
+message GetRequest {
+  core.Reference node     = 1; // Only used for active config requests
   core.Revision  revision = 2;
 }
 
-message NodeSetRequest {
-  core.Reference          node = 1;
-  MetricsCapabilityConfig spec = 2;
-}
-
 message SetRequest {
+  core.Reference          node = 1; // Only used for active config requests
   MetricsCapabilityConfig spec = 2;
 }
 
 message ConfigurationHistoryRequest {
-  core.Reference    node          = 1;
+  core.Reference    node          = 1; // Only used for active config requests
   driverutil.Target target        = 2;
   core.Revision     revision      = 3 [(cli.flag_set).no_prefix = true];
   bool              includeValues = 4 [(cli.flag).default = "true"];

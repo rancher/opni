@@ -62,7 +62,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 	return p
 }
 
-func (p *Plugin) ConfigureNode(nodeId string, cfg *node.MetricsCapabilityConfig) error {
+func (p *Plugin) ConfigureNode(nodeId string, cfg *node.MetricsCapabilityStatus) error {
 	lg := p.logger.With("nodeId", nodeId)
 	lg.Debug("metrics capability config updated")
 

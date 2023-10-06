@@ -288,8 +288,9 @@ exporters:
     tls:
       insecure: true
     sending_queue:
-      num_consumers: 4
-      queue_size: 100
+      enabled: {{ .OTELConfig.Exporters.OTLPHTTP.SendingQueue.Enabled }}
+      num_consumers: {{ .OTELConfig.Exporters.OTLPHTTP.SendingQueue.NumConsumers }}
+      queue_size: {{ .OTELConfig.Exporters.OTLPHTTP.SendingQueue.QueueSize }}
     retry_on_failure:
       enabled: true
   {{ template "metrics-remotewrite-exporter" .}}

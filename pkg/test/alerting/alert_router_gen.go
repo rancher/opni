@@ -26,7 +26,6 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -130,17 +129,14 @@ func NewWebhookMemoryServer(e *test.Environment, webHookRoute string) *MockInteg
 	}
 	res.Addr = webhookServer.Addr
 
-	waitctx.Permissive.Go(e.Context(), func() {
-		go func() {
-			err := webhookServer.ListenAndServe()
-			if err != http.ErrServerClosed {
-				panic(err)
-			}
-		}()
-		defer webhookServer.Shutdown(context.Background())
-		select {
-		case <-e.Context().Done():
+	go func() {
+		err := webhookServer.ListenAndServe()
+		if err != http.ErrServerClosed {
+			panic(err)
 		}
+	}()
+	context.AfterFunc(e.Context(), func() {
+		webhookServer.Shutdown(context.Background())
 	})
 	return res
 }
@@ -410,11 +406,15 @@ func RunAlertManager(
 	freePort := freeport.GetFreePort()
 	ctxCa, caF := context.WithCancel(ctx)
 	ports := e.StartEmbeddedAlertManager(ctxCa, tmpPath, lo.ToPtr(freePort))
-	alertingClient := client.NewClient(
-		nil,
-		fmt.Sprintf("http://localhost:%d", ports.ApiPort),
-		fmt.Sprintf("http://localhost:%d", ports.EmbeddedPort),
+	alertingClient, err := client.NewClient(
+		client.WithAlertManagerAddress(
+			fmt.Sprintf("127.0.0.1:%d", ports.ApiPort),
+		),
+		client.WithQuerierAddress(
+			fmt.Sprintf("127.0.0.1:%d", ports.EmbeddedPort),
+		),
 	)
+	Expect(err).To(Succeed())
 	Eventually(func() error {
 		return alertingClient.Ready(ctxCa)
 	}).Should(Succeed())
@@ -455,11 +455,15 @@ func ExpectAlertManagerConfigToBeValid(
 
 	By("Verifying that the config can be loaded by alertmanager")
 	ports := env.StartEmbeddedAlertManager(ctx, tmpPath, lo.ToPtr(port))
-	alertingClient := client.NewClient(
-		nil,
-		fmt.Sprintf("http://localhost:%d", ports.ApiPort),
-		fmt.Sprintf("http://localhost:%d", ports.EmbeddedPort),
+	alertingClient, err := client.NewClient(
+		client.WithAlertManagerAddress(
+			fmt.Sprintf("127.0.0.1:%d", ports.ApiPort),
+		),
+		client.WithQuerierAddress(
+			fmt.Sprintf("127.0.0.1:%d", ports.EmbeddedPort),
+		),
 	)
+	Expect(err).To(Succeed())
 	Eventually(func() error {
 		return alertingClient.Ready(ctx)
 	}).Should(Succeed())

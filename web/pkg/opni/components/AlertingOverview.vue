@@ -110,17 +110,17 @@ export default {
 
           const elements = Object.entries(details).map(([key, value]) => `<li><strong>${ key }: </strong>${ value }</li>`);
 
-          return `<ul>${ elements }</ul>`;
+          return `<ul>${ elements.join('') }</ul>`;
         };
 
         const format = 'MM-DD-YY (h:mm:ss a)';
 
         return `
         <div class="container">
-          <ul class="row">
-            <li class="col span-4"><strong>Title:</strong> ${ notification.notification.title }</li>
-            <li class="col span-4"><strong>Severity:</strong> ${ notification.notification.properties.opni_severity }</li>
-            <li class="col span-4"><strong>Golden Signal:</strong> ${ notification.notification.properties.opni_goldenSignal }</li>
+          <ul class="heading">
+            <li class="col"><strong>Title:</strong> ${ notification.notification.title }</li>
+            <li class="col"><strong>Severity:</strong> ${ notification.notification.properties.opni_severity }</li>
+            <li class="col"><strong>Golden Signal:</strong> ${ notification.notification.properties.opni_goldenSignal }</li>
           </ul>
           <div class="row body"><div class="col span-12">${ notification.notification.body }</div></div>
           <div class="row">
@@ -169,15 +169,21 @@ export default {
             clusterId: condition.clusterId || DEFAULT_CLUSTER_ID,
             events:    (value?.windows || [])
               .filter(w => w.type !== TimelineType.Timeline_Unknown)
-              .map(w => ({
-                start:        this.now.diff(dayjs(w.start), 'h', true),
-                end:          this.now.diff(dayjs(w.end), 'h', true),
-                startRaw:     w.start,
-                endRaw:       w.end,
-                fingerprints: w.fingerprints,
-                conditionId:  { id: condition.id, groupId: condition.groupId },
-                type:         w.type
-              }))
+              .map((w) => {
+                const dayStart = dayjs(w.start);
+                const yesterday = this.now.subtract(25, 'h');
+                const start = dayStart.isBefore(yesterday) ? yesterday : dayStart;
+
+                return {
+                  start:        this.now.diff(start, 'h', true),
+                  end:          this.now.diff(dayjs(w.end), 'h', true),
+                  startRaw:     w.start,
+                  endRaw:       w.end,
+                  fingerprints: w.fingerprints,
+                  conditionId:  { id: condition.id, groupId: condition.groupId },
+                  type:         w.type
+                };
+              })
           };
         })
         .filter(t => t.events.length > 0);
@@ -288,7 +294,7 @@ export default {
                   content: () => loadContent(event),
                   loadingContent: loadingContent(),
                   html: true,
-                  classes: ['event-tooltip']
+                  classes: ['event-tooltip'],
                 }"
                 class="event"
                 :class="event.type"
@@ -444,12 +450,12 @@ tr.no-data {
 
 <style lang="scss">
   .event-tooltip .tooltip-inner {
+    width: 600px;
     padding: 0;
     border: 2px solid #dcdee7;
-
-    .tooltip-spinner {
-      padding: 10px;
-    }
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
 
     .row {
       padding: 5px 12px;
@@ -460,9 +466,21 @@ tr.no-data {
     }
 
     .container {
-      width: 500px;
       position: relative;
       padding: 0;
+
+      .heading {
+        padding: 5px 10px;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+
+        .col {
+          display: flex;
+          flex-direction: row;
+          justify-content: flex-start;
+        }
+      }
 
       ul {
         margin: 0;

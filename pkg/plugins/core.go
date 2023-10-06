@@ -7,13 +7,11 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/hashicorp/go-plugin"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/tracing"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"google.golang.org/grpc"
 	rpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 )
@@ -60,7 +58,8 @@ type Main struct {
 
 func (m *Main) Exec() {
 	gin.SetMode(gin.ReleaseMode)
-	ctx, ca := context.WithCancel(waitctx.Background())
+	ctx := context.Background()
+
 	md := meta.ReadMetadata()
 	moduleBasename := path.Base(md.Module)
 
@@ -82,6 +81,4 @@ func (m *Main) Exec() {
 	tracing.Configure(fmt.Sprintf("plugin_%s_%s", mode, moduleBasename))
 
 	Serve(scheme)
-	ca()
-	waitctx.Wait(ctx, 5*time.Second)
 }

@@ -219,7 +219,6 @@ func (p *AlarmServerComponent) handleKubeAlertCreation(ctx context.Context, cond
 		cond.GetRoutingAnnotations(),
 		k, nil, baseKubeRule,
 	)
-	p.logger.With("handler", "kubeStateAlertCreate").Debugf("kube state alert created %v", kubeRuleContent)
 	if err != nil {
 		return err
 	}
@@ -227,7 +226,6 @@ func (p *AlarmServerComponent) handleKubeAlertCreation(ctx context.Context, cond
 	if err != nil {
 		return err
 	}
-	p.logger.With("Expr", "kube-state").Debugf("%s", string(out))
 	adminClient, err := p.adminClient.GetContext(ctx)
 	if err != nil {
 		return err
@@ -272,7 +270,6 @@ func (p *AlarmServerComponent) handleCpuSaturationAlertCreation(
 	if err != nil {
 		return err
 	}
-	p.logger.With("Expr", "cpu").Debugf("%s", string(out))
 	adminClient, err := p.adminClient.GetContext(ctx)
 	if err != nil {
 		return err
@@ -314,7 +311,6 @@ func (p *AlarmServerComponent) handleMemorySaturationAlertCreation(ctx context.C
 	if err != nil {
 		return err
 	}
-	p.logger.With("Expr", "mem").Debugf("%s", string(out))
 	adminClient, err := p.adminClient.GetContext(ctx)
 	if err != nil {
 		return err
@@ -356,7 +352,6 @@ func (p *AlarmServerComponent) handleFsSaturationAlertCreation(ctx context.Conte
 	if err != nil {
 		return err
 	}
-	p.logger.With("Expr", "fs").Debugf("%s", string(out))
 	adminClient, err := p.adminClient.GetContext(ctx)
 	if err != nil {
 		return err
@@ -393,7 +388,6 @@ func (p *AlarmServerComponent) handlePrometheusQueryAlertCreation(ctx context.Co
 	if err != nil {
 		return err
 	}
-	p.logger.With("Expr", "user-query").Debugf("%s", out.String())
 	adminClient, err := p.adminClient.GetContext(ctx)
 	if err != nil {
 		return err

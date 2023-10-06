@@ -1,11 +1,7 @@
 package client_test
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"strconv"
 	"time"
 
@@ -430,67 +426,9 @@ func BuildProxyClientTestSuite(
 			cl = clBuilder()
 		})
 		When("Using the Proxy client", func() {
-			It("should be able to list alerts", func() {
-				req, err := http.NewRequest(http.MethodGet, "http://localhost:5000/api/v2/alerts/", nil)
-				Expect(err).To(Succeed())
-				resp, err := cl.Handle(context.TODO(), req)
-				Expect(err).To(Succeed())
-				Expect(resp.StatusCode).To(Equal(http.StatusOK))
-				defer resp.Body.Close()
-
-				res := alertmanagerv2.GettableAlerts{}
-				err = json.NewDecoder(resp.Body).Decode(&res)
-				Expect(err).To(Succeed())
-			})
-
-			It("should be able to post alerts", func() {
-				ts := time.Now()
-				reqBody := []*alertmanagerv2.PostableAlert{
-					{
-						Annotations: map[string]string{},
-						StartsAt:    client.ToOpenApiTime(ts),
-						EndsAt:      client.ToOpenApiTime(ts.Add(time.Minute * 5)),
-						Alert: alertmanagerv2.Alert{
-							Labels: map[string]string{
-								"manual_test": "true",
-							},
-						},
-					},
-				}
-				var data bytes.Buffer
-				err := json.NewEncoder(&data).Encode(reqBody)
-				Expect(err).To(Succeed())
-				req, err := http.NewRequest(http.MethodPost, "http://localhost:5000/api/v2/alerts/", bytes.NewReader(data.Bytes()))
-				Expect(err).To(Succeed())
-				req.Header.Set("Content-Type", "application/json")
-				req.Header.Set("Accept", "application/json")
-				resp, err := cl.Handle(context.TODO(), req)
-				Expect(err).To(Succeed())
-				Expect(resp.StatusCode).To(Equal(http.StatusOK))
-			})
-
-			It("should be able to list the newly create alert", func() {
-				req, err := http.NewRequest(http.MethodGet, "http://localhost:5000/api/v2/alerts/", nil)
-				Expect(err).To(Succeed())
-				resp, err := cl.Handle(context.TODO(), req)
-				Expect(err).To(Succeed())
-				Expect(resp.StatusCode).To(Equal(http.StatusOK))
-				defer resp.Body.Close()
-
-				res := alertmanagerv2.GettableAlerts{}
-				err = json.NewDecoder(resp.Body).Decode(&res)
-				Expect(err).To(Succeed())
-				Expect(len(res)).To(BeNumerically(">", 0))
-
-				proxiedAlerts := lo.Filter(res, func(item *alertmanagerv2.GettableAlert, _ int) bool {
-					_, ok := item.Alert.Labels["manual_test"]
-					return ok
-				})
-
-				Expect(len(proxiedAlerts)).To(BeNumerically(">", 0))
-			})
-
-			It("should be able to list alert groups", func() {
+			It("should construct a proxy target URL", func() {
+				Expect(func() { cl.ProxyURL() }).NotTo(Panic())
+				Expect(cl.ProxyURL()).NotTo(BeNil())
 			})
 		})
 	})

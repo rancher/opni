@@ -38,7 +38,6 @@ func (Generate) Controllers(ctx context.Context) error {
 			"CGO_ENABLED": "1",
 		}, mg.GoCmd(), "run", "sigs.k8s.io/controller-tools/cmd/controller-gen@latest",
 			"crd:maxDescLen=0,ignoreUnexportedFields=true,allowDangerousTypes=true",
-			"rbac:roleName=manager-role",
 			"object",
 			"paths=./apis/...",
 			"output:crd:artifacts:config=config/crd/bases",

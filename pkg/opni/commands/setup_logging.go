@@ -3,6 +3,7 @@
 package commands
 
 import (
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
 	"github.com/spf13/cobra"
 )
@@ -25,17 +26,7 @@ func ConfigureLoggingAdminCommand(cmd *cobra.Command) {
 	}
 }
 
-func loggingAdminPreRunE(cmd *cobra.Command, _ []string) error {
-	if managementListenAddress == "" {
-		panic("bug: managementListenAddress is empty")
-	}
-
-	ac2, err := loggingadmin.NewV2Client(cmd.Context(),
-		loggingadmin.WithListenAddress(managementListenAddress))
-	if err != nil {
-		return err
-	}
-	loggingAdminV2Client = ac2
-
+func loggingAdminPreRunE(_ *cobra.Command, _ []string) error {
+	loggingAdminV2Client = loggingadmin.NewLoggingAdminV2Client(managementv1.UnderlyingConn(mgmtClient))
 	return nil
 }

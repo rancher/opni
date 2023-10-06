@@ -13,7 +13,6 @@ import (
 	_ "github.com/rancher/opni/pkg/test/setup"
 	"github.com/rancher/opni/pkg/test/testk8s"
 	"github.com/rancher/opni/pkg/test/testruntime"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -37,7 +36,7 @@ var _ = BeforeSuite(func() {
 	testruntime.IfIntegration(func() {
 		env := test.Environment{}
 
-		ctx, ca := context.WithCancel(waitctx.Background())
+		ctx, ca := context.WithCancel(context.Background())
 		var err error
 
 		restConfig, scheme, err = testk8s.StartK8s(ctx, []string{
@@ -65,7 +64,6 @@ var _ = BeforeSuite(func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			ca()
-			waitctx.Wait(ctx)
 		})
 	})
 })

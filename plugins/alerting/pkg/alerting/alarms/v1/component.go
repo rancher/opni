@@ -31,7 +31,7 @@ type AlarmServerComponent struct {
 	util.Initializer
 	ctx context.Context
 
-	mu sync.Mutex
+	mu sync.RWMutex
 	server.Config
 
 	logger *zap.SugaredLogger
@@ -132,7 +132,7 @@ func (a *AlarmServerComponent) Sync(ctx context.Context, syncInfo alertingSync.S
 		conds = append(conds, groupConds...)
 	}
 	eg := &util.MultiErrGroup{}
-	a.logger.Infof("syncing %d conditions", len(conds))
+	a.logger.Debugf("syncing (%v) %d conditions", syncInfo.ShouldSync, len(conds))
 	for _, cond := range conds {
 		cond := cond
 		if syncInfo.ShouldSync {
@@ -179,7 +179,9 @@ func (a *AlarmServerComponent) Sync(ctx context.Context, syncInfo alertingSync.S
 		}
 	}
 	eg.Wait()
-	a.logger.Infof("successfully synced (%d/%d) conditions", len(conds)-len(eg.Errors()), len(conds))
+	if len(eg.Errors()) > 0 {
+		a.logger.Errorf("successfully synced (%d/%d) conditions : %s", len(conds)-len(eg.Errors()), len(conds), eg.Error())
+	}
 	if err := eg.Error(); err != nil {
 		return err
 	}

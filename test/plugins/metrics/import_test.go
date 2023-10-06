@@ -22,7 +22,6 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/test/testk8s"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -155,18 +154,15 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 		Expect(cortexops.WaitForReady(env.Context(), cortexOpsClient)).To(Succeed())
 
 		By("adding prometheus resources to k8s")
-		k8sctx, ca := context.WithCancel(waitctx.Background())
+		k8sctx, ca := context.WithCancel(context.Background())
 		s := scheme.Scheme
 		monitoringv1.AddToScheme(s)
 
 		config, _, err := testk8s.StartK8s(k8sctx, []string{
-			"../../../config/crd/prometheus",
+			"../../resources",
 		}, s)
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() {
-			ca()
-			waitctx.Wait(k8sctx)
-		})
+		DeferCleanup(ca)
 
 		kubeClient, err := kubernetes.NewForConfig(config)
 		Expect(err).NotTo(HaveOccurred())

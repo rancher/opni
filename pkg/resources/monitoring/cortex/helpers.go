@@ -524,6 +524,7 @@ type CortexServiceOptions struct {
 	addHeadlessService       bool
 	publishNotReadyAddresses bool
 	addServiceMonitor        bool
+	targetLabelOverride      string
 }
 
 type CortexServiceOption func(*CortexServiceOptions)
@@ -547,6 +548,19 @@ func AddServiceMonitor() CortexServiceOption {
 	}
 }
 
+func WithTargetLabelOverride(override string) CortexServiceOption {
+	return func(o *CortexServiceOptions) {
+		o.targetLabelOverride = override
+	}
+}
+
+func serviceOverride(componentOverride string, fallback string) string {
+	if componentOverride != "" {
+		return componentOverride
+	}
+	return fallback
+}
+
 func (r *Reconciler) buildCortexWorkloadServices(
 	target string,
 	opts ...CortexServiceOption,
@@ -554,7 +568,9 @@ func (r *Reconciler) buildCortexWorkloadServices(
 	options := CortexServiceOptions{}
 	options.apply(opts...)
 
-	targetLabels := cortexWorkloadLabels(target)
+	targetLabels := cortexWorkloadLabels(
+		serviceOverride(options.targetLabelOverride, target),
+	)
 
 	httpPort := corev1.ServicePort{
 		Name:       "http-metrics",

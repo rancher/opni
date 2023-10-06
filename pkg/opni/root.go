@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/opni/commands"
 	"github.com/rancher/opni/pkg/opni/common"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/ttacon/chalk"
 	"golang.org/x/term"
 
@@ -38,12 +39,26 @@ func BuildRootCmd() *cobra.Command {
 }
 
 func Execute() {
-	ctx, ca := context.WithCancel(waitctx.Background())
-	if err := BuildRootCmd().ExecuteContext(ctx); err != nil {
+	ctx, ca := context.WithCancel(context.Background())
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	rootCmd := BuildRootCmd()
+	go func() {
+		sig := <-c
+		switch sig {
+		case syscall.SIGINT:
+			rootCmd.PrintErrln("\nShutting down... (press Ctrl+C again to force)")
+		default:
+			rootCmd.PrintErrf("Received %s, shutting down...", sig.String())
+		}
+		ca()
+		<-c
+		os.Exit(1)
+	}()
+	if err := rootCmd.ExecuteContext(ctx); err != nil {
+		rootCmd.PrintErrln(err.Error())
 		os.Exit(1)
 	}
-	ca()
-	waitctx.Wait(ctx)
 }
 
 func patchUsageTemplate(cmd *cobra.Command) {

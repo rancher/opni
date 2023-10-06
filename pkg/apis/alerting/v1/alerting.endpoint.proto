@@ -137,6 +137,7 @@ message WebhookEndpoint {
   string url = 1;
   HTTPConfig httpConfig = 2;
   int32 maxAlerts = 3;
+  string urlFile = 4;
 }
 
 message HTTPConfig {

@@ -19,14 +19,13 @@ import (
 
 	"github.com/rancher/opni/pkg/auth/openid"
 	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/util/waitctx"
 )
 
 var _ = Describe("OpenID Middleware", Ordered, testruntime.EnableIfCI[FlakeAttempts](5), Label("temporal"), func() {
 	var app *gin.Engine
 	Context("no server errors", func() {
 		BeforeEach(func() {
-			mw, err := openid.New(waitctx.Background(), v1beta1.AuthProviderSpec{
+			mw, err := openid.New(context.Background(), v1beta1.AuthProviderSpec{
 				Type: "openid",
 				Options: map[string]any{
 					"discovery": map[string]string{
@@ -119,10 +118,10 @@ var _ = Describe("OpenID Middleware", Ordered, testruntime.EnableIfCI[FlakeAttem
 	})
 	Context("server or discovery config errors", func() {
 		When("the server is unavailable", func() {
-			It("should retry until the server becomes available", func() {
+			It("should retry until the server becomes available", func(ctx context.Context) {
 				port := freeport.GetFreePort()
 
-				mw, err := openid.New(waitctx.Background(), v1beta1.AuthProviderSpec{
+				mw, err := openid.New(ctx, v1beta1.AuthProviderSpec{
 					Type: "openid",
 					Options: map[string]any{
 						"discovery": map[string]string{
@@ -159,8 +158,8 @@ var _ = Describe("OpenID Middleware", Ordered, testruntime.EnableIfCI[FlakeAttem
 			})
 		})
 		When("an id token is missing the identifying claim", func() {
-			It("should return http 401", func() {
-				mw, err := openid.New(waitctx.Background(), v1beta1.AuthProviderSpec{
+			It("should return http 401", func(ctx context.Context) {
+				mw, err := openid.New(ctx, v1beta1.AuthProviderSpec{
 					Type: "openid",
 					Options: map[string]any{
 						"discovery": map[string]string{

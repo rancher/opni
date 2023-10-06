@@ -78,11 +78,12 @@ func (methods) FillConfigFromObject(obj *opnicorev1beta1.MonitoringCluster, conf
 }
 
 // FillObjectFromConfig implements crds.ValueStoreMethods.
-func (methods) FillObjectFromConfig(obj *opnicorev1beta1.MonitoringCluster, conf *cortexops.CapabilityBackendConfigSpec) {
+func (m methods) FillObjectFromConfig(obj *opnicorev1beta1.MonitoringCluster, conf *cortexops.CapabilityBackendConfigSpec) {
 	obj.Spec.Cortex.Enabled = conf.Enabled
 	obj.Spec.Cortex.CortexConfig = conf.CortexConfig
 	obj.Spec.Cortex.CortexWorkloads = conf.CortexWorkloads
 	obj.Spec.Grafana.GrafanaConfig = conf.Grafana
+	obj.Spec.Gateway.Name = m.controllerRef.GetName()
 }
 
 func NewOpniManagerClusterDriver(ctx context.Context, options OpniManagerClusterDriverOptions) (*OpniManager, error) {

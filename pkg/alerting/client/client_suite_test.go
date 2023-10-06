@@ -64,11 +64,15 @@ var _ = BeforeSuite(func() {
 
 		// start alertmanager
 		ports := env.StartEmbeddedAlertManager(env.Context(), file.Name(), lo.ToPtr(opniPort))
-		clA := client.NewClient(
-			nil,
-			fmt.Sprintf("http://localhost:%d", ports.ApiPort),
-			fmt.Sprintf("http://localhost:%d", ports.EmbeddedPort),
+		clA, err := client.NewClient(
+			client.WithAlertManagerAddress(
+				fmt.Sprintf("127.0.0.1:%d", ports.ApiPort),
+			),
+			client.WithQuerierAddress(
+				fmt.Sprintf("127.0.0.1:localhost:%d", ports.EmbeddedPort),
+			),
 		)
+		Expect(err).To(Succeed())
 		cl = clA
 
 		msgPort := freeport.GetFreePort()
@@ -103,24 +107,28 @@ var _ = BeforeSuite(func() {
 			fmt.Sprintf("127.0.0.1:%d", replica1.ClusterPort),
 		)
 
-		clHA = client.NewClient(
-			nil,
-			fmt.Sprintf("http://localhost:%d", ports.ApiPort),
-			fmt.Sprintf("http://localhost:%d", ports.EmbeddedPort),
+		clHA, err = client.NewClient(
+			client.WithAlertManagerAddress(
+				fmt.Sprintf("127.0.0.1:%d", ports.ApiPort),
+			),
+			client.WithQuerierAddress(
+				fmt.Sprintf("127.0.0.1:%d", ports.EmbeddedPort),
+			),
 		)
+		Expect(err).To(Succeed())
 
 		clHA.MemberlistClient().SetKnownPeers([]client.AlertingPeer{
 			{
-				ApiAddress:      fmt.Sprintf("http://localhost:%d", haPorts.ApiPort),
-				EmbeddedAddress: fmt.Sprintf("http://localhost:%d", haPorts.EmbeddedPort),
+				ApiAddress:      fmt.Sprintf("127.0.0.1:%d", haPorts.ApiPort),
+				EmbeddedAddress: fmt.Sprintf("127.0.0.1:%d", haPorts.EmbeddedPort),
 			},
 			{
-				ApiAddress:      fmt.Sprintf("http://localhost:%d", replica2.ApiPort),
-				EmbeddedAddress: fmt.Sprintf("http://localhost:%d", replica2.EmbeddedPort),
+				ApiAddress:      fmt.Sprintf("127.0.0.1:%d", replica2.ApiPort),
+				EmbeddedAddress: fmt.Sprintf("127.0.0.1:%d", replica2.EmbeddedPort),
 			},
 			{
-				ApiAddress:      fmt.Sprintf("http://localhost:%d", replica1.ApiPort),
-				EmbeddedAddress: fmt.Sprintf("http://localhost:%d", replica1.EmbeddedPort),
+				ApiAddress:      fmt.Sprintf("127.0.0.1:%d", replica1.ApiPort),
+				EmbeddedAddress: fmt.Sprintf("127.0.0.1:%d", replica1.EmbeddedPort),
 			},
 		})
 

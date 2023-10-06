@@ -29,7 +29,6 @@ import (
 	"github.com/rancher/opni/pkg/update/noop"
 	"github.com/rancher/opni/pkg/urn"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/ttacon/chalk"
@@ -60,7 +59,7 @@ func BuildSupportBootstrapCmd() *cobra.Command {
 		Use:   "bootstrap",
 		Short: "Bootstrap the support agent",
 		Run: func(cmd *cobra.Command, args []string) {
-			ctx, ca := context.WithCancel(waitctx.FromContext(cmd.Context()))
+			ctx, ca := context.WithCancel(cmd.Context())
 			defer ca()
 
 			agentlg := logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(logLevel))))
@@ -191,7 +190,7 @@ func BuildSupportPingCmd() *cobra.Command {
 		Use:   "ping",
 		Short: "Ping the gateway",
 		Run: func(cmd *cobra.Command, args []string) {
-			ctx, ca := context.WithCancel(waitctx.FromContext(cmd.Context()))
+			ctx, ca := context.WithCancel(cmd.Context())
 			defer ca()
 
 			agentlg := logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(logLevel))))
@@ -247,7 +246,7 @@ func BuildSupportShipCmd() *cobra.Command {
 		},
 		PreRunE: validateShipArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			ctx, ca := context.WithCancel(waitctx.FromContext(cmd.Context()))
+			ctx, ca := context.WithCancel(cmd.Context())
 			defer ca()
 
 			agentlg := logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(logLevel))))

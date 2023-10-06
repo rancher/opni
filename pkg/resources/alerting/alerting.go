@@ -58,13 +58,11 @@ func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 	if gw.DeletionTimestamp != nil {
 		return k8sutil.DoNotRequeue().Result()
 	}
-
 	allResources := []resources.Resource{}
 	allResources = append(allResources, r.alerting()...)
 
 	if op := resources.ReconcileAll(r, allResources); op.ShouldRequeue() {
 		return op.Result()
 	}
-
 	return k8sutil.DoNotRequeue().Result()
 }

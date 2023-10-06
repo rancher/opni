@@ -3,14 +3,17 @@ package gateway
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/gin-contrib/pprof"
+	"github.com/ttacon/chalk"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
@@ -91,6 +94,38 @@ func NewHTTPServer(
 	} else {
 		pprof.Register(metricsRouter)
 	}
+
+	metricsRouter.POST("/debug/profiles/:name/enable", func(c *gin.Context) {
+		name := c.Param("name")
+		switch name {
+		case "block":
+			runtime.SetBlockProfileRate(1)
+		case "mutex":
+			runtime.SetMutexProfileFraction(1)
+		default:
+			c.Status(http.StatusBadRequest)
+			return
+		}
+		fmt.Printf(chalk.Red.Color(`
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@ %s PROFILING STARTED - DO NOT LEAVE THIS ENABLED! @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+`[1:]), strings.ToUpper(name))
+	})
+
+	metricsRouter.POST("/debug/profiles/:name/disable", func(c *gin.Context) {
+		name := c.Param("name")
+		switch name {
+		case "block":
+			runtime.SetBlockProfileRate(0)
+		case "mutex":
+			runtime.SetMutexProfileFraction(0)
+		default:
+			c.Status(http.StatusBadRequest)
+			return
+		}
+		fmt.Printf(chalk.Green.Color("%s profiling stopped\n"), name)
+	})
 
 	metricsHandler := NewMetricsEndpointHandler(cfg.Metrics)
 	metricsRouter.GET(cfg.Metrics.GetPath(), gin.WrapH(metricsHandler.Handler()))

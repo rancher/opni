@@ -182,6 +182,8 @@ func (a *AlarmServerComponent) loadAlertingInfo(ctx context.Context) (*alertingI
 	if err != nil {
 		return nil, err
 	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 	ags, err := a.Client.AlertClient().ListAlerts(ctx)
 	if err != nil {
 		return nil, err

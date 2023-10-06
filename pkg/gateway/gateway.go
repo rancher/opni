@@ -8,34 +8,18 @@ import (
 	"fmt"
 	"net"
 	"os"
-
-	"github.com/rancher/opni/pkg/auth/challenges"
-	authv1 "github.com/rancher/opni/pkg/auth/cluster/v1"
-	authv2 "github.com/rancher/opni/pkg/auth/cluster/v2"
-	"github.com/rancher/opni/pkg/update"
-	k8sserver "github.com/rancher/opni/pkg/update/kubernetes/server"
-	patchserver "github.com/rancher/opni/pkg/update/patch/server"
-	"github.com/spf13/afero"
-
 	"slices"
 
-	"github.com/hashicorp/go-plugin"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/samber/lo"
-	"go.uber.org/zap"
-	"golang.org/x/mod/module"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
-
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
 	bootstrapv2 "github.com/rancher/opni/pkg/apis/bootstrap/v2"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
+	"github.com/rancher/opni/pkg/auth/challenges"
 	"github.com/rancher/opni/pkg/auth/cluster"
+	authv1 "github.com/rancher/opni/pkg/auth/cluster/v1"
+	authv2 "github.com/rancher/opni/pkg/auth/cluster/v2"
 	"github.com/rancher/opni/pkg/auth/session"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/capabilities"
@@ -51,8 +35,19 @@ import (
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/update"
+	k8sserver "github.com/rancher/opni/pkg/update/kubernetes/server"
+	patchserver "github.com/rancher/opni/pkg/update/patch/server"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/waitctx"
+	"github.com/samber/lo"
+	"github.com/spf13/afero"
+	"go.uber.org/zap"
+	"golang.org/x/mod/module"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type Gateway struct {
@@ -355,14 +350,6 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		connectionTracker: connectionTracker,
 		delegate:          delegate,
 	}
-
-	waitctx.Go(ctx, func() {
-		<-ctx.Done()
-		storageBackend.Close()
-		lg.Info("shutting down plugins")
-		plugin.CleanupClients()
-		lg.Info("all plugins shut down")
-	})
 
 	return g
 }

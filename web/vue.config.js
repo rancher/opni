@@ -48,8 +48,12 @@ baseConfig.devServer.proxy = {
 
 baseConfig.configureWebpack = (config) => {
   config.cache = { type: 'filesystem' };
+  const comitHash = process.env.DRONE_COMMIT_SHA || 'DRONE_COMMIT_SHA not defined';
 
-  config.plugins.push(new webpack.DefinePlugin({ 'process.env.isStandalone': JSON.stringify(isStandalone) }));
+  config.plugins.push(new webpack.DefinePlugin({
+    'process.env.isStandalone': JSON.stringify(isStandalone),
+    'process.env.commitHash':   JSON.stringify(comitHash)
+  }));
 
   baseConfigureWebpack(config);
 };

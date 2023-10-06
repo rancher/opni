@@ -14,8 +14,13 @@ import (
 	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protopath"
+	"google.golang.org/protobuf/reflect/protorange"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/dynamicpb"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func NewGenerator() *Generator {
@@ -758,19 +763,78 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 						g.P("fs.AddFlagSet(in.", field.GoName, `.FlagSet(append(prefix,"`, kebabName, `")...))`)
 					}
 
-					flagSetOpts.ForEachDefault(field.Message, func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
-						fdOpts := FlagOptions{}
-						applyOptions(fd, &fdOpts)
-						if fdOpts.Skip {
-							return true
+					if flagSetOpts.Default != nil {
+						dm := dynamicpb.NewMessage(field.Message.Desc)
+						if err := flagSetOpts.Default.UnmarshalTo(dm.Interface()); err != nil {
+							panic(err)
 						}
-						if flagSetOpts.NoPrefix {
-							g.P(_flagutil.Ident("SetDefValue"), `(fs, `, _strings.Ident("Join"), `(append(prefix, "`, formatKebab(fd.Name()), `"), "."), `, fmt.Sprintf("%q", v.String()), `)`)
-						} else {
-							g.P(_flagutil.Ident("SetDefValue"), `(fs, `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `", "`, formatKebab(fd.Name()), `"), "."), `, fmt.Sprintf("%q", v.String()), `)`)
-						}
-						return true
-					})
+
+						protorange.Options{
+							Stable: true,
+						}.Range(dm, func(vs protopath.Values) (retVal error) {
+							v := vs.Index(-1)
+							if v.Step.Kind() != protopath.FieldAccessStep {
+								return nil
+							}
+							fd := v.Step.FieldDescriptor()
+							fdOpts := FlagOptions{}
+							applyOptions(fd, &fdOpts)
+							if fdOpts.Skip {
+								return protorange.Break
+							}
+
+							var valueStr string
+							if fd.Kind() == protoreflect.MessageKind && !fd.IsMap() {
+								switch fd.Message().FullName() {
+								case "google.protobuf.Timestamp":
+									dm := v.Value.Message().Interface().(*dynamicpb.Message)
+									wire, _ := proto.Marshal(dm)
+									ts := &timestamppb.Timestamp{}
+									proto.Unmarshal(wire, ts)
+									valueStr = fmt.Sprintf("%q", ts.AsTime().Format(time.RFC3339))
+
+									retVal = protorange.Break
+								case "google.protobuf.Duration":
+									dm := v.Value.Message().Interface().(*dynamicpb.Message)
+									wire, _ := proto.Marshal(dm)
+									dur := &durationpb.Duration{}
+									proto.Unmarshal(wire, dur)
+									valueStr = fmt.Sprintf("%q", dur.AsDuration().String())
+
+									retVal = protorange.Break
+								default:
+									// recurse into nested messages
+									return nil
+								}
+							}
+
+							if valueStr == "" {
+								if fd.IsList() {
+									strs := []string{}
+									list := v.Value.List()
+									for i := 0; i < list.Len(); i++ {
+										strs = append(strs, fmt.Sprintf("%q", list.Get(i).String()))
+									}
+									valueStr = fmt.Sprintf("`[%s]`", strings.Join(strs, ","))
+								} else {
+									valueStr = fmt.Sprintf("%q", v.Value.String())
+								}
+							}
+
+							parts := []string{}
+							for _, part := range vs.Path[1:] {
+								parts = append(parts, formatKebab(part.FieldDescriptor().Name()))
+							}
+
+							if flagSetOpts.NoPrefix {
+								g.P(_flagutil.Ident("SetDefValue"), `(fs, `, _strings.Ident("Join"), `(append(prefix, "`, strings.Join(parts, "."), `"), "."), `, valueStr, `)`)
+							} else {
+								g.P(_flagutil.Ident("SetDefValue"), `(fs, `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `", "`, strings.Join(parts, "."), `"), "."), `, valueStr, `)`)
+							}
+
+							return
+						}, nil)
+					}
 				}
 				continue
 			}

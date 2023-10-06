@@ -273,7 +273,7 @@ func (p *Plugin) constructManualSync() (*syncPayload, error) {
 func (p *Plugin) SyncConfig(server alertops.ConfigReconciler_SyncConfigServer) error {
 	assignedLifecycleUuid := uuid.New().String()
 	lg := p.logger.With("method", "SyncConfig", "assignedId", assignedLifecycleUuid)
-	lg.Infof(" remote syncer connected, performaing initial sync...")
+	lg.Infof(" remote syncer connected, performing initial sync...")
 	syncChan := make(chan *alertops.SyncRequest, 16)
 	defer close(syncChan)
 	p.syncController.AddSyncPusher(assignedLifecycleUuid, syncChan)
@@ -538,7 +538,7 @@ func (p *Plugin) runSyncTasks(tasks []alertingSync.SyncTask) (retErr error) {
 	}
 	eg.Wait()
 	if err := eg.Error(); err != nil {
-		lg.Errorf(" ran %d/%d tasks successfully %w", len(tasks)-len(eg.Errors()), len(tasks), err)
+		lg.Errorf(" ran %d/%d tasks successfully %s", len(tasks)-len(eg.Errors()), len(tasks), err)
 		retErr = err
 	}
 	return

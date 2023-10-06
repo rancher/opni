@@ -23,7 +23,6 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/protorand"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
@@ -132,7 +131,7 @@ var _ = BeforeSuite(func() {
 	Expect(conf2).To(testutil.ProtoEqual(conf))
 
 	testruntime.IfLabelFilterMatches(Label("integration", "slow"), func() {
-		ctx, ca := context.WithCancel(waitctx.Background())
+		ctx, ca := context.WithCancel(context.Background())
 		s := scheme.Scheme
 		opnicorev1beta1.AddToScheme(s)
 		monitoringv1beta1.AddToScheme(s)
@@ -148,10 +147,7 @@ var _ = BeforeSuite(func() {
 
 		kvStore.Set(&broker{k8sClient: k8sClient})
 
-		DeferCleanup(func() {
-			ca()
-			waitctx.Wait(ctx)
-		})
+		DeferCleanup(ca)
 	})
 })
 

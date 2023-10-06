@@ -360,24 +360,30 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 		By("clicking the Save button")
 		b.Click("div.uninstall-capabilities-dialog .card-actions button.role-primary")
 
+		By("confirming that all agents have the capability uninstalled")
+		hasMetrics := func(c *corev1.Cluster) bool {
+			return capabilities.Has(c, capabilities.Cluster(wellknown.CapabilityMetrics))
+		}
+		Eventually(func() (*corev1.Cluster, error) {
+			return mgmtClient.GetCluster(context.Background(), &corev1.Reference{Id: "monitoring-test-agent1"})
+		}).Should(WithTransform(hasMetrics, BeFalse()))
+
+		Eventually(func() (*corev1.Cluster, error) {
+			return mgmtClient.GetCluster(context.Background(), &corev1.Reference{Id: "monitoring-test-agent2"})
+		}).Should(WithTransform(hasMetrics, BeFalse()))
+
+		Eventually(func() (*corev1.Cluster, error) {
+			return mgmtClient.GetCluster(context.Background(), &corev1.Reference{Id: "monitoring-test-agent3"})
+		}).Should(WithTransform(hasMetrics, BeFalse()))
+
+		By("refreshing the page")
+		b.Navigate(webUrl + "/monitoring") // this status is polled on a 10 second interval
+
 		By("confirming that the local agent has the Degraded badge")
 		Eventually(Table().Row(1)).Should(MatchCells(CheckBox(), HaveDegradedBadge(), b.HaveInnerText("monitoring-test-agent1")))
 		By("confirming that the other agents have the Not Installed badge")
 		Eventually(Table().Row(2)).Should(MatchCells(CheckBox(), Or(HaveNotInstalledBadge(), HaveUninstallingBadge()), b.HaveInnerText("monitoring-test-agent2")))
 		Eventually(Table().Row(3)).Should(MatchCells(CheckBox(), Or(HaveNotInstalledBadge(), HaveUninstallingBadge()), b.HaveInnerText("monitoring-test-agent3")))
-
-		By("confirming that all agents have the capability uninstalled")
-		c, err := mgmtClient.GetCluster(context.Background(), &corev1.Reference{Id: "monitoring-test-agent1"})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(capabilities.Has(c, capabilities.Cluster(wellknown.CapabilityMetrics))).To(BeFalse())
-
-		c, err = mgmtClient.GetCluster(context.Background(), &corev1.Reference{Id: "monitoring-test-agent2"})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(capabilities.Has(c, capabilities.Cluster(wellknown.CapabilityMetrics))).To(BeFalse())
-
-		c, err = mgmtClient.GetCluster(context.Background(), &corev1.Reference{Id: "monitoring-test-agent3"})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(capabilities.Has(c, capabilities.Cluster(wellknown.CapabilityMetrics))).To(BeFalse())
 	})
 
 	It("should uninstall monitoring", func() {

@@ -8,10 +8,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"strings"
 	"time"
 
+	channelzcmd "github.com/kazegusuri/channelzcli/cmd"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/clients"
@@ -20,8 +22,10 @@ import (
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"go.etcd.io/etcd/etcdctl/v3/ctlv3"
+	channelzgrpc "google.golang.org/grpc/channelz/grpc_channelz_v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -36,6 +40,7 @@ func BuildDebugCmd() *cobra.Command {
 	debugCmd.AddCommand(BuildDebugReloadCmd())
 	debugCmd.AddCommand(BuildDebugGetConfigCmd())
 	debugCmd.AddCommand(BuildDebugEtcdctlCmd())
+	debugCmd.AddCommand(BuildDebugChannelzCmd())
 	debugCmd.AddCommand(BuildDebugDashboardSettingsCmd())
 	debugCmd.AddCommand(BuildDebugImportAgentCmd())
 	ConfigureManagementCommand(debugCmd)
@@ -162,6 +167,121 @@ func BuildDebugEtcdctlCmd() *cobra.Command {
 		},
 	}
 	return debugEtcdctlCmd
+}
+
+func BuildDebugChannelzCmd() *cobra.Command {
+	globalOpts := &channelzcmd.GlobalOptions{
+		Insecure: true,
+		Input:    os.Stdin,
+		Output:   os.Stdout,
+	}
+	cmd := &cobra.Command{
+		Use:   "channelz",
+		Short: "Interact with the gateway's channelz service",
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			globalOpts.Address = cmd.Flag("address").Value.String()
+		},
+	}
+	descCmd := channelzcmd.NewDescribeCommand(globalOpts).Command()
+	descCmd.ValidArgsFunction = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) == 0 {
+			return []string{"channel", "server", "serversocket"}, cobra.ShellCompDirectiveNoFileComp
+		}
+		if len(args) == 1 {
+			if err := managementPreRunE(cmd, nil); err != nil {
+				return nil, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
+			}
+			client := channelzgrpc.NewChannelzClient(managementv1.UnderlyingConn(mgmtClient))
+			nameIdPairs := []lo.Tuple2[string, string]{}
+			nameLookupEnabled := false
+			switch args[0] {
+			case "channel":
+				nameLookupEnabled = true
+				channels, err := client.GetTopChannels(context.Background(), &channelzgrpc.GetTopChannelsRequest{})
+				if err != nil {
+					return nil, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
+				}
+				for _, ch := range channels.GetChannel() {
+					name := ch.Ref.GetName()
+					id := fmt.Sprint(ch.Ref.GetChannelId())
+					nameIdPairs = append(nameIdPairs, lo.T2(name, id))
+				}
+			case "server":
+				servers, err := client.GetServers(cmd.Context(), &channelzgrpc.GetServersRequest{})
+				if err != nil {
+					return nil, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
+				}
+				for _, srv := range servers.GetServer() {
+					name := srv.Ref.GetName()
+					if name == "" && len(srv.ListenSocket) > 0 {
+						if res, err := client.GetSocket(cmd.Context(), &channelzgrpc.GetSocketRequest{SocketId: srv.ListenSocket[0].SocketId}); err == nil {
+							if local := res.GetSocket().GetLocal().GetTcpipAddress(); local != nil {
+								name = fmt.Sprintf("[%v]:%v", net.IP(local.IpAddress).String(), local.Port)
+							}
+						}
+					}
+					id := fmt.Sprint(srv.Ref.GetServerId())
+					nameIdPairs = append(nameIdPairs, lo.T2(name, id))
+				}
+			case "serversocket":
+				servers, err := client.GetServers(cmd.Context(), &channelzgrpc.GetServersRequest{})
+				if err != nil {
+					return nil, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
+				}
+				for _, srv := range servers.GetServer() {
+					serverSockets, err := client.GetServerSockets(cmd.Context(), &channelzgrpc.GetServerSocketsRequest{
+						ServerId: srv.Ref.GetServerId(),
+					})
+					if err != nil {
+						continue
+					}
+					for _, sock := range serverSockets.GetSocketRef() {
+						name := sock.GetName()
+						id := fmt.Sprint(sock.GetSocketId())
+						nameIdPairs = append(nameIdPairs, lo.T2(name, id))
+					}
+				}
+			default:
+				return nil, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
+			}
+			comps := []string{}
+			for _, pair := range nameIdPairs {
+				name, id := pair.Unpack()
+				if name == "unused" {
+					name = ""
+				}
+				if nameLookupEnabled && name != "" && strings.HasPrefix(name, toComplete) {
+					comps = append(comps, fmt.Sprintf("%s\t%s", name, id))
+				} else if strings.HasPrefix(id, toComplete) {
+					if len(name) > 0 {
+						comps = append(comps, fmt.Sprintf("%s\t%s", id, name))
+					} else {
+						comps = append(comps, id)
+					}
+				}
+			}
+			return comps, cobra.ShellCompDirectiveNoFileComp
+		}
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	cmd.AddCommand(descCmd)
+	listCmd := channelzcmd.NewListCommand(globalOpts).Command()
+	listCmd.ValidArgsFunction = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) == 0 {
+			return []string{"channel", "server", "serversocket"}, cobra.ShellCompDirectiveNoFileComp
+		}
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	cmd.AddCommand(listCmd)
+	treeCmd := channelzcmd.NewTreeCommand(globalOpts).Command()
+	treeCmd.ValidArgsFunction = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) == 0 {
+			return []string{"channel", "server"}, cobra.ShellCompDirectiveNoFileComp
+		}
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	cmd.AddCommand(treeCmd)
+	return cmd
 }
 
 func BuildDebugDashboardSettingsCmd() *cobra.Command {

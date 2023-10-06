@@ -122,13 +122,13 @@ func renderCortexServiceStatus(status *cortexadmin.CortexStatus) string {
 
 	services := map[string]map[string]string{}
 
-	services["Distributor"] = servicesByName(status.Distributor)
-	services["Ingester"] = servicesByName(status.Ingester)
-	services["Ruler"] = servicesByName(status.Ruler)
-	services["Purger"] = servicesByName(status.Purger)
-	services["Compactor"] = servicesByName(status.Compactor)
-	services["Store Gateway"] = servicesByName(status.StoreGateway)
-	services["Querier"] = servicesByName(status.Querier)
+	services["Distributor"] = servicesByName(status.GetDistributor())
+	services["Ingester"] = servicesByName(status.GetIngester())
+	services["Ruler"] = servicesByName(status.GetRuler())
+	services["Purger"] = servicesByName(status.GetPurger())
+	services["Compactor"] = servicesByName(status.GetCompactor())
+	services["Store Gateway"] = servicesByName(status.GetStoreGateway())
+	services["Querier"] = servicesByName(status.GetQuerier())
 
 	moduleNames := []string{}
 	for _, v := range services {

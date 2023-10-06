@@ -59,7 +59,27 @@ func init() {
 
 				for _, preset := range presets.Items {
 					if preset.GetId().GetId() == fromPreset {
-						_, err := client.SetConfiguration(cmd.Context(), preset.GetSpec())
+						spec := preset.GetSpec()
+						if cmd.Flags().Lookup("interactive").Value.String() == "true" {
+							drr, err := client.DryRun(cmd.Context(), &DryRunRequest{
+								Target: driverutil.Target_ActiveConfiguration,
+								Action: driverutil.Action_Set,
+								Spec:   spec,
+							})
+							if err != nil {
+								return err
+							}
+							modified := drr.GetModified()
+							comments := []string{}
+							for _, err := range drr.GetValidationErrors() {
+								comments = append(comments, err.GetMessage())
+							}
+							if modified, err = cliutil.EditInteractive(modified, comments...); err != nil {
+								return err
+							}
+							spec = modified
+						}
+						_, err := client.SetConfiguration(cmd.Context(), spec)
 						return err
 					}
 				}

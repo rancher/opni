@@ -10,7 +10,6 @@ import (
 	"github.com/rancher/opni/apis"
 	_ "github.com/rancher/opni/pkg/test/setup"
 	"github.com/rancher/opni/pkg/test/testk8s"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,7 +35,7 @@ func TestAPIs(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	var err error
-	ctx, ca := context.WithCancel(waitctx.Background())
+	ctx, ca := context.WithCancel(context.Background())
 	restConfig, scheme, err = testk8s.StartK8s(ctx, []string{
 		"../../../config/crd/bases",
 		"../../../config/crd/opensearch",
@@ -44,10 +43,7 @@ var _ = BeforeSuite(func() {
 	}, apis.NewScheme())
 	Expect(err).NotTo(HaveOccurred())
 
-	DeferCleanup(func() {
-		ca()
-		waitctx.Wait(ctx)
-	})
+	DeferCleanup(ca)
 
 	k8sClient, err = client.New(restConfig, client.Options{
 		Scheme: scheme,

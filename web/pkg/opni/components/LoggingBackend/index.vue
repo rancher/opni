@@ -253,7 +253,7 @@ export default {
       </Tabbed>
     </template>
     <template #details>
-      <CapabilityTable name="logging" />
+      <CapabilityTable name="logs" />
     </template>
   </Backend>
 </template>

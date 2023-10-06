@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
 	"github.com/rancher/opni/pkg/otel"
@@ -57,7 +58,6 @@ func (r *Reconciler) aggregatorConfigMapName() string {
 }
 
 func (r *Reconciler) getDaemonConfig(loggingReceivers []string) otel.NodeConfig {
-	nodeOTELCfg := r.collector.Spec.NodeOTELConfigSpec
 	nodeConfig := otel.NodeConfig{
 		Instance: r.collector.Name,
 		Logs: otel.LoggingConfig{
@@ -67,32 +67,38 @@ func (r *Reconciler) getDaemonConfig(loggingReceivers []string) otel.NodeConfig 
 		Metrics:       lo.FromPtr(r.getMetricsConfig()),
 		Containerized: true,
 		LogLevel:      r.collector.Spec.LogLevel,
-	}
-
-	if nodeOTELCfg != nil {
-		nodeConfig.OTELConfig = otel.NodeOTELConfig{
-			Processors: &otel.NodeOTELProcessors{
-				MemoryLimiter: memorylimiterprocessor.Config{
-					CheckInterval:         nodeOTELCfg.Processors.MemoryLimiter.CheckInterval,
-					MemoryLimitMiB:        nodeOTELCfg.Processors.MemoryLimiter.MemoryLimitMiB,
-					MemorySpikeLimitMiB:   nodeOTELCfg.Processors.MemoryLimiter.MemorySpikeLimitMiB,
-					MemoryLimitPercentage: nodeOTELCfg.Processors.MemoryLimiter.MemoryLimitPercentage,
-					MemorySpikePercentage: nodeOTELCfg.Processors.MemoryLimiter.MemorySpikePercentage,
-				},
-			},
-			Exporters: &otel.NodeOTELExporters{
-				OTLP: otlpexporter.Config{
-					QueueSettings: exporterhelper.QueueSettings{
-						Enabled:      nodeOTELCfg.Exporters.OTLP.SendingQueue.Enabled,
-						NumConsumers: nodeOTELCfg.Exporters.OTLP.SendingQueue.NumConsumers,
-						QueueSize:    nodeOTELCfg.Exporters.OTLP.SendingQueue.QueueSize,
-					},
-				},
-			},
-		}
+		OTELConfig:    r.getDaemonOTELConfig(),
 	}
 
 	return nodeConfig
+}
+
+func (r *Reconciler) getDaemonOTELConfig() otel.NodeOTELConfig {
+	nodeOTELCfg := r.collector.Spec.NodeOTELConfigSpec
+	if nodeOTELCfg == nil {
+		nodeOTELCfg = opnicorev1beta1.NewDefaultNodeOTELConfigSpec()
+	}
+
+	return otel.NodeOTELConfig{
+		Processors: &otel.NodeOTELProcessors{
+			MemoryLimiter: memorylimiterprocessor.Config{
+				CheckInterval:         nodeOTELCfg.Processors.MemoryLimiter.CheckInterval,
+				MemoryLimitMiB:        nodeOTELCfg.Processors.MemoryLimiter.MemoryLimitMiB,
+				MemorySpikeLimitMiB:   nodeOTELCfg.Processors.MemoryLimiter.MemorySpikeLimitMiB,
+				MemoryLimitPercentage: nodeOTELCfg.Processors.MemoryLimiter.MemoryLimitPercentage,
+				MemorySpikePercentage: nodeOTELCfg.Processors.MemoryLimiter.MemorySpikePercentage,
+			},
+		},
+		Exporters: &otel.NodeOTELExporters{
+			OTLP: otlpexporter.Config{
+				QueueSettings: exporterhelper.QueueSettings{
+					Enabled:      nodeOTELCfg.Exporters.OTLP.SendingQueue.Enabled,
+					NumConsumers: nodeOTELCfg.Exporters.OTLP.SendingQueue.NumConsumers,
+					QueueSize:    nodeOTELCfg.Exporters.OTLP.SendingQueue.QueueSize,
+				},
+			},
+		},
+	}
 }
 
 func (r *Reconciler) getAggregatorConfig(
@@ -104,38 +110,43 @@ func (r *Reconciler) getAggregatorConfig(
 		AgentEndpoint: r.collector.Spec.AgentEndpoint,
 		Containerized: true,
 		LogLevel:      r.collector.Spec.LogLevel,
-	}
-
-	aggregatorOTELCfg := r.collector.Spec.AggregatorOTELConfigSpec
-	if aggregatorOTELCfg != nil {
-		aggregatorCfg.OTELConfig = otel.AggregatorOTELConfig{
-			Processors: &otel.AggregatorOTELProcessors{
-				MemoryLimiter: memorylimiterprocessor.Config{
-					CheckInterval:         aggregatorOTELCfg.Processors.MemoryLimiter.CheckInterval,
-					MemoryLimitMiB:        aggregatorOTELCfg.Processors.MemoryLimiter.MemoryLimitMiB,
-					MemorySpikeLimitMiB:   aggregatorOTELCfg.Processors.MemoryLimiter.MemorySpikeLimitMiB,
-					MemoryLimitPercentage: aggregatorOTELCfg.Processors.MemoryLimiter.MemoryLimitPercentage,
-					MemorySpikePercentage: aggregatorOTELCfg.Processors.MemoryLimiter.MemorySpikePercentage,
-				},
-				Batch: batchprocessor.Config{
-					Timeout:          aggregatorOTELCfg.Processors.Batch.Timeout,
-					SendBatchSize:    aggregatorOTELCfg.Processors.Batch.SendBatchSize,
-					SendBatchMaxSize: aggregatorOTELCfg.Processors.Batch.SendBatchMaxSize,
-				},
-			},
-			Exporters: &otel.AggregatorOTELExporters{
-				OTLPHTTP: otlphttpexporter.Config{
-					QueueSettings: exporterhelper.QueueSettings{
-						Enabled:      aggregatorOTELCfg.Exporters.OTLPHTTP.SendingQueue.Enabled,
-						NumConsumers: aggregatorOTELCfg.Exporters.OTLPHTTP.SendingQueue.NumConsumers,
-						QueueSize:    aggregatorOTELCfg.Exporters.OTLPHTTP.SendingQueue.QueueSize,
-					},
-				},
-			},
-		}
+		OTELConfig:    r.getAggregatorOTELConfig(),
 	}
 
 	return aggregatorCfg
+}
+
+func (r *Reconciler) getAggregatorOTELConfig() otel.AggregatorOTELConfig {
+	aggregatorOTELCfg := r.collector.Spec.AggregatorOTELConfigSpec
+	if aggregatorOTELCfg == nil {
+		aggregatorOTELCfg = opnicorev1beta1.NewDefaultAggregatorOTELConfigSpec()
+	}
+	return otel.AggregatorOTELConfig{
+		Processors: &otel.AggregatorOTELProcessors{
+			MemoryLimiter: memorylimiterprocessor.Config{
+				CheckInterval:         aggregatorOTELCfg.Processors.MemoryLimiter.CheckInterval,
+				MemoryLimitMiB:        aggregatorOTELCfg.Processors.MemoryLimiter.MemoryLimitMiB,
+				MemorySpikeLimitMiB:   aggregatorOTELCfg.Processors.MemoryLimiter.MemorySpikeLimitMiB,
+				MemoryLimitPercentage: aggregatorOTELCfg.Processors.MemoryLimiter.MemoryLimitPercentage,
+				MemorySpikePercentage: aggregatorOTELCfg.Processors.MemoryLimiter.MemorySpikePercentage,
+			},
+			Batch: batchprocessor.Config{
+				Timeout:          aggregatorOTELCfg.Processors.Batch.Timeout,
+				SendBatchSize:    aggregatorOTELCfg.Processors.Batch.SendBatchSize,
+				SendBatchMaxSize: aggregatorOTELCfg.Processors.Batch.SendBatchMaxSize,
+			},
+		},
+		Exporters: &otel.AggregatorOTELExporters{
+			OTLPHTTP: otlphttpexporter.Config{
+				QueueSettings: exporterhelper.QueueSettings{
+					Enabled:      aggregatorOTELCfg.Exporters.OTLPHTTP.SendingQueue.Enabled,
+					NumConsumers: aggregatorOTELCfg.Exporters.OTLPHTTP.SendingQueue.NumConsumers,
+					QueueSize:    aggregatorOTELCfg.Exporters.OTLPHTTP.SendingQueue.QueueSize,
+				},
+			},
+		},
+	}
+
 }
 
 func (r *Reconciler) receiverConfig() (retData []byte, retReceivers []string, retErr error) {

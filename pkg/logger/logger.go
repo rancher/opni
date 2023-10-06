@@ -198,7 +198,7 @@ func colorHandlerWithOptions(opts ...LoggerOption) slog.Handler {
 		}
 		// FIXME where to close this file?
 
-		logFileHandler := NewProtoHandler(f, ConfigureProtoOptions(options))
+		logFileHandler := newProtoHandler(f, ConfigureProtoOptions(options))
 
 		// distribute logs to handlers in parallel
 		return slogmulti.Fanout(handler, logFileHandler)

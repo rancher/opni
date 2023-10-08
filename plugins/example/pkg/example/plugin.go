@@ -23,7 +23,6 @@ import (
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
-	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/kvutil"
@@ -40,7 +39,6 @@ import (
 )
 
 type ExamplePlugin struct {
-	util.Initializer
 	UnsafeExampleAPIExtensionServer
 	UnsafeExampleUnaryExtensionServer
 	capabilityv1.UnsafeBackendServer
@@ -50,30 +48,22 @@ type ExamplePlugin struct {
 
 	storageBackend      future.Future[storage.Backend]
 	uninstallController future.Future[*task.Controller]
-
-	configServerBackend ConfigServerBackend
+	driver              ExampleDriver
 }
 
 // ManagementServices implements managementext.ManagementAPIExtension.
-func (p *ExamplePlugin) ManagementServices() []util.ServicePackInterface {
+func (p *ExamplePlugin) ManagementServices(ctrl managementext.ServiceController) []util.ServicePackInterface {
+	ctrl.SetServingStatus(ExampleAPIExtension_ServiceDesc.ServiceName, managementext.NotServing)
+	ctrl.SetServingStatus(Config_ServiceDesc.ServiceName, managementext.NotServing)
+
 	return []util.ServicePackInterface{
 		util.PackService[ExampleAPIExtensionServer](&ExampleAPIExtension_ServiceDesc, p),
-		util.PackService[ConfigServer](&Config_ServiceDesc, &p.configServerBackend),
+		util.PackService[ConfigServer](&Config_ServiceDesc, &p.driver),
 	}
-}
-
-// UseServiceController implements managementext.ManagementAPIExtension.
-func (p *ExamplePlugin) UseServiceController(sc managementext.ServiceController) {
-	sc.SetServingStatus(ExampleAPIExtension_ServiceDesc.ServiceName, managementext.Serving)
-	sc.SetServingStatus(Config_ServiceDesc.ServiceName, managementext.Serving)
 }
 
 var _ ExampleAPIExtensionServer = (*ExamplePlugin)(nil)
 var _ ExampleUnaryExtensionServer = (*ExamplePlugin)(nil)
-
-func (s *ExamplePlugin) Initialize() {
-	s.InitOnce(func() {})
-}
 
 func (s *ExamplePlugin) Echo(_ context.Context, req *EchoRequest) (*EchoResponse, error) {
 	return &EchoResponse{
@@ -88,9 +78,6 @@ func (s *ExamplePlugin) Hello(context.Context, *emptypb.Empty) (*EchoResponse, e
 }
 
 func (s *ExamplePlugin) Ready(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	if !s.Initialized() {
-		return nil, util.StatusError(codes.Unavailable)
-	}
 	return &emptypb.Empty{}, nil
 }
 
@@ -135,12 +122,10 @@ func (s *ExamplePlugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	}
 	s.uninstallController.Set(ctrl)
 
-	builder, _ := drivers.Get("example")
-	driver, _ := builder(s.ctx,
-		driverutil.NewOption("defaultConfigStore", kvutil.WithKey(system.NewKVStoreClient[*ConfigSpec](client), "/config/default")),
-		driverutil.NewOption("activeConfigStore", kvutil.WithKey(system.NewKVStoreClient[*ConfigSpec](client), "/config/active")),
-	)
-	s.configServerBackend.Initialize(driver)
+	s.driver.Initialize(ExampleDriverImplOptions{
+		DefaultConfigStore: kvutil.WithKey(system.NewKVStoreClient[*ConfigSpec](client), "/config/default"),
+		ActiveConfigStore:  kvutil.WithKey(system.NewKVStoreClient[*ConfigSpec](client), "/config/active"),
+	})
 
 	<-s.ctx.Done()
 }
@@ -242,10 +227,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 		storageBackend:      future.New[storage.Backend](),
 		uninstallController: future.New[*task.Controller](),
 	}
-
-	future.Wait2(p.storageBackend, p.uninstallController, func(_ storage.Backend, _ *task.Controller) {
-		p.Initialize()
-	})
 	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(p))
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(p))
@@ -270,7 +251,6 @@ func (a *uninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveT
 }
 
 func (a *uninstallTaskRunner) OnTaskCompleted(ctx context.Context, ti task.ActiveTask, state task.State, args ...any) {
-
 	switch state {
 	case task.StateCompleted:
 		ti.AddLogEntry(zapcore.InfoLevel, "Capability uninstalled successfully")

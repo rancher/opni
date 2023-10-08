@@ -28,8 +28,11 @@ type BaseConfigServer[
 }
 
 // Returns a new instance of the BaseConfigServer with the defined type.
-// This is a conveience function to avoid repeating the type parameters.
-func (BaseConfigServer[G, S, R, H, HR, T]) New(
+// Can be called from a nil pointer of the BaseConfigServer type.
+// Example:
+// var server *BaseConfigServer[...]
+// server = server.Build()
+func (*BaseConfigServer[G, S, R, H, HR, T]) Build(
 	defaultStore, activeStore storage.ValueStoreT[T],
 	loadDefaultsFunc DefaultLoaderFunc[T],
 ) *BaseConfigServer[G, S, R, H, HR, T] {
@@ -185,7 +188,7 @@ type ContextKeyableConfigServer[
 
 // Returns a new instance of the ContextKeyableConfigServer with the defined type.
 // This is a conveience function to avoid repeating the type parameters.
-func (ContextKeyableConfigServer[G, S, R, H, HR, T]) New(
+func (*ContextKeyableConfigServer[G, S, R, H, HR, T]) Build(
 	defaultStore storage.ValueStoreT[T],
 	activeStore storage.KeyValueStoreT[T],
 	loadDefaultsFunc DefaultLoaderFunc[T],

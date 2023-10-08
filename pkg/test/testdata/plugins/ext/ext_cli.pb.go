@@ -9,6 +9,7 @@ import (
 	cli "github.com/rancher/opni/internal/codegen/cli"
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
+	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
 	storage "github.com/rancher/opni/pkg/storage"
 	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	lo "github.com/samber/lo"
@@ -281,7 +282,7 @@ func (in *BazRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.BoolVar(&in.ParamBool, strings.Join(append(prefix, "param-bool"), "."), false, "")
 	fs.StringVar(&in.ParamString, strings.Join(append(prefix, "param-string"), "."), "", "")
 	fs.BytesHexVar(&in.ParamBytes, strings.Join(append(prefix, "param-bytes"), "."), nil, "")
-	fs.Var(flagutil.EnumValue(&in.ParamEnum), strings.Join(append(prefix, "param-enum"), "."), "")
+	fs.Var(flagutil.EnumValue(BazRequest_UNKNOWN, &in.ParamEnum), strings.Join(append(prefix, "param-enum"), "."), "")
 	fs.Var(flagutil.DurationpbValue(nil, &in.ParamDuration), strings.Join(append(prefix, "param-duration"), "."), "")
 	fs.StringSliceVar(&in.ParamRepeatedString, strings.Join(append(prefix, "param-repeated-string"), "."), nil, "")
 	return fs
@@ -540,8 +541,8 @@ func (in *SampleSetRequest) UnredactSecrets(unredacted *SampleSetRequest) error 
 func (in *SampleDryRunRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("SampleDryRunRequest", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.EnumValue(&in.Target), strings.Join(append(prefix, "target"), "."), "")
-	fs.Var(flagutil.EnumValue(&in.Action), strings.Join(append(prefix, "action"), "."), "")
+	fs.Var(flagutil.EnumValue(driverutil.Target_ActiveConfiguration, &in.Target), strings.Join(append(prefix, "target"), "."), "")
+	fs.Var(flagutil.EnumValue(driverutil.Action_NoAction, &in.Action), strings.Join(append(prefix, "action"), "."), "")
 	if in.Spec == nil {
 		in.Spec = &SampleConfiguration{}
 	}

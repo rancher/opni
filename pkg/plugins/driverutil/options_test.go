@@ -88,9 +88,7 @@ var _ = Describe("Options", Label("unit"), func() {
 
 					err := opt.Apply(s)
 
-					Expect(err).NotTo(HaveOccurred())
-					Expect(s.cantSet).To(Equal(""))
-
+					Expect(err).To(HaveOccurred())
 				})
 			})
 			When("the destination argument is not a pointer to a struct", func() {

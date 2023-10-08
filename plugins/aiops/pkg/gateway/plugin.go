@@ -39,15 +39,12 @@ type AIOpsPlugin struct {
 }
 
 // ManagementServices implements managementext.ManagementAPIExtension.
-func (p *AIOpsPlugin) ManagementServices() []util.ServicePackInterface {
+func (p *AIOpsPlugin) ManagementServices(_ managementext.ServiceController) []util.ServicePackInterface {
 	return []util.ServicePackInterface{
 		util.PackService[modeltraining.ModelTrainingServer](&modeltraining.ModelTraining_ServiceDesc, p),
 		util.PackService[admin.AIAdminServer](&admin.AIAdmin_ServiceDesc, p),
 	}
 }
-
-// UseServiceController implements managementext.ManagementAPIExtension.
-func (*AIOpsPlugin) UseServiceController(s managementext.ServiceController) {}
 
 type PluginOptions struct {
 	storageNamespace  string

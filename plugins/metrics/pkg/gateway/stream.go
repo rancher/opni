@@ -14,16 +14,19 @@ import (
 	"google.golang.org/grpc"
 )
 
+// StreamServers implements streamext.StreamAPIExtension.
 func (p *Plugin) StreamServers() []util.ServicePackInterface {
 	return p.streamServices
 }
 
+// UseStreamClient implements streamext.StreamClientHandler.
 func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
+	p.streamClient.C() <- cc
 	type clientset struct {
 		agent.ClientSet
 		remoteread.RemoteReadAgentClient
 	}
-	p.delegateC <- streamext.NewDelegate(cc, func(cci grpc.ClientConnInterface) types.MetricsAgentClientSet {
+	p.delegate.C() <- streamext.NewDelegate(cc, func(cci grpc.ClientConnInterface) types.MetricsAgentClientSet {
 		return &clientset{
 			ClientSet:             agent.NewClientSet(cci),
 			RemoteReadAgentClient: remoteread.NewRemoteReadAgentClient(cci),

@@ -17,8 +17,9 @@ import (
 	_ "github.com/rancher/opni/pkg/storage/jetstream"
 )
 
+// UseManagementAPI implements system.SystemPluginServer.
 func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
-	p.mgmtClientC <- client
+	p.managementClient.C() <- client
 	cfg, err := client.GetConfig(context.Background(), &emptypb.Empty{}, grpc.WaitForReady(true))
 	if err != nil {
 		p.logger.With(
@@ -42,15 +43,22 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			).Error("failed to configure storage backend")
 			os.Exit(1)
 		}
-		p.storageBackendC <- backend
-		p.gatewayConfigC <- config
+		p.storageBackend.C() <- backend
+		p.gatewayConfig.C() <- config
 	})
 
-	p.authMiddlewaresC <- machinery.LoadAuthProviders(p.ctx, objectList)
+	p.authMiddlewares.C() <- machinery.LoadAuthProviders(p.ctx, objectList)
 	<-p.ctx.Done()
 }
 
+// UseManagementAPI implements system.SystemPluginServer.
 func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
-	p.keyValueStoreClientC <- client
+	p.keyValueStoreClient.C() <- client
+	<-p.ctx.Done()
+}
+
+// UseManagementAPI implements system.SystemPluginServer.
+func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
+	p.extensionClient.C() <- intf
 	<-p.ctx.Done()
 }

@@ -50,7 +50,7 @@ func (s *genericKeyValueStore) Put(ctx context.Context, key string, value []byte
 	}
 	resp, err := s.client.Txn(ctx).
 		If(comparisons...).
-		Then(clientv3.OpPut(qualifiedKey, encodedValue, clientv3.WithIgnoreLease())).
+		Then(clientv3.OpPut(qualifiedKey, encodedValue)).
 		Commit()
 	if err != nil {
 		return etcdGrpcError(err)

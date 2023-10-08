@@ -67,6 +67,7 @@ func NewMetricsNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *MetricsN
 		logger:       lg,
 		conditions:   ct,
 		targetRunner: NewTargetRunner(lg),
+		config:       &node.MetricsCapabilityStatus{},
 	}
 	mn.conditions.AddListener(mn.sendHealthUpdate)
 	mn.targetRunner.SetRemoteReaderClient(NewRemoteReader(&http.Client{}))

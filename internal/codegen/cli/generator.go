@@ -751,14 +751,45 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 
 			switch field.Desc.Kind() {
 			case protoreflect.EnumKind:
+				var valueFunc string
+				var def []any
+				var defaultEnumIdent protogen.GoIdent
+				if flagOpts.Default != nil {
+					found := false
+					for _, v := range field.Enum.Values {
+						if v.Desc.Name() == protoreflect.Name(*flagOpts.Default) {
+							found = true
+							defaultEnumIdent = v.GoIdent
+							break
+						}
+					}
+					if !found {
+						return nil, fmt.Errorf("unknown enum value %q for field %q", *flagOpts.Default, field.Desc.Name())
+					}
+				} else {
+					for _, v := range field.Enum.Values {
+						if v.Desc.Number() == 0 {
+							defaultEnumIdent = v.GoIdent
+							break
+						}
+					}
+				}
 				switch {
 				case field.Desc.IsList():
-					g.P(`fs.Var(`, _flagutil.Ident("EnumSliceValue"), `(&in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
+					return nil, fmt.Errorf("unimplemented: repeated enum fields (try a bitmask instead)")
 				case field.Desc.HasPresence():
-					g.P(`fs.Var(`, _flagutil.Ident("EnumPtrValue"), `(nil, &in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
+					valueFunc = "EnumPtrValue"
+					if flagOpts.Default == nil {
+						// in this case, we want to set the default to nil anyway
+						def = []any{"nil"}
+					} else {
+						def = []any{_flagutil.Ident("Ptr"), "(", defaultEnumIdent, ")"}
+					}
 				default:
-					g.P(`fs.Var(`, _flagutil.Ident("EnumValue"), `(&in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
+					valueFunc = "EnumValue"
+					def = []any{defaultEnumIdent}
 				}
+				g.P(`fs.Var(`, _flagutil.Ident(valueFunc), `(`, def, `, &in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
 				var allValues []string
 				for _, v := range field.Enum.Values {
 					allValues = append(allValues, strconv.Quote(string(v.Desc.Name())))
@@ -1170,26 +1201,33 @@ func (cg *Generator) generateInteractiveEdit(service *protogen.Service, method *
 	// Right now this will only match commands that look like the following:
 	// rpc Set*(Message) returns (google.protobuf.Empty);
 	// rpc Get*(google.protobuf.Empty) returns (Message);
+	editVar := "in"
 	for _, candidate := range service.Methods {
 		if candidate == method || cg.shouldSkipMethod(candidate) {
 			continue
 		}
-		if candidate.Desc.Output() == method.Desc.Input() &&
-			string(candidate.Desc.Name()) == "Get"+strings.TrimPrefix(string(method.Desc.Name()), "Set") {
-			writers.PrintObtainClient(service, g)
-
-			g.P(" if curValue, err := client.", candidate.GoName, "(cmd.Context(), &", candidate.Input.GoIdent, "{}); err == nil {")
-			g.P("  in = curValue")
-			g.P(" }")
+		if string(candidate.Desc.Name()) == "Get"+strings.TrimPrefix(string(method.Desc.Name()), "Set") {
+			if candidate.Desc.Output() == method.Desc.Input() {
+				g.P(" if curValue, err := client.", candidate.GoName, "(cmd.Context(), &", candidate.Input.GoIdent, "{}); err == nil {")
+				g.P("  in = curValue")
+				g.P(" }")
+			} else if spec := method.Desc.Input().Fields().ByName("spec"); spec != nil && candidate.Desc.Output() == spec.Message() {
+				editVar = "in.Spec"
+				g.P(" if curValue, err := client.", candidate.GoName, "(cmd.Context(), &", candidate.Input.GoIdent, "{}); err == nil {")
+				g.P("  in.Spec = curValue")
+				g.P(" }")
+			} else {
+				continue
+			}
 
 			break
 		}
 	}
 
-	g.P(` if edited, err := `, _cliutil.Ident("EditInteractive"), `(in); err != nil {`)
+	g.P(` if edited, err := `, _cliutil.Ident("EditInteractive"), `(`, editVar, `); err != nil {`)
 	g.P(`  return err`)
 	g.P(` } else {`)
-	g.P(`  in = edited`)
+	g.P(`  `, editVar, ` = edited`)
 	g.P(` }`)
 }
 

@@ -192,6 +192,7 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	}
 	p.adminClient.Set(cortexadmin.NewCortexAdminClient(cc))
 	p.cortexOpsClient.Set(cortexops.NewCortexOpsClient(cc))
+	<-p.ctx.Done()
 }
 
 func (p *Plugin) handleDriverNotifications() {

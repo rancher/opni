@@ -1,4 +1,4 @@
-package stream
+package services
 
 import (
 	"context"
@@ -10,6 +10,8 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/types"
 	"github.com/samber/lo"
@@ -33,17 +35,23 @@ func getIdFromTargetMeta(meta *remoteread.TargetMeta) string {
 }
 
 type RemoteReadServer struct {
-	sc types.StreamServiceContext
+	Context types.StreamServiceContext `option:"context"`
 
 	// the stored remoteread.Target should never have their status populated
 	remoteReadTargetMu sync.RWMutex
 	remoteReadTargets  map[string]*remoteread.Target
 }
 
-func (m *RemoteReadServer) Activate(ctx types.StreamServiceContext) error {
-	m.remoteReadTargets = make(map[string]*remoteread.Target)
-	m.sc = ctx
+// Activate implements types.Service
+func (m *RemoteReadServer) Activate() error {
 	return nil
+}
+
+// StreamServices implements types.StreamService
+func (s *RemoteReadServer) StreamServices() []util.ServicePackInterface {
+	return []util.ServicePackInterface{
+		util.PackService[remoteread.RemoteReadGatewayServer](&remoteread.RemoteReadGateway_ServiceDesc, s),
+	}
 }
 
 func (m *RemoteReadServer) AddTarget(_ context.Context, request *remoteread.TargetAddRequest) (*emptypb.Empty, error) {
@@ -66,7 +74,7 @@ func (m *RemoteReadServer) AddTarget(_ context.Context, request *remoteread.Targ
 
 	m.remoteReadTargets[targetId] = request.Target
 
-	m.sc.Logger().With(
+	m.Context.Logger().With(
 		"cluster", request.Target.Meta.ClusterId,
 		"target", request.Target.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
@@ -115,7 +123,7 @@ func (m *RemoteReadServer) EditTarget(ctx context.Context, request *remoteread.T
 		target.Spec.Endpoint = diff.Endpoint
 	}
 
-	m.sc.Logger().With(
+	m.Context.Logger().With(
 		"cluster", request.Meta.ClusterId,
 		"target", request.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
@@ -148,7 +156,7 @@ func (m *RemoteReadServer) RemoveTarget(ctx context.Context, request *remoteread
 
 	delete(m.remoteReadTargets, targetId)
 
-	m.sc.Logger().With(
+	m.Context.Logger().With(
 		"cluster", request.Meta.ClusterId,
 		"target", request.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
@@ -171,7 +179,7 @@ func (m *RemoteReadServer) ListTargets(ctx context.Context, request *remoteread.
 			eg.Go(func() error {
 				newStatus, err := m.GetTargetStatus(ctx, &remoteread.TargetStatusRequest{Meta: target.Meta})
 				if err != nil {
-					m.sc.Logger().Infof("could not get newStatus for target '%s/%s': %s", target.Meta.ClusterId, target.Meta.Name, err)
+					m.Context.Logger().Infof("could not get newStatus for target '%s/%s': %s", target.Meta.ClusterId, target.Meta.Name, err)
 					newStatus.State = remoteread.TargetState_Unknown
 				}
 
@@ -187,7 +195,7 @@ func (m *RemoteReadServer) ListTargets(ctx context.Context, request *remoteread.
 	}
 
 	if err := eg.Wait(); err != nil {
-		m.sc.Logger().Errorf("error waiting for status to update: %s", err)
+		m.Context.Logger().Errorf("error waiting for status to update: %s", err)
 	}
 
 	list := &remoteread.TargetList{Targets: inner}
@@ -204,7 +212,7 @@ func (m *RemoteReadServer) GetTargetStatus(ctx context.Context, request *remoter
 		return nil, fmt.Errorf("target '%s/%s' does not exist", request.Meta.ClusterId, request.Meta.Name)
 	}
 
-	newStatus, err := m.sc.Delegate().WithTarget(&corev1.Reference{Id: request.Meta.ClusterId}).GetTargetStatus(ctx, request)
+	newStatus, err := m.Context.Delegate().WithTarget(&corev1.Reference{Id: request.Meta.ClusterId}).GetTargetStatus(ctx, request)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "target not found") {
@@ -213,7 +221,7 @@ func (m *RemoteReadServer) GetTargetStatus(ctx context.Context, request *remoter
 			}, nil
 		}
 
-		m.sc.Logger().With(
+		m.Context.Logger().With(
 			"cluster", request.Meta.ClusterId,
 			"capability", wellknown.CapabilityMetrics,
 			"target", request.Meta.Name,
@@ -241,10 +249,10 @@ func (m *RemoteReadServer) Start(ctx context.Context, request *remoteread.StartR
 
 	request.Target = target
 
-	_, err := m.sc.Delegate().WithTarget(&corev1.Reference{Id: request.Target.Meta.ClusterId}).Start(ctx, request)
+	_, err := m.Context.Delegate().WithTarget(&corev1.Reference{Id: request.Target.Meta.ClusterId}).Start(ctx, request)
 
 	if err != nil {
-		m.sc.Logger().With(
+		m.Context.Logger().With(
 			"cluster", request.Target.Meta.ClusterId,
 			"capability", wellknown.CapabilityMetrics,
 			"target", request.Target.Meta.Name,
@@ -254,7 +262,7 @@ func (m *RemoteReadServer) Start(ctx context.Context, request *remoteread.StartR
 		return nil, err
 	}
 
-	m.sc.Logger().With(
+	m.Context.Logger().With(
 		"cluster", request.Target.Meta.ClusterId,
 		"capability", wellknown.CapabilityMetrics,
 		"target", request.Target.Meta.Name,
@@ -264,10 +272,10 @@ func (m *RemoteReadServer) Start(ctx context.Context, request *remoteread.StartR
 }
 
 func (m *RemoteReadServer) Stop(ctx context.Context, request *remoteread.StopReadRequest) (*emptypb.Empty, error) {
-	_, err := m.sc.Delegate().WithTarget(&corev1.Reference{Id: request.Meta.ClusterId}).Stop(ctx, request)
+	_, err := m.Context.Delegate().WithTarget(&corev1.Reference{Id: request.Meta.ClusterId}).Stop(ctx, request)
 
 	if err != nil {
-		m.sc.Logger().With(
+		m.Context.Logger().With(
 			"cluster", request.Meta.ClusterId,
 			"capability", wellknown.CapabilityMetrics,
 			"target", request.Meta.Name,
@@ -277,7 +285,7 @@ func (m *RemoteReadServer) Stop(ctx context.Context, request *remoteread.StopRea
 		return nil, err
 	}
 
-	m.sc.Logger().With(
+	m.Context.Logger().With(
 		"cluster", request.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
 		"target", request.Meta.Name,
@@ -287,7 +295,7 @@ func (m *RemoteReadServer) Stop(ctx context.Context, request *remoteread.StopRea
 }
 
 func (m *RemoteReadServer) Discover(ctx context.Context, request *remoteread.DiscoveryRequest) (*remoteread.DiscoveryResponse, error) {
-	response, err := m.sc.Delegate().WithBroadcastSelector(&corev1.ClusterSelector{
+	response, err := m.Context.Delegate().WithBroadcastSelector(&corev1.ClusterSelector{
 		ClusterIDs: request.ClusterIds,
 	}, func(reply interface{}, responses *streamv1.BroadcastReplyList) error {
 		discoveryReply := reply.(*remoteread.DiscoveryResponse)
@@ -297,7 +305,7 @@ func (m *RemoteReadServer) Discover(ctx context.Context, request *remoteread.Dis
 			discoverResponse := &remoteread.DiscoveryResponse{}
 
 			if err := proto.Unmarshal(response.Reply.GetResponse().Response, discoverResponse); err != nil {
-				m.sc.Logger().Errorf("failed to unmarshal for aggregated DiscoveryResponse: %s", err)
+				m.Context.Logger().Errorf("failed to unmarshal for aggregated DiscoveryResponse: %s", err)
 			}
 
 			// inject the cluster id gateway-side
@@ -313,7 +321,7 @@ func (m *RemoteReadServer) Discover(ctx context.Context, request *remoteread.Dis
 	}).Discover(ctx, request)
 
 	if err != nil {
-		m.sc.Logger().With(
+		m.Context.Logger().With(
 			"capability", wellknown.CapabilityMetrics,
 			zap.Error(err),
 		).Error("failed to run import discovery")
@@ -322,4 +330,14 @@ func (m *RemoteReadServer) Discover(ctx context.Context, request *remoteread.Dis
 	}
 
 	return response, nil
+}
+
+func init() {
+	types.Services.Register("Remote Read Stream Service", func(_ context.Context, opts ...driverutil.Option) (types.Service, error) {
+		svc := &RemoteReadServer{
+			remoteReadTargets: make(map[string]*remoteread.Target),
+		}
+		driverutil.ApplyOptions(svc, opts...)
+		return svc, nil
+	})
 }

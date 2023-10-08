@@ -71,7 +71,7 @@ type Plugin struct {
 }
 
 // ManagementServices implements managementext.ManagementAPIExtension.
-func (p *Plugin) ManagementServices() []util.ServicePackInterface {
+func (p *Plugin) ManagementServices(_ managementext.ServiceController) []util.ServicePackInterface {
 	return []util.ServicePackInterface{
 		util.PackService[loggingadmin.LoggingAdminV2Server](&loggingadmin.LoggingAdminV2_ServiceDesc, p.LoggingManager),
 		util.PackService[alertingapi.MonitorManagementServer](&alertingapi.MonitorManagement_ServiceDesc, p.alertingServer),
@@ -79,9 +79,6 @@ func (p *Plugin) ManagementServices() []util.ServicePackInterface {
 		util.PackService[alertingapi.AlertManagementServer](&alertingapi.AlertManagement_ServiceDesc, p.alertingServer),
 	}
 }
-
-// UseServiceController implements managementext.ManagementAPIExtension.
-func (p *Plugin) UseServiceController(s managementext.ServiceController) {}
 
 type PluginOptions struct {
 	storageNamespace  string

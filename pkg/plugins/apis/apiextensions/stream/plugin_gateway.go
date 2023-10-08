@@ -82,13 +82,14 @@ func NewGatewayPlugin(p StreamAPIExtension, opts ...GatewayStreamApiExtensionPlu
 		}
 		servers := p.StreamServers()
 		for _, srv := range servers {
-			descriptor, err := grpcreflect.LoadServiceDescriptor(srv.Desc)
+			desc, _ := srv.Unpack()
+			descriptor, err := grpcreflect.LoadServiceDescriptor(desc)
 			if err != nil {
 				panic(err)
 			}
 			ext.servers = append(ext.servers, &richServer{
-				Server:   srv,
-				richDesc: descriptor,
+				ServicePackInterface: srv,
+				richDesc:             descriptor,
 			})
 		}
 		if clientHandler, ok := p.(StreamClientHandler); ok {
@@ -149,7 +150,7 @@ func (e *gatewayStreamExtensionServerImpl) Connect(stream streamv1.Stream_Connec
 		return err
 	}
 	for _, srv := range e.servers {
-		ts.RegisterService(srv.Desc, srv.Impl)
+		ts.RegisterService(srv.Unpack())
 	}
 
 	_, errC := ts.Serve()

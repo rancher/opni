@@ -7,7 +7,7 @@ import (
 )
 
 type Service interface {
-	Activate(ctx ServiceContext) error
+	Activate() error
 }
 
 // An optional interface for services which implement a plugin interface
@@ -15,6 +15,10 @@ type Service interface {
 // are aggregated by the plugin host and will not need to implement this.
 type PluginService interface {
 	AddToScheme(meta.Scheme)
+}
+
+type ManagementService interface {
+	ManagementServices() []util.ServicePackInterface
 }
 
 type StreamService interface {

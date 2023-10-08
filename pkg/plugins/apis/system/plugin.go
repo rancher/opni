@@ -132,6 +132,7 @@ func (c *systemPluginClientImpl) UseAPIExtensions(ctx context.Context, addr *Dia
 	if err != nil {
 		return nil, err
 	}
+	defer cc.Close()
 	c.client.UseAPIExtensions(&apiExtensionInterfaceImpl{
 		managementClientConn: cc,
 	})

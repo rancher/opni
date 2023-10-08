@@ -2,25 +2,17 @@ package alerting
 
 import (
 	"github.com/rancher/opni/pkg/agent"
-	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/node"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/rules"
 	"google.golang.org/grpc"
 )
 
-func (p *Plugin) StreamServers() []streamext.Server {
-	return []streamext.Server{
-		{
-			Desc:              &node.NodeAlertingCapability_ServiceDesc,
-			Impl:              &p.node,
-			RequireCapability: wellknown.CapabilityAlerting,
-		},
-		{
-			Desc:              &rules.RuleSync_ServiceDesc,
-			Impl:              p.AlarmServerComponent,
-			RequireCapability: wellknown.CapabilityAlerting,
-		},
+func (p *Plugin) StreamServers() []util.ServicePackInterface {
+	return []util.ServicePackInterface{
+		util.PackService[node.NodeAlertingCapabilityServer](&node.NodeAlertingCapability_ServiceDesc, &p.node),
+		util.PackService[rules.RuleSyncServer](&rules.RuleSync_ServiceDesc, p.AlarmServerComponent),
 	}
 }
 

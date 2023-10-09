@@ -1,8 +1,6 @@
 package v1beta1
 
 import (
-	"time"
-
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/wrangler/pkg/crd"
 	"github.com/rancher/wrangler/pkg/schemas/openapi"
@@ -69,14 +67,17 @@ type MemoryLimiterProcessorConfig struct {
 	// CheckInterval is the time between measurements of memory usage for the
 	// purposes of avoiding going over the limits. Defaults to zero, so no
 	// checks will be performed.
-	CheckInterval time.Duration `json:"checkInterval,omitempty"`
+	// +kubebuilder:default:=1
+	CheckIntervalSeconds uint32 `json:"checkIntervalSeconds,omitempty"`
 
 	// MemoryLimitMiB is the maximum amount of memory, in MiB, targeted to be
 	// allocated by the process.
+	// +kubebuilder:default:=1000
 	MemoryLimitMiB uint32 `json:"limitMib,omitempty"`
 
 	// MemorySpikeLimitMiB is the maximum, in MiB, spike expected between the
 	// measurements of memory usage.
+	// +kubebuilder:default:=350
 	MemorySpikeLimitMiB uint32 `json:"spikeLimitMib,omitempty"`
 
 	// MemoryLimitPercentage is the maximum amount of memory, in %, targeted to be
@@ -95,11 +96,13 @@ type MemoryLimiterProcessorConfig struct {
 type BatchProcessorConfig struct {
 	// Timeout sets the time after which a batch will be sent regardless of size.
 	// When this is set to zero, batched data will be sent immediately.
-	Timeout time.Duration `json:"timeout,omitempty"`
+	// +kubebuilder:default:=15
+	TimeoutSeconds uint32 `json:"timeoutSeconds,omitempty"`
 
 	// SendBatchSize is the size of a batch which after hit, will trigger it to be sent.
 	// When this is set to zero, the batch size is ignored and data will be sent immediately
 	// subject to only send_batch_max_size.
+	// +kubebuilder:default:=1000
 	SendBatchSize uint32 `json:"sendBatchSize,omitempty"`
 
 	// SendBatchMaxSize is the maximum size of a batch. It must be larger than SendBatchSize.
@@ -114,10 +117,13 @@ type BatchProcessorConfig struct {
 // and controller-gen work.
 type CollectorSendingQueue struct {
 	// Enabled indicates whether to not enqueue batches before sending to the consumerSender.
+	// +kubebuilder:default:=true
 	Enabled bool `json:"enabled,omitempty"`
 	// NumConsumers is the number of consumers from the queue.
+	// +kubebuilder:default:=4
 	NumConsumers int `json:"numConsumers,omitempty"`
 	// QueueSize is the maximum number of batches allowed in queue at a given time.
+	// +kubebuilder:default:=100
 	QueueSize int `json:"queueSize,omitempty"`
 }
 
@@ -184,13 +190,13 @@ func NewDefaultAggregatorOTELConfigSpec() *AggregatorOTELConfigSpec {
 	return &AggregatorOTELConfigSpec{
 		Processors: AggregatorOTELProcessors{
 			MemoryLimiter: MemoryLimiterProcessorConfig{
-				MemoryLimitMiB:      1000,
-				MemorySpikeLimitMiB: 350,
-				CheckInterval:       1 * time.Second,
+				MemoryLimitMiB:       1000,
+				MemorySpikeLimitMiB:  350,
+				CheckIntervalSeconds: 1,
 			},
 			Batch: BatchProcessorConfig{
-				SendBatchSize: 1000,
-				Timeout:       15 * time.Second,
+				SendBatchSize:  1000,
+				TimeoutSeconds: 15,
 			},
 		},
 		Exporters: AggregatorOTELExporters{
@@ -209,9 +215,9 @@ func NewDefaultNodeOTELConfigSpec() *NodeOTELConfigSpec {
 	return &NodeOTELConfigSpec{
 		Processors: NodeOTELProcessors{
 			MemoryLimiter: MemoryLimiterProcessorConfig{
-				MemoryLimitMiB:      250,
-				MemorySpikeLimitMiB: 50,
-				CheckInterval:       1 * time.Second,
+				MemoryLimitMiB:       250,
+				MemorySpikeLimitMiB:  50,
+				CheckIntervalSeconds: 1,
 			},
 		},
 		Exporters: NodeOTELExporters{

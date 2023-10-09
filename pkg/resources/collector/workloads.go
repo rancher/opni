@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
@@ -80,7 +81,7 @@ func (r *Reconciler) getDaemonOTELConfig() otel.NodeOTELConfig {
 	return otel.NodeOTELConfig{
 		Processors: &otel.NodeOTELProcessors{
 			MemoryLimiter: memorylimiterprocessor.Config{
-				CheckInterval:         nodeOTELCfg.Processors.MemoryLimiter.CheckInterval,
+				CheckInterval:         time.Duration(nodeOTELCfg.Processors.MemoryLimiter.CheckIntervalSeconds) * time.Second,
 				MemoryLimitMiB:        nodeOTELCfg.Processors.MemoryLimiter.MemoryLimitMiB,
 				MemorySpikeLimitMiB:   nodeOTELCfg.Processors.MemoryLimiter.MemorySpikeLimitMiB,
 				MemoryLimitPercentage: nodeOTELCfg.Processors.MemoryLimiter.MemoryLimitPercentage,
@@ -120,14 +121,14 @@ func (r *Reconciler) getAggregatorOTELConfig() otel.AggregatorOTELConfig {
 	return otel.AggregatorOTELConfig{
 		Processors: &otel.AggregatorOTELProcessors{
 			MemoryLimiter: memorylimiterprocessor.Config{
-				CheckInterval:         aggregatorOTELCfg.Processors.MemoryLimiter.CheckInterval,
+				CheckInterval:         time.Duration(aggregatorOTELCfg.Processors.MemoryLimiter.CheckIntervalSeconds) * time.Second,
 				MemoryLimitMiB:        aggregatorOTELCfg.Processors.MemoryLimiter.MemoryLimitMiB,
 				MemorySpikeLimitMiB:   aggregatorOTELCfg.Processors.MemoryLimiter.MemorySpikeLimitMiB,
 				MemoryLimitPercentage: aggregatorOTELCfg.Processors.MemoryLimiter.MemoryLimitPercentage,
 				MemorySpikePercentage: aggregatorOTELCfg.Processors.MemoryLimiter.MemorySpikePercentage,
 			},
 			Batch: batchprocessor.Config{
-				Timeout:          aggregatorOTELCfg.Processors.Batch.Timeout,
+				Timeout:          time.Duration(aggregatorOTELCfg.Processors.Batch.TimeoutSeconds) * time.Second,
 				SendBatchSize:    aggregatorOTELCfg.Processors.Batch.SendBatchSize,
 				SendBatchMaxSize: aggregatorOTELCfg.Processors.Batch.SendBatchMaxSize,
 			},

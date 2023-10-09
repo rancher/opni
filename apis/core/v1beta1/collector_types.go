@@ -73,10 +73,12 @@ type MemoryLimiterProcessorConfig struct {
 
 	// MemoryLimitMiB is the maximum amount of memory, in MiB, targeted to be
 	// allocated by the process.
+	// +kubebuilder:default=1000
 	MemoryLimitMiB uint32 `json:"limitMib,omitempty"`
 
 	// MemorySpikeLimitMiB is the maximum, in MiB, spike expected between the
 	// measurements of memory usage.
+	// +kubebuilder:default=350
 	MemorySpikeLimitMiB uint32 `json:"spikeLimitMib,omitempty"`
 
 	// MemoryLimitPercentage is the maximum amount of memory, in %, targeted to be
@@ -100,6 +102,7 @@ type BatchProcessorConfig struct {
 	// SendBatchSize is the size of a batch which after hit, will trigger it to be sent.
 	// When this is set to zero, the batch size is ignored and data will be sent immediately
 	// subject to only send_batch_max_size.
+	// +kubebuilder:default=1000
 	SendBatchSize uint32 `json:"sendBatchSize,omitempty"`
 
 	// SendBatchMaxSize is the maximum size of a batch. It must be larger than SendBatchSize.
@@ -114,10 +117,13 @@ type BatchProcessorConfig struct {
 // and controller-gen work.
 type CollectorSendingQueue struct {
 	// Enabled indicates whether to not enqueue batches before sending to the consumerSender.
+	// +kubebuilder:default=true
 	Enabled bool `json:"enabled,omitempty"`
 	// NumConsumers is the number of consumers from the queue.
+	// +kubebuilder:default=4
 	NumConsumers int `json:"numConsumers,omitempty"`
 	// QueueSize is the maximum number of batches allowed in queue at a given time.
+	// +kubebuilder:default=100
 	QueueSize int `json:"queueSize,omitempty"`
 }
 

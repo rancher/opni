@@ -194,9 +194,9 @@ exporters:
     tls:
       insecure: true
     sending_queue:
-      enabled: {{ .OTELConfig.Exporters.OTLP.SendingQueue.Enabled }}
-      num_consumers: {{ .OTELConfig.Exporters.OTLP.SendingQueue.NumConsumers }}
-      queue_size: {{ .OTELConfig.Exporters.OTLP.SendingQueue.QueueSize }}
+      enabled: {{ .OTELConfig.Exporters.OTLP.QueueSettings.Enabled }}
+      num_consumers: {{ .OTELConfig.Exporters.OTLP.QueueSettings.NumConsumers }}
+      queue_size: {{ .OTELConfig.Exporters.OTLP.QueueSettings.QueueSize }}
     retry_on_failure:
       enabled: true
 processors:
@@ -289,9 +289,9 @@ exporters:
     tls:
       insecure: true
     sending_queue:
-      enabled: {{ .OTELConfig.Exporters.OTLPHTTP.SendingQueue.Enabled }}
-      num_consumers: {{ .OTELConfig.Exporters.OTLPHTTP.SendingQueue.NumConsumers }}
-      queue_size: {{ .OTELConfig.Exporters.OTLPHTTP.SendingQueue.QueueSize }}
+      enabled: {{ .OTELConfig.Exporters.OTLPHTTP.QueueSettings.Enabled }}
+      num_consumers: {{ .OTELConfig.Exporters.OTLPHTTP.QueueSettings.NumConsumers }}
+      queue_size: {{ .OTELConfig.Exporters.OTLPHTTP.QueueSettings.QueueSize }}
     retry_on_failure:
       enabled: true
   {{ template "metrics-remotewrite-exporter" .}}

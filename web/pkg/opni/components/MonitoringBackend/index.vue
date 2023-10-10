@@ -2,7 +2,7 @@
 import LabeledSelect from '@shell/components/form/LabeledSelect';
 import Tab from '@shell/components/Tabbed/Tab';
 import Tabbed from '@shell/components/Tabbed';
-import { cloneDeep } from 'lodash';
+import { cloneDeep, merge } from 'lodash';
 import { CortexOps, DriverUtil } from '@pkg/opni/api/opni';
 import { getClusterStats } from '@pkg/opni/utils/requests';
 import { Duration } from '@bufbuild/protobuf';
@@ -125,12 +125,10 @@ export default {
       }
 
       const newConfig = new CortexOps.types.CapabilityBackendConfigSpec(structuredClone(this.config));
-      const activeConfig = await CortexOps.service.GetConfiguration(new DriverUtil.types.GetRequest());
-      const shouldSetConfig = activeConfig.revision.revision === 0n;
 
       const dryRunRequest = new CortexOps.types.DryRunRequest({
         spec:   newConfig,
-        action: shouldSetConfig ? DriverUtil.types.Action.Set : DriverUtil.types.Action.Reset,
+        action: DriverUtil.types.Action.Set,
         target: DriverUtil.types.Target.ActiveConfiguration
       });
 
@@ -140,14 +138,7 @@ export default {
         throw dryRun.validationErrors.map(e => e.message);
       }
 
-      await CortexOps.service.SetDefaultConfiguration(newConfig);
-
-      if (shouldSetConfig) {
-        await CortexOps.service.SetConfiguration(new CortexOps.types.CapabilityBackendConfigSpec());
-      } else {
-        await CortexOps.service.ResetConfiguration(new CortexOps.types.ResetRequest({}));
-      }
-
+      await CortexOps.service.SetConfiguration(newConfig);
       await CortexOps.service.Install();
     },
 
@@ -224,14 +215,14 @@ export default {
         value: i
       })));
 
-      this.$set(this, 'configFromBackend', await CortexOps.service.GetDefaultConfiguration(new DriverUtil.types.GetRequest()));
+      this.$set(this, 'configFromBackend', await CortexOps.service.GetConfiguration(new DriverUtil.types.GetRequest()));
       this.$set(this, 'config', this.configFromBackend);
 
-      if (!this.config.cortexWorkloads) {
+      if (this.configFromBackend.revision.revision === 0n) {
         this.applyPreset();
-      } else {
-        this.prepareConfig();
       }
+
+      this.prepareConfig();
 
       return this.config;
     },
@@ -245,16 +236,20 @@ export default {
       }
 
       this.$set(this.config, 'cortexWorkloads', this.config.cortexWorkloads || {});
-      this.$set(this.config.cortexConfig, 'storage', this.config.cortexConfig.storage || { backend: 's3', s3: {} });
+      this.$set(this.config.cortexConfig, 'storage', this.config.cortexConfig.storage || { backend: 'filesystem', filesystem: {} });
       const backendField = this.config.cortexConfig.storage.backend;
 
       this.$set(this.config.cortexConfig, 'storage', { ...(clone?.cortexConfig?.storage || {}) });
       this.$set(this.config.cortexConfig.storage, backendField, { ...(clone?.cortexConfig?.storage?.[backendField] || {}) });
       this.$set(this.config.cortexConfig.storage, 'backend', this.config.cortexConfig.storage?.backend || 'filesystem');
       this.$set(this.config, 'grafana', this.config.grafana || { enabled: true, hostname: '' });
-      this.$set(this.config.cortexConfig, 'limits', this.config.cortexConfig.limits || { compactorBlocksRetentionPeriod: new Duration({ seconds: BigInt(0) }) });
+      this.$set(this.config.cortexConfig, 'limits', this.config.cortexConfig.limits || { compactorBlocksRetentionPeriod: new Duration({ seconds: BigInt(2592000) }) });
 
-      if (this.config.revision?.revision === '0') {
+      if (!this.config.revision) {
+        this.$set(this.config, 'revision', { revision: 0n });
+      }
+
+      if (this.config.revision?.revision === 0n) {
         this.$set(this.config.grafana, 'enabled', true);
         this.$set(this.config.cortexConfig.storage, 'backend', 'filesystem');
       }
@@ -266,20 +261,15 @@ export default {
     },
 
     setPresetAsConfig(index) {
-      const config = this.presets[index].spec;
+      const presetConfig = cloneDeep(this.presets[index].spec);
+      const currentConfig = cloneDeep(this.config);
+      const mergedConfig = merge(currentConfig, presetConfig);
 
-      this.$set(this, 'config', config);
+      this.$set(this, 'config', mergedConfig);
     },
 
     applyPreset() {
       this.setPresetAsConfig(this.presetIndex);
-
-      this.prepareConfig();
-    }
-  },
-  watch: {
-    presetIndex() {
-      this.applyPreset();
     }
   }
 };
@@ -296,8 +286,13 @@ export default {
   >
     <template #editing>
       <div class="row mb-20">
-        <div class="col span-12">
+        <div class="col span-11">
           <LabeledSelect v-model="presetIndex" :options="presetOptions" label="Preset" />
+        </div>
+        <div class="col span-12 middle">
+          <button class="btn role-secondary" @click="applyPreset">
+            Apply
+          </button>
         </div>
       </div>
       <Tabbed :side-tabs="true">

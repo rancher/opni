@@ -29,6 +29,7 @@ import (
 	"go.etcd.io/etcd/etcdctl/v3/ctlv3"
 	channelzgrpc "google.golang.org/grpc/channelz/grpc_channelz_v1"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -46,7 +47,7 @@ func BuildDebugCmd() *cobra.Command {
 	debugCmd.AddCommand(BuildDebugChannelzCmd())
 	debugCmd.AddCommand(BuildDebugDashboardSettingsCmd())
 	debugCmd.AddCommand(BuildDebugImportAgentCmd())
-	debugCmd.AddCommand(BuildDebugAgentLogsStreamGetCmd())
+	debugCmd.AddCommand(BuildDebugAgentLogStreamGetCmd())
 	ConfigureManagementCommand(debugCmd)
 	return debugCmd
 }
@@ -466,8 +467,9 @@ func BuildDebugImportAgentCmd() *cobra.Command {
 	return cmd
 }
 
-func BuildDebugAgentLogsStreamGetCmd() *cobra.Command {
+func BuildDebugAgentLogStreamGetCmd() *cobra.Command {
 	var since, until, level, output string
+	var follow bool
 	var names []string
 	cmd := &cobra.Command{
 		Use:   "agent-logs <cluster-id>",
@@ -496,6 +498,7 @@ func BuildDebugAgentLogsStreamGetCmd() *cobra.Command {
 						NamePattern: names,
 						Level:       lo.ToPtr(int32(logger.ParseLevel(level))),
 					},
+					Follow: follow,
 				},
 			}
 
@@ -504,11 +507,24 @@ func BuildDebugAgentLogsStreamGetCmd() *cobra.Command {
 			streamRequest.Request.Since = timestamppb.New(startTime)
 			streamRequest.Request.Until = timestamppb.New(endTime)
 
-			logs, err := mgmtClient.GetAgentLogs(cmd.Context(), streamRequest)
+			stream, err := mgmtClient.GetAgentLogStream(cmd.Context(), streamRequest)
 			if err != nil {
 				return err
 			}
-			for _, log := range logs.GetItems() {
+			for {
+				log, err := stream.Recv()
+				if err != nil {
+					return err
+				}
+
+				done := (proto.Equal(log, &controlv1.StructuredLogRecord{}))
+				keepFollowing := done && follow
+				if keepFollowing {
+					continue
+				} else if done {
+					return nil
+				}
+
 				var attrs strings.Builder
 				for _, attr := range log.Attributes {
 					attrs.WriteString(attr.Key)
@@ -516,9 +532,8 @@ func BuildDebugAgentLogsStreamGetCmd() *cobra.Command {
 					attrs.WriteString(attr.Value)
 					attrs.WriteString(" ")
 				}
-				fmt.Println(log.Time.AsTime().Format(logger.TimeFormat), log.Level, log.Name, log.Source, log.Message, attrs.String())
+				fmt.Println(log.Time.AsTime().Format(logger.DefaultTimeFormat), log.Level, log.Name, log.Source, log.Message, attrs.String())
 			}
-			return nil
 		},
 	}
 
@@ -527,6 +542,7 @@ func BuildDebugAgentLogsStreamGetCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&names, "name", nil, "Pattern filter(s) by component name")
 	cmd.Flags().StringVar(&level, "level", "info", "Minimum log level severity (debug, info, warn, error)")
 	cmd.Flags().StringVar(&output, "output", "text", "Output format")
+	cmd.Flags().BoolVar(&follow, "follow", false, "Follow logs")
 	return cmd
 }
 

@@ -1,11 +1,11 @@
 package remotelogs
 
 import (
-	"context"
 	"io"
 	"log/slog"
 	"regexp"
 	"sync"
+	"time"
 
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
@@ -55,30 +55,33 @@ func (ls *LogServer) RemoveClient(name string) {
 	delete(ls.clients, name)
 }
 
-func (ls *LogServer) GetLogs(ctx context.Context, req *controlv1.LogStreamRequest) (*controlv1.StructuredLogRecords, error) {
+func (ls *LogServer) StreamLogs(req *controlv1.LogStreamRequest, server controlv1.Log_StreamLogsServer) error {
 	since := req.Since.AsTime()
 	until := req.Until.AsTime()
 	minLevel := req.Filters.Level
 	nameFilters := req.Filters.NamePattern
+	follow := req.Follow
 
-	f, err := logger.OpenLogFile(cluster.StreamAuthorizedID(ctx))
+	f, err := logger.OpenLogFile(cluster.StreamAuthorizedID(server.Context()))
 	if err != nil {
-		ls.logger.Error("failed to open log file")
-		return nil, err
+		ls.logger.Error("failed to open log file", logger.Err(err))
+		return err
 	}
 	defer f.Close()
 
-	var logs []*controlv1.StructuredLogRecord
 	for {
-		msg, err := ls.getLogMessage(req, f)
-		done := err != nil && err == io.EOF
-		if done {
-			return &controlv1.StructuredLogRecords{
-				Items: logs,
-			}, nil
+		msg, err := ls.getLogMessage(f)
+
+		done := err == io.EOF || err == io.ErrUnexpectedEOF || msg == nil
+		keepFollowing := done && follow
+		if keepFollowing {
+			time.Sleep(time.Second)
+			continue
+		} else if done {
+			return nil
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if minLevel != nil && logger.ParseLevel(msg.Level) < slog.Level(*minLevel) {
@@ -86,7 +89,10 @@ func (ls *LogServer) GetLogs(ctx context.Context, req *controlv1.LogStreamReques
 		}
 
 		time := msg.Time.AsTime()
-		if time.Before(since) || time.After(until) {
+		if time.Before(since) {
+			continue
+		}
+		if !follow && time.After(until) {
 			continue
 		}
 
@@ -94,11 +100,14 @@ func (ls *LogServer) GetLogs(ctx context.Context, req *controlv1.LogStreamReques
 			continue
 		}
 
-		logs = append(logs, msg)
+		err = server.Send(msg)
+		if err != nil {
+			return err
+		}
 	}
 }
 
-func (ls *LogServer) getLogMessage(req *controlv1.LogStreamRequest, f afero.File) (*controlv1.StructuredLogRecord, error) {
+func (ls *LogServer) getLogMessage(f afero.File) (*controlv1.StructuredLogRecord, error) {
 	sizeBuf := make([]byte, 4)
 	record := &controlv1.StructuredLogRecord{}
 	_, err := io.ReadFull(f, sizeBuf)

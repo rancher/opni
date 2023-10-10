@@ -206,7 +206,7 @@ service Management {
       body: "*"
     };
   }
-  rpc GetAgentLogs(StreamAgentLogsRequest) returns (control.StructuredLogRecords) {
+  rpc GetAgentLogStream(StreamAgentLogsRequest) returns (stream control.StructuredLogRecord) {
     option (google.api.http) = {
       get: "/clusters/{id}/logs"
       body: "*"

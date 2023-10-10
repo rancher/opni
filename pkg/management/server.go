@@ -58,7 +58,7 @@ type CapabilitiesDataSource interface {
 type AgentControlDataSource interface {
 	GetClusterHealthStatus(ref *corev1.Reference) (*corev1.HealthStatus, error)
 	WatchClusterHealthStatus(ctx context.Context) <-chan *corev1.ClusterHealthStatus
-	GetLogs(ctx context.Context, ref *corev1.Reference, req *controlv1.LogStreamRequest) (*controlv1.StructuredLogRecords, error)
+	StreamLogs(ctx context.Context, id *corev1.Reference, req *controlv1.LogStreamRequest) (controlv1.Log_StreamLogsClient, error)
 }
 
 type apiExtension struct {

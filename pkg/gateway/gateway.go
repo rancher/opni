@@ -371,13 +371,13 @@ func (g *Gateway) GetClusterHealthStatus(ref *corev1.Reference) (*corev1.HealthS
 }
 
 // Implements management.AgentControlDataSource
-func (g *Gateway) GetLogs(ctx context.Context, id *corev1.Reference, req *controlv1.LogStreamRequest) (*controlv1.StructuredLogRecords, error) {
-	var logRecords *controlv1.StructuredLogRecords
+func (g *Gateway) StreamLogs(ctx context.Context, id *corev1.Reference, req *controlv1.LogStreamRequest) (controlv1.Log_StreamLogsClient, error) {
+	var stream controlv1.Log_StreamLogsClient
 	var err error
 
 	g.delegate.UseClient(id, func(cc grpc.ClientConnInterface) {
 		logsClient := controlv1.NewLogClient(cc)
-		logRecords, err = logsClient.GetLogs(ctx, req)
+		stream, err = logsClient.StreamLogs(ctx, req)
 	})
 
 	if err != nil {
@@ -385,7 +385,7 @@ func (g *Gateway) GetLogs(ctx context.Context, id *corev1.Reference, req *contro
 		return nil, err
 	}
 
-	return logRecords, nil
+	return stream, nil
 }
 
 // Implements management.AgentControlDataSource

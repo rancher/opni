@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/slogr"
-	gpkgsync "github.com/kralicky/gpkg/sync"
+	"github.com/kralicky/gpkg/sync"
 	slogmulti "github.com/samber/slog-multi"
 	slogsampling "github.com/samber/slog-sampling"
 	"github.com/spf13/afero"
@@ -192,7 +192,7 @@ func colorHandlerWithOptions(opts ...LoggerOption) slog.Handler {
 	// write logs to a file
 	if options.RemoteSource != "" {
 		filename := logFileName + options.RemoteSource
-		f, err := logFs.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0666)
+		f, err := logFs.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
 			panic(err)
 		}
@@ -231,7 +231,7 @@ func NewPluginLogger(opts ...LoggerOption) *slog.Logger {
 }
 
 type sampler struct {
-	dropped gpkgsync.Map[string, uint64]
+	dropped sync.Map[string, uint64]
 }
 
 func (s *sampler) onDroppedHook(_ context.Context, r slog.Record) {

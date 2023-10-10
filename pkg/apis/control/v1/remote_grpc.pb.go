@@ -291,14 +291,14 @@ var UpdateSync_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	Log_GetLogs_FullMethodName = "/control.Log/GetLogs"
+	Log_StreamLogs_FullMethodName = "/control.Log/StreamLogs"
 )
 
 // LogClient is the client API for Log service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type LogClient interface {
-	GetLogs(ctx context.Context, in *LogStreamRequest, opts ...grpc.CallOption) (*StructuredLogRecords, error)
+	StreamLogs(ctx context.Context, in *LogStreamRequest, opts ...grpc.CallOption) (Log_StreamLogsClient, error)
 }
 
 type logClient struct {
@@ -309,20 +309,43 @@ func NewLogClient(cc grpc.ClientConnInterface) LogClient {
 	return &logClient{cc}
 }
 
-func (c *logClient) GetLogs(ctx context.Context, in *LogStreamRequest, opts ...grpc.CallOption) (*StructuredLogRecords, error) {
-	out := new(StructuredLogRecords)
-	err := c.cc.Invoke(ctx, Log_GetLogs_FullMethodName, in, out, opts...)
+func (c *logClient) StreamLogs(ctx context.Context, in *LogStreamRequest, opts ...grpc.CallOption) (Log_StreamLogsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Log_ServiceDesc.Streams[0], Log_StreamLogs_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &logStreamLogsClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Log_StreamLogsClient interface {
+	Recv() (*StructuredLogRecord, error)
+	grpc.ClientStream
+}
+
+type logStreamLogsClient struct {
+	grpc.ClientStream
+}
+
+func (x *logStreamLogsClient) Recv() (*StructuredLogRecord, error) {
+	m := new(StructuredLogRecord)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // LogServer is the server API for Log service.
 // All implementations must embed UnimplementedLogServer
 // for forward compatibility
 type LogServer interface {
-	GetLogs(context.Context, *LogStreamRequest) (*StructuredLogRecords, error)
+	StreamLogs(*LogStreamRequest, Log_StreamLogsServer) error
 	mustEmbedUnimplementedLogServer()
 }
 
@@ -330,8 +353,8 @@ type LogServer interface {
 type UnimplementedLogServer struct {
 }
 
-func (UnimplementedLogServer) GetLogs(context.Context, *LogStreamRequest) (*StructuredLogRecords, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetLogs not implemented")
+func (UnimplementedLogServer) StreamLogs(*LogStreamRequest, Log_StreamLogsServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamLogs not implemented")
 }
 func (UnimplementedLogServer) mustEmbedUnimplementedLogServer() {}
 
@@ -346,22 +369,25 @@ func RegisterLogServer(s grpc.ServiceRegistrar, srv LogServer) {
 	s.RegisterService(&Log_ServiceDesc, srv)
 }
 
-func _Log_GetLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LogStreamRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _Log_StreamLogs_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(LogStreamRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(LogServer).GetLogs(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Log_GetLogs_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LogServer).GetLogs(ctx, req.(*LogStreamRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(LogServer).StreamLogs(m, &logStreamLogsServer{stream})
+}
+
+type Log_StreamLogsServer interface {
+	Send(*StructuredLogRecord) error
+	grpc.ServerStream
+}
+
+type logStreamLogsServer struct {
+	grpc.ServerStream
+}
+
+func (x *logStreamLogsServer) Send(m *StructuredLogRecord) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 // Log_ServiceDesc is the grpc.ServiceDesc for Log service.
@@ -370,12 +396,13 @@ func _Log_GetLogs_Handler(srv interface{}, ctx context.Context, dec func(interfa
 var Log_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "control.Log",
 	HandlerType: (*LogServer)(nil),
-	Methods: []grpc.MethodDesc{
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "GetLogs",
-			Handler:    _Log_GetLogs_Handler,
+			StreamName:    "StreamLogs",
+			Handler:       _Log_StreamLogs_Handler,
+			ServerStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "github.com/rancher/opni/pkg/apis/control/v1/remote.proto",
 }

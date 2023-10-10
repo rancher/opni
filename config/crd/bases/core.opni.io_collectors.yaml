@@ -37,10 +37,13 @@ spec:
                           sendingQueue:
                             properties:
                               enabled:
+                                default: true
                                 type: boolean
                               numConsumers:
+                                default: 4
                                 type: integer
                               queueSize:
+                                default: 100
                                 type: integer
                             type: object
                         type: object
@@ -53,24 +56,29 @@ spec:
                             format: int32
                             type: integer
                           sendBatchSize:
+                            default: 1000
                             format: int32
                             type: integer
-                          timeout:
-                            format: int64
+                          timeoutSeconds:
+                            default: 15
+                            format: int32
                             type: integer
                         type: object
                       memoryLimiter:
                         properties:
-                          checkInterval:
-                            format: int64
+                          checkIntervalSeconds:
+                            default: 1
+                            format: int32
                             type: integer
                           limitMib:
+                            default: 1000
                             format: int32
                             type: integer
                           limitPercentage:
                             format: int32
                             type: integer
                           spikeLimitMib:
+                            default: 350
                             format: int32
                             type: integer
                           spikeLimitPercentage:
@@ -129,10 +137,13 @@ spec:
                           sendingQueue:
                             properties:
                               enabled:
+                                default: true
                                 type: boolean
                               numConsumers:
+                                default: 4
                                 type: integer
                               queueSize:
+                                default: 100
                                 type: integer
                             type: object
                         type: object
@@ -141,16 +152,19 @@ spec:
                     properties:
                       memoryLimiter:
                         properties:
-                          checkInterval:
-                            format: int64
+                          checkIntervalSeconds:
+                            default: 1
+                            format: int32
                             type: integer
                           limitMib:
+                            default: 1000
                             format: int32
                             type: integer
                           limitPercentage:
                             format: int32
                             type: integer
                           spikeLimitMib:
+                            default: 350
                             format: int32
                             type: integer
                           spikeLimitPercentage:

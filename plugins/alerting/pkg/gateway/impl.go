@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/rancher/opni/pkg/management"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
+	"github.com/rancher/opni/plugins/alerting/pkg/gateway/alarms/v1"
 
 	"github.com/nats-io/nats.go"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"

@@ -10,7 +10,7 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
-	notifications "github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
+	notifications "github.com/rancher/opni/plugins/alerting/pkg/gateway/notifications/v1"
 	"go.uber.org/zap"
 )
 

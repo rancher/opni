@@ -10,8 +10,8 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
-	metricsExporter "github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/proxy"
+	metricsExporter "github.com/rancher/opni/plugins/alerting/pkg/gateway/metrics"
+	"github.com/rancher/opni/plugins/alerting/pkg/gateway/proxy"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	metricsdk "go.opentelemetry.io/otel/sdk/metric"
@@ -23,9 +23,9 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
 	"github.com/rancher/opni/pkg/plugins/apis/metrics"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/endpoints/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
+	"github.com/rancher/opni/plugins/alerting/pkg/gateway/alarms/v1"
+	"github.com/rancher/opni/plugins/alerting/pkg/gateway/endpoints/v1"
+	"github.com/rancher/opni/plugins/alerting/pkg/gateway/notifications/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/node_backend"
 	"go.uber.org/zap"
 
@@ -37,8 +37,8 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util/future"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/node"
+	"github.com/rancher/opni/plugins/alerting/pkg/gateway/drivers"
 )
 
 func (p *Plugin) Components() []server.ServerComponent {

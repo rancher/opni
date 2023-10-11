@@ -22,8 +22,8 @@ import (
 
 	alertingSync "github.com/rancher/opni/pkg/alerting/server/sync"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
+	"github.com/rancher/opni/plugins/alerting/pkg/gateway/drivers"
+	"github.com/rancher/opni/plugins/alerting/pkg/gateway/metrics"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"

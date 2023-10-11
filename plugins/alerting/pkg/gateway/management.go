@@ -15,8 +15,8 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	natsutil "github.com/rancher/opni/pkg/util/nats"
 
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
+	"github.com/rancher/opni/plugins/alerting/pkg/gateway/alarms/v1"
+	"github.com/rancher/opni/plugins/alerting/pkg/gateway/drivers"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

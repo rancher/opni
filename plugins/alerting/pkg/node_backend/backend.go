@@ -27,8 +27,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/node"
+	"github.com/rancher/opni/plugins/alerting/pkg/gateway/drivers"
 )
 
 type CapabilitySpecKV struct {

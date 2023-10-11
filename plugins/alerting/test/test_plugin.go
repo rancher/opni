@@ -9,9 +9,9 @@ import (
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/alerting/pkg/agent"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
-	endpointv1 "github.com/rancher/opni/plugins/alerting/pkg/alerting/endpoints/v1"
+	alerting "github.com/rancher/opni/plugins/alerting/pkg/gateway"
+	"github.com/rancher/opni/plugins/alerting/pkg/gateway/alarms/v1"
+	endpointv1 "github.com/rancher/opni/plugins/alerting/pkg/gateway/endpoints/v1"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 

@@ -12,7 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
+	"github.com/rancher/opni/plugins/alerting/pkg/gateway/alarms/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/node_backend"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"

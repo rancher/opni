@@ -215,8 +215,10 @@ func (o *OTELNodeDriver) buildEmptyCollector() *opnicorev1beta1.Collector {
 			ImageSpec: opnimeta.ImageSpec{
 				ImagePullPolicy: lo.ToPtr(corev1.PullAlways),
 			},
-			SystemNamespace: o.Namespace,
-			AgentEndpoint:   otel.AgentEndpoint(serviceName),
+			SystemNamespace:          o.Namespace,
+			AgentEndpoint:            otel.AgentEndpoint(serviceName),
+			NodeOTELConfigSpec:       opnicorev1beta1.NewDefaultNodeOTELConfigSpec(),
+			AggregatorOTELConfigSpec: opnicorev1beta1.NewDefaultAggregatorOTELConfigSpec(),
 		},
 	}
 }

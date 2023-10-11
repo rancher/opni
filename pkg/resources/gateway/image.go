@@ -9,7 +9,7 @@ import (
 )
 
 func (r *Reconciler) updateImageStatus() (bool, error) {
-	lg := r.logger
+	lg := r.lg
 
 	var image string
 	var pullPolicy corev1.PullPolicy

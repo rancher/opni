@@ -32,11 +32,11 @@ func NewEtcdLockManager(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts
 			return nil, fmt.Errorf("failed to load client TLS config: %w", err)
 		}
 	}
+	slog.SetDefault(lg.WithGroup("etcd-locker"))
 	clientConfig := clientv3.Config{
 		Endpoints: conf.Endpoints,
 		TLS:       tlsConfig,
 		Context:   ctx,
-		Logger:    logger.NewZap().Named("etcd-locker").Desugar(),
 	}
 	etcdClient, err := clientv3.New(clientConfig)
 	if err != nil {

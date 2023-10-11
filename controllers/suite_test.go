@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os/exec"
 	"path"
@@ -36,13 +37,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/controllers"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources/opnicluster"
 	"github.com/rancher/opni/pkg/resources/opniopensearch"
 	"github.com/rancher/opni/pkg/resources/preprocessor"
 	"github.com/rancher/opni/pkg/test/freeport"
 	_ "github.com/rancher/opni/pkg/test/setup"
 	"github.com/rancher/opni/pkg/test/testk8s"
-	"github.com/rancher/opni/pkg/util/k8sutil"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
@@ -59,8 +60,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/go-logr/logr"
-	"go.uber.org/zap/zapcore"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	// +kubebuilder:scaffold:imports
@@ -556,10 +555,5 @@ func StartControllerManager(ctx context.Context, testEnv *envtest.Environment) {
 }
 
 func NewTestLogger() logr.Logger {
-	return zap.New(
-		zap.Level(zapcore.InfoLevel),
-		zap.WriteTo(GinkgoWriter),
-		zap.UseDevMode(false),
-		zap.Encoder(zapcore.NewConsoleEncoder(k8sutil.EncoderConfig)),
-	)
+	return logger.NewLogr(logger.WithWriter(GinkgoWriter), logger.WithLogLevel(slog.LevelInfo))
 }

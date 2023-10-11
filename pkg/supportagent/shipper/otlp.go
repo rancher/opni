@@ -92,7 +92,7 @@ func NewOTLPShipper(
 		otlpShipperOptions: options,
 		client:             collogspb.NewLogsServiceClient(cc),
 		dateParser:         parser,
-		converter:          adapter.NewConverter(lg.Desugar()),
+		converter:          adapter.NewConverter(logger.NewZap().Desugar()),
 		lg:                 lg,
 	}
 }
@@ -230,7 +230,7 @@ func (s *otlpShipper) exportLogs(ctx context.Context, logs plog.Logs) {
 
 	resp, err := s.client.Export(ctx, req)
 	if err != nil {
-		s.lg.With("error", err).Error("failed to ship logs")
+		s.lg.Error("failed to ship logs", "error", err)
 		s.collectedErrorMessages = append(s.collectedErrorMessages, err.Error())
 		s.failureCount += len(req.GetResourceLogs())
 		return

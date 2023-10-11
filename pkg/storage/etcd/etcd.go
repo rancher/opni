@@ -81,11 +81,11 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 			return nil, fmt.Errorf("failed to load client TLS config: %w", err)
 		}
 	}
+	slog.SetDefault(lg.WithGroup("etcd"))
 	clientConfig := clientv3.Config{
 		Endpoints: conf.Endpoints,
 		TLS:       tlsConfig,
 		Context:   ctx,
-		Logger:    logger.NewZap().Named("etcd").Desugar(),
 	}
 	cli, err := clientv3.New(clientConfig)
 	if err != nil {

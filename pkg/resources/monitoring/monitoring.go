@@ -3,13 +3,14 @@ package monitoring
 import (
 	"context"
 
+	"log/slog"
+
 	"github.com/cisco-open/operator-tools/pkg/reconciler"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/monitoring/cortex"
 	"github.com/rancher/opni/pkg/util/k8sutil"
-	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -22,7 +23,7 @@ type Reconciler struct {
 	client client.Client
 	mc     *corev1beta1.MonitoringCluster
 	gw     *corev1beta1.Gateway
-	logger *zap.SugaredLogger
+	lg     *slog.Logger
 }
 
 func NewReconciler(
@@ -30,7 +31,7 @@ func NewReconciler(
 	client client.Client,
 	instance *corev1beta1.MonitoringCluster,
 ) *Reconciler {
-	logger := logger.NewZap().Named("controller").Named("monitoring")
+	logger := logger.New().WithGroup("controller").WithGroup("monitoring")
 	return &Reconciler{
 		ResourceReconciler: reconciler.NewReconcilerWith(client,
 			reconciler.WithEnableRecreateWorkload(),
@@ -40,7 +41,7 @@ func NewReconciler(
 		),
 		ctx:    ctx,
 		client: client,
-		logger: logger,
+		lg:     logger,
 		mc:     instance,
 	}
 }

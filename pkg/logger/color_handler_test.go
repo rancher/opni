@@ -102,7 +102,7 @@ func TestHandler(t *testing.T) {
 		},
 		{
 			Opts: &LoggerOptions{
-				DisableTime: true,
+				TimeFormat: "",
 			},
 			F: func(l *slog.Logger) {
 				l.Info("test", "key", "val")

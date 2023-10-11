@@ -25,7 +25,7 @@ import (
 
 var statusLog = logger.New(
 	logger.WithDisableCaller(),
-	logger.WithDisableTime(),
+	logger.WithTimeFormat(""),
 )
 
 func BuildCapabilityCmd() *cobra.Command {

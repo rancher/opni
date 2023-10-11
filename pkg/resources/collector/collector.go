@@ -45,7 +45,7 @@ func NewReconciler(
 		collector:           instance,
 		tmpl:                otel.OTELTemplates,
 		ctx:                 ctx,
-		lg:                  logger.NewPluginLogger().WithGroup("collector-controller"),
+		lg:                  logger.New().WithGroup("plugin").WithGroup("collector-controller"),
 		PrometheusDiscovery: nil,
 	}
 }

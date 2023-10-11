@@ -458,14 +458,14 @@ func (r *Reconciler) gatewayIngressSecret() (client.Object, *k8sutil.RequeueOp) 
 
 	key, ok := servingCertSecret.Data[corev1.TLSPrivateKeyKey]
 	if !ok {
-		r.logger.Info("tls key missing from serving secret, requeueing")
+		r.lg.Info("tls key missing from serving secret, requeueing")
 		requeue := k8sutil.RequeueAfter(time.Second * 5)
 		return ingressCertSecret, &requeue
 	}
 
 	cert, ok := servingCertSecret.Data[corev1.TLSCertKey]
 	if !ok {
-		r.logger.Info("tls cert missing from serving secret, requeueing")
+		r.lg.Info("tls cert missing from serving secret, requeueing")
 		requeue := k8sutil.RequeueAfter(time.Second * 5)
 		return ingressCertSecret, &requeue
 	}
@@ -486,7 +486,7 @@ func (r *Reconciler) gatewayIngressSecret() (client.Object, *k8sutil.RequeueOp) 
 
 	cert, ok = caSecret.Data["ca.crt"]
 	if !ok {
-		r.logger.Info("ca cert missing from ca secret, requeueing")
+		r.lg.Info("ca cert missing from ca secret, requeueing")
 		requeue := k8sutil.RequeueAfter(time.Second * 5)
 		return ingressCertSecret, &requeue
 	}
@@ -494,7 +494,7 @@ func (r *Reconciler) gatewayIngressSecret() (client.Object, *k8sutil.RequeueOp) 
 
 	cert, ok = caSecret.Data[corev1.TLSCertKey]
 	if !ok {
-		r.logger.Info("intermediate cert missing from ca secret, requeueing")
+		r.lg.Info("intermediate cert missing from ca secret, requeueing")
 		requeue := k8sutil.RequeueAfter(time.Second * 5)
 		return ingressCertSecret, &requeue
 	}

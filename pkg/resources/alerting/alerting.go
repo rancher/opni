@@ -3,12 +3,13 @@ package alerting
 import (
 	"context"
 
+	"log/slog"
+
 	"github.com/cisco-open/operator-tools/pkg/reconciler"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util/k8sutil"
-	"log/slog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -20,7 +21,7 @@ type Reconciler struct {
 	client client.Client
 	ac     *corev1beta1.AlertingCluster
 	gw     *corev1beta1.Gateway
-	logger *slog.Logger
+	lg     *slog.Logger
 }
 
 func NewReconciler(
@@ -39,7 +40,7 @@ func NewReconciler(
 		),
 		ctx:    ctx,
 		client: client,
-		logger: logger,
+		lg:     logger,
 		ac:     instance,
 	}
 }

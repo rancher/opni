@@ -32,7 +32,6 @@ require (
 	github.com/go-kit/kit v0.12.0
 	github.com/go-kit/log v0.2.1
 	github.com/go-logr/logr v1.2.5-0.20231009135404-2ea8628b184c
-	github.com/go-logr/zapr v1.2.4
 	github.com/go-openapi/strfmt v0.21.7
 	github.com/go-playground/validator/v10 v10.14.1
 	github.com/golang/protobuf v1.5.3

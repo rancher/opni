@@ -24,7 +24,7 @@ var (
 )
 
 func (r *Reconciler) updateCortexVersionStatus() (bool, error) {
-	lg := r.logger
+	lg := r.lg
 	loadCortexVersionOnce.Do(func() {
 		buildInfo, ok := debug.ReadBuildInfo()
 		if !ok {

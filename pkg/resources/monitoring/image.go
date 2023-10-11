@@ -8,7 +8,7 @@ import (
 )
 
 func (r *Reconciler) updateImageStatus() (bool, error) {
-	lg := r.logger
+	lg := r.lg
 
 	image, pullPolicy, err := resources.FindManagerImage(r.ctx, r.client)
 	if err != nil {

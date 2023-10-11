@@ -158,7 +158,7 @@ func (r *Reconciler) cortexWorkloads(configDigest string) []resources.Resource {
 		for target, spec := range r.mc.Spec.Cortex.CortexWorkloads.GetTargets() {
 			workloadType, ok := availableTargets[target]
 			if !ok {
-				r.logger.With("target", target).Error("unknown cortex workload target")
+				r.lg.With("target", target).Error("unknown cortex workload target")
 				continue
 			}
 			opts := append([]CortexWorkloadOption{

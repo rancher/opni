@@ -37,9 +37,10 @@ func MustLoadConfig(configFile string, lg *slog.Logger) *v1beta1.SupportAgentCon
 		path, err := config.FindSupportConfig()
 		switch {
 		case err == nil:
-			lg.With(
-				"path", path,
-			).Info("using config file")
+			lg.Info(
+
+				"using config file", "path", path)
+
 			configFile = path
 		case errors.Is(err, config.ErrConfigNotFound):
 			wd, _ := os.Getwd()

@@ -3,6 +3,8 @@ package gateway
 import (
 	"context"
 
+	"log/slog"
+
 	"github.com/cisco-open/operator-tools/pkg/reconciler"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
@@ -10,7 +12,6 @@ import (
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/retry"
-	"log/slog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -21,7 +22,7 @@ type Reconciler struct {
 	ctx    context.Context
 	client client.Client
 	gw     *corev1beta1.Gateway
-	logger *slog.Logger
+	lg     *slog.Logger
 }
 
 func NewReconciler(
@@ -39,7 +40,7 @@ func NewReconciler(
 		gw:     instance,
 		ctx:    ctx,
 		client: client,
-		logger: logger.New().WithGroup("controller").WithGroup("gateway"),
+		lg:     logger.New().WithGroup("controller").WithGroup("gateway"),
 	}
 }
 

@@ -11,13 +11,13 @@ import (
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/pkg/features"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/opni/common"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/manager"
 	"github.com/rancher/opni/pkg/versions"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap/zapcore"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	opensearchcontrollers "opensearch.opster.io/controllers"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -46,10 +46,7 @@ func BuildManagerCmd() *cobra.Command {
 			disableUsage = true
 		}
 
-		level, err := zapcore.ParseLevel(logLevel)
-		if err != nil {
-			return err
-		}
+		level := logger.ParseLevel(logLevel)
 
 		ctrl.SetLogger(k8sutil.NewControllerRuntimeLogger(level))
 

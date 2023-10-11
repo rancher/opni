@@ -42,12 +42,13 @@ func NewJetstreamLockManager(ctx context.Context, conf *v1beta1.JetStreamStorage
 			).Warn("disconnected from jetstream")
 		}),
 		nats.ReconnectHandler(func(c *nats.Conn) {
-			lg.With(
-				"server", c.ConnectedAddr(),
+			lg.Info(
+
+				"reconnected to jetstream", "server", c.ConnectedAddr(),
 				"id", c.ConnectedServerId(),
 				"name", c.ConnectedServerName(),
-				"version", c.ConnectedServerVersion(),
-			).Info("reconnected to jetstream")
+				"version", c.ConnectedServerVersion())
+
 		}),
 	)
 	if err != nil {
@@ -67,7 +68,7 @@ func NewJetstreamLockManager(ctx context.Context, conf *v1beta1.JetStreamStorage
 	).Start(ctx)
 	for {
 		if rtt, err := nc.RTT(); err == nil {
-			lg.With("rtt", rtt).Info("nats server connection is healthy")
+			lg.Info("nats server connection is healthy", "rtt", rtt)
 			break
 		}
 		select {

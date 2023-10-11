@@ -29,14 +29,13 @@ var (
  Observability + AIOps for Kubernetes
 `
 
-	DefaultLogLevel    = slog.LevelDebug
-	DefaultWriter      io.Writer
-	DefaultAddSource   = true
-	DefaultDisableTime = false
-	pluginGroupPrefix  = "plugin"
-	NoRepeatInterval   = 365 * 24 * time.Hour // arbitrarily long time to denote one-time sampling
-	TimeFormat         = "2006 Jan 02 15:04:05"
-	errKey             = "err"
+	DefaultLogLevel   = slog.LevelDebug
+	DefaultWriter     io.Writer
+	DefaultAddSource  = true
+	pluginGroupPrefix = "plugin"
+	NoRepeatInterval  = 365 * 24 * time.Hour // arbitrarily long time to denote one-time sampling
+	DefaultTimeFormat = "2006 Jan 02 15:04:05"
+	errKey            = "err"
 )
 
 var logSampler = &sampler{}
@@ -51,8 +50,8 @@ type LoggerOptions struct {
 	ReplaceAttr  func(groups []string, a slog.Attr) slog.Attr
 	Writer       io.Writer
 	ColorEnabled bool
-	DisableTime  bool
 	Sampling     *slogsampling.ThresholdSamplingOption
+	TimeFormat   string
 }
 
 func ParseLevel(lvl string) slog.Level {
@@ -100,9 +99,9 @@ func WithDisableCaller() LoggerOption {
 	}
 }
 
-func WithDisableTime() LoggerOption {
+func WithTimeFormat(format string) LoggerOption {
 	return func(o *LoggerOptions) {
-		o.DisableTime = true
+		o.TimeFormat = format
 	}
 }
 
@@ -134,7 +133,7 @@ func New(opts ...LoggerOption) *slog.Logger {
 		ColorEnabled: ColorEnabled(),
 		Level:        DefaultLogLevel,
 		AddSource:    DefaultAddSource,
-		DisableTime:  DefaultDisableTime,
+		TimeFormat:   DefaultTimeFormat,
 	}
 
 	options.apply(opts...)
@@ -160,7 +159,7 @@ func NewLogr(opts ...LoggerOption) logr.Logger {
 		ColorEnabled: colorEnabled,
 		Level:        DefaultLogLevel,
 		AddSource:    DefaultAddSource,
-		DisableTime:  DefaultDisableTime,
+		TimeFormat:   DefaultTimeFormat,
 	}
 
 	options.apply(opts...)

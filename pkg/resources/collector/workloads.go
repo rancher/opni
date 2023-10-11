@@ -22,16 +22,19 @@ import (
 )
 
 const (
-	receiversKey       = "receivers.yaml"
-	mainKey            = "config.yaml"
-	aggregatorKey      = "aggregator.yaml"
+	receiversKey  = "receivers.yaml"
+	mainKey       = "config.yaml"
+	aggregatorKey = "aggregator.yaml"
+
 	collectorImageRepo = "ghcr.io"
 	collectorImage     = "rancher-sandbox/opni-otel-collector"
-	collectorVersion   = "v0.1.2-0.74.0"
+	collectorVersion   = "v0.1.4-rc1-0.85.0"
 	reloaderImage      = "rancher-sandbox/config-reloader"
 	reloaderVersion    = "v0.1.2"
+
 	otelColBinaryName  = "otelcol-custom"
 	otelConfigDir      = "/etc/otel"
+	otelFileStorageDir = "/var/otel/filestorage"
 
 	otlpGRPCPort    = int32(4317)
 	rke2AgentLogDir = "/var/lib/rancher/rke2/agent/logs/"
@@ -213,6 +216,10 @@ func (r *Reconciler) daemonSet() resources.Resource {
 			Name:      "collector-config",
 			MountPath: otelConfigDir,
 		},
+		{
+			Name:      "filestorage-extension",
+			MountPath: otelFileStorageDir,
+		},
 	}
 	volumes := []corev1.Volume{
 		{
@@ -222,6 +229,15 @@ func (r *Reconciler) daemonSet() resources.Resource {
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: r.agentConfigMapName(),
 					},
+				},
+			},
+		},
+		{
+			Name: "filestorage-extension",
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: otelFileStorageDir,
+					Type: &directoryOrCreate,
 				},
 			},
 		},

@@ -21,7 +21,7 @@ import (
 
 const (
 	configKey             = "config.yaml"
-	preprocessorVersion   = "v0.1.3-rc2-0.74.0"
+	preprocessorVersion   = "v0.1.4-rc1-0.85.0"
 	preprocessorImageRepo = "ghcr.io/rancher-sandbox"
 	preprocessorImage     = "opni-otel-collector"
 	otlpGRPCPort          = 4317
@@ -70,7 +70,6 @@ processors:
     log_statements:
     - context: log
       statements:
-      - merge_maps(attributes, body, "upsert") where attributes["filename"] == nil
       - set(attributes["COMM"], attributes["_COMM"])
       - delete_matching_keys(attributes, "^_.*")
     - context: resource

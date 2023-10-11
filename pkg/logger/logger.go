@@ -6,7 +6,6 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -14,9 +13,6 @@ import (
 	"github.com/kralicky/gpkg/sync"
 	slogmulti "github.com/samber/slog-multi"
 	slogsampling "github.com/samber/slog-sampling"
-	"github.com/ttacon/chalk"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 var (
@@ -195,77 +191,4 @@ func (s *sampler) onDroppedHook(_ context.Context, r slog.Record) {
 	key := r.Message
 	count, _ := s.dropped.LoadOrStore(key, 0)
 	s.dropped.Store(key, count+1)
-}
-
-// todo: replace remaining zap loggers with slog when their dependencies support slog
-func NewZap(opts ...LoggerOption) *zap.SugaredLogger {
-	options := &LoggerOptions{
-		Level:  DefaultLogLevel,
-		Writer: DefaultWriter,
-	}
-
-	options.apply(opts...)
-	var color bool
-	if options.ColorEnabled {
-		color = options.ColorEnabled
-	} else {
-		color = ColorEnabled()
-	}
-	encoderConfig := zapcore.EncoderConfig{
-		MessageKey:    "M",
-		LevelKey:      "L",
-		TimeKey:       "T",
-		NameKey:       "N",
-		CallerKey:     "C",
-		FunctionKey:   "",
-		StacktraceKey: "S",
-		LineEnding:    "\n",
-		EncodeLevel:   zapcore.CapitalColorLevelEncoder,
-		EncodeCaller: func(ec zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
-			if color {
-				enc.AppendString(TextStyle(ec.TrimmedPath(), chalk.Dim))
-			} else {
-				enc.AppendString(ec.TrimmedPath())
-			}
-		},
-		EncodeName: func(name string, enc zapcore.PrimitiveArrayEncoder) {
-			if len(name) == 0 {
-				return
-			}
-			if strings.HasPrefix(name, "plugin.") {
-				enc.AppendString(Color(name, chalk.Cyan))
-			} else {
-				enc.AppendString(Color(name, chalk.Green))
-			}
-		},
-		EncodeDuration:   zapcore.SecondsDurationEncoder,
-		EncodeTime:       zapcore.RFC3339TimeEncoder,
-		ConsoleSeparator: " ",
-	}
-	lvlStr, err := zapcore.ParseLevel(options.Level.Level().String())
-	if err != nil {
-		panic(err)
-	}
-	level := zap.NewAtomicLevelAt(lvlStr)
-	if options.Writer != nil {
-		ws := zapcore.Lock(zapcore.AddSync(options.Writer))
-		encoder := zapcore.NewConsoleEncoder(encoderConfig)
-		core := zapcore.NewCore(encoder, ws, level)
-		return zap.New(core).Sugar()
-	}
-	zapConfig := zap.Config{
-		Level:             level,
-		Development:       false,
-		DisableCaller:     !options.AddSource,
-		DisableStacktrace: true,
-		Encoding:          "console",
-		EncoderConfig:     encoderConfig,
-		OutputPaths:       []string{"stderr"},
-		ErrorOutputPaths:  []string{"stderr"},
-	}
-	lg, err := zapConfig.Build()
-	if err != nil {
-		panic(err)
-	}
-	return lg.Sugar()
 }

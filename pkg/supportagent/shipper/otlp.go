@@ -10,6 +10,7 @@ import (
 
 	"log/slog"
 
+	"github.com/go-logr/logr/slogr"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/adapter"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/entry"
 	"github.com/rancher/opni/pkg/logger"
@@ -92,7 +93,7 @@ func NewOTLPShipper(
 		otlpShipperOptions: options,
 		client:             collogspb.NewLogsServiceClient(cc),
 		dateParser:         parser,
-		converter:          adapter.NewConverter(logger.NewZap().Desugar()),
+		converter:          adapter.NewConverter(slogr.NewLogr(lg.Handler())),
 		lg:                 lg,
 	}
 }

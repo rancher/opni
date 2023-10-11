@@ -440,7 +440,7 @@ func init() {
 		}
 		lg, ok := args[1].(*slog.Logger)
 		if !ok {
-			return nil, fmt.Errorf("expected *zap.Logger, got %T", args[1])
+			return nil, fmt.Errorf("expected *slog.Logger, got %T", args[1])
 		}
 
 		var opts []PatchClientOption

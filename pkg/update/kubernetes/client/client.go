@@ -273,7 +273,7 @@ func init() {
 	update.RegisterAgentSyncHandlerBuilder(kubernetes.UpdateStrategy, func(args ...any) (update.SyncHandler, error) {
 		lg, ok := args[0].(*slog.Logger)
 		if !ok {
-			return nil, fmt.Errorf("expected *zap.Logger, got %T", args[0])
+			return nil, fmt.Errorf("expected *slog.Logger, got %T", args[0])
 		}
 
 		var opts []KubernetesOption

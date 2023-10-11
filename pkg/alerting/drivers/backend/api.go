@@ -19,7 +19,6 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	// "github.com/rancher/opni/pkg/logger"
 	// "github.com/samber/lo"
-	// "go.uber.org/zap"
 	// "slices"
 	// "google.golang.org/protobuf/encoding/protojson"
 	// "google.golang.org/protobuf/proto"

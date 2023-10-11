@@ -4,6 +4,7 @@ package controllers
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/go-logr/logr"
 	grafanav1alpha1 "github.com/grafana-operator/grafana-operator/v4/api/integreatly/v1alpha1"
@@ -11,7 +12,6 @@ import (
 	"github.com/grafana-operator/grafana-operator/v4/controllers/grafana"
 	"github.com/grafana-operator/grafana-operator/v4/controllers/grafanadashboard"
 	"github.com/grafana-operator/grafana-operator/v4/controllers/grafanadatasource"
-	"go.uber.org/zap/zapcore"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -55,7 +55,7 @@ type GrafanaDatasourceReconciler struct {
 func (r *GrafanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
-	r.Log = mgr.GetLogger().WithName("controllers").WithName("Grafana").V(int(zapcore.WarnLevel))
+	r.Log = mgr.GetLogger().WithName("controllers").WithName("Grafana").V(int(slog.LevelWarn))
 	ctx, ca := context.WithCancel(context.Background())
 	gc := &grafana.ReconcileGrafana{
 		Client:   r.Client,
@@ -82,7 +82,7 @@ func (r *GrafanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *GrafanaDashboardReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
-	r.Log = mgr.GetLogger().WithName("controllers").WithName("GrafanaDashboard").V(int(zapcore.WarnLevel))
+	r.Log = mgr.GetLogger().WithName("controllers").WithName("GrafanaDashboard").V(int(slog.LevelWarn))
 
 	reconciler := grafanadashboard.NewReconciler(mgr)
 	reconciler.(*grafanadashboard.GrafanaDashboardReconciler).Log = r.Log
@@ -93,7 +93,7 @@ func (r *GrafanaDashboardReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *GrafanaDatasourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
-	r.Log = mgr.GetLogger().WithName("controllers").WithName("GrafanaDatasource").V(int(zapcore.WarnLevel))
+	r.Log = mgr.GetLogger().WithName("controllers").WithName("GrafanaDatasource").V(int(slog.LevelWarn))
 	ctx, ca := context.WithCancel(context.Background())
 	gc := &grafanadatasource.GrafanaDatasourceReconciler{
 		Client:   r.Client,

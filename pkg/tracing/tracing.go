@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/go-logr/zapr"
 	"github.com/rancher/opni/pkg/logger"
 	"go.opentelemetry.io/contrib/propagators/autoprop"
 	"go.opentelemetry.io/otel"
@@ -53,5 +52,5 @@ func Configure(serviceName string) {
 
 	otel.SetTracerProvider(tracesdk.NewTracerProvider(opts...))
 	otel.SetTextMapPropagator(autoprop.NewTextMapPropagator())
-	otel.SetLogger(zapr.NewLogger(logger.NewZap().Named("tracing").Desugar()))
+	otel.SetLogger(logger.NewLogr().WithName("tracing"))
 }

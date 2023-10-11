@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/logr/slogr"
 	"github.com/kralicky/gpkg/sync"
 	slogmulti "github.com/samber/slog-multi"
 	slogsampling "github.com/samber/slog-sampling"
@@ -150,6 +152,32 @@ func New(opts ...LoggerOption) *slog.Logger {
 	}
 
 	return slog.New(handler)
+}
+
+func NewLogr(opts ...LoggerOption) logr.Logger {
+	options := &LoggerOptions{
+		Writer:       DefaultWriter,
+		ColorEnabled: colorEnabled,
+		Level:        DefaultLogLevel,
+		AddSource:    DefaultAddSource,
+		DisableTime:  DefaultDisableTime,
+	}
+
+	options.apply(opts...)
+
+	if DefaultWriter == nil {
+		DefaultWriter = os.Stdout
+	}
+
+	handler := newColorHandler(options.Writer, options)
+
+	if options.Sampling != nil {
+		return slogr.NewLogr(slogmulti.
+			Pipe(options.Sampling.NewMiddleware()).
+			Handler(handler))
+	}
+
+	return slogr.NewLogr(handler)
 }
 
 func NewNop() *slog.Logger {

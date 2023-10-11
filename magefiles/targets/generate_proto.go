@@ -21,7 +21,7 @@ import (
 
 // Generates Go protobuf code
 func (Generate) ProtobufGo(ctx context.Context) error {
-	mg.Deps(codegen.GenCortexConfig)
+	mg.Deps(codegen.GenCortexConfig) // codegen.GenAlertManagerReceiver)
 	_, tr := Tracer.Start(ctx, "target.generate.protobuf.go")
 	defer tr.End()
 
@@ -33,6 +33,7 @@ func (Generate) ProtobufGo(ctx context.Context) error {
 		[]string{
 			"internal/codegen/cli",
 			"internal/cortex",
+			"internal/alertmanager",
 			"pkg",
 			"plugins",
 		},

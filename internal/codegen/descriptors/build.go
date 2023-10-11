@@ -286,6 +286,18 @@ func (b *Builder) canInline(rf reflect.StructField, fieldType *builder.FieldType
 }
 
 func (b *Builder) fieldType(rf reflect.Type) *builder.FieldType {
+	{
+		rf := rf
+		if rf.Kind() == reflect.Slice {
+			rf = rf.Elem()
+		}
+		if rf.Kind() == reflect.Pointer {
+			rf = rf.Elem()
+		}
+		if c, ok := b.CustomFieldTypes[rf]; ok {
+			return c()
+		}
+	}
 	switch rf.Kind() {
 	case reflect.Bool:
 		return builder.FieldTypeBool()
@@ -304,15 +316,6 @@ func (b *Builder) fieldType(rf reflect.Type) *builder.FieldType {
 	case reflect.String:
 		return builder.FieldTypeString()
 	case reflect.Struct:
-		{
-			rf := rf
-			if rf.Kind() == reflect.Pointer {
-				rf = rf.Elem()
-			}
-			if c, ok := b.CustomFieldTypes[rf]; ok {
-				return c()
-			}
-		}
 		return builder.FieldTypeMessage(b.BuildMessage(rf, maybeApplyDiscoveredMetadata(rf)))
 	default:
 		panic("unsupported type: " + rf.String() + " (" + rf.Kind().String() + ")")

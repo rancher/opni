@@ -62,7 +62,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 		p.driver,
 	)
 	p.node.AddConfigListener(p.ruleStreamer)
-
 	return p
 }
 

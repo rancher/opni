@@ -2,10 +2,12 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	healthpkg "github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/alerting/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/node"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/rules"
@@ -14,16 +16,18 @@ import (
 
 var RuleSyncInterval = time.Minute * 2
 
+const (
+	CondRuleSync = "Rule Sync"
+)
+
 type RuleStreamer struct {
 	util.Initializer
 
 	parentCtx context.Context
+	lg        *zap.SugaredLogger
 
-	lg *zap.SugaredLogger
-
-	ruleStreamCtx  context.Context
 	stopRuleStream context.CancelFunc
-	ruleSyncClient rules.RuleSyncClient
+	ruleSyncClient future.Future[rules.RuleSyncClient]
 
 	conditions healthpkg.ConditionTracker
 	nodeDriver drivers.NodeDriver
@@ -38,16 +42,17 @@ func NewRuleStreamer(
 	nodeDriver drivers.NodeDriver,
 ) *RuleStreamer {
 	return &RuleStreamer{
-		parentCtx:  ctx,
-		lg:         lg,
-		conditions: ct,
-		nodeDriver: nodeDriver,
+		parentCtx:      ctx,
+		lg:             lg,
+		conditions:     ct,
+		nodeDriver:     nodeDriver,
+		ruleSyncClient: future.New[rules.RuleSyncClient](),
 	}
 }
 
 func (r *RuleStreamer) Initialize(ruleSyncClient rules.RuleSyncClient) {
 	r.InitOnce(func() {
-		r.ruleSyncClient = ruleSyncClient
+		r.ruleSyncClient.Set(ruleSyncClient)
 	})
 }
 
@@ -88,18 +93,35 @@ func (r *RuleStreamer) configureRuleStreamer(nodeId string, cfg *node.AlertingCa
 func (r *RuleStreamer) sync(ctx context.Context) {
 	ruleManifest, err := r.nodeDriver.DiscoverRules(ctx)
 	if err != nil {
+		r.conditions.Set(CondRuleSync, healthpkg.StatusFailure, fmt.Sprintf("Failed to discover rules : %s", err))
 		r.lg.Warnf("failed to discover rules %s", err)
+		return
 	}
 	r.lg.Infof("discovered %d rules", len(ruleManifest.Rules))
-	if _, err := r.ruleSyncClient.SyncRules(ctx, ruleManifest); err != nil {
+	ctx, ca := context.WithTimeout(ctx, RuleSyncInterval)
+	defer ca()
+	syncClient, err := r.ruleSyncClient.GetContext(ctx)
+	if err != nil {
+		r.conditions.Set(CondRuleSync, healthpkg.StatusFailure, fmt.Sprintf("Failed to get rule sync client : %s", err))
+		r.lg.Error("failed to get rule sync client", err, "err")
+		return
+	}
+	if _, err := syncClient.SyncRules(ctx, ruleManifest); err != nil {
+		r.conditions.Set(CondRuleSync, healthpkg.StatusFailure, fmt.Sprintf("Failed to sync rules : %s", err))
 		r.lg.Warnf("failed to sync rules %s", err)
+	} else {
+		r.conditions.Clear(CondRuleSync)
 	}
 }
 
 func (r *RuleStreamer) run(ctx context.Context) {
 	r.lg.Info("waiting for rule sync client...")
-	r.WaitForInitContext(ctx)
-	r.lg.Info("rule sync client acquired")
+	if err := r.WaitForInitContext(ctx); err != nil {
+		r.conditions.Set(CondRuleSync, healthpkg.StatusDisabled, fmt.Sprintf("Failed to run the rule syncer : %s", err))
+		r.lg.Errorf("failed to wait for rule sync client %s", err)
+		return
+	}
+	r.lg.Info("rule sync client acquired, starting initial sync...")
 	r.sync(ctx)
 	t := time.NewTicker(RuleSyncInterval)
 	defer t.Stop()

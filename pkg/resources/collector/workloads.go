@@ -75,6 +75,7 @@ func (r *Reconciler) getDaemonConfig(loggingReceivers []string) otel.NodeConfig 
 func (r *Reconciler) getDaemonOTELConfig() otel.NodeOTELConfig {
 	nodeOTELCfg := r.collector.Spec.NodeOTELConfigSpec
 	if nodeOTELCfg == nil {
+		r.logger.Warn("found no config for the daemon's OTEL Collector, falling back to default")
 		nodeOTELCfg = opnicorev1beta1.NewDefaultNodeOTELConfigSpec()
 	}
 
@@ -116,6 +117,7 @@ func (r *Reconciler) getAggregatorConfig(
 func (r *Reconciler) getAggregatorOTELConfig() otel.AggregatorOTELConfig {
 	aggregatorOTELCfg := r.collector.Spec.AggregatorOTELConfigSpec
 	if aggregatorOTELCfg == nil {
+		r.logger.Warn("found no config for the aggregator's OTEL Collector, falling back to default")
 		aggregatorOTELCfg = opnicorev1beta1.NewDefaultAggregatorOTELConfigSpec()
 	}
 	return otel.AggregatorOTELConfig{

@@ -10,7 +10,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	v1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/opni/cliutil"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -254,7 +254,7 @@ func BuildImportListCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Println(cliutil.RenderTargetList(targetList))
+			fmt.Println(cortexadmin.RenderTargetList(targetList))
 
 			return nil
 		},
@@ -443,7 +443,7 @@ func BuildDiscoverCmd() *cobra.Command {
 				return fmt.Errorf("could not start discovery: %w", err)
 			}
 
-			fmt.Println(cliutil.RenderDiscoveryEntries(response.Entries))
+			fmt.Println(cortexadmin.RenderDiscoveryEntries(response.Entries))
 
 			return nil
 		},

@@ -206,7 +206,7 @@ func BuildListRulesCmd() *cobra.Command {
 				return
 			}
 			if outputFormat == "table" {
-				fmt.Println(cliutil.RenderCortexRules(resp))
+				fmt.Println(cortexadmin.RenderCortexRules(resp))
 			} else {
 				fmt.Println(string(util.Must(json.Marshal(resp))))
 			}
@@ -381,7 +381,7 @@ func BuildCortexStatusCmd() *cobra.Command {
 			case "json":
 				fmt.Println(protojson.Format(status))
 			case "table":
-				fmt.Println(cliutil.RenderCortexClusterStatus(status))
+				fmt.Println(cortexadmin.RenderCortexClusterStatus(status))
 			default:
 				return fmt.Errorf("unknown output format: %s", outputFormat)
 			}
@@ -447,7 +447,7 @@ func BuildClusterStatsCmd() *cobra.Command {
 				).Warn("failed to query cortex stats")
 			}
 			clusterStats = stats
-			fmt.Println(cliutil.RenderClusterListWithStats(t, healthStatus, clusterStats))
+			fmt.Println(cortexadmin.RenderClusterListWithStats(t, healthStatus, clusterStats))
 		},
 	}
 	return cmd

@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/opni/cliutil"
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -35,14 +36,14 @@ func BuildMetricsConfigCmd() *cobra.Command {
 				return err
 			}
 
-			items := make([]cliutil.MetricsNodeConfigInfo, len(allAgents.Items))
+			items := make([]cortexadmin.MetricsNodeConfigInfo, len(allAgents.Items))
 			for i, agent := range allAgents.Items {
 				var trailer metadata.MD
 				spec, err := nodeConfigClient.GetNodeConfiguration(cmd.Context(), agent.Reference(), grpc.Trailer(&trailer))
 				if err != nil {
 					return err
 				}
-				items[i] = cliutil.MetricsNodeConfigInfo{
+				items[i] = cortexadmin.MetricsNodeConfigInfo{
 					Id:            agent.Id,
 					HasCapability: capabilities.Has(agent, capabilities.Cluster(wellknown.CapabilityMetrics)),
 					Spec:          spec,
@@ -50,7 +51,7 @@ func BuildMetricsConfigCmd() *cobra.Command {
 				}
 			}
 
-			fmt.Println(cliutil.RenderMetricsNodeConfigs(items, defaultConfig))
+			fmt.Println(cortexadmin.RenderMetricsNodeConfigs(items, defaultConfig))
 			return nil
 		},
 	}
@@ -93,7 +94,7 @@ func BuildMetricsConfigSetCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				updated, err := cliutil.EditInteractive(conf)
+				updated, err := cortexadmin.EditInteractive(conf)
 				if err != nil {
 					return err
 				}
@@ -128,7 +129,7 @@ func BuildMetricsConfigGetCmd() *cobra.Command {
 			return completeClusters(cmd, args, toComplete)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			infos := make([]cliutil.MetricsNodeConfigInfo, 0, len(args))
+			infos := make([]cortexadmin.MetricsNodeConfigInfo, 0, len(args))
 			for _, clusterID := range args {
 				ref := &corev1.Reference{Id: clusterID}
 				var trailer metadata.MD
@@ -141,14 +142,14 @@ func BuildMetricsConfigGetCmd() *cobra.Command {
 					return err
 				}
 
-				infos = append(infos, cliutil.MetricsNodeConfigInfo{
+				infos = append(infos, cortexadmin.MetricsNodeConfigInfo{
 					Id:            clusterID,
 					HasCapability: capabilities.Has(cluster, capabilities.Cluster(wellknown.CapabilityMetrics)),
 					Spec:          spec,
 					IsDefault:     node.IsDefaultConfig(trailer),
 				})
 			}
-			fmt.Println(cliutil.RenderMetricsNodeConfigs(infos, nil))
+			fmt.Println(cortexadmin.RenderMetricsNodeConfigs(infos, nil))
 			return nil
 		},
 	}
@@ -172,7 +173,7 @@ func BuildMetricsConfigResetCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			for _, clusterID := range args {
 				// set the config with a nil spec to reset it
-				_, err := nodeConfigClient.SetNodeConfiguration(cmd.Context(), &node.NodeConfigRequest{
+				_, err := nodeConfigClient.SetNodeConfiguration(cmd.Context(), &cortexadmin.NodeConfigRequest{
 					Node: &corev1.Reference{
 						Id: clusterID,
 					},
@@ -245,7 +246,7 @@ func BuildMetricsConfigGetDefaultCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Println(cliutil.RenderDefaultNodeConfig(spec))
+			fmt.Println(cortexadmin.RenderDefaultNodeConfig(spec))
 			return nil
 		},
 	}

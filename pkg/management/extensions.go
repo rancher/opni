@@ -56,6 +56,7 @@ func (m *Server) APIExtensions(context.Context, *emptypb.Empty) (*managementv1.A
 
 type UnknownStreamMetadata struct {
 	Conn            *grpc.ClientConn
+	ServiceDesc     *desc.ServiceDescriptor
 	Status          *health.ServingStatus
 	InputType       *desc.MessageDescriptor
 	OutputType      *desc.MessageDescriptor
@@ -95,7 +96,7 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.L
 
 			client := apiextensions.NewManagementAPIExtensionClient(cc)
 			healthChecker := health.ServiceHealthChecker{
-				HealthCheckMethod: apiextensions.ManagementAPIExtension_CheckHealth_FullMethodName,
+				HealthCheckMethod: apiextensions.ManagementAPIExtension_WatchHealth_FullMethodName,
 				Service:           svcName,
 			}
 			servingStatus := &health.ServingStatus{}
@@ -115,6 +116,7 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.L
 
 				methodTable.Store(fullName, &UnknownStreamMetadata{
 					Conn:            cc,
+					ServiceDesc:     svcDesc,
 					Status:          servingStatus,
 					InputType:       mtd.GetInputType(),
 					OutputType:      mtd.GetOutputType(),
@@ -154,7 +156,7 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.L
 		if conn, ok := methodTable.Load(fullMethodName); ok {
 			switch conn.Status.Get() {
 			case healthpb.HealthCheckResponse_NOT_SERVING:
-				return nil, nil, status.Error(codes.Unavailable, "service is not ready or has been shut down")
+				return nil, nil, status.Errorf(codes.Unavailable, "service %q is not ready or has been shut down", conn.ServiceDesc.GetFullyQualifiedName())
 			case healthpb.HealthCheckResponse_SERVICE_UNKNOWN:
 				return nil, nil, status.Error(codes.Internal, "unknown service")
 			}
@@ -308,7 +310,7 @@ func newHandler(
 		switch svcStatus.Get() {
 		case healthpb.HealthCheckResponse_NOT_SERVING:
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
-				status.Error(codes.Unavailable, "service is not ready or has been shut down"))
+				status.Errorf(codes.Unavailable, "service %q is not ready or has been shut down", svcDesc.GetFullyQualifiedName()))
 			return
 		case healthpb.HealthCheckResponse_SERVICE_UNKNOWN:
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,

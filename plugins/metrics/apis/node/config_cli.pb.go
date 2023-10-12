@@ -10,6 +10,7 @@ import (
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	v1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
+	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
 	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
@@ -70,7 +71,7 @@ func addBuildHook_NodeConfigurationGetDefaultConfiguration(hook func(*cobra.Comm
 func BuildNodeConfigurationGetDefaultConfigurationCmd() *cobra.Command {
 	in := &GetRequest{}
 	cmd := &cobra.Command{
-		Use:   "config get-default",
+		Use:   "get-default",
 		Short: "Returns the default implementation-specific configuration, or one previously set.",
 		Long: `
 If a default configuration was previously set using SetDefaultConfiguration, it
@@ -111,7 +112,7 @@ HTTP handlers for this method:
 func BuildNodeConfigurationSetDefaultConfigurationCmd() *cobra.Command {
 	in := &SetRequest{}
 	cmd := &cobra.Command{
-		Use:   "config set-default",
+		Use:   "set-default",
 		Short: "Sets the default configuration that will be used as the base for future configuration changes.",
 		Long: `
 If no custom default configuration is set using this method, implementation-specific
@@ -139,10 +140,13 @@ HTTP handlers for this method:
 				return nil
 			}
 			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
-				if edited, err := cliutil.EditInteractive(in); err != nil {
+				if curValue, err := client.GetDefaultConfiguration(cmd.Context(), &GetRequest{}); err == nil {
+					in.Spec = curValue
+				}
+				if edited, err := cliutil.EditInteractive(in.Spec); err != nil {
 					return err
 				} else {
-					in = edited
+					in.Spec = edited
 				}
 			} else if fileName := cmd.Flags().Lookup("file").Value.String(); fileName != "" {
 				if err := cliutil.LoadFromFile(in, fileName); err != nil {
@@ -168,7 +172,7 @@ HTTP handlers for this method:
 
 func BuildNodeConfigurationResetDefaultConfigurationCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "config reset-default",
+		Use:   "reset-default",
 		Short: "Resets the default configuration to the implementation-specific defaults.",
 		Long: `
 If a custom default configuration was previously set using SetDefaultConfiguration,
@@ -205,7 +209,7 @@ func addBuildHook_NodeConfigurationGetConfiguration(hook func(*cobra.Command)) {
 func BuildNodeConfigurationGetConfigurationCmd() *cobra.Command {
 	in := &GetRequest{}
 	cmd := &cobra.Command{
-		Use:   "config get",
+		Use:   "get",
 		Short: "Gets the current configuration, or the default configuration if not set.",
 		Long: `
 This configuration is maintained and versioned separately from the default
@@ -259,7 +263,7 @@ func addBuildHook_NodeConfigurationSetConfiguration(hook func(*cobra.Command)) {
 func BuildNodeConfigurationSetConfigurationCmd() *cobra.Command {
 	in := &SetRequest{}
 	cmd := &cobra.Command{
-		Use:   "config set",
+		Use:   "set",
 		Short: "Updates the active configuration by merging the input with the current active configuration.",
 		Long: `
 If there is no active configuration, the input will be merged with the default configuration.
@@ -304,10 +308,13 @@ HTTP handlers for this method:
 				return nil
 			}
 			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
-				if edited, err := cliutil.EditInteractive(in); err != nil {
+				if curValue, err := client.GetConfiguration(cmd.Context(), &GetRequest{}); err == nil {
+					in.Spec = curValue
+				}
+				if edited, err := cliutil.EditInteractive(in.Spec); err != nil {
 					return err
 				} else {
-					in = edited
+					in.Spec = edited
 				}
 			} else if fileName := cmd.Flags().Lookup("file").Value.String(); fileName != "" {
 				if err := cliutil.LoadFromFile(in, fileName); err != nil {
@@ -337,7 +344,7 @@ HTTP handlers for this method:
 func BuildNodeConfigurationResetConfigurationCmd() *cobra.Command {
 	in := &ResetRequest{}
 	cmd := &cobra.Command{
-		Use:   "config reset",
+		Use:   "reset",
 		Short: "Resets the active configuration to the current default configuration.",
 		Long: `
 The request may optionally contain a field mask to specify which fields should
@@ -398,7 +405,7 @@ HTTP handlers for this method:
 func BuildNodeConfigurationConfigurationHistoryCmd() *cobra.Command {
 	in := &ConfigurationHistoryRequest{}
 	cmd := &cobra.Command{
-		Use:   "config history",
+		Use:   "history",
 		Short: "Get a list of all past revisions of the configuration.",
 		Long: `
 Will return the history for either the active or default configuration
@@ -476,7 +483,7 @@ func (in *MetricsCapabilityConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	}
 	fs.AddFlagSet(in.Rules.FlagSet(append(prefix, "rules")...))
 	flagutil.SetDefValue(fs, strings.Join(append(prefix, "rules", "discovery.prometheus-rules.search-namespaces"), "."), `[""]`)
-	fs.Var(flagutil.EnumPtrValue(nil, &in.Driver), strings.Join(append(prefix, "driver"), "."), "")
+	fs.Var(flagutil.EnumPtrValue(flagutil.Ptr(MetricsCapabilityConfig_Prometheus), &in.Driver), strings.Join(append(prefix, "driver"), "."), "")
 	if in.Prometheus == nil {
 		in.Prometheus = &PrometheusSpec{}
 	}
@@ -532,7 +539,7 @@ func (in *ConfigurationHistoryRequest) FlagSet(prefix ...string) *pflag.FlagSet 
 		in.Node = &v1.Reference{}
 	}
 	fs.AddFlagSet(in.Node.FlagSet(append(prefix, "node")...))
-	fs.Var(flagutil.EnumValue(&in.Target), strings.Join(append(prefix, "target"), "."), "")
+	fs.Var(flagutil.EnumValue(driverutil.Target_ActiveConfiguration, &in.Target), strings.Join(append(prefix, "target"), "."), "")
 	if in.Revision == nil {
 		in.Revision = &v1.Revision{}
 	}

@@ -28,7 +28,7 @@ service NodeConfiguration {
   // {{ template "GetDefaultConfiguration" }}
   rpc GetDefaultConfiguration(GetRequest) returns (MetricsCapabilityConfig) {
     option (cli.command) = {
-      use:          "config get-default"
+      use:          "get-default"
       enable_hooks: true
     };
     option (google.api.http) = {
@@ -39,7 +39,7 @@ service NodeConfiguration {
   // {{ template "SetDefaultConfiguration" }}
   rpc SetDefaultConfiguration(SetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
-      use: "config set-default"
+      use: "set-default"
       granularity: EditMessage;
     };
     option (google.api.http) = {
@@ -51,7 +51,7 @@ service NodeConfiguration {
   // {{ template "ResetDefaultConfiguration" }}
   rpc ResetDefaultConfiguration(google.protobuf.Empty) returns (google.protobuf.Empty) {
     option (cli.command) = {
-      use: "config reset-default"
+      use: "reset-default"
     };
     option (google.api.http) = {
       delete: "/node_config"
@@ -61,7 +61,7 @@ service NodeConfiguration {
   // {{ template "GetConfiguration" }}
   rpc GetConfiguration(GetRequest) returns (MetricsCapabilityConfig) {
     option (cli.command) = {
-      use:          "config get"
+      use:          "get"
       enable_hooks: true
     };
     option (google.api.http) = {
@@ -72,7 +72,7 @@ service NodeConfiguration {
   // {{ template "SetConfiguration" }}
   rpc SetConfiguration(SetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
-      use: "config set"
+      use: "set"
       enable_hooks: true
       granularity: EditMessage;
     };
@@ -85,7 +85,7 @@ service NodeConfiguration {
   // {{ template "ResetConfiguration" }}
   rpc ResetConfiguration(ResetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
-      use: "config reset"
+      use: "reset"
     };
     option (google.api.http) = {
       delete: "/node_config/{node.id}"
@@ -95,7 +95,7 @@ service NodeConfiguration {
   // {{ template "ConfigurationHistory" }}
   rpc ConfigurationHistory(ConfigurationHistoryRequest) returns (ConfigurationHistoryResponse) {
     option (cli.command) = {
-      use: "config history"
+      use: "history"
     };
     option (google.api.http) = {
       get: "/node_config/{node.id}/history"

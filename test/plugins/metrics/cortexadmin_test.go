@@ -3,9 +3,9 @@ package metrics_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/metrics/naming"
@@ -360,7 +360,7 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 
 		It("Should be able to create rules from prometheus yaml", func() {
 			sampleRule := fmt.Sprintf("%s/sampleRule.yaml", ruleTestDataDir)
-			sampleRuleYamlString, err := ioutil.ReadFile(sampleRule)
+			sampleRuleYamlString, err := os.ReadFile(sampleRule)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
 				&cortexadmin.LoadRuleRequest{
@@ -373,7 +373,7 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 			// Note that sloth by default groups its output into a list of rulefmt.RuleGroup called "groups:"
 			// While we require the list of rulefmt.RuleGroup to be separated by "---\n"
 			slothGeneratedGroup := fmt.Sprintf("%s/slothGeneratedGroup.yaml", ruleTestDataDir)
-			slothGeneratedGroupYamlString, err := ioutil.ReadFile(slothGeneratedGroup)
+			slothGeneratedGroupYamlString, err := os.ReadFile(slothGeneratedGroup)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
 				&cortexadmin.LoadRuleRequest{
@@ -394,7 +394,7 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 
 		It("Should be able to update existing rule groups", func() {
 			sampleRuleUpdate := fmt.Sprintf("%s/sampleRuleUpdate.yaml", ruleTestDataDir)
-			sampleRuleYamlUpdateString, err := ioutil.ReadFile(sampleRuleUpdate)
+			sampleRuleYamlUpdateString, err := os.ReadFile(sampleRuleUpdate)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
 				&cortexadmin.LoadRuleRequest{
@@ -431,7 +431,7 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 	When("We are in a multitenant environment", func() {
 		It("Should be able to apply rules across tenants", func() {
 			sampleRule := fmt.Sprintf("%s/sampleRule.yaml", ruleTestDataDir)
-			sampleRuleYamlString, err := ioutil.ReadFile(sampleRule)
+			sampleRuleYamlString, err := os.ReadFile(sampleRule)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
 				&cortexadmin.LoadRuleRequest{

@@ -89,10 +89,6 @@ type ImplementationSpecificOverridesShape = struct {
 	AlertmanagerURL      string
 }
 
-type cortexConfigOverrider[T any] interface {
-	applyConfigOverrides(cfg *T) bool
-}
-
 type cortexConfigOverriderFunc[T any] func(cfg *T) bool
 
 func (f cortexConfigOverriderFunc[T]) applyConfigOverrides(cfg any) bool {

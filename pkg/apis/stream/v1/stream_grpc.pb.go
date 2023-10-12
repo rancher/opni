@@ -84,17 +84,16 @@ func (c *streamClient) Notify(ctx context.Context, in *StreamEvent, opts ...grpc
 }
 
 // StreamServer is the server API for Stream service.
-// All implementations must embed UnimplementedStreamServer
+// All implementations should embed UnimplementedStreamServer
 // for forward compatibility
 type StreamServer interface {
 	Connect(Stream_ConnectServer) error
 	// Used for implementation-specific events. No guarantees are made about
 	// whether events will be sent or when.
 	Notify(context.Context, *StreamEvent) (*emptypb.Empty, error)
-	mustEmbedUnimplementedStreamServer()
 }
 
-// UnimplementedStreamServer must be embedded to have forward compatible implementations.
+// UnimplementedStreamServer should be embedded to have forward compatible implementations.
 type UnimplementedStreamServer struct {
 }
 
@@ -104,7 +103,6 @@ func (UnimplementedStreamServer) Connect(Stream_ConnectServer) error {
 func (UnimplementedStreamServer) Notify(context.Context, *StreamEvent) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Notify not implemented")
 }
-func (UnimplementedStreamServer) mustEmbedUnimplementedStreamServer() {}
 
 // UnsafeStreamServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to StreamServer will
@@ -227,7 +225,7 @@ func (c *delegateClient) Broadcast(ctx context.Context, in *BroadcastMessage, op
 }
 
 // DelegateServer is the server API for Delegate service.
-// All implementations must embed UnimplementedDelegateServer
+// All implementations should embed UnimplementedDelegateServer
 // for forward compatibility
 type DelegateServer interface {
 	// A synchronous request-response RPC sent to a single client.
@@ -235,10 +233,9 @@ type DelegateServer interface {
 	// A best-effort broadcast sent to all connected clients, with an
 	// optional target filter.
 	Broadcast(context.Context, *BroadcastMessage) (*BroadcastReplyList, error)
-	mustEmbedUnimplementedDelegateServer()
 }
 
-// UnimplementedDelegateServer must be embedded to have forward compatible implementations.
+// UnimplementedDelegateServer should be embedded to have forward compatible implementations.
 type UnimplementedDelegateServer struct {
 }
 
@@ -248,7 +245,6 @@ func (UnimplementedDelegateServer) Request(context.Context, *DelegatedMessage) (
 func (UnimplementedDelegateServer) Broadcast(context.Context, *BroadcastMessage) (*BroadcastReplyList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Broadcast not implemented")
 }
-func (UnimplementedDelegateServer) mustEmbedUnimplementedDelegateServer() {}
 
 // UnsafeDelegateServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to DelegateServer will
@@ -346,21 +342,19 @@ func (c *relayClient) RelayDelegateRequest(ctx context.Context, in *RelayedDeleg
 }
 
 // RelayServer is the server API for Relay service.
-// All implementations must embed UnimplementedRelayServer
+// All implementations should embed UnimplementedRelayServer
 // for forward compatibility
 type RelayServer interface {
 	RelayDelegateRequest(context.Context, *RelayedDelegatedMessage) (*DelegatedMessageReply, error)
-	mustEmbedUnimplementedRelayServer()
 }
 
-// UnimplementedRelayServer must be embedded to have forward compatible implementations.
+// UnimplementedRelayServer should be embedded to have forward compatible implementations.
 type UnimplementedRelayServer struct {
 }
 
 func (UnimplementedRelayServer) RelayDelegateRequest(context.Context, *RelayedDelegatedMessage) (*DelegatedMessageReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RelayDelegateRequest not implemented")
 }
-func (UnimplementedRelayServer) mustEmbedUnimplementedRelayServer() {}
 
 // UnsafeRelayServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to RelayServer will

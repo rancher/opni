@@ -144,7 +144,7 @@ func (c *backendClient) InstallerTemplate(ctx context.Context, in *emptypb.Empty
 }
 
 // BackendServer is the server API for Backend service.
-// All implementations must embed UnimplementedBackendServer
+// All implementations should embed UnimplementedBackendServer
 // for forward compatibility
 type BackendServer interface {
 	// Returns info about the backend, including capability name
@@ -171,10 +171,9 @@ type BackendServer interface {
 	// install the capability. This will be displayed to the user in the UI.
 	// See InstallerTemplateSpec above for the available template fields.
 	InstallerTemplate(context.Context, *emptypb.Empty) (*InstallerTemplateResponse, error)
-	mustEmbedUnimplementedBackendServer()
 }
 
-// UnimplementedBackendServer must be embedded to have forward compatible implementations.
+// UnimplementedBackendServer should be embedded to have forward compatible implementations.
 type UnimplementedBackendServer struct {
 }
 
@@ -202,7 +201,6 @@ func (UnimplementedBackendServer) CancelUninstall(context.Context, *v1.Reference
 func (UnimplementedBackendServer) InstallerTemplate(context.Context, *emptypb.Empty) (*InstallerTemplateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InstallerTemplate not implemented")
 }
-func (UnimplementedBackendServer) mustEmbedUnimplementedBackendServer() {}
 
 // UnsafeBackendServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to BackendServer will
@@ -432,21 +430,19 @@ func (c *nodeClient) SyncNow(ctx context.Context, in *Filter, opts ...grpc.CallO
 }
 
 // NodeServer is the server API for Node service.
-// All implementations must embed UnimplementedNodeServer
+// All implementations should embed UnimplementedNodeServer
 // for forward compatibility
 type NodeServer interface {
 	SyncNow(context.Context, *Filter) (*emptypb.Empty, error)
-	mustEmbedUnimplementedNodeServer()
 }
 
-// UnimplementedNodeServer must be embedded to have forward compatible implementations.
+// UnimplementedNodeServer should be embedded to have forward compatible implementations.
 type UnimplementedNodeServer struct {
 }
 
 func (UnimplementedNodeServer) SyncNow(context.Context, *Filter) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SyncNow not implemented")
 }
-func (UnimplementedNodeServer) mustEmbedUnimplementedNodeServer() {}
 
 // UnsafeNodeServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to NodeServer will

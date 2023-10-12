@@ -158,7 +158,7 @@ func (c *loggingAdminV2Client) ListSnapshotSchedules(ctx context.Context, in *em
 }
 
 // LoggingAdminV2Server is the server API for LoggingAdminV2 service.
-// All implementations must embed UnimplementedLoggingAdminV2Server
+// All implementations should embed UnimplementedLoggingAdminV2Server
 // for forward compatibility
 type LoggingAdminV2Server interface {
 	GetOpensearchCluster(context.Context, *emptypb.Empty) (*OpensearchClusterV2, error)
@@ -172,10 +172,9 @@ type LoggingAdminV2Server interface {
 	GetSnapshotSchedule(context.Context, *SnapshotReference) (*SnapshotSchedule, error)
 	DeleteSnapshotSchedule(context.Context, *SnapshotReference) (*emptypb.Empty, error)
 	ListSnapshotSchedules(context.Context, *emptypb.Empty) (*SnapshotStatusList, error)
-	mustEmbedUnimplementedLoggingAdminV2Server()
 }
 
-// UnimplementedLoggingAdminV2Server must be embedded to have forward compatible implementations.
+// UnimplementedLoggingAdminV2Server should be embedded to have forward compatible implementations.
 type UnimplementedLoggingAdminV2Server struct {
 }
 
@@ -212,7 +211,6 @@ func (UnimplementedLoggingAdminV2Server) DeleteSnapshotSchedule(context.Context,
 func (UnimplementedLoggingAdminV2Server) ListSnapshotSchedules(context.Context, *emptypb.Empty) (*SnapshotStatusList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListSnapshotSchedules not implemented")
 }
-func (UnimplementedLoggingAdminV2Server) mustEmbedUnimplementedLoggingAdminV2Server() {}
 
 // UnsafeLoggingAdminV2Server may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to LoggingAdminV2Server will

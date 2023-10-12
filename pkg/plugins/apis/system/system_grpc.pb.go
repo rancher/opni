@@ -81,17 +81,16 @@ func (c *systemClient) UseCachingProvider(ctx context.Context, in *emptypb.Empty
 }
 
 // SystemServer is the server API for System service.
-// All implementations must embed UnimplementedSystemServer
+// All implementations should embed UnimplementedSystemServer
 // for forward compatibility
 type SystemServer interface {
 	UseManagementAPI(context.Context, *BrokerID) (*emptypb.Empty, error)
 	UseKeyValueStore(context.Context, *BrokerID) (*emptypb.Empty, error)
 	UseAPIExtensions(context.Context, *DialAddress) (*emptypb.Empty, error)
 	UseCachingProvider(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	mustEmbedUnimplementedSystemServer()
 }
 
-// UnimplementedSystemServer must be embedded to have forward compatible implementations.
+// UnimplementedSystemServer should be embedded to have forward compatible implementations.
 type UnimplementedSystemServer struct {
 }
 
@@ -107,7 +106,6 @@ func (UnimplementedSystemServer) UseAPIExtensions(context.Context, *DialAddress)
 func (UnimplementedSystemServer) UseCachingProvider(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UseCachingProvider not implemented")
 }
-func (UnimplementedSystemServer) mustEmbedUnimplementedSystemServer() {}
 
 // UnsafeSystemServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to SystemServer will
@@ -338,7 +336,7 @@ func (c *keyValueStoreClient) Lock(ctx context.Context, in *LockRequest, opts ..
 }
 
 // KeyValueStoreServer is the server API for KeyValueStore service.
-// All implementations must embed UnimplementedKeyValueStoreServer
+// All implementations should embed UnimplementedKeyValueStoreServer
 // for forward compatibility
 type KeyValueStoreServer interface {
 	Put(context.Context, *PutRequest) (*PutResponse, error)
@@ -348,10 +346,9 @@ type KeyValueStoreServer interface {
 	ListKeys(context.Context, *ListKeysRequest) (*ListKeysResponse, error)
 	History(context.Context, *HistoryRequest) (*HistoryResponse, error)
 	Lock(context.Context, *LockRequest) (*emptypb.Empty, error)
-	mustEmbedUnimplementedKeyValueStoreServer()
 }
 
-// UnimplementedKeyValueStoreServer must be embedded to have forward compatible implementations.
+// UnimplementedKeyValueStoreServer should be embedded to have forward compatible implementations.
 type UnimplementedKeyValueStoreServer struct {
 }
 
@@ -376,7 +373,6 @@ func (UnimplementedKeyValueStoreServer) History(context.Context, *HistoryRequest
 func (UnimplementedKeyValueStoreServer) Lock(context.Context, *LockRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Lock not implemented")
 }
-func (UnimplementedKeyValueStoreServer) mustEmbedUnimplementedKeyValueStoreServer() {}
 
 // UnsafeKeyValueStoreServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to KeyValueStoreServer will

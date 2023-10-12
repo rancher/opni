@@ -47,21 +47,19 @@ func (c *nodeLoggingCapabilityClient) Sync(ctx context.Context, in *SyncRequest,
 }
 
 // NodeLoggingCapabilityServer is the server API for NodeLoggingCapability service.
-// All implementations must embed UnimplementedNodeLoggingCapabilityServer
+// All implementations should embed UnimplementedNodeLoggingCapabilityServer
 // for forward compatibility
 type NodeLoggingCapabilityServer interface {
 	Sync(context.Context, *SyncRequest) (*SyncResponse, error)
-	mustEmbedUnimplementedNodeLoggingCapabilityServer()
 }
 
-// UnimplementedNodeLoggingCapabilityServer must be embedded to have forward compatible implementations.
+// UnimplementedNodeLoggingCapabilityServer should be embedded to have forward compatible implementations.
 type UnimplementedNodeLoggingCapabilityServer struct {
 }
 
 func (UnimplementedNodeLoggingCapabilityServer) Sync(context.Context, *SyncRequest) (*SyncResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Sync not implemented")
 }
-func (UnimplementedNodeLoggingCapabilityServer) mustEmbedUnimplementedNodeLoggingCapabilityServer() {}
 
 // UnsafeNodeLoggingCapabilityServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to NodeLoggingCapabilityServer will

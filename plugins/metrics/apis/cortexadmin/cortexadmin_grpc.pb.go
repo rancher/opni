@@ -204,7 +204,7 @@ func (c *cortexAdminClient) ExtractRawSeries(ctx context.Context, in *MatcherReq
 }
 
 // CortexAdminServer is the server API for CortexAdmin service.
-// All implementations must embed UnimplementedCortexAdminServer
+// All implementations should embed UnimplementedCortexAdminServer
 // for forward compatibility
 type CortexAdminServer interface {
 	AllUserStats(context.Context, *emptypb.Empty) (*UserIDStatsList, error)
@@ -224,10 +224,9 @@ type CortexAdminServer interface {
 	GetCortexStatus(context.Context, *emptypb.Empty) (*CortexStatus, error)
 	GetCortexConfig(context.Context, *ConfigRequest) (*ConfigResponse, error)
 	ExtractRawSeries(context.Context, *MatcherRequest) (*QueryResponse, error)
-	mustEmbedUnimplementedCortexAdminServer()
 }
 
-// UnimplementedCortexAdminServer must be embedded to have forward compatible implementations.
+// UnimplementedCortexAdminServer should be embedded to have forward compatible implementations.
 type UnimplementedCortexAdminServer struct {
 }
 
@@ -276,7 +275,6 @@ func (UnimplementedCortexAdminServer) GetCortexConfig(context.Context, *ConfigRe
 func (UnimplementedCortexAdminServer) ExtractRawSeries(context.Context, *MatcherRequest) (*QueryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExtractRawSeries not implemented")
 }
-func (UnimplementedCortexAdminServer) mustEmbedUnimplementedCortexAdminServer() {}
 
 // UnsafeCortexAdminServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to CortexAdminServer will

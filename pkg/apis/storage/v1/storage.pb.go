@@ -22,8 +22,8 @@ const (
 
 // Symbols defined in public import of github.com/rancher/opni/internal/cortex/config/storage/storage.proto.
 
-type AzureConfig = storage.AzureConfig
 type Config = storage.Config
+type AzureConfig = storage.AzureConfig
 type FilesystemConfig = storage.FilesystemConfig
 type GcsConfig = storage.GcsConfig
 type HttpConfig = storage.HttpConfig

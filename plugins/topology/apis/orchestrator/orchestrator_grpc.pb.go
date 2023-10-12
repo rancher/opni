@@ -48,21 +48,19 @@ func (c *topologyOrchestratorClient) GetClusterStatus(ctx context.Context, in *e
 }
 
 // TopologyOrchestratorServer is the server API for TopologyOrchestrator service.
-// All implementations must embed UnimplementedTopologyOrchestratorServer
+// All implementations should embed UnimplementedTopologyOrchestratorServer
 // for forward compatibility
 type TopologyOrchestratorServer interface {
 	GetClusterStatus(context.Context, *emptypb.Empty) (*InstallStatus, error)
-	mustEmbedUnimplementedTopologyOrchestratorServer()
 }
 
-// UnimplementedTopologyOrchestratorServer must be embedded to have forward compatible implementations.
+// UnimplementedTopologyOrchestratorServer should be embedded to have forward compatible implementations.
 type UnimplementedTopologyOrchestratorServer struct {
 }
 
 func (UnimplementedTopologyOrchestratorServer) GetClusterStatus(context.Context, *emptypb.Empty) (*InstallStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetClusterStatus not implemented")
 }
-func (UnimplementedTopologyOrchestratorServer) mustEmbedUnimplementedTopologyOrchestratorServer() {}
 
 // UnsafeTopologyOrchestratorServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to TopologyOrchestratorServer will

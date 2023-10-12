@@ -20,7 +20,7 @@ func TestStorage(t *testing.T) {
 }
 
 var lmsEtcdF = future.New[[]*etcd.EtcdStore]()
-var lmsJetstreamF = future.New[[]*jetstream.LockManager]()
+var lmsJetstreamF = future.New[[]*jetstream.JetStreamStore]()
 
 var _ = BeforeSuite(func() {
 	testruntime.IfIntegration(func() {
@@ -39,9 +39,9 @@ var _ = BeforeSuite(func() {
 			Expect(err).NotTo(HaveOccurred())
 			lmsE[i] = l
 		}
-		lmsJ := make([]*jetstream.LockManager, 7)
+		lmsJ := make([]*jetstream.JetStreamStore, 7)
 		for i := 0; i < 7; i++ {
-			j, err := jetstream.NewJetstreamLockManager(context.Background(), env.JetStreamConfig())
+			j, err := jetstream.NewJetStreamStore(context.Background(), env.JetStreamConfig())
 			Expect(err).NotTo(HaveOccurred())
 			lmsJ[i] = j
 		}

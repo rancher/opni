@@ -170,3 +170,19 @@ func (l *Lock) tryUnlock() error {
 	}
 	return nil
 }
+
+func (l *Lock) Key() string {
+	return l.key
+}
+
+func (l *Lock) TryLock() (bool, error) {
+	// TODO
+	err := l.tryLock()
+	return err == nil, err
+}
+
+func (l *Lock) TryUnlock() (bool, error) {
+	// TODO
+	err := l.tryUnlock()
+	return err == nil, err
+}

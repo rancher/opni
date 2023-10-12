@@ -29,7 +29,7 @@ var (
 	DefaultWriter     io.Writer
 	DefaultAddSource  = true
 	pluginGroupPrefix = "plugin"
-	NoRepeatInterval  = 365 * 24 * time.Hour // arbitrarily long time to denote one-time sampling
+	NoRepeatInterval  = 3600 * time.Hour // arbitrarily long time to denote one-time sampling
 	DefaultTimeFormat = "2006 Jan 02 15:04:05"
 	errKey            = "err"
 )
@@ -104,26 +104,16 @@ func WithTimeFormat(format string) LoggerOption {
 func WithSampling(cfg *slogsampling.ThresholdSamplingOption) LoggerOption {
 	return func(o *LoggerOptions) {
 		o.Sampling = &slogsampling.ThresholdSamplingOption{
-			Tick:      cfg.Tick,
-			Threshold: cfg.Threshold,
-			Rate:      cfg.Rate,
-			OnDropped: logSampler.onDroppedHook,
-		}
-		o.ReplaceAttr = func(groups []string, a slog.Attr) slog.Attr {
-			if a.Key == slog.MessageKey {
-				msg := a.Value.String()
-				count, _ := logSampler.dropped.LoadOrStore(msg, 0)
-				if count > 0 {
-					numDropped, _ := logSampler.dropped.LoadAndDelete(msg)
-					a.Value = slog.StringValue(fmt.Sprintf("x%d %s", numDropped+1, msg))
-				}
-			}
-			return a
+			Tick:       cfg.Tick,
+			Threshold:  cfg.Threshold,
+			Rate:       cfg.Rate,
+			OnDropped:  logSampler.onDroppedHook,
+			OnAccepted: logSampler.onAcceptedHook,
 		}
 	}
 }
 
-func New(opts ...LoggerOption) *slog.Logger {
+func colorHandlerWithOptions(opts ...LoggerOption) slog.Handler {
 	options := &LoggerOptions{
 		Writer:       DefaultWriter,
 		ColorEnabled: ColorEnabled(),
@@ -141,38 +131,19 @@ func New(opts ...LoggerOption) *slog.Logger {
 	handler := newColorHandler(options.Writer, options)
 
 	if options.Sampling != nil {
-		return slog.New(slogmulti.
+		return slogmulti.
 			Pipe(options.Sampling.NewMiddleware()).
-			Handler(handler))
+			Handler(handler)
 	}
+	return handler
+}
 
-	return slog.New(handler)
+func New(opts ...LoggerOption) *slog.Logger {
+	return slog.New(colorHandlerWithOptions(opts...))
 }
 
 func NewLogr(opts ...LoggerOption) logr.Logger {
-	options := &LoggerOptions{
-		Writer:       DefaultWriter,
-		ColorEnabled: colorEnabled,
-		Level:        DefaultLogLevel,
-		AddSource:    DefaultAddSource,
-		TimeFormat:   DefaultTimeFormat,
-	}
-
-	options.apply(opts...)
-
-	if DefaultWriter == nil {
-		DefaultWriter = os.Stdout
-	}
-
-	handler := newColorHandler(options.Writer, options)
-
-	if options.Sampling != nil {
-		return slogr.NewLogr(slogmulti.
-			Pipe(options.Sampling.NewMiddleware()).
-			Handler(handler))
-	}
-
-	return slogr.NewLogr(handler)
+	return slogr.NewLogr(colorHandlerWithOptions(opts...))
 }
 
 func NewNop() *slog.Logger {
@@ -191,4 +162,23 @@ func (s *sampler) onDroppedHook(_ context.Context, r slog.Record) {
 	key := r.Message
 	count, _ := s.dropped.LoadOrStore(key, 0)
 	s.dropped.Store(key, count+1)
+}
+
+func (s *sampler) onAcceptedHook(_ context.Context, r slog.Record) {
+	attrs := []slog.Attr{}
+
+	msg := r.Message
+	count, _ := s.dropped.Load(msg)
+	if count > 0 {
+		numDropped, _ := s.dropped.LoadAndDelete(msg)
+		msg = fmt.Sprintf("x%d %s", numDropped+1, msg)
+	}
+
+	r.Attrs(func(attr slog.Attr) bool {
+		attrs = append(attrs, attr)
+		return true
+	})
+
+	r = slog.NewRecord(r.Time, r.Level, msg, r.PC)
+	r.AddAttrs(attrs...)
 }

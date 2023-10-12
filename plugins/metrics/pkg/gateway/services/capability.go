@@ -1,4 +1,4 @@
-package management
+package services
 
 import (
 	"context"
@@ -14,13 +14,11 @@ import (
 	"github.com/lestrrat-go/backoff/v2"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/machinery/uninstall"
-	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
@@ -34,6 +32,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/types"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/tools/pkg/memoize"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -41,47 +40,46 @@ import (
 )
 
 type CapabilityBackendService struct {
-	sc types.ServiceContext
+	Context types.ServiceContext `option:"context"`
 
 	nodeStatusMu sync.RWMutex
 	nodeStatus   map[string]*capabilityv1.NodeCapabilityStatus
 
 	uninstallController *task.Controller
-
-	nodeConfigClient node.NodeConfigurationClient
+	nodeConfigClient    node.NodeConfigurationClient
 }
 
 var _ types.Service = (*CapabilityBackendService)(nil)
 
+// AddToScheme implements types.PluginService
 func (s *CapabilityBackendService) AddToScheme(scheme meta.Scheme) {
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(s))
 }
 
+func (s *CapabilityBackendService) StreamServices() []util.ServicePackInterface {
+	return []util.ServicePackInterface{
+		util.PackService[node.NodeMetricsCapabilityServer](&node.NodeMetricsCapability_ServiceDesc, s),
+	}
+}
+
 // Activate implements types.Service
-func (s *CapabilityBackendService) Activate(ctx types.ServiceContext) error {
-	ctrl := ctx.(types.ManagementServiceContext).RegisterService(
-		util.PackService[capabilityv1.BackendServer](&capabilityv1.Backend_ServiceDesc, s))
-	defer ctrl.SetServingStatus(managementext.Serving)
-
-	uninstallRunner, err := NewUninstallTaskRunner(ctx)
+func (s *CapabilityBackendService) Activate() error {
+	uninstallRunner, err := NewUninstallTaskRunner(s.Context)
 	if err != nil {
 		return err
 	}
-	s.uninstallController, err = task.NewController(ctx, "uninstall",
-		system.NewKVStoreClient[*corev1.TaskStatus](ctx.KeyValueStoreClient()), uninstallRunner)
+	s.uninstallController, err = task.NewController(s.Context, "uninstall",
+		system.NewKVStoreClient[*corev1.TaskStatus](s.Context.KeyValueStoreClient()), uninstallRunner)
 	if err != nil {
 		return err
 	}
 
-	s.nodeConfigClient = node.NewNodeConfigurationClient(managementv1.UnderlyingConn(ctx.ManagementClient()))
-	s.nodeStatus = make(map[string]*capabilityv1.NodeCapabilityStatus)
-	s.sc = ctx
+	s.nodeConfigClient = node.NewNodeConfigurationClient(s.Context.ExtensionClient().GetClientConnUnchecked())
 	return nil
 }
 
 // Info implements capabilityv1.BackendServer
 func (m *CapabilityBackendService) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
-	// Info must not block
 	return &capabilityv1.Details{
 		Name:    wellknown.CapabilityMetrics,
 		Source:  "plugin_metrics",
@@ -95,7 +93,7 @@ func (m *CapabilityBackendService) CanInstall(_ context.Context, _ *emptypb.Empt
 }
 
 func (m *CapabilityBackendService) canInstall(ctx context.Context) error {
-	stat, err := m.sc.ClusterDriver().Status(ctx, &emptypb.Empty{})
+	stat, err := m.Context.ClusterDriver().Status(ctx, &emptypb.Empty{})
 	if err != nil {
 		return status.Error(codes.Unavailable, err.Error())
 	}
@@ -124,7 +122,7 @@ func (m *CapabilityBackendService) Install(ctx context.Context, req *capabilityv
 		warningErr = err
 	}
 
-	_, err = m.sc.StorageBackend().UpdateCluster(ctx, req.Cluster,
+	_, err = m.Context.StorageBackend().UpdateCluster(ctx, req.Cluster,
 		storage.NewAddCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityMetrics)),
 	)
 	if err != nil {
@@ -162,7 +160,7 @@ func (m *CapabilityBackendService) Status(_ context.Context, req *corev1.Referen
 
 // Uninstall implements capabilityv1.BackendServer
 func (m *CapabilityBackendService) Uninstall(ctx context.Context, req *capabilityv1.UninstallRequest) (*emptypb.Empty, error) {
-	cluster, err := m.sc.ManagementClient().GetCluster(ctx, req.Cluster)
+	cluster, err := m.Context.ManagementClient().GetCluster(ctx, req.Cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +206,7 @@ func (m *CapabilityBackendService) Uninstall(ctx context.Context, req *capabilit
 	}
 
 	now := timestamppb.Now()
-	_, err = m.sc.StorageBackend().UpdateCluster(ctx, cluster.Reference(), func(c *corev1.Cluster) {
+	_, err = m.Context.StorageBackend().UpdateCluster(ctx, cluster.Reference(), func(c *corev1.Cluster) {
 		for _, cap := range c.Metadata.Capabilities {
 			if cap.Name == wellknown.CapabilityMetrics {
 				cap.DeletionTimestamp = now
@@ -220,7 +218,7 @@ func (m *CapabilityBackendService) Uninstall(ctx context.Context, req *capabilit
 		return nil, fmt.Errorf("failed to update cluster metadata: %v", err)
 	}
 	if err := m.requestNodeSync(ctx, req.Cluster); err != nil {
-		m.sc.Logger().With(
+		m.Context.Logger().With(
 			zap.Error(err),
 			"agent", req.Cluster,
 		).Warn("sync request failed; agent may not be updated immediately")
@@ -267,7 +265,7 @@ func (m *CapabilityBackendService) requestNodeSync(ctx context.Context, target *
 	if target == nil || target.Id == "" {
 		panic("bug: target must be non-nil and have a non-empty ID. this logic was recently changed - please update the caller")
 	}
-	_, err := m.sc.Delegate().
+	_, err := m.Context.Delegate().
 		WithTarget(target).
 		SyncNow(ctx, &capabilityv1.Filter{CapabilityNames: []string{wellknown.CapabilityMetrics}})
 	return err
@@ -277,7 +275,7 @@ func (m *CapabilityBackendService) broadcastNodeSync(ctx context.Context) {
 	// keep any metadata in the context, but don't propagate cancellation
 	ctx = context.WithoutCancel(ctx)
 	var errs []error
-	m.sc.Delegate().
+	m.Context.Delegate().
 		WithBroadcastSelector(&corev1.ClusterSelector{}, func(reply any, msg *streamv1.BroadcastReplyList) error {
 			for _, resp := range msg.GetResponses() {
 				err := resp.GetReply().GetResponse().GetStatus().Err()
@@ -292,7 +290,7 @@ func (m *CapabilityBackendService) broadcastNodeSync(ctx context.Context) {
 			CapabilityNames: []string{wellknown.CapabilityMetrics},
 		})
 	if len(errs) > 0 {
-		m.sc.Logger().With(
+		m.Context.Logger().With(
 			zap.Error(errors.Join(errs...)),
 		).Warn("one or more agents failed to sync; they may not be updated immediately")
 	}
@@ -303,7 +301,7 @@ func (m *CapabilityBackendService) Sync(ctx context.Context, req *node.SyncReque
 	id := cluster.StreamAuthorizedID(ctx)
 
 	// look up the cluster and check if the capability is installed
-	cluster, err := m.sc.StorageBackend().GetCluster(ctx, &corev1.Reference{
+	cluster, err := m.Context.StorageBackend().GetCluster(ctx, &corev1.Reference{
 		Id: id,
 	})
 	if err != nil {
@@ -318,9 +316,9 @@ func (m *CapabilityBackendService) Sync(ctx context.Context, req *node.SyncReque
 	var conditions []string
 	if enabled {
 		// auto-disable if cortex is not installed
-		if err := m.sc.ClusterDriver().ShouldDisableNode(cluster.Reference()); err != nil {
+		if err := m.Context.ClusterDriver().ShouldDisableNode(cluster.Reference()); err != nil {
 			reason := status.Convert(err).Message()
-			m.sc.Logger().With(
+			m.Context.Logger().With(
 				"reason", reason,
 			).Info("disabling metrics capability for node")
 			enabled = false
@@ -340,7 +338,7 @@ func (m *CapabilityBackendService) Sync(ctx context.Context, req *node.SyncReque
 	nodeStatus.Enabled = req.GetCurrentConfig().GetEnabled()
 	nodeStatus.Conditions = req.GetCurrentConfig().GetConditions()
 	nodeStatus.LastSync = timestamppb.Now()
-	m.sc.Logger().With(
+	m.Context.Logger().With(
 		"id", id,
 		"time", nodeStatus.LastSync.AsTime(),
 	).Debugf("synced node")
@@ -372,18 +370,13 @@ type UninstallTaskRunner struct {
 	uninstall.DefaultPendingHandler
 
 	sc              types.ServiceContext
-	cortexClientSet cortex.ClientSet
+	cortexClientSet *memoize.Promise
 }
 
 func NewUninstallTaskRunner(ctx types.ServiceContext) (*UninstallTaskRunner, error) {
-	tlsConfig, err := cortex.LoadTLSConfig(ctx.GatewayConfig())
-	if err != nil {
-		return nil, err
-	}
-	clientset, err := cortex.NewClientSet(ctx, &ctx.GatewayConfig().Spec.Cortex, tlsConfig)
 	return &UninstallTaskRunner{
 		sc:              ctx,
-		cortexClientSet: clientset,
+		cortexClientSet: ctx.Memoize(cortex.NewClientSet(ctx.GatewayConfig())),
 	}, nil
 }
 
@@ -471,7 +464,11 @@ func (a *UninstallTaskRunner) deleteTenant(ctx context.Context, clusterId string
 		return err
 	}
 	deleteReq.Header.Set(cortex.OrgIDCodec.Key(), cortex.OrgIDCodec.Encode([]string{clusterId}))
-	resp, err := a.cortexClientSet.HTTP().Do(deleteReq)
+	cs, err := cortex.AcquireClientSet(ctx, a.cortexClientSet)
+	if err != nil {
+		return err
+	}
+	resp, err := cs.HTTP().Do(deleteReq)
 	if err != nil {
 		return err
 	}
@@ -496,7 +493,11 @@ func (a *UninstallTaskRunner) tenantDeleteStatus(ctx context.Context, clusterId 
 		return nil, err
 	}
 	statusReq.Header.Set(cortex.OrgIDCodec.Key(), cortex.OrgIDCodec.Encode([]string{clusterId}))
-	resp, err := a.cortexClientSet.HTTP().Do(statusReq)
+	cs, err := cortex.AcquireClientSet(ctx, a.cortexClientSet)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := cs.HTTP().Do(statusReq)
 	if err != nil {
 		return nil, err
 	}
@@ -512,4 +513,14 @@ func (a *UninstallTaskRunner) tenantDeleteStatus(ctx context.Context, clusterId 
 		msg, _ := io.ReadAll(resp.Body)
 		return nil, status.Error(codes.Internal, fmt.Sprintf("cortex internal server error: %s", string(msg)))
 	}
+}
+
+func init() {
+	types.Services.Register("Capability Backend Service", func(_ context.Context, opts ...driverutil.Option) (types.Service, error) {
+		svc := &CapabilityBackendService{
+			nodeStatus: make(map[string]*capabilityv1.NodeCapabilityStatus),
+		}
+		driverutil.ApplyOptions(svc, opts...)
+		return svc, nil
+	})
 }

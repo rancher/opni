@@ -50,8 +50,8 @@ func (cg *Generator) Generate(gen *protogen.Plugin) error {
 		if !proto.HasExtension(file.Desc.Options(), E_Generator) {
 			continue
 		}
-		ext := proto.GetExtension(file.Desc.Options(), E_Generator).(*GeneratorOptions)
-		if !ext.GetGenerate() {
+		ext, ok := getExtension[*GeneratorOptions](file.Desc, E_Generator)
+		if !ok || !ext.GetGenerate() {
 			continue
 		}
 		cg.generatedFiles[file.Desc.Path()] = cg.generateFile(gen, file)
@@ -271,8 +271,11 @@ func generateContextInjectionFunctions(file *protogen.File, g *protogen.Generate
 	}
 }
 
-func (cg *Generator) generateServiceTopLevelCmd(service *protogen.Service, g *protogen.GeneratedFile, writers serviceGenWriters) {
-	leadingComments := formatComments(service.Comments)
+func (cg *Generator) generateServiceTopLevelCmd(service *protogen.Service, g *protogen.GeneratedFile, writers serviceGenWriters) error {
+	leadingComments, err := formatComments(service.Comments)
+	if err != nil {
+		return err
+	}
 
 	opts := CommandGroupOptions{
 		Use: strcase.ToKebab(service.GoName),
@@ -330,9 +333,10 @@ func (cg *Generator) generateServiceTopLevelCmd(service *protogen.Service, g *pr
 
 	g.P("return cmd")
 	g.P("}")
+	return nil
 }
 
-func (cg *Generator) generateMethodCmd(service *protogen.Service, method *protogen.Method, g *protogen.GeneratedFile, writers serviceGenWriters) {
+func (cg *Generator) generateMethodCmd(service *protogen.Service, method *protogen.Method, g *protogen.GeneratedFile, writers serviceGenWriters) error {
 	opts := CommandOptions{
 		Use: strcase.ToKebab(method.GoName),
 	}
@@ -352,21 +356,43 @@ func (cg *Generator) generateMethodCmd(service *protogen.Service, method *protog
 		g.P("in := &", g.QualifiedGoIdent(method.Input.GoIdent), "{}")
 	}
 	methodOptions := method.Desc.Options().(*descriptorpb.MethodOptions)
-	leadingComments := formatComments(method.Comments)
+	leadingComments, err := formatComments(method.Comments)
+	if err != nil {
+		return err
+	}
 
 	g.P("cmd := &", _cobra.Ident("Command"), "{")
 	g.P(" Use:   \"", opts.Use, "\",")
+
 	if len(leadingComments) > 0 {
 		g.P(" Short: ", fmt.Sprintf("%q", leadingComments[0]), ",")
+		if len(leadingComments) > 1 {
+			leadingComments = leadingComments[1:]
+		} else {
+			leadingComments = nil
+		}
 	}
+
+	// trim blank lines between the short and long descriptions
+	for len(leadingComments) > 0 {
+		if strings.TrimSpace(leadingComments[0]) != "" {
+			break
+		}
+		if len(leadingComments) == 1 {
+			leadingComments = nil
+		} else {
+			leadingComments = leadingComments[1:]
+		}
+	}
+
 	httpExt, hasHttpExt := getExtension[*annotations.HttpRule](method.Desc, annotations.E_Http)
-	if len(leadingComments) > 1 || hasHttpExt {
+	if len(leadingComments) > 0 || hasHttpExt {
 		g.P(" Long: `")
-		for _, c := range leadingComments[1:] {
+		for _, c := range leadingComments {
 			g.P(c)
 		}
 		if hasHttpExt {
-			if len(leadingComments) > 1 {
+			if len(leadingComments) > 0 {
 				g.P()
 			}
 			g.P("HTTP handlers for this method:")
@@ -411,7 +437,10 @@ func (cg *Generator) generateMethodCmd(service *protogen.Service, method *protog
 
 	// Generate flags for input fields recursively
 	if !isEmpty {
-		flagSet := cg.generateFlagSet(g, method.Input)
+		flagSet, err := cg.generateFlagSet(g, method.Input)
+		if err != nil {
+			return err
+		}
 		switch opts.Granularity {
 		case EditScope_EditFields:
 			if flagSet.flagCount > 0 {
@@ -438,6 +467,7 @@ func (cg *Generator) generateMethodCmd(service *protogen.Service, method *protog
 
 	g.P("return cmd")
 	g.P("}")
+	return nil
 }
 
 type fieldTypeDefaults struct {
@@ -547,9 +577,9 @@ func (b *buffer) QualifiedGoIdent(ident protogen.GoIdent) string {
 	return b.g.QualifiedGoIdent(ident)
 }
 
-func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protogen.Message) *flagSet {
+func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protogen.Message) (*flagSet, error) {
 	if existing, ok := cg.allFlagSets[message.GoIdent.String()]; ok {
-		return existing
+		return existing, nil
 	}
 
 	deps := make(map[string]*flagSet)
@@ -580,7 +610,11 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 			}
 
 			kebabName := formatKebab(field.GoName)
-			commentLines := formatComments(field.Comments)
+			commentLines, err := formatComments(field.Comments)
+			if err != nil {
+				return nil, err
+			}
+
 			var comment string
 			if len(commentLines) > 0 {
 				comment = commentLines[0]
@@ -717,7 +751,14 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 
 			switch field.Desc.Kind() {
 			case protoreflect.EnumKind:
-				g.P(`fs.Var(`, _flagutil.Ident("EnumValue"), `(&in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
+				switch {
+				case field.Desc.IsList():
+					g.P(`fs.Var(`, _flagutil.Ident("EnumSliceValue"), `(&in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
+				case field.Desc.HasPresence():
+					g.P(`fs.Var(`, _flagutil.Ident("EnumPtrValue"), `(nil, &in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
+				default:
+					g.P(`fs.Var(`, _flagutil.Ident("EnumValue"), `(&in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
+				}
 				var allValues []string
 				for _, v := range field.Enum.Values {
 					allValues = append(allValues, strconv.Quote(string(v.Desc.Name())))
@@ -743,7 +784,10 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 					// - the file is in cg.generatedFiles (special case, see generateFlagSet)
 					if (field.Message.Desc.ParentFile() == field.Parent.Desc.ParentFile() && field.Message != message) ||
 						cg.generatedFiles[field.Message.Desc.ParentFile().Path()] != nil {
-						depFs := cg.generateFlagSet(g.g, field.Message)
+						depFs, err := cg.generateFlagSet(g.g, field.Message)
+						if err != nil {
+							return nil, err
+						}
 						if depFs.flagCount == 0 {
 							continue
 						}
@@ -845,7 +889,7 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 		cg.genSecretMethods(g, fs)
 	}
 
-	return fs
+	return fs, nil
 }
 
 func (cg *Generator) genSecretMethods(g *buffer, fs *flagSet) {
@@ -1101,7 +1145,7 @@ func formatComments(comments protogen.CommentSet) ([]string, error) {
 		}
 		leadingComments = append(leadingComments, line)
 	}
-	return
+	return leadingComments, nil
 }
 
 // Note that the final closing brace is not written.

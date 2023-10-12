@@ -15,13 +15,29 @@ type protoenum[E any] interface {
 	Number() protoreflect.EnumNumber
 }
 
-func EnumValue[T protoenum[T]](p *T) pflag.Value {
-	typeName := protoimpl.X.EnumTypeOf(*p).Descriptor().Name()
-	mapping := make(map[T][]string)
+func enumInfo[T protoenum[T]](p *T) (typename protoreflect.Name, mapping map[T][]string) {
+	typename = protoimpl.X.EnumTypeOf(*p).Descriptor().Name()
+	mapping = make(map[T][]string)
 	values := (*p).Type().Descriptor().Values()
 	for i := 0; i < values.Len(); i++ {
 		value := values.Get(i)
 		mapping[T(value.Number())] = append(mapping[T(value.Number())], string(value.Name()))
 	}
+	return
+}
+func EnumValue[T protoenum[T]](p *T) pflag.Value {
+	typeName, mapping := enumInfo(p)
 	return enumflag.New(p, string(typeName), mapping, enumflag.EnumCaseSensitive)
+}
+
+func EnumSliceValue[T protoenum[T]](p *[]T) pflag.Value {
+	var t T
+	typeName, mapping := enumInfo(&t)
+	return enumflag.NewSlice[T](p, string(typeName), mapping, enumflag.EnumCaseSensitive)
+}
+
+func EnumPtrValue[T protoenum[T]](val *T, p **T) pflag.Value {
+	typename, mapping := enumInfo(val)
+	*p = val
+	return enumflag.NewWithoutDefault(val, string(typename), mapping, enumflag.EnumCaseSensitive)
 }

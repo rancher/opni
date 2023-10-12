@@ -30,5 +30,5 @@ func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
 		identityClient,
 	)
 
-	p.ruleStreamer.Initialize(ruleSyncClient)
+	p.ruleStreamer.SetClients(ruleSyncClient)
 }

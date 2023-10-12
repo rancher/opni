@@ -3,11 +3,11 @@ package agent
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
+	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	healthpkg "github.com/rancher/opni/pkg/health"
-	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/alerting/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/node"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/rules"
@@ -21,13 +21,13 @@ const (
 )
 
 type RuleStreamer struct {
-	util.Initializer
-
 	parentCtx context.Context
 	lg        *zap.SugaredLogger
 
 	stopRuleStream context.CancelFunc
-	ruleSyncClient future.Future[rules.RuleSyncClient]
+
+	clientMu       sync.RWMutex
+	ruleSyncClient rules.RuleSyncClient
 
 	conditions healthpkg.ConditionTracker
 	nodeDriver drivers.NodeDriver
@@ -46,14 +46,22 @@ func NewRuleStreamer(
 		lg:             lg,
 		conditions:     ct,
 		nodeDriver:     nodeDriver,
-		ruleSyncClient: future.New[rules.RuleSyncClient](),
+		ruleSyncClient: nil,
 	}
 }
 
-func (r *RuleStreamer) Initialize(ruleSyncClient rules.RuleSyncClient) {
-	r.InitOnce(func() {
-		r.ruleSyncClient.Set(ruleSyncClient)
-	})
+func (r *RuleStreamer) SetClients(
+	ruleClient rules.RuleSyncClient,
+) {
+	r.clientMu.Lock()
+	defer r.clientMu.Unlock()
+	r.ruleSyncClient = ruleClient
+}
+
+func (r *RuleStreamer) isSet() bool {
+	r.clientMu.RLock()
+	defer r.clientMu.RUnlock()
+	return r.ruleSyncClient != nil
 }
 
 func (r *RuleStreamer) ConfigureNode(nodeId string, cfg *node.AlertingCapabilityConfig) error {
@@ -91,37 +99,43 @@ func (r *RuleStreamer) configureRuleStreamer(nodeId string, cfg *node.AlertingCa
 }
 
 func (r *RuleStreamer) sync(ctx context.Context) {
-	ruleManifest, err := r.nodeDriver.DiscoverRules(ctx)
-	if err != nil {
-		r.conditions.Set(CondRuleSync, healthpkg.StatusFailure, fmt.Sprintf("Failed to discover rules : %s", err))
-		r.lg.Warnf("failed to discover rules %s", err)
-		return
-	}
-	r.lg.Infof("discovered %d rules", len(ruleManifest.Rules))
-	ctx, ca := context.WithTimeout(ctx, RuleSyncInterval)
-	defer ca()
-	syncClient, err := r.ruleSyncClient.GetContext(ctx)
-	if err != nil {
-		r.conditions.Set(CondRuleSync, healthpkg.StatusFailure, fmt.Sprintf("Failed to get rule sync client : %s", err))
-		r.lg.Error("failed to get rule sync client", err, "err")
-		return
-	}
-	if _, err := syncClient.SyncRules(ctx, ruleManifest); err != nil {
+	r.conditions.Set(CondRuleSync, healthpkg.StatusPending, "")
+
+	retrier := backoffv2.Exponential(
+		backoffv2.WithMaxRetries(10),
+		backoffv2.WithMinInterval(5*time.Millisecond),
+		backoffv2.WithMaxInterval(10*time.Millisecond),
+		backoffv2.WithMultiplier(1.5),
+	)
+	b := retrier.Start(ctx)
+	for backoffv2.Continue(b) {
+		if !r.isSet() {
+			r.conditions.Set(CondRuleSync, healthpkg.StatusFailure, "Rule sync client not set")
+			r.lg.Warn("rule sync client not yet set")
+			continue
+		}
+		ruleManifest, err := r.nodeDriver.DiscoverRules(ctx)
+		if err != nil {
+			r.lg.Warn("failed to discover rules", err, "err")
+			r.conditions.Set(CondRuleSync, healthpkg.StatusFailure, fmt.Sprintf("Failed to discover rules : %s", err))
+			continue
+		}
+
+		r.clientMu.RLock()
+		_, err = r.ruleSyncClient.SyncRules(ctx, ruleManifest)
+		r.clientMu.RUnlock()
+		if err == nil {
+			r.conditions.Clear(CondRuleSync)
+			r.lg.Infof("successfully synced (%d) rules with gateway", len(ruleManifest.GetRules()))
+			break
+		}
+		r.lg.Warn("failed to sync rules with gateway", err, "err")
 		r.conditions.Set(CondRuleSync, healthpkg.StatusFailure, fmt.Sprintf("Failed to sync rules : %s", err))
-		r.lg.Warnf("failed to sync rules %s", err)
-	} else {
-		r.conditions.Clear(CondRuleSync)
 	}
 }
 
 func (r *RuleStreamer) run(ctx context.Context) {
-	r.lg.Info("waiting for rule sync client...")
-	if err := r.WaitForInitContext(ctx); err != nil {
-		r.conditions.Set(CondRuleSync, healthpkg.StatusDisabled, fmt.Sprintf("Failed to run the rule syncer : %s", err))
-		r.lg.Errorf("failed to wait for rule sync client %s", err)
-		return
-	}
-	r.lg.Info("rule sync client acquired, starting initial sync...")
+	r.lg.Info("starting initial sync...")
 	r.sync(ctx)
 	t := time.NewTicker(RuleSyncInterval)
 	defer t.Stop()

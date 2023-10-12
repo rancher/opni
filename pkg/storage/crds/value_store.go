@@ -361,7 +361,6 @@ func (s *CRDValueStore[O, T]) Watch(ctx context.Context, opts ...storage.WatchOp
 					var previousRevision int64
 					if previous == nil {
 						previousRevision = s.getPreviousRevisionSlow(obj)
-						continue
 					} else {
 						previousRevision = previous.Revision()
 					}
@@ -480,7 +479,8 @@ type historyFormat[T driverutil.ConfigType[T]] struct {
 }
 
 type historyEntry[T driverutil.ConfigType[T]] struct {
-	Wire   []byte `json:"wire"`
+	Wire   []byte `json:"wire,omitempty"`
+	Wirev2 []byte `json:"wirev2"`
 	Config T      `json:"-"`
 }
 
@@ -493,6 +493,8 @@ func (e *historyEntry[T]) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	e.Wirev2 = snappy.Encode(nil, e.Wire)
+	e.Wire = nil
 	type entry historyEntry[T]
 	return json.Marshal((*entry)(e))
 }
@@ -503,13 +505,20 @@ func (e *historyEntry[T]) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	if len(e.Wire) == 0 {
-		return nil
+	if len(e.Wirev2) > 0 {
+		e.Wire, err = snappy.Decode(nil, e.Wirev2)
+		if err != nil {
+			return err
+		}
+		e.Wirev2 = nil
 	}
-	if reflect.ValueOf(e.Config).IsZero() {
-		e.Config = e.Config.ProtoReflect().New().Interface().(T)
+	if len(e.Wire) > 0 {
+		if reflect.ValueOf(e.Config).IsZero() {
+			e.Config = e.Config.ProtoReflect().New().Interface().(T)
+		}
+		return proto.Unmarshal(e.Wire, e.Config)
 	}
-	return proto.Unmarshal(e.Wire, e.Config)
+	return nil
 }
 
 func (s *CRDValueStore[O, T]) appendSpecToHistory(obj O) error {
@@ -545,10 +554,15 @@ func (s *CRDValueStore[O, T]) appendSpecToHistory(obj O) error {
 		history.Entries = history.Entries[len(history.Entries)-64:]
 	}
 
+	numEntries := len(history.Entries)
 	var err error
-	annotations["opni.io/history"], err = encodeHistory(&history)
+	var numEncodedEntries int
+	annotations["opni.io/history"], numEncodedEntries, err = encodeHistory(&history)
 	if err != nil {
 		return err
+	}
+	if numEncodedEntries < numEntries {
+		fmt.Printf("warning: history for %s/%s truncated to %d entries\n", obj.GetNamespace(), obj.GetName(), numEncodedEntries)
 	}
 
 	obj.SetAnnotations(annotations)
@@ -582,46 +596,59 @@ func (s *CRDValueStore[O, T]) readHistory(obj O, hist *historyFormat[T]) error {
 }
 
 func decodeHistory[T driverutil.ConfigType[T]](str string, hist *historyFormat[T]) error {
-	b64, err := base64.StdEncoding.DecodeString(str)
-	if err != nil {
-		return err
-	}
-	decodeLen, err := snappy.DecodedLen(b64)
-	if err != nil {
-		return err
-	}
-	out := make([]byte, 0, decodeLen)
-	jsonData, err := snappy.Decode(out, b64)
-	if err != nil {
-		return err
-	}
-
-	if err := json.Unmarshal(jsonData, hist); err != nil {
-		return err
-	}
-
-	for i := range hist.Entries {
-		if err := proto.Unmarshal(hist.Entries[i].Wire, hist.Entries[i].Config); err != nil {
+	if str[0] != '{' {
+		// v1
+		b64, err := base64.StdEncoding.DecodeString(str)
+		if err != nil {
 			return err
 		}
+		decodeLen, err := snappy.DecodedLen(b64)
+		if err != nil {
+			return err
+		}
+		out := make([]byte, 0, decodeLen)
+		jsonData, err := snappy.Decode(out, b64)
+		if err != nil {
+			return err
+		}
+		if err := json.Unmarshal(jsonData, hist); err != nil {
+			return err
+		}
+		for i := range hist.Entries {
+			if err := proto.Unmarshal(hist.Entries[i].Wire, hist.Entries[i].Config); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
-	return nil
+	// v2
+	return json.Unmarshal([]byte(str), hist)
 }
 
-func encodeHistory[T driverutil.ConfigType[T]](history *historyFormat[T]) (string, error) {
+const maxAnnotationSize = 250 * 1024
+
+func encodeHistory[T driverutil.ConfigType[T]](history *historyFormat[T]) (string, int, error) {
 	for i := range history.Entries {
 		opts := proto.MarshalOptions{}
 		var err error
 		if history.Entries[i].Wire, err = opts.MarshalAppend(history.Entries[i].Wire[:0], history.Entries[i].Config); err != nil {
-			return "", err
+			return "", 0, err
+		}
+	}
+	// compute the total size of the encoded history, and truncate it if necessary to fit within the 256KB limit (less 6kb for other annotations)
+	size := len(`{"entries":[]}`)
+	for i := len(history.Entries) - 1; i >= 0; i-- {
+		size += base64.StdEncoding.EncodedLen(snappy.MaxEncodedLen(len(`{"wire":""},`) + len(history.Entries[i].Wire)))
+		if size > maxAnnotationSize {
+			history.Entries = history.Entries[i+1:]
+			break
 		}
 	}
 	jsonData, err := json.Marshal(history)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
-	buf := make([]byte, 0, snappy.MaxEncodedLen(len(jsonData)))
-	return base64.StdEncoding.EncodeToString(snappy.Encode(buf, jsonData)), nil
+	return string(jsonData), len(history.Entries), nil
 }
 
 func toGrpcError(err error) error {

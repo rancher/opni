@@ -6,13 +6,10 @@ import (
 
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/lock"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
-	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -188,35 +185,46 @@ func (s *kvStoreServer) History(ctx context.Context, in *HistoryRequest) (*Histo
 	}, nil
 }
 
-func (s *kvStoreServer) Lock(ctx context.Context, in *LockRequest) (*emptypb.Empty, error) {
+func (s *kvStoreServer) Lock(in *LockRequest, stream KeyValueStore_LockServer) error {
 	if s.lm == nil {
-		return nil, status.Errorf(codes.Unimplemented, "not available with the current storage backend")
+		return status.Errorf(codes.Unimplemented, "not available with the current storage backend")
 	}
 	if err := in.Validate(); err != nil {
-		return nil, err
+		return err
 	}
 
-	locker := s.lm.Locker(in.Key, lock.WithAcquireContext(ctx))
+	locker := s.lm.Locker(in.Key, lock.WithAcquireContext(stream.Context()))
 	if in.TryLock {
 		acquired, err := locker.TryLock()
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, err.Error())
+			return status.Errorf(codes.Internal, err.Error())
 		}
 		if !acquired {
-			return nil, util.Must(status.New(codes.Aborted, err.Error()).WithDetails(&errdetails.ErrorInfo{
-				Reason: "TRY_LOCK",
-			})).Err()
+			if err := stream.Send(&LockResponse{
+				Event: LockResponse_AcquireFailed,
+			}); err != nil {
+				return err
+			}
+			return nil
 		}
 	} else {
 		if err := locker.Lock(); err != nil {
-			return nil, status.Errorf(codes.Internal, err.Error())
+			return status.Errorf(codes.Internal, err.Error())
 		}
 	}
-	<-ctx.Done()
-	if err := locker.Unlock(); err != nil {
-		return nil, err
+	defer locker.Unlock()
+
+	if err := stream.Send(&LockResponse{
+		Event: LockResponse_Acquired,
+	}); err != nil {
+		return err
 	}
-	return &emptypb.Empty{}, nil
+	<-stream.Context().Done()
+	streamErr := stream.Context().Err()
+	if status.FromContextError(streamErr).Code() == codes.Canceled { //nolint
+		return nil
+	}
+	return streamErr
 }
 
 type kvStoreClientImpl[T proto.Message] struct {
@@ -285,6 +293,7 @@ func (c *kvStoreClientImpl[T]) Watch(ctx context.Context, key string, opts ...st
 	}
 	ch := make(chan storage.WatchEvent[storage.KeyRevision[T]], 64)
 	go func() {
+		defer close(ch)
 		for {
 			resp, err := stream.Recv()
 			if err != nil {
@@ -362,6 +371,72 @@ func NewKVStoreClient[T proto.Message](client KeyValueStoreClient) storage.KeyVa
 	return &kvStoreClientImpl[T]{
 		client: client,
 	}
+}
+
+type Locker interface {
+	Do(fn func()) error
+	Try(acquired func(), notAcquired func()) error
+}
+
+func NewLock(baseCtx context.Context, client KeyValueStoreClient, key string) Locker {
+	return &kvClientMutex{
+		baseCtx: baseCtx,
+		client:  client,
+		key:     key,
+	}
+}
+
+type kvClientMutex struct {
+	baseCtx context.Context
+	client  KeyValueStoreClient
+	key     string
+}
+
+// Do implements Locker.
+func (m *kvClientMutex) Do(fn func()) error {
+	ctx, unlock := context.WithCancel(m.baseCtx)
+	defer unlock()
+	stream, err := m.client.Lock(ctx, &LockRequest{
+		Key: m.key,
+	})
+	if err != nil {
+		return err
+	}
+	for {
+		msg, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+		if msg.Event != LockResponse_Acquired {
+			break
+		}
+	}
+	fn()
+	return nil
+}
+
+// Try implements Locker.
+func (m *kvClientMutex) Try(acquired func(), notAcquired func()) error {
+	ctx, unlock := context.WithCancel(m.baseCtx)
+	defer unlock()
+	stream, err := m.client.Lock(ctx, &LockRequest{
+		Key:     m.key,
+		TryLock: true,
+	})
+	if err != nil {
+		return err
+	}
+	msg, err := stream.Recv()
+	if err != nil {
+		return err
+	}
+	switch msg.Event {
+	case LockResponse_Acquired:
+		acquired()
+	case LockResponse_AcquireFailed:
+		notAcquired()
+	}
+	return nil
 }
 
 func FromKeyRevisionProto[T proto.Message](krProto *KeyRevision) storage.KeyRevision[T] {

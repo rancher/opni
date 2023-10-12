@@ -9,13 +9,12 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/samber/lo"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -50,15 +49,15 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		DeferCleanup(env.Stop, "Test Suite Finished")
 	})
 
-	var getConfig = func(agentId string) (*node.MetricsCapabilityConfig, bool, error) {
-		var trailer metadata.MD
+	var getConfig = func(agentId string) (*node.MetricsCapabilityConfig, error) {
 		spec, err := nodeClient.GetConfiguration(context.Background(), &node.GetRequest{
 			Node: &v1.Reference{Id: agentId},
-		}, grpc.Trailer(&trailer))
+		})
 		if err != nil {
-			return nil, false, err
+			return nil, err
 		}
-		return spec, node.IsDefaultConfig(trailer), nil
+		driverutil.UnsetRevision(spec) // todo: update these (older) tests to consider revisions
+		return spec, nil
 	}
 
 	var verifySync = func(fn func(), capability string, agentIds ...string) {
@@ -120,29 +119,18 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 
 	var originalDefaultConfig *node.MetricsCapabilityConfig
 	It("should initially have all nodes using the default config", func() {
-		var defaultConfig *node.MetricsCapabilityConfig
-		// wait for the test env to replace the default config
-		Eventually(func() error {
-			var err error
-			defaultConfig, err = nodeClient.GetDefaultConfiguration(context.Background(), &node.GetRequest{})
-			Expect(err).NotTo(HaveOccurred())
-			return nil
-		}).Should(Succeed())
+		defaultConfig, err := nodeClient.GetDefaultConfiguration(context.Background(), &node.GetRequest{})
+		Expect(err).NotTo(HaveOccurred())
+		driverutil.UnsetRevision(defaultConfig)
+		originalDefaultConfig = defaultConfig
 
-		// replace the standard default config with the test environment config
-		Expect(nodeClient.SetDefaultConfiguration(context.Background(), &node.SetRequest{
-			Spec: defaultConfig,
-		})).To(Succeed())
-
-		spec, isDefault, err := getConfig("agent1")
+		spec, err := getConfig("agent1")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(spec).To(testutil.ProtoEqual(defaultConfig))
-		Expect(isDefault).To(BeTrue())
 
-		spec, isDefault, err = getConfig("agent2")
+		spec, err = getConfig("agent2")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(spec).To(testutil.ProtoEqual(defaultConfig))
-		Expect(isDefault).To(BeTrue())
 	})
 
 	When("changing the default config", func() {
@@ -161,16 +149,14 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 				Expect(err).NotTo(HaveOccurred())
 			}, "metrics", "agent1", "agent2")
 
-			spec, isDefault, err := getConfig("agent1")
+			spec, err := getConfig("agent1")
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(spec).To(testutil.ProtoEqual(newConfig))
-			Expect(isDefault).To(BeTrue())
 
-			spec, isDefault, err = getConfig("agent2")
+			spec, err = getConfig("agent2")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(spec).To(testutil.ProtoEqual(newConfig))
-			Expect(isDefault).To(BeTrue())
 		})
 	})
 
@@ -185,6 +171,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 
 			defaultConfig, err := nodeClient.GetDefaultConfiguration(context.Background(), &node.GetRequest{})
 			Expect(err).NotTo(HaveOccurred())
+			driverutil.UnsetRevision(defaultConfig)
 
 			verifySync(func() {
 				_, err = nodeClient.SetConfiguration(context.Background(), &node.SetRequest{
@@ -194,15 +181,13 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 				Expect(err).NotTo(HaveOccurred())
 			}, "metrics", "agent1", "!agent2")
 
-			spec, isDefault, err := getConfig("agent1")
+			spec, err := getConfig("agent1")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(spec).To(testutil.ProtoEqual(newConfig))
-			Expect(isDefault).To(BeFalse())
 
-			spec, isDefault, err = getConfig("agent2")
+			spec, err = getConfig("agent2")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(spec).To(testutil.ProtoEqual(defaultConfig))
-			Expect(isDefault).To(BeTrue())
 		})
 	})
 
@@ -210,6 +195,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		It("should return the default config for that node", func() {
 			defaultConfig, err := nodeClient.GetDefaultConfiguration(context.Background(), &node.GetRequest{})
 			Expect(err).NotTo(HaveOccurred())
+			driverutil.UnsetRevision(defaultConfig)
 
 			verifySync(func() {
 				_, err = nodeClient.ResetConfiguration(context.Background(), &node.ResetRequest{
@@ -218,15 +204,13 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 				Expect(err).NotTo(HaveOccurred())
 			}, "metrics", "agent1", "!agent2")
 
-			spec, isDefault, err := getConfig("agent1")
+			spec, err := getConfig("agent1")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(spec).To(testutil.ProtoEqual(defaultConfig))
-			Expect(isDefault).To(BeTrue())
 
-			spec, isDefault, err = getConfig("agent2")
+			spec, err = getConfig("agent2")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(spec).To(testutil.ProtoEqual(defaultConfig))
-			Expect(isDefault).To(BeTrue())
 		})
 	})
 
@@ -237,15 +221,13 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 				Expect(err).NotTo(HaveOccurred())
 			}, "metrics", "agent1", "agent2")
 
-			spec, isDefault, err := getConfig("agent1")
+			spec, err := getConfig("agent1")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(spec).To(testutil.ProtoEqual(originalDefaultConfig))
-			Expect(isDefault).To(BeTrue())
 
-			spec, isDefault, err = getConfig("agent2")
+			spec, err = getConfig("agent2")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(spec).To(testutil.ProtoEqual(originalDefaultConfig))
-			Expect(isDefault).To(BeTrue())
 		})
 	})
 
@@ -253,6 +235,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		It("should preserve the config for that node if the default changes", func() {
 			defaultConfig, err := nodeClient.GetDefaultConfiguration(context.Background(), &node.GetRequest{})
 			Expect(err).NotTo(HaveOccurred())
+			driverutil.UnsetRevision(defaultConfig)
 
 			verifySync(func() {
 				_, err = nodeClient.SetConfiguration(context.Background(), &node.SetRequest{
@@ -275,13 +258,11 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 				Expect(err).NotTo(HaveOccurred())
 			}, "metrics", "agent1", "agent2")
 
-			spec, isDefault, err := getConfig("agent1")
+			spec, err := getConfig("agent1")
 			Expect(spec).To(testutil.ProtoEqual(defaultConfig))
-			Expect(isDefault).To(BeFalse())
 
-			spec, isDefault, err = getConfig("agent2")
+			spec, err = getConfig("agent2")
 			Expect(spec).To(testutil.ProtoEqual(newConfig))
-			Expect(isDefault).To(BeTrue())
 		})
 	})
 })

@@ -68,16 +68,18 @@ type pluginContextData struct {
 type pluginContext struct {
 	context.Context
 	logger     *zap.SugaredLogger
+	metrics    *types.Metrics
 	store      *memoize.Store
 	releasesMu sync.Mutex
 	releases   []func()
 	d          pluginContextData
 }
 
-func newPluginContext(ctx context.Context, logger *zap.SugaredLogger) (types.PluginContext, *pluginContextData) {
+func newPluginContext(ctx context.Context, metrics *types.Metrics, logger *zap.SugaredLogger) (types.PluginContext, *pluginContextData) {
 	pctx := pluginContext{
 		Context: ctx,
 		logger:  logger,
+		metrics: metrics,
 		store:   memoize.NewStore(memoize.ImmediatelyEvict),
 	}
 	context.AfterFunc(ctx, pctx.releaseAll)
@@ -126,6 +128,10 @@ func (c *pluginContext) SetServingStatus(serviceName string, status grpc_health_
 
 func (p *pluginContext) Logger() *zap.SugaredLogger {
 	return p.logger
+}
+
+func (p *pluginContext) Metrics() *types.Metrics {
+	return p.metrics
 }
 
 func (p *pluginContext) Memoize(key any, function memoize.Function) *memoize.Promise {

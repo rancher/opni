@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,7 +13,6 @@ import (
 	"github.com/lestrrat-go/backoff/v2"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
@@ -129,7 +127,7 @@ func (m *CapabilityBackendService) Install(ctx context.Context, req *capabilityv
 		return nil, err
 	}
 
-	if err := m.requestNodeSync(ctx, req.Cluster); err != nil {
+	if err := RequestNodeSync(m.Context, req.Cluster); err != nil {
 		return &capabilityv1.InstallResponse{
 			Status:  capabilityv1.InstallResponseStatus_Warning,
 			Message: fmt.Errorf("sync request failed; agent may not be updated immediately: %v", err).Error(),
@@ -217,7 +215,7 @@ func (m *CapabilityBackendService) Uninstall(ctx context.Context, req *capabilit
 	if err != nil {
 		return nil, fmt.Errorf("failed to update cluster metadata: %v", err)
 	}
-	if err := m.requestNodeSync(ctx, req.Cluster); err != nil {
+	if err := RequestNodeSync(m.Context, req.Cluster); err != nil {
 		m.Context.Logger().With(
 			zap.Error(err),
 			"agent", req.Cluster,
@@ -259,41 +257,6 @@ func (m *CapabilityBackendService) InstallerTemplate(context.Context, *emptypb.E
 			`{{ arg "toggle" "Install Prometheus Operator" "+omitEmpty" "+default:false" "+format:--set kube-prometheus-stack.enabled={{ value }}" }} ` +
 			`--create-namespace`,
 	}, nil
-}
-
-func (m *CapabilityBackendService) requestNodeSync(ctx context.Context, target *corev1.Reference) error {
-	if target == nil || target.Id == "" {
-		panic("bug: target must be non-nil and have a non-empty ID. this logic was recently changed - please update the caller")
-	}
-	_, err := m.Context.Delegate().
-		WithTarget(target).
-		SyncNow(ctx, &capabilityv1.Filter{CapabilityNames: []string{wellknown.CapabilityMetrics}})
-	return err
-}
-
-func (m *CapabilityBackendService) broadcastNodeSync(ctx context.Context) {
-	// keep any metadata in the context, but don't propagate cancellation
-	ctx = context.WithoutCancel(ctx)
-	var errs []error
-	m.Context.Delegate().
-		WithBroadcastSelector(&corev1.ClusterSelector{}, func(reply any, msg *streamv1.BroadcastReplyList) error {
-			for _, resp := range msg.GetResponses() {
-				err := resp.GetReply().GetResponse().GetStatus().Err()
-				if err != nil {
-					target := resp.GetRef()
-					errs = append(errs, status.Errorf(codes.Internal, "failed to sync agent %s: %v", target.GetId(), err))
-				}
-			}
-			return nil
-		}).
-		SyncNow(ctx, &capabilityv1.Filter{
-			CapabilityNames: []string{wellknown.CapabilityMetrics},
-		})
-	if len(errs) > 0 {
-		m.Context.Logger().With(
-			zap.Error(errors.Join(errs...)),
-		).Warn("one or more agents failed to sync; they may not be updated immediately")
-	}
 }
 
 // Implements node.NodeMetricsCapabilityServer

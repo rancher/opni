@@ -14,7 +14,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 	"github.com/rancher/opni/plugins/metrics/pkg/types"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -35,15 +34,13 @@ type Plugin struct {
 }
 
 func NewPlugin(ctx context.Context, scheme meta.Scheme) *Plugin {
-	cortexReader := sdkmetric.NewManualReader(
-		sdkmetric.WithAggregationSelector(cortex.CortexAggregationSelector),
+	reader := sdkmetric.NewManualReader(
+		sdkmetric.WithAggregationSelector(types.AggregationSelector),
 	)
-	mp := sdkmetric.NewMeterProvider(
-		sdkmetric.WithReader(cortexReader),
-	)
-	cortex.RegisterMeterProvider(mp)
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	metrics := types.NewMetrics(mp)
 
-	collector := collector.NewCollectorServer(cortexReader)
+	collector := collector.NewCollectorServer(reader)
 	p := &Plugin{
 		ctx:             ctx,
 		CollectorServer: collector,
@@ -51,7 +48,7 @@ func NewPlugin(ctx context.Context, scheme meta.Scheme) *Plugin {
 	}
 
 	var pctx types.PluginContext
-	pctx, p.pluginContextData = newPluginContext(ctx, p.logger)
+	pctx, p.pluginContextData = newPluginContext(ctx, metrics, p.logger)
 	go func() {
 		driver, err := initClusterDriver(pctx)
 		if err != nil {

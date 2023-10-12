@@ -10,6 +10,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
@@ -35,7 +36,7 @@ func getIdFromTargetMeta(meta *remoteread.TargetMeta) string {
 }
 
 type RemoteReadServer struct {
-	Context types.StreamServiceContext `option:"context"`
+	Context types.ManagementServiceContext `option:"context"`
 
 	// the stored remoteread.Target should never have their status populated
 	remoteReadTargetMu sync.RWMutex
@@ -44,13 +45,14 @@ type RemoteReadServer struct {
 
 // Activate implements types.Service
 func (m *RemoteReadServer) Activate() error {
+	defer m.Context.SetServingStatus(remoteread.RemoteReadGateway_ServiceDesc.ServiceName, managementext.Serving)
 	return nil
 }
 
-// StreamServices implements types.StreamService
-func (s *RemoteReadServer) StreamServices() []util.ServicePackInterface {
+// ManagementServices implements types.ManagementService
+func (m *RemoteReadServer) ManagementServices() []util.ServicePackInterface {
 	return []util.ServicePackInterface{
-		util.PackService[remoteread.RemoteReadGatewayServer](&remoteread.RemoteReadGateway_ServiceDesc, s),
+		util.PackService[remoteread.RemoteReadGatewayServer](&remoteread.RemoteReadGateway_ServiceDesc, m),
 	}
 }
 

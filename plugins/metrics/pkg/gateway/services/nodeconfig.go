@@ -32,6 +32,8 @@ func (s *NodeConfigService) Activate() error {
 	activeCapabilityStore := kvutil.WithPrefix(system.NewKVStoreClient[*node.MetricsCapabilityConfig](s.Context.KeyValueStoreClient()), "/config/capability/nodes/")
 
 	s.ContextKeyableConfigServer = s.ContextKeyableConfigServer.Build(defaultCapabilityStore, activeCapabilityStore, flagutil.LoadDefaults)
+	StartActiveSyncWatcher(s.Context, activeCapabilityStore)
+	StartDefaultSyncWatcher(s.Context, defaultCapabilityStore)
 
 	return nil
 }

@@ -232,8 +232,9 @@ message DryRunRequest {
 
   CapabilityBackendConfigSpec spec = 3; // Set
 
-  CapabilityBackendConfigSpec patch = 4; // Reset
-  google.protobuf.FieldMask   mask  = 5 [(cli.flag).skip = true]; // Reset
+  core.Revision               revision = 4 [(cli.flag_set).no_prefix = true]; // Reset
+  CapabilityBackendConfigSpec patch    = 5 [(cli.flag).skip = true]; // Reset
+  google.protobuf.FieldMask   mask     = 6 [(cli.flag).skip = true]; // Reset
 }
 
 message DryRunResponse {
@@ -251,6 +252,7 @@ message SetRequest {
 }
 
 message ResetRequest {
-  google.protobuf.FieldMask   mask  = 1 [(cli.flag).skip = true];
-  CapabilityBackendConfigSpec patch = 2 [(cli.flag).skip = true];
+  core.Revision               revision = 1 [(cli.flag_set).no_prefix = true];
+  google.protobuf.FieldMask   mask     = 2 [(cli.flag).skip = true];
+  CapabilityBackendConfigSpec patch    = 3 [(cli.flag).skip = true];
 }

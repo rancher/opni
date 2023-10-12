@@ -39,6 +39,7 @@ func (s *RemoteWriteServer) Activate() error {
 	s.cortexClientSet = s.Context.Memoize(cortex.NewClientSet(s.Context.GatewayConfig()))
 	s.interceptors = map[string]cortex.RequestInterceptor{
 		"local": cortex.NewFederatingInterceptor(cortex.InterceptorConfig{
+			Metrics:     s.Context.Metrics(),
 			IdLabelName: metrics.LabelImpersonateAs,
 		}),
 	}

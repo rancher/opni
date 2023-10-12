@@ -341,18 +341,6 @@ func (mr *MockBackendServerMockRecorder) UninstallStatus(arg0, arg1 interface{})
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UninstallStatus", reflect.TypeOf((*MockBackendServer)(nil).UninstallStatus), arg0, arg1)
 }
 
-// mustEmbedUnimplementedBackendServer mocks base method.
-func (m *MockBackendServer) mustEmbedUnimplementedBackendServer() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "mustEmbedUnimplementedBackendServer")
-}
-
-// mustEmbedUnimplementedBackendServer indicates an expected call of mustEmbedUnimplementedBackendServer.
-func (mr *MockBackendServerMockRecorder) mustEmbedUnimplementedBackendServer() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedBackendServer", reflect.TypeOf((*MockBackendServer)(nil).mustEmbedUnimplementedBackendServer))
-}
-
 // MockUnsafeBackendServer is a mock of UnsafeBackendServer interface.
 type MockUnsafeBackendServer struct {
 	ctrl     *gomock.Controller
@@ -467,18 +455,6 @@ func (m *MockNodeServer) SyncNow(arg0 context.Context, arg1 *v1.Filter) (*emptyp
 func (mr *MockNodeServerMockRecorder) SyncNow(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncNow", reflect.TypeOf((*MockNodeServer)(nil).SyncNow), arg0, arg1)
-}
-
-// mustEmbedUnimplementedNodeServer mocks base method.
-func (m *MockNodeServer) mustEmbedUnimplementedNodeServer() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "mustEmbedUnimplementedNodeServer")
-}
-
-// mustEmbedUnimplementedNodeServer indicates an expected call of mustEmbedUnimplementedNodeServer.
-func (mr *MockNodeServerMockRecorder) mustEmbedUnimplementedNodeServer() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedNodeServer", reflect.TypeOf((*MockNodeServer)(nil).mustEmbedUnimplementedNodeServer))
 }
 
 // MockUnsafeNodeServer is a mock of UnsafeNodeServer interface.

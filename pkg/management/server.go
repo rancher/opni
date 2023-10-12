@@ -19,6 +19,7 @@ import (
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/plugins"
@@ -61,6 +62,7 @@ type HealthStatusDataSource interface {
 type apiExtension struct {
 	client      apiextensions.ManagementAPIExtensionClient
 	clientConn  *grpc.ClientConn
+	status      *health.ServingStatus
 	serviceDesc *desc.ServiceDescriptor
 	httpRules   []*managementv1.HTTPRuleDescriptor
 }

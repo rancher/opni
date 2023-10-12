@@ -43,21 +43,6 @@ message HTTPAPIExtensionConfig {
   repeated RouteInfo routes   = 2;
 }
 
-message ServiceDescriptor {
-  google.protobuf.ServiceDescriptorProto serviceDescriptor = 1;
-  ServiceOptions                         options           = 2;
-}
-
-message ServiceOptions {
-  // If set, the service will only be available to clusters that have this
-  // capability.
-  string requireCapability = 1;
-}
-
-message ServiceDescriptorList {
-  repeated ServiceDescriptor items = 2;
-}
-
 message ServiceDescriptorProtoList {
   repeated google.protobuf.ServiceDescriptorProto items = 1;
 }

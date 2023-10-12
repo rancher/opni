@@ -80,7 +80,7 @@ func init() {
 							spec = modified
 						}
 						_, err := client.SetConfiguration(cmd.Context(), &SetRequest{
-							Spec: preset.GetSpec(),
+							Spec: spec,
 						})
 						return err
 					}

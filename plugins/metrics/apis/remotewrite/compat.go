@@ -50,9 +50,9 @@ func (s slowPrometheusRemoteWriteClient) Push(ctx context.Context, in *prompb.Wr
 }
 
 func AsPrometheusRemoteWriteClient(rwc RemoteWriteClient) PrometheusRemoteWriteClient {
-	switch rwc.(type) {
+	switch rwc := rwc.(type) {
 	case *remoteWriteClient:
-		return prometheusRemoteWriteClient{cc: rwc.(*remoteWriteClient).cc}
+		return prometheusRemoteWriteClient{cc: rwc.cc}
 	default:
 		return slowPrometheusRemoteWriteClient{rwc: rwc}
 	}

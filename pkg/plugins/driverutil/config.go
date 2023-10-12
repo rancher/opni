@@ -12,7 +12,6 @@ import (
 	"github.com/rancher/opni/pkg/util/merge"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 

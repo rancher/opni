@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -388,7 +387,7 @@ func (s *CortexAdminService) ListRules(ctx context.Context, req *cortexadmin.Lis
 				).Error("list rules failed")
 				return
 			}
-			body, err := ioutil.ReadAll(resp.Body)
+			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				lg.Errorf("failed to read response body: %w", err)
 				return

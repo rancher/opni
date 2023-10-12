@@ -31,6 +31,13 @@ type Plugin struct {
 	alertEndpointClient future.Future[alertingv1.AlertEndpointsClient]
 }
 
+// ManagementServices implements managementext.ManagementAPIExtension.
+func (p *Plugin) ManagementServices(_ managementext.ServiceController) []util.ServicePackInterface {
+	return []util.ServicePackInterface{
+		util.PackService[slo.SLOServer](&slo.SLO_ServiceDesc, p),
+	}
+}
+
 type StorageAPIs struct {
 	SLOs     storage.KeyValueStoreT[*slo.SLOData]
 	Services storage.KeyValueStoreT[*slo.Service]
@@ -54,7 +61,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
-	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(util.PackService(&slo.SLO_ServiceDesc, p)))
+	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(p))
 	return scheme
 }

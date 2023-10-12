@@ -33,7 +33,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
-	alertingApi "github.com/rancher/opni/plugins/logging/apis/alerting"
+	alertingapi "github.com/rancher/opni/plugins/logging/apis/alerting"
 	"github.com/rancher/opni/plugins/logging/pkg/backend"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/alerting"
 	backenddriver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
@@ -53,6 +53,8 @@ type Plugin struct {
 	capabilityv1.UnsafeBackendServer
 	opensearch.UnsafeOpensearchServer
 	system.UnimplementedSystemPluginClient
+	LoggingManager *LoggingManagerV2
+
 	ctx                 context.Context
 	logger              *zap.SugaredLogger
 	storageBackend      future.Future[storage.Backend]
@@ -67,6 +69,19 @@ type Plugin struct {
 	backendDriver       backenddriver.ClusterDriver
 	managementDriver    managementdriver.ClusterDriver
 }
+
+// ManagementServices implements managementext.ManagementAPIExtension.
+func (p *Plugin) ManagementServices() []util.ServicePackInterface {
+	return []util.ServicePackInterface{
+		util.PackService[loggingadmin.LoggingAdminV2Server](&loggingadmin.LoggingAdminV2_ServiceDesc, p.LoggingManager),
+		util.PackService[alertingapi.MonitorManagementServer](&alertingapi.MonitorManagement_ServiceDesc, p.alertingServer),
+		util.PackService[alertingapi.NotificationManagementServer](&alertingapi.NotificationManagement_ServiceDesc, p.alertingServer),
+		util.PackService[alertingapi.AlertManagementServer](&alertingapi.AlertManagement_ServiceDesc, p.alertingServer),
+	}
+}
+
+// UseServiceController implements managementext.ManagementAPIExtension.
+func (p *Plugin) UseServiceController(s managementext.ServiceController) {}
 
 type PluginOptions struct {
 	storageNamespace  string
@@ -234,12 +249,12 @@ func Scheme(ctx context.Context) meta.Scheme {
 		p.logger.Fatalf("failed to create management driver: %v", err)
 	}
 
-	loggingManager := p.NewLoggingManagerForPlugin()
+	p.LoggingManager = p.NewLoggingManagerForPlugin()
 
 	if state := p.backendDriver.GetInstallStatus(ctx); state == backenddriver.Installed {
-		go p.opensearchManager.SetClient(loggingManager.managementDriver.NewOpensearchClientForCluster)
-		go p.alertingServer.SetClient(loggingManager.managementDriver.NewOpensearchClientForCluster)
-		err = loggingManager.createInitialAdmin()
+		go p.opensearchManager.SetClient(p.LoggingManager.managementDriver.NewOpensearchClientForCluster)
+		go p.alertingServer.SetClient(p.LoggingManager.managementDriver.NewOpensearchClientForCluster)
+		err = p.LoggingManager.createInitialAdmin()
 		if err != nil {
 			p.logger.Warnf("failed to create initial admin: %v", err)
 		}
@@ -249,15 +264,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.logging))
 	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(p))
-	scheme.Add(
-		managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(
-			util.PackService(&loggingadmin.LoggingAdminV2_ServiceDesc, loggingManager),
-			util.PackService(&alertingApi.MonitorManagement_ServiceDesc, p.alertingServer),
-			util.PackService(&alertingApi.NotificationManagement_ServiceDesc, p.alertingServer),
-			util.PackService(&alertingApi.AlertManagement_ServiceDesc, p.alertingServer),
-		),
-	)
+	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(p))
 
 	return scheme
 }

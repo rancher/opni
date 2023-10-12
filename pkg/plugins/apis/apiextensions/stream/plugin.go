@@ -10,6 +10,7 @@ import (
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
+	"github.com/rancher/opni/pkg/util"
 )
 
 const (
@@ -18,7 +19,7 @@ const (
 )
 
 type StreamAPIExtension interface {
-	StreamServers() []Server
+	StreamServers() []util.ServicePackInterface
 }
 
 // A plugin can optionally implement StreamClientHandler to obtain a
@@ -32,14 +33,8 @@ type StreamAPIExtensionWithHandlers interface {
 	StreamClientHandler
 }
 
-type Server struct {
-	Desc              *grpc.ServiceDesc
-	Impl              interface{}
-	RequireCapability string
-}
-
 type richServer struct {
-	Server
+	util.ServicePackInterface
 	richDesc *desc.ServiceDescriptor
 }
 

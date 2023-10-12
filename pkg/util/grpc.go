@@ -13,6 +13,7 @@ import (
 
 type ServicePackInterface interface {
 	Unpack() (*grpc.ServiceDesc, any)
+	ServiceName() string
 }
 
 type ServicePack[T any] struct {
@@ -24,7 +25,14 @@ func (s ServicePack[T]) Unpack() (*grpc.ServiceDesc, any) {
 	return s.desc, s.impl
 }
 
+func (s ServicePack[T]) ServiceName() string {
+	return s.desc.ServiceName
+}
+
 func PackService[T any](desc *grpc.ServiceDesc, impl T) ServicePack[T] {
+	if any(impl) == nil {
+		panic("bug: PackService called with nil server")
+	}
 	return ServicePack[T]{
 		desc: desc,
 		impl: impl,

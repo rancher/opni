@@ -1,7 +1,13 @@
 package node
 
 import (
+	"os"
+
+	cli "github.com/rancher/opni/internal/codegen/cli"
 	"github.com/rancher/opni/pkg/otel"
+	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
+	"github.com/rancher/opni/pkg/tui"
+	"golang.org/x/term"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
 )
@@ -49,4 +55,37 @@ func CompatOTELStruct(in *OTELSpec) *otel.OTELSpec {
 		})
 	}
 	return out
+}
+
+// Implements driverutil.ContextKeyable
+func (g *GetRequest) ContextKey() string {
+	return g.GetNode().GetId()
+}
+
+// Implements driverutil.ContextKeyable
+func (g *SetRequest) ContextKey() string {
+	return g.GetNode().GetId()
+}
+
+// Implements driverutil.ContextKeyable
+func (g *ResetRequest) ContextKey() string {
+	return g.GetNode().GetId()
+}
+
+// Implements driverutil.ContextKeyable
+func (g *ConfigurationHistoryRequest) ContextKey() string {
+	return g.GetNode().GetId()
+}
+
+func (h *ConfigurationHistoryResponse) RenderText(out cli.Writer) {
+	if !term.IsTerminal(int(os.Stdout.Fd())) {
+		out.Println(driverutil.MarshalConfigJson(h))
+		return
+	}
+	ui := tui.NewHistoryUI(h.GetEntries())
+	ui.Run()
+}
+
+func init() {
+
 }

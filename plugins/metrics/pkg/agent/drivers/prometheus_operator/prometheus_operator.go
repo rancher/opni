@@ -58,7 +58,7 @@ func NewExternalPromOperatorDriver(options ExternalPromOperatorDriverOptions) (*
 	return driver, nil
 }
 
-func (d *ExternalPromOperatorDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) error {
+func (d *ExternalPromOperatorDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityStatus) error {
 	lg := d.Logger.With("nodeId", nodeId)
 	if d.state.GetRunning() {
 		d.state.Cancel()
@@ -67,10 +67,16 @@ func (d *ExternalPromOperatorDriver) ConfigureNode(nodeId string, conf *node.Met
 	ctx, ca := context.WithCancel(context.TODO())
 	d.state.SetBackoffCtx(ctx, ca)
 
-	// deployOtel := conf.Enabled && features.FeatureList.FeatureIsEnabled(FeatureFlagOtel)
-	deployPrometheus := conf.Enabled &&
-		conf.GetSpec().GetPrometheus() != nil &&
-		conf.GetSpec().GetPrometheus().GetDeploymentStrategy() == "externalPromOperator"
+	var deployPrometheus bool
+	if conf.Enabled {
+		if conf.GetSpec().Driver == nil {
+			// old config from before the driver field was added
+			deployPrometheus = conf.GetSpec().GetPrometheus() != nil
+		} else {
+			deployPrometheus = conf.GetSpec().GetPrometheus() != nil &&
+				conf.GetSpec().GetDriver() == node.MetricsCapabilityConfig_Prometheus
+		}
+	}
 
 	objList := []reconcilerutil.ReconcileItem{}
 	svcAccount, cr, crb := d.buildRbac()

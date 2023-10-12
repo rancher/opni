@@ -70,7 +70,7 @@ func NewOTELDriver(options OTELNodeDriverOptions) (*OTELNodeDriver, error) {
 	}, nil
 }
 
-func (o *OTELNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) error {
+func (o *OTELNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityStatus) error {
 	lg := o.Logger.With("nodeId", nodeId)
 	if o.state.GetRunning() {
 		o.state.Cancel()
@@ -79,9 +79,16 @@ func (o *OTELNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabili
 	ctx, ca := context.WithCancel(context.TODO())
 	o.state.SetBackoffCtx(ctx, ca)
 
-	deployOTEL := conf.Enabled &&
-		conf.GetSpec().GetOtel() != nil
-
+	var deployOTEL bool
+	if conf.Enabled {
+		if conf.GetSpec().Driver == nil {
+			// old config from before the driver field was added
+			deployOTEL = conf.GetSpec().GetOtel() != nil
+		} else {
+			deployOTEL = conf.GetSpec().GetOtel() != nil &&
+				conf.GetSpec().GetDriver() == node.MetricsCapabilityConfig_OpenTelemetry
+		}
+	}
 	otelConfig := o.buildMonitoringCollectorConfig(conf.GetSpec().GetOtel())
 	objList := []reconcilerutil.ReconcileItem{
 		{

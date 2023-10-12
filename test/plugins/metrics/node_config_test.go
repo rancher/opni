@@ -11,9 +11,8 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testutil"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/apis/node"
-	"github.com/rancher/opni/plugins/metrics/pkg/backend"
+	"github.com/samber/lo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -51,9 +50,11 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		DeferCleanup(env.Stop, "Test Suite Finished")
 	})
 
-	var getConfig = func(agentId string) (*node.MetricsCapabilitySpec, bool, error) {
+	var getConfig = func(agentId string) (*node.MetricsCapabilityConfig, bool, error) {
 		var trailer metadata.MD
-		spec, err := nodeClient.GetNodeConfiguration(context.Background(), &v1.Reference{Id: agentId}, grpc.Trailer(&trailer))
+		spec, err := nodeClient.GetConfiguration(context.Background(), &node.GetRequest{
+			Node: &v1.Reference{Id: agentId},
+		}, grpc.Trailer(&trailer))
 		if err != nil {
 			return nil, false, err
 		}
@@ -117,19 +118,21 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		}
 	}
 
-	var originalDefaultConfig *node.MetricsCapabilitySpec
+	var originalDefaultConfig *node.MetricsCapabilityConfig
 	It("should initially have all nodes using the default config", func() {
-		var defaultConfig *node.MetricsCapabilitySpec
+		var defaultConfig *node.MetricsCapabilityConfig
 		// wait for the test env to replace the default config
 		Eventually(func() error {
 			var err error
-			defaultConfig, err = nodeClient.GetDefaultNodeConfiguration(context.Background(), &emptypb.Empty{})
+			defaultConfig, err = nodeClient.GetDefaultConfiguration(context.Background(), &node.GetRequest{})
 			Expect(err).NotTo(HaveOccurred())
 			return nil
 		}).Should(Succeed())
 
 		// replace the standard default config with the test environment config
-		backend.FallbackDefaultNodeSpec.Store(util.ProtoClone(defaultConfig))
+		Expect(nodeClient.SetDefaultConfiguration(context.Background(), &node.SetRequest{
+			Spec: defaultConfig,
+		})).To(Succeed())
 
 		spec, isDefault, err := getConfig("agent1")
 		Expect(err).NotTo(HaveOccurred())
@@ -140,22 +143,21 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(spec).To(testutil.ProtoEqual(defaultConfig))
 		Expect(isDefault).To(BeTrue())
-
-		originalDefaultConfig = util.ProtoClone(defaultConfig)
 	})
 
 	When("changing the default config", func() {
 		It("should return the new config for all nodes", func() {
-			newConfig := &node.MetricsCapabilitySpec{
-				Driver: &node.MetricsCapabilitySpec_Prometheus{
-					Prometheus: &node.PrometheusSpec{
-						Image: "foo",
-					},
+			newConfig := &node.MetricsCapabilityConfig{
+				Driver: lo.ToPtr(node.MetricsCapabilityConfig_Prometheus),
+				Prometheus: &node.PrometheusSpec{
+					Image: lo.ToPtr("foo"),
 				},
 			}
 
 			verifySync(func() {
-				_, err := nodeClient.SetDefaultNodeConfiguration(context.Background(), newConfig)
+				_, err := nodeClient.SetDefaultConfiguration(context.Background(), &node.SetRequest{
+					Spec: newConfig,
+				})
 				Expect(err).NotTo(HaveOccurred())
 			}, "metrics", "agent1", "agent2")
 
@@ -174,19 +176,18 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 
 	When("setting a config for a node", func() {
 		It("should return the new config for that node", func() {
-			newConfig := &node.MetricsCapabilitySpec{
-				Driver: &node.MetricsCapabilitySpec_Prometheus{
-					Prometheus: &node.PrometheusSpec{
-						Image: "bar",
-					},
+			newConfig := &node.MetricsCapabilityConfig{
+				Driver: lo.ToPtr(node.MetricsCapabilityConfig_Prometheus),
+				Prometheus: &node.PrometheusSpec{
+					Image: lo.ToPtr("bar"),
 				},
 			}
 
-			defaultConfig, err := nodeClient.GetDefaultNodeConfiguration(context.Background(), &emptypb.Empty{})
+			defaultConfig, err := nodeClient.GetDefaultConfiguration(context.Background(), &node.GetRequest{})
 			Expect(err).NotTo(HaveOccurred())
 
 			verifySync(func() {
-				_, err = nodeClient.SetNodeConfiguration(context.Background(), &node.NodeConfigRequest{
+				_, err = nodeClient.SetConfiguration(context.Background(), &node.SetRequest{
 					Node: &v1.Reference{Id: "agent1"},
 					Spec: newConfig,
 				})
@@ -207,13 +208,12 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 
 	When("resetting a config for a node", func() {
 		It("should return the default config for that node", func() {
-			defaultConfig, err := nodeClient.GetDefaultNodeConfiguration(context.Background(), &emptypb.Empty{})
+			defaultConfig, err := nodeClient.GetDefaultConfiguration(context.Background(), &node.GetRequest{})
 			Expect(err).NotTo(HaveOccurred())
 
 			verifySync(func() {
-				_, err = nodeClient.SetNodeConfiguration(context.Background(), &node.NodeConfigRequest{
+				_, err = nodeClient.ResetConfiguration(context.Background(), &node.ResetRequest{
 					Node: &v1.Reference{Id: "agent1"},
-					Spec: nil,
 				})
 				Expect(err).NotTo(HaveOccurred())
 			}, "metrics", "agent1", "!agent2")
@@ -233,7 +233,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 	When("resetting the default config", func() {
 		It("should return the original default config for all nodes", func() {
 			verifySync(func() {
-				_, err := nodeClient.SetDefaultNodeConfiguration(context.Background(), &node.MetricsCapabilitySpec{})
+				_, err := nodeClient.ResetDefaultConfiguration(context.Background(), &emptypb.Empty{})
 				Expect(err).NotTo(HaveOccurred())
 			}, "metrics", "agent1", "agent2")
 
@@ -251,26 +251,27 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 
 	When("setting a config for a node that is the same as the default", func() {
 		It("should preserve the config for that node if the default changes", func() {
-			defaultConfig, err := nodeClient.GetDefaultNodeConfiguration(context.Background(), &emptypb.Empty{})
+			defaultConfig, err := nodeClient.GetDefaultConfiguration(context.Background(), &node.GetRequest{})
 			Expect(err).NotTo(HaveOccurred())
 
 			verifySync(func() {
-				_, err = nodeClient.SetNodeConfiguration(context.Background(), &node.NodeConfigRequest{
+				_, err = nodeClient.SetConfiguration(context.Background(), &node.SetRequest{
 					Node: &v1.Reference{Id: "agent1"},
 					Spec: defaultConfig,
 				})
 				Expect(err).NotTo(HaveOccurred())
 			}, "metrics", "agent1", "!agent2")
 
-			newConfig := &node.MetricsCapabilitySpec{
-				Driver: &node.MetricsCapabilitySpec_Prometheus{
-					Prometheus: &node.PrometheusSpec{
-						Image: "foo",
-					},
+			newConfig := &node.MetricsCapabilityConfig{
+				Driver: lo.ToPtr(node.MetricsCapabilityConfig_Prometheus),
+				Prometheus: &node.PrometheusSpec{
+					Image: lo.ToPtr("foo"),
 				},
 			}
 			verifySync(func() {
-				_, err = nodeClient.SetDefaultNodeConfiguration(context.Background(), newConfig)
+				_, err = nodeClient.SetDefaultConfiguration(context.Background(), &node.SetRequest{
+					Spec: newConfig,
+				})
 				Expect(err).NotTo(HaveOccurred())
 			}, "metrics", "agent1", "agent2")
 

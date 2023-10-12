@@ -52,13 +52,7 @@ var _ = Describe("Base Config Server", Label("unit"), Ordered, func() {
 	}
 
 	BeforeEach(func() {
-		server = driverutil.NewBaseConfigServer[
-			*driverutil.GetRequest,
-			*ext.SampleSetRequest,
-			*ext.SampleResetRequest,
-			*driverutil.ConfigurationHistoryRequest,
-			*ext.SampleConfigurationHistoryResponse,
-		](newValueStore(), newValueStore(), setDefaults)
+		server = server.Build(newValueStore(), newValueStore(), setDefaults)
 	})
 	Context("GetConfiguration", func() {
 		It("should forward the request to the tracker", func(ctx context.Context) {

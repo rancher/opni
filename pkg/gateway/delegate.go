@@ -6,8 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/kralicky/totem"
 	agentv1 "github.com/rancher/opni/pkg/agent"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -18,7 +16,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/singleflight"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -44,8 +41,6 @@ func (a agentInfo) GetId() string {
 
 type DelegateServer struct {
 	DelegateServerOptions
-	streamv1.UnsafeDelegateServer
-	streamv1.UnsafeRelayServer
 	config       v1beta1.GatewayConfigSpec
 	mu           *sync.RWMutex
 	rcond        *sync.Cond
@@ -85,6 +80,7 @@ func NewDelegateServer(config v1beta1.GatewayConfigSpec, clusterStore storage.Cl
 		activeAgents:          make(map[string]agentInfo),
 		clusterStore:          clusterStore,
 		logger:                lg.Named("delegate"),
+		dialer:                newDialer(),
 	}
 }
 
@@ -138,22 +134,31 @@ ATTEMPT:
 			fwdResp := &totem.RPC{}
 			err := target.Invoke(ctx, totem.Forward, req.GetRequest(), fwdResp)
 			if err != nil {
+				// the actual request failed (network error, etc.)
 				d.logger.With(
 					zap.Error(err),
-				).Error("delegating rpc request failed")
+				).Error("delegating rpc request failed (local)")
 				return nil, err
 			}
-
-			resp := &totem.RPC{}
-			err = proto.Unmarshal(fwdResp.GetResponse().GetResponse(), resp)
-			if err != nil {
+			if fwdResp.GetResponse().GetStatus().Err() != nil {
 				d.logger.With(
 					zap.Error(err),
-				).Error("delegating rpc request failed")
-				return nil, err
+				).Error("delegating rpc request failed (remote)")
+				// the request failed, but somewhere on the remote side
+				return nil, fwdResp.GetResponse().GetStatus().Err()
 			}
 
-			return resp, nil
+			// TODO: might still need this logic
+			// resp := &totem.RPC{}
+			// err = proto.Unmarshal(fwdResp.GetResponse().GetResponse(), resp)
+			// if err != nil {
+			// 	d.logger.With(
+			// 		zap.Error(err),
+			// 	).Error("malformed rpc response from agent")
+			// 	return nil, err
+			// }
+
+			return fwdResp, nil
 		}
 		// check the connection tracker
 
@@ -203,49 +208,47 @@ ATTEMPT:
 
 func (d *DelegateServer) Broadcast(ctx context.Context, req *streamv1.BroadcastMessage) (*streamv1.BroadcastReplyList, error) {
 	d.mu.RLock()
-	defer d.mu.RUnlock()
-
 	sp := storage.NewSelectorPredicate[agentInfo](req.GetTargetSelector())
-
 	var targets []agentInfo
 	for _, aa := range d.activeAgents {
 		if sp(aa) {
 			targets = append(targets, aa)
 		}
 	}
-
+	d.mu.RUnlock()
 	if len(targets) == 0 {
-		return nil, status.Error(codes.NotFound, "no targets found")
+		return &streamv1.BroadcastReplyList{}, nil
 	}
 
-	eg, ctx := errgroup.WithContext(ctx)
 	reply := &streamv1.BroadcastReplyList{
-		Responses: make([]*streamv1.BroadcastReply, len(targets)),
+		Responses: make([]*streamv1.BroadcastReply, 0, len(targets)),
 	}
-
-	for i, target := range targets {
-		i, target := i, target
-		eg.Go(func() error {
-			item := &totem.RPC{}
-			if err := target.Invoke(ctx, totem.Forward, req.GetRequest(), item); err != nil {
-				return err
-			}
-
-			reply.Responses[i] = &streamv1.BroadcastReply{
-				Ref: &corev1.Reference{
-					Id: target.id,
-				},
-				Reply: item,
-			}
-
-			return nil
+	for _, target := range targets {
+		entry := &streamv1.BroadcastReply{
+			Ref: &corev1.Reference{
+				Id: target.id,
+			},
+		}
+		var err error
+		entry.Reply, err = d.Request(ctx, &streamv1.DelegatedMessage{
+			Request: req.GetRequest(),
+			Target:  &corev1.Reference{Id: target.GetId()},
 		})
+		if err != nil {
+			entry.Reply = &totem.RPC{
+				Content: &totem.RPC_Response{
+					Response: &totem.Response{
+						StatusProto: status.Convert(err).Proto(),
+					},
+				},
+			}
+		}
+		reply.Responses = append(reply.Responses, entry)
 	}
 
-	err := eg.Wait()
-	if err != nil {
-		return nil, err
-	}
+	d.logger.With(
+		"targets", len(targets),
+	).Debug("broadcasted rpc request")
 
 	return reply, nil
 }

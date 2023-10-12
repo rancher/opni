@@ -1819,6 +1819,8 @@ github.com/kralicky/tools/gopls v0.0.0-20230929154024-2a5e4baf75bc h1:R2nNYNLNq/
 github.com/kralicky/tools/gopls v0.0.0-20230929154024-2a5e4baf75bc/go.mod h1:pvFenLZfDRI0oLJSr8B+DRvyjfKp1OU7pU64oWfuXJ4=
 github.com/kralicky/totem v1.2.1 h1:ayd+IHbmmWhgFXJfzTHg0mJ2mr/IYHCh/nDqYyd6yCk=
 github.com/kralicky/totem v1.2.1/go.mod h1:DFlQM6o5n1AWrU/+wd3hjLKoKZ+a0TPRUQxnCQvGKyY=
+github.com/kralicky/totem v1.2.2-0.20231012160854-84e0ff41e383 h1:XhhJKrW/NeGQ3HRt+x4k1ShwqT3Z2Ea8HxdRr6KoHtg=
+github.com/kralicky/totem v1.2.2-0.20231012160854-84e0ff41e383/go.mod h1:DFlQM6o5n1AWrU/+wd3hjLKoKZ+a0TPRUQxnCQvGKyY=
 github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d h1:kLfaaFdmCHKZCvL4DzQ7T9YsAVSBqZez34zaegldkls=
 github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d/go.mod h1:z4cKsjE0B5RlhFSbWcZNh70UEjtwrj8fpG1QXyU2KuI=
 github.com/kralicky/zap v1.24.1-0.20230718165024-a2256218e4cc h1:FhngWZAuozJDezZPFebEy8QPbf7tw3MRv07RN8RLcg0=

@@ -3,7 +3,6 @@ package gateway
 import (
 	"context"
 	"math"
-	"runtime"
 	"sync"
 	"time"
 
@@ -20,10 +19,11 @@ import (
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/singleflight"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 )
 
@@ -52,6 +52,7 @@ type DelegateServer struct {
 	activeAgents map[string]agentInfo
 	logger       *zap.SugaredLogger
 	clusterStore storage.ClusterStore
+	dialer       *relayDialer
 }
 
 type DelegateServerOptions struct {
@@ -175,22 +176,15 @@ ATTEMPT:
 				}
 			} else {
 				lg.Debug("relaying request to controlling instance")
-				addr := info.GetRelayAddress()
-				cc, err := grpc.DialContext(ctx, addr,
-					grpc.WithContextDialer(util.DialProtocol),
-					grpc.WithBlock(),
-					grpc.FailOnNonTempDialError(true),
-					grpc.WithTransportCredentials(insecure.NewCredentials()),
-				)
+				cc, err := d.dialer.Dial(info)
 				if err != nil {
 					return nil, status.Errorf(codes.Unavailable, "failed to dial controlling instance: %s", err.Error())
 				}
-				defer cc.Close() // TODO: try keeping this open for a short time
 				relayClient := streamv1.NewRelayClient(cc)
 				resp, err := relayClient.RelayDelegateRequest(ctx, &streamv1.RelayedDelegatedMessage{
 					Message:   req,
 					Principal: d.ct.LocalInstanceInfo(),
-				}, grpc.WaitForReady(true))
+				})
 				if err != nil {
 					return nil, err
 				}
@@ -282,15 +276,15 @@ func (rs *RelayServer) ListenAndServe(ctx context.Context) error {
 		return err
 	}
 
-	creds := insecure.NewCredentials() // todo
+	creds := insecure.NewCredentials() // todo?
 
 	server := grpc.NewServer(
 		grpc.Creds(creds),
-		grpc.NumStreamWorkers(uint32(runtime.NumCPU())),
 		grpc.MaxRecvMsgSize(math.MaxInt32),
-		grpc.KeepaliveParams(keepalive.ServerParameters{
-			MaxConnectionIdle: 10 * time.Second,
-		}),
+		grpc.MaxSendMsgSize(math.MaxInt32),
+		// note: no idle timeout config here, it's handled client-side.
+		// also no pooled stream workers, the delegate server should use few
+		// resources when idle, and can burst when needed
 	)
 	streamv1.RegisterRelayServer(server, rs)
 
@@ -323,4 +317,62 @@ func (rs *RelayServer) RelayDelegateRequest(ctx context.Context, msg *streamv1.R
 		Reply:  rpc,
 		Status: status.Convert(err).Proto(),
 	}, nil
+}
+
+// Manages connections to multiple relay servers efficiently.
+type relayDialer struct {
+	mu      sync.RWMutex
+	clients map[string]*grpc.ClientConn
+	dialSf  singleflight.Group
+}
+
+func newDialer() *relayDialer {
+	return &relayDialer{
+		clients: make(map[string]*grpc.ClientConn),
+	}
+}
+
+func (rd *relayDialer) Dial(info *corev1.InstanceInfo) (grpc.ClientConnInterface, error) {
+	rd.mu.RLock()
+	if cc, ok := rd.clients[info.GetRelayAddress()]; ok {
+		state := cc.GetState()
+		if state != connectivity.Shutdown {
+			switch state {
+			case connectivity.Idle:
+				cc.Connect()
+			case connectivity.TransientFailure:
+				cc.ResetConnectBackoff()
+			}
+			return cc, nil
+		}
+	}
+	rd.mu.RUnlock()
+
+	res, err, _ := rd.dialSf.Do(info.RelayAddress, func() (any, error) {
+		cc, err := grpc.Dial(info.RelayAddress,
+			// A short client-side idle timeout will aggressively force the connection
+			// to go idle when it is not actively being used, freeing up resources on
+			// the other end. Because any given instance can communicate with every
+			// other instance, this should significantly limit the number of actual
+			// open connections. The servers do not enforce idle timeouts themselves.
+			grpc.WithIdleTimeout(5*time.Second),
+			grpc.WithContextDialer(util.DialProtocol),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithDefaultCallOptions(
+				grpc.MaxCallRecvMsgSize(math.MaxInt32),
+				grpc.MaxCallSendMsgSize(math.MaxInt32),
+				grpc.WaitForReady(true),
+			),
+		)
+		if err != nil {
+			return nil, err
+		}
+		// still need to acquire the write lock here, note the read lock has been
+		// released earlier
+		rd.mu.Lock()
+		rd.clients[info.RelayAddress] = cc
+		rd.mu.Unlock()
+		return cc, nil
+	})
+	return res.(*grpc.ClientConn), err
 }

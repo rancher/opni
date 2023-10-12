@@ -129,7 +129,7 @@ func (cg *Generator) generateFile(gen *protogen.Plugin, file *protogen.File) *pr
 	if opts.GenerateFlagsForAllMessages {
 		for _, msg := range file.Messages {
 			// check if a flagset has already been generated for this message
-			if _, ok := cg.allFlagSets[g.QualifiedGoIdent(msg.GoIdent)]; ok {
+			if _, ok := cg.allFlagSets[msg.GoIdent.String()]; ok {
 				continue
 			}
 			cg.generateFlagSet(g, msg)
@@ -548,7 +548,7 @@ func (b *buffer) QualifiedGoIdent(ident protogen.GoIdent) string {
 }
 
 func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protogen.Message) *flagSet {
-	if existing, ok := cg.allFlagSets[g.QualifiedGoIdent(message.GoIdent)]; ok {
+	if existing, ok := cg.allFlagSets[message.GoIdent.String()]; ok {
 		return existing
 	}
 
@@ -558,8 +558,7 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 		deps:     deps,
 	}
 
-	ident := g.QualifiedGoIdent(message.GoIdent)
-	cg.allFlagSets[ident] = fs
+	cg.allFlagSets[message.GoIdent.String()] = fs
 	cg.orderedFlagSets = append(cg.orderedFlagSets, fs)
 
 	if dest, ok := cg.generatedFiles[message.Desc.ParentFile().Path()]; ok {

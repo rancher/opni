@@ -90,7 +90,7 @@ type Plugin struct {
 }
 
 // ManagementServices implements managementext.ManagementAPIExtension.
-func (p *Plugin) ManagementServices() []util.ServicePackInterface {
+func (p *Plugin) ManagementServices(_ managementext.ServiceController) []util.ServicePackInterface {
 	return []util.ServicePackInterface{
 		util.PackService[alertingv1.AlertConditionsServer](
 			&alertingv1.AlertConditions_ServiceDesc,
@@ -122,9 +122,6 @@ func (p *Plugin) ManagementServices() []util.ServicePackInterface {
 		),
 	}
 }
-
-// UseServiceController implements managementext.ManagementAPIExtension.
-func (*Plugin) UseServiceController(s managementext.ServiceController) {}
 
 var (
 	_ alertingv1.AlertEndpointsServer     = (*Plugin)(nil)

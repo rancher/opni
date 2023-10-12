@@ -54,15 +54,12 @@ type Plugin struct {
 }
 
 // ManagementServices implements managementext.ManagementAPIExtension.
-func (p *Plugin) ManagementServices() []util.ServicePackInterface {
+func (p *Plugin) ManagementServices(_ managementext.ServiceController) []util.ServicePackInterface {
 	return []util.ServicePackInterface{
 		util.PackService[representation.TopologyRepresentationServer](&representation.TopologyRepresentation_ServiceDesc, p),
 		util.PackService[orchestrator.TopologyOrchestratorServer](&orchestrator.TopologyOrchestrator_ServiceDesc, &p.topologyBackend),
 	}
 }
-
-// UseServiceController implements managementext.ManagementAPIExtension.
-func (p *Plugin) UseServiceController(s managementext.ServiceController) {}
 
 func NewPlugin(ctx context.Context) *Plugin {
 	p := &Plugin{

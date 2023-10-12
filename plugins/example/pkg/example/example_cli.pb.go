@@ -249,10 +249,13 @@ func BuildConfigSetDefaultConfigurationCmd() *cobra.Command {
 				return nil
 			}
 			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
-				if edited, err := cliutil.EditInteractive(in); err != nil {
+				if curValue, err := client.GetDefaultConfiguration(cmd.Context(), &driverutil.GetRequest{}); err == nil {
+					in.Spec = curValue
+				}
+				if edited, err := cliutil.EditInteractive(in.Spec); err != nil {
 					return err
 				} else {
-					in = edited
+					in.Spec = edited
 				}
 			} else if fileName := cmd.Flags().Lookup("file").Value.String(); fileName != "" {
 				if err := cliutil.LoadFromFile(in, fileName); err != nil {
@@ -318,10 +321,13 @@ func BuildConfigSetConfigurationCmd() *cobra.Command {
 				return nil
 			}
 			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
-				if edited, err := cliutil.EditInteractive(in); err != nil {
+				if curValue, err := client.GetConfiguration(cmd.Context(), &driverutil.GetRequest{}); err == nil {
+					in.Spec = curValue
+				}
+				if edited, err := cliutil.EditInteractive(in.Spec); err != nil {
 					return err
 				} else {
-					in = edited
+					in.Spec = edited
 				}
 			} else if fileName := cmd.Flags().Lookup("file").Value.String(); fileName != "" {
 				if err := cliutil.LoadFromFile(in, fileName); err != nil {

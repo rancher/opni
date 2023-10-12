@@ -4,7 +4,6 @@ import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/clients"
-	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
@@ -12,16 +11,11 @@ import (
 	"google.golang.org/grpc"
 )
 
+// StreamServers implements stream.StreamAPIExtension.
 func (p *Plugin) StreamServers() []util.ServicePackInterface {
-	return []streamext.Server{
-		{
-			Desc: &capabilityv1.Node_ServiceDesc,
-			Impl: p.node,
-		},
-		{
-			Desc: &remoteread.RemoteReadAgent_ServiceDesc,
-			Impl: p.node,
-		},
+	return []util.ServicePackInterface{
+		util.PackService[capabilityv1.NodeServer](&capabilityv1.Node_ServiceDesc, p.node),
+		util.PackService[remoteread.RemoteReadAgentServer](&remoteread.RemoteReadAgent_ServiceDesc, p.node),
 	}
 }
 

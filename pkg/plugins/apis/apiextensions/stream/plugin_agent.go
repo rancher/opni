@@ -57,13 +57,14 @@ func NewAgentPlugin(p StreamAPIExtension) plugin.Plugin {
 	if p != nil {
 		servers := p.StreamServers()
 		for _, srv := range servers {
-			descriptor, err := grpcreflect.LoadServiceDescriptor(srv.Desc)
+			desc, _ := srv.Unpack()
+			descriptor, err := grpcreflect.LoadServiceDescriptor(desc)
 			if err != nil {
 				panic(err)
 			}
 			ext.servers = append(ext.servers, &richServer{
-				Server:   srv,
-				richDesc: descriptor,
+				ServicePackInterface: srv,
+				richDesc:             descriptor,
 			})
 		}
 		if clientHandler, ok := p.(StreamClientHandler); ok {
@@ -122,7 +123,7 @@ func (e *agentStreamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectS
 		return err
 	}
 	for _, srv := range e.servers {
-		ts.RegisterService(srv.Desc, srv.Impl)
+		ts.RegisterService(srv.Unpack())
 	}
 	timeout := discoveryTimeout.Load()
 	var cc grpc.ClientConnInterface

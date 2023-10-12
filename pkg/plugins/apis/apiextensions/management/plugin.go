@@ -98,7 +98,7 @@ func (p *managementApiExtensionPlugin) GRPCServer(
 	s *grpc.Server,
 ) error {
 	apiextensions.RegisterManagementAPIExtensionServer(s, p.extensionSrv)
-	for _, sp := range p.extensionSrv.ManagementServices(p.extensionSrv.healthSrv) {
+	for _, sp := range p.extensionSrv.services {
 		s.RegisterService(sp.Unpack())
 	}
 	return nil
@@ -116,10 +116,17 @@ func (p *managementApiExtensionPlugin) GRPCClient(
 }
 
 func NewPlugin(ext ManagementAPIExtension) plugin.Plugin {
+	if ext == nil {
+		return &managementApiExtensionPlugin{}
+	}
+	healthSrv := health.NewServer()
+	services := ext.ManagementServices(healthSrv)
+
 	return &managementApiExtensionPlugin{
 		extensionSrv: &mgmtExtensionServerImpl{
 			ManagementAPIExtension: ext,
-			healthSrv:              health.NewServer(),
+			healthSrv:              healthSrv,
+			services:               services,
 		},
 	}
 }
@@ -128,6 +135,7 @@ type mgmtExtensionServerImpl struct {
 	ManagementAPIExtension
 	apiextensions.UnsafeManagementAPIExtensionServer
 	healthSrv *health.Server
+	services  []util.ServicePackInterface
 }
 
 // CheckHealth implements apiextensions.ManagementAPIExtensionServer.
@@ -142,20 +150,18 @@ func (e *mgmtExtensionServerImpl) WatchHealth(req *healthpb.HealthCheckRequest, 
 
 func (e *mgmtExtensionServerImpl) Descriptors(_ context.Context, _ *emptypb.Empty) (*apiextensions.ServiceDescriptorProtoList, error) {
 	list := &apiextensions.ServiceDescriptorProtoList{}
-	for _, s := range e.ManagementServices(e.healthSrv) {
+	for _, s := range e.services {
 		rawDesc, _ := s.Unpack()
 		desc, err := grpcreflect.LoadServiceDescriptor(rawDesc)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 		fqn := desc.GetFullyQualifiedName()
 		sd := util.ProtoClone(desc.AsServiceDescriptorProto())
 		sd.Name = &fqn
-		if err != nil {
-			return nil, err
-		}
 		list.Items = append(list.Items, sd)
 	}
+
 	return list, nil
 }
 

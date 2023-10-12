@@ -13,15 +13,6 @@ import (
 	time "time"
 )
 
-func (in *DisabledRuleGroup) DeepCopyInto(out *DisabledRuleGroup) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *DisabledRuleGroup) DeepCopy() *DisabledRuleGroup {
-	return proto.Clone(in).(*DisabledRuleGroup)
-}
-
 func (in *Limits) DeepCopyInto(out *Limits) {
 	out.Reset()
 	proto.Merge(out, in)
@@ -29,6 +20,15 @@ func (in *Limits) DeepCopyInto(out *Limits) {
 
 func (in *Limits) DeepCopy() *Limits {
 	return proto.Clone(in).(*Limits)
+}
+
+func (in *DisabledRuleGroup) DeepCopyInto(out *DisabledRuleGroup) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *DisabledRuleGroup) DeepCopy() *DisabledRuleGroup {
+	return proto.Clone(in).(*DisabledRuleGroup)
 }
 
 func (in *RelabelConfig) DeepCopyInto(out *RelabelConfig) {

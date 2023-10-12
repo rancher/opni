@@ -12,6 +12,15 @@ import (
 	strings "strings"
 )
 
+func (in *RuntimeConfigValues) DeepCopyInto(out *RuntimeConfigValues) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *RuntimeConfigValues) DeepCopy() *RuntimeConfigValues {
+	return proto.Clone(in).(*RuntimeConfigValues)
+}
+
 func (in *IngesterInstanceLimits) DeepCopyInto(out *IngesterInstanceLimits) {
 	out.Reset()
 	proto.Merge(out, in)
@@ -28,15 +37,6 @@ func (in *KvMultiRuntimeConfig) DeepCopyInto(out *KvMultiRuntimeConfig) {
 
 func (in *KvMultiRuntimeConfig) DeepCopy() *KvMultiRuntimeConfig {
 	return proto.Clone(in).(*KvMultiRuntimeConfig)
-}
-
-func (in *RuntimeConfigValues) DeepCopyInto(out *RuntimeConfigValues) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *RuntimeConfigValues) DeepCopy() *RuntimeConfigValues {
-	return proto.Clone(in).(*RuntimeConfigValues)
 }
 
 func (in *RuntimeConfigValues) FlagSet(prefix ...string) *pflag.FlagSet {

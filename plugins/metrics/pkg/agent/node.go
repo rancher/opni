@@ -306,7 +306,7 @@ func (m *MetricsNode) updateConfig(ctx context.Context, config *node.MetricsCapa
 		m.configMu.Lock()
 	}
 	defer m.configMu.Unlock()
-	if !config.Enabled && len(config.Conditions) > 0 {
+	if config.GetEnabled() && len(config.Conditions) > 0 {
 		m.conditions.Set(health.CondBackend, health.StatusDisabled, strings.Join(config.Conditions, ", "))
 	} else {
 		m.conditions.Clear(health.CondBackend)

@@ -33,7 +33,7 @@ func (m *OpsServiceBackend) GetDefaultConfiguration(ctx context.Context, in *dri
 	return m.ClusterDriver.GetDefaultConfiguration(ctx, in)
 }
 
-func (m *OpsServiceBackend) SetDefaultConfiguration(ctx context.Context, in *cortexops.CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
+func (m *OpsServiceBackend) SetDefaultConfiguration(ctx context.Context, in *cortexops.SetRequest) (*emptypb.Empty, error) {
 	m.WaitForInit()
 
 	return m.ClusterDriver.SetDefaultConfiguration(ctx, in)
@@ -51,7 +51,7 @@ func (m *OpsServiceBackend) GetConfiguration(ctx context.Context, in *driverutil
 	return m.ClusterDriver.GetConfiguration(ctx, in)
 }
 
-func (m *OpsServiceBackend) SetConfiguration(ctx context.Context, in *cortexops.CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
+func (m *OpsServiceBackend) SetConfiguration(ctx context.Context, in *cortexops.SetRequest) (*emptypb.Empty, error) {
 	m.WaitForInit()
 
 	return m.ClusterDriver.SetConfiguration(ctx, in)

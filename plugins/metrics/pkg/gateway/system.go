@@ -79,8 +79,8 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 
 	p.backendKvClients.Set(&backend.KVClients{
 		DefaultClusterConfigurationSpec: kvutil.WithKey(system.NewKVStoreClient[*cortexops.CapabilityBackendConfigSpec](client), "/config/cluster/default"),
-		DefaultCapabilitySpec:           kvutil.WithKey(system.NewKVStoreClient[*node.MetricsCapabilitySpec](client), "/config/capability/default"),
-		NodeCapabilitySpecs:             kvutil.WithPrefix(system.NewKVStoreClient[*node.MetricsCapabilitySpec](client), "/config/capability/nodes/"),
+		DefaultCapabilitySpec:           kvutil.WithKey(system.NewKVStoreClient[*node.MetricsCapabilityConfig](client), "/config/capability/default"),
+		NodeCapabilitySpecs:             kvutil.WithPrefix(system.NewKVStoreClient[*node.MetricsCapabilityConfig](client), "/config/capability/nodes/"),
 	})
 	<-p.ctx.Done()
 }

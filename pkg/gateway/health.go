@@ -18,6 +18,7 @@ import (
 )
 
 type HealthStatusWriterManager struct {
+	ctx                context.Context
 	healthQueue        chan health.HealthUpdate
 	statusQueue        chan health.StatusUpdate
 	queueLock          sync.Mutex
@@ -33,6 +34,7 @@ func NewHealthStatusWriterManager(ctx context.Context, rootKv storage.KeyValueSt
 	healthQueue := make(chan health.HealthUpdate, 256)
 	statusQueue := make(chan health.StatusUpdate, 256)
 	mgr := &HealthStatusWriterManager{
+		ctx:                ctx,
 		connectionsKv:      rootKv,
 		logger:             lg,
 		healthQueue:        healthQueue,
@@ -99,7 +101,8 @@ func (w *HealthStatusWriterManager) Close() {
 
 // HandleTrackedConnection implements RemoteConnectionListener.
 func (wm *HealthStatusWriterManager) HandleTrackedConnection(ctx context.Context, agentId string, leaseId string, instanceInfo *corev1.InstanceInfo) {
-	w := NewHealthStatusWriter(ctx, kvutil.WithMessageCodec[*corev1.InstanceInfo](kvutil.WithKey(wm.connectionsKv, path.Join(agentId, leaseId))), wm.logger)
+	// see docs for NewHealthStatusWriter for details on context usage
+	w := NewHealthStatusWriter(context.WithoutCancel(ctx), kvutil.WithMessageCodec[*corev1.InstanceInfo](kvutil.WithKey(wm.connectionsKv, path.Join(agentId, leaseId))), wm.logger)
 	agentBuffer := health.AsBuffer(wm.agentHealthQueue(agentId), wm.agentStatusQueue(agentId))
 	wm.logger.Debugf("handling new tracked connection for %s", agentId)
 	go func() {
@@ -112,57 +115,113 @@ type HealthStatusWriter struct {
 	v       storage.ValueStoreT[*corev1.InstanceInfo]
 	healthC chan health.HealthUpdate
 	statusC chan health.StatusUpdate
+	closed  chan struct{}
 }
 
 var _ health.HealthStatusUpdateWriter = (*HealthStatusWriter)(nil)
 
-// Writes health and status updates to the keys "health" and "status" at the
-// root of the provided KeyValueStore. To write updates to a specific path,
-// use a prefixed KeyValueStore.
+// Writes health and status updates to an InstanceInfo object in the provided
+// value store.
+//
+// This writer only modifies the value if the key already exists. If it does not
+// exist or is deleted, updates will be ignored until it is created.
+//
+// The context is used to make requests to the value store. It should not need
+// to be canceled under normal operation. To ensure resources are released from
+// the writer, call Close() which will block until all messages have been
+// processed (or the context is canceled, in which case the writer may fail to
+// write the final health and status updates to the value store)
 func NewHealthStatusWriter(ctx context.Context, v storage.ValueStoreT[*corev1.InstanceInfo], lg *zap.SugaredLogger) health.HealthStatusUpdateWriter {
 	healthC := make(chan health.HealthUpdate, 8)
 	statusC := make(chan health.StatusUpdate, 8)
-
+	closed := make(chan struct{})
 	go func() {
+		defer close(closed)
+		recvHealth := func(h health.HealthUpdate) error {
+			var rev int64
+			ii, err := v.Get(ctx, storage.WithRevisionOut(&rev))
+			if err != nil {
+				if storage.IsNotFound(err) {
+					lg.Debug("discarding health update for non-existent instance")
+					return nil
+				}
+				if errors.Is(err, ctx.Err()) {
+					return err
+				}
+				lg.With(zap.Error(err)).Error("failed to get instance info during health update")
+				return nil
+			}
+			if ii == nil {
+				ii = &corev1.InstanceInfo{}
+			}
+			ii.Health = h.Health
+			if err := v.Put(ctx, ii, storage.WithRevision(rev)); err != nil {
+				if storage.IsConflict(err) {
+					lg.Debug("discarding health update for deleted instance")
+					return nil
+				}
+				if errors.Is(err, ctx.Err()) {
+					return err
+				}
+				lg.With(zap.Error(err)).Error("failed to put instance info during health update")
+			}
+			return nil
+		}
+		recvStatus := func(s health.StatusUpdate) error {
+			var rev int64
+			ii, err := v.Get(ctx, storage.WithRevisionOut(&rev))
+			if err != nil {
+				if storage.IsNotFound(err) {
+					lg.Debug("discarding status update for non-existent instance")
+					return nil
+				}
+				if errors.Is(err, ctx.Err()) {
+					return err
+				}
+				lg.With(zap.Error(err)).Error("failed to get instance info during status update")
+				return nil
+			}
+			if ii == nil {
+				ii = &corev1.InstanceInfo{}
+			}
+			ii.Status = s.Status
+			if err := v.Put(ctx, ii, storage.WithRevision(rev)); err != nil {
+				if storage.IsConflict(err) {
+					lg.Debug("discarding status update for deleted instance")
+					return nil
+				}
+				if errors.Is(err, ctx.Err()) {
+					return err
+				}
+				lg.With(zap.Error(err)).Error("failed to put instance info during status update")
+			}
+			return nil
+		}
 		for {
 			select {
-			case <-ctx.Done():
-				return
-			case h := <-healthC:
-				var rev int64
-				ii, err := v.Get(ctx, storage.WithRevisionOut(&rev))
-				if err != nil && !storage.IsNotFound(err) {
-					if errors.Is(err, ctx.Err()) {
-						return
+			case h, ok := <-healthC:
+				if !ok {
+					for h := range healthC {
+						if err := recvHealth(h); err != nil {
+							return
+						}
 					}
-					lg.With(zap.Error(err)).Error("failed to get instance info")
-					continue
+					return
 				}
-				if ii == nil {
-					ii = &corev1.InstanceInfo{}
+				if err := recvHealth(h); err != nil {
+					return
 				}
-				ii.Health = h.Health
-				if err := v.Put(ctx, ii, storage.WithRevision(rev)); err != nil {
-					lg.With(zap.Error(err)).Error("failed to put instance info")
-					continue
-				}
-			case s := <-statusC:
-				var rev int64
-				ii, err := v.Get(ctx, storage.WithRevisionOut(&rev))
-				if err != nil && !storage.IsNotFound(err) {
-					if errors.Is(err, ctx.Err()) {
-						return
+			case s, ok := <-statusC:
+				if !ok {
+					for s := range statusC {
+						if err := recvStatus(s); err != nil {
+							return
+						}
 					}
-					lg.With(zap.Error(err)).Error("failed to get instance info")
-					continue
+					return
 				}
-				if ii == nil {
-					ii = &corev1.InstanceInfo{}
-				}
-				ii.Status = s.Status
-				if err := v.Put(ctx, ii, storage.WithRevision(rev)); err != nil {
-					lg.With(zap.Error(err)).Error("failed to put instance info")
-					continue
+				if err := recvStatus(s); err != nil {
+					return
 				}
 			}
 		}
@@ -172,6 +231,7 @@ func NewHealthStatusWriter(ctx context.Context, v storage.ValueStoreT[*corev1.In
 		v:       v,
 		healthC: healthC,
 		statusC: statusC,
+		closed:  closed,
 	}
 }
 
@@ -188,6 +248,7 @@ func (w *HealthStatusWriter) StatusWriterC() chan<- health.StatusUpdate {
 func (w *HealthStatusWriter) Close() {
 	close(w.healthC)
 	close(w.statusC)
+	<-w.closed
 }
 
 type HealthStatusReader struct {

@@ -164,16 +164,16 @@ func (t *federatingInterceptor) Intercept(
 	return emptyResponse, nil
 }
 
-type passthroughInterceptor struct{}
+type PassthroughInterceptor struct{}
 
-func (t *passthroughInterceptor) Intercept(
+func (t *PassthroughInterceptor) Intercept(
 	ctx context.Context, req *cortexpb.WriteRequest,
 	handler WriteHandlerFunc,
 ) (*cortexpb.WriteResponse, error) {
 	return handler(ctx, req)
 }
 
-func (t *passthroughInterceptor) InterceptSlow(
+func (t *PassthroughInterceptor) InterceptSlow(
 	ctx context.Context, req *cortexpb.WriteRequest,
 	handler WriteHandlerFunc,
 ) (*cortexpb.WriteResponse, error) {

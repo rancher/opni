@@ -10,8 +10,6 @@ import (
 
 var (
 	muMeterProvider                  sync.Mutex
-	cIngestBytesByID                 metric.Int64Counter
-	cRemoteWriteRequests             metric.Int64Counter
 	hRemoteWriteProcessingLatency    metric.Int64Histogram
 	cRemoteWriteTotalProcessedSeries metric.Int64Counter
 	meterProvider                    *sdkmetric.MeterProvider
@@ -27,16 +25,6 @@ func RegisterMeterProvider(mp *sdkmetric.MeterProvider) {
 func createMetrics() {
 	meter := meterProvider.Meter("gateway")
 	var err error
-	cIngestBytesByID, err = meter.Int64Counter("remote_write_cluster_ingest_bytes",
-		metric.WithDescription("Total number of (compressed) bytes received from remote write requests by cluster ID"))
-	if err != nil {
-		panic(err)
-	}
-	cRemoteWriteRequests, err = meter.Int64Counter("remote_write_requests_total",
-		metric.WithDescription("Total number of remote write requests forwarded to Cortex"))
-	if err != nil {
-		panic(err)
-	}
 	hRemoteWriteProcessingLatency, err = meter.Int64Histogram("remote_write_processing_latency_ns",
 		metric.WithDescription("Latency of remote write processing in nanoseconds per timeseries"),
 		metric.WithUnit("ns"),
@@ -65,13 +53,4 @@ func CortexAggregationSelector(ik sdkmetric.InstrumentKind) aggregation.Aggregat
 		}
 	}
 	panic("unknown instrument kind")
-}
-
-func init() {
-	muMeterProvider.Lock()
-	defer muMeterProvider.Unlock()
-	if meterProvider == nil {
-		meterProvider = sdkmetric.NewMeterProvider()
-	}
-	createMetrics()
 }

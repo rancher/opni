@@ -55,6 +55,7 @@ type ClientSet interface {
 	QueryFrontend() QueryFrontendClient
 	Querier() QuerierClient
 	HTTP(options ...HTTPClientOption) *http.Client
+	TLSConfig() *tls.Config
 }
 
 type DistributorClient interface {
@@ -531,6 +532,14 @@ func (c *clientSet) HTTP(opts ...HTTPClientOption) *http.Client {
 	}
 	return c.Client
 }
+
+func (c *clientSet) TLSConfig() *tls.Config {
+	return c.tlsConfig
+}
+
+type clientSetKeyType struct{}
+
+var ClientSetKey clientSetKeyType
 
 func NewClientSet(ctx context.Context, cortexSpec *v1beta1.CortexSpec, tlsConfig *tls.Config) (ClientSet, error) {
 	distributorCC, err := grpc.DialContext(ctx, cortexSpec.Distributor.GRPCAddress,

@@ -141,12 +141,12 @@ func (dc *DryRunClient) ResetDefaultConfiguration(ctx context.Context, _ *emptyp
 }
 
 // SetConfiguration implements CortexOpsClient.
-func (dc *DryRunClient) SetConfiguration(ctx context.Context, in *CapabilityBackendConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	in.Enabled = nil
+func (dc *DryRunClient) SetConfiguration(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	in.Spec.Enabled = nil
 	dc.Request = &DryRunRequest{
 		Target: driverutil.Target_ActiveConfiguration,
 		Action: driverutil.Action_Set,
-		Spec:   in,
+		Spec:   in.Spec,
 	}
 	var err error
 	dc.Response, err = dc.Client.DryRun(ctx, dc.Request, opts...)
@@ -157,12 +157,12 @@ func (dc *DryRunClient) SetConfiguration(ctx context.Context, in *CapabilityBack
 }
 
 // SetDefaultConfiguration implements CortexOpsClient.
-func (dc *DryRunClient) SetDefaultConfiguration(ctx context.Context, in *CapabilityBackendConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	in.Enabled = nil
+func (dc *DryRunClient) SetDefaultConfiguration(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	in.Spec.Enabled = nil
 	dc.Request = &DryRunRequest{
 		Target: driverutil.Target_DefaultConfiguration,
 		Action: driverutil.Action_Set,
-		Spec:   in,
+		Spec:   in.Spec,
 	}
 	var err error
 	dc.Response, err = dc.Client.DryRun(ctx, dc.Request, opts...)

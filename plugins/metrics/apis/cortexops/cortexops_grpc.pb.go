@@ -54,7 +54,7 @@ type CortexOpsClient interface {
 	// This API is different from the SetConfiguration API, and should not be necessary
 	// for most use cases. It can be used in situations where an additional persistence
 	// layer that is not driver-specific is desired.
-	SetDefaultConfiguration(ctx context.Context, in *CapabilityBackendConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	SetDefaultConfiguration(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Resets the default configuration to the implementation-specific defaults.
 	// If a custom default configuration was previously set using SetDefaultConfiguration,
 	// this will clear it and revert back to the implementation-specific defaults.
@@ -77,7 +77,7 @@ type CortexOpsClient interface {
 	//
 	// Note: some fields may contain secrets. The placeholder value "***" can be used to
 	// keep an existing secret when updating the cluster configuration.
-	SetConfiguration(ctx context.Context, in *CapabilityBackendConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	SetConfiguration(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Resets the configuration of the managed Cortex cluster to the current default configuration.
 	//
 	// The request may optionally contain a field mask to specify which fields should
@@ -183,7 +183,7 @@ func (c *cortexOpsClient) GetDefaultConfiguration(ctx context.Context, in *drive
 	return out, nil
 }
 
-func (c *cortexOpsClient) SetDefaultConfiguration(ctx context.Context, in *CapabilityBackendConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *cortexOpsClient) SetDefaultConfiguration(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, CortexOps_SetDefaultConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -210,7 +210,7 @@ func (c *cortexOpsClient) GetConfiguration(ctx context.Context, in *driverutil.G
 	return out, nil
 }
 
-func (c *cortexOpsClient) SetConfiguration(ctx context.Context, in *CapabilityBackendConfigSpec, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *cortexOpsClient) SetConfiguration(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, CortexOps_SetConfiguration_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -301,7 +301,7 @@ type CortexOpsServer interface {
 	// This API is different from the SetConfiguration API, and should not be necessary
 	// for most use cases. It can be used in situations where an additional persistence
 	// layer that is not driver-specific is desired.
-	SetDefaultConfiguration(context.Context, *CapabilityBackendConfigSpec) (*emptypb.Empty, error)
+	SetDefaultConfiguration(context.Context, *SetRequest) (*emptypb.Empty, error)
 	// Resets the default configuration to the implementation-specific defaults.
 	// If a custom default configuration was previously set using SetDefaultConfiguration,
 	// this will clear it and revert back to the implementation-specific defaults.
@@ -324,7 +324,7 @@ type CortexOpsServer interface {
 	//
 	// Note: some fields may contain secrets. The placeholder value "***" can be used to
 	// keep an existing secret when updating the cluster configuration.
-	SetConfiguration(context.Context, *CapabilityBackendConfigSpec) (*emptypb.Empty, error)
+	SetConfiguration(context.Context, *SetRequest) (*emptypb.Empty, error)
 	// Resets the configuration of the managed Cortex cluster to the current default configuration.
 	//
 	// The request may optionally contain a field mask to specify which fields should
@@ -421,7 +421,7 @@ type UnimplementedCortexOpsServer struct {
 func (UnimplementedCortexOpsServer) GetDefaultConfiguration(context.Context, *driverutil.GetRequest) (*CapabilityBackendConfigSpec, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDefaultConfiguration not implemented")
 }
-func (UnimplementedCortexOpsServer) SetDefaultConfiguration(context.Context, *CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
+func (UnimplementedCortexOpsServer) SetDefaultConfiguration(context.Context, *SetRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetDefaultConfiguration not implemented")
 }
 func (UnimplementedCortexOpsServer) ResetDefaultConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
@@ -430,7 +430,7 @@ func (UnimplementedCortexOpsServer) ResetDefaultConfiguration(context.Context, *
 func (UnimplementedCortexOpsServer) GetConfiguration(context.Context, *driverutil.GetRequest) (*CapabilityBackendConfigSpec, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetConfiguration not implemented")
 }
-func (UnimplementedCortexOpsServer) SetConfiguration(context.Context, *CapabilityBackendConfigSpec) (*emptypb.Empty, error) {
+func (UnimplementedCortexOpsServer) SetConfiguration(context.Context, *SetRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetConfiguration not implemented")
 }
 func (UnimplementedCortexOpsServer) ResetConfiguration(context.Context, *ResetRequest) (*emptypb.Empty, error) {
@@ -486,7 +486,7 @@ func _CortexOps_GetDefaultConfiguration_Handler(srv interface{}, ctx context.Con
 }
 
 func _CortexOps_SetDefaultConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CapabilityBackendConfigSpec)
+	in := new(SetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -498,7 +498,7 @@ func _CortexOps_SetDefaultConfiguration_Handler(srv interface{}, ctx context.Con
 		FullMethod: CortexOps_SetDefaultConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexOpsServer).SetDefaultConfiguration(ctx, req.(*CapabilityBackendConfigSpec))
+		return srv.(CortexOpsServer).SetDefaultConfiguration(ctx, req.(*SetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -540,7 +540,7 @@ func _CortexOps_GetConfiguration_Handler(srv interface{}, ctx context.Context, d
 }
 
 func _CortexOps_SetConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CapabilityBackendConfigSpec)
+	in := new(SetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -552,7 +552,7 @@ func _CortexOps_SetConfiguration_Handler(srv interface{}, ctx context.Context, d
 		FullMethod: CortexOps_SetConfiguration_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexOpsServer).SetConfiguration(ctx, req.(*CapabilityBackendConfigSpec))
+		return srv.(CortexOpsServer).SetConfiguration(ctx, req.(*SetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

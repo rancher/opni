@@ -50,7 +50,7 @@ service CortexOps {
   // This API is different from the SetConfiguration API, and should not be necessary
   // for most use cases. It can be used in situations where an additional persistence
   // layer that is not driver-specific is desired.
-  rpc SetDefaultConfiguration(CapabilityBackendConfigSpec) returns (google.protobuf.Empty) {
+  rpc SetDefaultConfiguration(SetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
       use:         "config set-default"
       granularity: EditMessage
@@ -100,7 +100,7 @@ service CortexOps {
   //
   // Note: some fields may contain secrets. The placeholder value "***" can be used to
   // keep an existing secret when updating the cluster configuration.
-  rpc SetConfiguration(CapabilityBackendConfigSpec) returns (google.protobuf.Empty) {
+  rpc SetConfiguration(SetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
       use:          "config set"
       enable_hooks: true
@@ -323,6 +323,10 @@ message DryRunResponse {
 
 message ConfigurationHistoryResponse {
   repeated CapabilityBackendConfigSpec entries = 1;
+}
+
+message SetRequest {
+  CapabilityBackendConfigSpec spec = 1;
 }
 
 message ResetRequest {

@@ -6,18 +6,20 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/plugins/driverutil"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 func Revisions[
-	C driverutil.HistoryClientInterface[T, HR],
+	C driverutil.HistoryClient[T, H, HR],
 	T driverutil.ConfigType[T],
+	H driverutil.HistoryRequestType,
 	HR driverutil.HistoryResponseType[T],
-](ctx context.Context, target driverutil.Target, client C) ([]string, cobra.ShellCompDirective) {
-	history, err := client.ConfigurationHistory(ctx, &driverutil.ConfigurationHistoryRequest{
-		Target:        target,
-		IncludeValues: false,
-	})
+](ctx context.Context, req H, client C) ([]string, cobra.ShellCompDirective) {
+	clone := util.ProtoClone(req)
+	clone.ProtoReflect().Set(util.FieldByName[H]("includevalues"), protoreflect.ValueOfBool(false))
+	history, err := client.ConfigurationHistory(ctx, clone)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveError
 	}

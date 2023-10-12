@@ -119,7 +119,7 @@ HTTP handlers for this method:
 }
 
 func BuildCortexOpsSetDefaultConfigurationCmd() *cobra.Command {
-	in := &CapabilityBackendConfigSpec{}
+	in := &SetRequest{}
 	cmd := &cobra.Command{
 		Use:   "config set-default",
 		Short: "Sets the default configuration that will be used as the base for future configuration changes.",
@@ -145,14 +145,6 @@ HTTP handlers for this method:
 				return nil
 			}
 			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
-				client, ok := CortexOpsClientFromContext(cmd.Context())
-				if !ok {
-					cmd.PrintErrln("failed to get client from context")
-					return nil
-				}
-				if curValue, err := client.GetDefaultConfiguration(cmd.Context(), &driverutil.GetRequest{}); err == nil {
-					in = curValue
-				}
 				if edited, err := cliutil.EditInteractive(in); err != nil {
 					return err
 				} else {
@@ -261,7 +253,7 @@ func addBuildHook_CortexOpsSetConfiguration(hook func(*cobra.Command)) {
 }
 
 func BuildCortexOpsSetConfigurationCmd() *cobra.Command {
-	in := &CapabilityBackendConfigSpec{}
+	in := &SetRequest{}
 	cmd := &cobra.Command{
 		Use:   "config set",
 		Short: "Updates the configuration of the managed Cortex cluster to match the provided configuration.",
@@ -291,14 +283,6 @@ HTTP handlers for this method:
 				return nil
 			}
 			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
-				client, ok := CortexOpsClientFromContext(cmd.Context())
-				if !ok {
-					cmd.PrintErrln("failed to get client from context")
-					return nil
-				}
-				if curValue, err := client.GetConfiguration(cmd.Context(), &driverutil.GetRequest{}); err == nil {
-					in = curValue
-				}
 				if edited, err := cliutil.EditInteractive(in); err != nil {
 					return err
 				} else {
@@ -558,6 +542,42 @@ HTTP handlers for this method:
 	return cmd
 }
 
+func (in *SetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SetRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Spec == nil {
+		in.Spec = &CapabilityBackendConfigSpec{}
+	}
+	fs.AddFlagSet(in.Spec.FlagSet(append(prefix, "spec")...))
+	return fs
+}
+
+func (in *SetRequest) RedactSecrets() {
+	if in == nil {
+		return
+	}
+	in.Spec.RedactSecrets()
+}
+
+func (in *SetRequest) UnredactSecrets(unredacted *SetRequest) error {
+	if in == nil {
+		return nil
+	}
+	var details []protoiface.MessageV1
+	if err := in.Spec.UnredactSecrets(unredacted.GetSpec()); storage1.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "spec." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
+	}
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
+}
+
 func (in *CapabilityBackendConfigSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("CapabilityBackendConfigSpec", pflag.ExitOnError)
 	fs.SortFlags = true
@@ -751,6 +771,15 @@ func (in *ConfigurationHistoryResponse) DeepCopyInto(out *ConfigurationHistoryRe
 
 func (in *ConfigurationHistoryResponse) DeepCopy() *ConfigurationHistoryResponse {
 	return proto.Clone(in).(*ConfigurationHistoryResponse)
+}
+
+func (in *SetRequest) DeepCopyInto(out *SetRequest) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *SetRequest) DeepCopy() *SetRequest {
+	return proto.Clone(in).(*SetRequest)
 }
 
 func (in *ResetRequest) DeepCopyInto(out *ResetRequest) {

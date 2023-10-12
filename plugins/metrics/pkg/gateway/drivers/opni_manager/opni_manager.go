@@ -56,7 +56,14 @@ func (k OpniManagerClusterDriverOptions) newGateway() *opnicorev1beta1.Gateway {
 type OpniManager struct {
 	cortexops.UnsafeCortexOpsServer
 	OpniManagerClusterDriverOptions
-	*driverutil.BaseConfigServer[*cortexops.ResetRequest, *cortexops.ConfigurationHistoryResponse, *cortexops.CapabilityBackendConfigSpec]
+	*driverutil.BaseConfigServer[
+		*driverutil.GetRequest,
+		*cortexops.SetRequest,
+		*cortexops.ResetRequest,
+		*driverutil.ConfigurationHistoryRequest,
+		*cortexops.ConfigurationHistoryResponse,
+		*cortexops.CapabilityBackendConfigSpec,
+	]
 	configTracker *driverutil.DefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec]
 }
 
@@ -124,7 +131,10 @@ func NewOpniManagerClusterDriver(ctx context.Context, options OpniManagerCluster
 	}()
 
 	configSrv := driverutil.NewBaseConfigServer[
+		*driverutil.GetRequest,
+		*cortexops.SetRequest,
 		*cortexops.ResetRequest,
+		*driverutil.ConfigurationHistoryRequest,
 		*cortexops.ConfigurationHistoryResponse,
 	](options.DefaultConfigStore, activeStore, flagutil.LoadDefaults)
 

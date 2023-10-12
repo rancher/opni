@@ -513,6 +513,43 @@ export class ConfigurationHistoryResponse extends Message<ConfigurationHistoryRe
 }
 
 /**
+ * @generated from message cortexops.SetRequest
+ */
+export class SetRequest extends Message<SetRequest> {
+  /**
+   * @generated from field: cortexops.CapabilityBackendConfigSpec spec = 1;
+   */
+  spec?: CapabilityBackendConfigSpec;
+
+  constructor(data?: PartialMessage<SetRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "cortexops.SetRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "spec", kind: "message", T: CapabilityBackendConfigSpec },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): SetRequest {
+    return new SetRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): SetRequest {
+    return new SetRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): SetRequest {
+    return new SetRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: SetRequest | PlainMessage<SetRequest> | undefined, b: SetRequest | PlainMessage<SetRequest> | undefined): boolean {
+    return proto3.util.equals(SetRequest, a, b);
+  }
+}
+
+/**
  * @generated from message cortexops.ResetRequest
  */
 export class ResetRequest extends Message<ResetRequest> {

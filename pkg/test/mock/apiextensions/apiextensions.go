@@ -398,7 +398,7 @@ func (mr *MockStreamAPIExtension_ConnectInternalClientMockRecorder) Recv() *gomo
 }
 
 // RecvMsg mocks base method.
-func (m_2 *MockStreamAPIExtension_ConnectInternalClient) RecvMsg(m interface{}) error {
+func (m_2 *MockStreamAPIExtension_ConnectInternalClient) RecvMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "RecvMsg", m)
 	ret0, _ := ret[0].(error)
@@ -426,7 +426,7 @@ func (mr *MockStreamAPIExtension_ConnectInternalClientMockRecorder) Send(arg0 in
 }
 
 // SendMsg mocks base method.
-func (m_2 *MockStreamAPIExtension_ConnectInternalClient) SendMsg(m interface{}) error {
+func (m_2 *MockStreamAPIExtension_ConnectInternalClient) SendMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "SendMsg", m)
 	ret0, _ := ret[0].(error)
@@ -590,7 +590,7 @@ func (mr *MockStreamAPIExtension_ConnectInternalServerMockRecorder) Recv() *gomo
 }
 
 // RecvMsg mocks base method.
-func (m_2 *MockStreamAPIExtension_ConnectInternalServer) RecvMsg(m interface{}) error {
+func (m_2 *MockStreamAPIExtension_ConnectInternalServer) RecvMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "RecvMsg", m)
 	ret0, _ := ret[0].(error)
@@ -632,7 +632,7 @@ func (mr *MockStreamAPIExtension_ConnectInternalServerMockRecorder) SendHeader(a
 }
 
 // SendMsg mocks base method.
-func (m_2 *MockStreamAPIExtension_ConnectInternalServer) SendMsg(m interface{}) error {
+func (m_2 *MockStreamAPIExtension_ConnectInternalServer) SendMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "SendMsg", m)
 	ret0, _ := ret[0].(error)

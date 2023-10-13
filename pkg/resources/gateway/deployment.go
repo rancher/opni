@@ -85,6 +85,10 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 									MountPath: "/etc/opni",
 								},
 								{
+									Name:      "amtool",
+									MountPath: "/etc/amtool",
+								},
+								{
 									Name:      "certs",
 									MountPath: "/run/opni/certs",
 								},
@@ -161,6 +165,17 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 								ConfigMap: &corev1.ConfigMapVolumeSource{
 									LocalObjectReference: corev1.LocalObjectReference{
 										Name: "opni-gateway",
+									},
+									DefaultMode: lo.ToPtr[int32](0400),
+								},
+							},
+						},
+						{
+							Name: "amtool",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "amtool-config",
 									},
 									DefaultMode: lo.ToPtr[int32](0400),
 								},

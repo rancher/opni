@@ -90,6 +90,7 @@ func (r *Reconciler) Reconcile() (retResult reconcile.Result, retErr error) {
 	if err != nil {
 		return k8sutil.RequeueErr(err).Result()
 	}
+	allResources = append(allResources, r.amtoolConfigMap())
 	allResources = append(allResources, rbac...)
 	allResources = append(allResources, r.serviceMonitor())
 

@@ -4,7 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"path/filepath"
+	"strings"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 
@@ -25,6 +27,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
+
+	promcommon "github.com/prometheus/common/config"
+	yamlv3 "gopkg.in/yaml.v3"
 )
 
 func (r *Reconciler) configMap() (resources.Resource, string, error) {
@@ -211,4 +216,48 @@ func (r *Reconciler) configMap() (resources.Resource, string, error) {
 
 	ctrl.SetControllerReference(r.gw, cm, r.client.Scheme())
 	return resources.Present(cm), hex.EncodeToString(digest[:]), nil
+}
+
+func (r *Reconciler) amtoolConfigMap() resources.Resource {
+	mgmtURL := strings.TrimPrefix(r.gw.Spec.Management.GetHTTPListenAddress(), "http://")
+	alertmanagerURL := url.URL{
+		Scheme: "https",
+		Host:   mgmtURL,
+		Path:   "/plugin_alerting/alertmanager",
+	}
+
+	amToolConfig := map[string]string{
+		"alertmanager.url": alertmanagerURL.String(),
+	}
+
+	amToolConfigBytes, err := yamlv3.Marshal(amToolConfig)
+	if err != nil {
+		r.logger.Errorw("failed to marshal amtool config", "error", err)
+		amToolConfigBytes = []byte{}
+	}
+
+	httpConfig := promcommon.HTTPClientConfig{
+		TLSConfig: promcommon.TLSConfig{
+			CAFile:             "/run/opni/certs/ca.crt",
+			CertFile:           "/run/opni/certs/tls.crt",
+			KeyFile:            "/run/opni/certs/tls.key",
+			InsecureSkipVerify: true,
+		},
+	}
+	httpBytes, err := yamlv3.Marshal(httpConfig)
+	if err != nil {
+		r.logger.Errorw("failed to marshal http config", "error", err)
+		httpBytes = []byte{}
+	}
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "amtool-config",
+			Namespace: r.gw.Namespace,
+		},
+		Data: map[string]string{
+			"config.yml": string(amToolConfigBytes),
+			"http.yml":   string(httpBytes),
+		},
+	}
+	return resources.Present(cm)
 }

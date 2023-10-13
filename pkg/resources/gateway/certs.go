@@ -36,6 +36,12 @@ func (r *Reconciler) certs() ([]resources.Resource, error) {
 		r.cortexClientCAIssuer(),
 		r.cortexClientCert(),
 		r.cortexServingCert(),
+		r.alertingIntermediateCa(),
+		r.alertingIntermediateCaIssuer(),
+		r.alertingClientCa(),
+		r.alertingClientCaIssuer(),
+		r.alertingClientCert(),
+		r.alertingServingCert(),
 		r.etcdIntermediateCA(),
 		r.etcdIntermediateCAIssuer(),
 		r.etcdClientCert(),
@@ -161,6 +167,163 @@ func (r *Reconciler) gatewayClientCert() client.Object {
 				cmv1.UsageClientAuth,
 				cmv1.UsageDigitalSignature,
 				cmv1.UsageKeyEncipherment,
+			},
+		},
+	}
+}
+
+const (
+	alertingIntermediateCa       = "alerting-intermediate-ca"
+	alertingIntermediateSecret   = "alerting-intermediate-ca-keys"
+	alertingIntermediateCaIssuer = "alerting-intermediate-ca-issuer"
+	alertingClientCa             = "alerting-client-ca"
+	alertingClientSecret         = "alerting-client-ca-keys"
+	alertingClientCaIssuer       = "alerting-client-ca-issuer"
+	alertingClientCert           = "alerting-client-cert"
+	alertingClientCertSecret     = "alerting-client-cert-keys"
+	alertingServingCert          = "alerting-serving-cert"
+	alertingServingCertSecret    = "alerting-serving-cert-keys"
+)
+
+func (r *Reconciler) alertingIntermediateCa() client.Object {
+	return &cmv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      alertingIntermediateCa,
+			Namespace: r.gw.Namespace,
+		},
+		Spec: cmv1.CertificateSpec{
+			IsCA:       true,
+			SecretName: alertingIntermediateSecret,
+			PrivateKey: &cmv1.CertificatePrivateKey{
+				Algorithm: cmv1.Ed25519KeyAlgorithm,
+				Encoding:  cmv1.PKCS1,
+			},
+			DNSNames: []string{
+				alertingIntermediateCa,
+			},
+			IssuerRef: cmmetav1.ObjectReference{
+				Group: "cert-manager.io",
+				Kind:  "Issuer",
+				Name:  "opni-gateway-ca-issuer",
+			},
+		},
+	}
+}
+
+func (r *Reconciler) alertingIntermediateCaIssuer() client.Object {
+	return &cmv1.Issuer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      alertingIntermediateCaIssuer,
+			Namespace: r.gw.Namespace,
+		},
+		Spec: cmv1.IssuerSpec{
+			IssuerConfig: cmv1.IssuerConfig{
+				CA: &cmv1.CAIssuer{
+					SecretName: alertingIntermediateSecret,
+				},
+			},
+		},
+	}
+}
+
+func (r *Reconciler) alertingClientCa() client.Object {
+	return &cmv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      alertingClientCa,
+			Namespace: r.gw.Namespace,
+		},
+		Spec: cmv1.CertificateSpec{
+			IsCA:       true,
+			SecretName: alertingClientSecret,
+			PrivateKey: &cmv1.CertificatePrivateKey{
+				Algorithm: cmv1.Ed25519KeyAlgorithm,
+				Encoding:  cmv1.PKCS1,
+			},
+			DNSNames: []string{
+				"alerting-client-ca",
+			},
+			IssuerRef: cmmetav1.ObjectReference{
+				Group: "cert-manager.io",
+				Kind:  "Issuer",
+				Name:  alertingIntermediateCaIssuer,
+			},
+			Usages: []cmv1.KeyUsage{
+				cmv1.UsageDigitalSignature,
+				cmv1.UsageKeyEncipherment,
+				cmv1.UsageClientAuth,
+			},
+		},
+	}
+}
+
+func (r *Reconciler) alertingClientCaIssuer() client.Object {
+	return &cmv1.Issuer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      alertingClientCaIssuer,
+			Namespace: r.gw.Namespace,
+		},
+		Spec: cmv1.IssuerSpec{
+			IssuerConfig: cmv1.IssuerConfig{
+				CA: &cmv1.CAIssuer{
+					SecretName: alertingClientSecret,
+				},
+			},
+		},
+	}
+}
+
+func (r *Reconciler) alertingClientCert() client.Object {
+	return &cmv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      alertingClientCert,
+			Namespace: r.gw.Namespace,
+		},
+		Spec: cmv1.CertificateSpec{
+			SecretName: alertingClientCertSecret,
+			PrivateKey: &cmv1.CertificatePrivateKey{
+				Algorithm: cmv1.Ed25519KeyAlgorithm,
+				Encoding:  cmv1.PKCS1,
+			},
+			IssuerRef: cmmetav1.ObjectReference{
+				Group: "cert-manager.io",
+				Kind:  "Issuer",
+				Name:  alertingClientCaIssuer,
+			},
+			DNSNames: []string{
+				"alerting-client",
+			},
+			Usages: []cmv1.KeyUsage{
+				cmv1.UsageDigitalSignature,
+				cmv1.UsageKeyEncipherment,
+				cmv1.UsageClientAuth,
+			},
+		},
+	}
+}
+
+func (r *Reconciler) alertingServingCert() client.Object {
+	return &cmv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      alertingServingCert,
+			Namespace: r.gw.Namespace,
+		},
+		Spec: cmv1.CertificateSpec{
+			SecretName: alertingServingCertSecret,
+			PrivateKey: &cmv1.CertificatePrivateKey{
+				Algorithm: cmv1.Ed25519KeyAlgorithm,
+				Encoding:  cmv1.PKCS1,
+			},
+			IssuerRef: cmmetav1.ObjectReference{
+				Group: "cert-manager.io",
+				Kind:  "Issuer",
+				Name:  alertingIntermediateCaIssuer,
+			},
+			DNSNames: []string{
+				"alerting-server",
+				"opni-alerting",
+				"alertmanager",
+				"opni-alertmanager",
+				"opni-alerting-alertmanager",
 			},
 		},
 	}

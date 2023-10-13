@@ -13,6 +13,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex/configutil"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 	"github.com/rancher/opni/plugins/metrics/pkg/types"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type CortexOpsService struct {
@@ -57,6 +58,30 @@ func (s *CortexOpsService) DryRun(ctx context.Context, req *cortexops.DryRunRequ
 		Modified:         res.Modified,
 		ValidationErrors: configutil.ValidateConfiguration(res.Modified),
 	}, nil
+}
+
+// Overrides BaseConfigServer.Install
+func (s *CortexOpsService) Install(ctx context.Context, in *emptypb.Empty) (*emptypb.Empty, error) {
+	out, err := s.BaseConfigServer.Install(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	if err := BroadcastNodeSync(s.Context); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Overrides BaseConfigServer.Uninstall
+func (s *CortexOpsService) Uninstall(ctx context.Context, in *emptypb.Empty) (*emptypb.Empty, error) {
+	out, err := s.BaseConfigServer.Uninstall(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	if err := BroadcastNodeSync(s.Context); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func init() {

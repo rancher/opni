@@ -120,7 +120,7 @@ type (
 	PrefixOpt        bool
 )
 
-// WithRevision can be used for [GetOptions], [PutOptions], or [DeleteOptions]
+// WithRevision can be used for [GetOptions], [PutOptions], [WatchOptions], or [DeleteOptions]
 func WithRevision(rev int64) RevisionOpt {
 	return RevisionOpt(rev)
 }

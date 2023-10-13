@@ -41,13 +41,15 @@ func AsciiLogo() string {
 }
 
 type LoggerOptions struct {
-	Level        slog.Level
-	AddSource    bool
-	ReplaceAttr  func(groups []string, a slog.Attr) slog.Attr
-	Writer       io.Writer
-	ColorEnabled bool
-	Sampling     *slogsampling.ThresholdSamplingOption
-	TimeFormat   string
+	Level              slog.Level
+	AddSource          bool
+	ReplaceAttr        func(groups []string, a slog.Attr) slog.Attr
+	Writer             io.Writer
+	ColorEnabled       bool
+	Sampling           *slogsampling.ThresholdSamplingOption
+	TimeFormat         string
+	TotemFormatEnabled bool
+	AppendName         bool
 }
 
 func ParseLevel(lvl string) slog.Level {
@@ -104,12 +106,34 @@ func WithTimeFormat(format string) LoggerOption {
 func WithSampling(cfg *slogsampling.ThresholdSamplingOption) LoggerOption {
 	return func(o *LoggerOptions) {
 		o.Sampling = &slogsampling.ThresholdSamplingOption{
-			Tick:       cfg.Tick,
-			Threshold:  cfg.Threshold,
-			Rate:       cfg.Rate,
-			OnDropped:  logSampler.onDroppedHook,
-			OnAccepted: logSampler.onAcceptedHook,
+			Tick:      cfg.Tick,
+			Threshold: cfg.Threshold,
+			Rate:      cfg.Rate,
+			OnDropped: logSampler.onDroppedHook,
 		}
+		o.ReplaceAttr = func(groups []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.MessageKey {
+				msg := a.Value.String()
+				count, _ := logSampler.dropped.Load(msg)
+				if count > 0 {
+					numDropped, _ := logSampler.dropped.LoadAndDelete(msg)
+					a.Value = slog.StringValue(fmt.Sprintf("x%d %s", numDropped+1, msg))
+				}
+			}
+			return a
+		}
+	}
+}
+
+func WithTotemFormat(enable bool) LoggerOption {
+	return func(o *LoggerOptions) {
+		o.TotemFormatEnabled = enable
+	}
+}
+
+func WithAppendName(enable bool) LoggerOption {
+	return func(o *LoggerOptions) {
+		o.AppendName = enable
 	}
 }
 
@@ -120,6 +144,7 @@ func colorHandlerWithOptions(opts ...LoggerOption) slog.Handler {
 		Level:        DefaultLogLevel,
 		AddSource:    DefaultAddSource,
 		TimeFormat:   DefaultTimeFormat,
+		AppendName:   true,
 	}
 
 	options.apply(opts...)
@@ -128,13 +153,30 @@ func colorHandlerWithOptions(opts ...LoggerOption) slog.Handler {
 		DefaultWriter = os.Stdout
 	}
 
+	var middlewares []slogmulti.Middleware
+	if options.TotemFormatEnabled {
+		options.AppendName = false
+		options.Writer = os.Stderr
+		middlewares = append(middlewares, newTotemNameMiddleware())
+	}
+	if options.Sampling != nil {
+		middlewares = append(middlewares, options.Sampling.NewMiddleware())
+	}
+	var chain *slogmulti.PipeBuilder
+	for i, middleware := range middlewares {
+		if i == 0 {
+			chain = slogmulti.Pipe(middleware)
+		} else {
+			chain = chain.Pipe(middleware)
+		}
+	}
+
 	handler := newColorHandler(options.Writer, options)
 
-	if options.Sampling != nil {
-		return slogmulti.
-			Pipe(options.Sampling.NewMiddleware()).
-			Handler(handler)
+	if chain != nil {
+		handler = chain.Handler(handler)
 	}
+
 	return handler
 }
 
@@ -162,23 +204,4 @@ func (s *sampler) onDroppedHook(_ context.Context, r slog.Record) {
 	key := r.Message
 	count, _ := s.dropped.LoadOrStore(key, 0)
 	s.dropped.Store(key, count+1)
-}
-
-func (s *sampler) onAcceptedHook(_ context.Context, r slog.Record) {
-	attrs := []slog.Attr{}
-
-	msg := r.Message
-	count, _ := s.dropped.Load(msg)
-	if count > 0 {
-		numDropped, _ := s.dropped.LoadAndDelete(msg)
-		msg = fmt.Sprintf("x%d %s", numDropped+1, msg)
-	}
-
-	r.Attrs(func(attr slog.Attr) bool {
-		attrs = append(attrs, attr)
-		return true
-	})
-
-	r = slog.NewRecord(r.Time, r.Level, msg, r.PC)
-	r.AddAttrs(attrs...)
 }

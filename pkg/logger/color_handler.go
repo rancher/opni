@@ -43,6 +43,7 @@ type colorHandler struct {
 	attrsPrefix  string   // attrs started from With
 	groups       []string // all groups started from WithGroup
 	groupPrefix  string   // groups started from Group
+	appendName   bool
 	mu           sync.Mutex
 	w            io.Writer
 }
@@ -53,6 +54,8 @@ func newColorHandler(w io.Writer, opts *LoggerOptions) slog.Handler {
 			Level:        DefaultLogLevel,
 			AddSource:    true,
 			ColorEnabled: ColorEnabled(),
+			AppendName:   true,
+			TimeFormat:   DefaultTimeFormat,
 		}
 	}
 
@@ -66,6 +69,7 @@ func newColorHandler(w io.Writer, opts *LoggerOptions) slog.Handler {
 		replaceAttr:  opts.ReplaceAttr,
 		colorEnabled: opts.ColorEnabled,
 		timeFormat:   opts.TimeFormat,
+		appendName:   opts.AppendName,
 		w:            w,
 	}
 }
@@ -133,7 +137,9 @@ func (h *colorHandler) Handle(_ context.Context, r slog.Record) error {
 		buf.WriteByte(' ')
 	}
 
-	h.writeGroups(buf, h.groups)
+	if h.appendName {
+		h.writeGroups(buf, h.groups)
+	}
 
 	if h.addSource {
 		h.writeSource(buf, r.PC)

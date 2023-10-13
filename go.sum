@@ -1540,6 +1540,8 @@ github.com/ionos-cloud/sdk-go/v6 v6.0.4 h1:4LoWeM7WtcDqYDjlntqQ3fD6XaENlCw2YqiVW
 github.com/ionos-cloud/sdk-go/v6 v6.0.4/go.mod h1:UE3V/2DjnqD5doOqtjYqzJRMpI1RiwrvuuSEPX1pdnk=
 github.com/jan-law/opentelemetry-collector-contrib/pkg/stanza v0.0.0-20231011183323-1da8f0d6468b h1:FS3nr4khTxuxKEgmbfbsK6s9+ZJ6dvrPr7C/3sSprfY=
 github.com/jan-law/opentelemetry-collector-contrib/pkg/stanza v0.0.0-20231011183323-1da8f0d6468b/go.mod h1:N2K2atD+Oc1jFamDAe/H1EhtWQ+x8GBxsgHYn0JPN0I=
+github.com/jan-law/slog-sampling v0.0.0-20231013170129-ef692b2d04c4 h1:05hLE3ki21Fnkh0vxNBjW1hgv4aKK222Cu4tutU1rNY=
+github.com/jan-law/slog-sampling v0.0.0-20231013170129-ef692b2d04c4/go.mod h1:ZcJuHhGp3oTkGnOyl+ePWSci8XzCWQENC6JxkrE75EM=
 github.com/jarcoal/httpmock v1.3.0 h1:2RJ8GP0IIaWwcC9Fp2BmVi8Kog3v2Hn7VXM3fTd+nuc=
 github.com/jarcoal/httpmock v1.3.0/go.mod h1:3yb8rc4BI7TCBhFY8ng0gjuLKJNquuDNiPaZjnENuYg=
 github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 h1:BQSFePA1RWJOlocH6Fxy8MmwDt+yVQYULKfN0RoTN8A=
@@ -1655,8 +1657,8 @@ github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c h1:1kKbyl5GtGk/D+6
 github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c/go.mod h1:GXnSgs1TGXa8aX1hO9SUE1o3pLfggl5hkBMXdVWD8dc=
 github.com/kralicky/ragu v1.0.11-0.20230627162951-2dd00e0cbbf3 h1:UB8Fk6c8Ait8DLtemgT/ItRdUpxJQHMDntqFopFt6/Q=
 github.com/kralicky/ragu v1.0.11-0.20230627162951-2dd00e0cbbf3/go.mod h1:njQGnwU5IHm4Qx6/oOY0ll7Z6WA0apfP0ClpVA0M27Q=
-github.com/kralicky/totem v1.2.1 h1:ayd+IHbmmWhgFXJfzTHg0mJ2mr/IYHCh/nDqYyd6yCk=
-github.com/kralicky/totem v1.2.1/go.mod h1:DFlQM6o5n1AWrU/+wd3hjLKoKZ+a0TPRUQxnCQvGKyY=
+github.com/kralicky/totem v1.2.2-0.20231013192319-ab56f5483c40 h1:Q7acvQcPTlse5kIOziWMmwcCk2GjVMe9lCOPOO/bjEM=
+github.com/kralicky/totem v1.2.2-0.20231013192319-ab56f5483c40/go.mod h1:EmT24IweS2gIdMcQOZuhppvfs3cVs22pIos9RzFTHsQ=
 github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d h1:kLfaaFdmCHKZCvL4DzQ7T9YsAVSBqZez34zaegldkls=
 github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d/go.mod h1:z4cKsjE0B5RlhFSbWcZNh70UEjtwrj8fpG1QXyU2KuI=
 github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0SNc=
@@ -2180,8 +2182,6 @@ github.com/samber/lo v1.36.1-0.20230320154156-56ef8fe8a306 h1:9kOF1vK0pvroiAnPkM
 github.com/samber/lo v1.36.1-0.20230320154156-56ef8fe8a306/go.mod h1:kV0TUY2yeRZLmppP/VYD1MhUfBK78z2xFcmv/X2uyvE=
 github.com/samber/slog-multi v1.0.1 h1:Owf7RnxBZokPuGuuecKH8bEX1iRepjJJgmXd5BTxvl8=
 github.com/samber/slog-multi v1.0.1/go.mod h1:uLAvHpGqbYgX4FSL0p1ZwoLuveIAJvBECtE07XmYvFo=
-github.com/samber/slog-sampling v1.0.0 h1:k+pPKId9RXYwHE8MK3m0sP1xTI5I/swpSi89dBjzBoM=
-github.com/samber/slog-sampling v1.0.0/go.mod h1:S138KhbzB59zvOLeAAf6MesTpOwAsoXASPb50Zdto2g=
 github.com/samuel/go-zookeeper v0.0.0-20190923202752-2cc03de413da/go.mod h1:gi+0XIa01GRL2eRQVjQkKGqKF3SF9vZR/HnPullcV2E=
 github.com/santhosh-tekuri/jsonschema/v5 v5.0.0 h1:TToq11gyfNlrMFZiYujSekIsPd9AmsA2Bj/iv+s4JHE=
 github.com/santhosh-tekuri/jsonschema/v5 v5.0.0/go.mod h1:FKdcjfQW6rpZSnxxUvEA5H/cDPdvJ/SZJQLWWXWGrZ0=

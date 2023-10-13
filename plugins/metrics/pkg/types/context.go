@@ -21,6 +21,7 @@ import (
 type PluginContext interface {
 	context.Context
 	Logger() *zap.SugaredLogger
+	Metrics() *Metrics
 	Memoize(key any, fn memoize.Function) *memoize.Promise
 
 	ManagementClient() managementv1.ManagementClient

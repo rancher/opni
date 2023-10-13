@@ -8,5 +8,5 @@ import (
 )
 
 func NewControllerRuntimeLogger(level slog.Level) logr.Logger {
-	return logger.NewLogr(logger.WithTimeFormat("[15:04:05]"))
+	return logger.NewLogr(logger.WithTimeFormat("[15:04:05]"), logger.WithLogLevel(level))
 }

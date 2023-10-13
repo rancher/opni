@@ -510,10 +510,10 @@ func BenchmarkLogAttrs(b *testing.B) {
 // discarder is a slog.Handler that discards all records.
 type discarder struct{}
 
-func (*discarder) Enabled(context.Context, slog.Level) bool   { return true }
-func (*discarder) Handle(context.Context, slog.Record) error  { return nil }
-func (d *discarder) WithAttrs(attrs []slog.Attr) slog.Handler { return d }
-func (d *discarder) WithGroup(name string) slog.Handler       { return d }
+func (*discarder) Enabled(context.Context, slog.Level) bool  { return true }
+func (*discarder) Handle(context.Context, slog.Record) error { return nil }
+func (d *discarder) WithAttrs(_ []slog.Attr) slog.Handler    { return d }
+func (d *discarder) WithGroup(_ string) slog.Handler         { return d }
 
 var (
 	testMessage  = "Test logging, but use a somewhat realistic message length."

@@ -138,7 +138,7 @@ func (h *colorHandler) Handle(_ context.Context, r slog.Record) error {
 	}
 
 	if h.appendName {
-		h.writeGroups(buf, h.groups)
+		h.writeGroups(buf)
 	}
 
 	if h.addSource {
@@ -219,7 +219,7 @@ func appendLevelDelta(buf *buffer, delta slog.Level) {
 	*buf = strconv.AppendInt(*buf, int64(delta), 10)
 }
 
-func (h *colorHandler) writeGroups(buf *buffer, groups []string) {
+func (h *colorHandler) writeGroups(buf *buffer) {
 	last := len(h.groups) - 1
 	for i, group := range h.groups {
 		if i == 0 {

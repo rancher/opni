@@ -71,11 +71,12 @@ func (s *genericKeyValueStore) Put(ctx context.Context, key string, value []byte
 	if err != nil {
 		return etcdGrpcError(err)
 	}
-	if !resp.Succeeded {
+	txnResp := resp.Responses[0].GetResponseTxn() // unwrap the nested txn response
+	if !txnResp.Succeeded {
 		return fmt.Errorf("%w: revision mismatch", storage.ErrConflict)
 	}
 	if options.RevisionOut != nil {
-		*options.RevisionOut = resp.Header.Revision
+		*options.RevisionOut = txnResp.Responses[0].GetResponsePut().Header.Revision
 	}
 	return nil
 }

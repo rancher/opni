@@ -7,13 +7,11 @@ import (
 	"fmt"
 	"path"
 	"sync"
-	"time"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
 	"go.uber.org/zap"
 
-	"github.com/lestrrat-go/backoff/v2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
@@ -22,14 +20,7 @@ import (
 )
 
 var (
-	errRetry       = errors.New("the object has been modified, retrying")
-	defaultBackoff = backoff.NewExponentialPolicy(
-		backoff.WithMaxRetries(20),
-		backoff.WithMinInterval(10*time.Millisecond),
-		backoff.WithMaxInterval(1*time.Second),
-		backoff.WithJitterFactor(0.1),
-		backoff.WithMultiplier(1.5),
-	)
+	errRetry = errors.New("the object has been modified, retrying")
 )
 
 func isRetryErr(err error) bool {
@@ -99,7 +90,7 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 	lg.With(
 		"endpoints", clientConfig.Endpoints,
 	).Info("connecting to etcd")
-	session, err := concurrency.NewSession(cli, concurrency.WithTTL(5))
+	session, err := concurrency.NewSession(cli, concurrency.WithTTL(mutexLeaseTtlSeconds))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create etcd client: %w", err)
 	}

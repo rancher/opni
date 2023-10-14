@@ -80,6 +80,16 @@ func (ct *ConnectionTracker) Lookup(agentId string) *corev1.InstanceInfo {
 	return nil
 }
 
+func (ct *ConnectionTracker) ListActiveConnections() []string {
+	ct.mu.RLock()
+	defer ct.mu.RUnlock()
+	agents := make([]string, 0, len(ct.activeConnections))
+	for agentId := range ct.activeConnections {
+		agents = append(agents, agentId)
+	}
+	return agents
+}
+
 func (ct *ConnectionTracker) AddTrackedConnectionListener(listener TrackedConnectionListener) {
 	ct.listenersMu.Lock()
 	defer ct.listenersMu.Unlock()
@@ -287,6 +297,9 @@ func (ct *ConnectionTracker) handleEventLocked(event storage.WatchEvent[storage.
 }
 
 func (ct *ConnectionTracker) IsLocalInstance(instanceInfo *corev1.InstanceInfo) bool {
+	// Note: this assumes that if the relay address is the same, then the
+	// management address is also the same. If we ever decide to allow
+	// standalone management servers, this will need to be updated.
 	return instanceInfo.GetRelayAddress() == ct.localInstanceInfo.GetRelayAddress()
 }
 

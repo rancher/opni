@@ -113,28 +113,18 @@ func (a *AlertingNodeBackend) requestNodeSync(ctx context.Context, target *corev
 }
 
 func (a *AlertingNodeBackend) broadcastNodeSync(ctx context.Context) {
-	// keep any metadata in the context, but don't propagate cancellation
-	ctx = context.WithoutCancel(ctx)
-	var errs []error
 	a.delegate.Get().
-		WithBroadcastSelector(&corev1.ClusterSelector{}, func(reply any, msg *streamv1.BroadcastReplyList) error {
-			for _, resp := range msg.GetResponses() {
-				err := resp.GetReply().GetResponse().GetStatus().Err()
-				if err != nil {
-					target := resp.GetRef()
-					errs = append(errs, status.Errorf(codes.Internal, "failed to sync agent %s: %v", target.GetId(), err))
-				}
+		WithBroadcastSelector(&streamv1.TargetSelector{}, func(target *corev1.Reference, _ *emptypb.Empty, err error) {
+			if err != nil {
+				a.lg.With(
+					"agent", target.GetId(),
+					zap.Error(err),
+				).Warn("agent responded with error to sync request")
 			}
-			return nil
 		}).
 		SyncNow(ctx, &capabilityv1.Filter{
 			CapabilityNames: []string{wellknown.CapabilityAlerting},
 		})
-	if len(errs) > 0 {
-		a.lg.With(
-			zap.Error(errors.Join(errs...)),
-		).Warn("one or more agents failed to sync; they may not be updated immediately")
-	}
 }
 
 func (a *AlertingNodeBackend) buildResponse(oldCfg, newCfg *node.AlertingCapabilityConfig) *node.SyncResponse {

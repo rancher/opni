@@ -1,8 +1,6 @@
 package services
 
 import (
-	"context"
-	"errors"
 	"fmt"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -13,8 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/plugins/metrics/pkg/types"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func RequestNodeSync(sctx types.ServiceContext, target *corev1.Reference) error {
@@ -40,28 +37,18 @@ func BroadcastNodeSync(sctx types.ServiceContext) error {
 }
 
 func broadcastNodeSyncLocked(sctx types.ServiceContext) {
-	// keep any metadata in the context, but don't propagate cancellation
-	ctx := context.WithoutCancel(sctx)
-	var errs []error
 	sctx.Delegate().
-		WithBroadcastSelector(&corev1.ClusterSelector{}, func(reply any, msg *streamv1.BroadcastReplyList) error {
-			for _, resp := range msg.GetResponses() {
-				err := resp.GetReply().GetResponse().GetStatus().Err()
-				if err != nil {
-					target := resp.GetRef()
-					errs = append(errs, status.Errorf(codes.Internal, "failed to sync agent %s: %v", target.GetId(), err))
-				}
+		WithBroadcastSelector(&streamv1.TargetSelector{}, func(target *corev1.Reference, _ *emptypb.Empty, err error) {
+			if err != nil {
+				sctx.Logger().With(
+					"agent", target.GetId(),
+					zap.Error(err),
+				).Warn("agent responded with error to sync request")
 			}
-			return nil
 		}).
-		SyncNow(ctx, &capabilityv1.Filter{
+		SyncNow(sctx, &capabilityv1.Filter{
 			CapabilityNames: []string{wellknown.CapabilityMetrics},
 		})
-	if len(errs) > 0 {
-		sctx.Logger().With(
-			zap.Error(errors.Join(errs...)),
-		).Warn("one or more agents failed to sync; they may not be updated immediately")
-	}
 }
 
 func StartActiveSyncWatcher[T any](ctx types.ServiceContext, activeStore storage.KeyValueStoreT[T]) error {

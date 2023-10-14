@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/kralicky/totem"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -12,7 +11,6 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testruntime"
 	"github.com/rancher/opni/pkg/test/testutil"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -22,7 +20,6 @@ var _ = Describe("Gateway - Gateway rate limit tests", Ordered, testruntime.Enab
 	var client managementv1.ManagementClient
 	var fingerprint string
 	BeforeAll(func() {
-		totem.LogLevel.SetLevel(zapcore.ErrorLevel) // suppress noisy warnings we are expecting to get here
 		environment = &test.Environment{}
 		Expect(environment.Start(test.WithStorageBackend(v1beta1.StorageTypeEtcd))).To(Succeed())
 		client = environment.NewManagementClient()
@@ -33,7 +30,6 @@ var _ = Describe("Gateway - Gateway rate limit tests", Ordered, testruntime.Enab
 		Expect(fingerprint).NotTo(BeEmpty())
 
 		DeferCleanup(func() {
-			totem.LogLevel.SetLevel(zapcore.WarnLevel)
 			environment.Stop()
 		})
 	})

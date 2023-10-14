@@ -34,7 +34,7 @@ service Delegate {
   };
 
   // A synchronous request-response RPC sent to a single client.
-  rpc Request(DelegatedMessage) returns (totem.RPC);
+  rpc Request(DelegatedMessage) returns (totem.Response);
 
   // A best-effort broadcast sent to all connected clients, with an
   // optional target filter.
@@ -42,7 +42,7 @@ service Delegate {
 }
 
 service Relay {
-  rpc RelayDelegateRequest(RelayedDelegatedMessage) returns (DelegatedMessageReply);
+  rpc RelayDelegateRequest(RelayedDelegatedMessage) returns (totem.Response);
 }
 
 message RelayedDelegatedMessage {
@@ -55,21 +55,22 @@ message DelegatedMessage {
   core.Reference target  = 2;
 }
 
-message DelegatedMessageReply {
-  totem.RPC         reply  = 1;
-  google.rpc.Status status = 2;
-}
-
 message BroadcastMessage {
-  totem.RPC            request        = 1;
-  core.ClusterSelector targetSelector = 2;
+  totem.RPC      request        = 1;
+  TargetSelector targetSelector = 2;
 }
 
 message BroadcastReplyList {
-  repeated BroadcastReply responses = 1;
+  repeated BroadcastReply items = 1;
 }
 
 message BroadcastReply {
-  core.Reference ref   = 1;
-  totem.RPC      reply = 2;
+  core.Reference target   = 1;
+  totem.Response response = 2;
+}
+
+message TargetSelector {
+  // List of agents to send the broadcast to. If empty, will send to all
+  // connected agents.
+  repeated core.Reference targets = 1;
 }

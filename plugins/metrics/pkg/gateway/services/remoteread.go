@@ -15,11 +15,9 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/types"
-	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -297,29 +295,20 @@ func (m *RemoteReadServer) Stop(ctx context.Context, request *remoteread.StopRea
 }
 
 func (m *RemoteReadServer) Discover(ctx context.Context, request *remoteread.DiscoveryRequest) (*remoteread.DiscoveryResponse, error) {
-	response, err := m.Context.Delegate().WithBroadcastSelector(&corev1.ClusterSelector{
-		ClusterIDs: request.ClusterIds,
-	}, func(reply interface{}, responses *streamv1.BroadcastReplyList) error {
-		discoveryReply := reply.(*remoteread.DiscoveryResponse)
-		discoveryReply.Entries = make([]*remoteread.DiscoveryEntry, 0)
+	targets := make([]*corev1.Reference, 0, len(request.ClusterIds))
+	for _, clusterId := range request.ClusterIds {
+		targets = append(targets, &corev1.Reference{Id: clusterId})
+	}
 
-		for _, response := range responses.Responses {
-			discoverResponse := &remoteread.DiscoveryResponse{}
-
-			if err := proto.Unmarshal(response.Reply.GetResponse().Response, discoverResponse); err != nil {
-				m.Context.Logger().Errorf("failed to unmarshal for aggregated DiscoveryResponse: %s", err)
-			}
-
+	aggregatedResponses := &remoteread.DiscoveryResponse{}
+	_, err := m.Context.Delegate().WithBroadcastSelector(&streamv1.TargetSelector{
+		Targets: targets,
+	}, func(target *corev1.Reference, resp *remoteread.DiscoveryResponse, err error) {
+		for _, entry := range resp.GetEntries() {
 			// inject the cluster id gateway-side
-			lo.Map(discoverResponse.Entries, func(entry *remoteread.DiscoveryEntry, _ int) *remoteread.DiscoveryEntry {
-				entry.ClusterId = response.Ref.Id
-				return entry
-			})
-
-			discoveryReply.Entries = append(discoveryReply.Entries, discoverResponse.Entries...)
+			entry.ClusterId = target.GetId()
 		}
-
-		return nil
+		aggregatedResponses.Entries = append(aggregatedResponses.Entries, resp.GetEntries()...)
 	}).Discover(ctx, request)
 
 	if err != nil {
@@ -331,7 +320,7 @@ func (m *RemoteReadServer) Discover(ctx context.Context, request *remoteread.Dis
 		return nil, err
 	}
 
-	return response, nil
+	return aggregatedResponses, nil
 }
 
 func init() {

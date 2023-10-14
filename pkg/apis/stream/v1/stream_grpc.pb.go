@@ -192,7 +192,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DelegateClient interface {
 	// A synchronous request-response RPC sent to a single client.
-	Request(ctx context.Context, in *DelegatedMessage, opts ...grpc.CallOption) (*totem.RPC, error)
+	Request(ctx context.Context, in *DelegatedMessage, opts ...grpc.CallOption) (*totem.Response, error)
 	// A best-effort broadcast sent to all connected clients, with an
 	// optional target filter.
 	Broadcast(ctx context.Context, in *BroadcastMessage, opts ...grpc.CallOption) (*BroadcastReplyList, error)
@@ -206,8 +206,8 @@ func NewDelegateClient(cc grpc.ClientConnInterface) DelegateClient {
 	return &delegateClient{cc}
 }
 
-func (c *delegateClient) Request(ctx context.Context, in *DelegatedMessage, opts ...grpc.CallOption) (*totem.RPC, error) {
-	out := new(totem.RPC)
+func (c *delegateClient) Request(ctx context.Context, in *DelegatedMessage, opts ...grpc.CallOption) (*totem.Response, error) {
+	out := new(totem.Response)
 	err := c.cc.Invoke(ctx, Delegate_Request_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -229,7 +229,7 @@ func (c *delegateClient) Broadcast(ctx context.Context, in *BroadcastMessage, op
 // for forward compatibility
 type DelegateServer interface {
 	// A synchronous request-response RPC sent to a single client.
-	Request(context.Context, *DelegatedMessage) (*totem.RPC, error)
+	Request(context.Context, *DelegatedMessage) (*totem.Response, error)
 	// A best-effort broadcast sent to all connected clients, with an
 	// optional target filter.
 	Broadcast(context.Context, *BroadcastMessage) (*BroadcastReplyList, error)
@@ -239,7 +239,7 @@ type DelegateServer interface {
 type UnimplementedDelegateServer struct {
 }
 
-func (UnimplementedDelegateServer) Request(context.Context, *DelegatedMessage) (*totem.RPC, error) {
+func (UnimplementedDelegateServer) Request(context.Context, *DelegatedMessage) (*totem.Response, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Request not implemented")
 }
 func (UnimplementedDelegateServer) Broadcast(context.Context, *BroadcastMessage) (*BroadcastReplyList, error) {
@@ -321,7 +321,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RelayClient interface {
-	RelayDelegateRequest(ctx context.Context, in *RelayedDelegatedMessage, opts ...grpc.CallOption) (*DelegatedMessageReply, error)
+	RelayDelegateRequest(ctx context.Context, in *RelayedDelegatedMessage, opts ...grpc.CallOption) (*totem.Response, error)
 }
 
 type relayClient struct {
@@ -332,8 +332,8 @@ func NewRelayClient(cc grpc.ClientConnInterface) RelayClient {
 	return &relayClient{cc}
 }
 
-func (c *relayClient) RelayDelegateRequest(ctx context.Context, in *RelayedDelegatedMessage, opts ...grpc.CallOption) (*DelegatedMessageReply, error) {
-	out := new(DelegatedMessageReply)
+func (c *relayClient) RelayDelegateRequest(ctx context.Context, in *RelayedDelegatedMessage, opts ...grpc.CallOption) (*totem.Response, error) {
+	out := new(totem.Response)
 	err := c.cc.Invoke(ctx, Relay_RelayDelegateRequest_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -345,14 +345,14 @@ func (c *relayClient) RelayDelegateRequest(ctx context.Context, in *RelayedDeleg
 // All implementations should embed UnimplementedRelayServer
 // for forward compatibility
 type RelayServer interface {
-	RelayDelegateRequest(context.Context, *RelayedDelegatedMessage) (*DelegatedMessageReply, error)
+	RelayDelegateRequest(context.Context, *RelayedDelegatedMessage) (*totem.Response, error)
 }
 
 // UnimplementedRelayServer should be embedded to have forward compatible implementations.
 type UnimplementedRelayServer struct {
 }
 
-func (UnimplementedRelayServer) RelayDelegateRequest(context.Context, *RelayedDelegatedMessage) (*DelegatedMessageReply, error) {
+func (UnimplementedRelayServer) RelayDelegateRequest(context.Context, *RelayedDelegatedMessage) (*totem.Response, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RelayDelegateRequest not implemented")
 }
 

@@ -6,9 +6,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/kralicky/totem"
 	agentv1 "github.com/rancher/opni/pkg/agent"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -24,30 +26,17 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type agentInfo struct {
-	grpc.ClientConnInterface
-
-	labels map[string]string
-	id     string
-}
-
-func (a agentInfo) GetLabels() map[string]string {
-	return a.labels
-}
-
-func (a agentInfo) GetId() string {
-	return a.id
-}
-
 type DelegateServer struct {
 	DelegateServerOptions
-	config       v1beta1.GatewayConfigSpec
-	mu           *sync.RWMutex
-	rcond        *sync.Cond
-	activeAgents map[string]agentInfo
-	logger       *zap.SugaredLogger
-	clusterStore storage.ClusterStore
-	dialer       *relayDialer
+	uuid             string
+	config           v1beta1.GatewayConfigSpec
+	mu               *sync.RWMutex
+	rcond            *sync.Cond
+	localAgents      map[string]grpc.ClientConnInterface
+	logger           *zap.SugaredLogger
+	clusterStore     storage.ClusterStore
+	relayDialer      *instanceDialer
+	managementDialer *instanceDialer
 }
 
 type DelegateServerOptions struct {
@@ -74,13 +63,15 @@ func NewDelegateServer(config v1beta1.GatewayConfigSpec, clusterStore storage.Cl
 	mu := &sync.RWMutex{}
 	return &DelegateServer{
 		DelegateServerOptions: options,
+		uuid:                  uuid.NewString(),
 		config:                config,
 		mu:                    mu,
 		rcond:                 sync.NewCond(mu.RLocker()),
-		activeAgents:          make(map[string]agentInfo),
+		localAgents:           make(map[string]grpc.ClientConnInterface),
 		clusterStore:          clusterStore,
 		logger:                lg.Named("delegate"),
-		dialer:                newDialer(),
+		relayDialer:           newDialer(serverRelay),
+		managementDialer:      newDialer(serverManagement),
 	}
 }
 
@@ -88,22 +79,7 @@ func (d *DelegateServer) HandleAgentConnection(ctx context.Context, clientSet ag
 	d.mu.Lock()
 	id := cluster.StreamAuthorizedID(ctx)
 
-	cluster, err := d.clusterStore.GetCluster(ctx, &corev1.Reference{Id: id})
-	if err != nil {
-		d.logger.With(
-			"id", id,
-			zap.Error(err),
-		).Error("internal error: failed to look up connecting agent")
-		d.mu.Unlock()
-		d.rcond.Broadcast()
-		return
-	}
-
-	d.activeAgents[id] = agentInfo{
-		ClientConnInterface: clientSet.ClientConn(),
-		labels:              cluster.GetLabels(),
-		id:                  id,
-	}
+	d.localAgents[id] = clientSet.ClientConn()
 	d.logger.With("id", id).Debug("agent connected")
 	d.mu.Unlock()
 	d.rcond.Broadcast()
@@ -111,13 +87,13 @@ func (d *DelegateServer) HandleAgentConnection(ctx context.Context, clientSet ag
 	<-ctx.Done()
 
 	d.mu.Lock()
-	delete(d.activeAgents, id)
+	delete(d.localAgents, id)
 	d.logger.With("id", id).Debug("agent disconnected")
 	d.mu.Unlock()
 	d.rcond.Broadcast()
 }
 
-func (d *DelegateServer) Request(ctx context.Context, req *streamv1.DelegatedMessage) (*totem.RPC, error) {
+func (d *DelegateServer) Request(ctx context.Context, req *streamv1.DelegatedMessage) (*totem.Response, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -129,7 +105,7 @@ func (d *DelegateServer) Request(ctx context.Context, req *streamv1.DelegatedMes
 	lg.Debug("delegating rpc request")
 ATTEMPT:
 	for {
-		target, ok := d.activeAgents[targetId]
+		target, ok := d.localAgents[targetId]
 		if ok {
 			fwdResp := &totem.RPC{}
 			err := target.Invoke(ctx, totem.Forward, req.GetRequest(), fwdResp)
@@ -140,15 +116,16 @@ ATTEMPT:
 				).Error("delegating rpc request failed (local)")
 				return nil, err
 			}
-			if fwdResp.GetResponse().GetStatus().Err() != nil {
-				d.logger.With(
-					zap.Error(err),
-				).Error("delegating rpc request failed (remote)")
-				// the request failed, but somewhere on the remote side
-				return nil, fwdResp.GetResponse().GetStatus().Err()
-			}
+			return fwdResp.GetResponse(), nil
+			// if fwdResp.GetResponse().GetStatus().Err() != nil {
+			// 	d.logger.With(
+			// 		zap.Error(err),
+			// 	).Error("delegating rpc request failed (remote)")
+			// 	// the request failed, but somewhere on the remote side
+			// 	return nil, fwdResp.GetResponse().GetStatus().Err()
+			// }
 
-			// TODO: might still need this logic
+			// // unwrap the inner response
 			// resp := &totem.RPC{}
 			// err = proto.Unmarshal(fwdResp.GetResponse().GetResponse(), resp)
 			// if err != nil {
@@ -158,7 +135,7 @@ ATTEMPT:
 			// 	return nil, err
 			// }
 
-			return fwdResp, nil
+			// return fwdResp.GetResponse(), nil
 		}
 		// check the connection tracker
 
@@ -171,7 +148,7 @@ ATTEMPT:
 					// unlock the read lock acquired at the beginning of this function,
 					// and wait to be signalled by HandleAgentConnection
 					d.rcond.Wait()
-					if _, ok := d.activeAgents[targetId]; ok {
+					if _, ok := d.localAgents[targetId]; ok {
 						continue ATTEMPT
 					}
 				} else {
@@ -181,7 +158,7 @@ ATTEMPT:
 				}
 			} else {
 				lg.Debug("relaying request to controlling instance")
-				cc, err := d.dialer.Dial(info)
+				cc, err := d.relayDialer.Dial(info)
 				if err != nil {
 					return nil, status.Errorf(codes.Unavailable, "failed to dial controlling instance: %s", err.Error())
 				}
@@ -193,7 +170,7 @@ ATTEMPT:
 				if err != nil {
 					return nil, err
 				}
-				return resp.GetReply(), status.ErrorProto(resp.GetStatus())
+				return resp, nil
 			}
 			break
 		}
@@ -207,43 +184,43 @@ ATTEMPT:
 }
 
 func (d *DelegateServer) Broadcast(ctx context.Context, req *streamv1.BroadcastMessage) (*streamv1.BroadcastReplyList, error) {
-	d.mu.RLock()
-	sp := storage.NewSelectorPredicate[agentInfo](req.GetTargetSelector())
-	var targets []agentInfo
-	for _, aa := range d.activeAgents {
-		if sp(aa) {
-			targets = append(targets, aa)
-		}
-	}
-	d.mu.RUnlock()
+	targets := d.ct.ListActiveConnections()
 	if len(targets) == 0 {
 		return &streamv1.BroadcastReplyList{}, nil
 	}
+	if len(req.GetTargetSelector().GetTargets()) > 0 {
+		selected := map[string]struct{}{}
+		for _, s := range req.GetTargetSelector().GetTargets() {
+			selected[s.GetId()] = struct{}{}
+		}
+		filtered := make([]string, 0, len(targets))
+		for _, target := range targets {
+			if _, ok := selected[target]; ok {
+				filtered = append(filtered, target)
+			}
+		}
+		targets = filtered
+	}
 
 	reply := &streamv1.BroadcastReplyList{
-		Responses: make([]*streamv1.BroadcastReply, 0, len(targets)),
+		Items: make([]*streamv1.BroadcastReply, 0, len(targets)),
 	}
 	for _, target := range targets {
 		entry := &streamv1.BroadcastReply{
-			Ref: &corev1.Reference{
-				Id: target.id,
+			Target: &corev1.Reference{
+				Id: target,
 			},
 		}
 		var err error
-		entry.Reply, err = d.Request(ctx, &streamv1.DelegatedMessage{
+		entry.Response, err = d.Request(ctx, &streamv1.DelegatedMessage{
 			Request: req.GetRequest(),
-			Target:  &corev1.Reference{Id: target.GetId()},
+			Target:  &corev1.Reference{Id: target},
 		})
 		if err != nil {
-			entry.Reply = &totem.RPC{
-				Content: &totem.RPC_Response{
-					Response: &totem.Response{
-						StatusProto: status.Convert(err).Proto(),
-					},
-				},
-			}
+			// this will be logged in the Request call
+			continue
 		}
-		reply.Responses = append(reply.Responses, entry)
+		reply.Items = append(reply.Items, entry)
 	}
 
 	d.logger.With(
@@ -266,7 +243,6 @@ func (d *DelegateServer) NewRelayServer() *RelayServer {
 }
 
 type RelayServer struct {
-	streamv1.UnsafeRelayServer
 	connectionTracker *ConnectionTracker
 	listenAddress     string
 	delegateSrv       *DelegateServer
@@ -304,8 +280,25 @@ func (rs *RelayServer) ListenAndServe(ctx context.Context) error {
 	}
 }
 
+var ErrLocalTarget = status.Error(codes.FailedPrecondition, "requested target is controlled by the local instance")
+
+func (rs *DelegateServer) NewTargetedManagementClient(target *corev1.Reference) (managementv1.ManagementClient, error) {
+	info := rs.ct.Lookup(target.GetId())
+	if info == nil {
+		return nil, status.Errorf(codes.NotFound, "target %q not found", target.GetId())
+	}
+	if rs.ct.IsLocalInstance(info) {
+		return nil, ErrLocalTarget
+	}
+	cc, err := rs.managementDialer.Dial(info)
+	if err != nil {
+		return nil, err
+	}
+	return managementv1.NewManagementClient(cc), nil
+}
+
 // HandleDelegateRequest implements v1.RelayServer.
-func (rs *RelayServer) RelayDelegateRequest(ctx context.Context, msg *streamv1.RelayedDelegatedMessage) (*streamv1.DelegatedMessageReply, error) {
+func (rs *RelayServer) RelayDelegateRequest(ctx context.Context, msg *streamv1.RelayedDelegatedMessage) (*totem.Response, error) {
 	principal := msg.GetPrincipal()
 	target := msg.GetMessage().GetTarget().GetId()
 	if rs.connectionTracker.IsLocalInstance(principal) {
@@ -315,29 +308,45 @@ func (rs *RelayServer) RelayDelegateRequest(ctx context.Context, msg *streamv1.R
 	if !rs.connectionTracker.IsTrackedLocal(target) {
 		return nil, status.Error(codes.FailedPrecondition, "requested target is not controlled by this instance")
 	}
-	rpc, err := rs.delegateSrv.Request(ctx, msg.GetMessage())
-	return &streamv1.DelegatedMessageReply{
-		Reply:  rpc,
-		Status: status.Convert(err).Proto(),
-	}, nil
+	resp, err := rs.delegateSrv.Request(ctx, msg.GetMessage())
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
+type serverKind int
+
+const (
+	serverRelay serverKind = iota
+	serverManagement
+)
+
 // Manages connections to multiple relay servers efficiently.
-type relayDialer struct {
+type instanceDialer struct {
 	mu      sync.RWMutex
 	clients map[string]*grpc.ClientConn
 	dialSf  singleflight.Group
+	server  serverKind
 }
 
-func newDialer() *relayDialer {
-	return &relayDialer{
+func newDialer(server serverKind) *instanceDialer {
+	return &instanceDialer{
 		clients: make(map[string]*grpc.ClientConn),
+		server:  server,
 	}
 }
 
-func (rd *relayDialer) Dial(info *corev1.InstanceInfo) (grpc.ClientConnInterface, error) {
+func (rd *instanceDialer) Dial(info *corev1.InstanceInfo) (grpc.ClientConnInterface, error) {
 	rd.mu.RLock()
-	if cc, ok := rd.clients[info.GetRelayAddress()]; ok {
+	var addr string
+	switch rd.server {
+	case serverRelay:
+		addr = info.GetRelayAddress()
+	case serverManagement:
+		addr = info.GetManagementAddress()
+	}
+	if cc, ok := rd.clients[addr]; ok {
 		state := cc.GetState()
 		if state != connectivity.Shutdown {
 			switch state {
@@ -351,8 +360,8 @@ func (rd *relayDialer) Dial(info *corev1.InstanceInfo) (grpc.ClientConnInterface
 	}
 	rd.mu.RUnlock()
 
-	res, err, _ := rd.dialSf.Do(info.RelayAddress, func() (any, error) {
-		cc, err := grpc.Dial(info.RelayAddress,
+	res, err, _ := rd.dialSf.Do(addr, func() (any, error) {
+		cc, err := grpc.Dial(addr,
 			// A short client-side idle timeout will aggressively force the connection
 			// to go idle when it is not actively being used, freeing up resources on
 			// the other end. Because any given instance can communicate with every
@@ -373,7 +382,7 @@ func (rd *relayDialer) Dial(info *corev1.InstanceInfo) (grpc.ClientConnInterface
 		// still need to acquire the write lock here, note the read lock has been
 		// released earlier
 		rd.mu.Lock()
-		rd.clients[info.RelayAddress] = cc
+		rd.clients[addr] = cc
 		rd.mu.Unlock()
 		return cc, nil
 	})

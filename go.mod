@@ -7,7 +7,6 @@ require (
 	github.com/99designs/keyring v1.2.2
 	github.com/AlecAivazis/survey/v2 v2.3.6
 	github.com/Masterminds/semver v1.5.0
-	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b
 	github.com/alecthomas/kingpin/v2 v2.3.2
 	github.com/alitto/pond v1.8.3
@@ -60,7 +59,7 @@ require (
 	github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c
 	github.com/kralicky/protols v0.0.0-20231006040922-079c3c15b1ce
 	github.com/kralicky/ragu v1.0.11-0.20231006041645-4ce94ea2e71a
-	github.com/kralicky/totem v1.2.2-0.20231012160854-84e0ff41e383
+	github.com/kralicky/totem v1.2.2-0.20231014025935-6e4657314606
 	github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d
 	github.com/lestrrat-go/backoff/v2 v2.0.8
 	github.com/lestrrat-go/jwx v1.2.26
@@ -162,6 +161,8 @@ require (
 	sigs.k8s.io/node-feature-discovery-operator v0.2.1-0.20230131182250-99b8584e2745
 	sigs.k8s.io/yaml v1.3.0
 )
+
+require github.com/Masterminds/sprig/v3 v3.2.3 // indirect
 
 require (
 	cloud.google.com/go v0.110.8 // indirect

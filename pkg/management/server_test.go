@@ -3,7 +3,6 @@ package management_test
 import (
 	"context"
 
-	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/management"
@@ -17,23 +16,14 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-type testCapabilityDataSource struct {
-	store capabilities.BackendStore
-}
-
-func (t testCapabilityDataSource) CapabilitiesStore() capabilities.BackendStore {
-	return t.store
-}
-
 var _ = Describe("Server", Ordered, Label("unit"), func() {
 	var tv *testVars
 	var capBackendStore capabilities.BackendStore
 	BeforeAll(func() {
-		capBackendStore = capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{}, testlog.Log)
+		capBackendStore = capabilities.NewBackendStore(testlog.Log)
+		srv := mock_capability.NewMockBackendServer(tv.ctrl)
 
-		setupManagementServer(&tv, plugins.NoopLoader, management.WithCapabilitiesDataSource(testCapabilityDataSource{
-			store: capBackendStore,
-		}))()
+		setupManagementServer(&tv, plugins.NoopLoader, management.WithCapabilitiesDataSource(srv))()
 	})
 	It("should return valid cert info", func() {
 		info, err := tv.client.CertsInfo(context.Background(), &emptypb.Empty{})
@@ -86,16 +76,5 @@ var _ = Describe("Server", Ordered, Label("unit"), func() {
 				Fail("unexpected capability name")
 			}
 		}
-
-		cmd, err := tv.client.CapabilityInstaller(context.Background(), &managementv1.CapabilityInstallerRequest{
-			Name: "capability1",
-		})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(cmd.Command).To(Equal("foo"))
-
-		cmd, err = tv.client.CapabilityInstaller(context.Background(), &managementv1.CapabilityInstallerRequest{
-			Name: "capability2",
-		})
-		Expect(err).NotTo(HaveOccurred())
 	})
 })

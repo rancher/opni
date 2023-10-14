@@ -7,7 +7,7 @@ import (
 
 	"github.com/rancher/opni/pkg/agent"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
-	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/management"
@@ -56,7 +56,7 @@ func (b *LoggingBackend) Initialize(conf LoggingBackendConfig) {
 
 		b.watcher = management.NewManagementWatcherHooks[*managementv1.WatchEvent](context.TODO())
 		b.watcher.RegisterHook(func(event *managementv1.WatchEvent) bool {
-			return event.Type == managementv1.WatchEventType_Put && slices.ContainsFunc(event.Cluster.Metadata.Capabilities, func(c *opnicorev1.ClusterCapability) bool {
+			return event.Type == managementv1.WatchEventType_Put && slices.ContainsFunc(event.Cluster.Metadata.Capabilities, func(c *corev1.ClusterCapability) bool {
 				return c.Name == wellknown.CapabilityLogs
 			})
 		}, b.updateClusterMetadata)
@@ -80,10 +80,20 @@ func (b *LoggingBackend) Initialize(conf LoggingBackendConfig) {
 	})
 }
 
-func (b *LoggingBackend) Info(context.Context, *emptypb.Empty) (*capabilityv1.Details, error) {
+func (b *LoggingBackend) Info(context.Context, *corev1.Reference) (*capabilityv1.Details, error) {
+	return b.info(), nil
+}
+
+func (b *LoggingBackend) info() *capabilityv1.Details {
 	return &capabilityv1.Details{
-		Name:    wellknown.CapabilityLogs,
-		Source:  "plugin_logging",
-		Drivers: driver.Drivers.List(),
+		Name:             wellknown.CapabilityLogs,
+		Source:           "plugin_logging",
+		AvailableDrivers: driver.Drivers.List(),
+	}
+}
+
+func (b *LoggingBackend) List(context.Context, *emptypb.Empty) (*capabilityv1.DetailsList, error) {
+	return &capabilityv1.DetailsList{
+		Items: []*capabilityv1.Details{b.info()},
 	}, nil
 }

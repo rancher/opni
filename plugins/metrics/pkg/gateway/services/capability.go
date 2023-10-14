@@ -76,18 +76,30 @@ func (s *CapabilityBackendService) Activate() error {
 	return nil
 }
 
-// Info implements capabilityv1.BackendServer
-func (m *CapabilityBackendService) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
+func (m *CapabilityBackendService) info() *capabilityv1.Details {
 	return &capabilityv1.Details{
-		Name:    wellknown.CapabilityMetrics,
-		Source:  "plugin_metrics",
-		Drivers: drivers.ClusterDrivers.List(),
-	}, nil
+		Name:             wellknown.CapabilityMetrics,
+		Source:           "plugin_metrics",
+		AvailableDrivers: drivers.ClusterDrivers.List(),
+		EnabledDriver:    m.Context.GatewayConfig().Spec.Cortex.Management.ClusterDriver,
+	}
 }
 
-// CanInstall implements capabilityv1.BackendServer
-func (m *CapabilityBackendService) CanInstall(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	return &emptypb.Empty{}, nil
+// Info implements capabilityv1.BackendServer
+func (m *CapabilityBackendService) Info(ctx context.Context, capability *corev1.Reference) (*capabilityv1.Details, error) {
+	if capability.GetId() != wellknown.CapabilityMetrics {
+		return nil, status.Errorf(codes.InvalidArgument, "capability %s not implemented by this plugin", capability.GetId())
+	}
+	return m.info(), nil
+}
+
+// List implements v1.BackendServer.
+func (m *CapabilityBackendService) List(ctx context.Context, _ *emptypb.Empty) (*capabilityv1.DetailsList, error) {
+	return &capabilityv1.DetailsList{
+		Items: []*capabilityv1.Details{
+			m.info(),
+		},
+	}, nil
 }
 
 func (m *CapabilityBackendService) canInstall(ctx context.Context) error {
@@ -120,14 +132,14 @@ func (m *CapabilityBackendService) Install(ctx context.Context, req *capabilityv
 		warningErr = err
 	}
 
-	_, err = m.Context.StorageBackend().UpdateCluster(ctx, req.Cluster,
+	_, err = m.Context.StorageBackend().UpdateCluster(ctx, req.Agent,
 		storage.NewAddCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityMetrics)),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := RequestNodeSync(m.Context, req.Cluster); err != nil {
+	if err := RequestNodeSync(m.Context, req.Agent); err != nil {
 		return &capabilityv1.InstallResponse{
 			Status:  capabilityv1.InstallResponseStatus_Warning,
 			Message: fmt.Errorf("sync request failed; agent may not be updated immediately: %v", err).Error(),
@@ -145,11 +157,11 @@ func (m *CapabilityBackendService) Install(ctx context.Context, req *capabilityv
 	}, nil
 }
 
-func (m *CapabilityBackendService) Status(_ context.Context, req *corev1.Reference) (*capabilityv1.NodeCapabilityStatus, error) {
+func (m *CapabilityBackendService) Status(_ context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
 	m.nodeStatusMu.RLock()
 	defer m.nodeStatusMu.RUnlock()
 
-	if status, ok := m.nodeStatus[req.Id]; ok {
+	if status, ok := m.nodeStatus[req.GetAgent().GetId()]; ok {
 		return util.ProtoClone(status), nil
 	}
 
@@ -158,7 +170,7 @@ func (m *CapabilityBackendService) Status(_ context.Context, req *corev1.Referen
 
 // Uninstall implements capabilityv1.BackendServer
 func (m *CapabilityBackendService) Uninstall(ctx context.Context, req *capabilityv1.UninstallRequest) (*emptypb.Empty, error) {
-	cluster, err := m.Context.ManagementClient().GetCluster(ctx, req.Cluster)
+	cluster, err := m.Context.ManagementClient().GetCluster(ctx, req.Agent)
 	if err != nil {
 		return nil, err
 	}
@@ -215,10 +227,10 @@ func (m *CapabilityBackendService) Uninstall(ctx context.Context, req *capabilit
 	if err != nil {
 		return nil, fmt.Errorf("failed to update cluster metadata: %v", err)
 	}
-	if err := RequestNodeSync(m.Context, req.Cluster); err != nil {
+	if err := RequestNodeSync(m.Context, req.Agent); err != nil {
 		m.Context.Logger().With(
 			zap.Error(err),
-			"agent", req.Cluster,
+			"agent", req.Agent,
 		).Warn("sync request failed; agent may not be updated immediately")
 		// continue; this is not a fatal error
 	}
@@ -227,7 +239,7 @@ func (m *CapabilityBackendService) Uninstall(ctx context.Context, req *capabilit
 		DefaultUninstallOptions: defaultOpts,
 		DeletionTimestamp:       now.AsTime(),
 	}
-	err = m.uninstallController.LaunchTask(req.Cluster.Id, task.WithMetadata(md))
+	err = m.uninstallController.LaunchTask(req.Agent.Id, task.WithMetadata(md))
 	if err != nil {
 		return nil, err
 	}
@@ -236,13 +248,13 @@ func (m *CapabilityBackendService) Uninstall(ctx context.Context, req *capabilit
 }
 
 // UninstallStatus implements capabilityv1.BackendServer
-func (m *CapabilityBackendService) UninstallStatus(_ context.Context, cluster *corev1.Reference) (*corev1.TaskStatus, error) {
-	return m.uninstallController.TaskStatus(cluster.Id)
+func (m *CapabilityBackendService) UninstallStatus(_ context.Context, req *capabilityv1.UninstallStatusRequest) (*corev1.TaskStatus, error) {
+	return m.uninstallController.TaskStatus(req.GetAgent().GetId())
 }
 
 // CancelUninstall implements capabilityv1.BackendServer
-func (m *CapabilityBackendService) CancelUninstall(_ context.Context, cluster *corev1.Reference) (*emptypb.Empty, error) {
-	m.uninstallController.CancelTask(cluster.Id)
+func (m *CapabilityBackendService) CancelUninstall(_ context.Context, req *capabilityv1.CancelUninstallRequest) (*emptypb.Empty, error) {
+	m.uninstallController.CancelTask(req.GetAgent().GetId())
 
 	return &emptypb.Empty{}, nil
 }

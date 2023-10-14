@@ -100,24 +100,15 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cortexops.WaitForReady(env.Context(), opsClient)).To(Succeed())
 
-		_, errC := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint}, test.WithContext(env.Context()))
-		Eventually(errC).Should(Receive(BeNil()))
-		_, errC = env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint}, test.WithContext(env.Context()))
-		Eventually(errC).Should(Receive(BeNil()))
-
-		_, err = client.InstallCapability(env.Context(), &managementv1.CapabilityInstallRequest{
-			Name: wellknown.CapabilityMetrics,
-			Target: &capabilityv1.InstallRequest{
-				Cluster: &corev1.Reference{Id: "agent"},
-			},
+		_, err = client.InstallCapability(env.Context(), &capabilityv1.InstallRequest{
+			Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+			Agent:      &corev1.Reference{Id: "agent"},
 		})
 
 		Expect(err).NotTo(HaveOccurred())
-		_, err = client.InstallCapability(env.Context(), &managementv1.CapabilityInstallRequest{
-			Name: wellknown.CapabilityMetrics,
-			Target: &capabilityv1.InstallRequest{
-				Cluster: &corev1.Reference{Id: "agent2"},
-			},
+		_, err = client.InstallCapability(env.Context(), &capabilityv1.InstallRequest{
+			Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+			Agent:      &corev1.Reference{Id: "agent2"},
 		})
 		Expect(err).NotTo(HaveOccurred())
 

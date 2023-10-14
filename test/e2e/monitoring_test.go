@@ -214,8 +214,8 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 	})
 	It("should enable the metrics capability", func() {
 		By("sending a capability install request to the agent")
-		_, err := mgmtClient.InstallCapability(ctx, &managementv1.CapabilityInstallRequest{
-			Name: "metrics",
+		_, err := mgmtClient.InstallCapability(ctx, &capabilityv1.InstallRequest{
+			Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
 			Target: &capabilityv1.InstallRequest{
 				Cluster: &corev1.Reference{Id: agentId},
 			},
@@ -294,7 +294,7 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 		By("sending a capability uninstall request to the agent")
 		for _, c := range status.Metadata.Capabilities {
 			if c.DeletionTimestamp == nil {
-				mgmtClient.UninstallCapability(ctx, &managementv1.CapabilityUninstallRequest{
+				mgmtClient.UninstallCapability(ctx, &capabilityv1.UninstallRequest{
 					Name: c.Name,
 					Target: &capabilityv1.UninstallRequest{
 						Cluster: &corev1.Reference{Id: agentId},
@@ -345,8 +345,8 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 	// Retained for reference for v1 of the agent, but should not be used in v2
 	XIt("should uninstall the metrics capability", func() {
 		getTaskState := func() (corev1.TaskState, error) {
-			stat, err := mgmtClient.CapabilityUninstallStatus(ctx, &managementv1.CapabilityStatusRequest{
-				Name: wellknown.CapabilityMetrics,
+			stat, err := mgmtClient.CapabilityUninstallStatus(ctx, &capabilityv1.StatusRequest{
+				Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
 				Cluster: &corev1.Reference{
 					Id: agentId,
 				},
@@ -358,8 +358,8 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 		}
 
 		By("starting the uninstall")
-		_, err := mgmtClient.UninstallCapability(ctx, &managementv1.CapabilityUninstallRequest{
-			Name: wellknown.CapabilityMetrics,
+		_, err := mgmtClient.UninstallCapability(ctx, &capabilityv1.UninstallRequest{
+			Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
 			Target: &capabilityv1.UninstallRequest{
 				Cluster: &corev1.Reference{
 					Id: agentId,
@@ -377,7 +377,7 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 
 		By("canceling the uninstall")
 		_, err = mgmtClient.CancelCapabilityUninstall(ctx, &managementv1.CapabilityUninstallCancelRequest{
-			Name: wellknown.CapabilityMetrics,
+			Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
 			Cluster: &corev1.Reference{
 				Id: agentId,
 			},
@@ -388,8 +388,8 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 
 		By("restarting the uninstall")
 
-		_, err = mgmtClient.UninstallCapability(ctx, &managementv1.CapabilityUninstallRequest{
-			Name: wellknown.CapabilityMetrics,
+		_, err = mgmtClient.UninstallCapability(ctx, &capabilityv1.UninstallRequest{
+			Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
 			Target: &capabilityv1.UninstallRequest{
 				Cluster: &corev1.Reference{
 					Id: agentId,

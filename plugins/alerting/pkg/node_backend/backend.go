@@ -2,7 +2,6 @@ package node_backend
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"sync/atomic"
 
@@ -292,33 +291,34 @@ func (a *AlertingNodeBackend) Sync(ctx context.Context, req *node.AlertingCapabi
 		Spec:       nodeSpec,
 	}), nil
 }
-
-// Returns info about the backend, including capability name
-func (a *AlertingNodeBackend) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
+func (a *AlertingNodeBackend) info() *capabilityv1.Details {
 	return &capabilityv1.Details{
-		Name:    wellknown.CapabilityAlerting,
-		Source:  "plugin_alerting",
-		Drivers: drivers.Drivers.List(),
-	}, nil
+		Name:             wellknown.CapabilityAlerting,
+		Source:           "plugin_alerting",
+		AvailableDrivers: drivers.Drivers.List(),
+	}
 }
 
-// Deprecated: Do not use.
-// Returns an error if installing the capability would fail.
-func (a *AlertingNodeBackend) CanInstall(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	if !a.Initialized() {
-		return nil, status.Error(codes.Unavailable, "alerting node backend is not yet initialized")
-	}
-	return &emptypb.Empty{}, nil
+// Returns info about the backend, including capability name
+func (a *AlertingNodeBackend) Info(_ context.Context, _ *corev1.Reference) (*capabilityv1.Details, error) {
+	return a.info(), nil
+}
+
+// Returns info about the backend, including capability name
+func (a *AlertingNodeBackend) List(_ context.Context, _ *emptypb.Empty) (*capabilityv1.DetailsList, error) {
+	return &capabilityv1.DetailsList{
+		Items: []*capabilityv1.Details{a.info()},
+	}, nil
 }
 
 // Installs the capability on a cluster.
 func (a *AlertingNodeBackend) Install(ctx context.Context, req *capabilityv1.InstallRequest) (*capabilityv1.InstallResponse, error) {
+	var err error
 	if !a.Initialized() {
-		return nil, status.Error(codes.Unavailable, "Alerting node backend is not yet available")
+		err = status.Error(codes.Unavailable, "Alerting node backend is not yet available")
 	}
 
 	var warningErr error
-	_, err := a.CanInstall(ctx, &emptypb.Empty{})
 	if err != nil {
 		if !req.IgnoreWarnings {
 			return &capabilityv1.InstallResponse{
@@ -329,14 +329,14 @@ func (a *AlertingNodeBackend) Install(ctx context.Context, req *capabilityv1.Ins
 		warningErr = err
 	}
 
-	_, err = a.storageBackend.Get().UpdateCluster(ctx, req.Cluster,
+	_, err = a.storageBackend.Get().UpdateCluster(ctx, req.Agent,
 		storage.NewAddCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityAlerting)),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	a.requestNodeSync(ctx, req.Cluster)
+	a.requestNodeSync(ctx, req.Agent)
 
 	if warningErr != nil {
 		return &capabilityv1.InstallResponse{
@@ -351,7 +351,7 @@ func (a *AlertingNodeBackend) Install(ctx context.Context, req *capabilityv1.Ins
 
 // Returns common runtime config info for this capability from a specific
 // cluster (node).
-func (a *AlertingNodeBackend) Status(_ context.Context, req *corev1.Reference) (*capabilityv1.NodeCapabilityStatus, error) {
+func (a *AlertingNodeBackend) Status(_ context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
 	if !a.Initialized() {
 		return nil, status.Error(codes.Unavailable, "Alerting node backend is not yet available")
 	}
@@ -359,7 +359,7 @@ func (a *AlertingNodeBackend) Status(_ context.Context, req *corev1.Reference) (
 	a.nodeStatusMu.RLock()
 	defer a.nodeStatusMu.RUnlock()
 
-	if status, ok := a.nodeStatus[req.Id]; ok {
+	if status, ok := a.nodeStatus[req.Agent.GetId()]; ok {
 		return util.ProtoClone(status), nil
 	}
 	return nil, status.Error(codes.NotFound, "no status has been reported for this node")
@@ -374,7 +374,7 @@ func (a *AlertingNodeBackend) Uninstall(ctx context.Context, req *capabilityv1.U
 		return nil, status.Error(codes.Unavailable, "Alerting node backend is not yet available")
 	}
 
-	cluster, err := a.mgmtClient.Get().GetCluster(ctx, req.Cluster)
+	cluster, err := a.mgmtClient.Get().GetCluster(ctx, req.Agent)
 	if err != nil {
 		return nil, err
 	}
@@ -392,31 +392,23 @@ func (a *AlertingNodeBackend) Uninstall(ctx context.Context, req *capabilityv1.U
 
 	_, err = a.storageBackend.Get().UpdateCluster(
 		ctx,
-		req.GetCluster(),
+		req.GetAgent(),
 		storage.NewRemoveCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityAlerting)),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	a.requestNodeSync(ctx, req.Cluster)
+	a.requestNodeSync(ctx, req.Agent)
 	return &emptypb.Empty{}, nil
 }
 
 // Gets the status of the uninstall task for the given cluster.
-func (a *AlertingNodeBackend) UninstallStatus(_ context.Context, _ *corev1.Reference) (*corev1.TaskStatus, error) {
+func (a *AlertingNodeBackend) UninstallStatus(_ context.Context, _ *capabilityv1.UninstallStatusRequest) (*corev1.TaskStatus, error) {
 	return nil, status.Error(codes.Unimplemented, "Alerting capability uninstall is not asynchronous")
 }
 
 // Cancels an uninstall task for the given cluster, if it is still pending.
-func (a *AlertingNodeBackend) CancelUninstall(_ context.Context, _ *corev1.Reference) (*emptypb.Empty, error) {
+func (a *AlertingNodeBackend) CancelUninstall(_ context.Context, _ *capabilityv1.CancelUninstallRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "Alerting capability uninstall is not asynchronous")
-}
-
-// Deprecated: Do not use.
-// Returns a go template string which will generate a shell command used to
-// install the capability. This will be displayed to the user in the UI.
-// See InstallerTemplateSpec above for the available template fields.
-func (a *AlertingNodeBackend) InstallerTemplate(_ context.Context, _ *emptypb.Empty) (*capabilityv1.InstallerTemplateResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "Deprecated API: Do not use")
 }

@@ -129,14 +129,10 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 
 	When("a cluster has installed capabilities", func() {
 		It("should prevent the cluster from being deleted", func() {
-			_, err := client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
-				Name: wellknown.CapabilityExample,
-				Target: &v1.InstallRequest{
-					Cluster: &corev1.Reference{
-						Id: "test-cluster-id",
-					},
-					IgnoreWarnings: true,
-				},
+			_, err := client.InstallCapability(context.Background(), &capabilityv1.InstallRequest{
+				Capability:     &corev1.Reference{Id: wellknown.CapabilityExample},
+				Agent:          &corev1.Reference{Id: "test-cluster-id"},
+				IgnoreWarnings: true,
 			})
 			Expect(err).NotTo(HaveOccurred())
 			_, errG1 := client.GetCluster(context.Background(), &corev1.Reference{
@@ -150,21 +146,15 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 			Expect(util.StatusCode(errD)).To(Equal(codes.FailedPrecondition))
 		})
 		It("should allow uninstalling capabilities", func() {
-			_, err := client.UninstallCapability(context.Background(), &managementv1.CapabilityUninstallRequest{
-				Name: wellknown.CapabilityExample,
-				Target: &v1.UninstallRequest{
-					Cluster: &corev1.Reference{
-						Id: "test-cluster-id",
-					},
-				},
+			_, err := client.UninstallCapability(context.Background(), &capabilityv1.UninstallRequest{
+				Capability: &corev1.Reference{Id: wellknown.CapabilityExample},
+				Agent:      &corev1.Reference{Id: "test-cluster-id"},
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() error {
-				status, err := client.CapabilityUninstallStatus(context.Background(), &managementv1.CapabilityStatusRequest{
-					Name: wellknown.CapabilityExample,
-					Cluster: &corev1.Reference{
-						Id: "test-cluster-id",
-					},
+				status, err := client.CapabilityUninstallStatus(context.Background(), &capabilityv1.UninstallStatusRequest{
+					Capability: &corev1.Reference{Id: wellknown.CapabilityExample},
+					Agent:      &corev1.Reference{Id: "test-cluster-id"},
 				})
 				if err != nil {
 					return err
@@ -175,11 +165,9 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 				return fmt.Errorf("waiting; status: %+v", status)
 			}, 10*time.Second, 250*time.Millisecond).Should(Succeed())
 
-			status, err := client.CapabilityUninstallStatus(context.Background(), &managementv1.CapabilityStatusRequest{
-				Name: wellknown.CapabilityExample,
-				Cluster: &corev1.Reference{
-					Id: "test-cluster-id",
-				},
+			status, err := client.CapabilityUninstallStatus(context.Background(), &capabilityv1.UninstallStatusRequest{
+				Capability: &corev1.Reference{Id: wellknown.CapabilityExample},
+				Agent:      &corev1.Reference{Id: "test-cluster-id"},
 			})
 			Expect(err).NotTo(HaveOccurred())
 

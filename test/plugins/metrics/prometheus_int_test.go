@@ -62,14 +62,9 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label("int
 			fingerprint = certsInfo.Chain[len(certsInfo.Chain)-1].Fingerprint
 			Expect(fingerprint).NotTo(BeEmpty())
 
-			_, errC := environment.StartAgent("test-cluster-id", token, []string{fingerprint})
-			Eventually(errC).Should(Receive(BeNil()))
-
-			_, err = client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
-				Name: wellknown.CapabilityMetrics,
-				Target: &capabilityv1.InstallRequest{
-					Cluster: &corev1.Reference{Id: "test-cluster-id"},
-				},
+			_, err = client.InstallCapability(context.Background(), &capabilityv1.InstallRequest{
+				Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+				Agent:      &corev1.Reference{Id: "test-cluster-id"},
 			})
 			Expect(err).NotTo(HaveOccurred())
 

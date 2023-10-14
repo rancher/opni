@@ -76,13 +76,9 @@ var _ = Describe("agent capability tests", Ordered, Label("integration"), func()
 			}
 
 			for _, agent := range agents {
-				resp, err := mgmtClient.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
-					Name: wellknown.CapabilityAlerting,
-					Target: &capabilityv1.InstallRequest{
-						Cluster: &corev1.Reference{
-							Id: agent,
-						},
-					},
+				resp, err := mgmtClient.InstallCapability(context.Background(), &capabilityv1.InstallRequest{
+					Capability: &corev1.Reference{Id: wellknown.CapabilityAlerting},
+					Agent:      &corev1.Reference{Id: agent},
 				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.Status).To(Equal(capabilityv1.InstallResponseStatus_Success))
@@ -186,13 +182,9 @@ var _ = Describe("agent capability tests", Ordered, Label("integration"), func()
 		It("should be able to uninstall the alerting capability on all downstream agents", func() {
 			mgmtClient := env.NewManagementClient()
 			for _, agent := range agents {
-				_, err := mgmtClient.UninstallCapability(context.Background(), &managementv1.CapabilityUninstallRequest{
-					Name: wellknown.CapabilityAlerting,
-					Target: &capabilityv1.UninstallRequest{
-						Cluster: &corev1.Reference{
-							Id: agent,
-						},
-					},
+				_, err := mgmtClient.UninstallCapability(context.Background(), &capabilityv1.UninstallRequest{
+					Capability: &corev1.Reference{Id: wellknown.CapabilityAlerting},
+					Agent:      &corev1.Reference{Id: agent},
 				})
 				Expect(err).NotTo(HaveOccurred())
 			}

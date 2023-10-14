@@ -66,9 +66,9 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		times := make(map[string]time.Time)
 		for _, id := range agentIds {
 			id := strings.TrimPrefix(id, "!")
-			req := &managementv1.CapabilityStatusRequest{
-				Name:    capability,
-				Cluster: &v1.Reference{Id: id},
+			req := &capabilityv1.StatusRequest{
+				Capability: &corev1.Reference{Id: capability},
+				Agent:      &corev1.Reference{Id: id},
 			}
 			Eventually(func() bool {
 				stat, err := mgmtClient.CapabilityStatus(context.Background(), req)
@@ -87,9 +87,9 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		for _, id := range agentIds {
 			expectNoUpdate := strings.HasPrefix(id, "!")
 			id := strings.TrimPrefix(id, "!")
-			req := &managementv1.CapabilityStatusRequest{
-				Name:    capability,
-				Cluster: &v1.Reference{Id: id},
+			req := &capabilityv1.StatusRequest{
+				Capability: &corev1.Reference{Id: capability},
+				Agent:      &corev1.Reference{Id: id},
 			}
 
 			if expectNoUpdate {

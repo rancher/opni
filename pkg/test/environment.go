@@ -1729,7 +1729,7 @@ func (e *Environment) startGateway() {
 	)
 
 	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g, pluginLoader,
-		management.WithCapabilitiesDataSource(g),
+		management.WithCapabilitiesDataSource(g.CapabilitiesDataSource()),
 		management.WithHealthStatusDataSource(g),
 		management.WithLifecycler(lifecycler),
 	)

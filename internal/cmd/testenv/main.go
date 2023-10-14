@@ -21,9 +21,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/mattn/go-tty"
 	"github.com/pkg/browser"
-	v1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/dashboard"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
@@ -435,13 +436,11 @@ func main() {
 					testlog.Log.Error(err)
 					return
 				}
-				for _, cluster := range clusters.Items {
-					_, err := client.InstallCapability(environment.Context(), &managementv1.CapabilityInstallRequest{
-						Name: "metrics",
-						Target: &v1.InstallRequest{
-							Cluster:        cluster.Reference(),
-							IgnoreWarnings: true,
-						},
+				for _, agent := range clusters.Items {
+					_, err := client.InstallCapability(environment.Context(), &capabilityv1.InstallRequest{
+						Capability:     &corev1.Reference{Id: wellknown.CapabilityMetrics},
+						Agent:          agent.Reference(),
+						IgnoreWarnings: true,
 					})
 					if err != nil {
 						testlog.Log.Error(err)
@@ -455,7 +454,7 @@ func main() {
 						AlertType: &alertingv1.AlertTypeDetails{
 							Type: &alertingv1.AlertTypeDetails_PrometheusQuery{
 								PrometheusQuery: &alertingv1.AlertConditionPrometheusQuery{
-									ClusterId: cluster.Reference(),
+									ClusterId: agent.Reference(),
 									Query:     "sum(up > 0) > 0",
 									For:       durationpb.New(time.Second * 1),
 								},
@@ -477,12 +476,10 @@ func main() {
 					testlog.Log.Error(err)
 					return
 				}
-				for _, cluster := range clusters.Items {
-					_, err := client.UninstallCapability(environment.Context(), &managementv1.CapabilityUninstallRequest{
-						Name: "metrics",
-						Target: &v1.UninstallRequest{
-							Cluster: cluster.Reference(),
-						},
+				for _, agent := range clusters.Items {
+					_, err := client.UninstallCapability(environment.Context(), &capabilityv1.UninstallRequest{
+						Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+						Agent:      agent.Reference(),
 					})
 					if err != nil {
 						testlog.Log.Error(err)

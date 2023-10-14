@@ -5,13 +5,10 @@ import (
 	"crypto"
 	"crypto/tls"
 	"errors"
-	"fmt"
-	"net"
 	"os"
 	"slices"
 
 	"github.com/prometheus/client_golang/prometheus"
-	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
 	bootstrapv2 "github.com/rancher/opni/pkg/apis/bootstrap/v2"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -30,6 +27,7 @@ import (
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/machinery"
+	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
@@ -54,18 +52,18 @@ type Gateway struct {
 	GatewayOptions
 	config            *config.GatewayConfig
 	tlsConfig         *tls.Config
-	logger            *zap.SugaredLogger
 	httpServer        *GatewayHTTPServer
 	grpcServer        *GatewayGRPCServer
 	connectionTracker *ConnectionTracker
 	delegate          *DelegateServer
 	statusQuerier     health.HealthStatusQuerier
 
-	storageBackend  storage.Backend
-	capBackendStore capabilities.BackendStore
+	storageBackend storage.Backend
+	capDataSource  *capabilitiesDataSource
 }
 
 type GatewayOptions struct {
+	logger              *zap.SugaredLogger
 	lifecycler          config.Lifecycler
 	extraUpdateHandlers []update.UpdateTypeHandler
 }
@@ -90,13 +88,20 @@ func WithExtraUpdateHandlers(handlers ...update.UpdateTypeHandler) GatewayOption
 	}
 }
 
+func WithLogger(logger *zap.SugaredLogger) GatewayOption {
+	return func(o *GatewayOptions) {
+		o.logger = logger
+	}
+}
+
 func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.LoaderInterface, opts ...GatewayOption) *Gateway {
 	options := GatewayOptions{
 		lifecycler: config.NewUnavailableLifecycler(cfgmeta.ObjectList{conf}),
+		logger:     logger.New().Named("gateway"),
 	}
 	options.apply(opts...)
 
-	lg := logger.New().Named("gateway")
+	lg := options.logger
 	conf.Spec.SetDefaults()
 
 	storageBackend, err := machinery.ConfigureStorageBackend(ctx, &conf.Spec.Storage)
@@ -106,38 +111,37 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Panic("failed to configure storage backend")
 	}
 
-	// configure the server-side installer template with the external hostname
-	// and grpc port which agents will connect to
-	_, port, err := net.SplitHostPort(conf.Spec.GRPCListenAddress)
-	if err != nil {
-		lg.With(
-			zap.Error(err),
-		).Panic("failed to parse listen address")
-	}
-	capBackendStore := capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{
-		Address: conf.Spec.Hostname,
-		Port:    fmt.Sprint(port),
-	}, lg)
+	capBackendStore := capabilities.NewBackendStore(lg)
 
 	// add capabilities from plugins
 	pl.Hook(hooks.OnLoadM(func(p types.CapabilityBackendPlugin, md meta.PluginMeta) {
-		info, err := p.Info(ctx, &emptypb.Empty{})
+		list, err := p.List(ctx, &emptypb.Empty{})
 		if err != nil {
 			lg.With(
 				zap.String("plugin", md.Module),
-			).Error("failed to get capability info")
+				zap.Error(err),
+			).Error("failed to list capabilities")
 			return
 		}
-		if err := capBackendStore.Add(info.Name, p); err != nil {
+		for _, cap := range list.GetItems() {
+			info, err := p.Info(ctx, &corev1.Reference{Id: cap.GetName()})
+			if err != nil {
+				lg.With(
+					zap.String("plugin", md.Module),
+				).Error("failed to get capability info")
+				return
+			}
+			if err := capBackendStore.Add(info.Name, p); err != nil {
+				lg.With(
+					zap.String("plugin", md.Module),
+					zap.Error(err),
+				).Error("failed to add capability backend")
+			}
 			lg.With(
 				zap.String("plugin", md.Module),
-				zap.Error(err),
-			).Error("failed to add capability backend")
+				zap.String("capability", info.Name),
+			).Info("added capability backend")
 		}
-		lg.With(
-			zap.String("plugin", md.Module),
-			zap.String("capability", info.Name),
-		).Info("added capability backend")
 	}))
 
 	// serve system plugin kv stores
@@ -276,7 +280,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 			advertiseAddr = conf.Spec.Management.RelayListenAddress
 		}
 		connectionTracker = NewConnectionTracker(ctx, &corev1.InstanceInfo{
-			RelayAddress:      os.ExpandEnv(conf.Spec.Management.RelayAdvertiseAddress),
+			RelayAddress:      os.ExpandEnv(advertiseAddr),
 			ManagementAddress: conf.Spec.Management.GRPCListenAddress,
 		}, connectionsKv, connectionsLm, lg)
 
@@ -303,6 +307,11 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	}
 	delegate := NewDelegateServer(conf.Spec, storageBackend, lg, delegateServerOpts...)
 	agentHandler := MultiConnectionHandler(listener, delegate)
+
+	capDataSource := &capabilitiesDataSource{
+		capBackendStore: capBackendStore,
+		delegate:        delegate,
+	}
 
 	go monitor.Run(ctx, buffer)
 
@@ -332,18 +341,15 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	pl.Hook(hooks.OnLoadMC(streamSvc.OnPluginLoad))
 
 	// set up bootstrap server
-	bootstrapServerV1 := bootstrap.NewServer(storageBackend, pkey, capBackendStore)
-	bootstrapServerV2 := bootstrap.NewServerV2(storageBackend, pkey)
-	bootstrapv1.RegisterBootstrapServer(grpcServer, bootstrapServerV1)
+	bootstrapServerV2 := bootstrap.NewServerV2(bootstrap.NewStorage(storageBackend), pkey)
 	bootstrapv2.RegisterBootstrapServer(grpcServer, bootstrapServerV2)
 
 	g := &Gateway{
 		GatewayOptions:    options,
 		tlsConfig:         tlsConfig,
 		config:            conf,
-		logger:            lg,
 		storageBackend:    storageBackend,
-		capBackendStore:   capBackendStore,
+		capDataSource:     capDataSource,
 		httpServer:        httpServer,
 		grpcServer:        grpcServer,
 		statusQuerier:     monitor,
@@ -429,8 +435,8 @@ func (g *Gateway) TLSConfig() *tls.Config {
 }
 
 // Implements management.CapabilitiesDataSource
-func (g *Gateway) CapabilitiesStore() capabilities.BackendStore {
-	return g.capBackendStore
+func (g *Gateway) CapabilitiesDataSource() management.CapabilitiesDataSource {
+	return g.capDataSource
 }
 
 // Implements management.HealthStatusDataSource

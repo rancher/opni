@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	v1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/storage"
@@ -30,26 +30,21 @@ func (ci *CapabilityInfo) canInstall() error {
 func NewTestCapabilityBackend(
 	ctrl *gomock.Controller,
 	capBackend *CapabilityInfo,
-) v1.BackendClient {
+) capabilityv1.BackendClient {
 	client := NewMockBackendClient(ctrl)
 	client.EXPECT().
 		Info(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(&v1.Details{
-			Name:    capBackend.Name,
-			Source:  "mock",
-			Drivers: []string{"test"},
+		Return(&capabilityv1.Details{
+			Name:             capBackend.Name,
+			Source:           "mock",
+			AvailableDrivers: []string{"test"},
+			EnabledDriver:    "test",
 		}, nil).
 		AnyTimes()
 	client.EXPECT().
-		CanInstall(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(context.Context, *emptypb.Empty, ...grpc.CallOption) (*emptypb.Empty, error) {
-			return &emptypb.Empty{}, capBackend.canInstall()
-		}).
-		AnyTimes()
-	client.EXPECT().
 		Install(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, req *v1.InstallRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
-			_, err := capBackend.Storage.UpdateCluster(ctx, req.Cluster,
+		DoAndReturn(func(ctx context.Context, req *capabilityv1.InstallRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+			_, err := capBackend.Storage.UpdateCluster(ctx, req.Agent,
 				storage.NewAddCapabilityMutator[*corev1.Cluster](capabilities.Cluster("test")),
 			)
 			if err != nil {
@@ -60,8 +55,8 @@ func NewTestCapabilityBackend(
 		AnyTimes()
 	client.EXPECT().
 		Uninstall(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, req *v1.UninstallRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
-			_, err := capBackend.Storage.UpdateCluster(ctx, req.Cluster,
+		DoAndReturn(func(ctx context.Context, req *capabilityv1.UninstallRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+			_, err := capBackend.Storage.UpdateCluster(ctx, req.Agent,
 				storage.NewRemoveCapabilityMutator[*corev1.Cluster](capabilities.Cluster("test")))
 			if err != nil {
 				return nil, err
@@ -71,8 +66,8 @@ func NewTestCapabilityBackend(
 		AnyTimes()
 	client.EXPECT().
 		UninstallStatus(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, ref *corev1.Reference, _ ...grpc.CallOption) (*corev1.TaskStatus, error) {
-			c, err := capBackend.Storage.GetCluster(ctx, ref)
+		DoAndReturn(func(ctx context.Context, req *capabilityv1.UninstallStatusRequest, _ ...grpc.CallOption) (*corev1.TaskStatus, error) {
+			c, err := capBackend.Storage.GetCluster(ctx, req.Agent)
 			if err != nil {
 				return nil, err
 			}
@@ -96,15 +91,9 @@ func NewTestCapabilityBackend(
 		AnyTimes()
 	client.EXPECT().
 		CancelUninstall(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(context.Context, *emptypb.Empty, ...grpc.CallOption) (*emptypb.Empty, error) {
+		DoAndReturn(func(context.Context, *capabilityv1.CancelUninstallRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
 			return &emptypb.Empty{}, nil
 		}).
-		AnyTimes()
-	client.EXPECT().
-		InstallerTemplate(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(&v1.InstallerTemplateResponse{
-			Template: capBackend.InstallerTemplate,
-		}, nil).
 		AnyTimes()
 	return client
 }

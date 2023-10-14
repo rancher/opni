@@ -50,14 +50,10 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 		Expect(cortexops.WaitForReady(environment.Context(), opsClient)).To(Succeed())
 
 		mgmtClient := environment.NewManagementClient()
-		resp, err := mgmtClient.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
-			Name: "metrics",
-			Target: &capabilityv1.InstallRequest{
-				Cluster: &corev1.Reference{
-					Id: agentId,
-				},
-				IgnoreWarnings: true,
-			},
+		resp, err := mgmtClient.InstallCapability(context.Background(), &capabilityv1.InstallRequest{
+			Capability:     &corev1.Reference{Id: wellknown.CapabilityMetrics},
+			Agent:          &corev1.Reference{Id: agentId},
+			IgnoreWarnings: true,
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.Status).To(Or(

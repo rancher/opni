@@ -138,14 +138,6 @@ func (m *MetricsNode) AddNodeDriver(driver drivers.MetricsNodeDriver) {
 	m.nodeDrivers = append(m.nodeDrivers, driver)
 }
 
-func (m *MetricsNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
-	return &capabilityv1.Details{
-		Name:    wellknown.CapabilityMetrics,
-		Source:  "plugin_metrics",
-		Drivers: drivers.NodeDrivers.List(),
-	}, nil
-}
-
 // Implements capabilityv1.NodeServer
 
 func (m *MetricsNode) SyncNow(_ context.Context, req *capabilityv1.Filter) (*emptypb.Empty, error) {

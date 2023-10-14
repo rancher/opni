@@ -10,6 +10,7 @@ import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"golang.org/x/exp/slices"
@@ -65,13 +66,9 @@ var _ = Describe("Agent - Remote Write Tests", Ordered, Label("integration"), fu
 				return fmt.Errorf("waiting for remote write pending condition")
 			}, 2*time.Minute, 50*time.Millisecond).Should(Succeed())
 
-			_, err = client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
-				Name: "metrics",
-				Target: &capabilityv1.InstallRequest{
-					Cluster: &corev1.Reference{
-						Id: "agent1",
-					},
-				},
+			_, err = client.InstallCapability(context.Background(), &capabilityv1.InstallRequest{
+				Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+				Agent:      &corev1.Reference{Id: "agent1"},
 			})
 			Expect(err).NotTo(HaveOccurred())
 

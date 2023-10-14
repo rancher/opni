@@ -175,13 +175,13 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 			}),
 		)
 
-		client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
-			Name:   wellknown.CapabilityMetrics,
-			Target: &v1.InstallRequest{Cluster: &corev1.Reference{Id: "agent"}},
+		client.InstallCapability(context.Background(), &capabilityv1.InstallRequest{
+			Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+			Agent:      &corev1.Reference{Id: "agent"},
 		})
-		client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
-			Name:   wellknown.CapabilityMetrics,
-			Target: &v1.InstallRequest{Cluster: &corev1.Reference{Id: "agent2"}},
+		client.InstallCapability(context.Background(), &capabilityv1.InstallRequest{
+			Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+			Agent:      &corev1.Reference{Id: "agent2"},
 		})
 
 		sloClient = sloapi.NewSLOClient(env.ManagementClientConn())
@@ -636,9 +636,9 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 				)
 				Eventually(errC).Should(Receive(BeNil()))
 
-				_, err := client.InstallCapability(ctx, &managementv1.CapabilityInstallRequest{
-					Name:   wellknown.CapabilityMetrics,
-					Target: &v1.InstallRequest{Cluster: &corev1.Reference{Id: id}},
+				_, err := client.InstallCapability(ctx, &capabilityv1.InstallRequest{
+					Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+					Agent:      &corev1.Reference{Id: id},
 				})
 				Expect(err).NotTo(HaveOccurred())
 

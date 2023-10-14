@@ -139,10 +139,20 @@ func (s *ExamplePlugin) ConfigureRoutes(app *gin.Engine) {
 	})
 }
 
-func (s *ExamplePlugin) Info(context.Context, *emptypb.Empty) (*capabilityv1.Details, error) {
+func (s *ExamplePlugin) info() *capabilityv1.Details {
 	return &capabilityv1.Details{
 		Name:   wellknown.CapabilityExample,
 		Source: "plugin_example",
+	}
+}
+
+func (s *ExamplePlugin) Info(context.Context, *corev1.Reference) (*capabilityv1.Details, error) {
+	return s.info(), nil
+}
+
+func (s *ExamplePlugin) List(context.Context, *emptypb.Empty) (*capabilityv1.DetailsList, error) {
+	return &capabilityv1.DetailsList{
+		Items: []*capabilityv1.Details{s.info()},
 	}, nil
 }
 
@@ -150,8 +160,8 @@ func (s *ExamplePlugin) CanInstall(context.Context, *emptypb.Empty) (*emptypb.Em
 	return &emptypb.Empty{}, nil
 }
 
-func (s *ExamplePlugin) Status(ctx context.Context, ref *corev1.Reference) (*capabilityv1.NodeCapabilityStatus, error) {
-	cluster, err := s.storageBackend.Get().GetCluster(ctx, ref)
+func (s *ExamplePlugin) Status(ctx context.Context, ref *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
+	cluster, err := s.storageBackend.Get().GetCluster(ctx, ref.GetAgent())
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +171,7 @@ func (s *ExamplePlugin) Status(ctx context.Context, ref *corev1.Reference) (*cap
 }
 
 func (s *ExamplePlugin) Install(ctx context.Context, req *capabilityv1.InstallRequest) (*capabilityv1.InstallResponse, error) {
-	_, err := s.storageBackend.Get().UpdateCluster(ctx, req.Cluster,
+	_, err := s.storageBackend.Get().UpdateCluster(ctx, req.Agent,
 		storage.NewAddCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityExample)),
 	)
 	if err != nil {
@@ -173,12 +183,12 @@ func (s *ExamplePlugin) Install(ctx context.Context, req *capabilityv1.InstallRe
 }
 
 func (s *ExamplePlugin) Uninstall(ctx context.Context, req *capabilityv1.UninstallRequest) (*emptypb.Empty, error) {
-	cluster, err := s.storageBackend.Get().GetCluster(ctx, req.Cluster)
+	cluster, err := s.storageBackend.Get().GetCluster(ctx, req.Agent)
 	if err != nil {
 		return nil, err
 	}
 	if cluster == nil {
-		return nil, status.Errorf(codes.NotFound, "cluster %q not found", req.Cluster)
+		return nil, status.Errorf(codes.NotFound, "cluster %q not found", req.Agent)
 	}
 
 	found := false
@@ -198,7 +208,7 @@ func (s *ExamplePlugin) Uninstall(ctx context.Context, req *capabilityv1.Uninsta
 		return nil, status.Error(codes.FailedPrecondition, "cluster does not have the reuqested capability")
 	}
 
-	err = s.uninstallController.Get().LaunchTask(req.Cluster.Id)
+	err = s.uninstallController.Get().LaunchTask(req.Agent.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -206,12 +216,12 @@ func (s *ExamplePlugin) Uninstall(ctx context.Context, req *capabilityv1.Uninsta
 	return &emptypb.Empty{}, nil
 }
 
-func (s *ExamplePlugin) UninstallStatus(_ context.Context, ref *corev1.Reference) (*corev1.TaskStatus, error) {
-	return s.uninstallController.Get().TaskStatus(ref.GetId())
+func (s *ExamplePlugin) UninstallStatus(_ context.Context, ref *capabilityv1.UninstallStatusRequest) (*corev1.TaskStatus, error) {
+	return s.uninstallController.Get().TaskStatus(ref.GetAgent().GetId())
 }
 
-func (s *ExamplePlugin) CancelUninstall(_ context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	s.uninstallController.Get().CancelTask(ref.GetId())
+func (s *ExamplePlugin) CancelUninstall(_ context.Context, ref *capabilityv1.CancelUninstallRequest) (*emptypb.Empty, error) {
+	s.uninstallController.Get().CancelTask(ref.GetAgent().GetId())
 	return &emptypb.Empty{}, nil
 }
 

@@ -156,11 +156,15 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		_, err = client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
-			Name: wellknown.CapabilityMetrics,
-			Target: &capabilityv1.InstallRequest{
-				Cluster: &corev1.Reference{Id: "agent2"},
-			},
+		_, err = client.InstallCapability(context.Background(), &capabilityv1.InstallRequest{
+			Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+			Agent:      &corev1.Reference{Id: "agent"},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = client.InstallCapability(context.Background(), &capabilityv1.InstallRequest{
+			Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+			Agent:      &corev1.Reference{Id: "agent2"},
 		})
 		Expect(err).NotTo(HaveOccurred())
 

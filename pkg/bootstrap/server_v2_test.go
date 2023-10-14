@@ -15,6 +15,7 @@ import (
 	"github.com/lestrrat-go/jwx/jws"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/storage/inmemory"
 	mock_storage "github.com/rancher/opni/pkg/test/mock/storage"
 	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/pkg/util"
@@ -69,6 +70,7 @@ var _ = Describe("Server V2", Ordered, Label("unit"), func() {
 			TokenStore:         mockTokenStore,
 			ClusterStore:       mockClusterStore,
 			KeyringStoreBroker: mockKeyringStoreBroker,
+			LockManagerBroker:  inmemory.NewLockManagerBroker(),
 		}, cert.PrivateKey.(crypto.Signer))
 		bootstrapv2.RegisterBootstrapServer(srv, server)
 

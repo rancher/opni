@@ -3,7 +3,6 @@ package management
 import (
 	"context"
 	"fmt"
-
 	"maps"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"

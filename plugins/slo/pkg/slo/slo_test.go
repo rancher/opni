@@ -15,7 +15,6 @@ import (
 	"github.com/prometheus/prometheus/promql/parser"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/metrics/compat"
@@ -24,7 +23,6 @@ import (
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	sloapi "github.com/rancher/opni/plugins/slo/apis/slo"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/yaml.v3"
 )
@@ -89,16 +87,15 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label("i
 		DeferCleanup(env.Stop, "Test Suite Finished")
 
 		client := env.NewManagementClient()
-		token, err := client.CreateBootstrapToken(env.Context(), &managementv1.CreateBootstrapTokenRequest{
-			Ttl: durationpb.New(time.Hour),
-		})
-		Expect(err).NotTo(HaveOccurred())
-		info, err := client.CertsInfo(env.Context(), &emptypb.Empty{})
-		Expect(err).NotTo(HaveOccurred())
 		opsClient := cortexops.NewCortexOpsClient(env.ManagementClientConn())
-		err = cortexops.InstallWithPreset(env.Context(), opsClient)
+		err := cortexops.InstallWithPreset(env.Context(), opsClient)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cortexops.WaitForReady(env.Context(), opsClient)).To(Succeed())
+
+		err = env.BootstrapNewAgent("agent")
+		Expect(err).NotTo(HaveOccurred())
+		err = env.BootstrapNewAgent("agent2")
+		Expect(err).NotTo(HaveOccurred())
 
 		_, err = client.InstallCapability(env.Context(), &capabilityv1.InstallRequest{
 			Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},

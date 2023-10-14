@@ -18,11 +18,9 @@ import (
 	. "github.com/onsi/gomega"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -123,18 +121,13 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 		Expect(cortexops.WaitForReady(env.Context(), opsClient)).To(Succeed())
 
 		client := env.NewManagementClient()
-		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
-			Ttl: durationpb.New(time.Hour),
-		})
-		Expect(err).NotTo(HaveOccurred())
-		info, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
-		Expect(err).NotTo(HaveOccurred())
+
 		adminClient = cortexadmin.NewCortexAdminClient(env.ManagementClientConn())
 		// wait until data has been stored in cortex for the cluster
 		kubernetesTempMetricServerPort = env.StartMockKubernetesMetricServer()
 		fmt.Printf("Mock kubernetes metrics server started on port %d\n", kubernetesTempMetricServerPort)
-		_, errc := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		Eventually(errc).Should(Receive(BeNil()))
+		err = env.BootstrapNewAgent("agent")
+		Expect(err).NotTo(HaveOccurred())
 		kubernetesJobName = "kubernetes"
 		env.SetPrometheusNodeConfigOverride("agent", test.NewOverridePrometheusConfig(
 			"alerting/prometheus/config.yaml",
@@ -145,15 +138,7 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 				},
 			}),
 		)
-		_, errc2 := env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		Eventually(errc2).Should(Receive(BeNil()))
-
-		_, err = client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
-			Name: wellknown.CapabilityMetrics,
-			Target: &capabilityv1.InstallRequest{
-				Cluster: &corev1.Reference{Id: "agent"},
-			},
-		})
+		err = env.BootstrapNewAgent("agent2")
 		Expect(err).NotTo(HaveOccurred())
 
 		_, err = client.InstallCapability(context.Background(), &capabilityv1.InstallRequest{

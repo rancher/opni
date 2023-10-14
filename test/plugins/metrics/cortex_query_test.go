@@ -11,17 +11,15 @@ import (
 	. "github.com/onsi/gomega"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 	var environment *test.Environment
-	var fingerprint string
 	var adminClient cortexadmin.CortexAdminClient
 	agentId := "agent-1"
 	userId := "user-1"
@@ -31,18 +29,8 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 		DeferCleanup(environment.Stop)
 		client := environment.NewManagementClient()
 
-		certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
+		err := environment.BootstrapNewAgent(agentId)
 		Expect(err).NotTo(HaveOccurred())
-		fingerprint = certsInfo.Chain[len(certsInfo.Chain)-1].Fingerprint
-		Expect(fingerprint).NotTo(BeEmpty())
-
-		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
-			Ttl: durationpb.New(1 * time.Hour),
-		})
-		Expect(err).NotTo(HaveOccurred())
-
-		_, errC := environment.StartAgent(agentId, token, []string{fingerprint})
-		Eventually(errC).Should(Receive(BeNil()))
 
 		opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
 		err = cortexops.InstallWithPreset(environment.Context(), opsClient)

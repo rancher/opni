@@ -3,14 +3,13 @@ package metrics_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -51,16 +50,9 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label("int
 	//#region Happy Path Tests
 
 	When("querying metrics from the gateway", func() {
-		It("can return Prometheus metrics", func() {
-			token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
-				Ttl: durationpb.New(time.Minute),
-			})
+		It("can return Prometheus metrics", func(ctx SpecContext) {
+			err := environment.BootstrapNewAgent("test-cluster-id")
 			Expect(err).NotTo(HaveOccurred())
-
-			certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
-			Expect(err).NotTo(HaveOccurred())
-			fingerprint = certsInfo.Chain[len(certsInfo.Chain)-1].Fingerprint
-			Expect(fingerprint).NotTo(BeEmpty())
 
 			_, err = client.InstallCapability(context.Background(), &capabilityv1.InstallRequest{
 				Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
@@ -115,7 +107,7 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label("int
 			Expect(errT).NotTo(HaveOccurred())
 			Expect(respTime.Unix()).To(BeNumerically("<=", (now)))
 			defer resp.Body.Close()
-			b, err := ioutil.ReadAll(resp.Body)
+			b, err := io.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(b)).To(Equal(`{"status":"success","data":["__tenant_id__"]}`))
 		})

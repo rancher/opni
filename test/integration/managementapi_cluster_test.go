@@ -14,7 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	v1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/task"
@@ -86,20 +86,9 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 		Expect(clusterInfo.GetLabels()).To(HaveKeyWithValue("i", "999"))
 	})
 
-	var fingerprint2 string
 	It("can list all clusters using the same label", func() {
-		token2, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
-			Ttl: durationpb.New(time.Minute),
-		})
+		err := environment.BootstrapNewAgent("test-cluster-id-2")
 		Expect(err).NotTo(HaveOccurred())
-
-		certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
-		Expect(err).NotTo(HaveOccurred())
-		fingerprint2 = certsInfo.Chain[len(certsInfo.Chain)-1].Fingerprint
-		Expect(fingerprint).NotTo(BeEmpty())
-
-		_, errC := environment.StartAgent("test-cluster-id-2", token2, []string{fingerprint2})
-		Eventually(errC).Should(Receive(BeNil()))
 
 		clusterInfo, err := client.GetCluster(context.Background(), &corev1.Reference{
 			Id: "test-cluster-id",
@@ -270,14 +259,9 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 
 	When("editing a cluster without providing label information", func() {
 		It("can remove labels from a cluster", func() {
-			token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
-				Ttl: durationpb.New(time.Minute),
-			})
-			Expect(err).NotTo(HaveOccurred())
-
 			clusterName := uuid.NewString()
-			_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
-			Eventually(errC).Should(Receive(BeNil()))
+			err := environment.BootstrapNewAgent(clusterName)
+			Expect(err).NotTo(HaveOccurred())
 
 			var labels map[string]string
 			Eventually(func() error {

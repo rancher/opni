@@ -28,13 +28,11 @@ import (
 	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/task"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testbench"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/samber/lo"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/ini.v1"
 	k8scorev1 "k8s.io/api/core/v1"
@@ -142,18 +140,7 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 
 	It("should start a new agent", func() {
 		By("starting a new agent")
-		token, err := mgmtClient.CreateBootstrapToken(ctx, &managementv1.CreateBootstrapTokenRequest{
-			Ttl: durationpb.New(time.Hour),
-		})
-		Expect(err).NotTo(HaveOccurred())
-
-		certs, err := mgmtClient.CertsInfo(ctx, &emptypb.Empty{})
-		Expect(err).NotTo(HaveOccurred())
-
-		fp := certs.Chain[len(certs.Chain)-1].Fingerprint
-
-		_, errC := testEnv.StartAgent(agentId, token, []string{fp}, test.WithAgentVersion("v2"))
-		Eventually(errC).Should(Receive(BeNil()))
+		Expect(testEnv.BootstrapNewAgent(agentId)).To(Succeed())
 
 		By("starting a new prometheus")
 		testEnv.StartPrometheus(agentId)

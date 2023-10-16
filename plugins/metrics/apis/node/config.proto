@@ -54,7 +54,7 @@ service NodeConfiguration {
       use: "reset-default"
     };
     option (google.api.http) = {
-      delete: "/node_config"
+      post: "/node_config/reset"
     };
   }
 
@@ -65,7 +65,7 @@ service NodeConfiguration {
       enable_hooks: true
     };
     option (google.api.http) = {
-      get: "/node_config/{id}"
+      get: "/node_config/{node.id}"
     };
   }
 
@@ -88,7 +88,8 @@ service NodeConfiguration {
       use: "reset"
     };
     option (google.api.http) = {
-      delete: "/node_config/{node.id}"
+      post: "/node_config/{node.id}/reset"
+      body: "*"
     };
   }
 

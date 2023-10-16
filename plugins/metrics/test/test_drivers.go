@@ -445,7 +445,7 @@ func (d *TestEnvOtelNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsC
 
 	exists := d.otelCtx != nil && d.otelCancel != nil
 	shouldExist := conf.Enabled && conf.GetSpec().GetOtel() != nil &&
-		conf.GetSpec().GetDriver() == node.MetricsCapabilityConfig_Prometheus
+		conf.GetSpec().GetDriver() == node.MetricsCapabilityConfig_OpenTelemetry
 
 	if exists && !shouldExist {
 		lg.Info("stopping otel")

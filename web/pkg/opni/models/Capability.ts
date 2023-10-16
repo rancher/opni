@@ -3,9 +3,8 @@ import { uninstallCapabilityStatus } from '@pkg/opni/utils/requests/management';
 import { exceptionToErrorsArray } from '@pkg/opni/utils/error';
 import { Management, Capability as CapabilityProto } from '@pkg/opni/api/opni';
 import { Reference } from '@pkg/opni/generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
-import { InstallRequest } from '@pkg/opni/generated/github.com/rancher/opni/pkg/apis/capability/v1/capability_pb';
+import { InstallRequest, CancelUninstallRequest, StatusRequest } from '@pkg/opni/generated/github.com/rancher/opni/pkg/apis/capability/v1/capability_pb';
 import GlobalEventBus from '@pkg/opni/utils/GlobalEventBus';
-import { CapabilityInstallRequest, CapabilityStatusRequest } from '@pkg/opni/generated/github.com/rancher/opni/pkg/apis/management/v1/management_pb';
 import { Struct, Value } from '@bufbuild/protobuf';
 import { Cluster } from './Cluster';
 import { Resource } from './Resource';
@@ -48,12 +47,6 @@ export enum TaskState {
   Completed = 3,
   Failed = 4,
   Canceled = 6,
-}
-
-export interface NodeCapabilityStatus {
-  enabled: boolean;
-  lastSync?: string;
-  conditions?: string[];
 }
 
 export interface CapabilityStatus {
@@ -165,9 +158,9 @@ export class Capability extends Resource {
           message:      (log.logs || []).reverse()[0]?.msg,
         });
       } else {
-        const apiStatus = await Management.service.CapabilityStatus(new CapabilityStatusRequest({
-          cluster: new Reference({ id: this.cluster.id }),
-          name:    this.type,
+        const apiStatus = await Management.service.CapabilityStatus(new StatusRequest({
+          agent:      new Reference({ id: this.cluster.id }),
+          capability: new Reference({ id: this.type }),
         }));
 
         if (apiStatus.conditions?.length === 0) {
@@ -231,9 +224,9 @@ export class Capability extends Resource {
 
   async install() {
     try {
-      await Management.service.InstallCapability(new CapabilityInstallRequest({
-        name:   this.type,
-        target: new InstallRequest({ cluster: new Reference({ id: this.cluster.id }) }),
+      await Management.service.InstallCapability(new InstallRequest({
+        capability: new Reference({ id: this.type }),
+        agent:      new Reference({ id: this.cluster.id }),
       }));
 
       setTimeout(() => {
@@ -250,15 +243,20 @@ export class Capability extends Resource {
 
   async uninstall(deleteData: boolean = true) {
     try {
-      const options = deleteData ? new Struct({ fields: { initialDelay: new Value({ kind: { case: 'stringValue', value: '60s' } }) } }) : undefined;
+      const options = deleteData ? new Struct({
+        fields: {
+          initialDelay:     new Value({ kind: { case: 'stringValue', value: '60s' } }),
+          deleteStoredData: new Value({ kind: { case: 'boolValue', value: true } }),
+        },
+      }) : undefined;
 
-      const uninstallRequest = new CapabilityProto.types.UninstallRequest({ cluster: new Reference({ id: this.cluster.id }), options });
-      const capabilityUninstallRequest = new Management.types.CapabilityUninstallRequest({
-        name:   this.type,
-        target: uninstallRequest
+      const uninstallRequest = new CapabilityProto.types.UninstallRequest({
+        capability: new Reference({ id: this.type }),
+        agent:      new Reference({ id: this.cluster.id }),
+        options,
       });
 
-      await Management.service.UninstallCapability(capabilityUninstallRequest);
+      await Management.service.UninstallCapability(uninstallRequest);
 
       setTimeout(() => {
         this.updateCabilityLogs();
@@ -274,9 +272,9 @@ export class Capability extends Resource {
 
   async cancelUninstall() {
     try {
-      const cancelCapabilityUninstallRequest = new Management.types.CapabilityUninstallCancelRequest({
-        name:    this.type,
-        cluster: new Reference({ id: this.cluster.id })
+      const cancelCapabilityUninstallRequest = new CancelUninstallRequest({
+        capability: new Reference({ id: this.type }),
+        agent:      new Reference({ id: this.cluster.id })
       });
 
       await Management.service.CancelCapabilityUninstall(cancelCapabilityUninstallRequest);

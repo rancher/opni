@@ -88,9 +88,12 @@ func (Generate) ProtobufTypescript() error {
 	destDir := "web/pkg/opni/generated"
 
 	searchDirs := []string{
+		"pkg/config/v1beta1",
+		"pkg/apis/capability/v1",
 		"pkg/apis/management/v1",
 		"plugins/metrics/apis/cortexadmin",
 		"plugins/metrics/apis/cortexops",
+		"plugins/metrics/apis/node",
 	}
 
 	out, err := ragu.GenerateCode([]ragu.Generator{

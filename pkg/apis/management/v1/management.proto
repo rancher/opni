@@ -158,29 +158,29 @@ service Management {
   }
   rpc InstallCapability(capability.InstallRequest) returns (capability.InstallResponse) {
     option (google.api.http) = {
-      post: "/clusters/{agent.id}/capabilities/{name}/install"
+      post: "/clusters/{agent.id}/capabilities/{capability.id}/install"
       body: "*"
     };
   }
   rpc UninstallCapability(capability.UninstallRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post: "/clusters/{agent.id}/capabilities/{name}/uninstall"
+      post: "/clusters/{agent.id}/capabilities/{capability.id}/uninstall"
       body: "*"
     };
   }
   rpc CapabilityStatus(capability.StatusRequest) returns (capability.NodeCapabilityStatus) {
     option (google.api.http) = {
-      get: "/clusters/{agent.id}/capabilities/{name}/status"
+      get: "/clusters/{agent.id}/capabilities/{capability.id}/status"
     };
   }
   rpc CapabilityUninstallStatus(capability.UninstallStatusRequest) returns (core.TaskStatus) {
     option (google.api.http) = {
-      get: "/clusters/{agent.id}/capabilities/{name}/uninstall/status"
+      get: "/clusters/{agent.id}/capabilities/{capability.id}/uninstall/status"
     };
   }
   rpc CancelCapabilityUninstall(capability.CancelUninstallRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post: "/clusters/{agent.id}/capabilities/{name}/uninstall/cancel"
+      post: "/clusters/{agent.id}/capabilities/{capability.id}/uninstall/cancel"
     };
   }
   rpc GetDashboardSettings(google.protobuf.Empty) returns (DashboardSettings) {

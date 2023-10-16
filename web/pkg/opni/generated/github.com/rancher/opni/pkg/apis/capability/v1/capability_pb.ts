@@ -4,7 +4,7 @@
 
 import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
 import { Message, proto3, Struct, Timestamp } from "@bufbuild/protobuf";
-import { Reference } from "../../core/v1/core_pb";
+import { Reference, Revision } from "../../core/v1/core_pb";
 
 /**
  * @generated from enum capability.InstallResponseStatus
@@ -53,9 +53,14 @@ export class Details extends Message<Details> {
   source = "";
 
   /**
-   * @generated from field: repeated string drivers = 3;
+   * @generated from field: repeated string availableDrivers = 3;
    */
-  drivers: string[] = [];
+  availableDrivers: string[] = [];
+
+  /**
+   * @generated from field: string enabledDriver = 4;
+   */
+  enabledDriver = "";
 
   constructor(data?: PartialMessage<Details>) {
     super();
@@ -67,7 +72,8 @@ export class Details extends Message<Details> {
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "source", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 3, name: "drivers", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 3, name: "availableDrivers", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 4, name: "enabledDriver", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Details {
@@ -84,51 +90,6 @@ export class Details extends Message<Details> {
 
   static equals(a: Details | PlainMessage<Details> | undefined, b: Details | PlainMessage<Details> | undefined): boolean {
     return proto3.util.equals(Details, a, b);
-  }
-}
-
-/**
- * @generated from message capability.SyncRequest
- */
-export class SyncRequest extends Message<SyncRequest> {
-  /**
-   * An empty cluster ID indicates that all clusters should be synced.
-   *
-   * @generated from field: core.Reference cluster = 1;
-   */
-  cluster?: Reference;
-
-  /**
-   * @generated from field: capability.Filter filter = 2;
-   */
-  filter?: Filter;
-
-  constructor(data?: PartialMessage<SyncRequest>) {
-    super();
-    proto3.util.initPartial(data, this);
-  }
-
-  static readonly runtime: typeof proto3 = proto3;
-  static readonly typeName = "capability.SyncRequest";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "cluster", kind: "message", T: Reference },
-    { no: 2, name: "filter", kind: "message", T: Filter },
-  ]);
-
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): SyncRequest {
-    return new SyncRequest().fromBinary(bytes, options);
-  }
-
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): SyncRequest {
-    return new SyncRequest().fromJson(jsonValue, options);
-  }
-
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): SyncRequest {
-    return new SyncRequest().fromJsonString(jsonString, options);
-  }
-
-  static equals(a: SyncRequest | PlainMessage<SyncRequest> | undefined, b: SyncRequest | PlainMessage<SyncRequest> | undefined): boolean {
-    return proto3.util.equals(SyncRequest, a, b);
   }
 }
 
@@ -174,9 +135,14 @@ export class Filter extends Message<Filter> {
  */
 export class InstallRequest extends Message<InstallRequest> {
   /**
-   * @generated from field: core.Reference cluster = 1;
+   * @generated from field: core.Reference capability = 3;
    */
-  cluster?: Reference;
+  capability?: Reference;
+
+  /**
+   * @generated from field: core.Reference agent = 1;
+   */
+  agent?: Reference;
 
   /**
    * @generated from field: bool ignoreWarnings = 2;
@@ -191,7 +157,8 @@ export class InstallRequest extends Message<InstallRequest> {
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "capability.InstallRequest";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "cluster", kind: "message", T: Reference },
+    { no: 3, name: "capability", kind: "message", T: Reference },
+    { no: 1, name: "agent", kind: "message", T: Reference },
     { no: 2, name: "ignoreWarnings", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
   ]);
 
@@ -209,6 +176,49 @@ export class InstallRequest extends Message<InstallRequest> {
 
   static equals(a: InstallRequest | PlainMessage<InstallRequest> | undefined, b: InstallRequest | PlainMessage<InstallRequest> | undefined): boolean {
     return proto3.util.equals(InstallRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message capability.StatusRequest
+ */
+export class StatusRequest extends Message<StatusRequest> {
+  /**
+   * @generated from field: core.Reference capability = 3;
+   */
+  capability?: Reference;
+
+  /**
+   * @generated from field: core.Reference agent = 1;
+   */
+  agent?: Reference;
+
+  constructor(data?: PartialMessage<StatusRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "capability.StatusRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 3, name: "capability", kind: "message", T: Reference },
+    { no: 1, name: "agent", kind: "message", T: Reference },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StatusRequest {
+    return new StatusRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): StatusRequest {
+    return new StatusRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): StatusRequest {
+    return new StatusRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: StatusRequest | PlainMessage<StatusRequest> | undefined, b: StatusRequest | PlainMessage<StatusRequest> | undefined): boolean {
+    return proto3.util.equals(StatusRequest, a, b);
   }
 }
 
@@ -260,9 +270,14 @@ export class InstallResponse extends Message<InstallResponse> {
  */
 export class UninstallRequest extends Message<UninstallRequest> {
   /**
-   * @generated from field: core.Reference cluster = 1;
+   * @generated from field: core.Reference capability = 3;
    */
-  cluster?: Reference;
+  capability?: Reference;
+
+  /**
+   * @generated from field: core.Reference agent = 1;
+   */
+  agent?: Reference;
 
   /**
    * @generated from field: google.protobuf.Struct options = 2;
@@ -277,7 +292,8 @@ export class UninstallRequest extends Message<UninstallRequest> {
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "capability.UninstallRequest";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "cluster", kind: "message", T: Reference },
+    { no: 3, name: "capability", kind: "message", T: Reference },
+    { no: 1, name: "agent", kind: "message", T: Reference },
     { no: 2, name: "options", kind: "message", T: Struct },
   ]);
 
@@ -354,6 +370,11 @@ export class NodeCapabilityStatus extends Message<NodeCapabilityStatus> {
    */
   conditions: string[] = [];
 
+  /**
+   * @generated from field: core.Revision lastRevision = 4;
+   */
+  lastRevision?: Revision;
+
   constructor(data?: PartialMessage<NodeCapabilityStatus>) {
     super();
     proto3.util.initPartial(data, this);
@@ -365,6 +386,7 @@ export class NodeCapabilityStatus extends Message<NodeCapabilityStatus> {
     { no: 1, name: "enabled", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 2, name: "lastSync", kind: "message", T: Timestamp },
     { no: 3, name: "conditions", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 4, name: "lastRevision", kind: "message", T: Revision },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): NodeCapabilityStatus {
@@ -381,6 +403,129 @@ export class NodeCapabilityStatus extends Message<NodeCapabilityStatus> {
 
   static equals(a: NodeCapabilityStatus | PlainMessage<NodeCapabilityStatus> | undefined, b: NodeCapabilityStatus | PlainMessage<NodeCapabilityStatus> | undefined): boolean {
     return proto3.util.equals(NodeCapabilityStatus, a, b);
+  }
+}
+
+/**
+ * @generated from message capability.UninstallStatusRequest
+ */
+export class UninstallStatusRequest extends Message<UninstallStatusRequest> {
+  /**
+   * @generated from field: core.Reference capability = 1;
+   */
+  capability?: Reference;
+
+  /**
+   * @generated from field: core.Reference agent = 2;
+   */
+  agent?: Reference;
+
+  constructor(data?: PartialMessage<UninstallStatusRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "capability.UninstallStatusRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "capability", kind: "message", T: Reference },
+    { no: 2, name: "agent", kind: "message", T: Reference },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): UninstallStatusRequest {
+    return new UninstallStatusRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): UninstallStatusRequest {
+    return new UninstallStatusRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): UninstallStatusRequest {
+    return new UninstallStatusRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: UninstallStatusRequest | PlainMessage<UninstallStatusRequest> | undefined, b: UninstallStatusRequest | PlainMessage<UninstallStatusRequest> | undefined): boolean {
+    return proto3.util.equals(UninstallStatusRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message capability.CancelUninstallRequest
+ */
+export class CancelUninstallRequest extends Message<CancelUninstallRequest> {
+  /**
+   * @generated from field: core.Reference capability = 1;
+   */
+  capability?: Reference;
+
+  /**
+   * @generated from field: core.Reference agent = 2;
+   */
+  agent?: Reference;
+
+  constructor(data?: PartialMessage<CancelUninstallRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "capability.CancelUninstallRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "capability", kind: "message", T: Reference },
+    { no: 2, name: "agent", kind: "message", T: Reference },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CancelUninstallRequest {
+    return new CancelUninstallRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): CancelUninstallRequest {
+    return new CancelUninstallRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): CancelUninstallRequest {
+    return new CancelUninstallRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: CancelUninstallRequest | PlainMessage<CancelUninstallRequest> | undefined, b: CancelUninstallRequest | PlainMessage<CancelUninstallRequest> | undefined): boolean {
+    return proto3.util.equals(CancelUninstallRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message capability.DetailsList
+ */
+export class DetailsList extends Message<DetailsList> {
+  /**
+   * @generated from field: repeated capability.Details items = 1;
+   */
+  items: Details[] = [];
+
+  constructor(data?: PartialMessage<DetailsList>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "capability.DetailsList";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "items", kind: "message", T: Details, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DetailsList {
+    return new DetailsList().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): DetailsList {
+    return new DetailsList().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DetailsList {
+    return new DetailsList().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: DetailsList | PlainMessage<DetailsList> | undefined, b: DetailsList | PlainMessage<DetailsList> | undefined): boolean {
+    return proto3.util.equals(DetailsList, a, b);
   }
 }
 

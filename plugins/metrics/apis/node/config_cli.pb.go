@@ -180,7 +180,7 @@ it will be replaced with the implementation-specific defaults. Otherwise,
 this will have no effect.
 
 HTTP handlers for this method:
-- DELETE /node_config
+- POST /node_config/reset
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
@@ -226,7 +226,7 @@ call to GetConfiguration, or from the revision field of one of the history
 entries returned by GetConfigurationHistory.
 
 HTTP handlers for this method:
-- GET /node_config/{id}
+- GET /node_config/{node.id}
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
@@ -378,7 +378,7 @@ The resulting active configuration will be:
  }
 
 HTTP handlers for this method:
-- DELETE /node_config/{node.id}
+- POST /node_config/{node.id}/reset
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,

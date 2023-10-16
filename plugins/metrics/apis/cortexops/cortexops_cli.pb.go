@@ -191,7 +191,7 @@ it will be replaced with the implementation-specific defaults. Otherwise,
 this will have no effect.
 
 HTTP handlers for this method:
-- DELETE /configuration/default
+- POST /configuration/default/reset
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
@@ -389,7 +389,7 @@ The resulting active configuration will be:
  }
 
 HTTP handlers for this method:
-- DELETE /configuration
+- POST /configuration/reset
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,

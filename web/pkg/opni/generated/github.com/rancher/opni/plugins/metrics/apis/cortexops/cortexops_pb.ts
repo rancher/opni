@@ -383,14 +383,21 @@ export class DryRunRequest extends Message<DryRunRequest> {
   /**
    * Reset
    *
-   * @generated from field: cortexops.CapabilityBackendConfigSpec patch = 4;
+   * @generated from field: core.Revision revision = 4;
+   */
+  revision?: Revision;
+
+  /**
+   * Reset
+   *
+   * @generated from field: cortexops.CapabilityBackendConfigSpec patch = 5;
    */
   patch?: CapabilityBackendConfigSpec;
 
   /**
    * Reset
    *
-   * @generated from field: google.protobuf.FieldMask mask = 5;
+   * @generated from field: google.protobuf.FieldMask mask = 6;
    */
   mask?: FieldMask;
 
@@ -405,8 +412,9 @@ export class DryRunRequest extends Message<DryRunRequest> {
     { no: 1, name: "target", kind: "enum", T: proto3.getEnumType(Target) },
     { no: 2, name: "action", kind: "enum", T: proto3.getEnumType(Action) },
     { no: 3, name: "spec", kind: "message", T: CapabilityBackendConfigSpec },
-    { no: 4, name: "patch", kind: "message", T: CapabilityBackendConfigSpec },
-    { no: 5, name: "mask", kind: "message", T: FieldMask },
+    { no: 4, name: "revision", kind: "message", T: Revision },
+    { no: 5, name: "patch", kind: "message", T: CapabilityBackendConfigSpec },
+    { no: 6, name: "mask", kind: "message", T: FieldMask },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DryRunRequest {
@@ -554,12 +562,17 @@ export class SetRequest extends Message<SetRequest> {
  */
 export class ResetRequest extends Message<ResetRequest> {
   /**
-   * @generated from field: google.protobuf.FieldMask mask = 1;
+   * @generated from field: core.Revision revision = 1;
+   */
+  revision?: Revision;
+
+  /**
+   * @generated from field: google.protobuf.FieldMask mask = 2;
    */
   mask?: FieldMask;
 
   /**
-   * @generated from field: cortexops.CapabilityBackendConfigSpec patch = 2;
+   * @generated from field: cortexops.CapabilityBackendConfigSpec patch = 3;
    */
   patch?: CapabilityBackendConfigSpec;
 
@@ -571,8 +584,9 @@ export class ResetRequest extends Message<ResetRequest> {
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "cortexops.ResetRequest";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "mask", kind: "message", T: FieldMask },
-    { no: 2, name: "patch", kind: "message", T: CapabilityBackendConfigSpec },
+    { no: 1, name: "revision", kind: "message", T: Revision },
+    { no: 2, name: "mask", kind: "message", T: FieldMask },
+    { no: 3, name: "patch", kind: "message", T: CapabilityBackendConfigSpec },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ResetRequest {

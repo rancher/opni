@@ -1,23 +1,25 @@
 import Vue, { reactive } from 'vue';
-import { Provider, setNodeConfiguration, getNodeConfiguration } from '../utils/requests/node-configuration';
+import * as core from '@pkg/opni/generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
+import * as node from '@pkg/opni/generated/github.com/rancher/opni/plugins/metrics/apis/node/config_pb';
+import * as nodesvc from '@pkg/opni/generated/github.com/rancher/opni/plugins/metrics/apis/node/config_svc';
+
 import { Cluster } from './Cluster';
 import { Capability } from './Capability';
 
 export class MetricCapability extends Capability {
-  providerRaw?: Provider;
+  config?: node.MetricsCapabilityConfig
 
   constructor(cluster: Cluster, vue: any) {
     super('metrics', cluster, vue);
 
-    this.updateProvider();
+    this.fetchConfig();
   }
 
-  updateProvider() {
-    getNodeConfiguration(this.id).then((config) => {
-      Vue.set(this, 'providerRaw', config.prometheus ? 'Prometheus' : 'OpenTelemetry');
-    }, () => {
-      Vue.set(this, 'providerRaw', 'OpenTelemetry');
-    });
+  async fetchConfig() {
+    try {
+      Vue.set(this, 'config', await nodesvc.GetConfiguration(new node.GetRequest({ node: new core.Reference({ id: this.id }) })));
+    } catch (e) {
+    }
   }
 
   static createExtended(cluster: Cluster, vue: any): MetricCapability {
@@ -25,7 +27,19 @@ export class MetricCapability extends Capability {
   }
 
   get provider(): string {
-    return this.isInstalled && this.providerRaw ? this.providerRaw : '—';
+    if (this.config?.driver) {
+      // newer versions set the driver name explicitly
+      return node.MetricsCapabilityConfig_Driver[this.config.driver];
+    }
+    // older versions used a oneof
+    if (this.config?.prometheus) {
+      return 'Prometheus';
+    }
+    if (this.config?.otel) {
+      return 'OpenTelemetry';
+    }
+
+    return '—';
   }
 
   get availableActions(): any[] {
@@ -36,14 +50,14 @@ export class MetricCapability extends Capability {
         label:    'Use Prometheus',
         icon:     'icon icon-fork',
         bulkable: true,
-        enabled:  this.isInstalled && this.provider === 'OpenTelemetry',
+        enabled:  this.provider === 'OpenTelemetry',
       },
       {
         action:   'useOpenTelemetry',
         label:    'Use OpenTelemetry',
         icon:     'icon icon-fork',
         bulkable: true,
-        enabled:  this.isInstalled && this.provider === 'Prometheus',
+        enabled:  this.provider === 'Prometheus',
       }
     ];
   }
@@ -63,14 +77,34 @@ export class MetricCapability extends Capability {
   }
 
   async usePrometheus() {
-    Vue.set(this, 'providerRaw', 'Prometheus');
-    await setNodeConfiguration(this.id, 'Prometheus');
-    this.updateProvider();
+    await this.fetchConfig();
+    if (this.config) {
+      await nodesvc.SetConfiguration(new node.SetRequest({
+        node: new core.Reference({ id: this.id }),
+        spec: {
+          ...structuredClone(this.config),
+          driver: node.MetricsCapabilityConfig_Driver.Prometheus,
+        },
+      }));
+      await this.fetchConfig();
+    } else {
+
+    }
   }
 
   async useOpenTelemetry() {
-    Vue.set(this, 'providerRaw', 'OpenTelemetry');
-    await setNodeConfiguration(this.id, 'OpenTelemetry');
-    this.updateProvider();
+    await this.fetchConfig();
+    if (this.config) {
+      await nodesvc.SetConfiguration(new node.SetRequest({
+        node: new core.Reference({ id: this.id }),
+        spec: {
+          ...structuredClone(this.config),
+          driver: node.MetricsCapabilityConfig_Driver.OpenTelemetry,
+        },
+      }));
+      await this.fetchConfig();
+    } else {
+
+    }
   }
 }

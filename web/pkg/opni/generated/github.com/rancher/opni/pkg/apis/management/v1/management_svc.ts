@@ -2,13 +2,13 @@
 // @generated from file github.com/rancher/opni/pkg/apis/management/v1/management.proto (package management, syntax proto3)
 /* eslint-disable */
 
-import { APIExtensionInfoList, CapabilityInstallerRequest, CapabilityInstallerResponse, CapabilityInstallRequest, CapabilityList, CapabilityStatusRequest, CapabilityUninstallCancelRequest, CapabilityUninstallRequest, CertsInfoResponse, CreateBootstrapTokenRequest, DashboardSettings, EditClusterRequest, GatewayConfig, ListClustersRequest, UpdateConfigRequest, WatchClustersRequest, WatchEvent } from "./management_pb";
+import { APIExtensionInfoList, CapabilityList, CertsInfoResponse, CreateBootstrapTokenRequest, DashboardSettings, EditClusterRequest, GatewayConfig, ListClustersRequest, UpdateConfigRequest, WatchClustersRequest, WatchEvent } from "./management_pb";
 import { BootstrapToken, BootstrapTokenList, Cluster, ClusterHealthStatus, ClusterList, HealthStatus, Reference, ReferenceList, Role, RoleBinding, RoleBindingList, RoleList, SubjectAccessRequest, TaskStatus } from "../../core/v1/core_pb";
 import { axios } from "@pkg/opni/utils/axios";
 import { Socket } from "@pkg/opni/utils/socket";
 import { EVENT_CONNECT_ERROR, EVENT_CONNECTED, EVENT_CONNECTING, EVENT_DISCONNECT_ERROR, EVENT_MESSAGE } from "@shell/utils/socket";
 import { Empty } from "@bufbuild/protobuf";
-import { InstallResponse, NodeCapabilityStatus } from "../../capability/v1/capability_pb";
+import { CancelUninstallRequest, InstallRequest, InstallResponse, NodeCapabilityStatus, StatusRequest, UninstallRequest, UninstallStatusRequest } from "../../capability/v1/capability_pb";
 
 
 export async function CreateBootstrapToken(input: CreateBootstrapTokenRequest): Promise<BootstrapToken> {
@@ -626,30 +626,7 @@ export async function ListCapabilities(): Promise<CapabilityList> {
 }
 
 
-export async function CapabilityInstaller(input: CapabilityInstallerRequest): Promise<CapabilityInstallerResponse> {
-  try {
-    return (await axios.request({
-    transformResponse: resp => CapabilityInstallerResponse.fromBinary(new Uint8Array(resp)),
-      method: 'post',
-      responseType: 'arraybuffer',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Accept': 'application/octet-stream',
-      },
-      url: `/opni-api/Management/capabilities/${input.name}/installer`,
-    data: input?.toBinary() as ArrayBuffer
-    })).data;
-  } catch (ex) {
-    if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
-      console.error(s);
-    }
-    throw ex;
-  }
-}
-
-
-export async function InstallCapability(input: CapabilityInstallRequest): Promise<InstallResponse> {
+export async function InstallCapability(input: InstallRequest): Promise<InstallResponse> {
   try {
     return (await axios.request({
     transformResponse: resp => InstallResponse.fromBinary(new Uint8Array(resp)),
@@ -659,7 +636,7 @@ export async function InstallCapability(input: CapabilityInstallRequest): Promis
         'Content-Type': 'application/octet-stream',
         'Accept': 'application/octet-stream',
       },
-      url: `/opni-api/Management/clusters/${input.target.cluster.id}/capabilities/${input.name}/install`,
+      url: `/opni-api/Management/clusters/${input.agent.id}/capabilities/${input.capability.id}/install`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
@@ -672,7 +649,7 @@ export async function InstallCapability(input: CapabilityInstallRequest): Promis
 }
 
 
-export async function UninstallCapability(input: CapabilityUninstallRequest): Promise<void> {
+export async function UninstallCapability(input: UninstallRequest): Promise<void> {
   try {
     return (await axios.request({
       method: 'post',
@@ -681,7 +658,7 @@ export async function UninstallCapability(input: CapabilityUninstallRequest): Pr
         'Content-Type': 'application/octet-stream',
         'Accept': 'application/octet-stream',
       },
-      url: `/opni-api/Management/clusters/${input.target.cluster.id}/capabilities/${input.name}/uninstall`,
+      url: `/opni-api/Management/clusters/${input.agent.id}/capabilities/${input.capability.id}/uninstall`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
@@ -694,7 +671,7 @@ export async function UninstallCapability(input: CapabilityUninstallRequest): Pr
 }
 
 
-export async function CapabilityStatus(input: CapabilityStatusRequest): Promise<NodeCapabilityStatus> {
+export async function CapabilityStatus(input: StatusRequest): Promise<NodeCapabilityStatus> {
   try {
     return (await axios.request({
     transformResponse: resp => NodeCapabilityStatus.fromBinary(new Uint8Array(resp)),
@@ -704,7 +681,7 @@ export async function CapabilityStatus(input: CapabilityStatusRequest): Promise<
         'Content-Type': 'application/octet-stream',
         'Accept': 'application/octet-stream',
       },
-      url: `/opni-api/Management/clusters/${input.cluster.id}/capabilities/${input.name}/status`,
+      url: `/opni-api/Management/clusters/${input.agent.id}/capabilities/${input.capability.id}/status`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
@@ -717,7 +694,7 @@ export async function CapabilityStatus(input: CapabilityStatusRequest): Promise<
 }
 
 
-export async function CapabilityUninstallStatus(input: CapabilityStatusRequest): Promise<TaskStatus> {
+export async function CapabilityUninstallStatus(input: UninstallStatusRequest): Promise<TaskStatus> {
   try {
     return (await axios.request({
     transformResponse: resp => TaskStatus.fromBinary(new Uint8Array(resp)),
@@ -727,7 +704,7 @@ export async function CapabilityUninstallStatus(input: CapabilityStatusRequest):
         'Content-Type': 'application/octet-stream',
         'Accept': 'application/octet-stream',
       },
-      url: `/opni-api/Management/clusters/${input.cluster.id}/capabilities/${input.name}/uninstall/status`,
+      url: `/opni-api/Management/clusters/${input.agent.id}/capabilities/${input.capability.id}/uninstall/status`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
@@ -740,7 +717,7 @@ export async function CapabilityUninstallStatus(input: CapabilityStatusRequest):
 }
 
 
-export async function CancelCapabilityUninstall(input: CapabilityUninstallCancelRequest): Promise<void> {
+export async function CancelCapabilityUninstall(input: CancelUninstallRequest): Promise<void> {
   try {
     return (await axios.request({
       method: 'post',
@@ -749,7 +726,7 @@ export async function CancelCapabilityUninstall(input: CapabilityUninstallCancel
         'Content-Type': 'application/octet-stream',
         'Accept': 'application/octet-stream',
       },
-      url: `/opni-api/Management/clusters/${input.cluster.id}/capabilities/${input.name}/uninstall/cancel`,
+      url: `/opni-api/Management/clusters/${input.agent.id}/capabilities/${input.capability.id}/uninstall/cancel`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {

@@ -55,7 +55,7 @@ service CortexOps {
       use: "config reset-default"
     };
     option (google.api.http) = {
-      delete: "/configuration/default"
+      post: "/configuration/default/reset"
     };
   }
 
@@ -89,7 +89,8 @@ service CortexOps {
       use: "config reset"
     };
     option (google.api.http) = {
-      delete: "/configuration"
+      post: "/configuration/reset"
+      body: "*"
     };
   }
 

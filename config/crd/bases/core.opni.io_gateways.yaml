@@ -2127,6 +2127,10 @@ spec:
                   httpListenAddress:
                     default: 0.0.0.0:11080
                     type: string
+                  relayAdvertiseAddress:
+                    type: string
+                  relayListenAddress:
+                    type: string
                   webCerts:
                     properties:
                       caCert:

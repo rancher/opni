@@ -77,8 +77,8 @@ var _ = Describe("Server V2", Ordered, Label("unit"), func() {
 		listener := bufconn.Listen(1024 * 1024)
 		go srv.Serve(listener)
 
-		cc, err := grpc.Dial("bufconn", grpc.WithDialer(func(s string, d time.Duration) (net.Conn, error) {
-			return listener.Dial()
+		cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+			return listener.DialContext(ctx)
 		}), grpc.WithTransportCredentials(insecure.NewCredentials()))
 		Expect(err).NotTo(HaveOccurred())
 		client = bootstrapv2.NewBootstrapClient(cc)

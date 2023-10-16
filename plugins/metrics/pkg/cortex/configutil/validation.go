@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	gokitlog "github.com/go-kit/kit/log"
+	gokitlog "github.com/go-kit/log"
 	"github.com/minio/minio-go/v7/pkg/s3utils"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"

@@ -48,7 +48,7 @@ type environmentResolver struct {
 	cc     resolver.ClientConn
 }
 
-func (r *environmentResolver) ResolveNow(o resolver.ResolveNowOptions) {
+func (r *environmentResolver) ResolveNow(resolver.ResolveNowOptions) {
 	addrs := []resolver.Address{}
 	for _, env := range r.envs {
 		switch r.target.Endpoint() {

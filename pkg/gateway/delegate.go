@@ -282,15 +282,15 @@ func (rs *RelayServer) ListenAndServe(ctx context.Context) error {
 
 var ErrLocalTarget = status.Error(codes.FailedPrecondition, "requested target is controlled by the local instance")
 
-func (rs *DelegateServer) NewTargetedManagementClient(target *corev1.Reference) (managementv1.ManagementClient, error) {
-	info := rs.ct.Lookup(target.GetId())
+func (d *DelegateServer) NewTargetedManagementClient(target *corev1.Reference) (managementv1.ManagementClient, error) {
+	info := d.ct.Lookup(target.GetId())
 	if info == nil {
 		return nil, status.Errorf(codes.NotFound, "target %q not found", target.GetId())
 	}
-	if rs.ct.IsLocalInstance(info) {
+	if d.ct.IsLocalInstance(info) {
 		return nil, ErrLocalTarget
 	}
-	cc, err := rs.managementDialer.Dial(info)
+	cc, err := d.managementDialer.Dial(info)
 	if err != nil {
 		return nil, err
 	}
@@ -337,16 +337,16 @@ func newDialer(server serverKind) *instanceDialer {
 	}
 }
 
-func (rd *instanceDialer) Dial(info *corev1.InstanceInfo) (grpc.ClientConnInterface, error) {
-	rd.mu.RLock()
+func (d *instanceDialer) Dial(info *corev1.InstanceInfo) (grpc.ClientConnInterface, error) {
+	d.mu.RLock()
 	var addr string
-	switch rd.server {
+	switch d.server {
 	case serverRelay:
 		addr = info.GetRelayAddress()
 	case serverManagement:
 		addr = info.GetManagementAddress()
 	}
-	if cc, ok := rd.clients[addr]; ok {
+	if cc, ok := d.clients[addr]; ok {
 		state := cc.GetState()
 		if state != connectivity.Shutdown {
 			switch state {
@@ -358,9 +358,9 @@ func (rd *instanceDialer) Dial(info *corev1.InstanceInfo) (grpc.ClientConnInterf
 			return cc, nil
 		}
 	}
-	rd.mu.RUnlock()
+	d.mu.RUnlock()
 
-	res, err, _ := rd.dialSf.Do(addr, func() (any, error) {
+	res, err, _ := d.dialSf.Do(addr, func() (any, error) {
 		cc, err := grpc.Dial(addr,
 			// A short client-side idle timeout will aggressively force the connection
 			// to go idle when it is not actively being used, freeing up resources on
@@ -381,9 +381,9 @@ func (rd *instanceDialer) Dial(info *corev1.InstanceInfo) (grpc.ClientConnInterf
 		}
 		// still need to acquire the write lock here, note the read lock has been
 		// released earlier
-		rd.mu.Lock()
-		rd.clients[addr] = cc
-		rd.mu.Unlock()
+		d.mu.Lock()
+		d.clients[addr] = cc
+		d.mu.Unlock()
 		return cc, nil
 	})
 	return res.(*grpc.ClientConn), err

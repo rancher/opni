@@ -154,7 +154,7 @@ func (p *AlarmServerComponent) onSystemConditionCreate(conditionId, conditionNam
 		defer cancel() // cancel parent context, if we return (non-recoverable)
 		evaluator.EvaluateLoop()
 	}()
-	p.runner.AddSystemConfigListener(conditionId, EvaluatorContext{
+	p.runner.AddSystemConfigListener(conditionId, &EvaluatorContext{
 		Ctx:    evaluator.evaluationCtx,
 		Cancel: evaluator.cancelEvaluation,
 	})
@@ -246,7 +246,7 @@ func (p *AlarmServerComponent) onDownstreamCapabilityConditionCreate(conditionId
 		defer cancel() // cancel parent context, if we return (non-recoverable)
 		evaluator.EvaluateLoop()
 	}()
-	p.runner.AddSystemConfigListener(conditionId, EvaluatorContext{
+	p.runner.AddSystemConfigListener(conditionId, &EvaluatorContext{
 		Ctx:    evaluator.evaluationCtx,
 		Cancel: evaluator.cancelEvaluation,
 	})
@@ -484,7 +484,7 @@ func (p *AlarmServerComponent) onCortexClusterStatusCreate(conditionId, conditio
 		defer cancel() // cancel parent context, if we return (non-recoverable)
 		evaluator.EvaluateLoop()
 	}()
-	p.runner.AddSystemConfigListener(conditionId, EvaluatorContext{
+	p.runner.AddSystemConfigListener(conditionId, &EvaluatorContext{
 		Ctx:    evaluator.evaluationCtx,
 		Cancel: evaluator.cancelEvaluation,
 	})

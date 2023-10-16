@@ -1180,7 +1180,7 @@ func formatComments(comments protogen.CommentSet) ([]string, error) {
 }
 
 // Note that the final closing brace is not written.
-func (cg *Generator) generateInteractiveEdit(service *protogen.Service, method *protogen.Method, g *protogen.GeneratedFile, writers serviceGenWriters) {
+func (cg *Generator) generateInteractiveEdit(service *protogen.Service, method *protogen.Method, g *protogen.GeneratedFile) {
 	g.P(`if cmd.Flags().Lookup("interactive").Value.String() == "true" {`)
 	// try to find a matching "getter" method. If found, use it to obtain the current
 	// value of `in` and pass it to the setter method.
@@ -1228,7 +1228,7 @@ func (cg *Generator) generateRun(service *protogen.Service, method *protogen.Met
 	genEditInteractive := opts.Granularity == EditScope_EditMessage && !requestIsEmpty
 
 	if genEditInteractive {
-		cg.generateInteractiveEdit(service, method, g, writers)
+		cg.generateInteractiveEdit(service, method, g)
 	}
 
 	responseVarName := "_"

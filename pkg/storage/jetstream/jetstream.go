@@ -194,7 +194,9 @@ func (s *JetStreamStore) KeyringStore(prefix string, ref *corev1.Reference) stor
 	}
 }
 
-func (s *JetStreamStore) LockManager(prefix string) storage.LockManager {
+func (s *JetStreamStore) LockManager(
+	/*prefix*/ string, // FIXME
+) storage.LockManager {
 	return &LockManager{
 		js:  s.js,
 		ctx: s.ctx,

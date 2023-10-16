@@ -30,7 +30,7 @@ type targetedRequest interface {
 }
 
 func routeManagementRequest[T targetedRequest, R proto.Message](
-	s *capabilitiesDataSource, ctx context.Context, in T,
+	s *capabilitiesDataSource, ctx context.Context, in T, //nolint:revive
 	backendFunc func(capabilityv1.BackendClient, context.Context, T, ...grpc.CallOption) (R, error),
 	managementFunc func(managementv1.ManagementClient, context.Context, T, ...grpc.CallOption) (R, error),
 ) (R, error) {
@@ -70,7 +70,7 @@ func (s *capabilitiesDataSource) Info(ctx context.Context, in *corev1.Reference)
 }
 
 // List implements management.CapabilitiesDataSource.
-func (s *capabilitiesDataSource) List(ctx context.Context, in *emptypb.Empty) (*capabilityv1.DetailsList, error) {
+func (s *capabilitiesDataSource) List(ctx context.Context, _ *emptypb.Empty) (*capabilityv1.DetailsList, error) {
 	names := s.capBackendStore.List()
 	list := &capabilityv1.DetailsList{}
 	for _, name := range names {

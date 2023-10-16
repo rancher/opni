@@ -60,7 +60,7 @@ func init() {
 						TimestampMs: now.UnixMilli(),
 					},
 				}
-				writeRequest.Timeseries = append(writeRequest.Timeseries, cortexpb.PreallocTimeseries{ts})
+				writeRequest.Timeseries = append(writeRequest.Timeseries, cortexpb.PreallocTimeseries{TimeSeries: ts})
 			}
 		}
 	}

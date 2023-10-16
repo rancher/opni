@@ -293,7 +293,7 @@ func (m *Server) ListCapabilities(ctx context.Context, in *emptypb.Empty) (*mana
 		}
 	}
 
-	list, err := m.capabilitiesDataSource.List(ctx, &emptypb.Empty{})
+	list, err := m.capabilitiesDataSource.List(ctx, in)
 	if err != nil {
 		return nil, err
 	}

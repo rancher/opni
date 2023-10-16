@@ -512,7 +512,7 @@ func DefaultingConfigTrackerTestSuite[
 			var numDefaultWatchEvents, numActiveWatchEvents int
 			var watchDefault, watchActive <-chan storage.WatchEvent[storage.KeyRevision[T]]
 
-			var debugLogger io.Writer = io.Discard
+			debugLogger := io.Discard
 			var _setDefault func(SpecContext, T)
 			setDefault := func(ctx SpecContext) {
 				_setDefault(ctx, mustGen())

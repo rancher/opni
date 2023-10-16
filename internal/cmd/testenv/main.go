@@ -576,8 +576,13 @@ func main() {
 
 	// listen for spacebar on stdin
 	t, err := tty.Open()
-	defer t.Close()
 	if err == nil {
+		defer func() {
+			if err := recover(); err != nil {
+				testlog.Log.Error(err)
+			}
+			t.Close()
+		}()
 		showHelp()
 		go func() {
 			for {

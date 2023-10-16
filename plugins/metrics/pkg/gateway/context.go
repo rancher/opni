@@ -126,26 +126,26 @@ func (c *pluginContext) SetServingStatus(serviceName string, status grpc_health_
 	c.d.serviceCtrl.F().SetServingStatus(serviceName, status)
 }
 
-func (p *pluginContext) Logger() *zap.SugaredLogger {
-	return p.logger
+func (c *pluginContext) Logger() *zap.SugaredLogger {
+	return c.logger
 }
 
-func (p *pluginContext) Metrics() *types.Metrics {
-	return p.metrics
+func (c *pluginContext) Metrics() *types.Metrics {
+	return c.metrics
 }
 
-func (p *pluginContext) Memoize(key any, function memoize.Function) *memoize.Promise {
-	promise, release := p.store.Promise(key, function)
-	p.releasesMu.Lock()
-	p.releases = append(p.releases, release)
-	p.releasesMu.Unlock()
+func (c *pluginContext) Memoize(key any, function memoize.Function) *memoize.Promise {
+	promise, release := c.store.Promise(key, function)
+	c.releasesMu.Lock()
+	c.releases = append(c.releases, release)
+	c.releasesMu.Unlock()
 	return promise
 }
 
-func (p *pluginContext) releaseAll() {
-	p.releasesMu.Lock()
-	defer p.releasesMu.Unlock()
-	for _, release := range p.releases {
+func (c *pluginContext) releaseAll() {
+	c.releasesMu.Lock()
+	defer c.releasesMu.Unlock()
+	for _, release := range c.releases {
 		release()
 	}
 }

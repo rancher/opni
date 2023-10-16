@@ -35,36 +35,30 @@ type TestMetricLabelSet struct {
 }
 
 func expectRuleGroupToExist(ctx context.Context, adminClient cortexadmin.CortexAdminClient, tenant string, groupName string, expectedYaml []byte) error {
-	for i := 0; i < 10; i++ {
-		resp, err := adminClient.GetRule(ctx, &cortexadmin.GetRuleRequest{
-			ClusterId: tenant,
-			Namespace: "test",
-			GroupName: groupName,
-		})
-		if err == nil {
-			Expect(resp.Data).To(Not(BeNil()))
-			Expect(resp.Data).To(MatchYAML(expectedYaml))
-			return nil
-		}
-		time.Sleep(1)
+	resp, err := adminClient.GetRule(ctx, &cortexadmin.GetRuleRequest{
+		ClusterId: tenant,
+		Namespace: "test",
+		GroupName: groupName,
+	})
+	if err == nil {
+		Expect(resp.Data).To(Not(BeNil()))
+		Expect(resp.Data).To(MatchYAML(expectedYaml))
+		return nil
 	}
 	return fmt.Errorf("Rule %s should exist, but doesn't", groupName)
 }
 
 func expectRuleGroupToNotExist(ctx context.Context, adminClient cortexadmin.CortexAdminClient, tenant string, groupName string) error {
-	for i := 0; i < 10; i++ {
-		_, err := adminClient.GetRule(ctx, &cortexadmin.GetRuleRequest{
-			ClusterId: tenant,
-			Namespace: "test",
-			GroupName: groupName,
-		})
-		if err != nil {
-			Expect(status.Code(err)).To(Equal(codes.NotFound))
-			return nil
-		}
-
-		time.Sleep(1)
+	_, err := adminClient.GetRule(ctx, &cortexadmin.GetRuleRequest{
+		ClusterId: tenant,
+		Namespace: "test",
+		GroupName: groupName,
+	})
+	if err != nil {
+		Expect(status.Code(err)).To(Equal(codes.NotFound))
+		return nil
 	}
+
 	return fmt.Errorf("Rule %s still exists, but shouldn't", groupName)
 }
 

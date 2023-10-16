@@ -100,14 +100,14 @@ func (w *HealthStatusWriterManager) Close() {
 }
 
 // HandleTrackedConnection implements RemoteConnectionListener.
-func (wm *HealthStatusWriterManager) HandleTrackedConnection(ctx context.Context, agentId string, leaseId string, instanceInfo *corev1.InstanceInfo) {
+func (w *HealthStatusWriterManager) HandleTrackedConnection(ctx context.Context, agentId string, leaseId string, _ *corev1.InstanceInfo) {
 	// see docs for NewHealthStatusWriter for details on context usage
-	w := NewHealthStatusWriter(context.WithoutCancel(ctx), kvutil.WithMessageCodec[*corev1.InstanceInfo](kvutil.WithKey(wm.connectionsKv, path.Join(agentId, leaseId))), wm.logger)
-	agentBuffer := health.AsBuffer(wm.agentHealthQueue(agentId), wm.agentStatusQueue(agentId))
-	wm.logger.Debugf("handling new tracked connection for %s", agentId)
+	hsw := NewHealthStatusWriter(context.WithoutCancel(ctx), kvutil.WithMessageCodec[*corev1.InstanceInfo](kvutil.WithKey(w.connectionsKv, path.Join(agentId, leaseId))), w.logger)
+	agentBuffer := health.AsBuffer(w.agentHealthQueue(agentId), w.agentStatusQueue(agentId))
+	w.logger.Debugf("handling new tracked connection for %s", agentId)
 	go func() {
-		defer w.Close()
-		health.Copy(ctx, w, agentBuffer)
+		defer hsw.Close()
+		health.Copy(ctx, hsw, agentBuffer)
 	}()
 }
 

@@ -64,7 +64,7 @@ func followProgress(ctx context.Context, name string, cluster string) error {
 
 	model := NewProgressModel(ctx, request)
 
-	if err := tea.NewProgram(model).Start(); err != nil {
+	if _, err := tea.NewProgram(model).Run(); err != nil {
 		return fmt.Errorf("could not render progress: %w", err)
 	}
 

@@ -21,6 +21,7 @@ import (
 // protoHandler outputs a size-prefixed []byte for every log message
 
 type protoHandler struct {
+	slog.Handler
 	level       slog.Leveler
 	addSource   bool
 	replaceAttr func([]string, slog.Attr) slog.Attr

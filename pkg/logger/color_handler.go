@@ -35,6 +35,7 @@ const (
 )
 
 type colorHandler struct {
+	slog.Handler
 	level          slog.Leveler
 	addSource      bool
 	replaceAttr    func([]string, slog.Attr) slog.Attr

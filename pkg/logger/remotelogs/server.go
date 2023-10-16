@@ -62,11 +62,7 @@ func (ls *LogServer) StreamLogs(req *controlv1.LogStreamRequest, server controlv
 	nameFilters := req.Filters.NamePattern
 	follow := req.Follow
 
-	f, err := logger.OpenLogFile(cluster.StreamAuthorizedID(server.Context()))
-	if err != nil {
-		ls.logger.Error("failed to open log file", logger.Err(err))
-		return err
-	}
+	f := logger.ReadOnlyFile(cluster.StreamAuthorizedID(server.Context()))
 	defer f.Close()
 
 	for {

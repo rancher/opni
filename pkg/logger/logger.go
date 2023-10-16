@@ -56,7 +56,7 @@ type LoggerOptions struct {
 	TotemFormatEnabled bool
 	Sampling           *slogsampling.ThresholdSamplingOption
 	OmitLoggerName     bool
-	RemoteSource       string
+	FileWriter         io.Writer
 }
 
 func ParseLevel(lvl string) slog.Level {
@@ -92,9 +92,9 @@ func WithWriter(w io.Writer) LoggerOption {
 	}
 }
 
-func WithRemoteSource(clusterID string) LoggerOption {
+func WithFileWriter(w io.Writer) LoggerOption {
 	return func(o *LoggerOptions) {
-		o.RemoteSource = clusterID
+		o.FileWriter = w
 	}
 }
 
@@ -189,16 +189,8 @@ func colorHandlerWithOptions(opts ...LoggerOption) slog.Handler {
 		handler = chain.Handler(handler)
 	}
 
-	// write logs to a file
-	if options.RemoteSource != "" {
-		filename := logFileName + options.RemoteSource
-		f, err := logFs.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
-		if err != nil {
-			panic(err)
-		}
-		// FIXME where to close this file?
-
-		logFileHandler := newProtoHandler(f, ConfigureProtoOptions(options))
+	if options.FileWriter != nil {
+		logFileHandler := newProtoHandler(options.FileWriter, ConfigureProtoOptions(options))
 
 		// distribute logs to handlers in parallel
 		return slogmulti.Fanout(handler, logFileHandler)
@@ -227,6 +219,8 @@ func NewNop() *slog.Logger {
 }
 
 func NewPluginLogger(opts ...LoggerOption) *slog.Logger {
+	opts = append(opts, WithFileWriter(sharedPluginWriter))
+
 	return New(opts...).WithGroup(pluginGroupPrefix)
 }
 
@@ -240,6 +234,18 @@ func (s *sampler) onDroppedHook(_ context.Context, r slog.Record) {
 	s.dropped.Store(key, count+1)
 }
 
-func OpenLogFile(cluster string) (afero.File, error) {
-	return logFs.OpenFile(logFileName+cluster, os.O_RDONLY|os.O_CREATE, 0666)
+func ReadOnlyFile(clusterID string) afero.File {
+	f, err := logFs.OpenFile(logFileName+clusterID, os.O_RDONLY|os.O_CREATE, 0666)
+	if err != nil {
+		panic(err)
+	}
+	return f
+}
+
+func WriteOnlyFile(clusterID string) afero.File {
+	f, err := logFs.OpenFile(logFileName+clusterID, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		panic(err)
+	}
+	return f
 }

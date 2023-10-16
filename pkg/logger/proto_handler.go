@@ -19,6 +19,8 @@ import (
 )
 
 // protoHandler outputs a size-prefixed []byte for every log message
+const atomicChunkSize = 4096
+const prefixSize = 4
 
 type protoHandler struct {
 	slog.Handler
@@ -188,14 +190,27 @@ func (h *protoHandler) Handle(_ context.Context, r slog.Record) error {
 	sizeBuf[2] = byte(size >> 16)
 	sizeBuf[3] = byte(size >> 24)
 
+	totalSize := size + prefixSize
+
 	// write the record
 	buf.Write(sizeBuf)
 	buf.Write(bytes)
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	_, err = h.w.Write(*buf)
-	return err
+
+	for i := 0; i < totalSize; i += atomicChunkSize {
+		end := i + atomicChunkSize
+
+		if end > totalSize {
+			end = totalSize
+		}
+		_, err = h.w.Write((*buf)[i:end])
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (h *protoHandler) appendSource(src *strings.Builder, file string, line int) {

@@ -7,10 +7,11 @@ import (
 	"strings"
 	"sync"
 
+	"slices"
+
 	gokitlog "github.com/go-kit/log"
 	"github.com/minio/minio-go/v7/pkg/s3utils"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/reflect/protopath"
 
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"

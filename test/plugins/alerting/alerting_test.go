@@ -13,6 +13,8 @@ import (
 
 	alertmanagerv2 "github.com/prometheus/alertmanager/api/v2/models"
 
+	"slices"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,7 +27,6 @@ import (
 	"github.com/rancher/opni/pkg/test/testruntime"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"

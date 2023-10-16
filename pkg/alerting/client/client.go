@@ -3,10 +3,13 @@ package client
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"sync"
 	"time"
 
@@ -26,12 +29,57 @@ import (
 
 var (
 	DefaultOptions = &ClientOptions{
-		httpClient:          http.DefaultClient,
+		httpClient:          &http.Client{},
 		alertmanagerAddress: fmt.Sprintf("%s:9093", shared.AlertmanagerService),
 		querierAddress:      fmt.Sprintf("%s:3000", shared.AlertmanagerService),
 		proxyAddress:        fmt.Sprintf("%s:9093", shared.AlertmanagerService),
 	}
 )
+
+type TLSClientConfig struct {
+	// Path to the server CA certificate.
+	ServerCA string
+	// Path to the client CA certificate (not needed in all cases).
+	ClientCA string
+	// Path to the certificate used for client-cert auth.
+	ClientCert string
+	// Path to the private key used for client-cert auth.
+	ClientKey string
+}
+
+func (t *TLSClientConfig) Init() (*tls.Config, error) {
+	clientCert, err := tls.LoadX509KeyPair(t.ClientCert, t.ClientKey) //alertingClientCert, alertingClientKey)
+	if err != nil {
+		return nil, err
+	}
+
+	serverCaPool := x509.NewCertPool()
+	serverCaData, err := os.ReadFile(t.ServerCA)
+	if err != nil {
+		return nil, err
+	}
+
+	if ok := serverCaPool.AppendCertsFromPEM(serverCaData); !ok {
+		return nil, fmt.Errorf("failed to load alerting server CA")
+	}
+
+	clientCaPool := x509.NewCertPool()
+	clientCaData, err := os.ReadFile(t.ClientCA)
+	if err != nil {
+		return nil, err
+	}
+
+	if ok := clientCaPool.AppendCertsFromPEM(clientCaData); !ok {
+		return nil, fmt.Errorf("failed to load alerting client Ca")
+	}
+
+	return &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		Certificates: []tls.Certificate{clientCert},
+		ClientCAs:    clientCaPool,
+		RootCAs:      serverCaPool,
+	}, nil
+}
 
 type AlertingPeer struct {
 	ApiAddress      string
@@ -74,6 +122,7 @@ type ClientOptions struct {
 	alertmanagerAddress string
 	proxyAddress        string
 	querierAddress      string
+	tlsConfig           *tls.Config
 }
 
 func (o *ClientOptions) Apply(opts ...ClientOption) {
@@ -103,6 +152,13 @@ func WithQuerierAddress(addr string) ClientOption {
 func WithHttpClient(client *http.Client) ClientOption {
 	return func(o *ClientOptions) {
 		o.httpClient = client
+	}
+}
+
+// TODO : need to build this into the API client
+func WithTLSConfig(config *tls.Config) ClientOption {
+	return func(o *ClientOptions) {
+		o.tlsConfig = config
 	}
 }
 
@@ -136,6 +192,11 @@ func NewClient(
 	if err := options.Validate(c.scheme()); err != nil {
 		return nil, err
 	}
+	httptransport := &http.Transport{
+		TLSClientConfig: options.tlsConfig,
+	}
+	options.httpClient.Transport = httptransport
+
 	c.ClientOptions = options
 	return c, nil
 }
@@ -257,7 +318,7 @@ func (c *Client) ProxyClient() ProxyClient {
 }
 
 func (c *Client) scheme() string {
-	return "http"
+	return "https"
 }
 
 func (c *Client) target(addr string) string {

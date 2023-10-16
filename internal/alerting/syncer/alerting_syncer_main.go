@@ -2,6 +2,7 @@ package syncer
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 func Main(
 	runCtx context.Context,
 	cfg *alertingv1.SyncerConfig,
+	tlsConfig *tls.Config,
 ) error {
 	if cfg.ProfileBlockRate > 0 && cfg.PprofPort > 0 {
 		runtime.SetBlockProfileRate(int(cfg.ProfileBlockRate))
@@ -55,6 +57,7 @@ func Main(
 			runCtx,
 			cfg,
 			mgmtClient,
+			tlsConfig,
 		),
 	)
 

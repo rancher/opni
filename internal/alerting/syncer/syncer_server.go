@@ -2,6 +2,7 @@ package syncer
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"os"
@@ -45,6 +46,8 @@ type AlertManagerSyncerV1 struct {
 	gatewayClient  alertops.ConfigReconcilerClient
 	whoami         string
 
+	tlsConfig *tls.Config
+
 	lastSyncId string
 }
 
@@ -55,6 +58,7 @@ func NewAlertingSyncerV1(
 	ctx context.Context,
 	serverConfig *alertingv1.SyncerConfig,
 	mgmtClient managementv1.ManagementClient,
+	tlsConfig *tls.Config,
 ) alertingv1.SyncerServer {
 	init := &atomic.Bool{}
 	init.Store(false)
@@ -90,13 +94,21 @@ func (a *AlertManagerSyncerV1) Initialize(
 		a.whoami = whoami
 		a.lg.Info(fmt.Sprintf("starting alerting syncer server as identity %s", a.whoami))
 		var initErr error
-		a.alertingClient, initErr = client.NewClient(
+		clientOpts := []client.ClientOption{
 			client.WithAlertManagerAddress(
 				a.serverConfig.AlertmanagerAddress,
 			),
 			client.WithQuerierAddress(
 				a.serverConfig.HookListenAddress,
 			),
+		}
+		if a.tlsConfig != nil {
+			a.lg.Debug("passing tls config into alerting client")
+			clientOpts = append(clientOpts, client.WithTLSConfig(a.tlsConfig))
+		}
+
+		a.alertingClient, initErr = client.NewClient(
+			clientOpts...,
 		)
 		if initErr != nil {
 			panic(initErr)

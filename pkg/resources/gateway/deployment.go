@@ -101,6 +101,14 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 									MountPath: "/run/cortex/certs/server",
 								},
 								{
+									Name:      "alerting-client-certs",
+									MountPath: "/run/alerting/certs/client",
+								},
+								{
+									Name:      "alerting-server-cacert",
+									MountPath: "/run/alerting/certs/server",
+								},
+								{
 									Name:      "etcd-client-certs",
 									MountPath: "/run/etcd/certs/client",
 								},
@@ -218,6 +226,44 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
 									SecretName:  "cortex-serving-cert-keys",
+									DefaultMode: lo.ToPtr[int32](0400),
+									Items: []corev1.KeyToPath{
+										{
+											Key:  "ca.crt",
+											Path: "ca.crt",
+										},
+									},
+								},
+							},
+						},
+						{
+							Name: "alerting-client-certs",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName:  "alerting-client-cert-keys",
+									DefaultMode: lo.ToPtr[int32](0400),
+									Items: []corev1.KeyToPath{
+										{
+											Key:  "tls.crt",
+											Path: "tls.crt",
+										},
+										{
+											Key:  "tls.key",
+											Path: "tls.key",
+										},
+										{
+											Key:  "ca.crt",
+											Path: "ca.crt",
+										},
+									},
+								},
+							},
+						},
+						{
+							Name: "alerting-server-cacert",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName:  "alerting-serving-cert-keys",
 									DefaultMode: lo.ToPtr[int32](0400),
 									Items: []corev1.KeyToPath{
 										{

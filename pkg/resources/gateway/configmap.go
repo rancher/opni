@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
-	"strings"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 
@@ -73,6 +72,12 @@ func (r *Reconciler) configMap() (resources.Resource, string, error) {
 				Type: r.gw.Spec.StorageType,
 			},
 			Alerting: cfgv1beta1.AlertingSpec{
+				Certs: cfgv1beta1.MTLSSpec{
+					ServerCA:   "/run/alerting/certs/server/ca.crt",
+					ClientCA:   "/run/alerting/certs/client/ca.crt",
+					ClientCert: "/run/alerting/certs/client/tls.crt",
+					ClientKey:  "/run/alerting/certs/client/tls.key",
+				},
 				Namespace:             r.gw.Namespace,
 				WorkerNodeService:     shared.AlertmanagerService,
 				WorkerPort:            r.gw.Spec.Alerting.WebPort,
@@ -219,15 +224,16 @@ func (r *Reconciler) configMap() (resources.Resource, string, error) {
 }
 
 func (r *Reconciler) amtoolConfigMap() resources.Resource {
-	mgmtURL := strings.TrimPrefix(r.gw.Spec.Management.GetHTTPListenAddress(), "http://")
+	mgmtHost := "127.0.0.1:8080"
 	alertmanagerURL := url.URL{
 		Scheme: "https",
-		Host:   mgmtURL,
+		Host:   mgmtHost,
 		Path:   "/plugin_alerting/alertmanager",
 	}
 
 	amToolConfig := map[string]string{
 		"alertmanager.url": alertmanagerURL.String(),
+		"http.config.file": "/etc/amtool/http.yml",
 	}
 
 	amToolConfigBytes, err := yamlv3.Marshal(amToolConfig)
@@ -238,11 +244,11 @@ func (r *Reconciler) amtoolConfigMap() resources.Resource {
 
 	httpConfig := promcommon.HTTPClientConfig{
 		TLSConfig: promcommon.TLSConfig{
-			CAFile:             "/run/opni/certs/ca.crt",
-			CertFile:           "/run/opni/certs/tls.crt",
-			KeyFile:            "/run/opni/certs/tls.key",
-			InsecureSkipVerify: true,
+			CAFile:   "/run/opni/certs/ca.crt",
+			CertFile: "/run/opni/certs/tls.crt",
+			KeyFile:  "/run/opni/certs/tls.key",
 		},
+		FollowRedirects: true,
 	}
 	httpBytes, err := yamlv3.Marshal(httpConfig)
 	if err != nil {

@@ -60,7 +60,13 @@ func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 		return k8sutil.DoNotRequeue().Result()
 	}
 	allResources := []resources.Resource{}
-	allResources = append(allResources, r.alerting()...)
+
+	alertingRsc, err := r.alerting()
+	if err != nil {
+		r.logger.Error(err)
+		return k8sutil.RequeueErr(err).Result()
+	}
+	allResources = append(allResources, alertingRsc...)
 
 	if op := resources.ReconcileAll(r, allResources); op.ShouldRequeue() {
 		return op.Result()

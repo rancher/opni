@@ -2,6 +2,7 @@ package alerting
 
 import (
 	"context"
+	"crypto/tls"
 
 	"github.com/rancher/opni/pkg/agent"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -60,7 +61,7 @@ type Plugin struct {
 
 	storageClientSet future.Future[spec.AlertingClientSet]
 
-	client.AlertingClient
+	alertingClient  future.Future[client.AlertingClient]
 	clusterNotifier chan client.AlertingClient
 	clusterDriver   future.Future[drivers.ClusterDriver]
 	syncController  SyncController
@@ -75,7 +76,8 @@ type Plugin struct {
 	js                  future.Future[nats.JetStreamContext]
 	globalWatchers      management.ConditionWatcher
 
-	gatewayConfig future.Future[*v1beta1.GatewayConfig]
+	gatewayConfig     future.Future[*v1beta1.GatewayConfig]
+	alertingTLSConfig future.Future[*tls.Config]
 
 	collector.CollectorServer
 
@@ -103,10 +105,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 		metricsdk.WithReader(metricReader),
 	))
 	collector := collector.NewCollectorServer(metricReader)
-	alertingClient, err := client.NewClient()
-	if err != nil {
-		panic(err)
-	}
 	p := &Plugin{
 		ctx:    ctx,
 		logger: lg,
@@ -126,11 +124,11 @@ func NewPlugin(ctx context.Context) *Plugin {
 		natsConn:        future.New[*nats.Conn](),
 		js:              future.New[nats.JetStreamContext](),
 
-		gatewayConfig: future.New[*v1beta1.GatewayConfig](),
+		gatewayConfig:     future.New[*v1beta1.GatewayConfig](),
+		alertingTLSConfig: future.New[*tls.Config](),
+		alertingClient:    future.New[client.AlertingClient](),
 
 		CollectorServer: collector,
-
-		AlertingClient: alertingClient,
 	}
 
 	p.syncController = NewSyncController(p.logger.With("component", "sync-controller"))
@@ -174,7 +172,22 @@ func NewPlugin(ctx context.Context) *Plugin {
 		},
 	)
 
-	future.Wait1(p.storageClientSet, func(s spec.AlertingClientSet) {
+	future.Wait1(
+		p.alertingTLSConfig,
+		func(tlsConfig *tls.Config) {
+			p.httpProxy.Initialize(tlsConfig)
+
+			alertingClient, err := client.NewClient(
+				client.WithTLSConfig(tlsConfig),
+			)
+			if err != nil {
+				panic(err)
+			}
+			p.alertingClient.Set(alertingClient)
+		},
+	)
+
+	future.Wait2(p.storageClientSet, p.alertingClient, func(s spec.AlertingClientSet, alertingClient client.AlertingClient) {
 		p.NotificationServerComponent.Initialize(notifications.NotificationServerConfiguration{
 			ConditionStorage: s.Conditions(),
 			EndpointStorage:  s.Endpoints(),
@@ -188,7 +201,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		})
 
 		serverCfg := server.Config{
-			Client: p.AlertingClient,
+			Client: alertingClient,
 		}
 		p.NotificationServerComponent.SetConfig(
 			serverCfg,
@@ -199,13 +212,15 @@ func NewPlugin(ctx context.Context) *Plugin {
 		)
 	})
 
-	future.Wait5(p.js, p.storageClientSet, p.mgmtClient, p.adminClient, p.cortexOpsClient,
+	future.Wait6(
+		p.js, p.storageClientSet, p.mgmtClient, p.adminClient, p.cortexOpsClient, p.alertingClient,
 		func(
 			js nats.JetStreamContext,
 			s spec.AlertingClientSet,
 			mgmtClient managementv1.ManagementClient,
 			adminClient cortexadmin.CortexAdminClient,
 			cortexOpsClient cortexops.CortexOpsClient,
+			alertingClient client.AlertingClient,
 		) {
 			p.AlarmServerComponent.Initialize(alarms.AlarmServerConfiguration{
 				ConditionStorage: s.Conditions(),
@@ -219,7 +234,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 			})
 
 			serverCfg := server.Config{
-				Client: p.AlertingClient,
+				Client: alertingClient,
 			}
 
 			p.AlarmServerComponent.SetConfig(

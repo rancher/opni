@@ -40,15 +40,27 @@ type RateLimitSpec struct {
 }
 
 type AlertingSpec struct {
-	Namespace             string `json:"Namespace,omitempty"`
-	WorkerNodeService     string `json:"workerNodeService,omitempty"`
-	WorkerPort            int    `json:"workerPort,omitempty"`
-	WorkerStatefulSet     string `json:"workerStatefulSet,omitempty"`
+	Certs MTLSSpec `json:"certs,omitempty"`
+
+	// Deprecated. Do not use.
+	Namespace string `json:"Namespace,omitempty"`
+	// Deprecated. Do not use.
+	WorkerNodeService string `json:"workerNodeService,omitempty"`
+	// Deprecated. Do not use.
+	WorkerPort int `json:"workerPort,omitempty"`
+	// Deprecated. Do not use.
+	WorkerStatefulSet string `json:"workerStatefulSet,omitempty"`
+	// Deprecated. Do not use.
 	ControllerNodeService string `json:"controllerNodeService,omitempty"`
-	ControllerNodePort    int    `json:"controllerNodePort,omitempty"`
-	ControllerClusterPort int    `json:"controllerClusterPort,omitempty"`
+	// Deprecated. Do not use.
+	ControllerNodePort int `json:"controllerNodePort,omitempty"`
+	// Deprecated. Do not use.
+	ControllerClusterPort int `json:"controllerClusterPort,omitempty"`
+	// Deprecated. Do not use.
 	ControllerStatefulSet string `json:"controllerStatefulSet,omitempty"`
-	ConfigMap             string `json:"configMap,omitempty"`
+	// Deprecated. Do not use.
+	ConfigMap string `json:"configMap,omitempty"`
+	// Deprecated. Do not use.
 	ManagementHookHandler string `json:"managementHookHandler,omitempty"`
 }
 

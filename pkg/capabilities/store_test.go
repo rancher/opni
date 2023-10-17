@@ -41,14 +41,12 @@ var _ = Describe("Store", Ordered, Label("unit"), func() {
 	When("adding items to the store", func() {
 		It("should be able to list and get items", func() {
 			backend1 := mock_v1.NewTestCapabilityBackend(ctrl, &mock_v1.CapabilityInfo{
-				Name:              "capability1",
-				CanInstall:        true,
-				InstallerTemplate: "foo",
+				Name:       "capability1",
+				CanInstall: true,
 			})
 			backend2 := mock_v1.NewTestCapabilityBackend(ctrl, &mock_v1.CapabilityInfo{
-				Name:              "capability2",
-				CanInstall:        true,
-				InstallerTemplate: "bar",
+				Name:       "capability2",
+				CanInstall: true,
 			})
 			Expect(store.Add("capability1", backend1)).To(Succeed())
 			Expect(store.List()).To(ContainElements("capability1"))
@@ -60,9 +58,8 @@ var _ = Describe("Store", Ordered, Label("unit"), func() {
 		})
 		It("should return an error if the item already exists", func() {
 			backend1 := mock_v1.NewTestCapabilityBackend(ctrl, &mock_v1.CapabilityInfo{
-				Name:              "capability1",
-				CanInstall:        true,
-				InstallerTemplate: "foo",
+				Name:       "capability1",
+				CanInstall: true,
 			})
 			Expect(store.Add("capability1", backend1)).To(Succeed())
 			Expect(store.Add("capability1", backend1)).To(MatchError(capabilities.ErrBackendAlreadyExists))

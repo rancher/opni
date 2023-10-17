@@ -13,12 +13,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/test/testutil"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"go.uber.org/atomic"
 	"go.uber.org/mock/gomock"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -36,7 +39,7 @@ import (
 
 var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 	var tv *testVars
-	var descriptorLogic func() (*apiextensions.ServiceDescriptorProtoList, error)
+	var descriptorsLogic func() (*apiextensions.ServiceDescriptorProtoList, error)
 	shouldLoadExt1 := atomic.NewBool(true)
 	shouldLoadExt2 := atomic.NewBool(false)
 	JustBeforeEach(func() {
@@ -159,19 +162,29 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 			}
 			serviceDescriptor, err := grpcreflect.LoadServiceDescriptor(&ext.Ext_ServiceDesc)
 			Expect(err).NotTo(HaveOccurred())
+			healthServer := health.NewServer()
+			healthServer.SetServingStatus(ext.Ext_ServiceDesc.ServiceName, grpc_health_v1.HealthCheckResponse_SERVING)
 			apiextSrv.EXPECT().
 				Descriptors(gomock.Any(), gomock.Any()).
 				DoAndReturn(func(context.Context, *emptypb.Empty) (*apiextensions.ServiceDescriptorProtoList, error) {
-					if descriptorLogic != nil {
-						return descriptorLogic()
+					if descriptorsLogic != nil {
+						return descriptorsLogic()
 					}
 					fqn := serviceDescriptor.GetFullyQualifiedName()
-					sd := serviceDescriptor.AsServiceDescriptorProto()
+					sd := util.ProtoClone(serviceDescriptor.AsServiceDescriptorProto())
 					sd.Name = &fqn
 					return &apiextensions.ServiceDescriptorProtoList{
 						Items: []*descriptorpb.ServiceDescriptorProto{sd},
 					}, nil
 				})
+			apiextSrv.EXPECT().
+				CheckHealth(gomock.Any(), gomock.Any()).
+				DoAndReturn(healthServer.Check).
+				AnyTimes()
+			apiextSrv.EXPECT().
+				WatchHealth(gomock.Any(), gomock.Any()).
+				DoAndReturn(healthServer.Watch).
+				AnyTimes()
 			cc := test.NewApiExtensionTestPlugin(apiextSrv, &ext.Ext_ServiceDesc, &mock_ext.MockExtServerImpl{
 				MockExtServer: extSrv,
 			})
@@ -187,20 +200,31 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 				MockManagementAPIExtensionServer: mock_apiextensions.NewMockManagementAPIExtensionServer(tv.ctrl),
 			}
 			serviceDescriptor2, err := grpcreflect.LoadServiceDescriptor(&ext.Ext2_ServiceDesc)
+			healthServer := health.NewServer()
+			healthServer.SetServingStatus(ext.Ext2_ServiceDesc.ServiceName, grpc_health_v1.HealthCheckResponse_SERVING)
+
 			Expect(err).NotTo(HaveOccurred())
 			apiextSrv2.EXPECT().
 				Descriptors(gomock.Any(), gomock.Any()).
 				DoAndReturn(func(context.Context, *emptypb.Empty) (*apiextensions.ServiceDescriptorProtoList, error) {
-					if descriptorLogic != nil {
-						return descriptorLogic()
+					if descriptorsLogic != nil {
+						return descriptorsLogic()
 					}
 					fqn := serviceDescriptor2.GetFullyQualifiedName()
-					sd := serviceDescriptor2.AsServiceDescriptorProto()
+					sd := util.ProtoClone(serviceDescriptor2.AsServiceDescriptorProto())
 					sd.Name = &fqn
 					return &apiextensions.ServiceDescriptorProtoList{
 						Items: []*descriptorpb.ServiceDescriptorProto{sd},
 					}, nil
 				})
+			apiextSrv2.EXPECT().
+				CheckHealth(gomock.Any(), gomock.Any()).
+				DoAndReturn(healthServer.Check).
+				AnyTimes()
+			apiextSrv2.EXPECT().
+				WatchHealth(gomock.Any(), gomock.Any()).
+				DoAndReturn(healthServer.Watch).
+				AnyTimes()
 			cc2 := test.NewApiExtensionTestPlugin(apiextSrv2, &ext.Ext2_ServiceDesc, &mock_ext.MockExt2ServerImpl{
 				MockExt2Server: ext2Srv,
 			})
@@ -552,11 +576,11 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 	Context("error handling", func() {
 		When("the plugin's Descriptor method returns an error", func() {
 			BeforeEach(func() {
-				descriptorLogic = func() (*apiextensions.ServiceDescriptorProtoList, error) {
+				descriptorsLogic = func() (*apiextensions.ServiceDescriptorProtoList, error) {
 					return nil, fmt.Errorf("test error")
 				}
 				DeferCleanup(func() {
-					descriptorLogic = nil
+					descriptorsLogic = nil
 				})
 			})
 			It("should not load the api extension", func() {
@@ -568,7 +592,7 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 	})
 	When("the plugin is not serving the service returned from Descriptor", func() {
 		BeforeEach(func() {
-			descriptorLogic = func() (*apiextensions.ServiceDescriptorProtoList, error) {
+			descriptorsLogic = func() (*apiextensions.ServiceDescriptorProtoList, error) {
 				return &apiextensions.ServiceDescriptorProtoList{
 					Items: []*descriptorpb.ServiceDescriptorProto{
 						{
@@ -578,7 +602,7 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 				}, nil
 			}
 			DeferCleanup(func() {
-				descriptorLogic = nil
+				descriptorsLogic = nil
 			})
 		})
 		It("should not load the api extension", func() {

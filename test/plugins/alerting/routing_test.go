@@ -1,6 +1,7 @@
 package alerting_test
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net/url"
@@ -346,12 +347,8 @@ func (t testSpecSuite) ExpectAlertsToBeRouted(amPort int) error {
 			}
 		}
 		ids = lo.Uniq(ids)
-		slices.SortFunc(ids, func(a, b string) bool {
-			return a < b
-		})
-		slices.SortFunc(expectedIds[server.A.Addr], func(a, b string) bool {
-			return a < b
-		})
+		slices.SortFunc(ids, cmp.Compare)
+		slices.SortFunc(expectedIds[server.A.Addr], cmp.Compare)
 
 		if !slices.Equal(ids, expectedIds[server.A.Addr]) {
 			return fmt.Errorf("expected to find ids %s in server %s, but found %s", strings.Join(expectedIds[server.A.Addr], ","), server.A.Addr, strings.Join(ids, ","))
@@ -380,12 +377,8 @@ func (t testSpecSuite) ExpectAlertsToBeRouted(amPort int) error {
 		}
 	}
 	foundIds = lo.Uniq(foundIds)
-	slices.SortFunc(ids, func(a, b string) bool {
-		return a < b
-	})
-	slices.SortFunc(foundIds, func(a, b string) bool {
-		return a < b
-	})
+	slices.SortFunc(ids, cmp.Compare)
+	slices.SortFunc(foundIds, cmp.Compare)
 
 	if !slices.Equal(ids, foundIds) {
 		return fmt.Errorf("expected to find ids %s in default server, but found %s", strings.Join(ids, ","), strings.Join(foundIds, ","))

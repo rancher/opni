@@ -1,6 +1,7 @@
 package alerting_test
 
 import (
+	"cmp"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -450,11 +451,11 @@ func BuildAlertingClusterIntegrationTests(
 						}
 					}
 					for _, refs := range expectedRouting {
-						slices.SortFunc(refs.Items, func(a, b *alertingv1.ConditionReference) bool {
+						slices.SortFunc(refs.Items, func(a, b *alertingv1.ConditionReference) int {
 							if a.GroupId != b.GroupId {
-								return a.GroupId < b.GroupId
+								return cmp.Compare(a.GroupId, b.GroupId)
 							}
-							return a.Id < b.Id
+							return cmp.Compare(a.Id, b.Id)
 						})
 					}
 
@@ -502,11 +503,11 @@ func BuildAlertingClusterIntegrationTests(
 					Expect(err).To(Succeed())
 
 					for endpId, rel := range relationships.RoutingRelationships {
-						slices.SortFunc(rel.Items, func(a, b *alertingv1.ConditionReference) bool {
+						slices.SortFunc(rel.Items, func(a, b *alertingv1.ConditionReference) int {
 							if a.GroupId != b.GroupId {
-								return a.GroupId < b.GroupId
+								return cmp.Compare(a.GroupId, b.GroupId)
 							}
-							return a.Id < b.Id
+							return cmp.Compare(a.Id, b.Id)
 						})
 						if _, ok := expectedRouting[endpId]; !ok {
 							Fail(fmt.Sprintf("Expected a routing relation to exist for endpoint id %s", endpId))

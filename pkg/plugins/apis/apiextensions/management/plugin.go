@@ -9,8 +9,10 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni/pkg/util"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -121,6 +123,15 @@ func NewPlugin(ext ManagementAPIExtension) plugin.Plugin {
 	}
 	healthSrv := health.NewServer()
 	services := ext.ManagementServices(healthSrv)
+	for _, s := range services {
+		if _, err := healthSrv.Check(context.Background(), &healthpb.HealthCheckRequest{
+			Service: s.ServiceName(),
+		}); status.Code(err) == codes.NotFound {
+			// Set the default status to Serving if not set explicitly inside
+			// ManagementServices().
+			healthSrv.SetServingStatus(s.ServiceName(), Serving)
+		}
+	}
 
 	return &managementApiExtensionPlugin{
 		extensionSrv: &mgmtExtensionServerImpl{

@@ -35,27 +35,27 @@ const (
 )
 
 type colorHandler struct {
-	level        slog.Leveler
-	addSource    bool
-	replaceAttr  func([]string, slog.Attr) slog.Attr
-	colorEnabled bool
-	timeFormat   string
-	attrsPrefix  string   // attrs started from With
-	groups       []string // all groups started from WithGroup
-	groupPrefix  string   // groups started from Group
-	appendName   bool
-	mu           sync.Mutex
-	w            io.Writer
+	level          slog.Leveler
+	addSource      bool
+	replaceAttr    func([]string, slog.Attr) slog.Attr
+	colorEnabled   bool
+	timeFormat     string
+	attrsPrefix    string   // attrs started from With
+	groups         []string // all groups started from WithGroup
+	groupPrefix    string   // groups started from Group
+	omitLoggerName bool
+	mu             sync.Mutex
+	w              io.Writer
 }
 
 func newColorHandler(w io.Writer, opts *LoggerOptions) slog.Handler {
 	if opts == nil {
 		opts = &LoggerOptions{
-			Level:        DefaultLogLevel,
-			AddSource:    true,
-			ColorEnabled: ColorEnabled(),
-			AppendName:   true,
-			TimeFormat:   DefaultTimeFormat,
+			Level:          DefaultLogLevel,
+			AddSource:      true,
+			ColorEnabled:   ColorEnabled(),
+			OmitLoggerName: true,
+			TimeFormat:     DefaultTimeFormat,
 		}
 	}
 
@@ -64,13 +64,13 @@ func newColorHandler(w io.Writer, opts *LoggerOptions) slog.Handler {
 	}
 
 	return &colorHandler{
-		level:        opts.Level,
-		addSource:    opts.AddSource,
-		replaceAttr:  opts.ReplaceAttr,
-		colorEnabled: opts.ColorEnabled,
-		timeFormat:   opts.TimeFormat,
-		appendName:   opts.AppendName,
-		w:            w,
+		level:          opts.Level,
+		addSource:      opts.AddSource,
+		replaceAttr:    opts.ReplaceAttr,
+		colorEnabled:   opts.ColorEnabled,
+		timeFormat:     opts.TimeFormat,
+		omitLoggerName: opts.OmitLoggerName,
+		w:              w,
 	}
 }
 
@@ -137,7 +137,7 @@ func (h *colorHandler) Handle(_ context.Context, r slog.Record) error {
 		buf.WriteByte(' ')
 	}
 
-	if h.appendName {
+	if !h.omitLoggerName {
 		h.writeGroups(buf)
 	}
 

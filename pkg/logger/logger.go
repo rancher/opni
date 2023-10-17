@@ -49,7 +49,7 @@ type LoggerOptions struct {
 	Sampling           *slogsampling.ThresholdSamplingOption
 	TimeFormat         string
 	TotemFormatEnabled bool
-	AppendName         bool
+	OmitLoggerName     bool
 }
 
 func ParseLevel(lvl string) slog.Level {
@@ -131,20 +131,20 @@ func WithTotemFormat(enable bool) LoggerOption {
 	}
 }
 
-func WithAppendName(enable bool) LoggerOption {
+func WithOmitLoggerName() LoggerOption {
 	return func(o *LoggerOptions) {
-		o.AppendName = enable
+		o.OmitLoggerName = true
 	}
 }
 
 func colorHandlerWithOptions(opts ...LoggerOption) slog.Handler {
 	options := &LoggerOptions{
-		Writer:       DefaultWriter,
-		ColorEnabled: ColorEnabled(),
-		Level:        DefaultLogLevel,
-		AddSource:    DefaultAddSource,
-		TimeFormat:   DefaultTimeFormat,
-		AppendName:   true,
+		Writer:         DefaultWriter,
+		ColorEnabled:   ColorEnabled(),
+		Level:          DefaultLogLevel,
+		AddSource:      DefaultAddSource,
+		TimeFormat:     DefaultTimeFormat,
+		OmitLoggerName: true,
 	}
 
 	options.apply(opts...)
@@ -155,7 +155,7 @@ func colorHandlerWithOptions(opts ...LoggerOption) slog.Handler {
 
 	var middlewares []slogmulti.Middleware
 	if options.TotemFormatEnabled {
-		options.AppendName = false
+		options.OmitLoggerName = true
 		options.Writer = os.Stderr
 		middlewares = append(middlewares, newTotemNameMiddleware())
 	}

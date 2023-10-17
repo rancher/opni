@@ -321,8 +321,10 @@ func (m *KubernetesManagerDriver) buildEmptyCollector() *opnicorev1beta1.Collect
 			ImageSpec: opnimeta.ImageSpec{
 				ImagePullPolicy: lo.ToPtr(corev1.PullAlways),
 			},
-			SystemNamespace: m.Namespace,
-			AgentEndpoint:   otel.AgentEndpoint(serviceName),
+			SystemNamespace:          m.Namespace,
+			AgentEndpoint:            otel.AgentEndpoint(serviceName),
+			AggregatorOTELConfigSpec: opnicorev1beta1.NewDefaultAggregatorOTELConfigSpec(),
+			NodeOTELConfigSpec:       opnicorev1beta1.NewDefaultNodeOTELConfigSpec(),
 		},
 	}
 }

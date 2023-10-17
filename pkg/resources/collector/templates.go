@@ -194,15 +194,16 @@ exporters:
     tls:
       insecure: true
     sending_queue:
-      num_consumers: 4
-      queue_size: 100
+      enabled: {{ .OTELConfig.Exporters.OTLP.QueueSettings.Enabled }}
+      num_consumers: {{ .OTELConfig.Exporters.OTLP.QueueSettings.NumConsumers }}
+      queue_size: {{ .OTELConfig.Exporters.OTLP.QueueSettings.QueueSize }}
     retry_on_failure:
       enabled: true
 processors:
   memory_limiter:
-    limit_mib: 250
-    spike_limit_mib: 50
-    check_interval: 1s
+    limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemoryLimitMiB }}
+    spike_limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemorySpikeLimitMiB }}
+    check_interval: {{ .OTELConfig.Processors.MemoryLimiter.CheckInterval }}
   k8sattributes:
     passthrough: false
     pod_association:
@@ -269,12 +270,13 @@ receivers:
 
 processors:
   batch:
-    send_batch_size: 1000
-    timeout: 15s
+    timeout: {{ .OTELConfig.Processors.Batch.Timeout }}
+    send_batch_size: {{ .OTELConfig.Processors.Batch.SendBatchSize }}
+    send_batch_max_size: {{ .OTELConfig.Processors.Batch.SendBatchMaxSize }} 
   memory_limiter:
-    limit_mib: 1000
-    spike_limit_mib: 350 
-    check_interval: 1s
+    limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemoryLimitMiB }}
+    spike_limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemorySpikeLimitMiB }}
+    check_interval: {{ .OTELConfig.Processors.MemoryLimiter.CheckInterval }}
   transform:
     log_statements:
     - context: log
@@ -287,8 +289,9 @@ exporters:
     tls:
       insecure: true
     sending_queue:
-      num_consumers: 4
-      queue_size: 100
+      enabled: {{ .OTELConfig.Exporters.OTLPHTTP.QueueSettings.Enabled }}
+      num_consumers: {{ .OTELConfig.Exporters.OTLPHTTP.QueueSettings.NumConsumers }}
+      queue_size: {{ .OTELConfig.Exporters.OTLPHTTP.QueueSettings.QueueSize }}
     retry_on_failure:
       enabled: true
   {{ template "metrics-remotewrite-exporter" .}}

@@ -274,14 +274,19 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		lg := lg.Named("connections")
 		connectionsKv := storageBackend.KeyValueStore("connections")
 		connectionsLm := storageBackendLmBroker.LockManager("connections")
-		advertiseAddr := conf.Spec.Management.RelayAdvertiseAddress
-		if advertiseAddr == "" {
+		relayAdvertiseAddr := conf.Spec.Management.RelayAdvertiseAddress
+		mgmtAdvertiseAddr := conf.Spec.Management.GRPCAdvertiseAddress
+		if relayAdvertiseAddr == "" {
 			lg.Warn("relay advertise address not set; will advertise the listen address")
-			advertiseAddr = conf.Spec.Management.RelayListenAddress
+			relayAdvertiseAddr = conf.Spec.Management.RelayListenAddress
+		}
+		if mgmtAdvertiseAddr == "" {
+			lg.Warn("management advertise address not set; will advertise the listen address")
+			mgmtAdvertiseAddr = conf.Spec.Management.GRPCListenAddress
 		}
 		connectionTracker = NewConnectionTracker(ctx, &corev1.InstanceInfo{
-			RelayAddress:      os.ExpandEnv(advertiseAddr),
-			ManagementAddress: conf.Spec.Management.GRPCListenAddress,
+			RelayAddress:      os.ExpandEnv(relayAdvertiseAddr),
+			ManagementAddress: os.ExpandEnv(mgmtAdvertiseAddr),
 		}, connectionsKv, connectionsLm, lg)
 
 		writerManager := NewHealthStatusWriterManager(ctx, connectionsKv, lg)

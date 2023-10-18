@@ -85,6 +85,7 @@ func (r *Reconciler) configMap() (resources.Resource, string, error) {
 			},
 			Management: cfgv1beta1.ManagementSpec{
 				GRPCListenAddress:     "tcp://0.0.0.0:11090",
+				GRPCAdvertiseAddress:  "tcp://${POD_IP}:11090",
 				RelayListenAddress:    "tcp://0.0.0.0:11190",
 				RelayAdvertiseAddress: "tcp://${POD_IP}:11190",
 				HTTPListenAddress:     "0.0.0.0:11080",

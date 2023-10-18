@@ -36,7 +36,8 @@ type OpenIDConfigSpec struct {
 }
 
 type GatewaySpec struct {
-	Image *opnimeta.ImageSpec `json:"image,omitempty"`
+	Replicas *int32              `json:"replicas,omitempty"`
+	Image    *opnimeta.ImageSpec `json:"image,omitempty"`
 	//+kubebuilder:validation:Required
 	Auth     AuthSpec `json:"auth,omitempty"`
 	Hostname string   `json:"hostname,omitempty"`

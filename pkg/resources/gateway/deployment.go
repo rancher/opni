@@ -6,6 +6,7 @@ import (
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -27,10 +28,10 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 	if err != nil {
 		return nil, err
 	}
-	pvc, err := r.pluginCachePVC()
-	if err != nil {
-		return nil, err
-	}
+	// pvc, err := r.pluginCachePVC()
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	gatewayApiVersion := r.gw.APIVersion
 	replicas := r.gw.Spec.Replicas
@@ -38,20 +39,30 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 		replicas = lo.ToPtr[int32](3)
 	}
 
-	dep := &appsv1.Deployment{
+	oldGatewayDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-gateway",
 			Namespace: r.gw.Namespace,
 			Labels:    labels,
 		},
-		Spec: appsv1.DeploymentSpec{
+	}
+
+	gatewayStatefulSet := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-gateway",
+			Namespace: r.gw.Namespace,
+			Labels:    labels,
+		},
+		Spec: appsv1.StatefulSetSpec{
 			Replicas: replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Strategy: appsv1.DeploymentStrategy{
-				Type: appsv1.RecreateDeploymentStrategyType,
+			PersistentVolumeClaimRetentionPolicy: &appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+				WhenDeleted: appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
+				WhenScaled:  appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
 			},
+			PodManagementPolicy: appsv1.ParallelPodManagement,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      labels,
@@ -264,14 +275,6 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 							},
 						},
 						{
-							Name: "plugin-cache",
-							VolumeSource: corev1.VolumeSource{
-								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: pvc.Name,
-								},
-							},
-						},
-						{
 							Name: "local-agent-key",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
@@ -293,6 +296,23 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 					ServiceAccountName: "opni",
 				},
 			},
+			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "plugin-cache",
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{
+							corev1.ReadWriteOnce,
+						},
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceStorage: resource.MustParse("8Gi"),
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -304,9 +324,9 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 			Namespace: r.gw.Namespace,
 		},
 	)
-	dep.Spec.Template.Spec.Volumes = append(dep.Spec.Template.Spec.Volumes, newVolumes...)
-	dep.Spec.Template.Spec.Containers[0].VolumeMounts = append(dep.Spec.Template.Spec.Containers[0].VolumeMounts, newVolumeMounts...)
-	dep.Spec.Template.Spec.Containers[0].Env = append(dep.Spec.Template.Spec.Containers[0].Env, newEnvVars...)
+	gatewayStatefulSet.Spec.Template.Spec.Volumes = append(gatewayStatefulSet.Spec.Template.Spec.Volumes, newVolumes...)
+	gatewayStatefulSet.Spec.Template.Spec.Containers[0].VolumeMounts = append(gatewayStatefulSet.Spec.Template.Spec.Containers[0].VolumeMounts, newVolumeMounts...)
+	gatewayStatefulSet.Spec.Template.Spec.Containers[0].Env = append(gatewayStatefulSet.Spec.Template.Spec.Containers[0].Env, newEnvVars...)
 
 	for _, extraVol := range r.gw.Spec.ExtraVolumeMounts {
 		vol := corev1.Volume{
@@ -317,10 +337,10 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 			Name:      extraVol.Name,
 			MountPath: extraVol.MountPath,
 		}
-		dep.Spec.Template.Spec.Volumes =
-			append(dep.Spec.Template.Spec.Volumes, vol)
-		dep.Spec.Template.Spec.Containers[0].VolumeMounts =
-			append(dep.Spec.Template.Spec.Containers[0].VolumeMounts, volMount)
+		gatewayStatefulSet.Spec.Template.Spec.Volumes =
+			append(gatewayStatefulSet.Spec.Template.Spec.Volumes, vol)
+		gatewayStatefulSet.Spec.Template.Spec.Containers[0].VolumeMounts =
+			append(gatewayStatefulSet.Spec.Template.Spec.Containers[0].VolumeMounts, volMount)
 	}
 	// add additional volumes for alerting
 	if r.gw.Spec.Alerting.Enabled && r.gw.Spec.Alerting.GatewayVolumeMounts != nil {
@@ -333,14 +353,14 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 				Name:      alertVol.Name,
 				MountPath: alertVol.MountPath,
 			}
-			dep.Spec.Template.Spec.Volumes = append(dep.Spec.Template.Spec.Volumes, vol)
-			dep.Spec.Template.Spec.Containers[0].VolumeMounts = append(dep.Spec.Template.Spec.Containers[0].VolumeMounts, volMount)
+			gatewayStatefulSet.Spec.Template.Spec.Volumes = append(gatewayStatefulSet.Spec.Template.Spec.Volumes, vol)
+			gatewayStatefulSet.Spec.Template.Spec.Containers[0].VolumeMounts = append(gatewayStatefulSet.Spec.Template.Spec.Containers[0].VolumeMounts, volMount)
 		}
 	}
 
-	ctrl.SetControllerReference(r.gw, dep, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, gatewayStatefulSet, r.client.Scheme())
 	return []resources.Resource{
-		resources.Present(dep),
-		resources.Present(pvc),
+		resources.Present(gatewayStatefulSet),
+		resources.Absent(oldGatewayDeployment), // remove old deployment if it exists
 	}, nil
 }

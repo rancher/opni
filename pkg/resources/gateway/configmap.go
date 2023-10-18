@@ -38,7 +38,7 @@ func (r *Reconciler) configMap() (resources.Resource, string, error) {
 				Dir: "/var/lib/opni/plugins",
 				Binary: cfgv1beta1.BinaryPluginsSpec{
 					Cache: cfgv1beta1.CacheSpec{
-						PatchEngine: cfgv1beta1.PatchEngineBsdiff,
+						PatchEngine: r.gw.Spec.PatchEngine,
 						Backend:     cfgv1beta1.CacheBackendFilesystem,
 						Filesystem: cfgv1beta1.FilesystemCacheSpec{
 							Dir: "/var/lib/opni/plugin-cache",

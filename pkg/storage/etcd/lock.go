@@ -2,8 +2,10 @@ package etcd
 
 import (
 	"errors"
+	"fmt"
 	"path"
 	"strings"
+	"sync"
 
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/etcd/concurrencyx"
@@ -13,16 +15,52 @@ import (
 )
 
 type EtcdLockManager struct {
-	client  *clientv3.Client
-	session *concurrency.Session
-	prefix  string
+	client    *clientv3.Client
+	prefix    string
+	sessionMu sync.Mutex
+	session   *concurrency.Session
+}
+
+func NewEtcdLockManager(client *clientv3.Client, prefix string) (*EtcdLockManager, error) {
+	lm := &EtcdLockManager{
+		client: client,
+		prefix: prefix,
+	}
+	if err := lm.renewSessionLocked(); err != nil {
+		return nil, fmt.Errorf("failed to create etcd client: %w", err)
+	}
+	return lm, nil
+}
+
+func (lm *EtcdLockManager) Session() *concurrency.Session {
+	lm.sessionMu.Lock()
+	defer lm.sessionMu.Unlock()
+	if lm.session == nil {
+		lm.renewSessionLocked()
+	} else {
+		select {
+		case <-lm.session.Done():
+			lm.renewSessionLocked()
+		default:
+		}
+	}
+	return lm.session
+}
+
+func (lm *EtcdLockManager) renewSessionLocked() error {
+	session, err := concurrency.NewSession(lm.client, concurrency.WithTTL(mutexLeaseTtlSeconds))
+	if err != nil {
+		return fmt.Errorf("failed to create etcd client: %w", err)
+	}
+	lm.session = session
+	return nil
 }
 
 // Locker implements storage.LockManager.
 func (lm *EtcdLockManager) Locker(key string, opts ...lock.LockOption) storage.Lock {
 	options := lock.DefaultLockOptions(lm.client.Ctx())
 	options.Apply(opts...)
-	m := concurrencyx.NewMutex(lm.session, path.Join(lm.prefix, key), options.InitialValue)
+	m := concurrencyx.NewMutex(lm.Session(), path.Join(lm.prefix, key), options.InitialValue)
 	return &EtcdLock{
 		client:  lm.client,
 		mutex:   m,

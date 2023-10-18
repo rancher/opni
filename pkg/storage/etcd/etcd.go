@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.etcd.io/etcd/client/v3/concurrency"
 	"go.uber.org/zap"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -38,9 +37,8 @@ const (
 // EtcdStore implements TokenStore and TenantStore.
 type EtcdStore struct {
 	EtcdStoreOptions
-	Logger  *zap.SugaredLogger
-	Client  *clientv3.Client
-	session *concurrency.Session
+	Logger *zap.SugaredLogger
+	Client *clientv3.Client
 
 	closeOnce sync.Once
 }
@@ -90,21 +88,15 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 	lg.With(
 		"endpoints", clientConfig.Endpoints,
 	).Info("connecting to etcd")
-	session, err := concurrency.NewSession(cli, concurrency.WithTTL(mutexLeaseTtlSeconds))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create etcd client: %w", err)
-	}
 	return &EtcdStore{
 		EtcdStoreOptions: options,
 		Logger:           lg,
 		Client:           cli,
-		session:          session,
 	}, nil
 }
 
 func (e *EtcdStore) Close() {
 	e.closeOnce.Do(func() {
-		e.session.Close()
 		e.Client.Close()
 	})
 }
@@ -136,9 +128,8 @@ func (e *EtcdStore) LockManager(prefix string) storage.LockManager {
 		prefix = path.Join(e.Prefix, prefix)
 	}
 	return &EtcdLockManager{
-		client:  e.Client,
-		session: e.session,
-		prefix:  path.Join(prefix, "kv"),
+		client: e.Client,
+		prefix: path.Join(prefix, "kv"),
 	}
 }
 

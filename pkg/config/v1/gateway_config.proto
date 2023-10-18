@@ -1,0 +1,263 @@
+syntax = "proto3";
+
+package config.v1;
+
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "github.com/rancher/opni/pkg/plugins/driverutil/types.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+
+option go_package = "github.com/rancher/opni/pkg/config/v1";
+option (cli.generator) = {
+  generate: true
+};
+
+// Gateway configuration management
+service GatewayConfig {
+  option (cli.command_group) = {
+    use: "config";
+  };
+
+  rpc GetDefaultConfiguration(driverutil.GetRequest) returns (GatewayConfigSpec) {
+    option (cli.command) = {
+      use: "get-default"
+    };
+  }
+  rpc SetDefaultConfiguration(SetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "set-default"
+      granularity: EditMessage;
+    };
+  }
+  rpc GetConfiguration(driverutil.GetRequest) returns (GatewayConfigSpec) {
+    option (cli.command) = {
+      use: "get"
+    };
+  }
+  rpc SetConfiguration(SetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "set"
+      granularity: EditMessage;
+    };
+  }
+  rpc ResetDefaultConfiguration(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "reset-default"
+    };
+  }
+  rpc ResetConfiguration(ResetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "reset"
+      granularity: EditMessage;
+    };
+  }
+  rpc DryRun(DryRunRequest) returns (DryRunResponse) {
+    option (cli.command).skip = true;
+  }
+  rpc ConfigurationHistory(driverutil.ConfigurationHistoryRequest) returns (HistoryResponse) {
+    option (cli.command) = {
+      use: "history"
+    };
+  }
+}
+
+message GatewayConfigSpec {
+  core.Revision        revision      = 1;
+  ServerSpec           server        = 2;
+  ManagementServerSpec management    = 3;
+  RelayServerSpec      relay         = 4;
+  HealthServerSpec     health        = 5;
+  DashboardServerSpec  dashboard     = 6;
+  StorageSpec          storage       = 7;
+  CertsSpec            certs         = 8;
+  PluginsSpec          plugins       = 9;
+  KeyringSpec          keyring       = 10;
+  AgentUpgradesSpec    agentUpgrades = 11;
+  RateLimitingSpec     rateLimiting  = 12;
+}
+
+message ServerSpec {
+  // Address and port to serve the gateway's internal http server on.
+  optional string httpListenAddress = 1 [(cli.flag).default = "0.0.0.0:8080"];
+  // Address and port to serve the gateway's external grpc server on.
+  optional string grpcListenAddress = 2 [(cli.flag).default = "0.0.0.0:9090"];
+}
+
+message ManagementServerSpec {
+  // Address and port to serve the management http server on.
+  optional string httpListenAddress = 1 [(cli.flag).default = "0.0.0.0:11080"];
+  // Address and port to serve the management grpc server on.
+  optional string grpcListenAddress = 2 [(cli.flag).default = "0.0.0.0:11090"];
+}
+
+message RelayServerSpec {
+  // Address and port to serve the relay grpc server on.
+  optional string grpcListenAddress = 4 [(cli.flag).default = "0.0.0.0:11190"];
+  // The advertise address for the relay server. This is the address at which
+  // other gateway instances will be able to reach this relay server.
+  // Configured automatically by the manager if not set.
+  optional string advertiseAddress = 5 [(cli.flag).skip = true];
+}
+
+message HealthServerSpec {
+  // Address and port to serve the gateway's internal health/metrics/profiling
+  // http server on.
+  optional string httpListenAddress = 1 [(cli.flag).default = "0.0.0.0:8086"];
+  // The subpath at which to serve the health endpoint
+  optional string healthSubpath = 4 [(cli.flag).default = "/healthz"];
+  // The subpath at which to serve the metrics endpoint
+  optional string metricsSubpath = 2 [(cli.flag).default = "/metrics"];
+  // The subpath at which to serve the profiling endpoint
+  optional string profilingSubpath = 3 [(cli.flag).default = "/debug/pprof"];
+}
+
+message DashboardServerSpec {
+  // Address and port to serve the web dashboard on.
+  optional string httpListenAddress = 1 [(cli.flag).default = "0.0.0.0:12080"];
+  // The hostname at which the dashboard is expected to be reachable. This is
+  // required when using OpenID Connect authentication.
+  optional string hostname = 2;
+  // List of trusted proxies for the dashboard's http server.
+  repeated string trustedProxies = 3;
+}
+
+enum StorageType {
+  // Use etcd for key-value storage. This is the recommended default.
+  Etcd = 0;
+  // Use NATS JetStream for key-value storage.
+  JetStream = 1;
+}
+
+message StorageSpec {
+  optional StorageType type      = 1 [(cli.flag).default = "Etcd"];
+  EtcdSpec             etcd      = 2;
+  JetStreamSpec        jetstream = 3;
+}
+
+message EtcdSpec {
+  optional string endpoint = 1;
+  MTLSSpec        certs    = 2;
+}
+
+message MTLSSpec {
+  // Path to the server CA certificate. Mutually exclusive with serverCAData.
+  optional string serverCA = 1;
+  // PEM encoded server CA certificate data. Mutually exclusive with serverCA.
+  optional string serverCAData = 2 [(cli.flag).secret = true];
+  // Path to the client CA certificate (not needed in all cases). Mutually exclusive with clientCAData.
+  optional string clientCA = 3;
+  // PEM encoded client CA certificate data. Mutually exclusive with clientCA.
+  optional string clientCAData = 4 [(cli.flag).secret = true];
+  // Path to the certificate used for client-cert auth. Mutually exclusive with clientCertData.
+  optional string clientCert = 5;
+  // PEM encoded client certificate data. Mutually exclusive with clientCert.
+  optional string clientCertData = 6 [(cli.flag).secret = true];
+  // Path to the private key used for client-cert auth. Mutually exclusive with clientKeyData.
+  optional string clientKey = 7;
+  // PEM encoded client key data. Mutually exclusive with clientKey.
+  optional string clientKeyData = 8 [(cli.flag).secret = true];
+}
+
+message JetStreamSpec {
+  optional string endpoint     = 1;
+  optional string nkeySeedPath = 2;
+}
+
+message CertsSpec {
+  // Path to a PEM encoded CA certificate file. Mutually exclusive with caCertData.
+  optional string caCert = 1;
+  // PEM encoded CA certificate data. Mutually exclusive with caCert.
+  optional string caCertData = 2 [(cli.flag).secret = true];
+  // Path to a PEM encoded server certificate file. Mutually exclusive with servingCertData.
+  optional string servingCert = 3;
+  // PEM encoded server certificate data. Mutually exclusive with servingCert.
+  optional string servingCertData = 4 [(cli.flag).secret = true];
+  // Path to a PEM encoded server key file. Mutually exclusive with servingKeyData.
+  optional string servingKey = 5;
+  // String containing PEM encoded server key data. Mutually exclusive with servingKey.
+  optional string servingKeyData = 6 [(cli.flag).secret = true];
+}
+
+message PluginsSpec {
+  // Directory to search for plugin binaries.
+  optional string dir = 1;
+
+  CacheSpec cache = 2;
+}
+
+enum PatchEngine {
+  Bsdiff = 0;
+  Zstd   = 1;
+}
+
+enum CacheBackend {
+  Filesystem = 0;
+}
+
+message CacheSpec {
+  optional PatchEngine patchEngine = 1 [(cli.flag).default = "Zstd"];
+
+  optional CacheBackend backend    = 2;
+  FilesystemCacheSpec   filesystem = 3;
+}
+
+message FilesystemCacheSpec {
+  optional string dir = 1;
+}
+
+message KeyringSpec {
+  // Directories to search for files containing runtime keys.
+  // All files in these directories will be loaded into the keyring on
+  // startup. Keys loaded in this way will not be persisted.
+  repeated string runtimeKeyDirs = 1;
+}
+
+message AgentUpgradesSpec {
+  KubernetesAgentUpgradeSpec kubernetes = 1;
+}
+
+enum ImageResolverType {
+  Noop       = 0;
+  Kubernetes = 1;
+}
+
+message KubernetesAgentUpgradeSpec {
+  ImageResolverType imageResolver = 1 [(cli.flag).default = "Kubernetes"];
+}
+
+message RateLimitingSpec {
+  optional double rate  = 1;
+  optional int32  burst = 2;
+}
+
+message SetRequest {
+  GatewayConfigSpec spec = 1;
+}
+
+message ResetRequest {
+  core.Revision             revision = 1 [(cli.flag_set).no_prefix = true];
+  google.protobuf.FieldMask mask     = 2 [(cli.flag).skip = true];
+  GatewayConfigSpec         patch    = 3 [(cli.flag).skip = true];
+}
+
+message DryRunRequest {
+  driverutil.Target target = 1;
+  driverutil.Action action = 2;
+
+  GatewayConfigSpec spec = 3; // Set
+
+  core.Revision             revision = 4; // Reset
+  GatewayConfigSpec         patch    = 5; // Reset
+  google.protobuf.FieldMask mask     = 6 [(cli.flag).skip = true]; // Reset
+}
+
+message DryRunResponse {
+  GatewayConfigSpec                   current          = 1;
+  GatewayConfigSpec                   modified         = 2;
+  repeated driverutil.ValidationError validationErrors = 3;
+}
+
+message HistoryResponse {
+  repeated GatewayConfigSpec entries = 1;
+}

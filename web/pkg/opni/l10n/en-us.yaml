@@ -73,6 +73,7 @@ opni:
     group: Group
     id: Id
     labels: Labels
+    lastUpdated: Last Updated
     local: Local
     logs: Logs
     matchExpressions: Match Expressions
@@ -105,6 +106,7 @@ opni:
     slos: SLOs
     logAnomaly: Log Anomaly
     loggingConfig: Logging
+    snapshots: Snapshots
     monitoring: Monitoring
     management: Management
     pretrainedModels: Pretrained Models

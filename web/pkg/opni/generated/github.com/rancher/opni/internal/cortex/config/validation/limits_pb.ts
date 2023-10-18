@@ -8,6 +8,53 @@ import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialM
 import { Duration, Message, proto3 } from "@bufbuild/protobuf";
 
 /**
+ * @generated from message validation.DisabledRuleGroup
+ */
+export class DisabledRuleGroup extends Message<DisabledRuleGroup> {
+  /**
+   * namespace in which the rule group belongs
+   *
+   * @generated from field: optional string namespace = 1;
+   */
+  namespace?: string;
+
+  /**
+   * name of the rule group
+   *
+   * @generated from field: optional string name = 2;
+   */
+  name?: string;
+
+  constructor(data?: PartialMessage<DisabledRuleGroup>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "validation.DisabledRuleGroup";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "namespace", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 2, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DisabledRuleGroup {
+    return new DisabledRuleGroup().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): DisabledRuleGroup {
+    return new DisabledRuleGroup().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DisabledRuleGroup {
+    return new DisabledRuleGroup().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: DisabledRuleGroup | PlainMessage<DisabledRuleGroup> | undefined, b: DisabledRuleGroup | PlainMessage<DisabledRuleGroup> | undefined): boolean {
+    return proto3.util.equals(DisabledRuleGroup, a, b);
+  }
+}
+
+/**
  * @generated from message validation.Limits
  */
 export class Limits extends Message<Limits> {
@@ -397,7 +444,7 @@ export class Limits extends Message<Limits> {
   alertmanagerNotificationRateLimit?: number;
 
   /**
-   * Per-integration notification rate limits. Value is a map, where each key is integration name and value is a rate-limit (float). On command line, this map is given in JSON format. Rate limit has the same meaning as -alertmanager.notification-rate-limit, but only applies for specific integration. Allowed integration names: webhook, email, pagerduty, opsgenie, wechat, slack, victorops, pushover, sns, telegram, discord, webex.
+   * Per-integration notification rate limits. Value is a map, where each key is integration name and value is a rate-limit (float). On command line, this map is given in JSON format. Rate limit has the same meaning as -alertmanager.notification-rate-limit, but only applies for specific integration. Allowed integration names: webhook, email, pagerduty, opsgenie, wechat, slack, victorops, pushover, sns, telegram, discord, webex, msteams.
    *
    * @generated from field: map<string, double> alertmanager_notification_rate_limit_per_integration = 56;
    */
@@ -444,6 +491,13 @@ export class Limits extends Message<Limits> {
    * @generated from field: optional int32 alertmanager_max_alerts_size_bytes = 62;
    */
   alertmanagerMaxAlertsSizeBytes?: number;
+
+  /**
+   * list of rule groups to disable
+   *
+   * @generated from field: repeated validation.DisabledRuleGroup disabled_rule_groups = 63;
+   */
+  disabledRuleGroups: DisabledRuleGroup[] = [];
 
   constructor(data?: PartialMessage<Limits>) {
     super();
@@ -515,6 +569,7 @@ export class Limits extends Message<Limits> {
     { no: 60, name: "alertmanager_max_dispatcher_aggregation_groups", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
     { no: 61, name: "alertmanager_max_alerts_count", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
     { no: 62, name: "alertmanager_max_alerts_size_bytes", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
+    { no: 63, name: "disabled_rule_groups", kind: "message", T: DisabledRuleGroup, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Limits {

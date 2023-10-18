@@ -293,6 +293,9 @@ func newHandler(
 			conn, err := (&websocket.Upgrader{
 				ReadBufferSize:  1024,
 				WriteBufferSize: 1024,
+				CheckOrigin: func(r *http.Request) bool {
+					return true
+				},
 			}).Upgrade(w, req, http.Header{})
 			if err != nil {
 				lg.With(zap.Error(err)).Error("failed to upgrade connection")

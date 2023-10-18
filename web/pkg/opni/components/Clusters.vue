@@ -87,14 +87,14 @@ export default {
   created() {
     GlobalEventBus.$on('cantDeleteCluster', this.openCantDeleteClusterDialog);
     GlobalEventBus.$on('uninstallCapabilities', this.openUninstallCapabilitiesDialog);
-    GlobalEventBus.$on('edit', this.openEditDialog);
+    GlobalEventBus.$on('promptEdit', this.openEditDialog);
     GlobalEventBus.$on('copy', this.copyClusterID);
   },
 
   beforeDestroy() {
     GlobalEventBus.$off('cantDeleteCluster');
     GlobalEventBus.$off('uninstallCapabilities');
-    GlobalEventBus.$off('edit');
+    GlobalEventBus.$off('promptEdit');
     GlobalEventBus.$off('copy');
   },
 

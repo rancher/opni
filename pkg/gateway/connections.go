@@ -216,6 +216,7 @@ func (ct *ConnectionTracker) handleEventLocked(event storage.WatchEvent[storage.
 		if conn, ok := ct.activeConnections[agentId]; ok {
 			if conn.leaseId == leaseId {
 				// key was updated, not a new connection
+				lg.Debug("tracked connection updated")
 				return
 			}
 			info, err := instanceInfo()
@@ -226,6 +227,7 @@ func (ct *ConnectionTracker) handleEventLocked(event storage.WatchEvent[storage.
 			if !info.GetAcquired() {
 				// a different instance is only attempting to acquire the lock,
 				// ignore the event
+				ct.logger.Debugf("observed lock attempt for agent %s from instance %s", agentId, info.GetRelayAddress())
 				return
 			}
 			// a different instance has acquired the lock, invalidate
@@ -271,6 +273,7 @@ func (ct *ConnectionTracker) handleEventLocked(event storage.WatchEvent[storage.
 		if conn, ok := ct.activeConnections[agentId]; ok {
 			if conn.leaseId != leaseId {
 				// likely an expired lock attempt, ignore
+
 				return
 			}
 			prev := &corev1.InstanceInfo{}

@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -20,6 +21,7 @@ import (
 )
 
 type capabilitiesDataSource struct {
+	logger          *zap.SugaredLogger
 	capBackendStore capabilities.BackendStore
 	delegate        *DelegateServer
 }
@@ -36,7 +38,7 @@ func routeManagementRequest[T targetedRequest, R proto.Message](
 ) (R, error) {
 	const delegateIdKey = "delegate-id"
 	idMeta := metadata.ValueFromIncomingContext(ctx, delegateIdKey)
-
+	s.logger.With("localId", s.delegate.uuid, "peerId", idMeta, "agent", in.GetAgent()).Debugf("routing management request")
 	client, err := s.delegate.NewTargetedManagementClient(in.GetAgent())
 	if err != nil {
 		if errors.Is(err, ErrLocalTarget) {

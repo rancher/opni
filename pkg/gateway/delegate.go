@@ -287,9 +287,12 @@ func (d *DelegateServer) NewTargetedManagementClient(target *corev1.Reference) (
 	if info == nil {
 		return nil, status.Errorf(codes.NotFound, "target %q not found", target.GetId())
 	}
+	d.logger.With("target", target.GetId(), "info", info.String()).Debug("dialing management client")
 	if d.ct.IsLocalInstance(info) {
+		d.logger.With("target", target.GetId()).Debug("target is local")
 		return nil, ErrLocalTarget
 	}
+	d.logger.With("target", target.GetId()).Debug("target is remote")
 	cc, err := d.managementDialer.Dial(info)
 	if err != nil {
 		return nil, err

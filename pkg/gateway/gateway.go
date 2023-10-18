@@ -316,6 +316,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	capDataSource := &capabilitiesDataSource{
 		capBackendStore: capBackendStore,
 		delegate:        delegate,
+		logger:          lg.Named("capabilities"),
 	}
 
 	go monitor.Run(ctx, buffer)

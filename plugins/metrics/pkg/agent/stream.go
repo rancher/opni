@@ -50,5 +50,5 @@ func (p *Plugin) configureLoggers(identityClient controlv1.IdentityClient) {
 	if err != nil {
 		p.logger.Error("error fetching node id", logger.Err(err))
 	}
-	logger.SetPluginWriter(id.GetId())
+	logger.InitPluginWriter(id.GetId())
 }

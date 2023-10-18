@@ -47,5 +47,5 @@ func (p *Plugin) configureLoggers(cc grpc.ClientConnInterface) {
 	if err != nil {
 		p.logger.Error("error fetching node id", logger.Err(err))
 	}
-	logger.SetPluginWriter(id.GetId())
+	logger.InitPluginWriter(id.GetId())
 }

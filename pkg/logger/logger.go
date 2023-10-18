@@ -31,7 +31,6 @@ var (
 	pluginGroupPrefix = "plugin"
 	NoRepeatInterval  = 3600 * time.Hour // arbitrarily long time to denote one-time sampling
 	logFs             afero.Fs
-	logFileName       = "opni-logs"
 	DefaultTimeFormat = "2006 Jan 02 15:04:05"
 	errKey            = "err"
 )
@@ -235,7 +234,7 @@ func (s *sampler) onDroppedHook(_ context.Context, r slog.Record) {
 }
 
 func ReadOnlyFile(clusterID string) afero.File {
-	f, err := logFs.OpenFile(logFileName+clusterID, os.O_RDONLY|os.O_CREATE, 0666)
+	f, err := logFs.OpenFile(clusterID, os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
 		panic(err)
 	}
@@ -243,9 +242,17 @@ func ReadOnlyFile(clusterID string) afero.File {
 }
 
 func WriteOnlyFile(clusterID string) afero.File {
-	f, err := logFs.OpenFile(logFileName+clusterID, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+	f, err := logFs.OpenFile(clusterID, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		panic(err)
+	}
+	return f
+}
+
+func GetFileIfExists(clusterID string) afero.File {
+	f, err := logFs.Open(clusterID)
+	if err != nil {
+		return nil
 	}
 	return f
 }

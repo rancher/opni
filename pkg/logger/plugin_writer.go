@@ -6,7 +6,6 @@ import (
 )
 
 var sharedPluginWriter = &pluginWriter{
-	w:  &DefaultWriter,
 	mu: &sync.Mutex{},
 }
 
@@ -15,10 +14,16 @@ type pluginWriter struct {
 	mu *sync.Mutex
 }
 
-func SetPluginWriter(agentId string) {
+func InitPluginWriter(agentId string) {
 	sharedPluginWriter.mu.Lock()
 	defer sharedPluginWriter.mu.Unlock()
-	f := WriteOnlyFile(agentId)
+	if sharedPluginWriter.w != nil {
+		return
+	}
+	f := GetFileIfExists(agentId)
+	if f == nil {
+		f = WriteOnlyFile(agentId)
+	}
 	fileWriter := f.(io.Writer)
 	sharedPluginWriter.w = &fileWriter
 }

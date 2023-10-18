@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/auth/session"
 	"github.com/rancher/opni/pkg/caching"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util/streams"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -51,7 +52,8 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, opts ...ClientOption) 
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 		Managed:          true,
 		Logger: hclog.New(&hclog.LoggerOptions{
-			Level: hclog.Error,
+			Level:  hclog.Debug,
+			Output: logger.PluginFileWriter,
 		}),
 		GRPCDialOptions: []grpc.DialOption{
 			grpc.WithChainUnaryInterceptor(
@@ -61,8 +63,7 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, opts ...ClientOption) 
 			grpc.WithPerRPCCredentials(cluster.ClusterIDKey),
 			grpc.WithPerRPCCredentials(session.AttributesKey),
 		},
-		SyncStderr: os.Stderr,
-		Stderr:     os.Stderr,
+		Stderr: os.Stderr,
 	}
 
 	if options.reattach != nil {

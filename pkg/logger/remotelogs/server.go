@@ -77,7 +77,8 @@ func (ls *LogServer) StreamLogs(req *controlv1.LogStreamRequest, server controlv
 			return nil
 		}
 		if err != nil {
-			return err
+			ls.logger.Warn("malformed log record, skipping", logger.Err(err))
+			continue
 		}
 
 		if minLevel != nil && logger.ParseLevel(msg.Level) < slog.Level(*minLevel) {
@@ -123,7 +124,6 @@ func (ls *LogServer) getLogMessage(f afero.File) (*controlv1.StructuredLogRecord
 	}
 
 	if err := proto.Unmarshal(recordBytes, record); err != nil {
-		ls.logger.Error("failed to unmarshal record bytes")
 		return nil, err
 	}
 

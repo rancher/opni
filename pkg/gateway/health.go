@@ -6,7 +6,6 @@ import (
 	"path"
 	"strings"
 	sync "sync"
-	"time"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/health"
@@ -260,7 +259,6 @@ type HealthStatusReader struct {
 var _ health.HealthStatusUpdateReader = (*HealthStatusReader)(nil)
 
 type HealthStatusReaderOptions struct {
-	filter func(id string) bool
 }
 
 type HealthStatusReaderOption func(*HealthStatusReaderOptions)
@@ -271,15 +269,8 @@ func (o *HealthStatusReaderOptions) apply(opts ...HealthStatusReaderOption) {
 	}
 }
 
-func WithFilter(filter func(id string) bool) HealthStatusReaderOption {
-	return func(o *HealthStatusReaderOptions) {
-		o.filter = filter
-	}
-}
 func NewHealthStatusReader(ctx context.Context, kv storage.KeyValueStore, opts ...HealthStatusReaderOption) (health.HealthStatusUpdateReader, error) {
-	options := HealthStatusReaderOptions{
-		filter: func(_ string) bool { return true },
-	}
+	options := HealthStatusReaderOptions{}
 	options.apply(opts...)
 
 	healthC := make(chan health.HealthUpdate, 256)
@@ -297,9 +288,6 @@ func NewHealthStatusReader(ctx context.Context, kv storage.KeyValueStore, opts .
 		return parts[0], parts[1], true
 	}
 
-	healthTime := time.Time{}
-	statusTime := time.Time{}
-
 	go func() {
 		defer close(healthC)
 		defer close(statusC)
@@ -310,10 +298,6 @@ func NewHealthStatusReader(ctx context.Context, kv storage.KeyValueStore, opts .
 				id, _, ok := decodeKey(event.Current.Key())
 				if !ok {
 					// fmt.Println("could not decode key")
-					continue
-				}
-				if !options.filter(id) {
-					// fmt.Println("excluded by filter")
 					continue
 				}
 
@@ -327,48 +311,26 @@ func NewHealthStatusReader(ctx context.Context, kv storage.KeyValueStore, opts .
 					// ignore the event
 					continue
 				}
-				updatedHealthTime := info.GetHealth().GetTimestamp().AsTime()
 				if info.Health != nil {
-					if updatedHealthTime.After(healthTime) {
-						healthC <- health.HealthUpdate{
-							ID:     id,
-							Health: info.Health,
-						}
-					}
-				} else {
 					healthC <- health.HealthUpdate{
-						ID: id,
-						Health: &corev1.Health{
-							Timestamp: timestamppb.Now(),
-							Ready:     false,
-						},
+						ID:     id,
+						Health: info.Health,
 					}
 				}
-				healthTime = updatedHealthTime
 
-				updatedStatusTime := info.GetStatus().GetTimestamp().AsTime()
 				if info.Status != nil {
-					if updatedStatusTime.After(statusTime) {
-						statusC <- health.StatusUpdate{
-							ID:     id,
-							Status: info.Status,
-						}
-					}
-				} else {
 					statusC <- health.StatusUpdate{
-						ID: id,
-						Status: &corev1.Status{
-							Timestamp: timestamppb.Now(),
-							Connected: false,
-						},
+						ID:     id,
+						Status: info.Status,
 					}
 				}
-				statusTime = updatedStatusTime
 			case storage.WatchEventDelete:
 				id, _, ok := decodeKey(event.Previous.Key())
-				if !ok || !options.filter(id) {
+				if !ok {
+					// fmt.Println("could not decode key")
 					continue
 				}
+
 				var info corev1.InstanceInfo
 				if err := proto.Unmarshal(event.Previous.Value(), &info); err != nil {
 					// fmt.Println("could not unmarshal instance info")
@@ -387,7 +349,6 @@ func NewHealthStatusReader(ctx context.Context, kv storage.KeyValueStore, opts .
 						Ready:     false,
 					},
 				}
-				healthTime = time.Time{}
 				statusC <- health.StatusUpdate{
 					ID: id,
 					Status: &corev1.Status{
@@ -395,7 +356,6 @@ func NewHealthStatusReader(ctx context.Context, kv storage.KeyValueStore, opts .
 						Connected: false,
 					},
 				}
-				statusTime = time.Time{}
 			}
 		}
 	}()

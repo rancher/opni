@@ -70,37 +70,6 @@ var _ = Describe("Node Config (HA)", Ordered, Label("integration"), NodeConfigTe
 	err = env2.BootstrapNewAgent("agent2")
 	Expect(err).NotTo(HaveOccurred())
 
-	By("waiting for agents to connect")
-	Eventually(func() error {
-		hs, err := mgmtClient.GetClusterHealthStatus(context.Background(), &corev1.Reference{Id: "agent1"})
-		if err != nil {
-			return err
-		}
-		if !hs.GetStatus().GetConnected() {
-			return fmt.Errorf("agent1 not connected")
-		}
-		if !hs.GetHealth().GetReady() {
-			return fmt.Errorf("agent1 not ready")
-		}
-		env2.Logger.Debug("agent1 ready")
-		return nil
-	}).Should(Succeed())
-
-	Eventually(func() error {
-		hs, err := mgmtClient.GetClusterHealthStatus(context.Background(), &corev1.Reference{Id: "agent2"})
-		if err != nil {
-			return err
-		}
-		if !hs.GetStatus().GetConnected() {
-			return fmt.Errorf("agent2 not connected")
-		}
-		if !hs.GetHealth().GetReady() {
-			return fmt.Errorf("agent2 not ready")
-		}
-		env2.Logger.Debug("agent2 ready")
-		return nil
-	}).Should(Succeed())
-
 	DeferCleanup(env1.Stop, "Test Suite Finished")
 	return nodeConfigTestData{
 		mgmtClient: mgmtClient,

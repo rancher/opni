@@ -73,6 +73,7 @@ type HistoryRequestType interface {
 
 type ResetRequestType[T ConfigType[T]] interface {
 	proto.Message
+	GetRevision() *corev1.Revision
 	GetMask() *fieldmaskpb.FieldMask
 	GetPatch() T
 }

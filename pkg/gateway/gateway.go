@@ -40,6 +40,7 @@ import (
 	k8sserver "github.com/rancher/opni/pkg/update/kubernetes/server"
 	patchserver "github.com/rancher/opni/pkg/update/patch/server"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/versions"
 	"github.com/samber/lo"
 	"github.com/spf13/afero"
 	"golang.org/x/mod/module"
@@ -290,9 +291,15 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 			lg.Warn("management advertise address not set; will advertise the listen address")
 			mgmtAdvertiseAddr = conf.Spec.Management.GRPCListenAddress
 		}
+		hostname, _ := os.Hostname()
 		connectionTracker = NewConnectionTracker(ctx, &corev1.InstanceInfo{
 			RelayAddress:      os.ExpandEnv(relayAdvertiseAddr),
 			ManagementAddress: os.ExpandEnv(mgmtAdvertiseAddr),
+			Annotations: map[string]string{
+				"hostname": hostname,
+				"pid":      fmt.Sprint(os.Getpid()),
+				"version":  versions.Version,
+			},
 		}, connectionsKv, connectionsLm, lg)
 
 		writerManager := NewHealthStatusWriterManager(ctx, connectionsKv, lg)

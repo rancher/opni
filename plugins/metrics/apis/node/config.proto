@@ -175,9 +175,10 @@ message ConfigurationHistoryResponse {
 }
 
 message ResetRequest {
-  core.Reference            node  = 1; // Only used for active config requests
-  google.protobuf.FieldMask mask  = 2 [(cli.flag).skip = true];
-  MetricsCapabilityConfig   patch = 3 [(cli.flag).skip = true];
+  core.Reference            node     = 1; // Only used for active config requests
+  core.Revision             revision = 2 [(cli.flag_set).no_prefix = true];
+  google.protobuf.FieldMask mask     = 3 [(cli.flag).skip = true];
+  MetricsCapabilityConfig   patch    = 4 [(cli.flag).skip = true];
 }
 
 message GetRequest {

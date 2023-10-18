@@ -33,8 +33,8 @@ func cortexAdminPreRunE(cmd *cobra.Command, _ []string) error {
 	opsClient = cortexops.NewCortexOpsClient(managementv1.UnderlyingConn(mgmtClient))
 	nodeConfigClient = node.NewNodeConfigurationClient(managementv1.UnderlyingConn(mgmtClient))
 	cmd.SetContext(
-		node.ContextWithNodeConfigurationClient(
-			cortexops.ContextWithCortexOpsClient(
+		node.NodeConfigurationContextInjector.ContextWithClient(
+			cortexops.CortexOpsContextInjector.ContextWithClient(
 				cmd.Context(), opsClient), nodeConfigClient))
 	return nil
 }

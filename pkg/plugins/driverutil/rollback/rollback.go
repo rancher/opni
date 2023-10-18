@@ -1,7 +1,6 @@
 package rollback
 
 import (
-	"context"
 	"fmt"
 	"slices"
 	"strings"
@@ -29,6 +28,8 @@ import (
 //
 //	rollback.BuildCmd("rollback", NewXClientFromContext)
 func BuildCmd[
+	I driverutil.ClientContextInjector[C],
+
 	T driverutil.ConfigType[T],
 	G driverutil.GetRequestType,
 	S driverutil.SetRequestType[T],
@@ -44,7 +45,7 @@ func BuildCmd[
 		driverutil.DryRunClient[T, D, DR]
 		driverutil.HistoryClient[T, H, HR]
 	},
-](use string, newClientFunc func(context.Context) (C, bool)) *cobra.Command {
+](use string, cci I) *cobra.Command {
 	var (
 		revision   *int64
 		target     driverutil.Target
@@ -86,7 +87,7 @@ constitute a discontinuity and the rollback will proceed as normal, except that
 the secret values will not change from the current configuration.
 `[1:],
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, ok := newClientFunc(cmd.Context())
+			client, ok := cci.ClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
 				return nil
@@ -312,7 +313,7 @@ the secret values will not change from the current configuration.
 	cmd.MarkFlagRequired("revision")
 	cmd.RegisterFlagCompletionFunc("revision", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		cliutil.BasePreRunE(cmd, args)
-		client, ok := newClientFunc(cmd.Context())
+		client, ok := cci.ClientFromContext(cmd.Context())
 		if !ok {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}

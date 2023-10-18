@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 	sync "sync"
+	"time"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
@@ -31,6 +32,7 @@ type activeTrackedConnection struct {
 	agentId               string
 	leaseId               string
 	revision              int64
+	timestamp             time.Time
 	instanceInfo          *corev1.InstanceInfo
 	trackingContext       context.Context
 	cancelTrackingContext context.CancelFunc

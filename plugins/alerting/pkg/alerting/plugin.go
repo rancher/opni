@@ -188,6 +188,16 @@ func NewPlugin(ctx context.Context) *Plugin {
 	)
 
 	future.Wait2(p.storageClientSet, p.alertingClient, func(s spec.AlertingClientSet, alertingClient client.AlertingClient) {
+		serverCfg := server.Config{
+			Client: alertingClient.Clone(),
+		}
+		p.NotificationServerComponent.SetConfig(
+			serverCfg,
+		)
+
+		p.EndpointServerComponent.SetConfig(
+			serverCfg,
+		)
 		p.NotificationServerComponent.Initialize(notifications.NotificationServerConfiguration{
 			ConditionStorage: s.Conditions(),
 			EndpointStorage:  s.Endpoints(),
@@ -200,16 +210,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 			HashRing:         s,
 		})
 
-		serverCfg := server.Config{
-			Client: alertingClient,
-		}
-		p.NotificationServerComponent.SetConfig(
-			serverCfg,
-		)
-
-		p.EndpointServerComponent.SetConfig(
-			serverCfg,
-		)
 	})
 
 	future.Wait6(
@@ -222,6 +222,13 @@ func NewPlugin(ctx context.Context) *Plugin {
 			cortexOpsClient cortexops.CortexOpsClient,
 			alertingClient client.AlertingClient,
 		) {
+			serverCfg := server.Config{
+				Client: alertingClient.Clone(),
+			}
+
+			p.AlarmServerComponent.SetConfig(
+				serverCfg,
+			)
 			p.AlarmServerComponent.Initialize(alarms.AlarmServerConfiguration{
 				ConditionStorage: s.Conditions(),
 				IncidentStorage:  s.Incidents(),
@@ -232,14 +239,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 				CortexOpsClient:  cortexOpsClient,
 				Js:               js,
 			})
-
-			serverCfg := server.Config{
-				Client: alertingClient,
-			}
-
-			p.AlarmServerComponent.SetConfig(
-				serverCfg,
-			)
 		})
 	return p
 }

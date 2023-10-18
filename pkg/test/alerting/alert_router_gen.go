@@ -413,6 +413,7 @@ func RunAlertManager(
 		client.WithQuerierAddress(
 			fmt.Sprintf("127.0.0.1:%d", ports.EmbeddedPort),
 		),
+		client.WithTLSConfig(e.AlertingClientTLSConfig()),
 	)
 	Expect(err).To(Succeed())
 	Eventually(func() error {
@@ -461,6 +462,9 @@ func ExpectAlertManagerConfigToBeValid(
 		),
 		client.WithQuerierAddress(
 			fmt.Sprintf("127.0.0.1:%d", ports.EmbeddedPort),
+		),
+		client.WithTLSConfig(
+			env.AlertingClientTLSConfig(),
 		),
 	)
 	Expect(err).To(Succeed())

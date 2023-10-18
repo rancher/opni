@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"math"
 	"math/rand"
@@ -383,6 +384,53 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		}
 	}
 
+	{
+		alertingTempDir := e.AlertingDataDir()
+		if err := os.MkdirAll(path.Join(alertingTempDir, "certs"), 0700); err != nil {
+			return err
+		}
+		entries, _ := fs.ReadDir(testdata.TestDataFS, "testdata/alerting")
+		lg.Infof("Copying %d files from embedded testdata/alerting to %s", len(entries), alertingTempDir)
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+
+			if err := os.WriteFile(
+				path.Join(alertingTempDir, entry.Name()),
+				testdata.TestData("alerting/"+entry.Name()),
+				0644,
+			); err != nil {
+				return err
+			}
+		}
+		// prometheus-webkit does something really annoying with marshalling that does not work
+		// when we marshal->unmarshal the struct
+		httpConfig := fmt.Sprintf(`
+tls_server_config:
+    cert_file: %s
+    key_file: %s
+    client_auth_type: ""
+    client_ca_file: ""
+    cipher_suites: []
+    curve_preferences: []
+    min_version: TLS12
+    max_version: TLS13
+    prefer_server_cipher_suites: false
+    client_allowed_sans: []
+http_server_config:
+    http2: false
+
+`,
+			path.Join(alertingTempDir, "server.crt"),
+			path.Join(alertingTempDir, "server.key"),
+		)
+
+		if err := os.WriteFile(path.Join(alertingTempDir, "web.yaml"), []byte(httpConfig), 0644); err != nil {
+			return err
+		}
+	}
+
 	if err := os.Mkdir(path.Join(e.tempDir, "prometheus"), 0700); err != nil {
 		return err
 	}
@@ -414,6 +462,10 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		e.startGateway()
 	}
 	return nil
+}
+
+func (e *Environment) AlertingDataDir() string {
+	return path.Join(e.tempDir, "alerting")
 }
 
 func (e *Environment) GetPorts() ServicePorts {
@@ -646,6 +698,7 @@ func (e *Environment) StartEmbeddedAlertManager(
 		"--cluster.gossip-interval=200ms",
 		"--log.level=debug",
 		"--no-opni.send-k8s",
+		fmt.Sprintf("--web.config.file=%s", path.Join(e.AlertingDataDir(), "web.yaml")),
 	}
 	if opniPort != nil {
 		defaultArgs = append(defaultArgs, fmt.Sprintf("--opni.listen-address=:%d", *opniPort))
@@ -662,13 +715,28 @@ func (e *Environment) StartEmbeddedAlertManager(
 		}
 	}
 	e.Logger.Info("Waiting for alertmanager to start...")
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: e.AlertingClientTLSConfig(),
+		},
+	}
 	for e.ctx.Err() == nil {
-		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/-/ready", ports.ApiPort))
+		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://localhost:%d/-/ready", ports.ApiPort), nil)
+		if err != nil {
+			panic(err)
+		}
+		resp, err := httpClient.Do(req)
 		if err == nil {
 			defer resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
+				e.Logger.Info("Alertmanager ready")
 				break
+			} else {
+				body, _ := io.ReadAll(resp.Body)
+				e.Logger.With("code", resp.StatusCode, "resp", string(body)).Warn("AlertManager not ready yet")
 			}
+		} else {
+			e.Logger.Warn(err)
 		}
 		time.Sleep(time.Second)
 	}
@@ -1516,6 +1584,14 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 					panic("unknown storage backend")
 				}),
 			Alerting: v1beta1.AlertingSpec{
+
+				Certs: v1beta1.MTLSSpec{
+					ServerCA:   path.Join(e.tempDir, "alerting/root.crt"),
+					ClientCA:   path.Join(e.tempDir, "alerting/root.crt"),
+					ClientCert: path.Join(e.tempDir, "alerting/client.crt"),
+					ClientKey:  path.Join(e.tempDir, "alerting/client.key"),
+				},
+
 				ConfigMap:             "alertmanager-config",
 				Namespace:             "default",
 				WorkerNodeService:     "opni-alerting",
@@ -2095,6 +2171,32 @@ func (e *Environment) GatewayClientTLSConfig() *tls.Config {
 		MinVersion:   tls.VersionTLS12,
 		RootCAs:      pool,
 		Certificates: []tls.Certificate{clientCert},
+	}
+}
+
+func (e *Environment) AlertingClientTLSConfig() *tls.Config {
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(testdata.TestData("alerting/root.crt")) {
+		e.Logger.Panic("failed to load Alerting CA cert")
+	}
+	clientCert := testdata.TestData("alerting/client.crt")
+	clientKey := testdata.TestData("alerting/client.key")
+	clientCa := testdata.TestData("alerting/root.crt")
+	cert, err := tls.X509KeyPair(clientCert, clientKey)
+	if err != nil {
+		e.Logger.Panic(err)
+	}
+
+	clientCaPool := x509.NewCertPool()
+
+	if ok := clientCaPool.AppendCertsFromPEM(clientCa); !ok {
+		e.Logger.Panic("failed to load Alerting CA cert")
+	}
+	return &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		RootCAs:      pool,
+		ClientCAs:    clientCaPool,
+		Certificates: []tls.Certificate{cert},
 	}
 }
 

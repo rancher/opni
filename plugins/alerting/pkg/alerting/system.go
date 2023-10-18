@@ -169,6 +169,7 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 			alertingClient, err := p.alertingClient.GetContext(ctxca)
 			if err != nil {
 				p.logger.Error(err)
+				return
 			}
 
 			alertingClient.MemberlistClient().SetKnownPeers(peers)

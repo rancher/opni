@@ -91,6 +91,33 @@ func (r *Reconciler) alerting() ([]resources.Resource, error) {
 				Scheme:     "https",
 				Path:       "/metrics",
 				TargetPort: lo.ToPtr(intstr.FromString("web-port")),
+				TLSConfig: &monitoringv1.TLSConfig{
+					SafeTLSConfig: monitoringv1.SafeTLSConfig{
+						CA: monitoringv1.SecretOrConfigMap{
+							Secret: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "alerting-client-cert-keys",
+								},
+								Key: "ca.crt",
+							},
+						},
+						Cert: monitoringv1.SecretOrConfigMap{
+							Secret: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "alerting-client-cert-keys",
+								},
+								Key: "tls.crt",
+							},
+						},
+						KeySecret: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "alerting-client-cert-keys",
+							},
+							Key: "tls.key",
+						},
+						ServerName: "opni-alertmanager-alerting",
+					},
+				},
 			},
 		},
 	)
@@ -127,7 +154,7 @@ func (r *Reconciler) alertmanagerWorkerArgs() []string {
 	amArgs := []string{
 		fmt.Sprintf("--config.file=%s", r.configPath()),
 		fmt.Sprintf("--storage.path=%s", dataMountPath),
-		fmt.Sprintf("--log.level=%s", "debug"),
+		fmt.Sprintf("--log.level=%s", "info"),
 		"--log.format=json",
 		fmt.Sprintf("--opni.listen-address=:%d", 3000),
 		fmt.Sprintf("--web.config.file=%s", path.Join(webMountPath, "web.yml")),

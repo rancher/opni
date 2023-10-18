@@ -156,6 +156,9 @@ func BuildRoutingLogicTest(
 					client.WithQuerierAddress(
 						fmt.Sprintf("127.0.0.1:%d", 0),
 					),
+					client.WithTLSConfig(
+						env.AlertingClientTLSConfig(),
+					),
 				)
 				Expect(err).To(Succeed())
 				defer ca()
@@ -194,6 +197,9 @@ func BuildRoutingLogicTest(
 					),
 					client.WithQuerierAddress(
 						fmt.Sprintf("127.0.0.1:%d", 0),
+					),
+					client.WithTLSConfig(
+						env.AlertingClientTLSConfig(),
 					),
 				)
 				Expect(err).To(Succeed())
@@ -239,6 +245,7 @@ func BuildRoutingLogicTest(
 					client.WithQuerierAddress(
 						fmt.Sprintf("127.0.0.1:%d", 0),
 					),
+					client.WithTLSConfig(env.AlertingClientTLSConfig()),
 				)
 				Expect(err).To(Succeed())
 				By("sending alerts to each condition in the router")
@@ -284,6 +291,7 @@ func (t testSpecSuite) ExpectAlertsToBeRouted(amPort int) error {
 		client.WithQuerierAddress(
 			fmt.Sprintf("127.0.0.1:%d", 0),
 		),
+		client.WithTLSConfig(env.AlertingClientTLSConfig()),
 	)
 	Expect(err).To(Succeed())
 	ags, err := alertingClient.ListAlerts(context.Background())

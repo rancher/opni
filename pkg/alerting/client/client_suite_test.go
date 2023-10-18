@@ -69,8 +69,9 @@ var _ = BeforeSuite(func() {
 				fmt.Sprintf("127.0.0.1:%d", ports.ApiPort),
 			),
 			client.WithQuerierAddress(
-				fmt.Sprintf("127.0.0.1:localhost:%d", ports.EmbeddedPort),
+				fmt.Sprintf("127.0.0.1:%d", ports.EmbeddedPort),
 			),
+			client.WithTLSConfig(env.AlertingClientTLSConfig()),
 		)
 		Expect(err).To(Succeed())
 		cl = clA
@@ -114,6 +115,7 @@ var _ = BeforeSuite(func() {
 			client.WithQuerierAddress(
 				fmt.Sprintf("127.0.0.1:%d", ports.EmbeddedPort),
 			),
+			client.WithTLSConfig(env.AlertingClientTLSConfig()),
 		)
 		Expect(err).To(Succeed())
 

@@ -13,7 +13,6 @@ import (
 	"github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
-	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/spf13/cobra"
 )
@@ -57,7 +56,7 @@ func BuildAlertingSyncer() *cobra.Command {
 		Short:              "Run the side-car Alertmanager alerting syncer server",
 		Long:               "Note: this command is only intended to be run as a side-car container to the Alertmanager server.",
 		DisableFlagParsing: false,
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			tracing.Configure("alerting-syncer")
 			flag.CommandLine = flag.NewFlagSet("syncer", flag.ExitOnError)
 
@@ -72,8 +71,8 @@ func BuildAlertingSyncer() *cobra.Command {
 			}
 
 			if err := serverConfig.Validate(); err != nil {
-				lg.Error("error", logger.Err(err))
-				os.Exit(1)
+				lg.Error(err)
+				return err
 			}
 			lg.Debug("syncer gateway join address" + syncerGatewayJoinAddress)
 
@@ -92,11 +91,14 @@ func BuildAlertingSyncer() *cobra.Command {
 			tlsConfig, err := clientConfig.Init()
 			if err != nil {
 				lg.Errorf("failed to load tls client config %s, exiting...", err)
+				return err
 			}
 			err = syncer.Main(cmd.Context(), serverConfig, tlsConfig)
 			if err != nil {
-				lg.Error("error", logger.Err(err))
+				lg.Error(err)
+				return err
 			}
+			return nil
 		},
 		Args: cobra.NoArgs,
 	}

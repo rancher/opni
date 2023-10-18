@@ -67,6 +67,9 @@ func BuildEmbeddedServerNotificationTests(
 			client.WithQuerierAddress(
 				fmt.Sprintf("127.0.0.1:%d", opniPort),
 			),
+			client.WithTLSConfig(
+				env.AlertingClientTLSConfig(),
+			),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		sendMsgAlertManager := func(ctx context.Context, labels, annotations map[string]string, alertManagerPort int) {
@@ -290,6 +293,7 @@ func BuildEmbeddedServerNotificationTests(
 					client.WithQuerierAddress(
 						fmt.Sprintf("127.0.0.1:%d", opniPort),
 					),
+					client.WithTLSConfig(env.AlertingClientTLSConfig()),
 				)
 				Expect(err).NotTo(HaveOccurred())
 			})

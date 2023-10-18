@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -250,7 +251,7 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(_ context.Context, _ *empt
 		)
 	}
 	var err error
-	l.AlertingClient, err = client.NewClient(
+	aClient, err := client.NewClient(
 		client.WithAlertManagerAddress(
 			fmt.Sprintf("127.0.0.1:%d", l.managedInstances[0].AlertManagerPort),
 		),
@@ -260,10 +261,14 @@ func (l *TestEnvAlertingClusterDriver) InstallCluster(_ context.Context, _ *empt
 		client.WithQuerierAddress(
 			l.embdServerAddress,
 		),
+		client.WithTLSConfig(
+			l.env.AlertingClientTLSConfig(),
+		),
 	)
 	if err != nil {
 		panic(err)
 	}
+	l.AlertingClient = aClient
 
 	peers := []client.AlertingPeer{}
 	for _, inst := range l.managedInstances {
@@ -342,21 +347,36 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 		fmt.Sprintf("--syncer.alertmanager.address=%s", "127.0.0.1:"+strconv.Itoa(webPort)),
 		fmt.Sprintf("--syncer.gateway.join.address=%s", ":"+strings.Split(l.env.GatewayConfig().Spec.Management.GRPCListenAddress, ":")[2]),
 		"syncer",
+		fmt.Sprintf(
+			"--syncer.tls.server.ca=%s",
+			path.Join(l.env.AlertingDataDir(), "root.crt"),
+		),
+		fmt.Sprintf(
+			"--syncer.tls.client.ca=%s",
+			path.Join(l.env.AlertingDataDir(), "root.crt"),
+		),
+		fmt.Sprintf(
+			"--syncer.tls.client.cert=%s",
+			path.Join(l.env.AlertingDataDir(), "client.crt"),
+		),
+		fmt.Sprintf(
+			"--syncer.tls.client.key=%s",
+			path.Join(l.env.AlertingDataDir(), "client.key"),
+		),
 	}
-
-	l.logger.Debug("Syncer start : " + strings.Join(syncerArgs, " "))
 
 	clusterPort := freeport.GetFreePort()
 
 	alertmanagerArgs := []string{
 		"alerting-server",
 		"alertmanager",
-		"--log.level=error",
+		"--log.level=debug",
 		"--log.format=json",
 		fmt.Sprintf("--config.file=%s", configFilePath),
 		fmt.Sprintf("--web.listen-address=127.0.0.1:%d", webPort),
 		fmt.Sprintf("--cluster.listen-address=127.0.0.1:%d", clusterPort),
 		"--storage.path=/tmp/data",
+		fmt.Sprintf("--web.config.file=%s", path.Join(l.env.AlertingDataDir(), "web.yaml")),
 	}
 
 	if len(l.managedInstances) > 0 {
@@ -371,6 +391,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	ctxCa, cancelFunc := context.WithCancel(ctx)
 	alertmanagerCmd := exec.CommandContext(ctxCa, opniBin, alertmanagerArgs...)
 	plugins.ConfigureSysProcAttr(alertmanagerCmd)
+	l.logger.Debug("Starting opni alertmanagwer with : " + strings.Join(alertmanagerArgs, " "))
 	l.logger.With("alertmanager-port", webPort, "opni-port", opniPort).Info("Starting AlertManager")
 	session, err := testutil.StartCmd(alertmanagerCmd)
 	if err != nil {
@@ -381,12 +402,30 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 		}
 	}
 	retries := 0
+	tlsConfig := l.env.AlertingClientTLSConfig()
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+	}
+
 	for ctx.Err() == nil {
-		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/-/ready", webPort))
+		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://127.0.0.1:%d/-/ready", webPort), nil)
+		if err != nil {
+			panic(err)
+		}
+		resp, err := httpClient.Do(req)
 		if err == nil {
 			defer resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
+				l.logger.Info("Alertmanager successfully started")
 				break
+			} else {
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					l.logger.Warn(err)
+				}
+				l.logger.With("code", resp.StatusCode, "resp", string(body)).Warnf("Alertmanager not ready yet : %d", resp.StatusCode)
 			}
 		}
 		time.Sleep(time.Second)
@@ -396,6 +435,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 		}
 	}
 
+	l.logger.Debug("Syncer starting with : " + strings.Join(syncerArgs, " "))
 	syncerCmd := exec.CommandContext(ctxCa, opniBin, syncerArgs...)
 	plugins.ConfigureSysProcAttr(syncerCmd)
 	l.logger.With("port", syncerPort).Info("Starting AlertManager Syncer")

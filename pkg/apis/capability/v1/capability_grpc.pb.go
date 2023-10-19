@@ -534,7 +534,7 @@ func (c *rBACManagerClient) ListRoles(ctx context.Context, in *emptypb.Empty, op
 }
 
 // RBACManagerServer is the server API for RBACManager service.
-// All implementations must embed UnimplementedRBACManagerServer
+// All implementations should embed UnimplementedRBACManagerServer
 // for forward compatibility
 type RBACManagerServer interface {
 	// Returns info about the manager, including capability name
@@ -545,10 +545,9 @@ type RBACManagerServer interface {
 	UpdateRole(context.Context, *v1.Role) (*emptypb.Empty, error)
 	DeleteRole(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	ListRoles(context.Context, *emptypb.Empty) (*v1.RoleList, error)
-	mustEmbedUnimplementedRBACManagerServer()
 }
 
-// UnimplementedRBACManagerServer must be embedded to have forward compatible implementations.
+// UnimplementedRBACManagerServer should be embedded to have forward compatible implementations.
 type UnimplementedRBACManagerServer struct {
 }
 
@@ -573,7 +572,6 @@ func (UnimplementedRBACManagerServer) DeleteRole(context.Context, *v1.Reference)
 func (UnimplementedRBACManagerServer) ListRoles(context.Context, *emptypb.Empty) (*v1.RoleList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListRoles not implemented")
 }
-func (UnimplementedRBACManagerServer) mustEmbedUnimplementedRBACManagerServer() {}
 
 // UnsafeRBACManagerServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to RBACManagerServer will

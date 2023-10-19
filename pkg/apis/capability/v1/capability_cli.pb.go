@@ -12,6 +12,7 @@ import (
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	strings "strings"
 )
 
@@ -70,22 +71,22 @@ func BuildBackendCmd() *cobra.Command {
 
 	cliutil.AddSubcommands(cmd, append([]*cobra.Command{
 		BuildBackendInfoCmd(),
-		BuildBackendCanInstallCmd(),
+		BuildBackendListCmd(),
 		BuildBackendInstallCmd(),
 		BuildBackendStatusCmd(),
 		BuildBackendUninstallCmd(),
 		BuildBackendUninstallStatusCmd(),
 		BuildBackendCancelUninstallCmd(),
-		BuildBackendInstallerTemplateCmd(),
 	}, extraCmds_Backend...)...)
 	cli.AddOutputFlag(cmd)
 	return cmd
 }
 
 func BuildBackendInfoCmd() *cobra.Command {
+	in := &v1.Reference{}
 	cmd := &cobra.Command{
 		Use:               "info",
-		Short:             "Returns info about the backend, including capability name",
+		Short:             "Returns info about the backend, including capability name.",
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -94,7 +95,34 @@ func BuildBackendInfoCmd() *cobra.Command {
 				cmd.PrintErrln("failed to get client from context")
 				return nil
 			}
-			response, err := client.Info(cmd.Context(), &emptypb.Empty{})
+			if in == nil {
+				return errors.New("no input provided")
+			}
+			response, err := client.Info(cmd.Context(), in)
+			if err != nil {
+				return err
+			}
+			cli.RenderOutput(cmd, response)
+			return nil
+		},
+	}
+	cmd.Flags().AddFlagSet(in.FlagSet())
+	return cmd
+}
+
+func BuildBackendListCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:               "list",
+		Short:             "Returns a list of capabilities available in the backend.",
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, ok := BackendClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			response, err := client.List(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
 				return err
 			}
@@ -105,34 +133,11 @@ func BuildBackendInfoCmd() *cobra.Command {
 	return cmd
 }
 
-func BuildBackendCanInstallCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:               "can-install",
-		Short:             "Returns an error if installing the capability would fail.",
-		Deprecated:        "CanInstall is deprecated.",
-		Args:              cobra.NoArgs,
-		ValidArgsFunction: cobra.NoFileCompletions,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, ok := BackendClientFromContext(cmd.Context())
-			if !ok {
-				cmd.PrintErrln("failed to get client from context")
-				return nil
-			}
-			_, err := client.CanInstall(cmd.Context(), &emptypb.Empty{})
-			if err != nil {
-				return err
-			}
-			return nil
-		},
-	}
-	return cmd
-}
-
 func BuildBackendInstallCmd() *cobra.Command {
 	in := &InstallRequest{}
 	cmd := &cobra.Command{
 		Use:               "install",
-		Short:             "Installs the capability on a cluster.",
+		Short:             "Installs the capability on an agent.",
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -157,13 +162,10 @@ func BuildBackendInstallCmd() *cobra.Command {
 }
 
 func BuildBackendStatusCmd() *cobra.Command {
-	in := &v1.Reference{}
+	in := &StatusRequest{}
 	cmd := &cobra.Command{
-		Use:   "status",
-		Short: "Returns common runtime config info for this capability from a specific",
-		Long: `
-cluster (node).
-`[1:],
+		Use:               "status",
+		Short:             "Returns common runtime config info for this capability from a specific agent.",
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -220,7 +222,7 @@ using the CancelUninstall method.
 }
 
 func BuildBackendUninstallStatusCmd() *cobra.Command {
-	in := &v1.Reference{}
+	in := &UninstallStatusRequest{}
 	cmd := &cobra.Command{
 		Use:               "uninstall-status",
 		Short:             "Gets the status of the uninstall task for the given cluster.",
@@ -248,7 +250,7 @@ func BuildBackendUninstallStatusCmd() *cobra.Command {
 }
 
 func BuildBackendCancelUninstallCmd() *cobra.Command {
-	in := &v1.Reference{}
+	in := &CancelUninstallRequest{}
 	cmd := &cobra.Command{
 		Use:               "cancel-uninstall",
 		Short:             "Cancels an uninstall task for the given cluster, if it is still pending.",
@@ -271,34 +273,6 @@ func BuildBackendCancelUninstallCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().AddFlagSet(in.FlagSet())
-	return cmd
-}
-
-func BuildBackendInstallerTemplateCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "installer-template",
-		Short: "Returns a go template string which will generate a shell command used to",
-		Long: `
-install the capability. This will be displayed to the user in the UI.
-See InstallerTemplateSpec above for the available template fields.
-`[1:],
-		Deprecated:        "InstallerTemplate is deprecated.",
-		Args:              cobra.NoArgs,
-		ValidArgsFunction: cobra.NoFileCompletions,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, ok := BackendClientFromContext(cmd.Context())
-			if !ok {
-				cmd.PrintErrln("failed to get client from context")
-				return nil
-			}
-			response, err := client.InstallerTemplate(cmd.Context(), &emptypb.Empty{})
-			if err != nil {
-				return err
-			}
-			cli.RenderOutput(cmd, response)
-			return nil
-		},
-	}
 	return cmd
 }
 
@@ -556,21 +530,75 @@ func BuildRBACManagerListRolesCmd() *cobra.Command {
 func (in *InstallRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("InstallRequest", pflag.ExitOnError)
 	fs.SortFlags = true
-	if in.Cluster == nil {
-		in.Cluster = &v1.Reference{}
+	if in.Capability == nil {
+		in.Capability = &v1.Reference{}
 	}
-	fs.AddFlagSet(in.Cluster.FlagSet(append(prefix, "cluster")...))
+	fs.AddFlagSet(in.Capability.FlagSet(append(prefix, "capability")...))
+	if in.Agent == nil {
+		in.Agent = &v1.Reference{}
+	}
+	fs.AddFlagSet(in.Agent.FlagSet(append(prefix, "agent")...))
 	fs.BoolVar(&in.IgnoreWarnings, strings.Join(append(prefix, "ignore-warnings"), "."), false, "")
+	return fs
+}
+
+func (in *StatusRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("StatusRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Capability == nil {
+		in.Capability = &v1.Reference{}
+	}
+	fs.AddFlagSet(in.Capability.FlagSet(append(prefix, "capability")...))
+	if in.Agent == nil {
+		in.Agent = &v1.Reference{}
+	}
+	fs.AddFlagSet(in.Agent.FlagSet(append(prefix, "agent")...))
 	return fs
 }
 
 func (in *UninstallRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("UninstallRequest", pflag.ExitOnError)
 	fs.SortFlags = true
-	if in.Cluster == nil {
-		in.Cluster = &v1.Reference{}
+	if in.Capability == nil {
+		in.Capability = &v1.Reference{}
 	}
-	fs.AddFlagSet(in.Cluster.FlagSet(append(prefix, "cluster")...))
+	fs.AddFlagSet(in.Capability.FlagSet(append(prefix, "capability")...))
+	if in.Agent == nil {
+		in.Agent = &v1.Reference{}
+	}
+	fs.AddFlagSet(in.Agent.FlagSet(append(prefix, "agent")...))
+	if in.Options == nil {
+		in.Options = &structpb.Struct{}
+	}
+	fs.AddFlagSet(in.Options.FlagSet(append(prefix, "options")...))
+	return fs
+}
+
+func (in *UninstallStatusRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("UninstallStatusRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Capability == nil {
+		in.Capability = &v1.Reference{}
+	}
+	fs.AddFlagSet(in.Capability.FlagSet(append(prefix, "capability")...))
+	if in.Agent == nil {
+		in.Agent = &v1.Reference{}
+	}
+	fs.AddFlagSet(in.Agent.FlagSet(append(prefix, "agent")...))
+	return fs
+}
+
+func (in *CancelUninstallRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("CancelUninstallRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Capability == nil {
+		in.Capability = &v1.Reference{}
+	}
+	fs.AddFlagSet(in.Capability.FlagSet(append(prefix, "capability")...))
+	if in.Agent == nil {
+		in.Agent = &v1.Reference{}
+	}
+	fs.AddFlagSet(in.Agent.FlagSet(append(prefix, "agent")...))
 	return fs
 }
 

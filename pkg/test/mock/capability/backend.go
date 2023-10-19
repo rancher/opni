@@ -748,18 +748,6 @@ func (mr *MockRBACManagerServerMockRecorder) UpdateRole(arg0, arg1 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRole", reflect.TypeOf((*MockRBACManagerServer)(nil).UpdateRole), arg0, arg1)
 }
 
-// mustEmbedUnimplementedRBACManagerServer mocks base method.
-func (m *MockRBACManagerServer) mustEmbedUnimplementedRBACManagerServer() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "mustEmbedUnimplementedRBACManagerServer")
-}
-
-// mustEmbedUnimplementedRBACManagerServer indicates an expected call of mustEmbedUnimplementedRBACManagerServer.
-func (mr *MockRBACManagerServerMockRecorder) mustEmbedUnimplementedRBACManagerServer() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedRBACManagerServer", reflect.TypeOf((*MockRBACManagerServer)(nil).mustEmbedUnimplementedRBACManagerServer))
-}
-
 // MockUnsafeRBACManagerServer is a mock of UnsafeRBACManagerServer interface.
 type MockUnsafeRBACManagerServer struct {
 	ctrl     *gomock.Controller

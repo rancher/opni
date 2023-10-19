@@ -71,7 +71,6 @@ func BuildManagementCmd() *cobra.Command {
 		BuildManagementGetConfigCmd(),
 		BuildManagementUpdateConfigCmd(),
 		BuildManagementListCapabilitiesCmd(),
-		BuildManagementCapabilityInstallerCmd(),
 		BuildManagementInstallCapabilityCmd(),
 		BuildManagementUninstallCapabilityCmd(),
 		BuildManagementCapabilityStatusCmd(),
@@ -457,7 +456,7 @@ HTTP handlers for this method:
 func BuildManagementCreateBackendRoleCmd() *cobra.Command {
 	in := &v1.BackendRole{}
 	cmd := &cobra.Command{
-		Use:   "backend-role create",
+		Use:   "backend-roles create",
 		Short: "",
 		Long: `
 HTTP handlers for this method:
@@ -502,7 +501,7 @@ HTTP handlers for this method:
 func BuildManagementUpdateBackendRoleCmd() *cobra.Command {
 	in := &v1.BackendRole{}
 	cmd := &cobra.Command{
-		Use:   "backend-role update",
+		Use:   "backend-roles update",
 		Short: "",
 		Long: `
 HTTP handlers for this method:
@@ -547,7 +546,7 @@ HTTP handlers for this method:
 func BuildManagementDeleteBackendRoleCmd() *cobra.Command {
 	in := &v1.BackendRoleRequest{}
 	cmd := &cobra.Command{
-		Use:   "backend-role delete",
+		Use:   "backend-roles delete",
 		Short: "",
 		Long: `
 HTTP handlers for this method:
@@ -578,7 +577,7 @@ HTTP handlers for this method:
 func BuildManagementGetBackendRoleCmd() *cobra.Command {
 	in := &v1.BackendRoleRequest{}
 	cmd := &cobra.Command{
-		Use:   "backend-role get",
+		Use:   "backend-roles get",
 		Short: "",
 		Long: `
 HTTP handlers for this method:
@@ -610,7 +609,7 @@ HTTP handlers for this method:
 func BuildManagementListBackendRolesCmd() *cobra.Command {
 	in := &v1.CapabilityType{}
 	cmd := &cobra.Command{
-		Use:   "backend-role list",
+		Use:   "backend-roles list",
 		Short: "",
 		Long: `
 HTTP handlers for this method:
@@ -903,47 +902,14 @@ HTTP handlers for this method:
 	return cmd
 }
 
-func BuildManagementCapabilityInstallerCmd() *cobra.Command {
-	in := &CapabilityInstallerRequest{}
-	cmd := &cobra.Command{
-		Use:   "capability-installer",
-		Short: "Deprecated: For agent v2, use InstallCapability instead.",
-		Long: `
-HTTP handlers for this method:
-- POST /capabilities/{name}/installer
-`[1:],
-		Deprecated:        "CapabilityInstaller is deprecated.",
-		Args:              cobra.NoArgs,
-		ValidArgsFunction: cobra.NoFileCompletions,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, ok := ManagementClientFromContext(cmd.Context())
-			if !ok {
-				cmd.PrintErrln("failed to get client from context")
-				return nil
-			}
-			if in == nil {
-				return errors.New("no input provided")
-			}
-			response, err := client.CapabilityInstaller(cmd.Context(), in)
-			if err != nil {
-				return err
-			}
-			cli.RenderOutput(cmd, response)
-			return nil
-		},
-	}
-	cmd.Flags().AddFlagSet(in.FlagSet())
-	return cmd
-}
-
 func BuildManagementInstallCapabilityCmd() *cobra.Command {
-	in := &CapabilityInstallRequest{}
+	in := &v11.InstallRequest{}
 	cmd := &cobra.Command{
 		Use:   "install-capability",
 		Short: "",
 		Long: `
 HTTP handlers for this method:
-- POST /clusters/{target.cluster.id}/capabilities/{name}/install
+- POST /clusters/{agent.id}/capabilities/{capability.id}/install
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
@@ -969,13 +935,13 @@ HTTP handlers for this method:
 }
 
 func BuildManagementUninstallCapabilityCmd() *cobra.Command {
-	in := &CapabilityUninstallRequest{}
+	in := &v11.UninstallRequest{}
 	cmd := &cobra.Command{
 		Use:   "uninstall-capability",
 		Short: "",
 		Long: `
 HTTP handlers for this method:
-- POST /clusters/{target.cluster.id}/capabilities/{name}/uninstall
+- POST /clusters/{agent.id}/capabilities/{capability.id}/uninstall
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
@@ -1000,13 +966,13 @@ HTTP handlers for this method:
 }
 
 func BuildManagementCapabilityStatusCmd() *cobra.Command {
-	in := &CapabilityStatusRequest{}
+	in := &v11.StatusRequest{}
 	cmd := &cobra.Command{
 		Use:   "capability-status",
 		Short: "",
 		Long: `
 HTTP handlers for this method:
-- GET /clusters/{cluster.id}/capabilities/{name}/status
+- GET /clusters/{agent.id}/capabilities/{capability.id}/status
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
@@ -1032,13 +998,13 @@ HTTP handlers for this method:
 }
 
 func BuildManagementCapabilityUninstallStatusCmd() *cobra.Command {
-	in := &CapabilityStatusRequest{}
+	in := &v11.UninstallStatusRequest{}
 	cmd := &cobra.Command{
 		Use:   "capability-uninstall-status",
 		Short: "",
 		Long: `
 HTTP handlers for this method:
-- GET /clusters/{cluster.id}/capabilities/{name}/uninstall/status
+- GET /clusters/{agent.id}/capabilities/{capability.id}/uninstall/status
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
@@ -1064,13 +1030,13 @@ HTTP handlers for this method:
 }
 
 func BuildManagementCancelCapabilityUninstallCmd() *cobra.Command {
-	in := &CapabilityUninstallCancelRequest{}
+	in := &v11.CancelUninstallRequest{}
 	cmd := &cobra.Command{
 		Use:   "cancel-capability-uninstall",
 		Short: "",
 		Long: `
 HTTP handlers for this method:
-- POST /clusters/{cluster.id}/capabilities/{name}/uninstall/cancel
+- POST /clusters/{agent.id}/capabilities/{capability.id}/uninstall/cancel
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
@@ -1168,7 +1134,7 @@ func (in *ListClustersRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 		in.MatchLabels = &v1.LabelSelector{}
 	}
 	fs.AddFlagSet(in.MatchLabels.FlagSet(append(prefix, "match-labels")...))
-	fs.Var(flagutil.EnumValue(&in.MatchOptions), strings.Join(append(prefix, "match-options"), "."), "")
+	fs.Var(flagutil.EnumValue(v1.MatchOptions_Default, &in.MatchOptions), strings.Join(append(prefix, "match-options"), "."), "")
 	return fs
 }
 
@@ -1186,59 +1152,6 @@ func (in *EditClusterRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *UpdateConfigRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("UpdateConfigRequest", pflag.ExitOnError)
 	fs.SortFlags = true
-	return fs
-}
-
-func (in *CapabilityInstallerRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("CapabilityInstallerRequest", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.StringVar(&in.Name, strings.Join(append(prefix, "name"), "."), "", "")
-	fs.StringVar(&in.Token, strings.Join(append(prefix, "token"), "."), "", "")
-	fs.StringVar(&in.Pin, strings.Join(append(prefix, "pin"), "."), "", "")
-	return fs
-}
-
-func (in *CapabilityInstallRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("CapabilityInstallRequest", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.StringVar(&in.Name, strings.Join(append(prefix, "name"), "."), "", "")
-	if in.Target == nil {
-		in.Target = &v11.InstallRequest{}
-	}
-	fs.AddFlagSet(in.Target.FlagSet(append(prefix, "target")...))
-	return fs
-}
-
-func (in *CapabilityUninstallRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("CapabilityUninstallRequest", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.StringVar(&in.Name, strings.Join(append(prefix, "name"), "."), "", "")
-	if in.Target == nil {
-		in.Target = &v11.UninstallRequest{}
-	}
-	fs.AddFlagSet(in.Target.FlagSet(append(prefix, "target")...))
-	return fs
-}
-
-func (in *CapabilityStatusRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("CapabilityStatusRequest", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.StringVar(&in.Name, strings.Join(append(prefix, "name"), "."), "", "")
-	if in.Cluster == nil {
-		in.Cluster = &v1.Reference{}
-	}
-	fs.AddFlagSet(in.Cluster.FlagSet(append(prefix, "cluster")...))
-	return fs
-}
-
-func (in *CapabilityUninstallCancelRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("CapabilityUninstallCancelRequest", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.StringVar(&in.Name, strings.Join(append(prefix, "name"), "."), "", "")
-	if in.Cluster == nil {
-		in.Cluster = &v1.Reference{}
-	}
-	fs.AddFlagSet(in.Cluster.FlagSet(append(prefix, "cluster")...))
 	return fs
 }
 

@@ -101,8 +101,9 @@ message DryRunRequest {
 
   ConfigSpec spec = 3; // Set
 
-  ConfigSpec                patch = 4; // Reset
-  google.protobuf.FieldMask mask  = 5 [(cli.flag).skip = true]; // Reset
+  core.Revision             revision = 4; // Reset
+  ConfigSpec                patch    = 5; // Reset
+  google.protobuf.FieldMask mask     = 6 [(cli.flag).skip = true]; // Reset
 }
 
 message DryRunResponse {

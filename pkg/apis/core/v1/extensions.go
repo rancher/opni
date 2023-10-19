@@ -75,6 +75,7 @@ func NewRevision(revision int64, maybeTimestamp ...time.Time) *Revision {
 	}
 }
 
+// Set sets the revision to the given value, and clears the timestamp.
 func (r *Revision) Set(revision int64) {
 	if r == nil {
 		panic("revision is nil")
@@ -83,5 +84,6 @@ func (r *Revision) Set(revision int64) {
 		r.Revision = &revision
 	} else {
 		*r.Revision = revision
+		r.Timestamp = nil
 	}
 }

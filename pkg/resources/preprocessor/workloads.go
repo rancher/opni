@@ -20,12 +20,10 @@ import (
 )
 
 const (
-	configKey = "config.yaml"
-
-	// TODO: Change back to opni-otel-collector image
-	preprocessorVersion   = "opensearch-exporter"
-	preprocessorImageRepo = "docker.io/jaehnri"
-	preprocessorImage     = "otel-collector"
+	configKey             = "config.yaml"
+	preprocessorVersion   = "v0.1.5-rc1-0.85.0"
+	preprocessorImageRepo = "ghcr.io/rancher-sandbox"
+	preprocessorImage     = "opni-otel-collector"
 	otlpGRPCPort          = 4317
 )
 

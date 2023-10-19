@@ -21,7 +21,7 @@ type CollectorSpec struct {
 	AgentEndpoint            string                       `json:"agentEndpoint,omitempty"`
 	SystemNamespace          string                       `json:"systemNamespace,omitempty"`
 	LoggingConfig            *corev1.LocalObjectReference `json:"loggingConfig,omitempty"`
-	TracesConfig       *corev1.LocalObjectReference `json:"tracesConfig,omitempty"`
+	TracesConfig             *corev1.LocalObjectReference `json:"tracesConfig,omitempty"`
 	MetricsConfig            *corev1.LocalObjectReference `json:"metricsConfig,omitempty"`
 	ConfigReloader           *ConfigReloaderSpec          `json:"configReloader,omitempty"`
 	LogLevel                 string                       `json:"logLevel,omitempty"`

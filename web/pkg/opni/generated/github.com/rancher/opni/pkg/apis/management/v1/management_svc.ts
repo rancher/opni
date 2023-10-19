@@ -134,11 +134,13 @@ export function WatchClusters(input: WatchClustersRequest, callback: (data: Watc
     }
   });
   socket.addEventListener(EVENT_CONNECTING, () => {
-    socket.socket.binaryType = 'arraybuffer';
-  }, { once: true });
+    if (socket.socket) {
+      socket.socket.binaryType = 'arraybuffer';
+    }
+  });
   socket.addEventListener(EVENT_CONNECTED, () => {
     socket.send(input.toBinary());
-  }, { once: true });
+  });
   socket.addEventListener(EVENT_CONNECT_ERROR, (e) => {
     console.error(e);
   })
@@ -252,11 +254,13 @@ export function WatchClusterHealthStatus(input: Empty, callback: (data: ClusterH
     }
   });
   socket.addEventListener(EVENT_CONNECTING, () => {
-    socket.socket.binaryType = 'arraybuffer';
-  }, { once: true });
+    if (socket.socket) {
+      socket.socket.binaryType = 'arraybuffer';
+    }
+  });
   socket.addEventListener(EVENT_CONNECTED, () => {
     socket.send(input.toBinary());
-  }, { once: true });
+  });
   socket.addEventListener(EVENT_CONNECT_ERROR, (e) => {
     console.error(e);
   })

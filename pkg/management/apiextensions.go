@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path"
 	"reflect"
 	"strings"
@@ -542,22 +543,33 @@ func handleWebsocketServerStream(
 	})
 
 	eg.Go(func() error {
-		var recvOnce bool
+		var receivedRequest bool
 		for ctx.Err() == nil {
+			if !receivedRequest {
+				// the initial request message should come in immediately
+				conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+			}
 			msgType, data, err := conn.ReadMessage()
 			if err != nil {
-				lg.With(zap.Error(err)).Error("error reading from websocket")
+				if errors.Is(err, os.ErrDeadlineExceeded) {
+					lg.Debug("websocket timed out waiting for request message")
+				} else {
+					lg.With(zap.Error(err)).Error("error reading from websocket")
+				}
 				return err
 			}
+			if !receivedRequest {
+				conn.SetReadDeadline(time.Time{})
+			}
+
 			switch msgType {
 			case websocket.CloseMessage:
 				return io.EOF
 			case websocket.BinaryMessage:
-				if !recvOnce {
-					recvOnce = true
+				if !receivedRequest {
+					receivedRequest = true
 				} else {
-					lg.Warn("skipping additional messages in server stream")
-					continue
+					return status.Errorf(codes.InvalidArgument, "received multiple request messages for server streaming rpc")
 				}
 				reqMsg := dynamic.NewMessage(methodDesc.GetInputType())
 				if err := reqMsg.Unmarshal(data); err != nil {

@@ -10,6 +10,14 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+type CorePermissionType string
+
+const (
+	PermissionTypeCluster   CorePermissionType = "cluster"
+	PermissionTypeNamespace CorePermissionType = "namespace"
+	PermissionTypeAPI       CorePermissionType = "api"
+)
+
 func (s *HealthStatus) Summary() string {
 	if s.Status == nil || s.Health == nil {
 		return "Unknown"
@@ -86,4 +94,19 @@ func (r *Revision) Set(revision int64) {
 		*r.Revision = revision
 		r.Timestamp = nil
 	}
+}
+
+func VerbGet() *PermissionVerb {
+	return &PermissionVerb{
+		Verb: "GET",
+	}
+}
+
+func (v *PermissionVerb) InList(in []*PermissionVerb) bool {
+	for _, verb := range in {
+		if v.GetVerb() == verb.GetVerb() {
+			return true
+		}
+	}
+	return false
 }

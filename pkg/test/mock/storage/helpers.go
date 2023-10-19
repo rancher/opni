@@ -451,78 +451,12 @@ func NewTestKeyValueStore[T any](ctrl *gomock.Controller, clone func(T) T) stora
 	return mockKvStore
 }
 
-func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
-	mockRBACStore := NewMockRBACStore(ctrl)
+func NewTestRoleBindingStore(ctrl *gomock.Controller) storage.RoleBindingStore {
+	mockRBACStore := NewMockRoleBindingStore(ctrl)
 
-	roles := map[string]*v1.Role{}
 	rbs := map[string]*v1.RoleBinding{}
 	mu := sync.Mutex{}
 
-	mockRBACStore.EXPECT().
-		CreateRole(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, role *v1.Role) error {
-			mu.Lock()
-			defer mu.Unlock()
-			roles[role.Id] = role
-			return nil
-		}).
-		AnyTimes()
-	mockRBACStore.EXPECT().
-		UpdateRole(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, ref *v1.Reference, mutator storage.MutatorFunc[*v1.Role]) (*v1.Role, error) {
-			mu.Lock()
-			defer mu.Unlock()
-			if err, ok := InjectedStorageError(ctx); ok {
-				return nil, err
-			}
-			if _, ok := roles[ref.Id]; !ok {
-				return nil, storage.ErrNotFound
-			}
-			role := roles[ref.Id]
-			cloned := proto.Clone(role).(*v1.Role)
-			mutator(cloned)
-			if _, ok := roles[ref.Id]; !ok {
-				return nil, storage.ErrNotFound
-			}
-			roles[ref.Id] = cloned
-			return cloned, nil
-		}).
-		AnyTimes()
-	mockRBACStore.EXPECT().
-		DeleteRole(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ref *v1.Reference) error {
-			mu.Lock()
-			defer mu.Unlock()
-			if _, ok := roles[ref.Id]; !ok {
-				return storage.ErrNotFound
-			}
-			delete(roles, ref.Id)
-			return nil
-		}).
-		AnyTimes()
-	mockRBACStore.EXPECT().
-		GetRole(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ref *v1.Reference) (*v1.Role, error) {
-			mu.Lock()
-			defer mu.Unlock()
-			if _, ok := roles[ref.Id]; !ok {
-				return nil, storage.ErrNotFound
-			}
-			return roles[ref.Id], nil
-		}).
-		AnyTimes()
-	mockRBACStore.EXPECT().
-		ListRoles(gomock.Any()).
-		DoAndReturn(func(_ context.Context) (*v1.RoleList, error) {
-			mu.Lock()
-			defer mu.Unlock()
-			roleList := &v1.RoleList{}
-			for _, role := range roles {
-				roleList.Items = append(roleList.Items, role)
-			}
-			return roleList, nil
-		}).
-		AnyTimes()
 	mockRBACStore.EXPECT().
 		CreateRoleBinding(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, rb *v1.RoleBinding) error {
@@ -575,7 +509,6 @@ func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 			}
 			cloned := proto.Clone(rbs[ref.Id]).(*v1.RoleBinding)
 			mu.Unlock()
-			storage.ApplyRoleBindingTaints(ctx, mockRBACStore, cloned)
 			return cloned, nil
 		}).
 		AnyTimes()
@@ -589,9 +522,6 @@ func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 				rbList.Items = append(rbList.Items, cloned)
 			}
 			mu.Unlock()
-			for _, rb := range rbList.Items {
-				storage.ApplyRoleBindingTaints(ctx, mockRBACStore, rb)
-			}
 			return rbList, nil
 		}).
 		AnyTimes()
@@ -698,7 +628,7 @@ func NewTestStorageBackend(ctx context.Context, ctrl *gomock.Controller) storage
 	return &storage.CompositeBackend{
 		TokenStore:          NewTestTokenStore(ctx, ctrl),
 		ClusterStore:        NewTestClusterStore(ctrl),
-		RBACStore:           NewTestRBACStore(ctrl),
+		RoleBindingStore:    NewTestRoleBindingStore(ctrl),
 		KeyringStoreBroker:  NewTestKeyringStoreBroker(ctrl),
 		KeyValueStoreBroker: NewTestKeyValueStoreBroker(ctrl),
 	}

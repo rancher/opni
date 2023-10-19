@@ -22,6 +22,15 @@ type BackendStore interface {
 	List() []string
 }
 
+type RBACManagerStore interface {
+	// Obtain a backend rbac client for the given capability name
+	Get(name string) (capabilityv1.RBACManagerClient, error)
+	// Add a capability rbac manager with the given name
+	Add(name string, rbac capabilityv1.RBACManagerClient) error
+	// Returns all capability names with rbac managers known to the store
+	List() []string
+}
+
 type backendStore struct {
 	capabilityv1.UnsafeBackendServer
 	mu       sync.RWMutex
@@ -61,6 +70,49 @@ func (s *backendStore) List() []string {
 	defer s.mu.RUnlock()
 	capabilities := make([]string, 0, len(s.backends))
 	for capability := range s.backends {
+		capabilities = append(capabilities, capability)
+	}
+	return capabilities
+}
+
+type rbacManagerStore struct {
+	mu           sync.RWMutex
+	rbacManagers map[string]capabilityv1.RBACManagerClient
+	logger       *zap.SugaredLogger
+}
+
+func NewRBACManagerStore(logger *zap.SugaredLogger) RBACManagerStore {
+	return &rbacManagerStore{
+		rbacManagers: make(map[string]capabilityv1.RBACManagerClient),
+		logger:       logger,
+	}
+}
+
+func (s *rbacManagerStore) Get(name string) (capabilityv1.RBACManagerClient, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	manager, ok := s.rbacManagers[name]
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", ErrBackendNotFound, name)
+	}
+	return manager, nil
+}
+
+func (s *rbacManagerStore) Add(name string, manager capabilityv1.RBACManagerClient) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.rbacManagers[name]; ok {
+		return fmt.Errorf("%w: %s", ErrBackendAlreadyExists, name)
+	}
+	s.rbacManagers[name] = manager
+	return nil
+}
+
+func (s *rbacManagerStore) List() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	capabilities := make([]string, 0, len(s.rbacManagers))
+	for capability := range s.rbacManagers {
 		capabilities = append(capabilities, capability)
 	}
 	return capabilities

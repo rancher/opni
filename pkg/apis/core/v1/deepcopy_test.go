@@ -75,15 +75,22 @@ var _ = Describe("Deep Copy", Label("unit"), func() {
 
 	It("should deep copy roles", func() {
 		role := &v1.Role{
-			Id:         "foo",
-			ClusterIDs: []string{"foo"},
-			MatchLabels: &v1.LabelSelector{
-				MatchLabels: map[string]string{"foo": "bar"},
-				MatchExpressions: []*v1.LabelSelectorRequirement{
-					{
-						Key:      "foo",
-						Operator: "In",
-						Values:   []string{"bar"},
+			Id: "foo",
+			Permissions: []*v1.PermissionItem{
+				{
+					Type: "cluster",
+					Ids: []string{
+						"foo",
+					},
+					MatchLabels: &v1.LabelSelector{
+						MatchLabels: map[string]string{"foo": "bar"},
+						MatchExpressions: []*v1.LabelSelectorRequirement{
+							{
+								Key:      "foo",
+								Operator: "In",
+								Values:   []string{"bar"},
+							},
+						},
 					},
 				},
 			},
@@ -94,20 +101,20 @@ var _ = Describe("Deep Copy", Label("unit"), func() {
 		role.DeepCopyInto(roleCopy2)
 
 		Expect(role.Id).To(Equal(roleCopy1.Id))
-		Expect(role.ClusterIDs).To(Equal(roleCopy1.ClusterIDs))
-		Expect(uintptr(unsafe.Pointer(role.MatchLabels))).NotTo(Equal(uintptr(unsafe.Pointer(roleCopy1.MatchLabels))))
-		Expect(uintptr(unsafe.Pointer(role.MatchLabels.MatchExpressions[0]))).NotTo(Equal(uintptr(unsafe.Pointer(roleCopy1.MatchLabels.MatchExpressions[0]))))
+		Expect(role.Permissions[0].Ids).To(Equal(roleCopy1.Permissions[0].Ids))
+		Expect(uintptr(unsafe.Pointer(role.Permissions[0].MatchLabels))).NotTo(Equal(uintptr(unsafe.Pointer(roleCopy1.Permissions[0].MatchLabels))))
+		Expect(uintptr(unsafe.Pointer(role.Permissions[0].MatchLabels.MatchExpressions[0]))).NotTo(Equal(uintptr(unsafe.Pointer(roleCopy1.Permissions[0].MatchLabels.MatchExpressions[0]))))
 
 		Expect(role.Id).To(Equal(roleCopy2.Id))
-		Expect(role.ClusterIDs).To(Equal(roleCopy2.ClusterIDs))
-		Expect(uintptr(unsafe.Pointer(role.MatchLabels))).NotTo(Equal(uintptr(unsafe.Pointer(roleCopy2.MatchLabels))))
+		Expect(role.Permissions[0].Ids).To(Equal(roleCopy2.Permissions[0].Ids))
+		Expect(uintptr(unsafe.Pointer(role.Permissions[0].MatchLabels))).NotTo(Equal(uintptr(unsafe.Pointer(roleCopy2.Permissions[0].MatchLabels))))
 	})
 
 	It("should deep copy rolebindings", func() {
 		roleBinding := &v1.RoleBinding{
 			Id:       "foo",
-			RoleId:   "foo",
 			Subjects: []string{"foo"},
+			RoleId:   "foo",
 			Taints:   []string{"foo"},
 		}
 
@@ -116,13 +123,13 @@ var _ = Describe("Deep Copy", Label("unit"), func() {
 		roleBinding.DeepCopyInto(roleBindingCopy2)
 
 		Expect(roleBinding.Id).To(Equal(roleBindingCopy1.Id))
-		Expect(roleBinding.RoleId).To(Equal(roleBindingCopy1.RoleId))
 		Expect(roleBinding.Subjects).To(Equal(roleBindingCopy1.Subjects))
+		Expect(roleBinding.RoleId).To(Equal(roleBindingCopy1.RoleId))
 		Expect(roleBinding.Taints).To(Equal(roleBindingCopy1.Taints))
 
 		Expect(roleBinding.Id).To(Equal(roleBindingCopy2.Id))
-		Expect(roleBinding.RoleId).To(Equal(roleBindingCopy2.RoleId))
 		Expect(roleBinding.Subjects).To(Equal(roleBindingCopy2.Subjects))
+		Expect(roleBinding.RoleId).To(Equal(roleBindingCopy2.RoleId))
 		Expect(roleBinding.Taints).To(Equal(roleBindingCopy2.Taints))
 	})
 })

@@ -513,11 +513,24 @@ func main() {
 				testlog.Log.Error(err)
 				return
 			}
-			if _, err := client.CreateRole(environment.Context(), &corev1.Role{
-				Id: "testenv-role",
-				MatchLabels: &corev1.LabelSelector{
-					MatchLabels: map[string]string{
-						"visible": "true",
+			if _, err := client.CreateBackendRole(environment.Context(), &corev1.BackendRole{
+				Capability: &corev1.CapabilityType{
+					Name: wellknown.CapabilityMetrics,
+				},
+				Role: &corev1.Role{
+					Id: "testenv-role",
+					Permissions: []*corev1.PermissionItem{
+						{
+							MatchLabels: &corev1.LabelSelector{
+								MatchLabels: map[string]string{
+									"visible": "true",
+								},
+							},
+							Verbs: []*corev1.PermissionVerb{
+								{Verb: "GET"},
+							},
+							Type: string(corev1.PermissionTypeCluster),
+						},
 					},
 				},
 			}); err != nil {

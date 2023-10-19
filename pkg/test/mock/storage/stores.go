@@ -65,20 +65,6 @@ func (mr *MockBackendMockRecorder) CreateCluster(ctx, cluster interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCluster", reflect.TypeOf((*MockBackend)(nil).CreateCluster), ctx, cluster)
 }
 
-// CreateRole mocks base method.
-func (m *MockBackend) CreateRole(arg0 context.Context, arg1 *v1.Role) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateRole", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CreateRole indicates an expected call of CreateRole.
-func (mr *MockBackendMockRecorder) CreateRole(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRole", reflect.TypeOf((*MockBackend)(nil).CreateRole), arg0, arg1)
-}
-
 // CreateRoleBinding mocks base method.
 func (m *MockBackend) CreateRoleBinding(arg0 context.Context, arg1 *v1.RoleBinding) error {
 	m.ctrl.T.Helper()
@@ -127,20 +113,6 @@ func (mr *MockBackendMockRecorder) DeleteCluster(ctx, ref interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCluster", reflect.TypeOf((*MockBackend)(nil).DeleteCluster), ctx, ref)
 }
 
-// DeleteRole mocks base method.
-func (m *MockBackend) DeleteRole(arg0 context.Context, arg1 *v1.Reference) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteRole", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteRole indicates an expected call of DeleteRole.
-func (mr *MockBackendMockRecorder) DeleteRole(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRole", reflect.TypeOf((*MockBackend)(nil).DeleteRole), arg0, arg1)
-}
-
 // DeleteRoleBinding mocks base method.
 func (m *MockBackend) DeleteRoleBinding(arg0 context.Context, arg1 *v1.Reference) error {
 	m.ctrl.T.Helper()
@@ -182,21 +154,6 @@ func (m *MockBackend) GetCluster(ctx context.Context, ref *v1.Reference) (*v1.Cl
 func (mr *MockBackendMockRecorder) GetCluster(ctx, ref interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCluster", reflect.TypeOf((*MockBackend)(nil).GetCluster), ctx, ref)
-}
-
-// GetRole mocks base method.
-func (m *MockBackend) GetRole(arg0 context.Context, arg1 *v1.Reference) (*v1.Role, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRole", arg0, arg1)
-	ret0, _ := ret[0].(*v1.Role)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetRole indicates an expected call of GetRole.
-func (mr *MockBackendMockRecorder) GetRole(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRole", reflect.TypeOf((*MockBackend)(nil).GetRole), arg0, arg1)
 }
 
 // GetRoleBinding mocks base method.
@@ -287,21 +244,6 @@ func (mr *MockBackendMockRecorder) ListRoleBindings(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRoleBindings", reflect.TypeOf((*MockBackend)(nil).ListRoleBindings), arg0)
 }
 
-// ListRoles mocks base method.
-func (m *MockBackend) ListRoles(arg0 context.Context) (*v1.RoleList, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListRoles", arg0)
-	ret0, _ := ret[0].(*v1.RoleList)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ListRoles indicates an expected call of ListRoles.
-func (mr *MockBackendMockRecorder) ListRoles(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRoles", reflect.TypeOf((*MockBackend)(nil).ListRoles), arg0)
-}
-
 // ListTokens mocks base method.
 func (m *MockBackend) ListTokens(ctx context.Context) ([]*v1.BootstrapToken, error) {
 	m.ctrl.T.Helper()
@@ -330,21 +272,6 @@ func (m *MockBackend) UpdateCluster(ctx context.Context, ref *v1.Reference, muta
 func (mr *MockBackendMockRecorder) UpdateCluster(ctx, ref, mutator interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCluster", reflect.TypeOf((*MockBackend)(nil).UpdateCluster), ctx, ref, mutator)
-}
-
-// UpdateRole mocks base method.
-func (m *MockBackend) UpdateRole(ctx context.Context, ref *v1.Reference, mutator storage.RoleMutator) (*v1.Role, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateRole", ctx, ref, mutator)
-	ret0, _ := ret[0].(*v1.Role)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpdateRole indicates an expected call of UpdateRole.
-func (mr *MockBackendMockRecorder) UpdateRole(ctx, ref, mutator interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRole", reflect.TypeOf((*MockBackend)(nil).UpdateRole), ctx, ref, mutator)
 }
 
 // UpdateRoleBinding mocks base method.
@@ -635,45 +562,31 @@ func (mr *MockClusterStoreMockRecorder) WatchClusters(ctx, known interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchClusters", reflect.TypeOf((*MockClusterStore)(nil).WatchClusters), ctx, known)
 }
 
-// MockRBACStore is a mock of RBACStore interface.
-type MockRBACStore struct {
+// MockRoleBindingStore is a mock of RoleBindingStore interface.
+type MockRoleBindingStore struct {
 	ctrl     *gomock.Controller
-	recorder *MockRBACStoreMockRecorder
+	recorder *MockRoleBindingStoreMockRecorder
 }
 
-// MockRBACStoreMockRecorder is the mock recorder for MockRBACStore.
-type MockRBACStoreMockRecorder struct {
-	mock *MockRBACStore
+// MockRoleBindingStoreMockRecorder is the mock recorder for MockRoleBindingStore.
+type MockRoleBindingStoreMockRecorder struct {
+	mock *MockRoleBindingStore
 }
 
-// NewMockRBACStore creates a new mock instance.
-func NewMockRBACStore(ctrl *gomock.Controller) *MockRBACStore {
-	mock := &MockRBACStore{ctrl: ctrl}
-	mock.recorder = &MockRBACStoreMockRecorder{mock}
+// NewMockRoleBindingStore creates a new mock instance.
+func NewMockRoleBindingStore(ctrl *gomock.Controller) *MockRoleBindingStore {
+	mock := &MockRoleBindingStore{ctrl: ctrl}
+	mock.recorder = &MockRoleBindingStoreMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockRBACStore) EXPECT() *MockRBACStoreMockRecorder {
+func (m *MockRoleBindingStore) EXPECT() *MockRoleBindingStoreMockRecorder {
 	return m.recorder
 }
 
-// CreateRole mocks base method.
-func (m *MockRBACStore) CreateRole(arg0 context.Context, arg1 *v1.Role) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateRole", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CreateRole indicates an expected call of CreateRole.
-func (mr *MockRBACStoreMockRecorder) CreateRole(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRole", reflect.TypeOf((*MockRBACStore)(nil).CreateRole), arg0, arg1)
-}
-
 // CreateRoleBinding mocks base method.
-func (m *MockRBACStore) CreateRoleBinding(arg0 context.Context, arg1 *v1.RoleBinding) error {
+func (m *MockRoleBindingStore) CreateRoleBinding(arg0 context.Context, arg1 *v1.RoleBinding) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateRoleBinding", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -681,27 +594,13 @@ func (m *MockRBACStore) CreateRoleBinding(arg0 context.Context, arg1 *v1.RoleBin
 }
 
 // CreateRoleBinding indicates an expected call of CreateRoleBinding.
-func (mr *MockRBACStoreMockRecorder) CreateRoleBinding(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockRoleBindingStoreMockRecorder) CreateRoleBinding(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRoleBinding", reflect.TypeOf((*MockRBACStore)(nil).CreateRoleBinding), arg0, arg1)
-}
-
-// DeleteRole mocks base method.
-func (m *MockRBACStore) DeleteRole(arg0 context.Context, arg1 *v1.Reference) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteRole", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteRole indicates an expected call of DeleteRole.
-func (mr *MockRBACStoreMockRecorder) DeleteRole(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRole", reflect.TypeOf((*MockRBACStore)(nil).DeleteRole), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRoleBinding", reflect.TypeOf((*MockRoleBindingStore)(nil).CreateRoleBinding), arg0, arg1)
 }
 
 // DeleteRoleBinding mocks base method.
-func (m *MockRBACStore) DeleteRoleBinding(arg0 context.Context, arg1 *v1.Reference) error {
+func (m *MockRoleBindingStore) DeleteRoleBinding(arg0 context.Context, arg1 *v1.Reference) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteRoleBinding", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -709,28 +608,13 @@ func (m *MockRBACStore) DeleteRoleBinding(arg0 context.Context, arg1 *v1.Referen
 }
 
 // DeleteRoleBinding indicates an expected call of DeleteRoleBinding.
-func (mr *MockRBACStoreMockRecorder) DeleteRoleBinding(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockRoleBindingStoreMockRecorder) DeleteRoleBinding(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRoleBinding", reflect.TypeOf((*MockRBACStore)(nil).DeleteRoleBinding), arg0, arg1)
-}
-
-// GetRole mocks base method.
-func (m *MockRBACStore) GetRole(arg0 context.Context, arg1 *v1.Reference) (*v1.Role, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRole", arg0, arg1)
-	ret0, _ := ret[0].(*v1.Role)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetRole indicates an expected call of GetRole.
-func (mr *MockRBACStoreMockRecorder) GetRole(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRole", reflect.TypeOf((*MockRBACStore)(nil).GetRole), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRoleBinding", reflect.TypeOf((*MockRoleBindingStore)(nil).DeleteRoleBinding), arg0, arg1)
 }
 
 // GetRoleBinding mocks base method.
-func (m *MockRBACStore) GetRoleBinding(arg0 context.Context, arg1 *v1.Reference) (*v1.RoleBinding, error) {
+func (m *MockRoleBindingStore) GetRoleBinding(arg0 context.Context, arg1 *v1.Reference) (*v1.RoleBinding, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRoleBinding", arg0, arg1)
 	ret0, _ := ret[0].(*v1.RoleBinding)
@@ -739,13 +623,13 @@ func (m *MockRBACStore) GetRoleBinding(arg0 context.Context, arg1 *v1.Reference)
 }
 
 // GetRoleBinding indicates an expected call of GetRoleBinding.
-func (mr *MockRBACStoreMockRecorder) GetRoleBinding(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockRoleBindingStoreMockRecorder) GetRoleBinding(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRoleBinding", reflect.TypeOf((*MockRBACStore)(nil).GetRoleBinding), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRoleBinding", reflect.TypeOf((*MockRoleBindingStore)(nil).GetRoleBinding), arg0, arg1)
 }
 
 // ListRoleBindings mocks base method.
-func (m *MockRBACStore) ListRoleBindings(arg0 context.Context) (*v1.RoleBindingList, error) {
+func (m *MockRoleBindingStore) ListRoleBindings(arg0 context.Context) (*v1.RoleBindingList, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListRoleBindings", arg0)
 	ret0, _ := ret[0].(*v1.RoleBindingList)
@@ -754,43 +638,13 @@ func (m *MockRBACStore) ListRoleBindings(arg0 context.Context) (*v1.RoleBindingL
 }
 
 // ListRoleBindings indicates an expected call of ListRoleBindings.
-func (mr *MockRBACStoreMockRecorder) ListRoleBindings(arg0 interface{}) *gomock.Call {
+func (mr *MockRoleBindingStoreMockRecorder) ListRoleBindings(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRoleBindings", reflect.TypeOf((*MockRBACStore)(nil).ListRoleBindings), arg0)
-}
-
-// ListRoles mocks base method.
-func (m *MockRBACStore) ListRoles(arg0 context.Context) (*v1.RoleList, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListRoles", arg0)
-	ret0, _ := ret[0].(*v1.RoleList)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ListRoles indicates an expected call of ListRoles.
-func (mr *MockRBACStoreMockRecorder) ListRoles(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRoles", reflect.TypeOf((*MockRBACStore)(nil).ListRoles), arg0)
-}
-
-// UpdateRole mocks base method.
-func (m *MockRBACStore) UpdateRole(ctx context.Context, ref *v1.Reference, mutator storage.RoleMutator) (*v1.Role, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateRole", ctx, ref, mutator)
-	ret0, _ := ret[0].(*v1.Role)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpdateRole indicates an expected call of UpdateRole.
-func (mr *MockRBACStoreMockRecorder) UpdateRole(ctx, ref, mutator interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRole", reflect.TypeOf((*MockRBACStore)(nil).UpdateRole), ctx, ref, mutator)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRoleBindings", reflect.TypeOf((*MockRoleBindingStore)(nil).ListRoleBindings), arg0)
 }
 
 // UpdateRoleBinding mocks base method.
-func (m *MockRBACStore) UpdateRoleBinding(ctx context.Context, ref *v1.Reference, mutator storage.RoleBindingMutator) (*v1.RoleBinding, error) {
+func (m *MockRoleBindingStore) UpdateRoleBinding(ctx context.Context, ref *v1.Reference, mutator storage.RoleBindingMutator) (*v1.RoleBinding, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateRoleBinding", ctx, ref, mutator)
 	ret0, _ := ret[0].(*v1.RoleBinding)
@@ -799,9 +653,9 @@ func (m *MockRBACStore) UpdateRoleBinding(ctx context.Context, ref *v1.Reference
 }
 
 // UpdateRoleBinding indicates an expected call of UpdateRoleBinding.
-func (mr *MockRBACStoreMockRecorder) UpdateRoleBinding(ctx, ref, mutator interface{}) *gomock.Call {
+func (mr *MockRoleBindingStoreMockRecorder) UpdateRoleBinding(ctx, ref, mutator interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRoleBinding", reflect.TypeOf((*MockRBACStore)(nil).UpdateRoleBinding), ctx, ref, mutator)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRoleBinding", reflect.TypeOf((*MockRoleBindingStore)(nil).UpdateRoleBinding), ctx, ref, mutator)
 }
 
 // MockKeyringStore is a mock of KeyringStore interface.

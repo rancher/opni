@@ -6,16 +6,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/storage"
+	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 )
 
 type middleware struct {
-	provider Provider
-	codec    HeaderCodec
+	MiddlewareConfig
 }
-
-const (
-	AuthorizedClusterIDsKey = "authorized_cluster_ids"
-)
 
 func (m *middleware) Handle(c *gin.Context) {
 	userID, ok := AuthorizedUserID(c)
@@ -23,37 +21,61 @@ func (m *middleware) Handle(c *gin.Context) {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
-	clusters, err := m.provider.SubjectAccess(context.Background(), &corev1.SubjectAccessRequest{
-		Subject: userID,
-	})
+	roleList, err := m.fetchRoles(userID)
 	if err != nil {
+		m.Logger.With("error", err).Error("failed to fetch roles")
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
-	if len(clusters.Items) == 0 {
+	headers, err := m.Provider.AccessHeader(context.Background(), roleList)
+	if err != nil {
+		m.Logger.With("error", err).Error("failed to get list of headers")
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
-	ids := make([]string, len(clusters.Items))
-	for i, cluster := range clusters.Items {
-		ids[i] = cluster.Id
+	if len(headers) == 0 {
+		m.Logger.Debug("no headers returned")
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
 	}
-	c.Request.Header.Set(m.codec.Key(), m.codec.Encode(ids))
-	c.Set(AuthorizedClusterIDsKey, ids)
+
+	for headerKey, list := range headers {
+		ids := make([]string, len(list.Items))
+		for i, cluster := range list.Items {
+			ids[i] = cluster.Id
+		}
+		c.Request.Header.Set(m.Codec.Key(), m.Codec.Encode(ids))
+		c.Set(headerKey, ids)
+	}
 }
 
-func NewMiddleware(provider Provider, codec HeaderCodec) gin.HandlerFunc {
+func (m *middleware) fetchRoles(userID string) (*corev1.ReferenceList, error) {
+	bindings, err := m.Store.ListRoleBindings(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	roleList := &corev1.ReferenceList{}
+	for _, binding := range bindings.GetItems() {
+		if slices.Contains(binding.GetSubjects(), userID) {
+			roleList.Items = append(roleList.Items, &corev1.Reference{
+				Id: binding.RoleId,
+			})
+		}
+	}
+	return roleList, nil
+}
+
+type MiddlewareConfig struct {
+	Provider
+	Codec      HeaderCodec
+	Store      storage.RoleBindingStore
+	Capability string
+	Logger     *zap.SugaredLogger
+}
+
+func NewMiddleware(config MiddlewareConfig) gin.HandlerFunc {
 	mw := &middleware{
-		provider: provider,
-		codec:    codec,
+		MiddlewareConfig: config,
 	}
 	return mw.Handle
-}
-
-func AuthorizedClusterIDs(c *gin.Context) []string {
-	value, ok := c.Get(AuthorizedClusterIDsKey)
-	if !ok {
-		return nil
-	}
-	return value.([]string)
 }

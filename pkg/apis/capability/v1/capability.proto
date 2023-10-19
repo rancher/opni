@@ -3,12 +3,16 @@ syntax = "proto3";
 package capability;
 
 import "github.com/kralicky/totem/extensions.proto";
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/rancher/opni/pkg/apis/capability/v1";
+option (cli.generator) = {
+  generate: true
+};
 
 service Backend {
   // Returns info about the backend, including capability name.
@@ -42,6 +46,17 @@ service Node {
       replicationStrategy: Broadcast
     };
   }
+}
+
+service RBACManager {
+  // Returns info about the manager, including capability name
+  rpc Info(google.protobuf.Empty) returns (Details);
+  rpc GetAvailablePermissions(google.protobuf.Empty) returns (core.AvailablePermissions);
+  rpc GetRole(core.Reference) returns (core.Role);
+  rpc CreateRole(core.Role) returns (google.protobuf.Empty);
+  rpc UpdateRole(core.Role) returns (google.protobuf.Empty);
+  rpc DeleteRole(core.Reference) returns (google.protobuf.Empty);
+  rpc ListRoles(google.protobuf.Empty) returns (core.RoleList);
 }
 
 message Details {

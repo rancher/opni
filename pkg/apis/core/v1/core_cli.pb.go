@@ -9,6 +9,7 @@ import (
 	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
+	proto "google.golang.org/protobuf/proto"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	strings "strings"
 )
@@ -68,6 +69,508 @@ func BuildPingerPingCmd() *cobra.Command {
 	return cmd
 }
 
+func (in *PingResponse) DeepCopyInto(out *PingResponse) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *PingResponse) DeepCopy() *PingResponse {
+	return proto.Clone(in).(*PingResponse)
+}
+
+func (in *BootstrapToken) DeepCopyInto(out *BootstrapToken) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *BootstrapToken) DeepCopy() *BootstrapToken {
+	return proto.Clone(in).(*BootstrapToken)
+}
+
+func (in *BootstrapTokenMetadata) DeepCopyInto(out *BootstrapTokenMetadata) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *BootstrapTokenMetadata) DeepCopy() *BootstrapTokenMetadata {
+	return proto.Clone(in).(*BootstrapTokenMetadata)
+}
+
+func (in *TokenCapability) DeepCopyInto(out *TokenCapability) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *TokenCapability) DeepCopy() *TokenCapability {
+	return proto.Clone(in).(*TokenCapability)
+}
+
+func (in *BootstrapTokenList) DeepCopyInto(out *BootstrapTokenList) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *BootstrapTokenList) DeepCopy() *BootstrapTokenList {
+	return proto.Clone(in).(*BootstrapTokenList)
+}
+
+func (in *Cluster) DeepCopyInto(out *Cluster) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *Cluster) DeepCopy() *Cluster {
+	return proto.Clone(in).(*Cluster)
+}
+
+func (in *ClusterMetadata) DeepCopyInto(out *ClusterMetadata) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ClusterMetadata) DeepCopy() *ClusterMetadata {
+	return proto.Clone(in).(*ClusterMetadata)
+}
+
+func (in *LastKnownConnectionDetails) DeepCopyInto(out *LastKnownConnectionDetails) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *LastKnownConnectionDetails) DeepCopy() *LastKnownConnectionDetails {
+	return proto.Clone(in).(*LastKnownConnectionDetails)
+}
+
+func (in *BuildInfo) DeepCopyInto(out *BuildInfo) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *BuildInfo) DeepCopy() *BuildInfo {
+	return proto.Clone(in).(*BuildInfo)
+}
+
+func (in *Module) DeepCopyInto(out *Module) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *Module) DeepCopy() *Module {
+	return proto.Clone(in).(*Module)
+}
+
+func (in *BuildSetting) DeepCopyInto(out *BuildSetting) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *BuildSetting) DeepCopy() *BuildSetting {
+	return proto.Clone(in).(*BuildSetting)
+}
+
+func (in *ClusterCapability) DeepCopyInto(out *ClusterCapability) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ClusterCapability) DeepCopy() *ClusterCapability {
+	return proto.Clone(in).(*ClusterCapability)
+}
+
+func (in *ClusterList) DeepCopyInto(out *ClusterList) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ClusterList) DeepCopy() *ClusterList {
+	return proto.Clone(in).(*ClusterList)
+}
+
+func (in *LabelSelector) DeepCopyInto(out *LabelSelector) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *LabelSelector) DeepCopy() *LabelSelector {
+	return proto.Clone(in).(*LabelSelector)
+}
+
+func (in *LabelSelectorRequirement) DeepCopyInto(out *LabelSelectorRequirement) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *LabelSelectorRequirement) DeepCopy() *LabelSelectorRequirement {
+	return proto.Clone(in).(*LabelSelectorRequirement)
+}
+
+func (in *ClusterSelector) DeepCopyInto(out *ClusterSelector) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ClusterSelector) DeepCopy() *ClusterSelector {
+	return proto.Clone(in).(*ClusterSelector)
+}
+
+func (in *RoleMetadata) DeepCopyInto(out *RoleMetadata) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *RoleMetadata) DeepCopy() *RoleMetadata {
+	return proto.Clone(in).(*RoleMetadata)
+}
+
+func (in *RoleBinding) DeepCopyInto(out *RoleBinding) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *RoleBinding) DeepCopy() *RoleBinding {
+	return proto.Clone(in).(*RoleBinding)
+}
+
+func (in *RoleBindingMetadata) DeepCopyInto(out *RoleBindingMetadata) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *RoleBindingMetadata) DeepCopy() *RoleBindingMetadata {
+	return proto.Clone(in).(*RoleBindingMetadata)
+}
+
+func (in *RoleBindingList) DeepCopyInto(out *RoleBindingList) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *RoleBindingList) DeepCopy() *RoleBindingList {
+	return proto.Clone(in).(*RoleBindingList)
+}
+
+func (in *CapabilityType) DeepCopyInto(out *CapabilityType) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *CapabilityType) DeepCopy() *CapabilityType {
+	return proto.Clone(in).(*CapabilityType)
+}
+
+func (in *CapabilityTypeList) DeepCopyInto(out *CapabilityTypeList) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *CapabilityTypeList) DeepCopy() *CapabilityTypeList {
+	return proto.Clone(in).(*CapabilityTypeList)
+}
+
+func (in *PermissionVerb) DeepCopyInto(out *PermissionVerb) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *PermissionVerb) DeepCopy() *PermissionVerb {
+	return proto.Clone(in).(*PermissionVerb)
+}
+
+func (in *PermissionDescription) DeepCopyInto(out *PermissionDescription) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *PermissionDescription) DeepCopy() *PermissionDescription {
+	return proto.Clone(in).(*PermissionDescription)
+}
+
+func (in *AvailablePermissions) DeepCopyInto(out *AvailablePermissions) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *AvailablePermissions) DeepCopy() *AvailablePermissions {
+	return proto.Clone(in).(*AvailablePermissions)
+}
+
+func (in *PermissionItem) DeepCopyInto(out *PermissionItem) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *PermissionItem) DeepCopy() *PermissionItem {
+	return proto.Clone(in).(*PermissionItem)
+}
+
+func (in *Role) DeepCopyInto(out *Role) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *Role) DeepCopy() *Role {
+	return proto.Clone(in).(*Role)
+}
+
+func (in *BackendRole) DeepCopyInto(out *BackendRole) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *BackendRole) DeepCopy() *BackendRole {
+	return proto.Clone(in).(*BackendRole)
+}
+
+func (in *BackendRoleRequest) DeepCopyInto(out *BackendRoleRequest) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *BackendRoleRequest) DeepCopy() *BackendRoleRequest {
+	return proto.Clone(in).(*BackendRoleRequest)
+}
+
+func (in *RoleList) DeepCopyInto(out *RoleList) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *RoleList) DeepCopy() *RoleList {
+	return proto.Clone(in).(*RoleList)
+}
+
+func (in *CertInfo) DeepCopyInto(out *CertInfo) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *CertInfo) DeepCopy() *CertInfo {
+	return proto.Clone(in).(*CertInfo)
+}
+
+func (in *Reference) DeepCopyInto(out *Reference) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *Reference) DeepCopy() *Reference {
+	return proto.Clone(in).(*Reference)
+}
+
+func (in *ReferenceList) DeepCopyInto(out *ReferenceList) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ReferenceList) DeepCopy() *ReferenceList {
+	return proto.Clone(in).(*ReferenceList)
+}
+
+func (in *SubjectAccessRequest) DeepCopyInto(out *SubjectAccessRequest) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *SubjectAccessRequest) DeepCopy() *SubjectAccessRequest {
+	return proto.Clone(in).(*SubjectAccessRequest)
+}
+
+func (in *Status) DeepCopyInto(out *Status) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *Status) DeepCopy() *Status {
+	return proto.Clone(in).(*Status)
+}
+
+func (in *Health) DeepCopyInto(out *Health) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *Health) DeepCopy() *Health {
+	return proto.Clone(in).(*Health)
+}
+
+func (in *HealthStatus) DeepCopyInto(out *HealthStatus) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *HealthStatus) DeepCopy() *HealthStatus {
+	return proto.Clone(in).(*HealthStatus)
+}
+
+func (in *ClusterHealth) DeepCopyInto(out *ClusterHealth) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ClusterHealth) DeepCopy() *ClusterHealth {
+	return proto.Clone(in).(*ClusterHealth)
+}
+
+func (in *ClusterStatus) DeepCopyInto(out *ClusterStatus) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ClusterStatus) DeepCopy() *ClusterStatus {
+	return proto.Clone(in).(*ClusterStatus)
+}
+
+func (in *ClusterHealthStatus) DeepCopyInto(out *ClusterHealthStatus) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ClusterHealthStatus) DeepCopy() *ClusterHealthStatus {
+	return proto.Clone(in).(*ClusterHealthStatus)
+}
+
+func (in *AlertLog) DeepCopyInto(out *AlertLog) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *AlertLog) DeepCopy() *AlertLog {
+	return proto.Clone(in).(*AlertLog)
+}
+
+func (in *AlertLogList) DeepCopyInto(out *AlertLogList) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *AlertLogList) DeepCopy() *AlertLogList {
+	return proto.Clone(in).(*AlertLogList)
+}
+
+func (in *TimeRange) DeepCopyInto(out *TimeRange) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *TimeRange) DeepCopy() *TimeRange {
+	return proto.Clone(in).(*TimeRange)
+}
+
+func (in *StateTransition) DeepCopyInto(out *StateTransition) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *StateTransition) DeepCopy() *StateTransition {
+	return proto.Clone(in).(*StateTransition)
+}
+
+func (in *Progress) DeepCopyInto(out *Progress) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *Progress) DeepCopy() *Progress {
+	return proto.Clone(in).(*Progress)
+}
+
+func (in *TaskStatus) DeepCopyInto(out *TaskStatus) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *TaskStatus) DeepCopy() *TaskStatus {
+	return proto.Clone(in).(*TaskStatus)
+}
+
+func (in *LogEntry) DeepCopyInto(out *LogEntry) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *LogEntry) DeepCopy() *LogEntry {
+	return proto.Clone(in).(*LogEntry)
+}
+
+func (in *ChallengeRequestList) DeepCopyInto(out *ChallengeRequestList) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ChallengeRequestList) DeepCopy() *ChallengeRequestList {
+	return proto.Clone(in).(*ChallengeRequestList)
+}
+
+func (in *ChallengeRequest) DeepCopyInto(out *ChallengeRequest) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ChallengeRequest) DeepCopy() *ChallengeRequest {
+	return proto.Clone(in).(*ChallengeRequest)
+}
+
+func (in *ChallengeResponseList) DeepCopyInto(out *ChallengeResponseList) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ChallengeResponseList) DeepCopy() *ChallengeResponseList {
+	return proto.Clone(in).(*ChallengeResponseList)
+}
+
+func (in *ChallengeResponse) DeepCopyInto(out *ChallengeResponse) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ChallengeResponse) DeepCopy() *ChallengeResponse {
+	return proto.Clone(in).(*ChallengeResponse)
+}
+
+func (in *SessionInfo) DeepCopyInto(out *SessionInfo) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *SessionInfo) DeepCopy() *SessionInfo {
+	return proto.Clone(in).(*SessionInfo)
+}
+
+func (in *AuthInfo) DeepCopyInto(out *AuthInfo) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *AuthInfo) DeepCopy() *AuthInfo {
+	return proto.Clone(in).(*AuthInfo)
+}
+
+func (in *Revision) DeepCopyInto(out *Revision) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *Revision) DeepCopy() *Revision {
+	return proto.Clone(in).(*Revision)
+}
+
+func (in *InstanceInfo) DeepCopyInto(out *InstanceInfo) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *InstanceInfo) DeepCopy() *InstanceInfo {
+	return proto.Clone(in).(*InstanceInfo)
+}
+
+func (in *Revision) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Revision", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Var(flagutil.IntPtrValue(nil, &in.Revision), strings.Join(append(prefix, "revision"), "."), "A numerical revision uniquely identifying a specific version of the resource.")
+	return fs
+}
+
 func (in *Reference) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Reference", pflag.ExitOnError)
 	fs.SortFlags = true
@@ -75,9 +578,84 @@ func (in *Reference) FlagSet(prefix ...string) *pflag.FlagSet {
 	return fs
 }
 
-func (in *Revision) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("Revision", pflag.ExitOnError)
+func (in *Role) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Role", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.IntPtrValue(nil, &in.Revision), strings.Join(append(prefix, "revision"), "."), "A numerical revision uniquely identifying a specific version of the resource.")
+	fs.StringVar(&in.Id, strings.Join(append(prefix, "id"), "."), "", "")
+	if in.Metadata == nil {
+		in.Metadata = &RoleMetadata{}
+	}
+	fs.AddFlagSet(in.Metadata.FlagSet(append(prefix, "metadata")...))
+	return fs
+}
+
+func (in *RoleMetadata) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("RoleMetadata", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringVar(&in.ResourceVersion, strings.Join(append(prefix, "resource-version"), "."), "", "read-only")
+	return fs
+}
+
+func (in *LabelSelector) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("LabelSelector", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringToStringVar(&in.MatchLabels, strings.Join(append(prefix, "match-labels"), "."), nil, "")
+	return fs
+}
+
+func (in *CapabilityType) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("CapabilityType", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringVar(&in.Name, strings.Join(append(prefix, "name"), "."), "", "")
+	return fs
+}
+
+func (in *BackendRole) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("BackendRole", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Capability == nil {
+		in.Capability = &CapabilityType{}
+	}
+	fs.AddFlagSet(in.Capability.FlagSet(append(prefix, "capability")...))
+	if in.Role == nil {
+		in.Role = &Role{}
+	}
+	fs.AddFlagSet(in.Role.FlagSet(append(prefix, "role")...))
+	return fs
+}
+
+func (in *BackendRoleRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("BackendRoleRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Capability == nil {
+		in.Capability = &CapabilityType{}
+	}
+	fs.AddFlagSet(in.Capability.FlagSet(append(prefix, "capability")...))
+	if in.RoleRef == nil {
+		in.RoleRef = &Reference{}
+	}
+	fs.AddFlagSet(in.RoleRef.FlagSet(append(prefix, "role-ref")...))
+	return fs
+}
+
+func (in *RoleBinding) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("RoleBinding", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringVar(&in.Id, strings.Join(append(prefix, "id"), "."), "", "")
+	fs.StringVar(&in.RoleId, strings.Join(append(prefix, "role-id"), "."), "", "")
+	fs.StringSliceVar(&in.Subjects, strings.Join(append(prefix, "subjects"), "."), nil, "")
+	fs.StringSliceVar(&in.Taints, strings.Join(append(prefix, "taints"), "."), nil, "")
+	if in.Metadata == nil {
+		in.Metadata = &RoleBindingMetadata{}
+	}
+	fs.AddFlagSet(in.Metadata.FlagSet(append(prefix, "metadata")...))
+	return fs
+}
+
+func (in *RoleBindingMetadata) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("RoleBindingMetadata", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringVar(&in.ResourceVersion, strings.Join(append(prefix, "resource-version"), "."), "", "read-only")
+	fs.Var(flagutil.StringPtrValue(nil, &in.Capability), strings.Join(append(prefix, "capability"), "."), "immutable after creation")
 	return fs
 }

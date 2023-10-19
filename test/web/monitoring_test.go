@@ -164,12 +164,16 @@ var _ = Describe("Monitoring", Ordered, Label("web"), func() {
 
 		By("confirming that the role is in the table")
 		Eventually(Table().Row(1).Col(2)).Should(b.HaveInnerText("test-role"))
-		Eventually(Table().Row(1).Col(4)).Should(HaveBadge("bubble", "test-key=test-value"))
 
 		By("confirming that the role exists")
-		role, err := mgmtClient.GetRole(context.Background(), &corev1.Reference{Id: "test-role"})
+		role, err := mgmtClient.GetBackendRole(context.Background(), &corev1.BackendRoleRequest{
+			Capability: &corev1.CapabilityType{
+				Name: wellknown.CapabilityMetrics,
+			},
+			RoleRef: &corev1.Reference{Id: "test-role"},
+		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(role.MatchLabels.MatchLabels).To(HaveKeyWithValue("test-key", "test-value"))
+		Expect(role.Permissions[0].MatchLabels.MatchLabels).To(HaveKeyWithValue("test-key", "test-value"))
 	})
 
 	It("should configure role bindings", func() {

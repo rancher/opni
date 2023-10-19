@@ -38,7 +38,7 @@ func (h blockingHttpHandler) ServeHTTP(w http.ResponseWriter, request *http.Requ
 	switch request.URL.Path {
 	case "/block":
 		// select {} will block forever without using CPU.
-		select {}
+		select {} //nolint:revive
 	case "/large":
 		uncompressed, err := (&prompb.ReadResponse{
 			Results: []*prompb.QueryResult{

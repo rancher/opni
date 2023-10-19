@@ -126,7 +126,7 @@ func RenderClusterList(list *corev1.ClusterList, status []*corev1.HealthStatus) 
 
 func RenderRole(role *corev1.Role) string {
 	return RenderRoleList(&corev1.RoleList{
-		Items: []*corev1.Role{role},
+		Items: []*corev1.Reference{{Id: role.GetId()}},
 	})
 }
 
@@ -134,16 +134,8 @@ func RenderRoleList(list *corev1.RoleList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	w.AppendHeader(table.Row{"ID", "SELECTOR", "CLUSTER IDS"})
-	for _, role := range list.Items {
-		clusterIds := strings.Join(role.ClusterIDs, "\n")
-		if len(clusterIds) == 0 {
-			clusterIds = "(none)"
-		}
-		expressionStr := role.MatchLabels.ExpressionString()
-		if expressionStr == "" {
-			expressionStr = "(none)"
-		}
-		w.AppendRow(table.Row{role.Id, expressionStr, clusterIds})
+	for _, role := range list.GetItems() {
+		w.AppendRow(table.Row{role.Id})
 	}
 	return w.Render()
 }

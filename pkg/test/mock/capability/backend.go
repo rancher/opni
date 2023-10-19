@@ -456,3 +456,341 @@ func (mr *MockUnsafeNodeServerMockRecorder) mustEmbedUnimplementedNodeServer() *
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedNodeServer", reflect.TypeOf((*MockUnsafeNodeServer)(nil).mustEmbedUnimplementedNodeServer))
 }
+
+// MockRBACManagerClient is a mock of RBACManagerClient interface.
+type MockRBACManagerClient struct {
+	ctrl     *gomock.Controller
+	recorder *MockRBACManagerClientMockRecorder
+}
+
+// MockRBACManagerClientMockRecorder is the mock recorder for MockRBACManagerClient.
+type MockRBACManagerClientMockRecorder struct {
+	mock *MockRBACManagerClient
+}
+
+// NewMockRBACManagerClient creates a new mock instance.
+func NewMockRBACManagerClient(ctrl *gomock.Controller) *MockRBACManagerClient {
+	mock := &MockRBACManagerClient{ctrl: ctrl}
+	mock.recorder = &MockRBACManagerClientMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockRBACManagerClient) EXPECT() *MockRBACManagerClientMockRecorder {
+	return m.recorder
+}
+
+// CreateRole mocks base method.
+func (m *MockRBACManagerClient) CreateRole(ctx context.Context, in *v10.Role, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "CreateRole", varargs...)
+	ret0, _ := ret[0].(*emptypb.Empty)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateRole indicates an expected call of CreateRole.
+func (mr *MockRBACManagerClientMockRecorder) CreateRole(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRole", reflect.TypeOf((*MockRBACManagerClient)(nil).CreateRole), varargs...)
+}
+
+// DeleteRole mocks base method.
+func (m *MockRBACManagerClient) DeleteRole(ctx context.Context, in *v10.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DeleteRole", varargs...)
+	ret0, _ := ret[0].(*emptypb.Empty)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteRole indicates an expected call of DeleteRole.
+func (mr *MockRBACManagerClientMockRecorder) DeleteRole(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRole", reflect.TypeOf((*MockRBACManagerClient)(nil).DeleteRole), varargs...)
+}
+
+// GetAvailablePermissions mocks base method.
+func (m *MockRBACManagerClient) GetAvailablePermissions(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v10.AvailablePermissions, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetAvailablePermissions", varargs...)
+	ret0, _ := ret[0].(*v10.AvailablePermissions)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAvailablePermissions indicates an expected call of GetAvailablePermissions.
+func (mr *MockRBACManagerClientMockRecorder) GetAvailablePermissions(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAvailablePermissions", reflect.TypeOf((*MockRBACManagerClient)(nil).GetAvailablePermissions), varargs...)
+}
+
+// GetRole mocks base method.
+func (m *MockRBACManagerClient) GetRole(ctx context.Context, in *v10.Reference, opts ...grpc.CallOption) (*v10.Role, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetRole", varargs...)
+	ret0, _ := ret[0].(*v10.Role)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRole indicates an expected call of GetRole.
+func (mr *MockRBACManagerClientMockRecorder) GetRole(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRole", reflect.TypeOf((*MockRBACManagerClient)(nil).GetRole), varargs...)
+}
+
+// Info mocks base method.
+func (m *MockRBACManagerClient) Info(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.Details, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Info", varargs...)
+	ret0, _ := ret[0].(*v1.Details)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Info indicates an expected call of Info.
+func (mr *MockRBACManagerClientMockRecorder) Info(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockRBACManagerClient)(nil).Info), varargs...)
+}
+
+// ListRoles mocks base method.
+func (m *MockRBACManagerClient) ListRoles(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v10.RoleList, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListRoles", varargs...)
+	ret0, _ := ret[0].(*v10.RoleList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListRoles indicates an expected call of ListRoles.
+func (mr *MockRBACManagerClientMockRecorder) ListRoles(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRoles", reflect.TypeOf((*MockRBACManagerClient)(nil).ListRoles), varargs...)
+}
+
+// UpdateRole mocks base method.
+func (m *MockRBACManagerClient) UpdateRole(ctx context.Context, in *v10.Role, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "UpdateRole", varargs...)
+	ret0, _ := ret[0].(*emptypb.Empty)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateRole indicates an expected call of UpdateRole.
+func (mr *MockRBACManagerClientMockRecorder) UpdateRole(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRole", reflect.TypeOf((*MockRBACManagerClient)(nil).UpdateRole), varargs...)
+}
+
+// MockRBACManagerServer is a mock of RBACManagerServer interface.
+type MockRBACManagerServer struct {
+	ctrl     *gomock.Controller
+	recorder *MockRBACManagerServerMockRecorder
+}
+
+// MockRBACManagerServerMockRecorder is the mock recorder for MockRBACManagerServer.
+type MockRBACManagerServerMockRecorder struct {
+	mock *MockRBACManagerServer
+}
+
+// NewMockRBACManagerServer creates a new mock instance.
+func NewMockRBACManagerServer(ctrl *gomock.Controller) *MockRBACManagerServer {
+	mock := &MockRBACManagerServer{ctrl: ctrl}
+	mock.recorder = &MockRBACManagerServerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockRBACManagerServer) EXPECT() *MockRBACManagerServerMockRecorder {
+	return m.recorder
+}
+
+// CreateRole mocks base method.
+func (m *MockRBACManagerServer) CreateRole(arg0 context.Context, arg1 *v10.Role) (*emptypb.Empty, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateRole", arg0, arg1)
+	ret0, _ := ret[0].(*emptypb.Empty)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateRole indicates an expected call of CreateRole.
+func (mr *MockRBACManagerServerMockRecorder) CreateRole(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRole", reflect.TypeOf((*MockRBACManagerServer)(nil).CreateRole), arg0, arg1)
+}
+
+// DeleteRole mocks base method.
+func (m *MockRBACManagerServer) DeleteRole(arg0 context.Context, arg1 *v10.Reference) (*emptypb.Empty, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteRole", arg0, arg1)
+	ret0, _ := ret[0].(*emptypb.Empty)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteRole indicates an expected call of DeleteRole.
+func (mr *MockRBACManagerServerMockRecorder) DeleteRole(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRole", reflect.TypeOf((*MockRBACManagerServer)(nil).DeleteRole), arg0, arg1)
+}
+
+// GetAvailablePermissions mocks base method.
+func (m *MockRBACManagerServer) GetAvailablePermissions(arg0 context.Context, arg1 *emptypb.Empty) (*v10.AvailablePermissions, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAvailablePermissions", arg0, arg1)
+	ret0, _ := ret[0].(*v10.AvailablePermissions)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAvailablePermissions indicates an expected call of GetAvailablePermissions.
+func (mr *MockRBACManagerServerMockRecorder) GetAvailablePermissions(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAvailablePermissions", reflect.TypeOf((*MockRBACManagerServer)(nil).GetAvailablePermissions), arg0, arg1)
+}
+
+// GetRole mocks base method.
+func (m *MockRBACManagerServer) GetRole(arg0 context.Context, arg1 *v10.Reference) (*v10.Role, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRole", arg0, arg1)
+	ret0, _ := ret[0].(*v10.Role)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRole indicates an expected call of GetRole.
+func (mr *MockRBACManagerServerMockRecorder) GetRole(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRole", reflect.TypeOf((*MockRBACManagerServer)(nil).GetRole), arg0, arg1)
+}
+
+// Info mocks base method.
+func (m *MockRBACManagerServer) Info(arg0 context.Context, arg1 *emptypb.Empty) (*v1.Details, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Info", arg0, arg1)
+	ret0, _ := ret[0].(*v1.Details)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Info indicates an expected call of Info.
+func (mr *MockRBACManagerServerMockRecorder) Info(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockRBACManagerServer)(nil).Info), arg0, arg1)
+}
+
+// ListRoles mocks base method.
+func (m *MockRBACManagerServer) ListRoles(arg0 context.Context, arg1 *emptypb.Empty) (*v10.RoleList, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListRoles", arg0, arg1)
+	ret0, _ := ret[0].(*v10.RoleList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListRoles indicates an expected call of ListRoles.
+func (mr *MockRBACManagerServerMockRecorder) ListRoles(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRoles", reflect.TypeOf((*MockRBACManagerServer)(nil).ListRoles), arg0, arg1)
+}
+
+// UpdateRole mocks base method.
+func (m *MockRBACManagerServer) UpdateRole(arg0 context.Context, arg1 *v10.Role) (*emptypb.Empty, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateRole", arg0, arg1)
+	ret0, _ := ret[0].(*emptypb.Empty)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateRole indicates an expected call of UpdateRole.
+func (mr *MockRBACManagerServerMockRecorder) UpdateRole(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRole", reflect.TypeOf((*MockRBACManagerServer)(nil).UpdateRole), arg0, arg1)
+}
+
+// mustEmbedUnimplementedRBACManagerServer mocks base method.
+func (m *MockRBACManagerServer) mustEmbedUnimplementedRBACManagerServer() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "mustEmbedUnimplementedRBACManagerServer")
+}
+
+// mustEmbedUnimplementedRBACManagerServer indicates an expected call of mustEmbedUnimplementedRBACManagerServer.
+func (mr *MockRBACManagerServerMockRecorder) mustEmbedUnimplementedRBACManagerServer() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedRBACManagerServer", reflect.TypeOf((*MockRBACManagerServer)(nil).mustEmbedUnimplementedRBACManagerServer))
+}
+
+// MockUnsafeRBACManagerServer is a mock of UnsafeRBACManagerServer interface.
+type MockUnsafeRBACManagerServer struct {
+	ctrl     *gomock.Controller
+	recorder *MockUnsafeRBACManagerServerMockRecorder
+}
+
+// MockUnsafeRBACManagerServerMockRecorder is the mock recorder for MockUnsafeRBACManagerServer.
+type MockUnsafeRBACManagerServerMockRecorder struct {
+	mock *MockUnsafeRBACManagerServer
+}
+
+// NewMockUnsafeRBACManagerServer creates a new mock instance.
+func NewMockUnsafeRBACManagerServer(ctrl *gomock.Controller) *MockUnsafeRBACManagerServer {
+	mock := &MockUnsafeRBACManagerServer{ctrl: ctrl}
+	mock.recorder = &MockUnsafeRBACManagerServerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockUnsafeRBACManagerServer) EXPECT() *MockUnsafeRBACManagerServerMockRecorder {
+	return m.recorder
+}
+
+// mustEmbedUnimplementedRBACManagerServer mocks base method.
+func (m *MockUnsafeRBACManagerServer) mustEmbedUnimplementedRBACManagerServer() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "mustEmbedUnimplementedRBACManagerServer")
+}
+
+// mustEmbedUnimplementedRBACManagerServer indicates an expected call of mustEmbedUnimplementedRBACManagerServer.
+func (mr *MockUnsafeRBACManagerServerMockRecorder) mustEmbedUnimplementedRBACManagerServer() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedRBACManagerServer", reflect.TypeOf((*MockUnsafeRBACManagerServer)(nil).mustEmbedUnimplementedRBACManagerServer))
+}

@@ -74,24 +74,47 @@ var _ = Describe("Validation", Label("unit"), func() {
 		Entry(nil, &corev1.Role{}, validation.ErrMissingRequiredField),
 		Entry(nil, &corev1.Role{Id: "\\"}, validation.ErrInvalidID),
 		Entry(nil, &corev1.Role{
-			Id:         "foo",
-			ClusterIDs: []string{"\\"},
+			Id: "foo",
+			Permissions: []*corev1.PermissionItem{
+				{
+					Ids: []string{"foo"},
+				},
+			},
+		}, validation.ErrMissingRequiredField),
+		Entry(nil, &corev1.Role{
+			Id: "foo",
+			Permissions: []*corev1.PermissionItem{
+				{
+					Type: "cluster",
+					Ids:  []string{"\\"},
+				},
+			},
 		}, validation.ErrInvalidID),
 		Entry(nil, &corev1.Role{
-			Id:         "foo",
-			ClusterIDs: []string{"bar"},
-			MatchLabels: &corev1.LabelSelector{
-				MatchExpressions: []*corev1.LabelSelectorRequirement{
-					{Key: "foo", Operator: "invalid"},
+			Id: "foo",
+			Permissions: []*corev1.PermissionItem{
+				{
+					Type: "cluster",
+					Ids:  []string{"bar"},
+					MatchLabels: &corev1.LabelSelector{
+						MatchExpressions: []*corev1.LabelSelectorRequirement{
+							{Key: "foo", Operator: "invalid"},
+						},
+					},
 				},
 			},
 		}, validation.ErrInvalidValue),
 		Entry(nil, &corev1.Role{
-			Id:         "foo",
-			ClusterIDs: []string{"bar"},
-			MatchLabels: &corev1.LabelSelector{
-				MatchExpressions: []*corev1.LabelSelectorRequirement{
-					{Key: "foo", Operator: string(corev1.LabelSelectorOpExists)},
+			Id: "foo",
+			Permissions: []*corev1.PermissionItem{
+				{
+					Type: "cluster",
+					Ids:  []string{"bar"},
+					MatchLabels: &corev1.LabelSelector{
+						MatchExpressions: []*corev1.LabelSelectorRequirement{
+							{Key: "foo", Operator: string(corev1.LabelSelectorOpExists)},
+						},
+					},
 				},
 			},
 		}, nil),

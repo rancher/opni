@@ -26,37 +26,51 @@ spec:
             type: object
           spec:
             properties:
-              clusterIDs:
-                items:
-                  type: string
-                type: array
               id:
                 type: string
-              matchLabels:
-                properties:
-                  matchExpressions:
-                    items:
-                      properties:
-                        key:
-                          type: string
-                        operator:
-                          type: string
-                        values:
-                          items:
-                            type: string
-                          type: array
-                      type: object
-                    type: array
-                  matchLabels:
-                    additionalProperties:
-                      type: string
-                    type: object
-                type: object
               metadata:
                 properties:
                   resourceVersion:
                     type: string
                 type: object
+              permissions:
+                items:
+                  properties:
+                    ids:
+                      items:
+                        type: string
+                      type: array
+                    matchLabels:
+                      properties:
+                        matchExpressions:
+                          items:
+                            properties:
+                              key:
+                                type: string
+                              operator:
+                                type: string
+                              values:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                          type: array
+                        matchLabels:
+                          additionalProperties:
+                            type: string
+                          type: object
+                      type: object
+                    type:
+                      type: string
+                    verbs:
+                      items:
+                        properties:
+                          verb:
+                            type: string
+                        type: object
+                      type: array
+                  type: object
+                type: array
             type: object
         type: object
     served: true

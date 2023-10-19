@@ -71,6 +71,7 @@ type DryRunRequestType[
 	GetAction() Action
 	GetTarget() Target
 	GetSpec() T
+	GetRevision() *corev1.Revision
 	GetPatch() T
 	GetMask() *fieldmaskpb.FieldMask
 }

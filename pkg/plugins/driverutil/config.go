@@ -23,11 +23,14 @@ type DryRunResults[T any] struct {
 }
 
 type DefaultingConfigTracker[T ConfigType[T]] struct {
-	lock               sync.Mutex
+	lock               *sync.Mutex
 	defaultStore       storage.ValueStoreT[T]
 	activeStore        storage.ValueStoreT[T]
 	defaultLoader      DefaultLoaderFunc[T]
 	revisionFieldIndex int
+
+	redact   func(SecretsRedactor[T])
+	unredact func(SecretsRedactor[T], T) error
 }
 
 func NewDefaultingConfigTracker[T ConfigType[T]](
@@ -35,10 +38,13 @@ func NewDefaultingConfigTracker[T ConfigType[T]](
 	loadDefaultsFunc DefaultLoaderFunc[T],
 ) *DefaultingConfigTracker[T] {
 	return &DefaultingConfigTracker[T]{
+		lock:               &sync.Mutex{},
 		defaultStore:       defaultStore,
 		activeStore:        activeStore,
 		defaultLoader:      loadDefaultsFunc,
 		revisionFieldIndex: GetRevisionFieldIndex[T](),
+		redact:             (SecretsRedactor[T]).RedactSecrets,
+		unredact:           (SecretsRedactor[T]).UnredactSecrets,
 	}
 }
 
@@ -59,7 +65,7 @@ func (ct *DefaultingConfigTracker[T]) GetDefaultConfig(ctx context.Context, atRe
 		return def, err
 	}
 
-	def.RedactSecrets()
+	ct.redact(def)
 	SetRevision(def, rev)
 	return def, nil
 }
@@ -77,7 +83,7 @@ func (ct *DefaultingConfigTracker[T]) SetDefaultConfig(ctx context.Context, newD
 	if err != nil {
 		return err
 	}
-	if err := newDefault.UnredactSecrets(existing); err != nil {
+	if err := ct.unredact(newDefault, existing); err != nil {
 		return err
 	}
 
@@ -87,11 +93,14 @@ func (ct *DefaultingConfigTracker[T]) SetDefaultConfig(ctx context.Context, newD
 
 // Deletes the default config, leaving it unset. Subsequent calls to GetDefaultConfig
 // will return a new default config as defined by the type.
-func (ct *DefaultingConfigTracker[T]) ResetDefaultConfig(ctx context.Context) error {
+func (ct *DefaultingConfigTracker[T]) ResetDefaultConfig(ctx context.Context, atRevision ...*corev1.Revision) error {
 	ct.lock.Lock()
 	defer ct.lock.Unlock()
-
-	if err := ct.defaultStore.Delete(ctx); err != nil {
+	opts := []storage.DeleteOpt{}
+	if len(atRevision) > 0 {
+		opts = append(opts, storage.WithRevision(*atRevision[0].Revision))
+	}
+	if err := ct.defaultStore.Delete(ctx, opts...); err != nil {
 		return fmt.Errorf("error resetting config: %w", err)
 	}
 	return nil
@@ -128,7 +137,7 @@ func (ct *DefaultingConfigTracker[T]) GetConfig(ctx context.Context, atRevision 
 	if err != nil {
 		return existing, fmt.Errorf("error looking up config: %w", err)
 	}
-	existing.RedactSecrets()
+	ct.redact(existing)
 	SetRevision(existing, revision)
 	return existing, nil
 }
@@ -138,11 +147,15 @@ func (ct *DefaultingConfigTracker[T]) GetConfig(ctx context.Context, atRevision 
 // If a nil mask is given, the active config (potentially including history)
 // is deleted from the underlying store. If a non-nil mask is given, the active
 // config is only modified (preserving history), not deleted.
-func (ct *DefaultingConfigTracker[T]) ResetConfig(ctx context.Context, mask *fieldmaskpb.FieldMask, patch T) error {
+func (ct *DefaultingConfigTracker[T]) ResetConfig(ctx context.Context, mask *fieldmaskpb.FieldMask, patch T, atRevision ...*corev1.Revision) error {
 	ct.lock.Lock()
 	defer ct.lock.Unlock()
 	var revision int64
-	activeConfig, err := ct.activeStore.Get(ctx, storage.WithRevisionOut(&revision))
+	opts := []storage.GetOpt{
+		storage.WithRevisionOut(&revision),
+	}
+	opts = maybeWithRevision(atRevision, opts)
+	activeConfig, err := ct.activeStore.Get(ctx, opts...)
 	if err != nil {
 		return fmt.Errorf("error looking up config: %w", err)
 	}
@@ -169,7 +182,7 @@ func (ct *DefaultingConfigTracker[T]) ResetConfig(ctx context.Context, mask *fie
 	}
 
 	fieldmask.ExclusiveKeep(activeConfig, mask)
-	if err := patch.UnredactSecrets(activeConfig); err != nil {
+	if err := ct.unredact(patch, activeConfig); err != nil {
 		return err
 	}
 	fieldmask.ExclusiveKeep(patch, mask)
@@ -191,37 +204,38 @@ func (ct *DefaultingConfigTracker[T]) GetConfigOrDefault(ctx context.Context, at
 	if err != nil {
 		return value, err
 	}
-	value.RedactSecrets()
+	ct.redact(value)
 
 	SetRevision(value, rev)
 	return value, nil
 }
 
 func (ct *DefaultingConfigTracker[T]) getConfigOrDefaultLocked(ctx context.Context, atRevision ...*corev1.Revision) (T, int64, error) {
-	var revision int64
+	defaultValue, defaultErr := ct.defaultStore.Get(ctx)
+	var activeRevision int64
 	opts := []storage.GetOpt{
-		storage.WithRevisionOut(&revision),
+		storage.WithRevisionOut(&activeRevision),
 	}
 	opts = maybeWithRevision(atRevision, opts)
-	value, err := ct.activeStore.Get(ctx, opts...)
-	if err != nil {
-		if !storage.IsNotFound(err) {
-			return value, 0, fmt.Errorf("error looking up config: %w", err)
+	activeValue, activeErr := ct.activeStore.Get(ctx, opts...)
+	if activeErr != nil {
+		if !storage.IsNotFound(activeErr) {
+			return activeValue, 0, fmt.Errorf("error looking up config: %w", activeErr)
 		}
 		// NB: we only save the revision from the active store, because the
 		// return value of this function is intended to be used as the
 		// active config. if it's unset, the revision should be set to 0,
 		// so that it will only be usable as an active config, but would be
 		// rejected as a default config.
-		value, err = ct.defaultStore.Get(ctx)
-		if err != nil {
-			if !storage.IsNotFound(err) {
-				return value, 0, fmt.Errorf("error looking up default config: %w", err)
+		if defaultErr != nil {
+			if !storage.IsNotFound(defaultErr) {
+				return defaultValue, 0, fmt.Errorf("error looking up default config: %w", activeErr)
 			}
-			value = ct.newDefaultSpec() // no modifications are made to revision
+			return ct.newDefaultSpec(), 0, nil
 		}
+		return defaultValue, 0, nil
 	}
-	return value, revision, nil
+	return activeValue, activeRevision, nil
 }
 
 func maybeWithRevision(atRevision []*corev1.Revision, opts []storage.GetOpt) []storage.GetOpt {
@@ -242,7 +256,7 @@ func (ct *DefaultingConfigTracker[T]) ApplyConfig(ctx context.Context, newConfig
 		return err
 	}
 
-	if err := newConfig.UnredactSecrets(existing); err != nil {
+	if err := ct.unredact(newConfig, existing); err != nil {
 		return err
 	}
 
@@ -266,7 +280,7 @@ func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, req DryRunRequ
 				Modified: res.Modified,
 			}, nil
 		case Action_Reset:
-			res, err := ct.DryRunResetConfig(ctx, req.GetMask(), req.GetPatch())
+			res, err := ct.DryRunResetConfig(ctx, req.GetMask(), req.GetPatch(), req.GetRevision())
 			if err != nil {
 				return nil, err
 			}
@@ -289,7 +303,7 @@ func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, req DryRunRequ
 				Modified: res.Modified,
 			}, nil
 		case Action_Reset:
-			res, err := ct.DryRunResetDefaultConfig(ctx)
+			res, err := ct.DryRunResetDefaultConfig(ctx, req.GetRevision())
 			if err != nil {
 				return nil, err
 			}
@@ -337,7 +351,7 @@ func (ct *DefaultingConfigTracker[T]) DryRunApplyConfig(ctx context.Context, new
 		return DryRunResults[T]{}, storage.ErrConflict
 	}
 
-	if err := newConfig.UnredactSecrets(current); err != nil {
+	if err := ct.unredact(newConfig, current); err != nil {
 		return DryRunResults[T]{}, err
 	}
 
@@ -345,8 +359,8 @@ func (ct *DefaultingConfigTracker[T]) DryRunApplyConfig(ctx context.Context, new
 
 	merge.MergeWithReplace(modified, newConfig)
 
-	current.RedactSecrets()
-	modified.RedactSecrets()
+	ct.redact(current)
+	ct.redact(modified)
 
 	// Unset the revision for the modified config. Revisions are not stored
 	// in the actual object inside the kv store, so they should not be included
@@ -369,12 +383,12 @@ func (ct *DefaultingConfigTracker[T]) DryRunSetDefaultConfig(ctx context.Context
 		return DryRunResults[T]{}, storage.ErrConflict
 	}
 
-	if err := newDefault.UnredactSecrets(current); err != nil {
+	if err := ct.unredact(newDefault, current); err != nil {
 		return DryRunResults[T]{}, err
 	}
 
-	current.RedactSecrets()
-	newDefault.RedactSecrets()
+	ct.redact(current)
+	ct.redact(newDefault)
 
 	return DryRunResults[T]{
 		Current:  current,
@@ -382,10 +396,10 @@ func (ct *DefaultingConfigTracker[T]) DryRunSetDefaultConfig(ctx context.Context
 	}, nil
 }
 
-func (ct *DefaultingConfigTracker[T]) DryRunResetDefaultConfig(ctx context.Context) (DryRunResults[T], error) {
+func (ct *DefaultingConfigTracker[T]) DryRunResetDefaultConfig(ctx context.Context, atRevision ...*corev1.Revision) (DryRunResults[T], error) {
 	ct.lock.Lock()
 	defer ct.lock.Unlock()
-	current, err := ct.defaultStore.Get(ctx)
+	current, err := ct.defaultStore.Get(ctx, maybeWithRevision(atRevision, nil)...)
 	if err != nil {
 		// always return an error here, including not found errors, since
 		// dry run reset only makes sense if there is an overridden default
@@ -395,18 +409,18 @@ func (ct *DefaultingConfigTracker[T]) DryRunResetDefaultConfig(ctx context.Conte
 
 	newDefault := ct.newDefaultSpec()
 
-	current.RedactSecrets()
-	newDefault.RedactSecrets()
+	ct.redact(current)
+	ct.redact(newDefault)
 	return DryRunResults[T]{
 		Current:  current,
 		Modified: newDefault,
 	}, nil
 }
 
-func (ct *DefaultingConfigTracker[T]) DryRunResetConfig(ctx context.Context, mask *fieldmaskpb.FieldMask, patch T) (DryRunResults[T], error) {
+func (ct *DefaultingConfigTracker[T]) DryRunResetConfig(ctx context.Context, mask *fieldmaskpb.FieldMask, patch T, atRevision ...*corev1.Revision) (DryRunResults[T], error) {
 	ct.lock.Lock()
 	defer ct.lock.Unlock()
-	activeConfig, err := ct.activeStore.Get(ctx)
+	activeConfig, err := ct.activeStore.Get(ctx, maybeWithRevision(atRevision, nil)...)
 	if err != nil {
 		return DryRunResults[T]{}, err
 	}
@@ -415,8 +429,8 @@ func (ct *DefaultingConfigTracker[T]) DryRunResetConfig(ctx context.Context, mas
 		return DryRunResults[T]{}, err
 	}
 	if mask == nil {
-		activeConfig.RedactSecrets()
-		defaultConfig.RedactSecrets()
+		ct.redact(activeConfig)
+		ct.redact(defaultConfig)
 		return DryRunResults[T]{
 			Current:  activeConfig,
 			Modified: defaultConfig,
@@ -436,7 +450,7 @@ func (ct *DefaultingConfigTracker[T]) DryRunResetConfig(ctx context.Context, mas
 
 	originalCurrent := util.ProtoClone(activeConfig)
 	fieldmask.ExclusiveKeep(activeConfig, mask)
-	if err := patch.UnredactSecrets(activeConfig); err != nil {
+	if err := ct.unredact(patch, activeConfig); err != nil {
 		return DryRunResults[T]{}, err
 	}
 	fieldmask.ExclusiveKeep(patch, mask)
@@ -444,8 +458,8 @@ func (ct *DefaultingConfigTracker[T]) DryRunResetConfig(ctx context.Context, mas
 	merge.MergeWithReplace(activeConfig, patch)
 	merge.MergeWithReplace(defaultConfig, activeConfig)
 
-	originalCurrent.RedactSecrets()
-	defaultConfig.RedactSecrets()
+	ct.redact(originalCurrent)
+	ct.redact(defaultConfig)
 	return DryRunResults[T]{
 		Current:  originalCurrent,
 		Modified: defaultConfig,

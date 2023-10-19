@@ -12,6 +12,7 @@ import (
 	runtimeconfig "github.com/rancher/opni/internal/cortex/config/runtimeconfig"
 	storage "github.com/rancher/opni/internal/cortex/config/storage"
 	validation "github.com/rancher/opni/internal/cortex/config/validation"
+	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
 	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
 	storage1 "github.com/rancher/opni/pkg/storage"
@@ -387,6 +388,7 @@ HTTP handlers for this method:
 			return nil
 		},
 	}
+	cmd.Flags().AddFlagSet(in.FlagSet())
 	return cmd
 }
 
@@ -660,6 +662,16 @@ func (in *GrafanaConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.Var(flagutil.BoolPtrValue(flagutil.Ptr(false), &in.Enabled), strings.Join(append(prefix, "enabled"), "."), "Whether to deploy a managed Grafana instance.")
 	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("latest"), &in.Version), strings.Join(append(prefix, "version"), "."), "The version of Grafana to deploy.")
 	fs.Var(flagutil.StringPtrValue(nil, &in.Hostname), strings.Join(append(prefix, "hostname"), "."), "")
+	return fs
+}
+
+func (in *ResetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("ResetRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Revision == nil {
+		in.Revision = &v1.Revision{}
+	}
+	fs.AddFlagSet(in.Revision.FlagSet(prefix...))
 	return fs
 }
 

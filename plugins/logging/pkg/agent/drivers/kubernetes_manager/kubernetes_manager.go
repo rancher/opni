@@ -152,6 +152,9 @@ func (m *KubernetesManagerDriver) buildLoggingCollectorConfig() *opniloggingv1be
 		},
 		Spec: opniloggingv1beta1.CollectorConfigSpec{
 			Provider: opniloggingv1beta1.LogProvider(m.provider),
+			KubeAuditLogs: &opniloggingv1beta1.KubeAuditLogsSpec{
+				Enabled: false,
+			},
 		},
 	}
 	return collectorConfig
@@ -318,8 +321,10 @@ func (m *KubernetesManagerDriver) buildEmptyCollector() *opnicorev1beta1.Collect
 			ImageSpec: opnimeta.ImageSpec{
 				ImagePullPolicy: lo.ToPtr(corev1.PullAlways),
 			},
-			SystemNamespace: m.Namespace,
-			AgentEndpoint:   otel.AgentEndpoint(serviceName),
+			SystemNamespace:          m.Namespace,
+			AgentEndpoint:            otel.AgentEndpoint(serviceName),
+			AggregatorOTELConfigSpec: opnicorev1beta1.NewDefaultAggregatorOTELConfigSpec(),
+			NodeOTELConfigSpec:       opnicorev1beta1.NewDefaultNodeOTELConfigSpec(),
 		},
 	}
 }

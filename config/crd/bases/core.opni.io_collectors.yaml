@@ -28,6 +28,65 @@ spec:
             properties:
               agentEndpoint:
                 type: string
+              aggregatorOtelCollectorSpec:
+                properties:
+                  exporters:
+                    properties:
+                      otlphttp:
+                        properties:
+                          sendingQueue:
+                            properties:
+                              enabled:
+                                default: true
+                                type: boolean
+                              numConsumers:
+                                default: 4
+                                type: integer
+                              queueSize:
+                                default: 100
+                                type: integer
+                            type: object
+                        type: object
+                    type: object
+                  processors:
+                    properties:
+                      batch:
+                        properties:
+                          sendBatchMaxSize:
+                            format: int32
+                            type: integer
+                          sendBatchSize:
+                            default: 1000
+                            format: int32
+                            type: integer
+                          timeoutSeconds:
+                            default: 15
+                            format: int32
+                            type: integer
+                        type: object
+                      memoryLimiter:
+                        properties:
+                          checkIntervalSeconds:
+                            default: 1
+                            format: int32
+                            type: integer
+                          limitMib:
+                            default: 1000
+                            format: int32
+                            type: integer
+                          limitPercentage:
+                            format: int32
+                            type: integer
+                          spikeLimitMib:
+                            default: 350
+                            format: int32
+                            type: integer
+                          spikeLimitPercentage:
+                            format: int32
+                            type: integer
+                        type: object
+                    type: object
+                type: object
               configReloader:
                 properties:
                   image:
@@ -69,6 +128,51 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
+              nodeOtelCollectorSpec:
+                properties:
+                  exporters:
+                    properties:
+                      otlp:
+                        properties:
+                          sendingQueue:
+                            properties:
+                              enabled:
+                                default: true
+                                type: boolean
+                              numConsumers:
+                                default: 4
+                                type: integer
+                              queueSize:
+                                default: 100
+                                type: integer
+                            type: object
+                        type: object
+                    type: object
+                  processors:
+                    properties:
+                      memoryLimiter:
+                        properties:
+                          checkIntervalSeconds:
+                            default: 1
+                            format: int32
+                            type: integer
+                          limitMib:
+                            default: 1000
+                            format: int32
+                            type: integer
+                          limitPercentage:
+                            format: int32
+                            type: integer
+                          spikeLimitMib:
+                            default: 350
+                            format: int32
+                            type: integer
+                          spikeLimitPercentage:
+                            format: int32
+                            type: integer
+                        type: object
+                    type: object
+                type: object
               systemNamespace:
                 type: string
             type: object

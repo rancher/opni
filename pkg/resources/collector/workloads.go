@@ -5,40 +5,50 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"time"
 
+	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
 	"github.com/rancher/opni/pkg/otel"
 	"github.com/rancher/opni/pkg/resources"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/collector/exporter/exporterhelper"
+	"go.opentelemetry.io/collector/exporter/otlpexporter"
+	"go.opentelemetry.io/collector/exporter/otlphttpexporter"
+	"go.opentelemetry.io/collector/processor/batchprocessor"
+	"go.opentelemetry.io/collector/processor/memorylimiterprocessor"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
-	receiversKey       = "receivers.yaml"
-	mainKey            = "config.yaml"
-	aggregatorKey      = "aggregator.yaml"
+	receiversKey  = "receivers.yaml"
+	mainKey       = "config.yaml"
+	aggregatorKey = "aggregator.yaml"
+
 	collectorImageRepo = "ghcr.io"
 	collectorImage     = "rancher-sandbox/opni-otel-collector"
-	collectorVersion   = "v0.1.2-0.74.0"
+	collectorVersion   = "v0.1.4-rc1-0.85.0"
 	reloaderImage      = "rancher-sandbox/config-reloader"
 	reloaderVersion    = "v0.1.2"
+
 	otelColBinaryName  = "otelcol-custom"
 	otelConfigDir      = "/etc/otel"
+	otelFileStorageDir = "/var/otel/filestorage"
 
 	otlpGRPCPort    = int32(4317)
 	rke2AgentLogDir = "/var/lib/rancher/rke2/agent/logs/"
 	machineID       = "/etc/machine-id"
 )
 
-var (
-	directoryOrCreate = corev1.HostPathDirectoryOrCreate
-)
+var directoryOrCreate = corev1.HostPathDirectoryOrCreate
 
 func (r *Reconciler) agentConfigMapName() string {
 	return fmt.Sprintf("%s-agent-config", r.collector.Name)
@@ -58,6 +68,36 @@ func (r *Reconciler) getDaemonConfig(loggingReceivers []string) otel.NodeConfig 
 		Metrics:       lo.FromPtr(r.getMetricsConfig()),
 		Containerized: true,
 		LogLevel:      r.collector.Spec.LogLevel,
+		OTELConfig:    r.getDaemonOTELConfig(),
+	}
+}
+
+func (r *Reconciler) getDaemonOTELConfig() otel.NodeOTELConfig {
+	nodeOTELCfg := r.collector.Spec.NodeOTELConfigSpec
+	if nodeOTELCfg == nil {
+		r.logger.Warn("found no config for the daemon's OTEL Collector, falling back to default")
+		nodeOTELCfg = opnicorev1beta1.NewDefaultNodeOTELConfigSpec()
+	}
+
+	return otel.NodeOTELConfig{
+		Processors: &otel.NodeOTELProcessors{
+			MemoryLimiter: memorylimiterprocessor.Config{
+				CheckInterval:         time.Duration(nodeOTELCfg.Processors.MemoryLimiter.CheckIntervalSeconds) * time.Second,
+				MemoryLimitMiB:        nodeOTELCfg.Processors.MemoryLimiter.MemoryLimitMiB,
+				MemorySpikeLimitMiB:   nodeOTELCfg.Processors.MemoryLimiter.MemorySpikeLimitMiB,
+				MemoryLimitPercentage: nodeOTELCfg.Processors.MemoryLimiter.MemoryLimitPercentage,
+				MemorySpikePercentage: nodeOTELCfg.Processors.MemoryLimiter.MemorySpikePercentage,
+			},
+		},
+		Exporters: &otel.NodeOTELExporters{
+			OTLP: otlpexporter.Config{
+				QueueSettings: exporterhelper.QueueSettings{
+					Enabled:      nodeOTELCfg.Exporters.OTLP.SendingQueue.Enabled,
+					NumConsumers: nodeOTELCfg.Exporters.OTLP.SendingQueue.NumConsumers,
+					QueueSize:    nodeOTELCfg.Exporters.OTLP.SendingQueue.QueueSize,
+				},
+			},
+		},
 	}
 }
 
@@ -70,7 +110,42 @@ func (r *Reconciler) getAggregatorConfig(
 		AgentEndpoint: r.collector.Spec.AgentEndpoint,
 		Containerized: true,
 		LogLevel:      r.collector.Spec.LogLevel,
+		OTELConfig:    r.getAggregatorOTELConfig(),
 	}
+}
+
+func (r *Reconciler) getAggregatorOTELConfig() otel.AggregatorOTELConfig {
+	aggregatorOTELCfg := r.collector.Spec.AggregatorOTELConfigSpec
+	if aggregatorOTELCfg == nil {
+		r.logger.Warn("found no config for the aggregator's OTEL Collector, falling back to default")
+		aggregatorOTELCfg = opnicorev1beta1.NewDefaultAggregatorOTELConfigSpec()
+	}
+	return otel.AggregatorOTELConfig{
+		Processors: &otel.AggregatorOTELProcessors{
+			MemoryLimiter: memorylimiterprocessor.Config{
+				CheckInterval:         time.Duration(aggregatorOTELCfg.Processors.MemoryLimiter.CheckIntervalSeconds) * time.Second,
+				MemoryLimitMiB:        aggregatorOTELCfg.Processors.MemoryLimiter.MemoryLimitMiB,
+				MemorySpikeLimitMiB:   aggregatorOTELCfg.Processors.MemoryLimiter.MemorySpikeLimitMiB,
+				MemoryLimitPercentage: aggregatorOTELCfg.Processors.MemoryLimiter.MemoryLimitPercentage,
+				MemorySpikePercentage: aggregatorOTELCfg.Processors.MemoryLimiter.MemorySpikePercentage,
+			},
+			Batch: batchprocessor.Config{
+				Timeout:          time.Duration(aggregatorOTELCfg.Processors.Batch.TimeoutSeconds) * time.Second,
+				SendBatchSize:    aggregatorOTELCfg.Processors.Batch.SendBatchSize,
+				SendBatchMaxSize: aggregatorOTELCfg.Processors.Batch.SendBatchMaxSize,
+			},
+		},
+		Exporters: &otel.AggregatorOTELExporters{
+			OTLPHTTP: otlphttpexporter.Config{
+				QueueSettings: exporterhelper.QueueSettings{
+					Enabled:      aggregatorOTELCfg.Exporters.OTLPHTTP.SendingQueue.Enabled,
+					NumConsumers: aggregatorOTELCfg.Exporters.OTLPHTTP.SendingQueue.NumConsumers,
+					QueueSize:    aggregatorOTELCfg.Exporters.OTLPHTTP.SendingQueue.QueueSize,
+				},
+			},
+		},
+	}
+
 }
 
 func (r *Reconciler) receiverConfig() (retData []byte, retReceivers []string, retErr error) {
@@ -78,7 +153,23 @@ func (r *Reconciler) receiverConfig() (retData []byte, retReceivers []string, re
 		retData = append(retData, []byte(templateLogAgentK8sReceiver)...)
 		retReceivers = append(retReceivers, logReceiverK8s)
 
-		receiver, data, err := r.generateDistributionReceiver()
+		config, err := r.fetchLoggingCollectorConfig()
+		if err != nil {
+			retErr = err
+			return
+		}
+
+		auditLogsReceiver, data, err := r.generateKubeAuditLogsReceiver(config)
+		if err != nil {
+			retErr = err
+			return
+		}
+		retData = append(retData, data...)
+		if len(auditLogsReceiver) > 0 {
+			retReceivers = append(retReceivers, auditLogsReceiver)
+		}
+
+		receiver, data, err := r.generateDistributionReceiver(config)
 		if err != nil {
 			retErr = err
 			return
@@ -97,6 +188,7 @@ func (r *Reconciler) receiverConfig() (retData []byte, retReceivers []string, re
 		}
 		retData = append(retData, data...)
 	}
+
 	return
 }
 
@@ -196,6 +288,10 @@ func (r *Reconciler) daemonSet() resources.Resource {
 			Name:      "collector-config",
 			MountPath: otelConfigDir,
 		},
+		{
+			Name:      "filestorage-extension",
+			MountPath: otelFileStorageDir,
+		},
 	}
 	volumes := []corev1.Volume{
 		{
@@ -205,6 +301,15 @@ func (r *Reconciler) daemonSet() resources.Resource {
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: r.agentConfigMapName(),
 					},
+				},
+			},
+		},
+		{
+			Name: "filestorage-extension",
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: otelFileStorageDir,
+					Type: &directoryOrCreate,
 				},
 			},
 		},
@@ -558,4 +663,14 @@ func (r *Reconciler) configReloaderImageSpec() opnimeta.ImageSpec {
 			return nil
 		}(),
 	}.Resolve()
+}
+
+func (r *Reconciler) fetchLoggingCollectorConfig() (*opniloggingv1beta1.CollectorConfig, error) {
+	config := &opniloggingv1beta1.CollectorConfig{}
+	err := r.client.Get(r.ctx, types.NamespacedName{
+		Name:      r.collector.Spec.LoggingConfig.Name,
+		Namespace: r.collector.Spec.SystemNamespace,
+	}, config)
+
+	return config, err
 }

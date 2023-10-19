@@ -5,11 +5,12 @@ import (
 )
 
 const (
-	logReceiverK8s      = "filelog/k8s"
-	logReceiverRKE      = "filelog/rke"
-	logReceiverK3s      = "journald/k3s"
-	logReceiverRKE2     = "journald/rke2"
-	fileLogReceiverRKE2 = "filelog/rke2"
+	logReceiverK8s           = "filelog/k8s"
+	logReceiverKubeAuditLogs = "filelog/kubeauditlogs"
+	logReceiverRKE           = "filelog/rke"
+	logReceiverK3s           = "journald/k3s"
+	logReceiverRKE2          = "journald/rke2"
+	fileLogReceiverRKE2      = "filelog/rke2"
 )
 
 var (
@@ -18,7 +19,7 @@ var (
 filelog/k8s:
   include: [ /var/log/pods/*/*/*.log ]
   exclude: []
-  start_at: beginning
+  storage: file_storage
   include_file_path: true
   include_file_name: false
   operators:
@@ -86,7 +87,7 @@ filelog/k8s:
 	templateLogAgentRKE = `
 filelog/rke:
   include: [ /var/lib/rancher/rke/log/*.log ]
-  start_at: beginning
+  storage: file_storage
   include_file_path: true
   include_file_name: false
   operators:
@@ -101,6 +102,53 @@ journald/k3s:
   units: [ "k3s" ]
   directory: {{ . }}
 `))
+
+	templateKubeAuditLogs = template.Must(template.New("kubeauditlogsreceiver").Parse(`
+filelog/kubeauditlogs:
+  include: [ {{ . }} ]
+  storage: file_storage
+  include_file_path: false
+  include_file_name: false
+  operators:
+  - type: json_parser
+    id: parse-body
+    timestamp:
+      parse_from: attributes.stageTimestamp
+      layout: '%Y-%m-%dT%H:%M:%S.%LZ'
+  - type: add
+    field: attributes.log_type
+    value: auditlog
+  - type: add
+    field: attributes.kubernetes_component
+    value: kubeauditlogs
+  - type: move
+    from: attributes.stage
+    to: resource["k8s.auditlog.stage"]
+  - type: move
+    from: attributes.stageTimestamp
+    to: resource["k8s.auditlog.stage_timestamp"]
+  - type: move
+    from: attributes.level
+    to: resource["k8s.auditlog.level"]
+  - type: move
+    from: attributes.auditID
+    to: resource["k8s.auditlog.audit_id"]
+  - type: move
+    from: attributes.objectRef.resource
+    to: resource["k8s.auditlog.resource"]
+  - type: retain
+    fields:
+      - attributes.stage
+      - attributes.stageTimestamp
+      - attributes.level
+      - attributes.auditID
+      - attributes.objectRef.resource
+      - attributes.cluster_id
+      - attributes.time
+      - attributes.log
+      - attributes.log_type
+`))
+
 	templateLogAgentRKE2 = template.Must(template.New("rke2receiver").Parse(`
 journald/rke2:
   units:
@@ -109,7 +157,7 @@ journald/rke2:
   directory: {{ . }}
 filelog/rke2:
   include: [ /var/lib/rancher/rke2/agent/logs/kubelet.log ]
-  start_at: beginning
+  storage: file_storage
   include_file_path: true
   include_file_name: false
   operators:
@@ -146,15 +194,16 @@ exporters:
     tls:
       insecure: true
     sending_queue:
-      num_consumers: 4
-      queue_size: 100
+      enabled: {{ .OTELConfig.Exporters.OTLP.QueueSettings.Enabled }}
+      num_consumers: {{ .OTELConfig.Exporters.OTLP.QueueSettings.NumConsumers }}
+      queue_size: {{ .OTELConfig.Exporters.OTLP.QueueSettings.QueueSize }}
     retry_on_failure:
       enabled: true
 processors:
   memory_limiter:
-    limit_mib: 250
-    spike_limit_mib: 50
-    check_interval: 1s
+    limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemoryLimitMiB }}
+    spike_limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemorySpikeLimitMiB }}
+    check_interval: {{ .OTELConfig.Processors.MemoryLimiter.CheckInterval }}
   k8sattributes:
     passthrough: false
     pod_association:
@@ -182,7 +231,12 @@ processors:
       - key: tier
       - key: component
     {{ template "metrics-system-processor" . }}
+extensions:
+  file_storage:
+    directory: /var/otel/filestorage
+    timeout: 1s
 service:
+  extensions: [file_storage]
   telemetry:
     logs:
       level: {{ .LogLevel }}
@@ -216,12 +270,13 @@ receivers:
 
 processors:
   batch:
-    send_batch_size: 1000
-    timeout: 15s
+    timeout: {{ .OTELConfig.Processors.Batch.Timeout }}
+    send_batch_size: {{ .OTELConfig.Processors.Batch.SendBatchSize }}
+    send_batch_max_size: {{ .OTELConfig.Processors.Batch.SendBatchMaxSize }} 
   memory_limiter:
-    limit_mib: 1000
-    spike_limit_mib: 350 
-    check_interval: 1s
+    limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemoryLimitMiB }}
+    spike_limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemorySpikeLimitMiB }}
+    check_interval: {{ .OTELConfig.Processors.MemoryLimiter.CheckInterval }}
   transform:
     log_statements:
     - context: log
@@ -234,8 +289,9 @@ exporters:
     tls:
       insecure: true
     sending_queue:
-      num_consumers: 4
-      queue_size: 100
+      enabled: {{ .OTELConfig.Exporters.OTLPHTTP.QueueSettings.Enabled }}
+      num_consumers: {{ .OTELConfig.Exporters.OTLPHTTP.QueueSettings.NumConsumers }}
+      queue_size: {{ .OTELConfig.Exporters.OTLPHTTP.QueueSettings.QueueSize }}
     retry_on_failure:
       enabled: true
   {{ template "metrics-remotewrite-exporter" .}}

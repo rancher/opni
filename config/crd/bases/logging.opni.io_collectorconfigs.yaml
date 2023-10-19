@@ -39,6 +39,15 @@ spec:
                   logPath:
                     type: string
                 type: object
+              kubeAuditLogs:
+                properties:
+                  auditFilename:
+                    type: string
+                  enabled:
+                    type: boolean
+                  pathPrefix:
+                    type: string
+                type: object
               provider:
                 enum:
                 - aks

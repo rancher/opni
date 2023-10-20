@@ -9,15 +9,16 @@ import (
 	"golang.org/x/tools/pkg/memoize"
 
 	"github.com/rancher/opni/pkg/auth"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/logger"
 	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/rbac"
-	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util/fwd"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
 	"github.com/rancher/opni/plugins/metrics/pkg/types"
+	metricsutil "github.com/rancher/opni/plugins/metrics/pkg/util"
 )
 
 type forwarders struct {
@@ -57,8 +58,15 @@ func (s *CortexApiService) ConfigureRoutes(router *gin.Engine) {
 	router.Use(logger.GinLogger(lg), gin.Recovery())
 	config := s.Context.GatewayConfig().Spec
 
-	rbacProvider := storage.NewRBACProvider(s.Context.StorageBackend())
-	rbacMiddleware := rbac.NewMiddleware(rbacProvider, cortex.OrgIDCodec)
+	provider := NewRBACProvider(s.Context)
+	rbacMiddleware := rbac.NewMiddleware(rbac.MiddlewareConfig{
+		Provider:   provider,
+		Codec:      cortex.OrgIDCodec,
+		Store:      s.Context.StorageBackend(),
+		Logger:     s.Context.Logger().Named("middleware"),
+		Capability: wellknown.CapabilityMetrics,
+	})
+
 	authMiddleware, ok := s.Context.AuthMiddlewares()[config.AuthProvider]
 	if !ok {
 		lg.With(
@@ -95,7 +103,7 @@ func (s *CortexApiService) ConfigureRoutes(router *gin.Engine) {
 
 func (s *CortexApiService) configureAlertmanager(router *gin.Engine, f *forwarders, m *middlewares) {
 	orgIdLimiter := func(c *gin.Context) {
-		ids := rbac.AuthorizedClusterIDs(c)
+		ids := metricsutil.AuthorizedClusterIDs(c)
 		if len(ids) > 1 {
 			user, _ := rbac.AuthorizedUserID(c)
 			s.Context.Logger().With(

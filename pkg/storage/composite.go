@@ -20,8 +20,8 @@ func (cb CompositeBackend) Close() {
 	if cb.ClusterStore != nil {
 		uniqueStores[cb.ClusterStore] = struct{}{}
 	}
-	if cb.RBACStore != nil {
-		uniqueStores[cb.RBACStore] = struct{}{}
+	if cb.RoleBindingStore != nil {
+		uniqueStores[cb.RoleBindingStore] = struct{}{}
 	}
 	if cb.KeyringStoreBroker != nil {
 		uniqueStores[cb.KeyringStoreBroker] = struct{}{}

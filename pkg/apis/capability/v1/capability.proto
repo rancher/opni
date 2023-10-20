@@ -50,7 +50,8 @@ service Node {
 
 service RBACManager {
   // Returns info about the manager, including capability name
-  rpc Info(google.protobuf.Empty) returns (Details);
+  rpc Info(core.Reference) returns (Details);
+  rpc List(google.protobuf.Empty) returns (DetailsList);
   rpc GetAvailablePermissions(google.protobuf.Empty) returns (core.AvailablePermissions);
   rpc GetRole(core.Reference) returns (core.Role);
   rpc CreateRole(core.Role) returns (google.protobuf.Empty);
@@ -96,7 +97,7 @@ message InstallResponse {
 message UninstallRequest {
   core.Reference         capability = 3;
   core.Reference         agent      = 1;
-  google.protobuf.Struct options    = 2;
+  google.protobuf.Struct options    = 2 [(cli.flag).skip = true];
 }
 
 message InstallerTemplateResponse {

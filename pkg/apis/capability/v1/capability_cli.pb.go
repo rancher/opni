@@ -12,7 +12,6 @@ import (
 	cobra "github.com/spf13/cobra"
 	pflag "github.com/spf13/pflag"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	structpb "google.golang.org/protobuf/types/known/structpb"
 	strings "strings"
 )
 
@@ -338,6 +337,7 @@ func BuildRBACManagerCmd() *cobra.Command {
 
 	cliutil.AddSubcommands(cmd, append([]*cobra.Command{
 		BuildRBACManagerInfoCmd(),
+		BuildRBACManagerListCmd(),
 		BuildRBACManagerGetAvailablePermissionsCmd(),
 		BuildRBACManagerGetRoleCmd(),
 		BuildRBACManagerCreateRoleCmd(),
@@ -350,6 +350,7 @@ func BuildRBACManagerCmd() *cobra.Command {
 }
 
 func BuildRBACManagerInfoCmd() *cobra.Command {
+	in := &v1.Reference{}
 	cmd := &cobra.Command{
 		Use:               "info",
 		Short:             "Returns info about the manager, including capability name",
@@ -361,7 +362,34 @@ func BuildRBACManagerInfoCmd() *cobra.Command {
 				cmd.PrintErrln("failed to get client from context")
 				return nil
 			}
-			response, err := client.Info(cmd.Context(), &emptypb.Empty{})
+			if in == nil {
+				return errors.New("no input provided")
+			}
+			response, err := client.Info(cmd.Context(), in)
+			if err != nil {
+				return err
+			}
+			cli.RenderOutput(cmd, response)
+			return nil
+		},
+	}
+	cmd.Flags().AddFlagSet(in.FlagSet())
+	return cmd
+}
+
+func BuildRBACManagerListCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:               "list",
+		Short:             "",
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, ok := RBACManagerClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			response, err := client.List(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
 				return err
 			}
@@ -567,10 +595,6 @@ func (in *UninstallRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 		in.Agent = &v1.Reference{}
 	}
 	fs.AddFlagSet(in.Agent.FlagSet(append(prefix, "agent")...))
-	if in.Options == nil {
-		in.Options = &structpb.Struct{}
-	}
-	fs.AddFlagSet(in.Options.FlagSet(append(prefix, "options")...))
 	return fs
 }
 

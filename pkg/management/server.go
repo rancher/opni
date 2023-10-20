@@ -17,6 +17,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/caching"
+	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/health"
@@ -162,23 +163,33 @@ func NewServer(
 	}))
 
 	pluginLoader.Hook(hooks.OnLoadM(func(p types.CapabilityRBACPlugin, md meta.PluginMeta) {
-		info, err := p.Info(ctx, &emptypb.Empty{})
+		list, err := p.List(ctx, &emptypb.Empty{})
 		if err != nil {
 			lg.With(
 				zap.String("plugin", md.Module),
-			).Error("failed to get capability info")
+				zap.Error(err),
+			).Error("failed to list capabilities")
 			return
 		}
-		if err := m.rbacManagerStore.Add(info.Name, p); err != nil {
+		for _, cap := range list.GetItems() {
+			info, err := p.Info(ctx, &corev1.Reference{Id: cap.GetName()})
+			if err != nil {
+				lg.With(
+					zap.String("plugin", md.Module),
+				).Error("failed to get capability info")
+				return
+			}
+			if err := m.rbacManagerStore.Add(info.Name, p); err != nil {
+				lg.With(
+					zap.String("plugin", md.Module),
+					zap.Error(err),
+				).Error("failed to add capability backend rbac")
+			}
 			lg.With(
 				zap.String("plugin", md.Module),
-				zap.Error(err),
-			).Error("failed to add capability backend rbac")
+				zap.String("capability", info.Name),
+			).Info("added capability rbac backend")
 		}
-		lg.With(
-			zap.String("plugin", md.Module),
-			zap.String("capability", info.Name),
-		).Info("added capability rbac backend")
 	}))
 
 	return m

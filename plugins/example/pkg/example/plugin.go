@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -233,7 +234,7 @@ func (p *ExamplePlugin) InstallerTemplate(context.Context, *emptypb.Empty) (*cap
 	return nil, status.Errorf(codes.Unimplemented, "method InstallerTemplate not implemented")
 }
 
-func (s *ExamplePlugin) GetAvailablePermissions(_ context.Context, _ *emptypb.Empty) (*corev1.AvailablePermissions, error) {
+func (p *ExamplePlugin) GetAvailablePermissions(_ context.Context, _ *emptypb.Empty) (*corev1.AvailablePermissions, error) {
 	return &corev1.AvailablePermissions{
 		Items: []*corev1.PermissionDescription{
 			{
@@ -246,46 +247,57 @@ func (s *ExamplePlugin) GetAvailablePermissions(_ context.Context, _ *emptypb.Em
 	}, nil
 }
 
-func (s *ExamplePlugin) GetRole(ctx context.Context, in *corev1.Reference) (*corev1.Role, error) {
-	role, err := s.rbacStorage.Get().Get(ctx, in.GetId())
+func (p *ExamplePlugin) GetRole(ctx context.Context, in *corev1.Reference) (*corev1.Role, error) {
+	var revision int64
+	role, err := p.rbacStorage.Get().Get(ctx, in.GetId(), storage.WithRevisionOut(&revision))
 	if err != nil {
 		return nil, err
 	}
+	metadata := &corev1.RoleMetadata{
+		ResourceVersion: strconv.FormatInt(revision, 10),
+	}
+
+	role.Metadata = metadata
+
 	return role, nil
 }
 
-func (s *ExamplePlugin) CreateRole(ctx context.Context, in *corev1.Role) (*emptypb.Empty, error) {
-	_, err := s.rbacStorage.Get().Get(ctx, in.Reference().GetId())
+func (p *ExamplePlugin) CreateRole(ctx context.Context, in *corev1.Role) (*emptypb.Empty, error) {
+	_, err := p.rbacStorage.Get().Get(ctx, in.Reference().GetId())
 	if err == nil {
 		return nil, storage.ErrAlreadyExists
 	}
 	if !storage.IsNotFound(err) {
 		return nil, err
 	}
-	err = s.rbacStorage.Get().Put(ctx, in.GetId(), in)
+	err = p.rbacStorage.Get().Put(ctx, in.GetId(), in)
 	return &emptypb.Empty{}, err
 }
 
-func (s *ExamplePlugin) UpdateRole(ctx context.Context, in *corev1.Role) (*emptypb.Empty, error) {
-	store := s.rbacStorage.Get()
+func (p *ExamplePlugin) UpdateRole(ctx context.Context, in *corev1.Role) (*emptypb.Empty, error) {
+	store := p.rbacStorage.Get()
 	oldRole, err := store.Get(ctx, in.Reference().GetId())
 	if err != nil {
 		return &emptypb.Empty{}, err
 	}
 
+	revision, err := strconv.ParseInt(in.GetMetadata().GetResourceVersion(), 10, 64)
+	if err != nil {
+		return &emptypb.Empty{}, err
+	}
+
 	oldRole.Permissions = in.GetPermissions()
-	oldRole.Metadata = in.GetMetadata()
-	err = store.Put(ctx, oldRole.Reference().GetId(), oldRole)
+	err = store.Put(ctx, oldRole.Reference().GetId(), oldRole, storage.WithRevision(revision))
 	return &emptypb.Empty{}, err
 }
 
-func (s *ExamplePlugin) DeleteRole(ctx context.Context, in *corev1.Reference) (*emptypb.Empty, error) {
-	err := s.rbacStorage.Get().Delete(ctx, in.GetId())
+func (p *ExamplePlugin) DeleteRole(ctx context.Context, in *corev1.Reference) (*emptypb.Empty, error) {
+	err := p.rbacStorage.Get().Delete(ctx, in.GetId())
 	return &emptypb.Empty{}, err
 }
 
-func (s *ExamplePlugin) ListRoles(ctx context.Context, _ *emptypb.Empty) (*corev1.RoleList, error) {
-	keys, err := s.rbacStorage.Get().ListKeys(ctx, "")
+func (p *ExamplePlugin) ListRoles(ctx context.Context, _ *emptypb.Empty) (*corev1.RoleList, error) {
+	keys, err := p.rbacStorage.Get().ListKeys(ctx, "")
 	if err != nil {
 		return nil, err
 	}
@@ -311,14 +323,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 		uninstallController: future.New[*task.Controller](),
 	}
 	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(p))
-
-	future.Wait3(p.storageBackend, p.uninstallController, p.rbacStorage, func(_ storage.Backend, _ *task.Controller, _ storage.RoleStore) {
-		p.Initialize()
-	})
-	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(
-		util.PackService(&ExampleAPIExtension_ServiceDesc, p),
-		util.PackService(&Config_ServiceDesc, &p.configServerBackend),
-	))
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(p))
 	scheme.Add(capability.CapabilityRBACPluginID, capability.NewRBACPlugin(p))

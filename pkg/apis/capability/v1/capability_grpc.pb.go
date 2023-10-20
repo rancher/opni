@@ -440,6 +440,7 @@ var Node_ServiceDesc = grpc.ServiceDesc{
 
 const (
 	RBACManager_Info_FullMethodName                    = "/capability.RBACManager/Info"
+	RBACManager_List_FullMethodName                    = "/capability.RBACManager/List"
 	RBACManager_GetAvailablePermissions_FullMethodName = "/capability.RBACManager/GetAvailablePermissions"
 	RBACManager_GetRole_FullMethodName                 = "/capability.RBACManager/GetRole"
 	RBACManager_CreateRole_FullMethodName              = "/capability.RBACManager/CreateRole"
@@ -453,7 +454,8 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RBACManagerClient interface {
 	// Returns info about the manager, including capability name
-	Info(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Details, error)
+	Info(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*Details, error)
+	List(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DetailsList, error)
 	GetAvailablePermissions(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.AvailablePermissions, error)
 	GetRole(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.Role, error)
 	CreateRole(ctx context.Context, in *v1.Role, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -470,9 +472,18 @@ func NewRBACManagerClient(cc grpc.ClientConnInterface) RBACManagerClient {
 	return &rBACManagerClient{cc}
 }
 
-func (c *rBACManagerClient) Info(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Details, error) {
+func (c *rBACManagerClient) Info(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*Details, error) {
 	out := new(Details)
 	err := c.cc.Invoke(ctx, RBACManager_Info_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rBACManagerClient) List(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DetailsList, error) {
+	out := new(DetailsList)
+	err := c.cc.Invoke(ctx, RBACManager_List_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -538,7 +549,8 @@ func (c *rBACManagerClient) ListRoles(ctx context.Context, in *emptypb.Empty, op
 // for forward compatibility
 type RBACManagerServer interface {
 	// Returns info about the manager, including capability name
-	Info(context.Context, *emptypb.Empty) (*Details, error)
+	Info(context.Context, *v1.Reference) (*Details, error)
+	List(context.Context, *emptypb.Empty) (*DetailsList, error)
 	GetAvailablePermissions(context.Context, *emptypb.Empty) (*v1.AvailablePermissions, error)
 	GetRole(context.Context, *v1.Reference) (*v1.Role, error)
 	CreateRole(context.Context, *v1.Role) (*emptypb.Empty, error)
@@ -551,8 +563,11 @@ type RBACManagerServer interface {
 type UnimplementedRBACManagerServer struct {
 }
 
-func (UnimplementedRBACManagerServer) Info(context.Context, *emptypb.Empty) (*Details, error) {
+func (UnimplementedRBACManagerServer) Info(context.Context, *v1.Reference) (*Details, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Info not implemented")
+}
+func (UnimplementedRBACManagerServer) List(context.Context, *emptypb.Empty) (*DetailsList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method List not implemented")
 }
 func (UnimplementedRBACManagerServer) GetAvailablePermissions(context.Context, *emptypb.Empty) (*v1.AvailablePermissions, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAvailablePermissions not implemented")
@@ -585,7 +600,7 @@ func RegisterRBACManagerServer(s grpc.ServiceRegistrar, srv RBACManagerServer) {
 }
 
 func _RBACManager_Info_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(v1.Reference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -597,7 +612,25 @@ func _RBACManager_Info_Handler(srv interface{}, ctx context.Context, dec func(in
 		FullMethod: RBACManager_Info_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RBACManagerServer).Info(ctx, req.(*emptypb.Empty))
+		return srv.(RBACManagerServer).Info(ctx, req.(*v1.Reference))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RBACManager_List_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RBACManagerServer).List(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RBACManager_List_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RBACManagerServer).List(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -720,6 +753,10 @@ var RBACManager_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Info",
 			Handler:    _RBACManager_Info_Handler,
+		},
+		{
+			MethodName: "List",
+			Handler:    _RBACManager_List_Handler,
 		},
 		{
 			MethodName: "GetAvailablePermissions",

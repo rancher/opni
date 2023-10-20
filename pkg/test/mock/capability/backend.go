@@ -561,7 +561,7 @@ func (mr *MockRBACManagerClientMockRecorder) GetRole(ctx, in interface{}, opts .
 }
 
 // Info mocks base method.
-func (m *MockRBACManagerClient) Info(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.Details, error) {
+func (m *MockRBACManagerClient) Info(ctx context.Context, in *v10.Reference, opts ...grpc.CallOption) (*v1.Details, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
@@ -704,7 +704,7 @@ func (mr *MockRBACManagerServerMockRecorder) GetRole(arg0, arg1 interface{}) *go
 }
 
 // Info mocks base method.
-func (m *MockRBACManagerServer) Info(arg0 context.Context, arg1 *emptypb.Empty) (*v1.Details, error) {
+func (m *MockRBACManagerServer) Info(arg0 context.Context, arg1 *v10.Reference) (*v1.Details, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Info", arg0, arg1)
 	ret0, _ := ret[0].(*v1.Details)

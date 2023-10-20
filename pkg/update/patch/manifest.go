@@ -107,7 +107,7 @@ func GetFilesystemPlugins(dc plugins.DiscoveryConfig) (*controlv1.PluginArchive,
 			f, err := dc.Fs.Open(md.BinaryPath)
 			if err != nil {
 				lg.With(
-					zap.Error(err),
+					logger.Err(err),
 				).Error("failed to read plugin, skipping")
 				return
 			}
@@ -121,7 +121,7 @@ func GetFilesystemPlugins(dc plugins.DiscoveryConfig) (*controlv1.PluginArchive,
 
 			if _, err := io.Copy(io.MultiWriter(hash, contents), f); err != nil {
 				lg.With(
-					zap.Error(err),
+					logger.Err(err),
 				).Error("failed to read plugin, skipping")
 				return
 			}

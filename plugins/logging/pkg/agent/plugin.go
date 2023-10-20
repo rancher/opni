@@ -45,7 +45,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		if err != nil {
 			lg.With(
 				"driver", d,
-				zap.Error(err),
+				logger.Err(err),
 			).Error("failed to initialize logging node driver")
 			continue
 		}

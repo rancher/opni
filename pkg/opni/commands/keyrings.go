@@ -48,7 +48,7 @@ func BuildKeyringsGetCmd() *cobra.Command {
 			return completeClusters(cmd, args, toComplete)
 		},
 		PreRun: func(*cobra.Command, []string) {
-			logger.DefaultLogLevel.SetLevel(slog.LevelWarn)
+			logger.DefaultLogLevel = slog.LevelWarn
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := mgmtClient.GetConfig(cmd.Context(), &emptypb.Empty{})

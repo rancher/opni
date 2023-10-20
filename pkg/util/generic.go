@@ -9,6 +9,8 @@ import (
 
 	"slices"
 
+	"log/slog"
+
 	"github.com/iancoleman/strcase"
 	"github.com/mitchellh/mapstructure"
 	"github.com/rancher/opni/pkg/logger"
@@ -18,14 +20,14 @@ import (
 )
 
 var (
-	stackLg     logger.ExtendedSugaredLogger
+	stackLg     *slog.Logger
 	initStackLg sync.Once
 	errType     = reflect.TypeOf((*error)(nil)).Elem()
 )
 
 func Must[T any](t T, err ...error) T {
 	initStackLg.Do(func() {
-		stackLg = logger.New(logger.WithZapOptions(zap.AddStacktrace(zap.InfoLevel)))
+		stackLg = logger.New(logger.WithZapOptions(zap.AddStacktrace(slog.LevelInfo)))
 	})
 	if len(err) > 0 {
 		if err[0] != nil {

@@ -44,7 +44,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		// doens't exist
 		lg.With(
 			"driver", d.Name(),
-			zap.Error(err),
+			logger.Err(err),
 		).Info("node driver is unavailable")
 		drivers.LogNodeDriverFailure(d.Name(), err)
 	} else {

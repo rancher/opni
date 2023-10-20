@@ -530,7 +530,7 @@ func (a *AlarmServerComponent) Timeline(ctx context.Context, req *alertingv1.Tim
 					for _, w := range windows {
 						w.Ref = ref
 					}
-					lg.With("reduce-matrix", cond.Id).Infof("looking to reduce %d potential causes", len(*matrix))
+					lg.With("reduce-matrix", cond.Id).Info(fmt.Sprintf("looking to reduce %d potential causes", len(*matrix)))
 					yieldedValues <- lo.T2(
 						ref,
 						&alertingv1.ActiveWindows{

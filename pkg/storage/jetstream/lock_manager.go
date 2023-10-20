@@ -2,6 +2,7 @@ package jetstream
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/lestrrat-go/backoff/v2"
@@ -25,7 +26,7 @@ func NewJetstreamLockManager(ctx context.Context, conf *v1beta1.JetStreamStorage
 	}
 	options.apply(opts...)
 
-	lg := logger.New(logger.WithLogLevel(zap.WarnLevel)).Named("jetstream")
+	lg := logger.New(logger.WithLogLevel(slog.LevelWarn)).WithGroup("jetstream")
 
 	nkeyOpt, err := nats.NkeyOptionFromSeed(conf.NkeySeedPath)
 	if err != nil {
@@ -37,7 +38,7 @@ func NewJetstreamLockManager(ctx context.Context, conf *v1beta1.JetStreamStorage
 		nats.RetryOnFailedConnect(true),
 		nats.DisconnectErrHandler(func(c *nats.Conn, err error) {
 			lg.With(
-				zap.Error(err),
+				logger.Err(err),
 			).Warn("disconnected from jetstream")
 		}),
 		nats.ReconnectHandler(func(c *nats.Conn) {

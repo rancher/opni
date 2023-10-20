@@ -103,7 +103,7 @@ func ReconcileObject(logger *slog.Logger, k8sClient client.Client, namespace str
 	patchResult, err := patch.DefaultPatchMaker.Calculate(current, desired, patch.IgnoreStatusFields())
 	if err != nil {
 		logger.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Warn("could not match objects")
 		return err
 	}
@@ -115,7 +115,7 @@ func ReconcileObject(logger *slog.Logger, k8sClient client.Client, namespace str
 
 	if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(desired); err != nil {
 		logger.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Error("failed to set last applied annotation")
 	}
 

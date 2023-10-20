@@ -154,8 +154,8 @@ func NewServer(
 		go func() {
 			if err := sp.ServeAPIExtensions(m.config.GRPCListenAddress); err != nil {
 				lg.With(
-					zap.String("plugin", md.Module),
-					zap.Error(err),
+					"plugin", md.Module,
+					logger.Err(err),
 				).Error("failed to serve plugin API extensions")
 			}
 		}()
@@ -302,8 +302,8 @@ func (m *Server) ListCapabilities(ctx context.Context, in *emptypb.Empty) (*mana
 		details, err := capability.Info(ctx, in)
 		if err != nil {
 			m.logger.With(
-				zap.Error(err),
-				zap.String("capability", name),
+				logger.Err(err),
+				"capability", name,
 			).Error("failed to fetch capability details")
 			continue
 		}

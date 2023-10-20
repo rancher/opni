@@ -181,7 +181,9 @@ func (a *AlarmServerComponent) Sync(ctx context.Context, syncInfo alertingSync.S
 		}
 	}
 	eg.Wait()
-	a.logger.Info(fmt.Sprintf("successfully synced (%d/%d) conditions", len(conds)-len(eg.Errors()), len(conds)))
+	if len(eg.Errors()) > 0 {
+		a.logger.Error(fmt.Sprintf("successfully synced (%d/%d) conditions", len(conds)-len(eg.Errors()), len(conds)))
+	}
 	if err := eg.Error(); err != nil {
 		return err
 	}

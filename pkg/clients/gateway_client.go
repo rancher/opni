@@ -231,8 +231,8 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 		splicedStream, err := streamClient.Connect(ctx, grpc.Header(&headerMd))
 		if err != nil {
 			gc.logger.With(
-				zap.String("name", name),
-				zap.Error(err),
+				"name", name,
+				logger.Err(err),
 			).Warn("failed to connect to spliced stream, skipping")
 			continue
 		}
@@ -248,8 +248,8 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 			)),
 		); err != nil {
 			gc.logger.With(
-				zap.String("name", name),
-				zap.Error(err),
+				"name", name,
+				logger.Err(err),
 			).Warn("failed to splice remote stream, skipping")
 			continue
 		}
@@ -263,8 +263,8 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 				CorrelationId: correlationId,
 			}); err != nil {
 				gc.logger.With(
-					zap.String("name", name),
-					zap.Error(err),
+					"name", name,
+					logger.Err(err),
 				).Error("failed to notify remote stream")
 			}
 		}()
@@ -274,7 +274,7 @@ func (gc *gatewayClient) Connect(ctx context.Context) (_ grpc.ClientConnInterfac
 	f := future.NewFromChannel(errC)
 	if f.IsSet() {
 		gc.logger.With(
-			zap.Error(f.Get()),
+			logger.Err(f.Get()),
 		).Error("failed to connect to gateway")
 		// fallthrough
 	}

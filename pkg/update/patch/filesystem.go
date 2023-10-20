@@ -115,7 +115,7 @@ func (p *FilesystemCache) Archive(manifest *controlv1.PluginArchive) error {
 	}
 	if err := group.Wait(); err != nil {
 		p.logger.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Error("failed to archive one or more plugins")
 		return err
 	}
@@ -157,7 +157,7 @@ func (p *FilesystemCache) RequestPatch(oldDigest, newDigest string) ([]byte, err
 			patchData, err := p.generatePatch(oldDigest, newDigest)
 			if err != nil {
 				lg.With(
-					zap.Error(err),
+					logger.Err(err),
 				).Error("failed to generate patch")
 				p.generatePatch(oldDigest, newDigest)
 				return nil, err
@@ -168,7 +168,7 @@ func (p *FilesystemCache) RequestPatch(oldDigest, newDigest string) ([]byte, err
 			).Debug("patch generated")
 			if err := p.fs.WriteFile(patchPath, patchData, 0644); err != nil {
 				p.logger.With(
-					zap.Error(err),
+					logger.Err(err),
 				).Error("failed to write patch to disk")
 				return nil, err
 			}

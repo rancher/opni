@@ -29,12 +29,12 @@ func (p *Plugin) configureDriver(ctx context.Context, opts ...driverutil.Option)
 	priorityOrder := []string{"alerting-manager", "gateway-manager", "local-alerting", "test-environment", "noop"}
 	for _, name := range priorityOrder {
 		if builder, ok := drivers.Drivers.Get(name); ok {
-			p.logger.With(zap.String("driver", name)).Info("using cluster driver")
+			p.logger.With("driver", name).Info("using cluster driver")
 			driver, err := builder(ctx, opts...)
 			if err != nil {
 				p.logger.With(
 					"driver", name,
-					zap.Error(err),
+					logger.Err(err),
 				).Error("failed to initialize cluster driver")
 				return
 			}

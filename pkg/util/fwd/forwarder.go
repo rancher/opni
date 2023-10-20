@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -98,7 +99,7 @@ func To(addr string, opts ...ForwarderOption) gin.HandlerFunc {
 			"for", forwardedFor,
 			"host", forwardedHost,
 			"scheme", c.Request.URL.Scheme,
-		).Debugf("=>")
+		).Debug(fmt.Sprintf("=>"))
 
 		c.Header("X-Forwarded-For", forwardedFor)
 		c.Header("X-Forwarded-Host", forwardedHost)
@@ -110,7 +111,7 @@ func To(addr string, opts ...ForwarderOption) gin.HandlerFunc {
 		resp, err := transport.RoundTrip(c.Request)
 		if err != nil {
 			options.logger.With(
-				zap.Error(err),
+				logger.Err(err),
 				"req", c.FullPath(),
 			).Error("error forwarding request")
 			c.String(http.StatusInternalServerError, err.Error())

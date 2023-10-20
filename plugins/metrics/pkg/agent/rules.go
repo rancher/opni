@@ -85,7 +85,7 @@ func (s *RuleStreamer) Run(ctx context.Context, config *v1beta1.RulesSpec, finde
 						s.conditions.Set(node.CondRuleSync, health.StatusFailure, err.Error())
 						// retry, unless another update is received from the channel
 						lg.With(
-							zap.Error(err),
+							logger.Err(err),
 						).Error("failed to send alert rules to gateway (retry in 5 seconds)")
 						select {
 						case docs = <-pending:
@@ -136,7 +136,7 @@ func (s *RuleStreamer) streamRuleGroupUpdates(
 	}
 	notifier := notifier.NewPeriodicUpdateNotifier(ctx, finder, searchInterval)
 	s.logger.With(
-		zap.String("interval", searchInterval.String()),
+		"interval", searchInterval.String(),
 	).Debug("rule discovery notifier configured")
 
 	notifierC := notifier.NotifyC(ctx)
@@ -165,8 +165,8 @@ func (s *RuleStreamer) marshalRuleGroups(ruleGroups []rules.RuleGroup) [][]byte 
 		doc, err := yaml.Marshal(ruleGroup)
 		if err != nil {
 			s.logger.With(
-				zap.Error(err),
-				zap.String("group", ruleGroup.Name),
+				logger.Err(err),
+				"group", ruleGroup.Name,
 			).Error("failed to marshal rule group")
 			continue
 		}

@@ -3,6 +3,7 @@ package slo
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"emperror.dev/errors"
@@ -11,7 +12,6 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/rancher/opni/pkg/metrics/compat"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -22,7 +22,7 @@ import (
 var instantMaskDisabled = true
 
 func createGrafanaSLOMask(ctx context.Context, p *Plugin, clusterId string, ruleId string) error {
-	p.logger.With("sloId", ruleId, "clusterId", clusterId).Debugf("creating grafana mask")
+	p.logger.With("sloId", ruleId, "clusterId", clusterId).Debug("creating grafana mask")
 	if !instantMaskDisabled {
 		_, err := p.adminClient.Get().WriteMetrics(ctx, &cortexadmin.WriteRequest{
 			ClusterID: clusterId,

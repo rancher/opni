@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/otel"
 	"github.com/rancher/opni/pkg/resources"
 	promdiscover "github.com/rancher/opni/pkg/resources/collector/discovery"
@@ -56,7 +57,7 @@ func (r *Reconciler) getMetricsConfig() (config *otel.MetricsConfig) {
 			Namespace: r.collector.Namespace,
 		}, &metricsConfig)
 		if err != nil {
-			r.logger.Error(err)
+			r.logger.Error("error", logger.Err(err))
 			return
 		}
 		config.Enabled = true

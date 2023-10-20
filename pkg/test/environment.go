@@ -838,7 +838,7 @@ READY:
 			if resp != nil {
 				if retryCount%100 == 0 {
 					lg.With(
-						zap.Error(err),
+						logger.Err(err),
 						"status", resp.Status,
 					).Info("Waiting for cortex to start...")
 				}

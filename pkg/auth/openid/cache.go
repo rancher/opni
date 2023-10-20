@@ -72,7 +72,7 @@ func (c *UserInfoCache) Get(accessToken string) (*UserInfo, error) {
 	)
 	if err != nil {
 		lg.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Error("failed to fetch user info")
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (c *UserInfoCache) Get(accessToken string) (*UserInfo, error) {
 	id, err := info.UserID()
 	if err != nil {
 		lg.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Error("user info is invalid")
 		return nil, err
 	}

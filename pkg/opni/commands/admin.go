@@ -456,7 +456,7 @@ func BuildClusterStatsCmd() *cobra.Command {
 			stats, err := adminClient.AllUserStats(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
 				lg.With(
-					zap.Error(err),
+					logger.Err(err),
 				).Warn("failed to query cortex stats")
 			}
 			clusterStats = stats

@@ -135,7 +135,7 @@ func (a *AlertingNodeBackend) broadcastNodeSync(ctx context.Context) {
 		})
 	if len(errs) > 0 {
 		a.lg.With(
-			zap.Error(errors.Join(errs...)),
+			logger.Err(errors.Join(errs...)),
 		).Warn("one or more agents failed to sync; they may not be updated immediately")
 	}
 }
@@ -240,7 +240,7 @@ func (a *AlertingNodeBackend) getNodeSpecOrDefault(ctx context.Context, id strin
 	if status.Code(err) == codes.NotFound {
 		return a.getDefaultNodeSpec(ctx)
 	} else if err != nil {
-		a.lg.With(zap.Error(err)).Error("failed to get node capability spec")
+		a.lg.With(logger.Err(err)).Error("failed to get node capability spec")
 		return nil, status.Errorf(codes.Unavailable, "failed to get node capability spec: %v", err)
 	}
 	return nodeSpec, nil

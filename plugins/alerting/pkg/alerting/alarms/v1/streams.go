@@ -625,7 +625,7 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 		case <-ticker.C:
 			lastKnownState, err := c.stateStorage.Get(c.evaluationCtx, c.conditionId)
 			if err != nil {
-				c.lg.With("id", c.conditionId, "name", c.conditionName).Errorf("failed to get last internal condition state %s", err)
+				c.lg.With("id", c.conditionId, "name", c.conditionName).Error(fmt.Sprintf("failed to get last internal condition state %s", err))
 				continue
 			}
 			if !lastKnownState.Healthy {

@@ -10,12 +10,13 @@ import (
 	"net/http"
 	"sync"
 
+	"log/slog"
+
 	"github.com/andybalholm/brotli"
 	"github.com/gin-gonic/gin"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/rbac"
-	"log/slog"
 )
 
 type DataFormat string
@@ -77,7 +78,7 @@ func (a *MultiTenantRuleAggregator) Handle(c *gin.Context) {
 	ids := rbac.AuthorizedClusterIDs(c)
 	a.logger.With(
 		"request", c.FullPath(),
-	).Debugf("aggregating query over %d tenants", len(ids))
+	).Debug(fmt.Sprintf("aggregating query over %d tenants", len(ids)))
 
 	buf := a.bufferPool.Get().(*bytes.Buffer)
 	switch a.format {

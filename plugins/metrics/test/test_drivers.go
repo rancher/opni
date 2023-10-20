@@ -415,7 +415,7 @@ func (d *TestEnvPrometheusNodeDriver) ConfigureNode(nodeId string, conf *node.Me
 				lg.Info("test environment stopped before prometheus could start")
 				return nil
 			}
-			lg.With("err", err).Error("failed to start prometheus")
+			lg.With(logger.Err(err)).Error("failed to start prometheus")
 			return err
 		}
 		lg.Info("started prometheus")
@@ -473,7 +473,7 @@ func (d *TestEnvOtelNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsC
 		var err error
 		d.otelCmdCtx, err = d.env.StartOTELCollectorContext(ctx, nodeId, node.CompatOTELStruct(conf.GetSpec().GetOtel()))
 		if err != nil {
-			lg.With("err", err).Error("failed to configure otel collector")
+			lg.With(logger.Err(err)).Error("failed to configure otel collector")
 			ca()
 			return fmt.Errorf("failed to configure otel collector: %w", err)
 		}

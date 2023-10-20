@@ -118,7 +118,7 @@ func (e *agentStreamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectS
 
 	if err != nil {
 		e.logger.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Error("failed to create stream server")
 		return err
 	}
@@ -171,7 +171,7 @@ func (e *agentStreamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectS
 		e.logger.Debug("stream closed")
 	} else {
 		e.logger.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Warn("stream disconnected with error")
 	}
 	return err
@@ -180,7 +180,7 @@ func (e *agentStreamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectS
 func (e *agentStreamExtensionServerImpl) Notify(_ context.Context, event *streamv1.StreamEvent) (*emptypb.Empty, error) {
 	e.logger.With(
 		"type", event.Type.String(),
-	).Debugf("received notify event for '%s'", e.name)
+	).Debug(fmt.Sprintf("received notify event for '%s'", e.name))
 	e.activeStreamsMu.Lock()
 	defer e.activeStreamsMu.Unlock()
 

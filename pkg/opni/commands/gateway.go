@@ -81,8 +81,9 @@ func BuildGatewayCmd() *cobra.Command {
 		)
 		if !found {
 			lg.With(
-				zap.String("config", configLocation),
-			).Fatal("config file does not contain a GatewayConfig object")
+				"config", configLocation,
+			).Error("config file does not contain a GatewayConfig object")
+			os.Exit(1)
 		}
 
 		lg.With(
@@ -122,7 +123,7 @@ func BuildGatewayCmd() *cobra.Command {
 			if errors.Is(err, context.Canceled) {
 				lg.Info("gateway server stopped")
 			} else if err != nil {
-				lg.With(zap.Error(err)).Warn("gateway server exited with error")
+				lg.With(logger.Err(err)).Warn("gateway server exited with error")
 			}
 			return err
 		})
@@ -131,21 +132,21 @@ func BuildGatewayCmd() *cobra.Command {
 			if errors.Is(err, context.Canceled) {
 				lg.Info("management server stopped")
 			} else if err != nil {
-				lg.With(zap.Error(err)).Warn("management server exited with error")
+				lg.With(logger.Err(err)).Warn("management server exited with error")
 			}
 			return err
 		})
 
 		d, err := dashboard.NewServer(&gatewayConfig.Spec.Management)
 		if err != nil {
-			lg.With(zap.Error(err)).Error("failed to start dashboard server")
+			lg.With(logger.Err(err)).Error("failed to start dashboard server")
 		} else {
 			eg.Go(func() error {
 				err := d.ListenAndServe(ctx)
 				if errors.Is(err, context.Canceled) {
 					lg.Info("dashboard server stopped")
 				} else if err != nil {
-					lg.With(zap.Error(err)).Warn("dashboard server exited with error")
+					lg.With(logger.Err(err)).Warn("dashboard server exited with error")
 				}
 				return err
 			})
@@ -157,7 +158,7 @@ func BuildGatewayCmd() *cobra.Command {
 				if errors.Is(err, context.Canceled) {
 					lg.Info("noauth server stopped")
 				} else if err != nil {
-					lg.With(zap.Error(err)).Warn("noauth server exited with error")
+					lg.With(logger.Err(err)).Warn("noauth server exited with error")
 				}
 				return err
 			})
@@ -179,8 +180,9 @@ func BuildGatewayCmd() *cobra.Command {
 
 			if err != nil {
 				lg.With(
-					zap.Error(err),
-				).Fatal("failed to get reload channel from lifecycler")
+					logger.Err(err),
+				).Error("failed to get reload channel from lifecycler")
+				os.Exit(1)
 			}
 			select {
 			case <-c:

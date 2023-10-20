@@ -138,8 +138,9 @@ func NewPlugin(ctx context.Context) *Plugin {
 		if err != nil {
 			p.logger.With(
 				"driver", driverName,
-				zap.Error(err),
-			).Panic("failed to initialize cluster driver")
+				logger.Err(err),
+			).Error("failed to initialize cluster driver")
+			panic("failed to initialize cluster driver")
 			return
 		}
 		p.logger.With(

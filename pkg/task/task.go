@@ -108,7 +108,7 @@ func (t *Task) getStatus() *corev1.TaskStatus {
 				return status
 			}
 			t.logger.With(
-				zap.Error(err),
+				logger.Err(err),
 			).Warn("failed to get task status (will retry)")
 			time.Sleep(time.Second)
 		case <-t.cctx.Done():
@@ -126,7 +126,7 @@ func (t *Task) putStatus(status *corev1.TaskStatus) {
 				return
 			}
 			t.logger.With(
-				zap.Error(err),
+				logger.Err(err),
 			).Warn("failed to set task status (will retry)")
 			time.Sleep(time.Second)
 		case <-t.cctx.Done():

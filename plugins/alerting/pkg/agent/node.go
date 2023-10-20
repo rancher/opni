@@ -159,7 +159,7 @@ func (s *AlertingNode) updateConfig(ctx context.Context, config *node.AlertingCa
 	s.idMu.RLock()
 	id, err := s.identityClient.Whoami(ctx, &emptypb.Empty{})
 	if err != nil {
-		s.lg.With(zap.Error(err)).Errorf("failed to fetch %s node id %s", s.capability, err)
+		s.lg.With(logger.Err(err)).Error(fmt.Sprintf("failed to fetch %s node id %s", s.capability, err))
 		return err
 	}
 	s.idMu.RUnlock()
@@ -183,7 +183,7 @@ func (s *AlertingNode) updateConfig(ctx context.Context, config *node.AlertingCa
 
 	if err := eg.Error(); err != nil {
 		s.config.Conditions = (append(s.config.GetConditions(), err.Error()))
-		s.lg.With(zap.Error(err)).Errorf("%s node configuration error", s.capability)
+		s.lg.With(logger.Err(err)).Error(fmt.Sprintf("%s node configuration error", s.capability))
 		return err
 	} else {
 		s.config = config
@@ -232,12 +232,12 @@ func (s *AlertingNode) sendHealthUpdate() {
 
 	health, err := s.GetHealth(s.ctx, &emptypb.Empty{})
 	if err != nil {
-		s.lg.With("err", err).Warn("failed to get %s node health", s.capability)
+		s.lg.With(logger.Err(err)).Warn(fmt.Sprintf("failed to get %s node health", s.capability))
 		return
 	}
 
 	if _, err := s.healthListenerClient.UpdateHealth(s.ctx, health); err != nil {
-		s.lg.With("err", err).Warn("failed to send %s node health updates", s.capability)
+		s.lg.With(logger.Err(err)).Warn(fmt.Sprintf("failed to send %s node health updates", s.capability))
 	} else {
 		s.lg.Debug("send node health update")
 	}

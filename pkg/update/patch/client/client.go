@@ -309,7 +309,7 @@ func (pc *patchClient) doCreate(entry *controlv1.PatchSpec) error {
 	pc.lg.With(
 		"path", entry.Path,
 		"size", len(entry.Data),
-	).Infof("writing new plugin")
+	).Info("writing new plugin")
 	err := pc.fs.WriteFile(entry.Path, entry.Data, 0755)
 	if err != nil {
 		return osErrf("could not write plugin %s: %v", entry.Path, err)
@@ -323,7 +323,7 @@ func (pc *patchClient) doUpdate(entry *controlv1.PatchSpec) error {
 		"size", len(entry.Data),
 		"from", entry.GetOldDigest(),
 		"to", entry.GetNewDigest(),
-	).Infof("updating plugin")
+	).Info("updating plugin")
 	oldPluginInfo, err := pc.fs.Stat(entry.Path)
 	if err != nil {
 		return osErrf("failed to stat plugin %s: %v", entry.Path, err)

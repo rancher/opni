@@ -156,7 +156,7 @@ func (k *kubernetesAgentUpgrader) HandleSyncResults(ctx context.Context, results
 		patchURN, err := urn.ParseString(patch.GetPackage())
 		if err != nil {
 			k.lg.With(
-				zap.Error(err),
+				logger.Err(err),
 			).Error("malformed package URN")
 			continue
 		}

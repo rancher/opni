@@ -22,7 +22,7 @@ func (m *Server) GetConfig(
 	objects, err := m.lifecycler.GetObjectList()
 	if err != nil {
 		lg.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Error("failed to get object list")
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (m *Server) UpdateConfig(
 
 	if err := m.lifecycler.UpdateObjectList(objList); err != nil {
 		lg.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Error("failed to update object list")
 		return nil, err
 	}

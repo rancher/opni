@@ -20,13 +20,12 @@ import (
 	"github.com/rancher/opni/web"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel"
-	"go.uber.org/zap"
 )
 
 type Server struct {
 	ServerOptions
 	config *v1beta1.ManagementSpec
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 }
 
 type extraHandler struct {
@@ -148,8 +147,8 @@ func (ws *Server) ListenAndServe(ctx context.Context) error {
 		lg.With(
 			"url", opniApiAddr,
 			"error", err,
-		).Panic("failed to parse management API URL")
-		return err
+		).Error("failed to parse management API URL")
+		panic("failed to parse management API URL")
 	}
 	router.Any("/opni-api/*any", gin.WrapH(http.StripPrefix("/opni-api", httputil.NewSingleHostReverseProxy(mgmtUrl))))
 

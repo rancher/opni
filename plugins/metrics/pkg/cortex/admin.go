@@ -162,7 +162,7 @@ func (p *CortexAdminServer) WriteMetrics(ctx context.Context, in *cortexadmin.Wr
 	lg.Debug("writing metrics to cortex")
 	_, err := p.CortexClientSet.Distributor().Push(outgoingContext(ctx, in), cortexReq)
 	if err != nil {
-		p.Logger.With(zap.Error(err)).Error("failed to write metrics")
+		p.Logger.With(logger.Err(err)).Error("failed to write metrics")
 		return nil, err
 	}
 	return &cortexadmin.WriteResponse{}, nil
@@ -676,7 +676,7 @@ func (p *CortexAdminServer) FlushBlocks(
 			resp, err := httpClient.Do(req)
 			if err != nil {
 				lg.With(
-					zap.Error(err),
+					logger.Err(err),
 				).Error("failed to flush ingester")
 				return err
 			}
@@ -689,7 +689,7 @@ func (p *CortexAdminServer) FlushBlocks(
 				lg.With(
 					"code", resp.StatusCode,
 					"error", string(body),
-				).Errorf("failed to flush ingester")
+				).Error("failed to flush ingester")
 			}
 
 			lg.Info("flushed ingester successfully")
@@ -802,13 +802,13 @@ func (p *CortexAdminServer) proxyCortexToPrometheus(
 	if err != nil {
 		p.Logger.With(
 			"request", url,
-		).Errorf("failed with %v", err)
+		).Error("failed with %v", err)
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		p.Logger.With(
 			"request", url,
-		).Errorf("request failed with %s", resp.Status)
+		).Error(fmt.Sprintf("request failed with %s", resp.Status))
 		return nil, fmt.Errorf("request failed with: %s", resp.Status)
 	}
 	return resp, nil

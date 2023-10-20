@@ -135,8 +135,9 @@ func NewHTTPServer(
 	tlsConfig, _, err := httpTLSConfig(cfg)
 	if err != nil {
 		lg.With(
-			zap.Error(err),
-		).Panic("failed to load serving cert bundle")
+			logger.Err(err),
+		).Error("failed to load serving cert bundle")
+		panic("failed to load serving cert bundle")
 	}
 	srv := &GatewayHTTPServer{
 		router:            router,
@@ -160,8 +161,9 @@ func NewHTTPServer(
 	)
 	if err != nil {
 		lg.With(
-			zap.Error(err),
-		).Panic("failed to create prometheus exporter")
+			logger.Err(err),
+		).Error("failed to create prometheus exporter")
+		panic("failed to create prometheus exporter")
 	}
 
 	// We are using remote producers, but we need to register the exporter locally
@@ -180,8 +182,8 @@ func NewHTTPServer(
 		cfg, err := p.Configure(ctx, apiextensions.NewCertConfig(cfg.Certs))
 		if err != nil {
 			lg.With(
-				zap.String("plugin", md.Module),
-				zap.Error(err),
+				"plugin", md.Module,
+				logger.Err(err),
 			).Error("failed to configure routes")
 			return
 		}

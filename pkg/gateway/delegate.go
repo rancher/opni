@@ -60,7 +60,7 @@ func (d *DelegateServer) HandleAgentConnection(ctx context.Context, clientSet ag
 	if err != nil {
 		d.logger.With(
 			"id", id,
-			zap.Error(err),
+			logger.Err(err),
 		).Error("internal error: failed to look up connecting agent")
 		d.mu.Unlock()
 		return
@@ -98,7 +98,7 @@ func (d *DelegateServer) Request(ctx context.Context, req *streamv1.DelegatedMes
 		err := target.Invoke(ctx, totem.Forward, req.GetRequest(), fwdResp)
 		if err != nil {
 			d.logger.With(
-				zap.Error(err),
+				logger.Err(err),
 			).Error("delegating rpc request failed")
 			return nil, err
 		}
@@ -107,7 +107,7 @@ func (d *DelegateServer) Request(ctx context.Context, req *streamv1.DelegatedMes
 		err = proto.Unmarshal(fwdResp.GetResponse().GetResponse(), resp)
 		if err != nil {
 			d.logger.With(
-				zap.Error(err),
+				logger.Err(err),
 			).Error("delegating rpc request failed")
 			return nil, err
 		}
@@ -117,7 +117,7 @@ func (d *DelegateServer) Request(ctx context.Context, req *streamv1.DelegatedMes
 
 	err := status.Error(codes.NotFound, "target not found")
 	lg.With(
-		zap.Error(err),
+		logger.Err(err),
 	).Warn("delegating rpc request failed")
 	return nil, err
 }

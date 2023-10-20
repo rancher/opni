@@ -57,7 +57,7 @@ func (m *MetricsBackend) AddTarget(_ context.Context, request *remoteread.Target
 		"cluster", request.Target.Meta.ClusterId,
 		"target", request.Target.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
-	).Infof("added new target")
+	).Info("added new target")
 
 	return &emptypb.Empty{}, nil
 }
@@ -108,7 +108,7 @@ func (m *MetricsBackend) EditTarget(ctx context.Context, request *remoteread.Tar
 		"cluster", request.Meta.ClusterId,
 		"target", request.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
-	).Infof("edited target")
+	).Info("edited target")
 
 	return &emptypb.Empty{}, nil
 }
@@ -143,7 +143,7 @@ func (m *MetricsBackend) RemoveTarget(ctx context.Context, request *remoteread.T
 		"cluster", request.Meta.ClusterId,
 		"target", request.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
-	).Infof("removed target")
+	).Info("removed target")
 
 	return &emptypb.Empty{}, nil
 }

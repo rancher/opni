@@ -48,7 +48,7 @@ func (v *keyringVerifier) Prepare(ctx context.Context, cm ClientMetadata, req *c
 		if storage.IsNotFound(err) {
 			return nil, util.StatusError(codes.Unauthenticated)
 		}
-		v.logger.With(zap.Error(err)).Error("failed to get keyring during cluster auth")
+		v.logger.With(logger.Err(err)).Error("failed to get keyring during cluster auth")
 		return nil, util.StatusError(codes.Unavailable)
 	}
 

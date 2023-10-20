@@ -69,14 +69,14 @@ func (b *BenchRunner) StartWorker(ctx context.Context) {
 			case batchReq := <-b.batchChan:
 				if err := b.sendBatch(ctx, batchReq.Batch); err != nil {
 					b.logger.With(
-						zap.Error(err),
+						logger.Err(err),
 					).Error("failed to send batch")
 				}
 				batchReq.PutBack <- batchReq.Batch
 				batchReq.Wg.Done()
 			case <-ctx.Done():
 				b.logger.With(
-					zap.Error(ctx.Err()),
+					logger.Err(ctx.Err()),
 				).Warn("worker stopped")
 				return
 			}

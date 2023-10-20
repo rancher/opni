@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/tidwall/gjson"
 )
@@ -18,7 +19,7 @@ func (m *Manager) GetClusterStatus() ClusterStatus {
 
 	resp, err := m.Client.Cluster.GetClusterHealth(context.TODO())
 	if err != nil {
-		m.logger.With("err", err).Error("failed to fetch opensearch cluster status")
+		m.logger.With(logger.Err(err)).Error("failed to fetch opensearch cluster status")
 		return ClusterStatusError
 	}
 	defer resp.Body.Close()

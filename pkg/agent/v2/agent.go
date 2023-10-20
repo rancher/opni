@@ -40,7 +40,6 @@ import (
 	"github.com/samber/lo"
 	slogsampling "github.com/samber/slog-sampling"
 	"github.com/spf13/afero"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -174,8 +173,8 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		cfg, err := p.Configure(ctx, apiextensions.NewInsecureCertConfig())
 		if err != nil {
 			lg.With(
-				zap.String("plugin", md.Module),
-				zap.Error(err),
+				"plugin", md.Module,
+				logger.Err(err),
 			).Error("failed to configure routes")
 			return
 		}
@@ -260,7 +259,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 			// Keep retrying until it succeeds.
 			err = ks.Put(ctx, kr)
 			if err != nil {
-				lg.With(zap.Error(err)).Error("failed to persist keyring (retry in 1 second)")
+				lg.With(logger.Err(err)).Error("failed to persist keyring (retry in 1 second)")
 				time.Sleep(1 * time.Second)
 			} else {
 				if options.rebootstrap {
@@ -283,7 +282,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	}, conf.Spec.Keyring.EphemeralKeyDirs...)
 	if err != nil {
 		lg.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Warn("error loading ephemeral keys")
 	} else if len(ekeys) > 0 {
 		kr = kr.Merge(keyring.New(lo.ToAnySlice(ekeys)...))
@@ -308,7 +307,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 
 	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
 		lg.With(
-			zap.String("plugin", md.Module),
+			"plugin", md.Module,
 		).Debug("loaded stream api extension plugin")
 		gatewayClient.RegisterSplicedStream(cc, md.Filename())
 	}))
@@ -357,8 +356,8 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 				switch status.Code(err) {
 				case codes.Unauthenticated:
 					if a.loadedExistingKeyring {
-						a.Logger.With(
-							zap.Error(err),
+						a.logger.With(
+							logger.Err(err),
 						).Warn("The agent failed to authorize to the gateway using an existing keyring. " +
 							"This could be due to a leftover keyring from a previous installation that was not deleted.",
 						)
@@ -369,8 +368,8 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 						}
 					}
 				case codes.Unavailable:
-					a.Logger.With(
-						zap.Error(err),
+					a.logger.With(
+						logger.Err(err),
 					).Warn("error syncing manifest (retrying)")
 					continue
 				}
@@ -430,8 +429,8 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	a.Logger.With(
-		zap.String("address", listener.Addr().String()),
+	a.logger.With(
+		"address", listener.Addr().String(),
 	).Info("agent http server starting")
 
 	ctx, ca := context.WithCancel(ctx)
@@ -520,7 +519,7 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 			if status.Code(err) == codes.Canceled {
 				lg.Info("gateway client stopped")
 			} else {
-				lg.With(zap.Error(errF.Get())).Warn("disconnected from gateway")
+				lg.With(logger.Err(errF.Get())).Warn("disconnected from gateway")
 			}
 
 			a.healthzMu.Lock()
@@ -528,7 +527,7 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 			a.healthzMu.Unlock()
 		} else {
 			lg.With(
-				zap.Error(errF.Get()),
+				logger.Err(errF.Get()),
 			).Warn("error connecting to gateway")
 		}
 

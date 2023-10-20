@@ -91,7 +91,7 @@ func NewJetStreamStore(ctx context.Context, conf *v1beta1.JetStreamStorageSpec, 
 				return
 			}
 			lg.With(
-				zap.Error(err),
+				logger.Err(err),
 			).Warn("disconnected from jetstream")
 		}),
 		nats.ReconnectHandler(func(c *nats.Conn) {
@@ -170,7 +170,7 @@ func (s *JetStreamStore) upsertBucket(name string) nats.KeyValue {
 		if err != nil {
 			s.logger.With(
 				"bucket", bucketName,
-				zap.Error(err),
+				logger.Err(err),
 			).Warn("failed to create bucket, retrying")
 			continue
 		}
@@ -178,7 +178,7 @@ func (s *JetStreamStore) upsertBucket(name string) nats.KeyValue {
 	}
 	s.logger.With(
 		"bucket", bucketName,
-		zap.Error(s.ctx.Err()),
+		logger.Err(s.ctx.Err()),
 	).Error("failed to create bucket")
 	return nil
 }

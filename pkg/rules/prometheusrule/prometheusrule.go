@@ -75,7 +75,7 @@ func (f *PrometheusRuleFinder) Find(ctx context.Context) ([]rules.RuleGroup, err
 		groups, err := f.findRulesInNamespace(ctx, namespace)
 		if err != nil {
 			lg.With(
-				zap.Error(err),
+				logger.Err(err),
 				"namespace", namespace,
 			).Warn("failed to find PrometheusRules in namespace, skipping")
 			continue

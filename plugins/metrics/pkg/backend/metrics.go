@@ -170,7 +170,7 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 	m.Logger.With(
 		"id", id,
 		"time", status.LastSync.AsTime(),
-	).Debugf("synced node")
+	).Debug("synced node")
 
 	nodeSpec, err := m.getNodeSpecOrDefault(ctx, id)
 	if err != nil {
@@ -208,7 +208,7 @@ func (m *MetricsBackend) getDefaultNodeSpec(ctx context.Context) (*node.MetricsC
 	if status.Code(err) == codes.NotFound {
 		nodeSpec = FallbackDefaultNodeSpec.Load()
 	} else if err != nil {
-		m.Logger.With(zap.Error(err)).Error("failed to get default capability spec")
+		m.Logger.With(logger.Err(err)).Error("failed to get default capability spec")
 		return nil, status.Errorf(codes.Unavailable, "failed to get default capability spec: %v", err)
 	}
 	grpc.SetTrailer(ctx, node.DefaultConfigMetadata())

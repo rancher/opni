@@ -205,10 +205,10 @@ func (f *FilesystemPluginSyncServer) calculatePluginUpdates(
 				data, err := f.patchCache.GetBinaryFile(patch.PluginsDir, entry.NewDigest)
 				if err != nil {
 					f.logger.With(
-						zap.Error(err),
+						logger.Err(err),
 						"plugin", entry.Package,
 						"filename", entry.Path,
-					).Errorf("lost plugin in cache")
+					).Error("lost plugin in cache")
 					return status.Errorf(codes.Internal, "lost plugin in cache: %s", entry.Package)
 				}
 				entry.Data = data
@@ -227,16 +227,16 @@ func (f *FilesystemPluginSyncServer) calculatePluginUpdates(
 					data, err := f.patchCache.GetBinaryFile(patch.PluginsDir, entry.NewDigest)
 					if err != nil {
 						lg.With(
-							zap.Error(err),
-						).Errorf("lost plugin in cache")
+							logger.Err(err),
+						).Error("lost plugin in cache")
 						return status.Errorf(codes.Internal, "lost plugin in cache, cannot generate patch: %s", entry.Package)
 					}
 					entry.Data = data
 					entry.Op = controlv1.PatchOp_Create
 				} else {
 					lg.With(
-						zap.Error(err),
-					).Errorf("error requesting patch for plugin %s %s->%s", entry.Package, entry.OldDigest, entry.NewDigest)
+						logger.Err(err),
+					).Error(fmt.Sprintf("error requesting patch for plugin %s %s->%s", entry.Package, entry.OldDigest, entry.NewDigest))
 					return status.Errorf(codes.Internal, "internal error in plugin cache, cannot sync: %s", entry.Package)
 				}
 			}

@@ -104,7 +104,7 @@ BACKOFF:
 			if err := reconcilerutil.ReconcileObject(lg, o.K8sClient, o.Namespace, obj); err != nil {
 				lg.With(
 					"object", client.ObjectKeyFromObject(obj.A).String(),
-					zap.Error(err),
+					logger.Err(err),
 				).Error("error reconciling object")
 				continue BACKOFF
 			}
@@ -112,7 +112,7 @@ BACKOFF:
 			if err := o.reconcileCollector(deployOTEL); err != nil {
 				lg.With(
 					"object", "opni collector",
-					zap.Error(err),
+					logger.Err(err),
 				).Error("error reconciling object")
 				continue BACKOFF
 			}

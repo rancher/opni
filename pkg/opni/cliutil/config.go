@@ -25,8 +25,9 @@ func LoadConfigObjectsOrDie(
 				panic(fmt.Sprintf(`could not find a config file in ["%s","/etc/opni"], and --config was not given`, wd))
 			}
 			lg.With(
-				zap.Error(err),
-			).Panic("an error occurred while searching for a config file")
+				logger.Err(err),
+			).Error("an error occurred while searching for a config file")
+			panic("an error occurred while searching for a config file")
 		}
 		lg.With(
 			"path", path,
@@ -36,8 +37,9 @@ func LoadConfigObjectsOrDie(
 	objects, err := config.LoadObjectsFromFile(configLocation)
 	if err != nil {
 		lg.With(
-			zap.Error(err),
-		).Panic("failed to load config")
+			logger.Err(err),
+		).Error("failed to load config")
+		panic("failed to load config")
 	}
 	return objects
 }

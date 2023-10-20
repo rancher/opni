@@ -155,11 +155,12 @@ func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
 			if err != nil {
 				if isDiscoveryErrFatal(err) {
 					lg.With(
-						zap.Error(err),
-					).Panic("fatal error fetching openid configuration")
+						logger.Err(err),
+					).Error("fatal error fetching openid configuration")
+					panic("fatal error fetching openid configuration")
 				} else {
 					lg.With(
-						zap.Error(err),
+						logger.Err(err),
 					).Warn("failed to fetch openid configuration (will retry)")
 				}
 				continue
@@ -185,9 +186,10 @@ func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
 		data, err := os.ReadFile(*m.conf.Discovery.CACert)
 		if err != nil {
 			lg.With(
-				zap.Error(err),
+				logger.Err(err),
 				"filename", m.conf.Discovery.CACert,
-			).Panic("openid discovery: failed to read CA cert")
+			).Error("openid discovery: failed to read CA cert")
+			panic("openid discovery: failed to read CA cert")
 		}
 		if !certPool.AppendCertsFromPEM(data) {
 			panic("openid discovery: invalid ca cert")
@@ -207,7 +209,8 @@ func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
 	m.cache, err = NewUserInfoCache(m.conf, m.logger, WithHTTPClient(httpClient))
 	if err != nil {
 		lg.With(
-			zap.Error(err),
-		).Panic("failed to create user info cache")
+			logger.Err(err),
+		).Error("failed to create user info cache")
+		panic("failed to create user info cache")
 	}
 }

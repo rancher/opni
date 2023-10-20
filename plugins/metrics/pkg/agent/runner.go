@@ -195,7 +195,7 @@ func (tr *taskRunner) doPush(ctx context.Context, writeRequest *prompb.WriteRequ
 			switch {
 			case strings.Contains(err.Error(), "ingestion rate limit"):
 				tr.logger.With(
-					zap.Error(err),
+					logger.Err(err),
 				).Warn("failed to push to remote write, retrying...")
 			default:
 				return fmt.Errorf("failed to push to remote write: %w", err)

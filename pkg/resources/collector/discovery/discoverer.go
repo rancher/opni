@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	promoperatorv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
 
@@ -16,7 +18,6 @@ import (
 	"github.com/prometheus/prometheus/model/relabel"
 
 	"github.com/samber/lo"
-	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -58,7 +59,7 @@ func (t target) Compare(other target) int {
 }
 
 type PrometheusDiscovery struct {
-	logger     *zap.SugaredLogger
+	logger     *slog.Logger
 	retrievers []ScrapeConfigRetriever
 }
 
@@ -119,7 +120,7 @@ type ScrapeConfigRetriever interface {
 }
 
 func NewPrometheusDiscovery(
-	logger *zap.SugaredLogger,
+	logger *slog.Logger,
 	client client.Client,
 	namespace string,
 	discovery monitoringv1beta1.PrometheusDiscovery,
@@ -151,11 +152,11 @@ func (p *PrometheusDiscovery) YieldScrapeConfigs() (
 				defer wg.Done()
 				cfg, err := retriever.Yield()
 				if err != nil {
-					lg.Warnf("failed to retrieve scrape configs : %s", err)
+					lg.Warn(fmt.Sprintf("failed to retrieve scrape configs : %s", err))
 					return
 				}
-				lg.Infof("found %d scrape configs", len(cfg.jobs))
-				lg.Infof("found %d secrets to combine and mount", len(cfg.secrets))
+				lg.Info(fmt.Sprintf("found %d scrape configs", len(cfg.jobs)))
+				lg.Info(fmt.Sprintf("found %d secrets to combine and mount", len(cfg.secrets)))
 				cfgChan <- cfg
 			}()
 		}
@@ -188,8 +189,8 @@ func (p *PrometheusDiscovery) YieldScrapeConfigs() (
 	for _, secretKey := range secretKeys {
 		secrets = append(secrets, secretMap[secretKey])
 	}
-	p.logger.Debugf("reduced found scrape configs to %d", len(scrapeCfgs))
-	p.logger.Debugf("reduced found tls configs to %d", len(secrets))
+	p.logger.Debug(fmt.Sprintf("reduced found scrape configs to %d", len(scrapeCfgs)))
+	p.logger.Debug(fmt.Sprintf("reduced found tls configs to %d", len(secrets)))
 	return scrapeCfgs, secrets, nil
 }
 
@@ -204,7 +205,7 @@ func parseStrToDuration(s string) model.Duration {
 func fromSafeAuthorization(
 	client client.Client,
 	safeCfg *promoperatorv1.SafeAuthorization,
-	lg *zap.SugaredLogger,
+	lg *slog.Logger,
 	namespace string,
 ) (cfg promcommon.Authorization, secretRes []SecretResolutionConfig) {
 	secretResolution := SecretResolutionConfig{}
@@ -222,7 +223,7 @@ func fromSafeAuthorization(
 			}
 			secretRes = append(secretRes, secretResolution)
 		} else {
-			lg.Warnf("failed to get secret %s/%s : %s", namespace, safeCfg.Credentials.Name, err)
+			lg.Warn(fmt.Sprintf("failed to get secret %s/%s : %s", namespace, safeCfg.Credentials.Name, err))
 		}
 	}
 	return promcommon.Authorization{
@@ -234,7 +235,7 @@ func fromSafeAuthorization(
 func fromSafeTlsConfig(
 	client client.Client,
 	safeCfg promoperatorv1.SafeTLSConfig,
-	lg *zap.SugaredLogger,
+	lg *slog.Logger,
 	namespace string,
 ) (cfg promcommon.TLSConfig, secretRes []SecretResolutionConfig) {
 	caSecretResolution := SecretResolutionConfig{}
@@ -251,7 +252,7 @@ func fromSafeTlsConfig(
 				namespace: namespace,
 			}
 		} else {
-			lg.Warnf("failed to find a specified ca secret '%v' : %s", safeCfg.CA.Secret, err)
+			lg.Warn(fmt.Sprintf("failed to find a specified ca secret '%v' : %s", safeCfg.CA.Secret, err))
 		}
 	}
 	if safeCfg.CA.ConfigMap != nil {
@@ -267,7 +268,7 @@ func fromSafeTlsConfig(
 				namespace: namespace,
 			}
 		} else {
-			lg.Warnf("failed to find a specified ca configmap '%v' : %s", safeCfg.CA.ConfigMap, err)
+			lg.Warn(fmt.Sprintf("failed to find a specified ca configmap '%v' : %s", safeCfg.CA.ConfigMap, err))
 		}
 	}
 	certSecretResolution := SecretResolutionConfig{}
@@ -284,7 +285,7 @@ func fromSafeTlsConfig(
 				namespace: namespace,
 			}
 		} else {
-			lg.Warnf("failed to find a specified cert secret '%v' : %s", safeCfg.Cert.Secret, err)
+			lg.Warn(fmt.Sprintf("failed to find a specified cert secret '%v' : %s", safeCfg.Cert.Secret, err))
 		}
 	}
 	if safeCfg.Cert.ConfigMap != nil {
@@ -300,7 +301,7 @@ func fromSafeTlsConfig(
 				namespace: namespace,
 			}
 		} else {
-			lg.Warnf("failed to find a specified cert configmap '%v' : %s", safeCfg.Cert.ConfigMap, err)
+			lg.Warn(fmt.Sprintf("failed to find a specified cert configmap '%v' : %s", safeCfg.Cert.ConfigMap, err))
 		}
 	}
 	keySecretResolution := SecretResolutionConfig{}
@@ -317,7 +318,7 @@ func fromSafeTlsConfig(
 				namespace: namespace,
 			}
 		} else {
-			lg.Warnf("failed to find a specified Key secret : %v", safeCfg.KeySecret)
+			lg.Warn(fmt.Sprintf("failed to find a specified Key secret : %v", safeCfg.KeySecret))
 		}
 	}
 

@@ -118,7 +118,7 @@ func (e *gatewayStreamExtensionServerImpl) Connect(stream streamv1.Stream_Connec
 	id := cluster.StreamAuthorizedID(stream.Context())
 
 	e.logger.With(
-		zap.String("id", id),
+		"id", id,
 	).Debug("stream connected")
 
 	opts := []totem.ServerOption{
@@ -145,7 +145,7 @@ func (e *gatewayStreamExtensionServerImpl) Connect(stream streamv1.Stream_Connec
 
 	if err != nil {
 		e.logger.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Error("failed to create stream server")
 		return err
 	}
@@ -164,7 +164,7 @@ func (e *gatewayStreamExtensionServerImpl) Connect(stream streamv1.Stream_Connec
 		e.logger.Debug("stream server closed")
 	} else {
 		e.logger.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Warn("stream server exited with error")
 	}
 	return err
@@ -202,7 +202,7 @@ func (e *gatewayStreamExtensionServerImpl) ConnectInternal(stream apiextensions.
 			e.logger.Debug("stream closed")
 		} else {
 			e.logger.With(
-				zap.Error(err),
+				logger.Err(err),
 			).Warn("stream disconnected with error")
 		}
 		return err

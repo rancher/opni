@@ -73,7 +73,7 @@ func (b *LoggingBackend) Initialize(conf LoggingBackendConfig) {
 			}
 
 			if err := b.reconcileClusterMetadata(context.Background(), clusters.Items); err != nil {
-				b.Logger.With(zap.Error(err)).Error("could not reconcile opni agents with metadata index, some agents may not be included")
+				b.Logger.With(logger.Err(err)).Error("could not reconcile opni agents with metadata index, some agents may not be included")
 				return
 			}
 

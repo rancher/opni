@@ -45,7 +45,7 @@ func (b *LoggingBackend) updateClusterMetadata(ctx context.Context, event *manag
 func (b *LoggingBackend) watchClusterEvents(ctx context.Context) {
 	clusterClient, err := b.MgmtClient.WatchClusters(ctx, &managementv1.WatchClustersRequest{})
 	if err != nil {
-		b.Logger.With(zap.Error(err)).Errorf("failed to watch clusters, existing")
+		b.Logger.With(logger.Err(err)).Error("failed to watch clusters, existing")
 		os.Exit(1)
 	}
 
@@ -60,7 +60,7 @@ outer:
 		default:
 			event, err := clusterClient.Recv()
 			if err != nil {
-				b.Logger.With(zap.Error(err)).Errorf("failed to receive cluster event")
+				b.Logger.With(logger.Err(err)).Error("failed to receive cluster event")
 				continue
 			}
 

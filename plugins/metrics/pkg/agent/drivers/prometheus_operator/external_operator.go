@@ -107,7 +107,7 @@ BACKOFF:
 			if err := reconcilerutil.ReconcileObject(lg, d.K8sClient, d.Namespace, obj); err != nil {
 				lg.With(
 					"object", client.ObjectKeyFromObject(obj.A).String(),
-					zap.Error(err),
+					logger.Err(err),
 				).Error("error reconciling object")
 				continue BACKOFF
 			}

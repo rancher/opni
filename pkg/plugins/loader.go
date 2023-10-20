@@ -154,7 +154,7 @@ func (p *PluginLoader) LoadOne(ctx context.Context, md meta.PluginMeta, cc *plug
 	rpcClient, err := client.Client()
 	if err != nil {
 		lg.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Error("failed to load plugin")
 		return
 	}
@@ -166,7 +166,7 @@ func (p *PluginLoader) LoadOne(ctx context.Context, md meta.PluginMeta, cc *plug
 		raw, err := rpcClient.Dispense(id)
 		if err != nil {
 			lg.With(
-				zap.Error(err),
+				logger.Err(err),
 				"id", id,
 			).Debug("no implementation found")
 			continue

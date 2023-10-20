@@ -169,7 +169,8 @@ func BuildClustersLabelCmd() *cobra.Command {
 						lg.With(
 							"key", k,
 							"curValue", v,
-						).Fatal("Label already exists (use --overwrite to enable replacing existing values)")
+						).Error("Label already exists (use --overwrite to enable replacing existing values)")
+						os.Exit(1)
 					}
 				}
 			}
@@ -179,8 +180,9 @@ func BuildClustersLabelCmd() *cobra.Command {
 			})
 			if err != nil {
 				lg.With(
-					zap.Error(err),
-				).Fatal("Failed to edit cluster")
+					logger.Err(err),
+				).Error("Failed to edit cluster")
+				os.Exit(1)
 			}
 			if reflect.DeepEqual(cluster.GetLabels(), updatedCluster.GetLabels()) {
 				lg.Error("Updating cluster labels failed (unknown error)")

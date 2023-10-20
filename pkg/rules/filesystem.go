@@ -62,7 +62,7 @@ func (f *FilesystemRuleFinder) Find(context.Context) ([]RuleGroup, error) {
 		lg := f.logger.With("expression", pathExpr)
 		if err != nil {
 			lg.With(
-				zap.Error(err),
+				logger.Err(err),
 			).Warn("error searching for rules files using path expression")
 			continue
 		}
@@ -73,14 +73,14 @@ func (f *FilesystemRuleFinder) Find(context.Context) ([]RuleGroup, error) {
 			data, err := fs.ReadFile(f.fs, path)
 			if err != nil {
 				lg.With(
-					zap.Error(err),
+					logger.Err(err),
 				).Warn("error reading rules file")
 				continue
 			}
 			list, errs := rulefmt.Parse(data)
 			if len(errs) > 0 {
 				lg.With(
-					zap.Error(errors.Combine(errs...)),
+					logger.Err(errors.Combine(errs...)),
 				).Warn("error parsing rules file")
 				continue
 			}

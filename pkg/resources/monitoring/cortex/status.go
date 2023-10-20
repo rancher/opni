@@ -57,7 +57,7 @@ func (r *Reconciler) updateCortexVersionStatus() (bool, error) {
 			return r.client.Status().Update(r.ctx, r.mc)
 		})
 		if err != nil {
-			lg.With(zap.Error(err)).Error("failed to update cortex version status")
+			lg.With(logger.Err(err)).Error("failed to update cortex version status")
 			return false, err
 		}
 	}

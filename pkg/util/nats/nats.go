@@ -45,7 +45,7 @@ func ExternalNatsObjects(
 	lg := log.FromContext(ctx)
 	nats := &opnicorev1beta1.NatsCluster{}
 	if err := k8sClient.Get(ctx, namespacedNats, nats); err != nil {
-		lg.Error("could not fetch nats cluster", logger.Err(err))
+		lg.Error(err, "could not fetch nats cluster")
 		return
 	}
 

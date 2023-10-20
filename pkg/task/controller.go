@@ -63,8 +63,8 @@ func NewController(ctx context.Context, name string, store KVStore, runner TaskR
 					break
 				}
 				ctrl.logger.With(
-					zap.String("id", id),
-					zap.Error(err),
+					"id", id,
+					logger.Err(err),
 				).Warn("failed to look up task (will retry)")
 				time.Sleep(time.Second)
 				continue
@@ -73,8 +73,8 @@ func NewController(ctx context.Context, name string, store KVStore, runner TaskR
 			case StatePending, StateRunning:
 				if err := ctrl.LaunchTask(id, WithJsonMetadata(status.GetMetadata())); err != nil {
 					ctrl.logger.With(
-						zap.String("id", id),
-						zap.Error(err),
+						"id", id,
+						logger.Err(err),
 					).Warn("failed to resume task (will retry)")
 					time.Sleep(time.Second)
 					continue
@@ -85,8 +85,8 @@ func NewController(ctx context.Context, name string, store KVStore, runner TaskR
 				rw.Lock()
 				if err := rw.Delete(ctx); err != nil {
 					ctrl.logger.With(
-						zap.String("id", id),
-						zap.Error(err),
+						"id", id,
+						logger.Err(err),
 					).Warn("failed to clean task state")
 					// continue anyway, this will be retried next time
 					// the controller is started

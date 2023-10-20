@@ -202,7 +202,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 					go func() {
 						if err := agent.streamRulesToGateway(ctx); err != nil {
 							lg.With(
-								zap.Error(err),
+								logger.Err(err),
 							).Error("error streaming rules to gateway")
 						}
 					}()
@@ -214,12 +214,12 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 				// })
 
 				lg.With(
-					zap.Error(errF.Get()), // this will block until an error is received
+					logger.Err(errF.Get()), // this will block until an error is received
 				).Warn("disconnected from gateway")
 				agent.remoteWriteClient.Close()
 			} else {
 				lg.With(
-					zap.Error(errF.Get()),
+					logger.Err(errF.Get()),
 				).Warn("error connecting to gateway")
 			}
 			if util.StatusCode(errF.Get()) == codes.FailedPrecondition {
@@ -231,7 +231,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 			isRetry = true
 		}
 		lg.With(
-			zap.Error(ctx.Err()),
+			logger.Err(ctx.Err()),
 		).Warn("shutting down gateway client")
 	}()
 
@@ -281,7 +281,7 @@ func (a *Agent) bootstrap(ctx context.Context) (keyring.Keyring, error) {
 			// Keep retrying until it succeeds.
 			err = a.keyringStore.Put(ctx, newKeyring)
 			if err != nil {
-				lg.With(zap.Error(err)).Error("failed to persist keyring (retry in 1 second)")
+				lg.With(logger.Err(err)).Error("failed to persist keyring (retry in 1 second)")
 				time.Sleep(1 * time.Second)
 			} else {
 				break

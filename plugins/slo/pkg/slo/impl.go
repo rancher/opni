@@ -235,7 +235,7 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 	if sliDataVector == nil || sliDataVector.Len() == 0 {
 		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_NoData}, nil
 	}
-	s.lg.With("sloId", slo.GetId()).Debug("sli status response vector : ", sliDataVector.String())
+	s.lg.With("sloId", slo.GetId()).Debug(fmt.Sprintf("sli status response vector : %s", sliDataVector.String()))
 	// ======================= error budget =======================
 	// race condition can cause initial evaluation to fail with empty vector, resulting in no data state
 	// this is why we return creating state with two intervals
@@ -251,7 +251,7 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 	if metadataBudget <= 0 {
 		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_Breaching}, nil
 	}
-	s.lg.With("sloId", slo.GetId()).Debug("sli status ", metadataVector.String())
+	s.lg.With("sloId", slo.GetId()).Debug(fmt.Sprintf("sli status %s", metadataVector.String()))
 	//
 	//// ======================= alert =======================
 

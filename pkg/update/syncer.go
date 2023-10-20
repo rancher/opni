@@ -58,7 +58,7 @@ func (conf SyncConfig) DoSync(ctx context.Context) error {
 			printStats = func(msg string) {
 				stats, err := conf.StatsClient.QueryConnStats()
 				if err != nil {
-					lg.With(zap.Error(err)).Warn("failed to query connection stats")
+					lg.With(logger.Err(err)).Warn("failed to query connection stats")
 					return
 				}
 				rate, err := util.Humanize(stats.DeliveryRate())

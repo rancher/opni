@@ -72,8 +72,8 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.L
 		sds, err := p.Descriptors(ctx, &emptypb.Empty{})
 		if err != nil {
 			m.logger.With(
-				zap.Error(err),
-				zap.String("plugin", md.Module),
+				logger.Err(err),
+				"plugin", md.Module,
 			).Error("failed to get extension descriptors")
 			return
 		}
@@ -83,7 +83,7 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.L
 			svcDesc, err := reflectClient.ResolveService(sd.GetName())
 			if err != nil {
 				m.logger.With(
-					zap.Error(err),
+					logger.Err(err),
 				).Error("failed to resolve extension service")
 				return
 			}
@@ -213,14 +213,14 @@ func (m *Server) configureServiceStubHandlers(
 
 		if err := mux.HandlePath(method, qualifiedPath, newHandler(stub, svcDesc, mux, rule, path)); err != nil {
 			lg.With(
-				zap.Error(err),
-				zap.String("method", method),
-				zap.String("path", qualifiedPath),
+				logger.Err(err),
+				"method", method,
+				"path", qualifiedPath,
 			).Error("failed to configure http handler")
 		} else {
 			lg.With(
-				zap.String("method", method),
-				zap.String("path", qualifiedPath),
+				"method", method,
+				"path", qualifiedPath,
 			).Debug("configured http handler")
 		}
 	}
@@ -299,12 +299,12 @@ func newHandler(
 				},
 			}).Upgrade(w, req, http.Header{})
 			if err != nil {
-				lg.With(zap.Error(err)).Error("failed to upgrade connection")
+				lg.With(logger.Err(err)).Error("failed to upgrade connection")
 				return
 			}
 
 			if err := handleWebsocketStream(ctx, conn, stub, methodDesc, lg); err != nil {
-				lg.With(zap.Error(err)).Error("websocket stream error")
+				lg.With(logger.Err(err)).Error("websocket stream error")
 				// can't send http errors after the connection has been hijacked
 			}
 			return
@@ -316,7 +316,7 @@ func newHandler(
 				lg.With(
 					"key", k,
 					"value", v,
-					zap.Error(err),
+					logger.Err(err),
 				).Error("failed to decode path parameter")
 				runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
 					status.Errorf(codes.InvalidArgument, err.Error()))
@@ -375,8 +375,8 @@ func newHandler(
 			}
 			if err != nil {
 				lg.With(
-					zap.Error(err),
-				).Errorf("failed to unmarshal request body into %q", bodyFieldPath)
+					logger.Err(err),
+				).Error(fmt.Sprintf("failed to unmarshal request body into %q", bodyFieldPath))
 				// special case here, make empty string errors more obvious
 				if strings.HasSuffix(err.Error(), "named ") { // note the trailing space
 					err = fmt.Errorf("%w(empty)", err)
@@ -393,7 +393,7 @@ func newHandler(
 			grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 		if err != nil {
 			lg.With(
-				zap.Error(err),
+				logger.Err(err),
 			).Debug("rpc error")
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -401,7 +401,7 @@ func newHandler(
 		d, err := dynamic.AsDynamicMessage(resp)
 		if err != nil {
 			lg.With(
-				zap.Error(err),
+				logger.Err(err),
 			).Error("bad response message")
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
 				status.Errorf(codes.Internal, "internal error: bad response message: %v", err))
@@ -409,7 +409,7 @@ func newHandler(
 		respData, err := outboundMarshaler.Marshal(d)
 		if err != nil {
 			lg.With(
-				zap.Error(err),
+				logger.Err(err),
 			).Error("failed to marshal response")
 
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
@@ -418,7 +418,7 @@ func newHandler(
 		}
 		if _, err := w.Write(respData); err != nil {
 			lg.With(
-				zap.Error(err),
+				logger.Err(err),
 			).Error("failed to write response")
 		}
 	}
@@ -441,7 +441,7 @@ func handleWebsocketStream(
 	if isClientStreaming && isServerStreaming {
 		backendStream, err := stub.InvokeRpcBidiStream(ctx, methodDesc)
 		if err != nil {
-			lg.With(zap.Error(err)).Error("backend rpc error")
+			lg.With(logger.Err(err)).Error("backend rpc error")
 			return err
 		}
 		return handleWebsocketBidiStream(ctx, conn, backendStream, methodDesc)
@@ -452,7 +452,7 @@ func handleWebsocketStream(
 	}
 	backendStream, err := stub.InvokeRpcClientStream(ctx, methodDesc)
 	if err != nil {
-		lg.With(zap.Error(err)).Error("backend rpc error")
+		lg.With(logger.Err(err)).Error("backend rpc error")
 		return err
 	}
 	return handleWebsocketClientStream(ctx, conn, backendStream, methodDesc, lg)
@@ -497,7 +497,7 @@ func handleWebsocketServerStream(
 			}
 			dm, err := dynamic.AsDynamicMessage(resp)
 			if err != nil {
-				lg.With(zap.Error(err)).Warn("could not convert message to dynamic message")
+				lg.With(logger.Err(err)).Warn("could not convert message to dynamic message")
 				continue
 			}
 			send <- dm
@@ -510,7 +510,7 @@ func handleWebsocketServerStream(
 		for ctx.Err() == nil {
 			msgType, data, err := conn.ReadMessage()
 			if err != nil {
-				lg.With(zap.Error(err)).Error("error reading from websocket")
+				lg.With(logger.Err(err)).Error("error reading from websocket")
 				return err
 			}
 			switch msgType {
@@ -570,10 +570,10 @@ func handleWebsocketServerStream(
 
 	err := eg.Wait()
 	if err != nil {
-		lg.With(zap.Error(err)).Error("error occurred handling websocket")
+		lg.With(logger.Err(err)).Error("error occurred handling websocket")
 	}
 	if err := conn.Close(); err != nil {
-		lg.With(zap.Error(err)).Error("error occurred while closing websocket")
+		lg.With(logger.Err(err)).Error("error occurred while closing websocket")
 	}
 	return err
 }

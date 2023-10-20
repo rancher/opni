@@ -53,7 +53,7 @@ func (s *UpdateServer) SyncManifest(ctx context.Context, manifest *controlv1.Upd
 	strategy, err := getStrategy(manifest.GetItems())
 	if err != nil {
 		lg.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Warn("could not sync agent manifest")
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -75,7 +75,7 @@ func (s *UpdateServer) SyncManifest(ctx context.Context, manifest *controlv1.Upd
 	patchList, err := handler.CalculateUpdate(ctx, manifest)
 	if err != nil {
 		lg.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Error("error calculating updates")
 		return nil, err
 	}

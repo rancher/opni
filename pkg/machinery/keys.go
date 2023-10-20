@@ -42,7 +42,7 @@ func LoadEphemeralKeys(fsys afero.Afero, dirs ...string) ([]*keyring.EphemeralKe
 			f.Close()
 			if err != nil {
 				lg.With(
-					zap.Error(err),
+					logger.Err(err),
 				).Error("failed to load ephemeral key, skipping")
 				continue
 			}

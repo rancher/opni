@@ -84,13 +84,13 @@ func (m *MetricsNode) sendHealthUpdate() {
 		health, err := m.GetHealth(context.TODO(), &emptypb.Empty{})
 		if err != nil {
 			m.logger.With(
-				zap.Error(err),
+				logger.Err(err),
 			).Warn("failed to get node health")
 			return
 		}
 		if _, err := m.healthListenerClient.UpdateHealth(context.TODO(), health); err != nil {
 			m.logger.With(
-				zap.Error(err),
+				logger.Err(err),
 			).Warn("failed to send node health update")
 		} else {
 			m.logger.Debug("sent node health update")
@@ -299,7 +299,7 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 func (m *MetricsNode) updateConfig(ctx context.Context, config *node.MetricsCapabilityConfig) error {
 	id, err := m.identityClient.Whoami(ctx, &emptypb.Empty{})
 	if err != nil {
-		m.logger.With(zap.Error(err)).Errorf("error fetching node id", err)
+		m.logger.With(logger.Err(err)).Error("error fetching node id", err)
 		return err
 	}
 
@@ -326,7 +326,7 @@ func (m *MetricsNode) updateConfig(ctx context.Context, config *node.MetricsCapa
 
 	if err := eg.Error(); err != nil {
 		m.config.Conditions = append(config.Conditions, err.Error())
-		m.logger.With(zap.Error(err)).Error("node configuration error")
+		m.logger.With(logger.Err(err)).Error("node configuration error")
 		return err
 	}
 

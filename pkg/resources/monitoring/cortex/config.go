@@ -9,11 +9,11 @@ import (
 	"github.com/cortexproject/cortex/pkg/storage/bucket/filesystem"
 	"github.com/go-kit/log"
 	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex/configutil"
 	"github.com/samber/lo"
 	"github.com/weaveworks/common/server"
-	"go.uber.org/zap"
 
 	"github.com/cortexproject/cortex/pkg/util/tls"
 	"github.com/rancher/opni/pkg/resources"

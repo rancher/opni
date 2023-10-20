@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/caching"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/node_backend"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
-	"go.uber.org/zap"
 
 	"github.com/nats-io/nats.go"
 	alertingClient "github.com/rancher/opni/pkg/alerting/client"
@@ -78,7 +78,7 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		}
 		p.configureDriver(p.ctx,
 			driverutil.NewOption("alertingOptions", opt),
-			driverutil.NewOption("logger", p.logger.Named("alerting-manager")),
+			driverutil.NewOption("logger", p.logger.WithGroup("alerting-manager")),
 			driverutil.NewOption("subscribers", []chan alertingClient.AlertingClient{p.clusterNotifier}),
 		)
 	})
@@ -163,7 +163,7 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 				return
 			}
 			peers := listPeers(int(conf.GetNumReplicas()))
-			p.logger.Infof("reindexing known alerting peers to : %v", peers)
+			p.logger.Info(fmt.Sprintf("reindexing known alerting peers to : %v", peers))
 			p.AlertingClient.MemberlistClient().SetKnownPeers(peers)
 			for _, comp := range p.Components() {
 				comp.SetConfig(server.Config{
@@ -201,7 +201,7 @@ func (p *Plugin) handleDriverNotifications() {
 			p.logger.Info("shutting down cluster driver update handler")
 			return
 		case client := <-p.clusterNotifier:
-			p.logger.Infof("updating alerting client based on cluster status : %v", client)
+			p.logger.Info(fmt.Sprintf("updating alerting client based on cluster status : %v", client))
 			serverCfg := server.Config{
 				Client: client.Clone(),
 			}

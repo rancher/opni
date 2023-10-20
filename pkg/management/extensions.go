@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"log/slog"
+
 	dpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/gorilla/websocket"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -19,7 +21,6 @@ import (
 	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
 	"github.com/jhump/protoreflect/grpcreflect"
 	gsync "github.com/kralicky/gpkg/sync"
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/grpc"
@@ -258,7 +259,7 @@ func newHandler(
 	rule *managementv1.HTTPRuleDescriptor,
 	path string,
 ) runtime.HandlerFunc {
-	lg := logger.New().Named("apiext")
+	lg := logger.New().WithGroup("apiext")
 
 	return func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		lg := lg.With(
@@ -280,7 +281,7 @@ func newHandler(
 
 		ctx, err := runtime.AnnotateContext(ctx, mux, req, methodDesc.GetFullyQualifiedName(), runtime.WithHTTPPathPattern(path))
 		if err != nil {
-			lg.Error(err)
+			lg.Error("error", logger.Err(err))
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err) // already a grpc error
 			return
 		}
@@ -326,7 +327,7 @@ func newHandler(
 		body, err := io.ReadAll(req.Body)
 		req.Body.Close()
 		if err != nil {
-			lg.Error(err)
+			lg.Error("error", logger.Err(err))
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req,
 				status.Errorf(codes.InvalidArgument, err.Error()))
 			return
@@ -433,7 +434,7 @@ func handleWebsocketStream(
 	conn *websocket.Conn,
 	stub grpcdynamic.Stub,
 	methodDesc *desc.MethodDescriptor,
-	lg *zap.SugaredLogger,
+	lg *slog.Logger,
 ) error {
 	isClientStreaming := methodDesc.IsClientStreaming()
 	isServerStreaming := methodDesc.IsServerStreaming()
@@ -457,7 +458,7 @@ func handleWebsocketStream(
 	return handleWebsocketClientStream(ctx, conn, backendStream, methodDesc, lg)
 }
 
-func handleWebsocketClientStream(_ context.Context, _ *websocket.Conn, _ *grpcdynamic.ClientStream, _ *desc.MethodDescriptor, _ *zap.SugaredLogger) error {
+func handleWebsocketClientStream(_ context.Context, _ *websocket.Conn, _ *grpcdynamic.ClientStream, _ *desc.MethodDescriptor, _ *slog.Logger) error {
 	return fmt.Errorf("not implemented")
 }
 
@@ -466,7 +467,7 @@ func handleWebsocketServerStream(
 	conn *websocket.Conn,
 	stub grpcdynamic.Stub,
 	methodDesc *desc.MethodDescriptor,
-	lg *zap.SugaredLogger,
+	lg *slog.Logger,
 ) error {
 	lg.Debug("handling websocket server stream")
 

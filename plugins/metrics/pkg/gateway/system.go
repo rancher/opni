@@ -6,13 +6,13 @@ import (
 
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/apis/node"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/task"

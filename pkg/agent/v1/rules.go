@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/rancher/opni/apis"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/rules/prometheusrule"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/notifier"
 	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
-	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 

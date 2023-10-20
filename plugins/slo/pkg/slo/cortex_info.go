@@ -49,7 +49,7 @@ func createGrafanaSLOMask(ctx context.Context, p *Plugin, clusterId string, rule
 func tryApplyThenDeleteCortexRules(
 	ctx context.Context,
 	p *Plugin,
-	lg *zap.SugaredLogger,
+	lg *slog.Logger,
 	clusterId string,
 	ruleId *string,
 	toApply []rulefmt.RuleGroup,
@@ -84,7 +84,7 @@ func tryApplyThenDeleteCortexRules(
 	if ruleId != nil {
 		err := createGrafanaSLOMask(ctx, p, clusterId, *ruleId)
 		if err != nil {
-			lg.Errorf("creating grafana mask failed %s", err)
+			lg.Error(fmt.Sprintf("creating grafana mask failed %s", err))
 			errArr = append(errArr, err)
 		}
 	}
@@ -99,7 +99,7 @@ func tryApplyThenDeleteCortexRules(
 func applyCortexSLORules(
 	ctx context.Context,
 	p *Plugin,
-	lg *zap.SugaredLogger,
+	lg *slog.Logger,
 	clusterId string,
 	ruleSpec rulefmt.RuleGroup,
 ) error {
@@ -125,7 +125,7 @@ func applyCortexSLORules(
 func deleteCortexSLORules(
 	ctx context.Context,
 	p *Plugin,
-	_ *zap.SugaredLogger,
+	_ *slog.Logger,
 	clusterId string,
 	groupName string,
 ) error {

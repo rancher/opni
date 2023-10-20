@@ -19,13 +19,13 @@ import (
 	"github.com/rancher/opni/pkg/topology/store"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/topology/apis/stream"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"log/slog"
 )
 
 type TopologyStreamWriteConfig struct {
-	Logger *zap.SugaredLogger
+	Logger *slog.Logger
 	Nc     *nats.Conn
 }
 

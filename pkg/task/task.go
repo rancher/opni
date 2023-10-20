@@ -7,12 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"log/slog"
+
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage/kvutil"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -20,7 +21,7 @@ type Task struct {
 	id     string
 	cctx   context.Context // controller context
 	status kvutil.ValueStoreLocker[*corev1.TaskStatus]
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 }
 
 func (t *Task) TaskId() string {
@@ -57,7 +58,7 @@ func (t *Task) GetProgress() *corev1.Progress {
 	return t.getStatus().GetProgress()
 }
 
-func (t *Task) AddLogEntry(level zapcore.Level, msg string) {
+func (t *Task) AddLogEntry(level slog.Level, msg string) {
 	t.status.Lock()
 	defer t.status.Unlock()
 	status := t.getStatus()
@@ -65,13 +66,13 @@ func (t *Task) AddLogEntry(level zapcore.Level, msg string) {
 		return
 	}
 	switch level {
-	case zapcore.DebugLevel:
+	case slog.LevelDebug:
 		t.logger.Debug(msg)
-	case zapcore.InfoLevel:
+	case slog.LevelInfo:
 		t.logger.Info(msg)
-	case zapcore.WarnLevel:
+	case slog.LevelWarn:
 		t.logger.Warn(msg)
-	case zapcore.ErrorLevel:
+	case slog.LevelError:
 		t.logger.Error(msg)
 	default:
 		t.logger.Info(msg)

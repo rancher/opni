@@ -31,7 +31,7 @@ func (m *Manager) CreateInitialAdmin(password []byte, readyFunc ...ReadyFunc) {
 		Value: []byte(initialAdminPending),
 	})
 	if err != nil {
-		m.logger.Warnf("failed to store initial admin state: %v", err)
+		m.logger.Warn(fmt.Sprintf("failed to store initial admin state: %v", err))
 	}
 	m.adminInitStateRW.Unlock()
 
@@ -73,7 +73,7 @@ CREATE:
 		case <-b.Next():
 			err := m.maybeCreateUser(ctx, user)
 			if err != nil {
-				m.logger.Errorf("failed to create admin user: %v", err)
+				m.logger.Error(fmt.Sprintf("failed to create admin user: %v", err))
 				continue
 			}
 			break CREATE
@@ -86,7 +86,7 @@ CREATE:
 		Value: []byte(initialAdminCreated),
 	})
 	if err != nil {
-		m.logger.Warnf("failed to store initial admin state: %v", err)
+		m.logger.Warn(fmt.Sprintf("failed to store initial admin state: %v", err))
 	}
 	m.adminInitStateRW.Unlock()
 }
@@ -126,7 +126,7 @@ func (m *Manager) maybeCreateUser(ctx context.Context, user opensearchtypes.User
 	if resp.IsError() {
 		return fmt.Errorf("failed to create user: %s", resp.String())
 	}
-	m.logger.Debugf("user successfully created: %s", resp.String())
+	m.logger.Debug(fmt.Sprintf("user successfully created: %s", resp.String()))
 	return nil
 }
 
@@ -136,7 +136,7 @@ func (m *Manager) shouldCreateInitialAdmin() bool {
 
 	idExists, err := m.keyExists(initialAdminKey)
 	if err != nil {
-		m.logger.Errorf("failed to check initial admin state: %v", err)
+		m.logger.Error(fmt.Sprintf("failed to check initial admin state: %v", err))
 		return false
 	}
 
@@ -149,7 +149,7 @@ func (m *Manager) shouldCreateInitialAdmin() bool {
 		Key: fmt.Sprintf("%s%s", opensearchPrefix, initialAdminKey),
 	})
 	if err != nil {
-		m.logger.Errorf("failed to check initial admin state: %v", err)
+		m.logger.Error(fmt.Sprintf("failed to check initial admin state: %v", err))
 		return false
 	}
 

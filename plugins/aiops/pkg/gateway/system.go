@@ -66,7 +66,7 @@ FETCH:
 				if k8serrors.IsNotFound(err) {
 					continue
 				}
-				s.Logger.Errorf("failed to check k8s object: %v", err)
+				s.Logger.Error(fmt.Sprintf("failed to check k8s object: %v", err))
 				continue
 			}
 			break FETCH

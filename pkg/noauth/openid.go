@@ -14,7 +14,7 @@ import (
 	"github.com/ory/fosite/handler/openid"
 	"github.com/ory/fosite/storage"
 	openidauth "github.com/rancher/opni/pkg/auth/openid"
-	"go.uber.org/zap"
+	"github.com/rancher/opni/pkg/logger"
 	"golang.org/x/crypto/bcrypt"
 )
 

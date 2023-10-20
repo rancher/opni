@@ -7,8 +7,10 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
+	"os"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/logger"
 
 	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/spf13/cobra"
@@ -30,7 +32,8 @@ func pemEncodedChain(chain []*corev1.CertInfo) []byte {
 	buf := new(bytes.Buffer)
 	for _, c := range chain {
 		if err := pem.Encode(buf, &pem.Block{Type: "CERTIFICATE", Bytes: c.Raw}); err != nil {
-			lg.Fatal(err)
+			lg.Error("fatal", logger.Err(err))
+			os.Exit(1)
 		}
 	}
 	return buf.Bytes()
@@ -44,7 +47,8 @@ func BuildCertsInfoCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			t, err := mgmtClient.CertsInfo(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			switch outputFormat {
 			case "table":
@@ -54,7 +58,8 @@ func BuildCertsInfoCmd() *cobra.Command {
 			case "base64":
 				fmt.Print(base64.StdEncoding.EncodeToString(pemEncodedChain(t.Chain)))
 			default:
-				lg.Fatal("unknown output format")
+				lg.Error("unknown output format")
+				os.Exit(1)
 			}
 		},
 	}
@@ -69,10 +74,12 @@ func BuildCertsPinCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			t, err := mgmtClient.CertsInfo(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			if len(t.Chain) == 0 {
-				lg.Fatal("no certificates found")
+				lg.Error("no certificates found")
+				os.Exit(1)
 			}
 			pin := t.Chain[len(t.Chain)-1].Fingerprint
 			fmt.Println(pin)

@@ -12,6 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"log/slog"
+
 	"github.com/gin-contrib/pprof"
 	"github.com/ttacon/chalk"
 
@@ -27,10 +29,10 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/fwd"
 	"github.com/samber/lo"
+	slogsampling "github.com/samber/slog-sampling"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	otelprom "go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/sdk/metric"
-	"go.uber.org/zap"
 )
 
 var (
@@ -48,7 +50,7 @@ var (
 type GatewayHTTPServer struct {
 	router            *gin.Engine
 	conf              *v1beta1.GatewayConfigSpec
-	logger            *zap.SugaredLogger
+	logger            *slog.Logger
 	tlsConfig         *tls.Config
 	metricsRouter     *gin.Engine
 	metricsRegisterer prometheus.Registerer
@@ -60,10 +62,10 @@ type GatewayHTTPServer struct {
 func NewHTTPServer(
 	ctx context.Context,
 	cfg *v1beta1.GatewayConfigSpec,
-	lg *zap.SugaredLogger,
+	lg *slog.Logger,
 	pl plugins.LoaderInterface,
 ) *GatewayHTTPServer {
-	lg = lg.Named("http")
+	lg = lg.WithGroup("http")
 
 	router := gin.New()
 	router.SetTrustedProxies(cfg.TrustedProxies)
@@ -228,11 +230,8 @@ func (s *GatewayHTTPServer) setupPluginRoutes(
 	defer s.routesMu.Unlock()
 	tlsConfig := s.tlsConfig.Clone()
 	sampledLogger := logger.New(
-		logger.WithSampling(&zap.SamplingConfig{
-			Initial:    1,
-			Thereafter: 0,
-		}),
-	).Named("api")
+		logger.WithSampling(&slogsampling.ThresholdSamplingOption{Threshold: 1, Tick: logger.NoRepeatInterval, Rate: 0})).WithGroup("api")
+
 	forwarder := fwd.To(cfg.HttpAddr,
 		fwd.WithTLS(tlsConfig),
 		fwd.WithLogger(sampledLogger),

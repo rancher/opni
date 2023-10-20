@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
-	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"log/slog"
 )
 
 var (
@@ -31,10 +31,10 @@ type backendStore struct {
 	serverSpec ServerInstallerTemplateSpec
 	mu         sync.RWMutex
 	backends   map[string]capabilityv1.BackendClient
-	logger     *zap.SugaredLogger
+	logger     *slog.Logger
 }
 
-func NewBackendStore(serverSpec ServerInstallerTemplateSpec, logger *zap.SugaredLogger) BackendStore {
+func NewBackendStore(serverSpec ServerInstallerTemplateSpec, logger *slog.Logger) BackendStore {
 	return &backendStore{
 		serverSpec: serverSpec,
 		backends:   make(map[string]capabilityv1.BackendClient),

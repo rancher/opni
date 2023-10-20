@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"log/slog"
+
 	"github.com/lestrrat-go/backoff/v2"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities"
@@ -15,8 +17,6 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 	backenddriver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 type UninstallTaskRunner struct {
@@ -25,23 +25,23 @@ type UninstallTaskRunner struct {
 	opensearchManager *opensearchdata.Manager
 	backendDriver     backenddriver.ClusterDriver
 	storageBackend    future.Future[storage.Backend]
-	logger            *zap.SugaredLogger
+	logger            *slog.Logger
 }
 
 func (a *UninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveTask) error {
 	var md uninstall.TimestampedMetadata
 	ti.LoadTaskMetadata(&md)
 
-	ti.AddLogEntry(zapcore.InfoLevel, "Uninstalling logging capability for this cluster")
+	ti.AddLogEntry(slog.LevelInfo, "Uninstalling logging capability for this cluster")
 
 	if md.DeleteStoredData {
-		ti.AddLogEntry(zapcore.WarnLevel, "Will delete opensearch data")
+		ti.AddLogEntry(slog.LevelWarn, "Will delete opensearch data")
 		if err := a.opensearchManager.DoClusterDataDelete(ctx, ti.TaskId()); err != nil {
-			ti.AddLogEntry(zapcore.ErrorLevel, err.Error())
+			ti.AddLogEntry(slog.LevelError, err.Error())
 			return err
 		}
 
-		ti.AddLogEntry(zapcore.InfoLevel, "Delete request accepted; polling status")
+		ti.AddLogEntry(slog.LevelInfo, "Delete request accepted; polling status")
 
 		p := backoff.Exponential(
 			backoff.WithMaxRetries(0),
@@ -54,41 +54,41 @@ func (a *UninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveT
 		for {
 			select {
 			case <-b.Done():
-				ti.AddLogEntry(zapcore.WarnLevel, "Uninstall canceled, logging data is still being deleted")
+				ti.AddLogEntry(slog.LevelWarn, "Uninstall canceled, logging data is still being deleted")
 				return ctx.Err()
 			case <-b.Next():
 				status, err := a.opensearchManager.DeleteTaskStatus(ctx, ti.TaskId())
 				if err != nil {
-					ti.AddLogEntry(zapcore.ErrorLevel, err.Error())
+					ti.AddLogEntry(slog.LevelError, err.Error())
 					continue
 				}
 				switch status {
 				case opensearchdata.DeletePending:
 					if err := a.opensearchManager.DoClusterDataDelete(ctx, ti.TaskId()); err != nil {
-						ti.AddLogEntry(zapcore.ErrorLevel, err.Error())
+						ti.AddLogEntry(slog.LevelError, err.Error())
 						continue
 					}
 				case opensearchdata.DeleteFinishedWithErrors:
-					ti.AddLogEntry(zapcore.WarnLevel, "some log entries not deleted")
+					ti.AddLogEntry(slog.LevelWarn, "some log entries not deleted")
 					break RETRY
 				case opensearchdata.DeleteFinished:
-					ti.AddLogEntry(zapcore.InfoLevel, "Logging data deleted successfully")
+					ti.AddLogEntry(slog.LevelInfo, "Logging data deleted successfully")
 					break RETRY
 				}
 			}
 		}
 	} else {
-		ti.AddLogEntry(zapcore.InfoLevel, "Log data will not be deleted")
+		ti.AddLogEntry(slog.LevelInfo, "Log data will not be deleted")
 	}
 
-	ti.AddLogEntry(zapcore.InfoLevel, "Deleting Kubernetes data")
+	ti.AddLogEntry(slog.LevelInfo, "Deleting Kubernetes data")
 	err := a.backendDriver.DeleteCluster(ctx, ti.TaskId())
 	if err != nil {
-		ti.AddLogEntry(zapcore.ErrorLevel, err.Error())
+		ti.AddLogEntry(slog.LevelError, err.Error())
 		return err
 	}
 
-	ti.AddLogEntry(zapcore.InfoLevel, "Removing capability from cluster metadata")
+	ti.AddLogEntry(slog.LevelInfo, "Removing capability from cluster metadata")
 	_, err = a.storageBackend.Get().UpdateCluster(ctx, &opnicorev1.Reference{
 		Id: ti.TaskId(),
 	}, storage.NewRemoveCapabilityMutator[*opnicorev1.Cluster](capabilities.Cluster(wellknown.CapabilityLogs)))
@@ -101,12 +101,12 @@ func (a *UninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveT
 func (a *UninstallTaskRunner) OnTaskCompleted(ctx context.Context, ti task.ActiveTask, state task.State, args ...any) {
 	switch state {
 	case task.StateCompleted:
-		ti.AddLogEntry(zapcore.InfoLevel, "Capability uninstalled successfully")
+		ti.AddLogEntry(slog.LevelInfo, "Capability uninstalled successfully")
 		return // no deletion timestamp to reset, since the capability should be gone
 	case task.StateFailed:
-		ti.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("Capability uninstall failed: %v", args[0]))
+		ti.AddLogEntry(slog.LevelError, fmt.Sprintf("Capability uninstall failed: %v", args[0]))
 	case task.StateCanceled:
-		ti.AddLogEntry(zapcore.InfoLevel, "Capability uninstall canceled")
+		ti.AddLogEntry(slog.LevelInfo, "Capability uninstall canceled")
 	}
 
 	// Reset the deletion timestamp
@@ -120,6 +120,6 @@ func (a *UninstallTaskRunner) OnTaskCompleted(ctx context.Context, ti task.Activ
 		}
 	})
 	if err != nil {
-		ti.AddLogEntry(zapcore.WarnLevel, fmt.Sprintf("Failed to reset deletion timestamp: %v", err))
+		ti.AddLogEntry(slog.LevelWarn, fmt.Sprintf("Failed to reset deletion timestamp: %v", err))
 	}
 }

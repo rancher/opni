@@ -2,17 +2,19 @@ package cliutil
 
 import (
 	"errors"
+	"fmt"
 	"os"
+
+	"log/slog"
 
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/logger"
-	"go.uber.org/zap"
 )
 
 func LoadConfigObjectsOrDie(
 	configLocation string,
-	lg logger.ExtendedSugaredLogger,
+	lg *slog.Logger,
 ) meta.ObjectList {
 	if configLocation == "" {
 		// find config file
@@ -20,7 +22,7 @@ func LoadConfigObjectsOrDie(
 		if err != nil {
 			if errors.Is(err, config.ErrConfigNotFound) {
 				wd, _ := os.Getwd()
-				lg.Panicf(`could not find a config file in ["%s","/etc/opni"], and --config was not given`, wd)
+				panic(fmt.Sprintf(`could not find a config file in ["%s","/etc/opni"], and --config was not given`, wd))
 			}
 			lg.With(
 				zap.Error(err),

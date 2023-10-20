@@ -21,6 +21,8 @@ import (
 
 	"slices"
 
+	"log/slog"
+
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
@@ -41,7 +43,6 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/node"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/rules"
 	"github.com/samber/lo"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -79,7 +80,7 @@ type TestEnvAlertingClusterDriver struct {
 	enabled          *atomic.Bool
 	ConfigFile       string
 	stateMu          *sync.RWMutex
-	logger           *zap.SugaredLogger
+	logger           *slog.Logger
 
 	*shared.AlertingClusterOptions
 
@@ -104,7 +105,7 @@ func NewTestEnvAlertingClusterDriver(env *test.Environment, options TestEnvAlert
 		panic(err)
 	}
 	configFile := path.Join(dir, "alertmanager.yaml")
-	lg := logger.NewPluginLogger().Named("alerting-test-cluster-driver")
+	lg := logger.NewPluginLogger().WithGroup("alerting-test-cluster-driver")
 	lg = lg.With("config-file", configFile)
 
 	initial := &atomic.Bool{}
@@ -220,7 +221,7 @@ func (l *TestEnvAlertingClusterDriver) GetClusterStatus(ctx context.Context, _ *
 		}, nil
 	}
 	if err := l.AlertingClient.StatusClient().Ready(ctx); err != nil {
-		l.logger.Error(err)
+		l.logger.Error("error", logger.Err(err))
 		return &alertops.InstallStatus{
 			State: alertops.InstallState_InstallUpdating,
 		}, nil

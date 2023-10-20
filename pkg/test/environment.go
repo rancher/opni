@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"log/slog"
 	"math"
 	"math/rand"
 	"net/http"
@@ -27,6 +26,8 @@ import (
 	"syscall"
 	"text/template"
 	"time"
+
+	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/kralicky/totem"
@@ -76,7 +77,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.uber.org/mock/gomock"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"

@@ -111,7 +111,7 @@ func (a *AlarmServerComponent) UpdateAlertCondition(ctx context.Context, req *al
 		return nil, err
 	}
 	lg := a.logger.With("handler", "UpdateAlertCondition")
-	lg.Debugf("Updating alert condition %s", req.Id)
+	lg.Debug(fmt.Sprintf("Updating alert condition %s", req.Id))
 	conditionStorage := a.conditionStorage.Get()
 	conditionId := req.Id.Id
 	existingGroup := req.Id.GroupId
@@ -174,7 +174,7 @@ func (a *AlarmServerComponent) AlertConditionStatus(ctx context.Context, ref *al
 	// required info
 	cond, err := a.conditionStorage.Get().Group(ref.GroupId).Get(ctx, ref.Id)
 	if err != nil {
-		lg.Errorf("failed to find condition with id %s in storage : %s", ref.Id, err)
+		lg.Error(fmt.Sprintf("failed to find condition with id %s in storage : %s", ref.Id, err))
 		return nil, shared.WithNotFoundErrorf("%s", err)
 	}
 	if cond.GetMetadata() != nil && cond.GetMetadata()[metadataInactiveAlarm] != "" {
@@ -369,7 +369,7 @@ func (a *AlarmServerComponent) CloneTo(ctx context.Context, req *alertingv1.Clon
 			cond.SetClusterId(&corev1.Reference{Id: ref})
 			_, err := a.CreateAlertCondition(ctx, cond)
 			if err != nil {
-				lg.Errorf("failed to create alert condition %s", err)
+				lg.Error(fmt.Sprintf("failed to create alert condition %s", err))
 			}
 			return err
 		})
@@ -491,7 +491,7 @@ func (a *AlarmServerComponent) Timeline(ctx context.Context, req *alertingv1.Tim
 				if alertingv1.IsInternalCondition(cond) {
 					activeWindows, err := a.incidentStorage.Get().GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
 					if err != nil {
-						a.logger.Errorf("failed to get active windows from agent incident tracker : %s", err)
+						a.logger.Error(fmt.Sprintf("failed to get active windows from agent incident tracker : %s", err))
 						return
 					}
 					for _, w := range activeWindows {
@@ -513,17 +513,17 @@ func (a *AlarmServerComponent) Timeline(ctx context.Context, req *alertingv1.Tim
 						Step:    durationpb.New(time.Minute * 1),
 					})
 					if err != nil {
-						lg.Errorf("failed to query active windows from cortex : %s", err)
+						lg.Error(fmt.Sprintf("failed to query active windows from cortex : %s", err))
 						return
 					}
 					qr, err := compat.UnmarshalPrometheusResponse(res.Data)
 					if err != nil {
-						lg.Errorf("failed to unmarshal prometheus response : %s", err)
+						lg.Error(fmt.Sprintf("failed to unmarshal prometheus response : %s", err))
 						return
 					}
 					matrix, err := qr.GetMatrix()
 					if err != nil || matrix == nil {
-						lg.Errorf("expected to get matrix from prometheus response : %s", err)
+						lg.Error(fmt.Sprintf("expected to get matrix from prometheus response : %s", err))
 						return
 					}
 					windows := cortex.ReducePrometheusMatrix(matrix)

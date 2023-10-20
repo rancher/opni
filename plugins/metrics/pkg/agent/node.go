@@ -10,12 +10,15 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/clients"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
 	"github.com/samber/lo"
 
 	"slices"
+
+	"log/slog"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
@@ -24,7 +27,6 @@ import (
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -38,7 +40,7 @@ type MetricsNode struct {
 	// we only need a subset of the methods
 	remoteread.UnsafeRemoteReadAgentServer
 
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 
 	nodeClientMu sync.RWMutex
 	nodeClient   node.NodeMetricsCapabilityClient
@@ -62,7 +64,7 @@ type MetricsNode struct {
 	nodeDrivers  []drivers.MetricsNodeDriver
 }
 
-func NewMetricsNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *MetricsNode {
+func NewMetricsNode(ct health.ConditionTracker, lg *slog.Logger) *MetricsNode {
 	mn := &MetricsNode{
 		logger:       lg,
 		conditions:   ct,
@@ -226,7 +228,7 @@ func (m *MetricsNode) Discover(ctx context.Context, request *remoteread.Discover
 	defer m.nodeDriverMu.RUnlock()
 
 	if len(m.nodeDrivers) == 0 {
-		m.logger.Warnf("no node driver available for discvoery")
+		m.logger.Warn("no node driver available for discvoery")
 
 		return &remoteread.DiscoveryResponse{
 			Entries: []*remoteread.DiscoveryEntry{},

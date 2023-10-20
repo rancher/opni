@@ -5,9 +5,10 @@ import (
 	"errors"
 	"sync"
 
+	"log/slog"
+
 	"github.com/cisco-open/k8s-objectmatcher/patch"
 	"github.com/samber/lo"
-	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -52,7 +53,7 @@ func (r *ReconcilerState) SetBackoffCtx(ctx context.Context, cancel context.Canc
 // (obj, shouldExist))
 type ReconcileItem lo.Tuple2[client.Object, bool]
 
-func ReconcileObject(logger *zap.SugaredLogger, k8sClient client.Client, namespace string, item ReconcileItem) error {
+func ReconcileObject(logger *slog.Logger, k8sClient client.Client, namespace string, item ReconcileItem) error {
 	desired, shouldExist := item.A, item.B
 	// get the object
 	key := client.ObjectKeyFromObject(desired)

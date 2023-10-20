@@ -28,7 +28,7 @@ func (m *Manager) DoSnapshot(ctx context.Context, repository string, indices []s
 	defer resp.Body.Close()
 
 	if resp.IsError() {
-		m.logger.Errorf("opensearch request failed: %s", resp.String())
+		m.logger.Error(fmt.Sprintf("opensearch request failed: %s", resp.String()))
 		return loggingerrors.ErrOpensearchResponse
 	}
 

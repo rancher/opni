@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/rancher/opni/pkg/agent"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -14,6 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/machinery/uninstall"
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/pkg/storage"
@@ -22,7 +25,6 @@ import (
 	"github.com/rancher/opni/plugins/topology/apis/node"
 	"github.com/rancher/opni/plugins/topology/apis/orchestrator"
 	"github.com/rancher/opni/plugins/topology/pkg/topology/gateway/drivers"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -31,7 +33,7 @@ import (
 )
 
 type TopologyBackendConfig struct {
-	Logger              *zap.SugaredLogger                        `validate:"required"`
+	Logger              *slog.Logger                              `validate:"required"`
 	StorageBackend      storage.Backend                           `validate:"required"`
 	MgmtClient          managementv1.ManagementClient             `validate:"required"`
 	Delegate            streamext.StreamDelegate[agent.ClientSet] `validate:"required"`
@@ -122,7 +124,7 @@ func (t *TopologyBackend) requestNodeSync(ctx context.Context, cluster *corev1.R
 		t.Logger.With(
 			"cluster", name,
 			"capability", wellknown.CapabilityTopology,
-			zap.Error(err),
+			logger.Err(err),
 		).Warn("failed to request node sync; nodes may not be updated immediately")
 		return
 	}

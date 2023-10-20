@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"reflect"
 
@@ -21,7 +22,6 @@ import (
 	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -48,7 +48,7 @@ func BuildKeyringsGetCmd() *cobra.Command {
 			return completeClusters(cmd, args, toComplete)
 		},
 		PreRun: func(*cobra.Command, []string) {
-			logger.DefaultLogLevel.SetLevel(zapcore.WarnLevel)
+			logger.DefaultLogLevel.SetLevel(slog.LevelWarn)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := mgmtClient.GetConfig(cmd.Context(), &emptypb.Empty{})

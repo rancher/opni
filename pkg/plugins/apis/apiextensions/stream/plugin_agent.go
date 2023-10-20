@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-plugin"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -23,7 +25,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.uber.org/atomic"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -51,7 +52,7 @@ func NewAgentPlugin(p StreamAPIExtension) plugin.Plugin {
 
 	ext := &agentStreamExtensionServerImpl{
 		name:          name,
-		logger:        logger.NewPluginLogger().Named(name).Named("stream"),
+		logger:        logger.NewPluginLogger().WithGroup(name).WithGroup("stream"),
 		activeStreams: make(map[string]chan struct{}),
 	}
 	if p != nil {
@@ -82,7 +83,7 @@ type agentStreamExtensionServerImpl struct {
 	name          string
 	servers       []*richServer
 	clientHandler StreamClientHandler
-	logger        *zap.SugaredLogger
+	logger        *slog.Logger
 
 	activeStreamsMu sync.Mutex
 	activeStreams   map[string]chan struct{}

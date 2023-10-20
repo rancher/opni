@@ -10,7 +10,7 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
-	"go.uber.org/zap"
+	"log/slog"
 )
 
 type NotificationServerComponent struct {
@@ -21,7 +21,7 @@ type NotificationServerComponent struct {
 	mu sync.Mutex
 	server.Config
 
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 
 	conditionStorage future.Future[spec.ConditionStorage]
 	endpointStorage  future.Future[spec.EndpointStorage]
@@ -30,7 +30,7 @@ type NotificationServerComponent struct {
 var _ server.ServerComponent = (*NotificationServerComponent)(nil)
 
 func NewNotificationServerComponent(
-	logger *zap.SugaredLogger,
+	logger *slog.Logger,
 ) *NotificationServerComponent {
 	return &NotificationServerComponent{
 		logger:           logger,

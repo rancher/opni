@@ -5,7 +5,6 @@ import (
 
 	"github.com/spf13/afero"
 	"github.com/ttacon/chalk"
-	"go.uber.org/zap"
 
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/keyring/ephemeral"
@@ -13,7 +12,7 @@ import (
 )
 
 func LoadEphemeralKeys(fsys afero.Afero, dirs ...string) ([]*keyring.EphemeralKey, error) {
-	keyringLog := logger.New().Named("keyring")
+	keyringLog := logger.New().WithGroup("keyring")
 	var keys []*keyring.EphemeralKey
 
 	for _, dir := range dirs {

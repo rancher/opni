@@ -9,6 +9,8 @@ import (
 	"net"
 	"slices"
 
+	"log/slog"
+
 	"github.com/prometheus/client_golang/prometheus"
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
 	bootstrapv2 "github.com/rancher/opni/pkg/apis/bootstrap/v2"
@@ -40,7 +42,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"github.com/spf13/afero"
-	"go.uber.org/zap"
 	"golang.org/x/mod/module"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -53,7 +54,7 @@ type Gateway struct {
 	GatewayOptions
 	config        *config.GatewayConfig
 	tlsConfig     *tls.Config
-	logger        *zap.SugaredLogger
+	logger        *slog.Logger
 	httpServer    *GatewayHTTPServer
 	grpcServer    *GatewayGRPCServer
 	statusQuerier health.HealthStatusQuerier
@@ -93,7 +94,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	}
 	options.apply(opts...)
 
-	lg := logger.New().Named("gateway")
+	lg := logger.New().WithGroup("gateway")
 	conf.Spec.SetDefaults()
 
 	storageBackend, err := machinery.ConfigureStorageBackend(ctx, &conf.Spec.Storage)
@@ -177,8 +178,8 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Panic("failed to load ephemeral keys")
 	}
 
-	v1Verifier := challenges.NewKeyringVerifier(storageBackend, authv1.DomainString, lg.Named("authv1"))
-	v2Verifier := challenges.NewKeyringVerifier(storageBackend, authv2.DomainString, lg.Named("authv2"))
+	v1Verifier := challenges.NewKeyringVerifier(storageBackend, authv1.DomainString, lg.WithGroup("authv1"))
+	v2Verifier := challenges.NewKeyringVerifier(storageBackend, authv2.DomainString, lg.WithGroup("authv2"))
 
 	sessionAttrChallenge, err := session.NewServerChallenge(
 		keyring.New(lo.ToAnySlice(ephemeralKeys)...))
@@ -188,8 +189,8 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Panic("failed to configure authentication")
 	}
 
-	v1Challenge := authv1.NewServerChallenge(streamv1.Stream_Connect_FullMethodName, v1Verifier, lg.Named("authv1"))
-	v2Challenge := authv2.NewServerChallenge(v2Verifier, lg.Named("authv2"))
+	v1Challenge := authv1.NewServerChallenge(streamv1.Stream_Connect_FullMethodName, v1Verifier, lg.WithGroup("authv1"))
+	v2Challenge := authv2.NewServerChallenge(v2Verifier, lg.WithGroup("authv2"))
 
 	clusterAuth := cluster.StreamServerInterceptor(challenges.Chained(
 		challenges.If(authv2.ShouldEnableIncoming).Then(v2Challenge).Else(v1Challenge),
@@ -262,7 +263,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 
 	// set up stream server
 	listener := health.NewListener()
-	monitor := health.NewMonitor(health.WithLogger(lg.Named("monitor")))
+	monitor := health.NewMonitor(health.WithLogger(lg.WithGroup("monitor")))
 	delegate := NewDelegateServer(storageBackend, lg)
 	// set up agent connection handlers
 	agentHandler := MultiConnectionHandler(listener, delegate)

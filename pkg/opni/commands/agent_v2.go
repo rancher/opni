@@ -141,7 +141,7 @@ func BuildAgentV2Cmd() *cobra.Command {
 	return cmd
 }
 
-func configureBootstrapV2(conf *v1beta1.AgentConfig, agentlg logger.ExtendedSugaredLogger) (bootstrap.Bootstrapper, error) {
+func configureBootstrapV2(conf *v1beta1.AgentConfig, agentlg *zap.SugaredLogger) (bootstrap.Bootstrapper, error) {
 	var bootstrapper bootstrap.Bootstrapper
 	var trustStrategy trust.Strategy
 	if conf.Spec.Bootstrap == nil {

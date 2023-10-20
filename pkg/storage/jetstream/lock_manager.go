@@ -10,7 +10,6 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/lock"
-	"go.uber.org/zap"
 )
 
 // Requires jetstream 2.9+

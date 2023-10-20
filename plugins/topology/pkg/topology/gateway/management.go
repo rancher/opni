@@ -1,8 +1,8 @@
 package gateway
 
 import (
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/plugins/topology/pkg/topology/gateway/drivers"
-	"go.uber.org/zap"
 )
 
 func (p *Plugin) configureTopologyManagement() {

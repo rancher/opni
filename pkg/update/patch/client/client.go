@@ -13,13 +13,14 @@ import (
 	"strings"
 	"syscall"
 
+	"log/slog"
+
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/update"
 	"github.com/rancher/opni/pkg/update/patch"
 	"github.com/rancher/opni/pkg/urn"
 	"github.com/spf13/afero"
-	"go.uber.org/zap"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
@@ -29,7 +30,7 @@ import (
 type patchClient struct {
 	PatchClientOptions
 	fs        pluginFs
-	lg        *zap.SugaredLogger
+	lg        *slog.Logger
 	pluginDir string
 }
 
@@ -51,7 +52,7 @@ func WithBaseFS(basefs afero.Fs) PatchClientOption {
 	}
 }
 
-func NewPatchClient(pluginDir string, lg *zap.SugaredLogger, opts ...PatchClientOption) (update.SyncHandler, error) {
+func NewPatchClient(pluginDir string, lg *slog.Logger, opts ...PatchClientOption) (update.SyncHandler, error) {
 	options := PatchClientOptions{
 		baseFs: afero.NewOsFs(),
 	}
@@ -296,7 +297,7 @@ func (pc *patchClient) doRename(entry *controlv1.PatchSpec) error {
 	if _, err := pc.fs.Stat(newPath); err == nil {
 		return unavailableErrf("could not rename plugin %s: destination %s already exists", entry.Package, entry.Path)
 	}
-	pc.lg.Infof("renaming plugin: %s -> %s", entry.Path, newPath)
+	pc.lg.Info(fmt.Sprintf("renaming plugin: %s -> %s", entry.Path, newPath))
 	err := pc.fs.Rename(entry.Path, newPath)
 	if err != nil {
 		return osErrf("could not rename plugin %s: %v", entry.Path, err)
@@ -401,7 +402,7 @@ func (pc *patchClient) doUpdate(entry *controlv1.PatchSpec) error {
 }
 
 func (pc *patchClient) doRemove(entry *controlv1.PatchSpec) error {
-	pc.lg.Infof("removing plugin: %s", entry.Path)
+	pc.lg.Info(fmt.Sprintf("removing plugin: %s", entry.Path))
 	err := pc.fs.Remove(entry.Path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -437,7 +438,7 @@ func init() {
 		if !ok {
 			return nil, fmt.Errorf("expected string, got %T", args[0])
 		}
-		lg, ok := args[1].(*zap.SugaredLogger)
+		lg, ok := args[1].(*slog.Logger)
 		if !ok {
 			return nil, fmt.Errorf("expected *zap.Logger, got %T", args[1])
 		}

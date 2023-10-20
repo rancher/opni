@@ -8,7 +8,7 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util/k8sutil"
-	"go.uber.org/zap"
+	"log/slog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -20,7 +20,7 @@ type Reconciler struct {
 	client client.Client
 	ac     *corev1beta1.AlertingCluster
 	gw     *corev1beta1.Gateway
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 }
 
 func NewReconciler(
@@ -28,7 +28,7 @@ func NewReconciler(
 	client client.Client,
 	instance *corev1beta1.AlertingCluster,
 ) *Reconciler {
-	logger := logger.New().Named("controller").Named("alerting")
+	logger := logger.New().WithGroup("controller").WithGroup("alerting")
 	return &Reconciler{
 		ResourceReconciler: reconciler.NewReconcilerWith(
 			client,

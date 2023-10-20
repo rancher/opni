@@ -8,11 +8,13 @@ import (
 	"path/filepath"
 	"time"
 
+	"log/slog"
+
 	"github.com/klauspost/compress/zstd"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/spf13/afero"
-	"go.uber.org/zap"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/singleflight"
@@ -27,24 +29,24 @@ type FilesystemCache struct {
 	CacheMetricsTracker
 	config     v1beta1.FilesystemCacheSpec
 	fs         afero.Afero
-	logger     *zap.SugaredLogger
+	logger     *slog.Logger
 	cacheGroup singleflight.Group
 	patcher    BinaryPatcher
 }
 
 var _ Cache = (*FilesystemCache)(nil)
 
-func NewFilesystemCache(fsys afero.Fs, conf v1beta1.FilesystemCacheSpec, patcher BinaryPatcher, lg *zap.SugaredLogger) (Cache, error) {
+func NewFilesystemCache(fsys afero.Fs, conf v1beta1.FilesystemCacheSpec, patcher BinaryPatcher, lg *slog.Logger) (Cache, error) {
 	if err := fsys.MkdirAll(conf.Dir, 0777); err != nil {
-		lg.Errorf("failed to create cache directory: %v", err)
+		lg.Error(fmt.Sprintf("failed to create cache directory: %v", err))
 		return nil, err
 	}
 	if err := fsys.MkdirAll(filepath.Join(conf.Dir, PluginsDir), 0777); err != nil {
-		lg.Errorf("faIled to create plugins directory: %v", err)
+		lg.Error(fmt.Sprintf("faIled to create plugins directory: %v", err))
 		return nil, err
 	}
 	if err := fsys.MkdirAll(filepath.Join(conf.Dir, PatchesDir), 0777); err != nil {
-		lg.Errorf("failed to create patches directory: %v", err)
+		lg.Error(fmt.Sprintf("failed to create patches directory: %v", err))
 		return nil, err
 	}
 	cache := &FilesystemCache{
@@ -62,7 +64,7 @@ func NewFilesystemCache(fsys afero.Fs, conf v1beta1.FilesystemCacheSpec, patcher
 
 func (p *FilesystemCache) Archive(manifest *controlv1.PluginArchive) error {
 	var group errgroup.Group
-	p.logger.Infof("compressing and archiving plugins...")
+	p.logger.Info("compressing and archiving plugins...")
 	for _, item := range manifest.Items {
 		destPath := p.path(PluginsDir, item.Metadata.Digest)
 		// check if the plugin already exists
@@ -117,7 +119,7 @@ func (p *FilesystemCache) Archive(manifest *controlv1.PluginArchive) error {
 		).Error("failed to archive one or more plugins")
 		return err
 	}
-	p.logger.Debugf("added %d new plugins to cache", len(manifest.Items))
+	p.logger.Debug(fmt.Sprintf("added %d new plugins to cache", len(manifest.Items)))
 	return nil
 }
 
@@ -249,7 +251,7 @@ func (p *FilesystemCache) Clean(hashes ...string) {
 	if pluginsRemoved+patchesRemoved > 0 {
 		p.AddToPluginCount(-pluginsRemoved)
 		p.AddToPatchCount(-patchesRemoved)
-		p.logger.Infof("cleaned %d unreachable objects", pluginsRemoved+patchesRemoved)
+		p.logger.Info(fmt.Sprintf("cleaned %d unreachable objects", pluginsRemoved+patchesRemoved))
 	}
 
 	p.recomputeDiskStats()

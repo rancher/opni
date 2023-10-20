@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"sync"
 
-	"go.uber.org/zap"
+	"log/slog"
+
+	"github.com/rancher/opni/pkg/logger"
 )
 
 type UserInfo struct {
@@ -27,12 +29,12 @@ type UserInfoCache struct {
 	mu         sync.Mutex
 	config     *OpenidConfig
 	wellKnown  *WellKnownConfiguration
-	logger     *zap.SugaredLogger
+	logger     *slog.Logger
 }
 
 func NewUserInfoCache(
 	config *OpenidConfig,
-	logger *zap.SugaredLogger,
+	logger *slog.Logger,
 	opts ...ClientOption,
 ) (*UserInfoCache, error) {
 	options := ClientOptions{

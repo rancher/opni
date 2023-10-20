@@ -15,7 +15,7 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/rbac"
-	"go.uber.org/zap"
+	"log/slog"
 )
 
 type DataFormat string
@@ -39,7 +39,7 @@ type MultiTenantRuleAggregator struct {
 	cortexClient *http.Client
 	headerCodec  rbac.HeaderCodec
 	bufferPool   *sync.Pool
-	logger       *zap.SugaredLogger
+	logger       *slog.Logger
 	format       DataFormat
 }
 
@@ -59,7 +59,7 @@ func NewMultiTenantRuleAggregator(
 		cortexClient: cortexClient,
 		headerCodec:  headerCodec,
 		bufferPool:   pool,
-		logger:       logger.New().Named("aggregation"),
+		logger:       logger.New().WithGroup("aggregation"),
 		format:       format,
 	}
 }

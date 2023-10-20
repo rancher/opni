@@ -8,11 +8,13 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	"github.com/opensearch-project/opensearch-go/opensearchutil"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/logging/apis/node"
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -43,7 +45,7 @@ type EventCollector struct {
 	clientset kubernetes.Interface
 	queue     workqueue.RateLimitingInterface
 	informer  informercorev1.EventInformer
-	logger    *zap.SugaredLogger
+	logger    *slog.Logger
 	state     scrapeState
 	namespace string
 }
@@ -80,7 +82,7 @@ func WithRestConfig(restConfig *rest.Config) EventCollectorOption {
 }
 
 func NewEventCollector(
-	logger *zap.SugaredLogger,
+	logger *slog.Logger,
 	opts ...EventCollectorOption,
 ) (*EventCollector, error) {
 	options := EventCollectorOptions{
@@ -136,7 +138,7 @@ func (c *EventCollector) ConfigureNode(config *node.LoggingCapabilityConfig) {
 		go func() {
 			err := c.run(c.state.stopCh)
 			if err != nil {
-				c.logger.Errorw("failed to start events", "error", err)
+				c.logger.Error("failed to start events", logger.Err(err))
 				c.state.Lock()
 				close(c.state.stopCh)
 				c.state.running = false
@@ -200,7 +202,7 @@ func (c *EventCollector) runWorker() {
 func (c *EventCollector) enqueueEvent(obj interface{}) {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
-		c.logger.Errorf("could't get key for event %+v: %s", obj, err)
+		c.logger.Error(fmt.Sprintf("could't get key for event %+v: %s", obj, err))
 	}
 	c.queue.Add(timestampedEvent{
 		key:  key,
@@ -222,12 +224,12 @@ func (c *EventCollector) processNextItem() bool {
 		return true
 	}
 	if c.maxRetries == 0 || c.queue.NumRequeues(event) < c.maxRetries {
-		c.logger.Warnf("failed to process event %s, requeueing: %v", event, err)
+		c.logger.Warn(fmt.Sprintf("failed to process event %s, requeueing: %v", event, err))
 		c.queue.AddRateLimited(event)
 		return true
 	}
 
-	c.logger.Errorf("failed to process event %s, giving up: %v", event, err)
+	c.logger.Error(fmt.Sprintf("failed to process event %s, giving up: %v", event, err))
 	c.queue.Forget(event)
 	utilruntime.HandleError(err)
 	return true

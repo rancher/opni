@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 
+	"log/slog"
+
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -29,7 +31,6 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 	"go.opentelemetry.io/otel/sdk/metric"
-	"go.uber.org/zap"
 )
 
 type Plugin struct {
@@ -38,7 +39,7 @@ type Plugin struct {
 	collector.CollectorServer
 
 	ctx    context.Context
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 
 	cortexAdmin       cortex.CortexAdminServer
 	cortexHttp        cortex.HttpApiServer
@@ -71,7 +72,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 	p := &Plugin{
 		CollectorServer: collector,
 		ctx:             ctx,
-		logger:          logger.NewPluginLogger().Named("metrics"),
+		logger:          logger.NewPluginLogger().WithGroup("metrics"),
 
 		config:              future.New[*v1beta1.GatewayConfig](),
 		authMw:              future.New[map[string]auth.Middleware](),
@@ -92,7 +93,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 			p.cortexAdmin.Initialize(cortex.CortexAdminServerConfig{
 				CortexClientSet: cortexClientSet,
 				Config:          &config.Spec,
-				Logger:          p.logger.Named("cortex-admin"),
+				Logger:          p.logger.WithGroup("cortex-admin"),
 			})
 		})
 
@@ -101,7 +102,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 			p.cortexRemoteWrite.Initialize(cortex.RemoteWriteForwarderConfig{
 				CortexClientSet: cortexClientSet,
 				Config:          &config.Spec,
-				Logger:          p.logger.Named("cortex-rw"),
+				Logger:          p.logger.WithGroup("cortex-rw"),
 			})
 		})
 
@@ -156,7 +157,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 			backendKvClients *backend.KVClients,
 		) {
 			p.metrics.Initialize(backend.MetricsBackendConfig{
-				Logger:              p.logger.Named("metrics-backend"),
+				Logger:              p.logger.WithGroup("metrics-backend"),
 				StorageBackend:      storageBackend,
 				MgmtClient:          mgmtClient,
 				UninstallController: uninstallController,
@@ -181,7 +182,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 				CortexClientSet:  cortexClientSet,
 				Config:           &config.Spec,
 				CortexTLSConfig:  tlsConfig,
-				Logger:           p.logger.Named("cortex-http"),
+				Logger:           p.logger.WithGroup("cortex-http"),
 				StorageBackend:   storageBackend,
 				AuthMiddlewares:  authMiddlewares,
 			})

@@ -100,7 +100,7 @@ func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
 	}
 	err := createGrafanaSLOMask(s.ctx, s.p, clusterId, id)
 	if err != nil {
-		s.p.logger.Errorf("creating grafana mask failed %s", err)
+		s.p.logger.Error(fmt.Sprintf("creating grafana mask failed %s", err))
 		errArr = append(errArr, err)
 	}
 	return errors.Combine(errArr...)

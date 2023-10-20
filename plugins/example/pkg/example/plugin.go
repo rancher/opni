@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
+	"log/slog"
+
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -46,7 +46,7 @@ type ExamplePlugin struct {
 	capabilityv1.UnsafeBackendServer
 	system.UnimplementedSystemPluginClient
 	ctx    context.Context
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 
 	storageBackend      future.Future[storage.Backend]
 	uninstallController future.Future[*task.Controller]
@@ -224,7 +224,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := &ExamplePlugin{
 		ctx:                 ctx,
-		logger:              logger.NewPluginLogger().Named("example"),
+		logger:              logger.NewPluginLogger().WithGroup("example"),
 		storageBackend:      future.New[storage.Backend](),
 		uninstallController: future.New[*task.Controller](),
 	}
@@ -248,7 +248,7 @@ type uninstallTaskRunner struct {
 }
 
 func (a *uninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveTask) error {
-	ti.AddLogEntry(zapcore.InfoLevel, "Removing capability from cluster metadata")
+	ti.AddLogEntry(slog.LevelInfo, "Removing capability from cluster metadata")
 	_, err := a.storageBackend.UpdateCluster(ctx, &corev1.Reference{
 		Id: ti.TaskId(),
 	}, storage.NewRemoveCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityExample)))
@@ -262,12 +262,12 @@ func (a *uninstallTaskRunner) OnTaskCompleted(ctx context.Context, ti task.Activ
 
 	switch state {
 	case task.StateCompleted:
-		ti.AddLogEntry(zapcore.InfoLevel, "Capability uninstalled successfully")
+		ti.AddLogEntry(slog.LevelInfo, "Capability uninstalled successfully")
 		return // no deletion timestamp to reset, since the capability should be gone
 	case task.StateFailed:
-		ti.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("Capability uninstall failed: %v", args[0]))
+		ti.AddLogEntry(slog.LevelError, fmt.Sprintf("Capability uninstall failed: %v", args[0]))
 	case task.StateCanceled:
-		ti.AddLogEntry(zapcore.InfoLevel, "Capability uninstall canceled")
+		ti.AddLogEntry(slog.LevelInfo, "Capability uninstall canceled")
 	}
 
 	// Reset the deletion timestamp
@@ -282,6 +282,6 @@ func (a *uninstallTaskRunner) OnTaskCompleted(ctx context.Context, ti task.Activ
 		}
 	})
 	if err != nil {
-		ti.AddLogEntry(zapcore.WarnLevel, fmt.Sprintf("Failed to reset deletion timestamp: %v", err))
+		ti.AddLogEntry(slog.LevelWarn, fmt.Sprintf("Failed to reset deletion timestamp: %v", err))
 	}
 }

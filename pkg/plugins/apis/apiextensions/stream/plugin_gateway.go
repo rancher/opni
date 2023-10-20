@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 
+	"log/slog"
+
 	"github.com/hashicorp/go-plugin"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/kralicky/totem"
@@ -20,7 +22,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -68,7 +69,7 @@ func NewGatewayPlugin(p StreamAPIExtension, opts ...GatewayStreamApiExtensionPlu
 
 	ext := &gatewayStreamExtensionServerImpl{
 		name:          name,
-		logger:        logger.NewPluginLogger().Named(name).Named("stream"),
+		logger:        logger.NewPluginLogger().WithGroup(name).WithGroup("stream"),
 		metricsConfig: options.metricsConfig,
 	}
 	if p != nil {
@@ -107,7 +108,7 @@ type gatewayStreamExtensionServerImpl struct {
 	name          string
 	servers       []*richServer
 	clientHandler StreamClientHandler
-	logger        *zap.SugaredLogger
+	logger        *slog.Logger
 	metricsConfig GatewayStreamMetricsConfig
 	meterProvider *metric.MeterProvider
 }

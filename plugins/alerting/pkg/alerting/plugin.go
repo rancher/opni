@@ -27,7 +27,7 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/endpoints/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/node_backend"
-	"go.uber.org/zap"
+	"log/slog"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
@@ -56,7 +56,7 @@ type Plugin struct {
 	system.UnimplementedSystemPluginClient
 
 	ctx    context.Context
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 
 	storageClientSet future.Future[spec.AlertingClientSet]
 
@@ -96,7 +96,7 @@ var (
 )
 
 func NewPlugin(ctx context.Context) *Plugin {
-	lg := logger.NewPluginLogger().Named("alerting")
+	lg := logger.NewPluginLogger().WithGroup("alerting")
 	storageClientSet := future.New[spec.AlertingClientSet]()
 	metricReader := metricsdk.NewManualReader()
 	metricsExporter.RegisterMeterProvider(metricsdk.NewMeterProvider(

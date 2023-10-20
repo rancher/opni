@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"os"
 
+	"log/slog"
+
 	"github.com/dbason/featureflags"
 	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/apis/opensearch"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	corev1 "k8s.io/api/core/v1"
@@ -54,7 +55,7 @@ type Plugin struct {
 	opensearch.UnsafeOpensearchServer
 	system.UnimplementedSystemPluginClient
 	ctx                 context.Context
-	logger              *zap.SugaredLogger
+	logger              *slog.Logger
 	storageBackend      future.Future[storage.Backend]
 	kv                  future.Future[system.KeyValueStoreClient]
 	mgmtApi             future.Future[managementv1.ManagementClient]
@@ -126,7 +127,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		}
 	}
 
-	lg := logger.NewPluginLogger().Named("logging")
+	lg := logger.NewPluginLogger().WithGroup("logging")
 
 	kv := future.New[system.KeyValueStoreClient]()
 
@@ -140,12 +141,12 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		kv:                  kv,
 		alertingServer:      alerting.NewAlertingManagementServer(),
 		opensearchManager: opensearchdata.NewManager(
-			lg.Named("opensearch-manager"),
+			lg.WithGroup("opensearch-manager"),
 			kv,
 		),
 		delegate: future.New[streamext.StreamDelegate[agent.ClientSet]](),
 		otelForwarder: otel.NewOTELForwarder(
-			otel.WithLogger(lg.Named("otel-forwarder")),
+			otel.WithLogger(lg.WithGroup("otel-forwarder")),
 			otel.WithAddress(fmt.Sprintf(
 				"%s:%d",
 				preprocessor.PreprocessorServiceName(opniopensearch.OpniPreprocessingInstanceName),
@@ -163,7 +164,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 			delegate streamext.StreamDelegate[agent.ClientSet],
 		) {
 			p.logging.Initialize(backend.LoggingBackendConfig{
-				Logger:              p.logger.Named("logging-backend"),
+				Logger:              p.logger.WithGroup("logging-backend"),
 				StorageBackend:      storageBackend,
 				UninstallController: uninstallController,
 				MgmtClient:          mgmtClient,
@@ -191,7 +192,8 @@ func Scheme(ctx context.Context) meta.Scheme {
 	restconfig, err := rest.InClusterConfig()
 	if err != nil {
 		if !errors.Is(err, rest.ErrNotInCluster) {
-			p.logger.Fatalf("failed to create config: %s", err)
+			p.logger.Error(fmt.Sprintf("failed to create config: %s", err))
+			os.Exit(1)
 		}
 	}
 
@@ -211,11 +213,13 @@ func Scheme(ctx context.Context) meta.Scheme {
 	var ok bool
 	backendDriverBuilder, ok := backenddriver.Drivers.Get(driverName)
 	if !ok {
-		p.logger.Fatalf("could not find backend driver %q", driverName)
+		p.logger.Error(fmt.Sprintf("could not find backend driver %q", driverName))
+		os.Exit(1)
 	}
 	managementDriverBuilder, ok := managementdriver.Drivers.Get(driverName)
 	if !ok {
-		p.logger.Fatalf("could not find management driver %q", driverName)
+		p.logger.Error(fmt.Sprintf("could not find management driver %q", driverName))
+		os.Exit(1)
 	}
 
 	driverOptions := []driverutil.Option{
@@ -226,12 +230,14 @@ func Scheme(ctx context.Context) meta.Scheme {
 	}
 	p.backendDriver, err = backendDriverBuilder(ctx, driverOptions...)
 	if err != nil {
-		p.logger.Fatalf("failed to create backend driver: %v", err)
+		p.logger.Error(fmt.Sprintf("failed to create backend driver: %v", err))
+		os.Exit(1)
 	}
 
 	p.managementDriver, err = managementDriverBuilder(ctx, driverOptions...)
 	if err != nil {
-		p.logger.Fatalf("failed to create management driver: %v", err)
+		p.logger.Error(fmt.Sprintf("failed to create management driver: %v", err))
+		os.Exit(1)
 	}
 
 	loggingManager := p.NewLoggingManagerForPlugin()
@@ -241,7 +247,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 		go p.alertingServer.SetClient(loggingManager.managementDriver.NewOpensearchClientForCluster)
 		err = loggingManager.createInitialAdmin()
 		if err != nil {
-			p.logger.Warnf("failed to create initial admin: %v", err)
+			p.logger.Warn(fmt.Sprintf("failed to create initial admin: %v", err))
 		}
 		p.otelForwarder.BackgroundInitClient()
 	}
@@ -266,7 +272,7 @@ func (p *Plugin) NewLoggingManagerForPlugin() *LoggingManagerV2 {
 	return &LoggingManagerV2{
 		managementDriver:  p.managementDriver,
 		backendDriver:     p.backendDriver,
-		logger:            p.logger.Named("opensearch-manager"),
+		logger:            p.logger.WithGroup("opensearch-manager"),
 		alertingServer:    p.alertingServer,
 		opensearchManager: p.opensearchManager,
 		storageNamespace:  p.storageNamespace,

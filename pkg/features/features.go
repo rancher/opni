@@ -3,6 +3,7 @@ package features
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/dbason/featureflags"
@@ -30,17 +31,19 @@ var (
 )
 
 func PopulateFeatures(ctx context.Context, config *rest.Config) {
-	lg := logger.New().Named("feature-flags")
+	lg := logger.New().WithGroup("feature-flags")
 	ns := os.Getenv("POD_NAMESPACE")
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		lg.Fatalf("failed to create clientset: %s", err)
+		lg.Error(fmt.Sprintf("failed to create clientset: %s", err))
+		os.Exit(1)
 	}
 
 	FeatureList, err = featureflags.NewFeatureListFromConfigMap(ctx, clientset, ns)
 	if err != nil {
-		lg.Fatalf("failed to load features: %s", err)
+		lg.Error(fmt.Sprintf("failed to load features: %s", err))
+		os.Exit(1)
 	}
 
 }

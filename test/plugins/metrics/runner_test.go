@@ -79,7 +79,7 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 	)
 
 	BeforeEach(func() {
-		lg := logger.NewPluginLogger().Named("test-runner")
+		lg := logger.NewPluginLogger().WithGroup("test-runner")
 
 		writerClient = &mockRemoteWriteClient{}
 

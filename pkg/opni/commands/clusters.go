@@ -4,15 +4,16 @@ package commands
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 
 	tea "github.com/charmbracelet/bubbletea"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/pkg/tui"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -47,7 +48,8 @@ func BuildClustersListCmd() *cobra.Command {
 				}
 				go func() {
 					if err := w.Run(cmd.Context()); err != nil {
-						lg.Fatal(err)
+						lg.Error("fatal", logger.Err(err))
+						os.Exit(1)
 					}
 				}()
 				p := tea.NewProgram(m)
@@ -110,7 +112,8 @@ func BuildClustersDeleteCmd() *cobra.Command {
 					Id: cluster,
 				})
 				if err != nil {
-					lg.Fatal(err)
+					lg.Error("fatal", logger.Err(err))
+					os.Exit(1)
 				}
 				lg.With(
 					"id", cluster,
@@ -140,11 +143,13 @@ func BuildClustersLabelCmd() *cobra.Command {
 				Id: clusterID,
 			})
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			labels, err := cliutil.ParseKeyValuePairs(args[1:])
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			currentLabels := map[string]string{}
 			for k, v := range cluster.GetLabels() {

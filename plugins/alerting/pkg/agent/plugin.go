@@ -2,6 +2,9 @@ package agent
 
 import (
 	"context"
+	"fmt"
+
+	"log/slog"
 
 	healthpkg "github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"
@@ -10,11 +13,10 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/health"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/plugins/alerting/pkg/agent/drivers"
-	"go.uber.org/zap"
 )
 
 type Plugin struct {
-	lg  *zap.SugaredLogger
+	lg  *slog.Logger
 	ctx context.Context
 
 	ruleStreamer *RuleStreamer
@@ -23,7 +25,7 @@ type Plugin struct {
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
-	lg := logger.NewPluginLogger().Named("alerting")
+	lg := logger.NewPluginLogger().WithGroup("alerting")
 
 	ct := healthpkg.NewDefaultConditionTracker(lg)
 	p := &Plugin{
@@ -41,7 +43,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 	for _, name := range priority_order {
 		builder, ok := drivers.NodeDrivers.Get(name)
 		if !ok {
-			lg.Debugf("could not find driver : %s", name)
+			lg.Debug(fmt.Sprintf("could not find driver : %s", name))
 			continue
 		}
 		driver, err := builder(ctx)

@@ -125,7 +125,7 @@ func BuildDebugEtcdctlCmd() *cobra.Command {
 				if err == nil {
 					mgmtClient = c
 				} else {
-					lg.Warnf("failed to create management client: %v", err)
+					lg.Warn(fmt.Sprintf("failed to create management client: %v", err))
 				}
 			}
 			conf, err := mgmtClient.GetConfig(cmd.Context(), &emptypb.Empty{})

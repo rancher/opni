@@ -7,17 +7,19 @@ import (
 	"os"
 	"sync"
 
+	"log/slog"
+
 	"github.com/prometheus/client_golang/prometheus"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/update"
 	"github.com/rancher/opni/pkg/update/patch"
 	"github.com/rancher/opni/pkg/urn"
 	"github.com/spf13/afero"
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -26,7 +28,7 @@ import (
 type FilesystemPluginSyncServer struct {
 	controlv1.UnsafeUpdateSyncServer
 	SyncServerOptions
-	logger           *zap.SugaredLogger
+	logger           *slog.Logger
 	config           v1beta1.PluginsSpec
 	loadMetadataOnce sync.Once
 	manifest         *controlv1.UpdateManifest
@@ -60,7 +62,7 @@ func WithFs(fsys afero.Fs) SyncServerOption {
 
 func NewFilesystemPluginSyncServer(
 	cfg v1beta1.PluginsSpec,
-	lg *zap.SugaredLogger,
+	lg *slog.Logger,
 	opts ...SyncServerOption,
 ) (*FilesystemPluginSyncServer, error) {
 	options := SyncServerOptions{
@@ -82,7 +84,7 @@ func NewFilesystemPluginSyncServer(
 	switch cfg.Binary.Cache.Backend {
 	case v1beta1.CacheBackendFilesystem:
 		var err error
-		cache, err = patch.NewFilesystemCache(options.fsys, cfg.Binary.Cache.Filesystem, patchEngine, lg.Named("cache"))
+		cache, err = patch.NewFilesystemCache(options.fsys, cfg.Binary.Cache.Filesystem, patchEngine, lg.WithGroup("cache"))
 		if err != nil {
 			return nil, err
 		}

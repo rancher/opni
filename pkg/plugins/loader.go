@@ -7,13 +7,14 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	"github.com/hashicorp/go-plugin"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/atomic"
-	"go.uber.org/zap"
 
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/logger"
@@ -63,7 +64,7 @@ type PluginLoader struct {
 }
 
 type PluginLoaderOptions struct {
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 }
 
 type PluginLoaderOption func(*PluginLoaderOptions)
@@ -74,7 +75,7 @@ func (o *PluginLoaderOptions) apply(opts ...PluginLoaderOption) {
 	}
 }
 
-func WithLogger(lg *zap.SugaredLogger) PluginLoaderOption {
+func WithLogger(lg *slog.Logger) PluginLoaderOption {
 	return func(o *PluginLoaderOptions) {
 		o.logger = lg
 	}
@@ -84,9 +85,9 @@ func NewPluginLoader(opts ...PluginLoaderOption) *PluginLoader {
 	options := PluginLoaderOptions{}
 	options.apply(opts...)
 	if options.logger == nil {
-		options.logger = logger.New().Named("pluginloader")
+		options.logger = logger.New().WithGroup("pluginloader")
 	} else {
-		options.logger = options.logger.Named("pluginloader")
+		options.logger = options.logger.WithGroup("pluginloader")
 	}
 
 	return &PluginLoader{
@@ -145,7 +146,7 @@ func (p *PluginLoader) LoadOne(ctx context.Context, md meta.PluginMeta, cc *plug
 	defer span.End()
 
 	lg := p.logger.With(
-		zap.String("plugin", md.Module),
+		"plugin", md.Module,
 	)
 	lg.Info("loading plugin")
 
@@ -177,7 +178,7 @@ func (p *PluginLoader) LoadOne(ctx context.Context, md meta.PluginMeta, cc *plug
 			p.hooksMu.RLock()
 			numHooks := len(p.loadHooks)
 			if numHooks > 0 {
-				lg.Debugf("invoking load hooks (%d)", numHooks)
+				lg.Debug(fmt.Sprintf("invoking load hooks (%d)", numHooks))
 			}
 			for _, h := range p.loadHooks {
 				if h.hook.ShouldInvoke(raw) {

@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
+	"log/slog"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth"
@@ -43,7 +43,7 @@ type HttpApiServerConfig struct {
 	CortexClientSet  ClientSet                     `validate:"required"`
 	Config           *v1beta1.GatewayConfigSpec    `validate:"required"`
 	CortexTLSConfig  *tls.Config                   `validate:"required"`
-	Logger           *zap.SugaredLogger            `validate:"required"`
+	Logger           *slog.Logger                  `validate:"required"`
 	StorageBackend   storage.Backend               `validate:"required"`
 	AuthMiddlewares  map[string]auth.Middleware    `validate:"required"`
 }

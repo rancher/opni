@@ -5,6 +5,8 @@ package commands
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"sync/atomic"
 
 	"github.com/hashicorp/go-plugin"
@@ -25,7 +27,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/rest"
 
@@ -52,7 +53,8 @@ func BuildGatewayCmd() *cobra.Command {
 			if errors.Is(err, rest.ErrNotInCluster) {
 				inCluster = false
 			} else {
-				lg.Fatalf("failed to create config: %s", err)
+				lg.Error(fmt.Sprintf("failed to create config: %s", err))
+				os.Exit(1)
 			}
 		}
 
@@ -86,7 +88,7 @@ func BuildGatewayCmd() *cobra.Command {
 		lg.With(
 			"dir", gatewayConfig.Spec.Plugins.Dir,
 		).Info("loading plugins")
-		pluginLoader := plugins.NewPluginLoader(plugins.WithLogger(lg.Named("gateway")))
+		pluginLoader := plugins.NewPluginLoader(plugins.WithLogger(lg.WithGroup("gateway")))
 
 		lifecycler := config.NewLifecycler(objects)
 		g := gateway.NewGateway(ctx, gatewayConfig, pluginLoader,
@@ -104,7 +106,7 @@ func BuildGatewayCmd() *cobra.Command {
 
 		doneLoadingPlugins := make(chan struct{})
 		pluginLoader.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
-			lg.Infof("loaded %d plugins", numLoaded)
+			lg.Info(fmt.Sprintf("loaded %d plugins", numLoaded))
 			close(doneLoadingPlugins)
 		}))
 		pluginLoader.LoadPlugins(ctx, gatewayConfig.Spec.Plugins.Dir, plugins.GatewayScheme)

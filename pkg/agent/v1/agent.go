@@ -101,8 +101,8 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	if conf.Spec.LogLevel != "" {
 		level = logger.ParseLevel(conf.Spec.LogLevel)
 	}
-	lg := logger.New(logger.WithLogLevel(level)).Named("agent")
-	lg.Debug("using log level:", "level", level.String())
+	lg := logger.New(logger.WithLogLevel(level)).WithGroup("agent")
+	lg.Debug(fmt.Sprintf("using log level: %s", level.String()))
 
 	router := gin.New()
 	router.Use(logger.GinLogger(lg), gin.Recovery())

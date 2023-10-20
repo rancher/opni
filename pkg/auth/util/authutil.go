@@ -4,13 +4,15 @@ import (
 	"crypto/rand"
 	"fmt"
 
-	"go.uber.org/zap"
+	"log/slog"
+
+	"github.com/rancher/opni/pkg/logger"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
-func CheckUnknownFields(lg *zap.SugaredLogger, msg proto.Message) error {
+func CheckUnknownFields(lg *slog.Logger, msg proto.Message) error {
 	if len(msg.ProtoReflect().GetUnknown()) > 0 {
 		err := status.Errorf(codes.InvalidArgument, "expected challenge response, but received incorrect message data (agent possibly incompatible or misconfigured)")
 		lg.With(

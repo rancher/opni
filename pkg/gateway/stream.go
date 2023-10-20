@@ -6,15 +6,17 @@ import (
 	"fmt"
 	"sync"
 
+	"log/slog"
+
 	"github.com/kralicky/totem"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/metrics"
 	"go.opentelemetry.io/otel/attribute"
 	otelprometheus "go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -46,7 +48,7 @@ func (ir *internalRegistrar[T]) RegisterService(s *grpc.ServiceDesc, impl any) {
 
 type StreamServer struct {
 	streamv1.UnimplementedStreamServer
-	logger                   *zap.SugaredLogger
+	logger                   *slog.Logger
 	handler                  ConnectionHandler
 	clusterStore             storage.ClusterStore
 	services                 []util.ServicePack[any]
@@ -64,10 +66,10 @@ func NewStreamServer(
 	handler ConnectionHandler,
 	clusterStore storage.ClusterStore,
 	metricsRegisterer prometheus.Registerer,
-	lg *zap.SugaredLogger,
+	lg *slog.Logger,
 ) *StreamServer {
 	srv := &StreamServer{
-		logger:            lg.Named("grpc"),
+		logger:            lg.WithGroup("grpc"),
 		handler:           handler,
 		clusterStore:      clusterStore,
 		metricsRegisterer: metricsRegisterer,
@@ -224,7 +226,7 @@ func (s *StreamServer) registerInternalService(desc *grpc.ServiceDesc, impl any)
 
 func (s *StreamServer) OnPluginLoad(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
 	lg := s.logger.With(
-		zap.String("plugin", md.Filename()),
+		"plugin", md.Filename(),
 	)
 	s.streamPluginsMu.Lock()
 	defer s.streamPluginsMu.Unlock()

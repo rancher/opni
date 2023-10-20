@@ -4,15 +4,18 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
 	"time"
 
+	"log/slog"
+
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/health"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/topology/graph"
 	"github.com/rancher/opni/plugins/topology/apis/node"
 	"github.com/rancher/opni/plugins/topology/apis/stream"
-	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,7 +27,7 @@ type BatchingConfig struct {
 }
 
 type TopologyStreamer struct {
-	logger     *zap.SugaredLogger
+	logger     *slog.Logger
 	conditions health.ConditionTracker
 
 	v                chan client.Object
@@ -36,7 +39,7 @@ type TopologyStreamer struct {
 	topologyStreamClient   stream.RemoteTopologyClient
 }
 
-func NewTopologyStreamer(ct health.ConditionTracker, lg *zap.SugaredLogger) *TopologyStreamer {
+func NewTopologyStreamer(ct health.ConditionTracker, lg *slog.Logger) *TopologyStreamer {
 	return &TopologyStreamer{
 		// FIXME: reintroduce this when we want to monitor kubernetes events
 		// eventWatchClient: util.Must(client.NewWithWatch(
@@ -115,7 +118,7 @@ func (s *TopologyStreamer) Run(ctx context.Context, spec *node.TopologyCapabilit
 				},
 			})
 			if err != nil {
-				lg.Errorf("failed to push topology graph: %s", err)
+				lg.Error(fmt.Sprintf("failed to push topology graph: %s", err))
 			}
 			s.topologyStreamClientMu.Unlock()
 		}

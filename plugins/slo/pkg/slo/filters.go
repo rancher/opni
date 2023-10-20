@@ -10,8 +10,8 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/apis/slo"
-	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	"log/slog"
 )
 
 //go:embed metricgroups/*.yaml
@@ -22,7 +22,7 @@ var ServiceGroups embed.FS
 
 // map of directory names to their embed.FS
 var EnabledFilters = map[string]embed.FS{"metricgroups": MetricGroups, "servicegroups": ServiceGroups}
-var filters = constructFilters(logger.NewPluginLogger().Named("slo"))
+var filters = constructFilters(logger.NewPluginLogger().WithGroup("slo"))
 
 // Regexp adds unmarshalling from json for regexp.Regexp
 type Regexp struct {
@@ -61,27 +61,27 @@ type FilterValue struct {
 	Score int    `yaml:"score"`
 }
 
-func GetGroupConfigsFromEmbed(lg *zap.SugaredLogger, dirName string, dir embed.FS) []Filter {
+func GetGroupConfigsFromEmbed(lg *slog.Logger, dirName string, dir embed.FS) []Filter {
 	lg = lg.With("plugin", "slo", "phase", "init")
 	var res []Filter
 	fsys := fs.FS(dir)
 	yamlFs, err := fs.Sub(fsys, dirName)
 	if err != nil {
-		lg.Error(err)
+		lg.Error("error", logger.Err(err))
 		lg.Debug(fmt.Sprintf("Debug error : yamlFs is %s", yamlFs))
 	}
 	err = fs.WalkDir(yamlFs, ".", func(pathStr string, d fs.DirEntry, err error) error {
 		if !d.IsDir() {
 			fBytes, err := fs.ReadFile(dir, filepath.Join(dirName, d.Name()))
 			if err != nil {
-				lg.Error(err)
+				lg.Error("error", logger.Err(err))
 				lg.Debug(fmt.Sprintf("Debug error : yamlFs is %s", yamlFs))
 				panic(err)
 			}
 			var f Filter
 			err = yaml.Unmarshal(fBytes, &f)
 			if err != nil {
-				lg.Error(err)
+				lg.Error("error", logger.Err(err))
 				lg.Debug(fmt.Sprintf("Debug error : yamlFs is %s", yamlFs))
 			}
 			res = append(res, f)
@@ -89,13 +89,13 @@ func GetGroupConfigsFromEmbed(lg *zap.SugaredLogger, dirName string, dir embed.F
 		return nil
 	})
 	if err != nil {
-		lg.Error(err)
+		lg.Error("error", logger.Err(err))
 		lg.Debug(fmt.Sprintf("Debug error : yamlFs is %s", yamlFs))
 	}
 	return res
 }
 
-func constructFilters(lg *zap.SugaredLogger) []Filter {
+func constructFilters(lg *slog.Logger) []Filter {
 	res := []Filter{}
 	for dirName, embedFs := range EnabledFilters {
 		filters := GetGroupConfigsFromEmbed(lg, dirName, embedFs)

@@ -5,6 +5,8 @@ package commands
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"os"
 	"strings"
 	"time"
 
@@ -18,13 +20,12 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var statusLog = logger.New(
 	logger.WithDisableCaller(),
-	logger.WithTimeEncoder(func(time.Time, zapcore.PrimitiveArrayEncoder) {}),
+	logger.WithDisableTime(),
 )
 
 func BuildCapabilityCmd() *cobra.Command {
@@ -50,7 +51,8 @@ func BuildCapabilityListCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			list, err := mgmtClient.ListCapabilities(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			fmt.Println(cliutil.RenderCapabilityList(list))
 		},
@@ -172,7 +174,8 @@ func BuildCapabilityCancelUninstallCmd() *cobra.Command {
 				},
 			})
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			lg.Info("Cancel request submitted successfully")
 			if !follow {
@@ -203,7 +206,8 @@ func BuildCapabilityStatusCmd() *cobra.Command {
 				Id: args[1],
 			})
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			for _, cap := range cluster.GetCapabilities() {
 				if cap.Name != args[0] {
@@ -292,13 +296,13 @@ func printStatusLog(log corev1.TimestampedLog) {
 	}
 	msg = fmt.Sprintf("[%s] %s", timestamp, msg)
 	switch log.GetLogLevel() {
-	case zapcore.DebugLevel:
+	case slog.LevelDebug:
 		statusLog.Debug(msg)
-	case zapcore.InfoLevel:
+	case slog.LevelInfo:
 		statusLog.Info(msg)
-	case zapcore.WarnLevel:
+	case slog.LevelWarn:
 		statusLog.Warn(msg)
-	case zapcore.ErrorLevel:
+	case slog.LevelError:
 		statusLog.Error(msg)
 	default:
 		statusLog.Info(msg)

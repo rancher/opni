@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/prometheus/common/model"
-	"go.uber.org/zap"
+	"log/slog"
 )
 
 // Struct for unmarshalling from github.com/prometheus/common/model
@@ -139,7 +139,7 @@ func unmarshallPrometheusWebResponseData(data []byte) (*Response, error) {
 	return &r, nil
 }
 
-func UnmarshallPrometheusWebResponse(resp *http.Response, _ *zap.SugaredLogger) (*Response, error) {
+func UnmarshallPrometheusWebResponse(resp *http.Response, _ *slog.Logger) (*Response, error) {
 	var val *Response
 	err := json.NewDecoder(resp.Body).Decode(&val)
 	if err != nil {

@@ -6,12 +6,14 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	healthpkg "github.com/rancher/opni/pkg/health"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/plugins/alerting/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/node"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/rules"
-	"go.uber.org/zap"
 )
 
 var RuleSyncInterval = time.Minute * 2
@@ -22,7 +24,7 @@ const (
 
 type RuleStreamer struct {
 	parentCtx context.Context
-	lg        *zap.SugaredLogger
+	lg        *slog.Logger
 
 	stopRuleStream context.CancelFunc
 
@@ -37,7 +39,7 @@ var _ drivers.ConfigPropagator = (*RuleStreamer)(nil)
 
 func NewRuleStreamer(
 	ctx context.Context,
-	lg *zap.SugaredLogger,
+	lg *slog.Logger,
 	ct healthpkg.ConditionTracker,
 	nodeDriver drivers.NodeDriver,
 ) *RuleStreamer {
@@ -116,7 +118,7 @@ func (r *RuleStreamer) sync(ctx context.Context) {
 		}
 		ruleManifest, err := r.nodeDriver.DiscoverRules(ctx)
 		if err != nil {
-			r.lg.Warn("failed to discover rules", err, "err")
+			r.lg.Warn("failed to discover rules", logger.Err(err))
 			r.conditions.Set(CondRuleSync, healthpkg.StatusFailure, fmt.Sprintf("Failed to discover rules : %s", err))
 			continue
 		}
@@ -126,10 +128,10 @@ func (r *RuleStreamer) sync(ctx context.Context) {
 		r.clientMu.RUnlock()
 		if err == nil {
 			r.conditions.Clear(CondRuleSync)
-			r.lg.Infof("successfully synced (%d) rules with gateway", len(ruleManifest.GetRules()))
+			r.lg.Info(fmt.Sprintf("successfully synced (%d) rules with gateway", len(ruleManifest.GetRules())))
 			break
 		}
-		r.lg.Warn("failed to sync rules with gateway", err, "err")
+		r.lg.Warn("failed to sync rules with gateway", logger.Err(err))
 		r.conditions.Set(CondRuleSync, healthpkg.StatusFailure, fmt.Sprintf("Failed to sync rules : %s", err))
 	}
 }

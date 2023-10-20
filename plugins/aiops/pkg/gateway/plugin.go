@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 
+	"log/slog"
+
 	"github.com/nats-io/nats.go"
 	"github.com/opensearch-project/opensearch-go"
 	"github.com/rancher/opni/apis"
@@ -17,7 +19,6 @@ import (
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/aiops/apis/admin"
 	"github.com/rancher/opni/plugins/aiops/apis/modeltraining"
-	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,7 +30,7 @@ type AIOpsPlugin struct {
 	admin.UnsafeAIAdminServer
 	system.UnimplementedSystemPluginClient
 	ctx             context.Context
-	Logger          *zap.SugaredLogger
+	Logger          *slog.Logger
 	k8sClient       client.Client
 	osClient        future.Future[*opensearch.Client]
 	natsConnection  future.Future[*nats.Conn]
@@ -110,7 +111,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 
 	return &AIOpsPlugin{
 		PluginOptions:   options,
-		Logger:          logger.NewPluginLogger().Named("modeltraining"),
+		Logger:          logger.NewPluginLogger().WithGroup("modeltraining"),
 		ctx:             ctx,
 		natsConnection:  future.New[*nats.Conn](),
 		aggregationKv:   future.New[nats.KeyValue](),
@@ -125,18 +126,21 @@ func (p *AIOpsPlugin) UseManagementAPI(_ managementv1.ManagementClient) {
 	lg := p.Logger
 	nc, err := newNatsConnection()
 	if err != nil {
-		lg.Fatal(err)
+		lg.Error("fatal", logger.Err(err))
+		os.Exit(1)
 	}
 	mgr, err := nc.JetStream()
 	if err != nil {
-		lg.Fatal(err)
+		lg.Error("fatal", logger.Err(err))
+		os.Exit(1)
 	}
 	aggregationKeyValue, err := mgr.CreateKeyValue(&nats.KeyValueConfig{
 		Bucket:      workloadAggregationCountBucket,
 		Description: "Storing aggregation of workload logs from Opensearch.",
 	})
 	if err != nil {
-		lg.Fatal(err)
+		lg.Error("fatal", logger.Err(err))
+		os.Exit(1)
 	}
 
 	p.aggregationKv.Set(aggregationKeyValue)
@@ -146,7 +150,8 @@ func (p *AIOpsPlugin) UseManagementAPI(_ managementv1.ManagementClient) {
 		Description: "Storing the workloads specified for model training.",
 	})
 	if err != nil {
-		lg.Fatal(err)
+		lg.Error("fatal", logger.Err(err))
+		os.Exit(1)
 	}
 
 	p.modelTrainingKv.Set(modelParametersKeyValue)
@@ -156,7 +161,8 @@ func (p *AIOpsPlugin) UseManagementAPI(_ managementv1.ManagementClient) {
 		Description: "Storing the statistics for the training of the model.",
 	})
 	if err != nil {
-		lg.Fatal(err)
+		lg.Error("fatal", logger.Err(err))
+		os.Exit(1)
 	}
 
 	p.statisticsKv.Set(modelStatisticsKeyValue)

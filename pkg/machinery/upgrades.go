@@ -6,10 +6,10 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/oci"
 	"github.com/rancher/opni/pkg/update"
-	"go.uber.org/zap"
+	"log/slog"
 )
 
-func ConfigurePluginUpgrader(cfg v1beta1.PluginUpgradeSpec, pluginDir string, lg *zap.SugaredLogger) (update.SyncHandler, error) {
+func ConfigurePluginUpgrader(cfg v1beta1.PluginUpgradeSpec, pluginDir string, lg *slog.Logger) (update.SyncHandler, error) {
 	switch cfg.Type {
 	case v1beta1.PluginUpgradeBinary:
 		builder := update.GetPluginSyncHandlerBuilder(cfg.Type)
@@ -23,7 +23,7 @@ func ConfigurePluginUpgrader(cfg v1beta1.PluginUpgradeSpec, pluginDir string, lg
 	}
 }
 
-func ConfigureAgentUpgrader(cfg *v1beta1.AgentUpgradeSpec, lg *zap.SugaredLogger) (update.SyncHandler, error) {
+func ConfigureAgentUpgrader(cfg *v1beta1.AgentUpgradeSpec, lg *slog.Logger) (update.SyncHandler, error) {
 	switch {
 	case cfg.Type == v1beta1.AgentUpgradeKubernetes:
 		builder := update.GetAgentSyncHandlerBuilder(cfg.Type)

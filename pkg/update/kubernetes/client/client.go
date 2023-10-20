@@ -7,13 +7,15 @@ import (
 
 	"slices"
 
+	"log/slog"
+
 	"github.com/rancher/opni/apis"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/oci"
 	"github.com/rancher/opni/pkg/update"
 	"github.com/rancher/opni/pkg/update/kubernetes"
 	"github.com/rancher/opni/pkg/urn"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	appsv1 "k8s.io/api/apps/v1"
@@ -25,7 +27,7 @@ import (
 type kubernetesAgentUpgrader struct {
 	kubernetesOptions
 	k8sClient client.Client
-	lg        *zap.SugaredLogger
+	lg        *slog.Logger
 }
 
 type kubernetesOptions struct {
@@ -60,7 +62,7 @@ func WithRepoOverride(repo *string) KubernetesOption {
 	}
 }
 
-func NewKubernetesAgentUpgrader(lg *zap.SugaredLogger, opts ...KubernetesOption) (update.SyncHandler, error) {
+func NewKubernetesAgentUpgrader(lg *slog.Logger, opts ...KubernetesOption) (update.SyncHandler, error) {
 	options := kubernetesOptions{
 		namespace: os.Getenv("POD_NAMESPACE"),
 	}
@@ -172,7 +174,7 @@ func (k *kubernetesAgentUpgrader) HandleSyncResults(ctx context.Context, results
 		case kubernetes.ControllerComponent:
 			container = getControllerContainer(containers)
 		default:
-			k.lg.Warnf("received patch for unknown component %s", patchURN.Component)
+			k.lg.Warn(fmt.Sprintf("received patch for unknown component %s", patchURN.Component))
 			continue
 		}
 		err = k.patchContainer(container, patch)
@@ -269,7 +271,7 @@ func replaceContainer(containers []corev1.Container, container *corev1.Container
 
 func init() {
 	update.RegisterAgentSyncHandlerBuilder(kubernetes.UpdateStrategy, func(args ...any) (update.SyncHandler, error) {
-		lg, ok := args[0].(*zap.SugaredLogger)
+		lg, ok := args[0].(*slog.Logger)
 		if !ok {
 			return nil, fmt.Errorf("expected *zap.Logger, got %T", args[0])
 		}

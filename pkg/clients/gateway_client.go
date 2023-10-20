@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 
+	"log/slog"
+
 	"github.com/rancher/opni/pkg/auth/challenges"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	authv2 "github.com/rancher/opni/pkg/auth/cluster/v2"
@@ -17,7 +19,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -62,7 +63,7 @@ func NewGatewayClient(
 		return nil, fmt.Errorf("failed to create TLS config: %w", err)
 	}
 
-	lg := logger.New().Named("gateway-client")
+	lg := logger.New().WithGroup("gateway-client")
 	ncc, cc, err := dial(ctx, address, id, kr, tlsConfig, lg)
 	if err != nil {
 		return nil, err
@@ -98,7 +99,7 @@ type gatewayClient struct {
 	ncMu   sync.Mutex
 	nc     net.Conn
 	id     string
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 
 	mu       sync.RWMutex
 	services []util.ServicePack[any]
@@ -125,7 +126,7 @@ func (gc *gatewayClient) RegisterSplicedStream(cc grpc.ClientConnInterface, name
 	})
 }
 
-func dial(ctx context.Context, address, id string, kr keyring.Keyring, tlsConfig *tls.Config, lg *zap.SugaredLogger) (<-chan net.Conn, *grpc.ClientConn, error) {
+func dial(ctx context.Context, address, id string, kr keyring.Keyring, tlsConfig *tls.Config, lg *slog.Logger) (<-chan net.Conn, *grpc.ClientConn, error) {
 	authChallenge, err := authv2.NewClientChallenge(kr, id, lg)
 	if err != nil {
 		return nil, nil, err

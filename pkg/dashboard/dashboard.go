@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"time"
 
+	"log/slog"
+
 	"github.com/gin-gonic/gin"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
@@ -78,7 +80,7 @@ func NewServer(config *v1beta1.ManagementSpec, opts ...ServerOption) (*Server, e
 	return &Server{
 		ServerOptions: options,
 		config:        config,
-		logger:        logger.New().Named("dashboard"),
+		logger:        logger.New().WithGroup("dashboard"),
 	}, nil
 }
 

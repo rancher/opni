@@ -1,9 +1,12 @@
 package graph
 
 import (
-	"go.uber.org/zap"
+	"fmt"
+	"log/slog"
+
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/steveteuber/kubectl-graph/pkg/graph"
 	kgraph "github.com/steveteuber/kubectl-graph/pkg/graph"
@@ -22,7 +25,7 @@ func NewRuntimeFactory() cmdutil.Factory {
 }
 
 // panics if run outside of a kubernetes environment
-func TraverseTopology(lg *zap.SugaredLogger, f cmdutil.Factory) (*kgraph.Graph, error) {
+func TraverseTopology(lg *slog.Logger, f cmdutil.Factory) (*kgraph.Graph, error) {
 	clientSet, err := kubernetes.NewForConfig(util.Must(rest.InClusterConfig()))
 	if err != nil {
 		return nil, err
@@ -43,13 +46,13 @@ func TraverseTopology(lg *zap.SugaredLogger, f cmdutil.Factory) (*kgraph.Graph, 
 		Do()
 
 	if err := r.Err(); err != nil {
-		lg.Errorf("hit an error in the kubernetes runtime : %s", err)
+		lg.Error(fmt.Sprintf("hit an error in the kubernetes runtime : %s", err))
 		return nil, err
 	}
 
 	infos, err := r.Infos() // doesn't use error types
 	if err != nil {
-		lg.Warnf("hit an error while collecting kubernetes topology : %s", err)
+		lg.Warn(fmt.Sprintf("hit an error while collecting kubernetes topology : %s", err))
 	}
 	if len(infos) == 0 && err != nil { // should only exit in this case
 		return nil, err
@@ -61,7 +64,7 @@ func TraverseTopology(lg *zap.SugaredLogger, f cmdutil.Factory) (*kgraph.Graph, 
 
 	kubegraph, err := graph.NewGraph(clientSet, objs, func() {})
 	if err != nil {
-		lg.Error(err)
+		lg.Error("error", logger.Err(err))
 		return nil, err
 	}
 	return kubegraph, nil

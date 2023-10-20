@@ -2,22 +2,24 @@ package rules
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"os"
 	"strings"
+
+	"log/slog"
 
 	"emperror.dev/errors"
 	glob "github.com/bmatcuk/doublestar/v4"
 	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
-	"go.uber.org/zap"
 )
 
 type FilesystemRuleFinder struct {
 	staticRuleFinderOptions
 	config *v1beta1.FilesystemRulesSpec
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 }
 
 type staticRuleFinderOptions struct {
@@ -47,7 +49,7 @@ func NewFilesystemRuleFinder(config *v1beta1.FilesystemRulesSpec, opts ...Filesy
 	return &FilesystemRuleFinder{
 		staticRuleFinderOptions: options,
 		config:                  config,
-		logger:                  logger.New().Named("rules"),
+		logger:                  logger.New().WithGroup("rules"),
 	}
 }
 
@@ -65,7 +67,7 @@ func (f *FilesystemRuleFinder) Find(context.Context) ([]RuleGroup, error) {
 			continue
 		}
 
-		lg.Debugf("found %d rules files matching path expression", len(matched))
+		lg.Debug(fmt.Sprintf("found %d rules files matching path expression", len(matched)))
 		for _, path := range matched {
 			lg := lg.With("path", path)
 			data, err := fs.ReadFile(f.fs, path)
@@ -83,11 +85,11 @@ func (f *FilesystemRuleFinder) Find(context.Context) ([]RuleGroup, error) {
 				continue
 			}
 			groups = append(groups, list.Groups...)
-			f.logger.Debugf("found %d rule groups in file %s", len(list.Groups), path)
+			f.logger.Debug(fmt.Sprintf("found %d rule groups in file %s", len(list.Groups), path))
 		}
 	}
 
-	f.logger.Infof("found %d rule groups in filesystem", len(groups))
+	f.logger.Info(fmt.Sprintf("found %d rule groups in filesystem", len(groups)))
 	ruleGroups := []RuleGroup{}
 	for _, g := range groups {
 		ruleGroups = append(ruleGroups, RuleGroup(g))

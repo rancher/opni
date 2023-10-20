@@ -57,7 +57,7 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		opensearchManager: p.opensearchManager,
 		backendDriver:     p.backendDriver,
 		storageBackend:    p.storageBackend,
-		logger:            p.logger.Named("uninstaller"),
+		logger:            p.logger.WithGroup("uninstaller"),
 	})
 	if err != nil {
 		p.logger.With(

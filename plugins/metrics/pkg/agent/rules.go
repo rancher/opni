@@ -7,25 +7,27 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/health"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/util/notifier"
 	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"gopkg.in/yaml.v3"
 )
 
 type RuleStreamer struct {
-	logger              *zap.SugaredLogger
+	logger              *slog.Logger
 	remoteWriteClientMu sync.Mutex
 	remoteWriteClient   remotewrite.RemoteWriteClient
 	conditions          health.ConditionTracker
 }
 
-func NewRuleStreamer(ct health.ConditionTracker, lg *zap.SugaredLogger) *RuleStreamer {
+func NewRuleStreamer(ct health.ConditionTracker, lg *slog.Logger) *RuleStreamer {
 	return &RuleStreamer{
 		logger:     lg,
 		conditions: ct,

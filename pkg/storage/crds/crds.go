@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/rancher/opni/apis"
-	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
+	"log/slog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -21,7 +21,7 @@ import (
 type CRDStore struct {
 	CRDStoreOptions
 	client client.WithWatch
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 }
 
 var _ storage.TokenStore = (*CRDStore)(nil)
@@ -64,7 +64,7 @@ func WithRestConfig(rc *rest.Config) CRDStoreOption {
 }
 
 func NewCRDStore(opts ...CRDStoreOption) *CRDStore {
-	lg := logger.New().Named("crd-store")
+	lg := logger.New().WithGroup("crd-store")
 	options := CRDStoreOptions{
 		namespace: os.Getenv("POD_NAMESPACE"),
 	}

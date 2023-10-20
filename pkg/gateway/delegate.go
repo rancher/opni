@@ -6,13 +6,15 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"log/slog"
+
 	"github.com/kralicky/totem"
 	agentv1 "github.com/rancher/opni/pkg/agent"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -38,15 +40,15 @@ type DelegateServer struct {
 	streamv1.UnsafeDelegateServer
 	mu           sync.RWMutex
 	activeAgents map[string]agentInfo
-	logger       *zap.SugaredLogger
+	logger       *slog.Logger
 	clusterStore storage.ClusterStore
 }
 
-func NewDelegateServer(clusterStore storage.ClusterStore, lg *zap.SugaredLogger) *DelegateServer {
+func NewDelegateServer(clusterStore storage.ClusterStore, lg *slog.Logger) *DelegateServer {
 	return &DelegateServer{
 		activeAgents: make(map[string]agentInfo),
 		clusterStore: clusterStore,
-		logger:       lg.Named("delegate"),
+		logger:       lg.WithGroup("delegate"),
 	}
 }
 

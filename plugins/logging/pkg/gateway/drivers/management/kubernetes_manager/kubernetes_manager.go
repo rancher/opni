@@ -22,13 +22,13 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/management"
 	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
 	"github.com/samber/lo"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
+	"log/slog"
 	opsterv1 "opensearch.opster.io/api/v1"
 	"opensearch.opster.io/pkg/helpers"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -53,7 +53,7 @@ type KubernetesManagerDriver struct {
 type KubernetesManagerDriverOptions struct {
 	OpensearchCluster *opnimeta.OpensearchClusterRef `option:"opensearchCluster"`
 	K8sClient         client.Client                  `option:"k8sClient"`
-	Logger            *zap.SugaredLogger
+	Logger            *slog.Logger
 }
 
 func NewKubernetesManagerDriver(options KubernetesManagerDriverOptions) (*KubernetesManagerDriver, error) {
@@ -100,13 +100,13 @@ func (d *KubernetesManagerDriver) AdminPassword(ctx context.Context) (password [
 	retErr = d.K8sClient.Create(ctx, secret)
 	if retErr != nil {
 		if !k8serrors.IsAlreadyExists(retErr) {
-			d.Logger.Errorf("failed to create secret: %v", retErr)
+			d.Logger.Error(fmt.Sprintf("failed to create secret: %v", retErr))
 			retErr = k8sutilerrors.GRPCFromK8s(retErr)
 			return
 		}
 		retErr = d.K8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)
 		if retErr != nil {
-			d.Logger.Errorf("failed to get existing secret: %v", retErr)
+			d.Logger.Error(fmt.Sprintf("failed to get existing secret: %v", retErr))
 			retErr = k8sutilerrors.GRPCFromK8s(retErr)
 			return
 		}
@@ -175,7 +175,7 @@ func (d *KubernetesManagerDriver) DeleteCluster(ctx context.Context) error {
 	loggingClusters := &opnicorev1beta1.LoggingClusterList{}
 	err := d.K8sClient.List(ctx, loggingClusters, client.InNamespace(d.OpensearchCluster.Namespace))
 	if err != nil {
-		d.Logger.Errorf("failed to list logging clusters: %v", err)
+		d.Logger.Error(fmt.Sprintf("failed to list logging clusters: %v", err))
 		return k8sutilerrors.GRPCFromK8s(err)
 	}
 
@@ -192,7 +192,7 @@ func (d *KubernetesManagerDriver) DeleteCluster(ctx context.Context) error {
 
 	err = d.K8sClient.Delete(ctx, cluster)
 	if err != nil {
-		d.Logger.Errorf("failed to delete cluster: %v", err)
+		d.Logger.Error(fmt.Sprintf("failed to delete cluster: %v", err))
 		return k8sutilerrors.GRPCFromK8s(err)
 	}
 	return nil
@@ -207,7 +207,7 @@ func (d *KubernetesManagerDriver) GetCluster(ctx context.Context) (*loggingadmin
 		if k8serrors.IsNotFound(err) {
 			return &loggingadmin.OpensearchClusterV2{}, nil
 		}
-		d.Logger.Errorf("failed to fetch cluster: %v", err)
+		d.Logger.Error(fmt.Sprintf("failed to fetch cluster: %v", err))
 		return nil, k8sutilerrors.GRPCFromK8s(err)
 	}
 
@@ -251,7 +251,7 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 	}, k8sOpensearchCluster)
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
-			d.Logger.Errorf("failed to fetch cluster: %v", err)
+			d.Logger.Error(fmt.Sprintf("failed to fetch cluster: %v", err))
 			return k8sutilerrors.GRPCFromK8s(err)
 		}
 		exists = false
@@ -300,7 +300,7 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 
 		err = d.K8sClient.Create(ctx, k8sOpensearchCluster)
 		if err != nil {
-			d.Logger.Errorf("failed to create cluster: %v", err)
+			d.Logger.Error(fmt.Sprintf("failed to create cluster: %v", err))
 			return k8sutilerrors.GRPCFromK8s(err)
 		}
 		return nil
@@ -330,7 +330,7 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 	})
 
 	if err != nil {
-		d.Logger.Errorf("failed to update cluster: %v", err)
+		d.Logger.Error(fmt.Sprintf("failed to update cluster: %v", err))
 		return k8sutilerrors.GRPCFromK8s(err)
 	}
 	return nil
@@ -348,7 +348,7 @@ func (d *KubernetesManagerDriver) UpgradeAvailable(ctx context.Context, opniVers
 			d.Logger.Error("opensearch cluster does not exist")
 			return false, loggingerrors.WrappedGetPrereqFailed(err)
 		}
-		d.Logger.Errorf("failed to fetch opensearch cluster: %v", err)
+		d.Logger.Error(fmt.Sprintf("failed to fetch opensearch cluster: %v", err))
 		return false, k8sutilerrors.GRPCFromK8s(err)
 	}
 
@@ -395,7 +395,7 @@ func (d *KubernetesManagerDriver) DoUpgrade(ctx context.Context, opniVersion str
 		return d.K8sClient.Update(ctx, k8sOpensearchCluster)
 	})
 	if err != nil {
-		d.Logger.Errorf("failed to update opensearch cluster: %v", err)
+		d.Logger.Error(fmt.Sprintf("failed to update opensearch cluster: %v", err))
 		return k8sutilerrors.GRPCFromK8s(err)
 	}
 	return nil
@@ -404,7 +404,7 @@ func (d *KubernetesManagerDriver) DoUpgrade(ctx context.Context, opniVersion str
 func (d *KubernetesManagerDriver) GetStorageClasses(ctx context.Context) ([]string, error) {
 	storageClasses := &storagev1.StorageClassList{}
 	if err := d.K8sClient.List(ctx, storageClasses); err != nil {
-		d.Logger.Errorf("failed to list storageclasses: %v", err)
+		d.Logger.Error(fmt.Sprintf("failed to list storageclasses: %v", err))
 		return nil, k8sutilerrors.GRPCFromK8s(err)
 	}
 
@@ -431,7 +431,7 @@ func (d *KubernetesManagerDriver) CreateOrUpdateSnapshotSchedule(
 			d.Logger.Error("opensearch repository does not exist")
 			return loggingerrors.WrappedGetPrereqFailed(err)
 		}
-		d.Logger.Errorf("failed to list opensearch repositories: %v", err)
+		d.Logger.Error(fmt.Sprintf("failed to list opensearch repositories: %v", err))
 		return k8sutilerrors.GRPCFromK8s(err)
 	}
 
@@ -449,7 +449,7 @@ func (d *KubernetesManagerDriver) GetSnapshotSchedule(
 		Namespace: d.OpensearchCluster.Namespace,
 	}, snapshot)
 	if err != nil {
-		d.Logger.Errorf("failed to fetch snapshot: %v", err)
+		d.Logger.Error(fmt.Sprintf("failed to fetch snapshot: %v", err))
 		return nil, k8sutilerrors.GRPCFromK8s(err)
 	}
 
@@ -482,7 +482,7 @@ func (d *KubernetesManagerDriver) DeleteSnapshotSchedule(ctx context.Context, re
 		},
 	})
 	if client.IgnoreNotFound(err) != nil {
-		d.Logger.Errorf("failed to delete snapshot: %v", err)
+		d.Logger.Error(fmt.Sprintf("failed to delete snapshot: %v", err))
 		return k8sutilerrors.GRPCFromK8s(err)
 	}
 
@@ -493,7 +493,7 @@ func (d *KubernetesManagerDriver) DeleteSnapshotSchedule(ctx context.Context, re
 		},
 	})
 	if client.IgnoreNotFound(err) != nil {
-		d.Logger.Errorf("failed to delete snapshot: %v", err)
+		d.Logger.Error(fmt.Sprintf("failed to delete snapshot: %v", err))
 		return k8sutilerrors.GRPCFromK8s(err)
 	}
 

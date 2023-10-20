@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/hooks"
@@ -83,7 +84,7 @@ func setupManagementServer(vars **testVars, pl plugins.LoaderInterface, opts ...
 		pl.Hook(hooks.OnLoadingCompleted(func(int) {
 			defer GinkgoRecover()
 			if err := server.ListenAndServe(ctx); err != nil {
-				testlog.Log.Error(err)
+				testlog.Log.Error("error", logger.Err(err))
 			}
 		}))
 		tv.client, err = management.NewClient(ctx,

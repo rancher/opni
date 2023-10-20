@@ -150,13 +150,12 @@ func colorHandlerWithOptions(opts ...LoggerOption) slog.Handler {
 	options.apply(opts...)
 
 	if DefaultWriter == nil {
-		DefaultWriter = os.Stdout
+		DefaultWriter = os.Stderr
 	}
 
 	var middlewares []slogmulti.Middleware
 	if options.TotemFormatEnabled {
 		options.OmitLoggerName = true
-		options.Writer = os.Stderr
 		middlewares = append(middlewares, newTotemNameMiddleware())
 	}
 	if options.Sampling != nil {

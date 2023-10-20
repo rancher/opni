@@ -222,20 +222,25 @@ func (r *Reconciler) newAlertingAlertManager(
 		VolumeMounts: r.alertmanagerMounts(),
 		ReadinessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Scheme: corev1.URISchemeHTTPS,
-					Path:   "/-/ready",
-					Port:   intstr.FromString("web-port"),
+				Exec: &corev1.ExecAction{
+					Command: []string{
+						"/usr/bin/curl", "-k", "https://127.0.0.1:9093/-/ready",
+						"--key", "/run/certs/client/tls.key",
+						"--cert", "/run/certs/client/tls.crt",
+						"--cacert", "/run/certs/client/ca.crt",
+					},
 				},
 			},
 		},
 		LivenessProbe: &corev1.Probe{
-			FailureThreshold: 100,
 			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Scheme: corev1.URISchemeHTTPS,
-					Path:   "/-/healthy",
-					Port:   intstr.FromString("web-port"),
+				Exec: &corev1.ExecAction{
+					Command: []string{
+						"/usr/bin/curl", "-k", "https://127.0.0.1:9093/-/healthy",
+						"--key", "/run/certs/client/tls.key",
+						"--cert", "/run/certs/client/tls.crt",
+						"--cacert", "/run/certs/client/ca.crt",
+					},
 				},
 			},
 		},
@@ -275,6 +280,30 @@ func (r *Reconciler) newAlertingSyncer(args []string) corev1.Container {
 			args...),
 		Ports:        r.syncerPorts(),
 		VolumeMounts: r.syncerMounts(),
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{
+						"/usr/bin/curl", "-k", "https://127.0.0.1:9093/-/ready",
+						"--key", "/run/certs/client/tls.key",
+						"--cert", "/run/certs/client/tls.crt",
+						"--cacert", "/run/certs/client/ca.crt",
+					},
+				},
+			},
+		},
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{
+						"/usr/bin/curl", "-k", "https://127.0.0.1:9093/-/healthy",
+						"--key", "/run/certs/client/tls.key",
+						"--cert", "/run/certs/client/tls.crt",
+						"--cacert", "/run/certs/client/ca.crt",
+					},
+				},
+			},
+		},
 	}
 
 	spec.Env = append(spec.Env, r.ac.Spec.Alertmanager.ApplicationSpec.ExtraEnvVars...)

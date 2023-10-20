@@ -96,21 +96,6 @@ func (r *Reconciler) storage() ([]corev1.PersistentVolumeClaim, []corev1.Volume)
 				},
 			},
 		},
-		corev1.Volume{
-			Name: "opni-gateway-serving-cert",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName:  "opni-gateway-serving-cert",
-					DefaultMode: lo.ToPtr[int32](0400),
-					Items: []corev1.KeyToPath{
-						{
-							Key:  "ca.crt",
-							Path: "opni-gateway.crt",
-						},
-					},
-				},
-			},
-		},
 	)
 
 	requiredPersistentClaims := []corev1.PersistentVolumeClaim{pvc}
@@ -135,10 +120,6 @@ func (r *Reconciler) alertmanagerMounts() []corev1.VolumeMount {
 			Name:      "alerting-web-config",
 			MountPath: webMountPath,
 		},
-		{
-			Name:      "opni-gateway-serving-cert",
-			MountPath: certStore,
-		},
 	}
 }
 
@@ -156,10 +137,6 @@ func (r *Reconciler) syncerMounts() []corev1.VolumeMount {
 			Name:      "alerting-server-cacert",
 			MountPath: serverCertsMountPath,
 		},
-		{
-			Name:      "opni-gateway-serving-cert",
-			MountPath: certStore,
-		},
 	}
 }
 
@@ -171,21 +148,26 @@ func (r *Reconciler) webConfig() (*corev1.ConfigMap, error) {
 tls_server_config:
     cert_file: %s
     key_file: %s
-    client_auth_type: ""
-    client_ca_file: ""
+    client_auth_type: "RequireAndVerifyClientCert"
+    client_ca_file: "%s"
     cipher_suites: []
     curve_preferences: []
     min_version: TLS12
     max_version: TLS13
     prefer_server_cipher_suites: false
-    client_allowed_sans: []
+    client_allowed_sans: [
+		"localhost",
+		"alerting-client",
+		"opni-gateway-client",
+		"cortex-client",
+	]
 http_server_config:
     http2: false
 
 `,
 		path.Join(serverCertsMountPath, "tls.crt"),
 		path.Join(serverCertsMountPath, "tls.key"),
-		// path.Join(serverCertsMountPath, "ca.crt"),
+		path.Join(clientCertsMountPath, "ca.crt"),
 	)
 
 	cm := &corev1.ConfigMap{

@@ -93,6 +93,15 @@ service NodeConfiguration {
     };
   }
 
+  // {{ template "DryRun" }}
+  rpc DryRun(DryRunRequest) returns (DryRunResponse) {
+    option (cli.command).skip = true;
+    option (google.api.http) = {
+      post: "/dry-run"
+      body: "*"
+    };
+  }
+
   // {{ template "ConfigurationHistory" }}
   rpc ConfigurationHistory(ConfigurationHistoryRequest) returns (ConfigurationHistoryResponse) {
     option (cli.command) = {
@@ -189,6 +198,23 @@ message GetRequest {
 message SetRequest {
   core.Reference          node = 1; // Only used for active config requests
   MetricsCapabilityConfig spec = 2;
+}
+
+message DryRunRequest {
+  driverutil.Target target = 1;
+  driverutil.Action action = 2;
+
+  MetricsCapabilityConfig spec = 3; // Set
+
+  core.Revision             revision = 4 [(cli.flag_set).no_prefix = true]; // Reset
+  MetricsCapabilityConfig   patch    = 5 [(cli.flag).skip = true]; // Reset
+  google.protobuf.FieldMask mask     = 6 [(cli.flag).skip = true]; // Reset
+}
+
+message DryRunResponse {
+  MetricsCapabilityConfig             current          = 1;
+  MetricsCapabilityConfig             modified         = 2;
+  repeated driverutil.ValidationError validationErrors = 3;
 }
 
 message ConfigurationHistoryRequest {

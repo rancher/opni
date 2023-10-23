@@ -6,6 +6,8 @@ import (
 	cli "github.com/rancher/opni/internal/codegen/cli"
 	"github.com/rancher/opni/pkg/otel"
 	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
+	"github.com/rancher/opni/pkg/plugins/driverutil/dryrun"
+	"github.com/rancher/opni/pkg/plugins/driverutil/rollback"
 	"github.com/rancher/opni/pkg/tui"
 	"golang.org/x/term"
 )
@@ -70,5 +72,11 @@ func (h *ConfigurationHistoryResponse) RenderText(out cli.Writer) {
 }
 
 func init() {
-
+	addExtraNodeConfigurationCmd(dryrun.BuildCmd("config dry-run", NodeConfigurationContextInjector,
+		BuildNodeConfigurationSetConfigurationCmd(),
+		BuildNodeConfigurationSetDefaultConfigurationCmd(),
+		BuildNodeConfigurationResetConfigurationCmd(),
+		BuildNodeConfigurationResetDefaultConfigurationCmd(),
+	))
+	addExtraNodeConfigurationCmd(rollback.BuildCmd("config rollback", NodeConfigurationContextInjector))
 }

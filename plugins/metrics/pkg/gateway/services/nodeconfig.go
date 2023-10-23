@@ -44,6 +44,19 @@ func (s *NodeConfigService) ManagementServices() []util.ServicePackInterface {
 	}
 }
 
+// DryRun implements node.NodeConfigurationServer.
+func (s *NodeConfigService) DryRun(ctx context.Context, req *node.DryRunRequest) (*node.DryRunResponse, error) {
+	res, err := s.Tracker().DryRun(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &node.DryRunResponse{
+		Current:          res.Current,
+		Modified:         res.Modified,
+		ValidationErrors: []*driverutil.ValidationError{}, // TODO: implement node config validation
+	}, nil
+}
+
 func init() {
 	types.Services.Register("Node Config Service", func(_ context.Context, opts ...driverutil.Option) (types.Service, error) {
 		svc := &NodeConfigService{}

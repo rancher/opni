@@ -118,9 +118,13 @@ func init() {
 		})
 	})
 
-	// NB: order matters here in order to pick up the build hook correctly
-	// this is not added in dryrun.go because it is in the wrong order
-	// alphabetically by filename
-	addExtraCortexOpsCmd(dryrun.BuildCmd("config dry-run", CortexOpsContextInjector))
+	addExtraCortexOpsCmd(dryrun.BuildCmd("config dry-run", CortexOpsContextInjector,
+		BuildCortexOpsSetConfigurationCmd(),
+		BuildCortexOpsSetDefaultConfigurationCmd(),
+		BuildCortexOpsResetConfigurationCmd(),
+		BuildCortexOpsResetDefaultConfigurationCmd(),
+		BuildCortexOpsInstallCmd(),
+		BuildCortexOpsUninstallCmd(),
+	))
 	addExtraCortexOpsCmd(rollback.BuildCmd("config rollback", CortexOpsContextInjector))
 }

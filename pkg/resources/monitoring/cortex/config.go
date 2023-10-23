@@ -93,7 +93,11 @@ func (r *Reconciler) config() ([]resources.Resource, string, error) {
 		configutil.NewImplementationSpecificOverrides(configutil.ImplementationSpecificOverridesShape{
 			QueryFrontendAddress: "cortex-query-frontend-headless:9095",
 			MemberlistJoinAddrs:  []string{"cortex-memberlist"},
-			AlertmanagerURL:      fmt.Sprintf("https://opni-internal.%s.svc:8080/plugin_alerting/alertmanager", r.mc.Namespace),
+			AlertManager: configutil.AlertmanagerOverrideShape{
+				AlertmanagerURL: fmt.Sprintf("https://opni-internal.%s.svc:8080/plugin_alerting/alertmanager", r.mc.Namespace),
+				EnableV2:        true,
+				ClientTLS:       configutil.TLSClientConfigShape(tlsGatewayClientConfig),
+			},
 		}),
 	)
 

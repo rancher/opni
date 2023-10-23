@@ -10,7 +10,7 @@
 //go:generate cert "Test Cortex Client" cortex/client.crt cortex/client.key --profile=leaf --ca=cortex/root.crt --ca-key=cortex/root.key --san=localhost --san=127.0.0.1
 //go:generate cert "Test Cortex Server" cortex/server.crt cortex/server.key --profile=leaf --ca=cortex/root.crt --ca-key=cortex/root.key --san=localhost --san=127.0.0.1
 //go:generate cert "Test Alerting CA" alerting/root.crt alerting/root.key --profile=intermediate-ca --ca=root_ca.crt --ca-key=root_ca.key
-//go:generate cert "Test Alerting Client" alerting/client.crt alerting/client.key --profile=leaf --ca=cortex/root.crt --ca-key=cortex/root.key --san=localhost --san=127.0.0.1
-//go:generate cert "Test Alerting Server" alerting/server.crt alerting/server.key --profile=leaf --ca=cortex/root.crt --ca-key=cortex/root.key --san=localhost --san=127.0.0.1
+//go:generate cert "Test Alerting Client" alerting/client.crt alerting/client.key --profile=leaf --ca=alerting/root.crt --ca-key=alerting/root.key --san=localhost --san=127.0.0.1
+//go:generate cert "Test Alerting Server" alerting/server.crt alerting/server.key --profile=leaf --ca=alerting/root.crt --ca-key=alerting/root.key --san=localhost --san=127.0.0.1
 
 package testdata

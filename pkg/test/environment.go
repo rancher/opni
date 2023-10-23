@@ -73,6 +73,7 @@ import (
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/plugins/metrics/pkg/cortex/configutil"
 	"github.com/samber/lo"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -826,7 +827,7 @@ type CortexConfigOptions = struct {
 type ImplementationSpecificOverrides = struct {
 	QueryFrontendAddress string
 	MemberlistJoinAddrs  []string
-	AlertmanagerURL      string
+	AlertManager         configutil.AlertmanagerOverrideShape
 }
 
 func (e *Environment) StartCortex(ctx context.Context, configBuilder func(CortexConfigOptions, ImplementationSpecificOverrides) ([]byte, []byte, error)) (context.Context, error) {
@@ -861,7 +862,15 @@ func (e *Environment) StartCortex(ctx context.Context, configBuilder func(Cortex
 			ServerName: "localhost",
 		},
 	}, ImplementationSpecificOverrides{
-		AlertmanagerURL: fmt.Sprintf("https://127.0.0.1:%d/plugin_alerting/alertmanager", e.ports.GatewayHTTP),
+		AlertManager: configutil.AlertmanagerOverrideShape{
+			AlertmanagerURL: fmt.Sprintf("https://127.0.0.1:%d/plugin_alerting/alertmanager", e.ports.GatewayHTTP),
+			EnableV2:        true,
+			ClientTLS: configutil.TLSClientConfigShape{
+				CertPath: path.Join(e.certDir, "client.crt"),
+				KeyPath:  path.Join(e.certDir, "client.key"),
+				CAPath:   path.Join(e.certDir, "root_ca.crt"),
+			},
+		},
 	})
 	if err != nil {
 		panic(err)

@@ -86,7 +86,9 @@ var _ = Describe("Config", Label("unit"), func() {
 				configutil.NewImplementationSpecificOverrides(configutil.ImplementationSpecificOverridesShape{
 					QueryFrontendAddress: "http://localhost:9095",
 					MemberlistJoinAddrs:  []string{"localhost"},
-					AlertmanagerURL:      "http://localhost:9093",
+					AlertManager: configutil.AlertmanagerOverrideShape{
+						AlertmanagerURL: "http://localhost:9093",
+					},
 				}),
 			)...,
 		)

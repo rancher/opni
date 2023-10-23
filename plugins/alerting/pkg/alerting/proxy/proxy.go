@@ -135,6 +135,6 @@ func (a *alertmanagerProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Alertmanager proxy unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	r.URL.Scheme = "http"
+	r.Close = true
 	a.reverseProxy.ServeHTTP(w, r)
 }

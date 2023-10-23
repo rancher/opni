@@ -162,7 +162,7 @@ tls_server_config:
 		"cortex-client",
 	]
 http_server_config:
-    http2: false
+    http2: true
 
 `,
 		path.Join(serverCertsMountPath, "tls.crt"),

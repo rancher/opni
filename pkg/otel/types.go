@@ -6,6 +6,10 @@ import (
 
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/collector/exporter/otlpexporter"
+	"go.opentelemetry.io/collector/exporter/otlphttpexporter"
+	"go.opentelemetry.io/collector/processor/batchprocessor"
+	"go.opentelemetry.io/collector/processor/memorylimiterprocessor"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"gopkg.in/yaml.v2"
 )
@@ -27,6 +31,7 @@ type NodeConfig struct {
 	Metrics       MetricsConfig
 	Containerized bool
 	LogLevel      string
+	OTELConfig    NodeOTELConfig
 }
 
 type AggregatorConfig struct {
@@ -35,6 +40,34 @@ type AggregatorConfig struct {
 	Metrics       MetricsConfig
 	Containerized bool
 	LogLevel      string
+	OTELConfig    AggregatorOTELConfig
+}
+
+type AggregatorOTELConfig struct {
+	Processors *AggregatorOTELProcessors
+	Exporters  *AggregatorOTELExporters
+}
+
+type AggregatorOTELProcessors struct {
+	Batch         batchprocessor.Config
+	MemoryLimiter memorylimiterprocessor.Config
+}
+
+type AggregatorOTELExporters struct {
+	OTLPHTTP otlphttpexporter.Config
+}
+
+type NodeOTELConfig struct {
+	Processors *NodeOTELProcessors
+	Exporters  *NodeOTELExporters
+}
+
+type NodeOTELProcessors struct {
+	MemoryLimiter memorylimiterprocessor.Config
+}
+
+type NodeOTELExporters struct {
+	OTLP otlpexporter.Config
 }
 
 type LoggingConfig struct {

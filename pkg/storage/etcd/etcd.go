@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"log/slog"
 	"path"
 	"sync"
 
@@ -37,7 +38,7 @@ const (
 // EtcdStore implements TokenStore and TenantStore.
 type EtcdStore struct {
 	EtcdStoreOptions
-	Logger *zap.SugaredLogger
+	Logger *slog.Logger
 	Client *clientv3.Client
 
 	closeOnce sync.Once
@@ -66,7 +67,7 @@ func WithPrefix(prefix string) EtcdStoreOption {
 func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...EtcdStoreOption) (*EtcdStore, error) {
 	options := EtcdStoreOptions{}
 	options.apply(opts...)
-	lg := logger.New(logger.WithLogLevel(zap.WarnLevel)).Named("etcd")
+	lg := logger.New(logger.WithLogLevel(slog.LevelWarn)).WithGroup("etcd")
 	var tlsConfig *tls.Config
 	if conf.Certs != nil {
 		var err error
@@ -79,7 +80,7 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 		Endpoints: conf.Endpoints,
 		TLS:       tlsConfig,
 		Context:   context.WithoutCancel(ctx),
-		Logger:    lg.Desugar(),
+		Logger:    zap.NewNop(), // TODO
 	}
 	cli, err := clientv3.New(clientConfig)
 	if err != nil {

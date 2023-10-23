@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-plugin"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -23,7 +25,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.uber.org/atomic"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -46,12 +47,12 @@ func NewAgentPlugin(p StreamAPIExtension) plugin.Plugin {
 	if ok {
 		fnName := fn.Name()
 		parts := strings.Split(fnName, "/")
-		name = fmt.Sprintf("plugin_%s", parts[slices.Index(parts, "plugins")+1])
+		name = parts[slices.Index(parts, "plugins")+1]
 	}
 
 	ext := &agentStreamExtensionServerImpl{
 		name:          name,
-		logger:        logger.NewPluginLogger().Named(name).Named("stream"),
+		logger:        logger.NewPluginLogger().WithGroup(name).WithGroup("stream"),
 		activeStreams: make(map[string]chan struct{}),
 	}
 	if p != nil {
@@ -83,7 +84,7 @@ type agentStreamExtensionServerImpl struct {
 	name          string
 	servers       []*richServer
 	clientHandler StreamClientHandler
-	logger        *zap.SugaredLogger
+	logger        *slog.Logger
 
 	activeStreamsMu sync.Mutex
 	activeStreams   map[string]chan struct{}
@@ -118,7 +119,7 @@ func (e *agentStreamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectS
 
 	if err != nil {
 		e.logger.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Error("failed to create stream server")
 		return err
 	}
@@ -171,7 +172,7 @@ func (e *agentStreamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectS
 		e.logger.Debug("stream closed")
 	} else {
 		e.logger.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Warn("stream disconnected with error")
 	}
 	return err
@@ -180,7 +181,7 @@ func (e *agentStreamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectS
 func (e *agentStreamExtensionServerImpl) Notify(_ context.Context, event *streamv1.StreamEvent) (*emptypb.Empty, error) {
 	e.logger.With(
 		"type", event.Type.String(),
-	).Debugf("received notify event for '%s'", e.name)
+	).Debug(fmt.Sprintf("received notify event for '%s'", e.name))
 	e.activeStreamsMu.Lock()
 	defer e.activeStreamsMu.Unlock()
 

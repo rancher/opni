@@ -12,7 +12,7 @@ import (
 )
 
 func (r *Reconciler) publicContainerPorts() ([]corev1.ContainerPort, error) {
-	lg := r.logger
+	lg := r.lg
 	ports := []corev1.ContainerPort{
 		{
 			Name:          "grpc",

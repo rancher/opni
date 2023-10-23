@@ -7,10 +7,10 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/plugins/metrics/pkg/types"
-	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -42,7 +42,7 @@ func broadcastNodeSyncLocked(sctx types.ServiceContext) {
 			if err != nil {
 				sctx.Logger().With(
 					"agent", target.GetId(),
-					zap.Error(err),
+					logger.Err(err),
 				).Warn("agent responded with error to sync request")
 			}
 		}).
@@ -52,7 +52,7 @@ func broadcastNodeSyncLocked(sctx types.ServiceContext) {
 }
 
 func StartActiveSyncWatcher[T any](ctx types.ServiceContext, activeStore storage.KeyValueStoreT[T]) error {
-	lg := ctx.Logger().Named("active-sync")
+	lg := ctx.Logger().WithGroup("active-sync")
 	activeEvents, err := activeStore.Watch(ctx, "", storage.WithPrefix())
 	if err != nil {
 		return fmt.Errorf("failed to watch active config: %w", err)
@@ -74,9 +74,9 @@ func StartActiveSyncWatcher[T any](ctx types.ServiceContext, activeStore storage
 				continue
 			}
 			if err := RequestNodeSync(ctx, &corev1.Reference{Id: id}); err != nil {
-				lg.Warn("failed to request node sync", zap.Error(err))
+				lg.Warn("failed to request node sync", logger.Err(err))
 			} else {
-				lg.Info("requested node sync", zap.String("id", id))
+				lg.Info("requested node sync", "id", id)
 			}
 		}
 	}()
@@ -84,7 +84,7 @@ func StartActiveSyncWatcher[T any](ctx types.ServiceContext, activeStore storage
 }
 
 func StartDefaultSyncWatcher[T any](ctx types.ServiceContext, defaultStore storage.ValueStoreT[T]) error {
-	lg := ctx.Logger().Named("default-sync")
+	lg := ctx.Logger().WithGroup("default-sync")
 	defaultEvents, err := defaultStore.Watch(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to watch default config: %w", err)
@@ -96,7 +96,7 @@ func StartDefaultSyncWatcher[T any](ctx types.ServiceContext, defaultStore stora
 				return
 			}
 			if err := BroadcastNodeSync(ctx); err != nil {
-				lg.Warn("failed to broadcast node sync", zap.Error(err))
+				lg.Warn("failed to broadcast node sync", logger.Err(err))
 			} else {
 				lg.Info("broadcasted node sync")
 			}

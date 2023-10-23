@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	"github.com/google/uuid"
 	"github.com/kralicky/totem"
 	agentv1 "github.com/rancher/opni/pkg/agent"
@@ -14,10 +16,10 @@ import (
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
-	"go.uber.org/zap"
 	"golang.org/x/sync/singleflight"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -33,7 +35,7 @@ type DelegateServer struct {
 	mu               *sync.RWMutex
 	rcond            *sync.Cond
 	localAgents      map[string]grpc.ClientConnInterface
-	logger           *zap.SugaredLogger
+	logger           *slog.Logger
 	clusterStore     storage.ClusterStore
 	relayDialer      *instanceDialer
 	managementDialer *instanceDialer
@@ -57,7 +59,7 @@ func WithConnectionTracker(connectionTracker *ConnectionTracker) DelegateServerO
 	}
 }
 
-func NewDelegateServer(config v1beta1.GatewayConfigSpec, clusterStore storage.ClusterStore, lg *zap.SugaredLogger, opts ...DelegateServerOption) *DelegateServer {
+func NewDelegateServer(config v1beta1.GatewayConfigSpec, clusterStore storage.ClusterStore, lg *slog.Logger, opts ...DelegateServerOption) *DelegateServer {
 	options := DelegateServerOptions{}
 	options.apply(opts...)
 	mu := &sync.RWMutex{}
@@ -69,7 +71,7 @@ func NewDelegateServer(config v1beta1.GatewayConfigSpec, clusterStore storage.Cl
 		rcond:                 sync.NewCond(mu.RLocker()),
 		localAgents:           make(map[string]grpc.ClientConnInterface),
 		clusterStore:          clusterStore,
-		logger:                lg.Named("delegate"),
+		logger:                lg.WithGroup("delegate"),
 		relayDialer:           newDialer(serverRelay),
 		managementDialer:      newDialer(serverManagement),
 	}
@@ -112,14 +114,14 @@ ATTEMPT:
 			if err != nil {
 				// the actual request failed (network error, etc.)
 				d.logger.With(
-					zap.Error(err),
+					logger.Err(err),
 				).Error("delegating rpc request failed (local)")
 				return nil, err
 			}
 			return fwdResp.GetResponse(), nil
 			// if fwdResp.GetResponse().GetStatus().Err() != nil {
 			// 	d.logger.With(
-			// 		zap.Error(err),
+			// 		logger.Err(err),
 			// 	).Error("delegating rpc request failed (remote)")
 			// 	// the request failed, but somewhere on the remote side
 			// 	return nil, fwdResp.GetResponse().GetStatus().Err()
@@ -130,7 +132,7 @@ ATTEMPT:
 			// err = proto.Unmarshal(fwdResp.GetResponse().GetResponse(), resp)
 			// if err != nil {
 			// 	d.logger.With(
-			// 		zap.Error(err),
+			// 		logger.Err(err),
 			// 	).Error("malformed rpc response from agent")
 			// 	return nil, err
 			// }
@@ -178,7 +180,7 @@ ATTEMPT:
 
 	err := status.Error(codes.NotFound, "target not found")
 	lg.With(
-		zap.Error(err),
+		logger.Err(err),
 	).Warn("delegating rpc request failed")
 	return nil, err
 }
@@ -238,7 +240,7 @@ func (d *DelegateServer) NewRelayServer() *RelayServer {
 		delegateSrv:       d,
 		listenAddress:     d.config.Management.RelayListenAddress,
 		connectionTracker: d.ct,
-		logger:            d.logger.Named("relay"),
+		logger:            d.logger.WithGroup("relay"),
 	}
 }
 
@@ -246,7 +248,7 @@ type RelayServer struct {
 	connectionTracker *ConnectionTracker
 	listenAddress     string
 	delegateSrv       *DelegateServer
-	logger            *zap.SugaredLogger
+	logger            *slog.Logger
 }
 
 func (rs *RelayServer) ListenAndServe(ctx context.Context) error {
@@ -307,7 +309,7 @@ func (rs *RelayServer) RelayDelegateRequest(ctx context.Context, msg *streamv1.R
 	if rs.connectionTracker.IsLocalInstance(principal) {
 		panic("bug: attempted to relay a delegated request to self")
 	}
-	rs.logger.Debugf("delegating request on behalf of %s", principal)
+	rs.logger.Debug("delegating request on behalf of " + principal.GetRelayAddress())
 	if !rs.connectionTracker.IsTrackedLocal(target) {
 		return nil, status.Error(codes.FailedPrecondition, "requested target is not controlled by this instance")
 	}

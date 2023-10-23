@@ -29,8 +29,8 @@ require (
 	github.com/gin-contrib/pprof v1.4.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-kit/log v0.2.1
-	github.com/go-logr/logr v1.2.4
-	github.com/go-logr/zapr v1.2.4
+	github.com/go-logr/logr v1.2.5-0.20231009135404-2ea8628b184c
+	github.com/go-logr/zapr v1.2.4 // indirect
 	github.com/go-openapi/strfmt v0.21.7
 	github.com/go-playground/validator/v10 v10.14.1
 	github.com/golang/protobuf v1.5.3
@@ -56,6 +56,7 @@ require (
 	github.com/klauspost/compress v1.16.7
 	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
 	github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c
+	github.com/kralicky/protols v0.0.0-20231016195038-4e9ca42a9cd8
 	github.com/kralicky/ragu v1.0.11-0.20231016195806-405de9d8d061
 	github.com/kralicky/totem v1.2.2-0.20231014025935-6e4657314606
 	github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d
@@ -98,6 +99,8 @@ require (
 	github.com/rancher/kubernetes-provider-detector v0.1.5
 	github.com/rancher/wrangler v1.1.1-0.20230419173538-80fdf092be3b
 	github.com/samber/lo v1.38.1
+	github.com/samber/slog-multi v1.0.1
+	github.com/samber/slog-sampling v1.0.0
 	github.com/spf13/afero v1.9.5
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
@@ -112,9 +115,13 @@ require (
 	go.etcd.io/etcd/api/v3 v3.5.9
 	go.etcd.io/etcd/client/v3 v3.5.9
 	go.etcd.io/etcd/etcdctl/v3 v3.5.9
+	go.opentelemetry.io/collector/exporter/otlpexporter v0.80.0
+	go.opentelemetry.io/collector/exporter/otlphttpexporter v0.80.0
 	go.opentelemetry.io/collector/pdata v1.0.0-rcv0014
+	go.opentelemetry.io/collector/processor/batchprocessor v0.80.0
+	go.opentelemetry.io/collector/processor/memorylimiterprocessor v0.80.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.40.0
-	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.42.0
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.42.1-0.20230612162650-64be7e574a17
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.42.0
 	go.opentelemetry.io/contrib/propagators/autoprop v0.42.0
 	go.opentelemetry.io/otel v1.16.0
@@ -159,12 +166,10 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
-require github.com/kralicky/protols v0.0.0-20231016195038-4e9ca42a9cd8
-
 require (
 	cloud.google.com/go v0.110.8 // indirect
 	cloud.google.com/go/compute v1.23.0 // indirect
-	cloud.google.com/go/compute/metadata v0.2.3 // indirect
+	cloud.google.com/go/compute/metadata v0.2.4-0.20230617002413-005d2dfb6b68 // indirect
 	cloud.google.com/go/dlp v1.10.1 // indirect
 	cloud.google.com/go/iam v1.1.2 // indirect
 	cloud.google.com/go/storage v1.30.1 // indirect
@@ -285,6 +290,7 @@ require (
 	github.com/go-gorp/gorp/v3 v3.0.5 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-openapi/analysis v0.21.4 // indirect
 	github.com/go-openapi/errors v0.20.4 // indirect
 	github.com/go-openapi/jsonpointer v0.20.0 // indirect
@@ -376,6 +382,7 @@ require (
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
+	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/matryer/is v1.4.0 // indirect
@@ -405,6 +412,7 @@ require (
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
+	github.com/mostynb/go-grpc-compression v1.1.19 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
@@ -433,11 +441,12 @@ require (
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
-	github.com/pierrec/lz4/v4 v4.1.16 // indirect
+	github.com/pierrec/lz4/v4 v4.1.17 // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/pkg/term v1.1.0 // indirect
 	github.com/plar/go-adaptive-radix-tree v1.0.5
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
+	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/prometheus/client_model v0.4.0 // indirect
 	github.com/rancher/lasso v0.0.0-20221227210133-6ea88ca2fbcc // indirect
 	github.com/redis/rueidis v1.0.14-go1.18 // indirect
@@ -454,6 +463,7 @@ require (
 	github.com/seiflotfy/cuckoofilter v0.0.0-20220411075957-e3b120b3f5fb // indirect
 	github.com/sercand/kuberesolver v2.4.0+incompatible // indirect
 	github.com/sergi/go-diff v1.3.1 // indirect
+	github.com/shirou/gopsutil/v3 v3.23.5 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/shurcooL/httpfs v0.0.0-20230704072500-f1e31cf0ba5c // indirect
 	github.com/shurcooL/vfsgen v0.0.0-20200824052919-0d455de96546 // indirect
@@ -472,6 +482,8 @@ require (
 	github.com/therootcompany/xz v1.0.1 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/tklauser/go-sysconf v0.3.11 // indirect
+	github.com/tklauser/numcpus v0.6.0 // indirect
 	github.com/tweekmonster/luser v0.0.0-20161003172636-3fa38070dbd7 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/uber/jaeger-client-go v2.30.0+incompatible // indirect
@@ -488,6 +500,7 @@ require (
 	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
 	github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 // indirect
 	github.com/xlab/treeprint v1.1.0 // indirect
+	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	github.com/zclconf/go-cty v1.12.1 // indirect
 	go.etcd.io/bbolt v1.3.7 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.9 // indirect
@@ -500,11 +513,20 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/collector v0.80.0 // indirect
 	go.opentelemetry.io/collector/component v0.80.0 // indirect
+	go.opentelemetry.io/collector/config/configauth v0.80.0 // indirect
+	go.opentelemetry.io/collector/config/configcompression v0.80.0 // indirect
+	go.opentelemetry.io/collector/config/configgrpc v0.80.0 // indirect
+	go.opentelemetry.io/collector/config/confighttp v0.80.0 // indirect
+	go.opentelemetry.io/collector/config/confignet v0.80.0 // indirect
+	go.opentelemetry.io/collector/config/configopaque v0.80.0 // indirect
 	go.opentelemetry.io/collector/config/configtelemetry v0.80.0 // indirect
+	go.opentelemetry.io/collector/config/configtls v0.80.0 // indirect
+	go.opentelemetry.io/collector/config/internal v0.80.0 // indirect
 	go.opentelemetry.io/collector/confmap v0.80.1-0.20230629234129-50c94c941969 // indirect
 	go.opentelemetry.io/collector/consumer v0.80.0 // indirect
-	go.opentelemetry.io/collector/exporter v0.80.0 // indirect
+	go.opentelemetry.io/collector/exporter v0.80.0
 	go.opentelemetry.io/collector/extension v0.80.0 // indirect
+	go.opentelemetry.io/collector/extension/auth v0.80.0 // indirect
 	go.opentelemetry.io/collector/featuregate v1.0.0-rcv0013 // indirect
 	go.opentelemetry.io/collector/processor v0.80.0 // indirect
 	go.opentelemetry.io/collector/receiver v0.80.0 // indirect
@@ -564,10 +586,11 @@ replace (
 	github.com/grafana-operator/grafana-operator/v4 => github.com/kralicky/grafana-operator/v4 v4.2.1-0.20230714191401-f7b79b2f8d98
 	// https://github.com/hashicorp/go-plugin/pull/251
 	github.com/hashicorp/go-plugin => github.com/alexandreLamarre/go-plugin v0.1.1-0.20230417174342-eab684801be5
-	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza => github.com/dbason/opentelemetry-collector-contrib/pkg/stanza v0.0.0-20230704041503-6f0f267c2d92
+	// TODO update once PR merged here: github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza => github.com/dbason/opentelemetry-collector-contrib/pkg/stanza v0.0.0-20230704041503-6f0f267c2d92
+	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza => github.com/jan-law/opentelemetry-collector-contrib/pkg/stanza v0.0.0-20231011183323-1da8f0d6468b
 	github.com/opensearch-project/opensearch-go/v2 => github.com/dbason/opensearch-go/v2 v2.0.0-20221202021211-6aec8f80bc41
 	github.com/rancher/charts-build-scripts => github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116
-	go.uber.org/zap => github.com/kralicky/zap v1.24.1-0.20230718165024-a2256218e4cc
+	github.com/samber/slog-sampling => github.com/jan-law/slog-sampling v0.0.0-20231013170129-ef692b2d04c4
 	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20230911044558-c677eb01b26a
 )
 

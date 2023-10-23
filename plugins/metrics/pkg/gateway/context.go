@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -13,7 +14,6 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 	"github.com/rancher/opni/plugins/metrics/pkg/types"
-	"go.uber.org/zap"
 	"golang.org/x/tools/pkg/memoize"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -67,7 +67,7 @@ type pluginContextData struct {
 
 type pluginContext struct {
 	context.Context
-	logger     *zap.SugaredLogger
+	logger     *slog.Logger
 	metrics    *types.Metrics
 	store      *memoize.Store
 	releasesMu sync.Mutex
@@ -75,7 +75,7 @@ type pluginContext struct {
 	d          pluginContextData
 }
 
-func newPluginContext(ctx context.Context, metrics *types.Metrics, logger *zap.SugaredLogger) (types.PluginContext, *pluginContextData) {
+func newPluginContext(ctx context.Context, metrics *types.Metrics, logger *slog.Logger) (types.PluginContext, *pluginContextData) {
 	pctx := pluginContext{
 		Context: ctx,
 		logger:  logger,
@@ -126,7 +126,7 @@ func (c *pluginContext) SetServingStatus(serviceName string, status grpc_health_
 	c.d.serviceCtrl.F().SetServingStatus(serviceName, status)
 }
 
-func (c *pluginContext) Logger() *zap.SugaredLogger {
+func (c *pluginContext) Logger() *slog.Logger {
 	return c.logger
 }
 

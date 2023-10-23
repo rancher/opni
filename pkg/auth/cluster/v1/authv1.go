@@ -12,7 +12,7 @@ import (
 	authutil "github.com/rancher/opni/pkg/auth/util"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/streams"
-	"go.uber.org/zap"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/rancher/opni/pkg/auth/cluster"
@@ -29,12 +29,12 @@ const (
 
 type Server struct {
 	method   string
-	logger   *zap.SugaredLogger
+	logger   *slog.Logger
 	verifier challenges.KeyringVerifier
 }
 
 // Deprecated: authv1 is deprecated and will be removed in a future release.
-func NewServerChallenge(method string, verifier challenges.KeyringVerifier, logger *zap.SugaredLogger) challenges.ChallengeHandler {
+func NewServerChallenge(method string, verifier challenges.KeyringVerifier, logger *slog.Logger) challenges.ChallengeHandler {
 	return &Server{
 		logger:   logger,
 		method:   method,

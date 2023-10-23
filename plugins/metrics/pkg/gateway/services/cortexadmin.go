@@ -16,6 +16,7 @@ import (
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
 	"github.com/cortexproject/cortex/pkg/distributor"
+	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/util"
@@ -24,7 +25,6 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/types"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/tools/pkg/memoize"
 	"google.golang.org/grpc/codes"
@@ -153,7 +153,7 @@ func (s *CortexAdminService) WriteMetrics(ctx context.Context, in *cortexadmin.W
 	}
 	_, err = cs.Distributor().Push(outgoingContext(ctx, in), cortexReq)
 	if err != nil {
-		lg.With(zap.Error(err)).Error("failed to write metrics")
+		lg.With(logger.Err(err)).Error("failed to write metrics")
 		return nil, err
 	}
 	return &cortexadmin.WriteResponse{}, nil
@@ -378,7 +378,7 @@ func (s *CortexAdminService) ListRules(ctx context.Context, req *cortexadmin.Lis
 			defer wg.Done()
 			resp, err := s.listCortexRules(ctx, clusterId)
 			if err != nil {
-				lg.Error(err)
+				lg.With(logger.Err(err)).Error("failed to list rules")
 				return
 			}
 			if resp.StatusCode != http.StatusOK {
@@ -389,14 +389,14 @@ func (s *CortexAdminService) ListRules(ctx context.Context, req *cortexadmin.Lis
 			}
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				lg.Errorf("failed to read response body: %w", err)
+				lg.With(logger.Err(err)).Error("failed to read response body")
 				return
 			}
 
 			ruleResp := &cortexadmin.ListRulesResponse{}
 			err = json.Unmarshal(body, ruleResp)
 			if err != nil {
-				lg.Error(err)
+				lg.With(logger.Err(err)).Error("failed to unmarshal response body")
 				return
 			}
 
@@ -648,7 +648,7 @@ func (s *CortexAdminService) FlushBlocks(ctx context.Context, _ *emptypb.Empty) 
 			resp, err := httpClient.Do(req)
 			if err != nil {
 				lg.With(
-					zap.Error(err),
+					logger.Err(err),
 				).Error("failed to flush ingester")
 				return err
 			}
@@ -663,7 +663,7 @@ func (s *CortexAdminService) FlushBlocks(ctx context.Context, _ *emptypb.Empty) 
 				lg.With(
 					"code", resp.StatusCode,
 					"error", string(body),
-				).Errorf("failed to flush ingester")
+				).Error("failed to flush ingester")
 			}
 
 			lg.Info("flushed ingester successfully")
@@ -783,11 +783,11 @@ func (s *CortexAdminService) proxyCortexToPrometheus(
 		"request", url,
 	)
 	if err != nil {
-		lg.Errorf("failed with %v", err)
+		lg.With(logger.Err(err)).Error("request failed")
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		lg.Errorf("request failed with %s", resp.Status)
+		lg.With("status", resp.Status).Error("request failed")
 		return nil, fmt.Errorf("request failed with: %s", resp.Status)
 	}
 	return resp, nil

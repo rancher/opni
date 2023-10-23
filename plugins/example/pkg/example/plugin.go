@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
+	"log/slog"
+
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -44,7 +44,7 @@ type ExamplePlugin struct {
 	capabilityv1.UnsafeBackendServer
 	system.UnimplementedSystemPluginClient
 	ctx    context.Context
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 
 	storageBackend      future.Future[storage.Backend]
 	uninstallController future.Future[*task.Controller]
@@ -88,19 +88,19 @@ func (p *ExamplePlugin) UseCachingProvider(cacheProvider caching.CachingProvider
 func (p *ExamplePlugin) UseManagementAPI(client managementv1.ManagementClient) {
 	cfg, err := client.GetConfig(context.Background(), &emptypb.Empty{}, grpc.WaitForReady(true))
 	if err != nil {
-		p.logger.With(zap.Error(err)).Error("failed to get config")
+		p.logger.With(logger.Err(err)).Error("failed to get config")
 		return
 	}
 	objectList, err := machinery.LoadDocuments(cfg.Documents)
 	if err != nil {
-		p.logger.With(zap.Error(err)).Error("failed to load config")
+		p.logger.With(logger.Err(err)).Error("failed to load config")
 		return
 	}
 	machinery.LoadAuthProviders(p.ctx, objectList)
 	objectList.Visit(func(config *v1beta1.GatewayConfig) {
 		backend, err := machinery.ConfigureStorageBackend(p.ctx, &config.Spec.Storage)
 		if err != nil {
-			p.logger.With(zap.Error(err)).Error("failed to configure storage backend")
+			p.logger.With(logger.Err(err)).Error("failed to configure storage backend")
 			return
 		}
 		p.storageBackend.Set(backend)
@@ -117,7 +117,7 @@ func (p *ExamplePlugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		storageBackend: p.storageBackend.Get(),
 	})
 	if err != nil {
-		p.logger.With(zap.Error(err)).Error("failed to create uninstall controller")
+		p.logger.With(logger.Err(err)).Error("failed to create uninstall controller")
 		return
 	}
 	p.uninstallController.Set(ctrl)
@@ -233,7 +233,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := &ExamplePlugin{
 		ctx:                 ctx,
-		logger:              logger.NewPluginLogger().Named("example"),
+		logger:              logger.NewPluginLogger().WithGroup("example"),
 		storageBackend:      future.New[storage.Backend](),
 		uninstallController: future.New[*task.Controller](),
 	}
@@ -250,7 +250,7 @@ type uninstallTaskRunner struct {
 }
 
 func (u *uninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveTask) error {
-	ti.AddLogEntry(zapcore.InfoLevel, "Removing capability from cluster metadata")
+	ti.AddLogEntry(slog.LevelInfo, "Removing capability from cluster metadata")
 	_, err := u.storageBackend.UpdateCluster(ctx, &corev1.Reference{
 		Id: ti.TaskId(),
 	}, storage.NewRemoveCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityExample)))
@@ -263,12 +263,12 @@ func (u *uninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveT
 func (u *uninstallTaskRunner) OnTaskCompleted(ctx context.Context, ti task.ActiveTask, state task.State, args ...any) {
 	switch state {
 	case task.StateCompleted:
-		ti.AddLogEntry(zapcore.InfoLevel, "Capability uninstalled successfully")
+		ti.AddLogEntry(slog.LevelInfo, "Capability uninstalled successfully")
 		return // no deletion timestamp to reset, since the capability should be gone
 	case task.StateFailed:
-		ti.AddLogEntry(zapcore.ErrorLevel, fmt.Sprintf("Capability uninstall failed: %v", args[0]))
+		ti.AddLogEntry(slog.LevelError, fmt.Sprintf("Capability uninstall failed: %v", args[0]))
 	case task.StateCanceled:
-		ti.AddLogEntry(zapcore.InfoLevel, "Capability uninstall canceled")
+		ti.AddLogEntry(slog.LevelInfo, "Capability uninstall canceled")
 	}
 
 	// Reset the deletion timestamp
@@ -283,6 +283,6 @@ func (u *uninstallTaskRunner) OnTaskCompleted(ctx context.Context, ti task.Activ
 		}
 	})
 	if err != nil {
-		ti.AddLogEntry(zapcore.WarnLevel, fmt.Sprintf("Failed to reset deletion timestamp: %v", err))
+		ti.AddLogEntry(slog.LevelWarn, fmt.Sprintf("Failed to reset deletion timestamp: %v", err))
 	}
 }

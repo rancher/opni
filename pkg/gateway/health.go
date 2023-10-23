@@ -3,15 +3,16 @@ package gateway
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"path"
 	"strings"
 	sync "sync"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/health"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/kvutil"
-	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -24,12 +25,12 @@ type HealthStatusWriterManager struct {
 	healthQueueByAgent map[string]chan health.HealthUpdate
 	statusQueueByAgent map[string]chan health.StatusUpdate
 	connectionsKv      storage.KeyValueStore
-	logger             *zap.SugaredLogger
+	logger             *slog.Logger
 }
 
 var _ TrackedConnectionListener = (*HealthStatusWriterManager)(nil)
 
-func NewHealthStatusWriterManager(ctx context.Context, rootKv storage.KeyValueStore, lg *zap.SugaredLogger) *HealthStatusWriterManager {
+func NewHealthStatusWriterManager(ctx context.Context, rootKv storage.KeyValueStore, lg *slog.Logger) *HealthStatusWriterManager {
 	healthQueue := make(chan health.HealthUpdate, 256)
 	statusQueue := make(chan health.StatusUpdate, 256)
 	mgr := &HealthStatusWriterManager{
@@ -65,7 +66,7 @@ func (w *HealthStatusWriterManager) agentHealthQueue(id string) chan health.Heal
 		return q
 	}
 	q := make(chan health.HealthUpdate, 8)
-	w.logger.Debugf("initializing health queue for %s", id)
+	w.logger.With("id", id).Debug("initializing agent health queue")
 	w.healthQueueByAgent[id] = q
 	return q
 }
@@ -77,7 +78,7 @@ func (w *HealthStatusWriterManager) agentStatusQueue(id string) chan health.Stat
 		return q
 	}
 	q := make(chan health.StatusUpdate, 8)
-	w.logger.Debugf("initializing health queue for %s", id)
+	w.logger.With("id", id).Debug("initializing agent status queue")
 	w.statusQueueByAgent[id] = q
 	return q
 }
@@ -103,7 +104,7 @@ func (w *HealthStatusWriterManager) HandleTrackedConnection(ctx context.Context,
 	// see docs for NewHealthStatusWriter for details on context usage
 	hsw := NewHealthStatusWriter(context.WithoutCancel(ctx), kvutil.WithMessageCodec[*corev1.InstanceInfo](kvutil.WithKey(w.connectionsKv, path.Join(agentId, leaseId))), w.logger)
 	agentBuffer := health.AsBuffer(w.agentHealthQueue(agentId), w.agentStatusQueue(agentId))
-	w.logger.Debugf("handling new tracked connection for %s", agentId)
+	w.logger.With("id", agentId).Debug("handling new tracked agent connection")
 	go func() {
 		defer hsw.Close()
 		health.Copy(ctx, hsw, agentBuffer)
@@ -130,7 +131,7 @@ var _ health.HealthStatusUpdateWriter = (*HealthStatusWriter)(nil)
 // the writer, call Close() which will block until all messages have been
 // processed (or the context is canceled, in which case the writer may fail to
 // write the final health and status updates to the value store)
-func NewHealthStatusWriter(ctx context.Context, v storage.ValueStoreT[*corev1.InstanceInfo], lg *zap.SugaredLogger) health.HealthStatusUpdateWriter {
+func NewHealthStatusWriter(ctx context.Context, v storage.ValueStoreT[*corev1.InstanceInfo], lg *slog.Logger) health.HealthStatusUpdateWriter {
 	healthC := make(chan health.HealthUpdate, 8)
 	statusC := make(chan health.StatusUpdate, 8)
 	closed := make(chan struct{})
@@ -147,7 +148,7 @@ func NewHealthStatusWriter(ctx context.Context, v storage.ValueStoreT[*corev1.In
 				if errors.Is(err, ctx.Err()) {
 					return err
 				}
-				lg.With(zap.Error(err)).Error("failed to get instance info during health update")
+				lg.With(logger.Err(err)).Error("failed to get instance info during health update")
 				return nil
 			}
 			if ii == nil {
@@ -162,7 +163,7 @@ func NewHealthStatusWriter(ctx context.Context, v storage.ValueStoreT[*corev1.In
 				if errors.Is(err, ctx.Err()) {
 					return err
 				}
-				lg.With(zap.Error(err)).Error("failed to put instance info during health update")
+				lg.With(logger.Err(err)).Error("failed to put instance info during health update")
 			}
 			return nil
 		}
@@ -177,7 +178,7 @@ func NewHealthStatusWriter(ctx context.Context, v storage.ValueStoreT[*corev1.In
 				if errors.Is(err, ctx.Err()) {
 					return err
 				}
-				lg.With(zap.Error(err)).Error("failed to get instance info during status update")
+				lg.With(logger.Err(err)).Error("failed to get instance info during status update")
 				return nil
 			}
 			if ii == nil {
@@ -192,7 +193,7 @@ func NewHealthStatusWriter(ctx context.Context, v storage.ValueStoreT[*corev1.In
 				if errors.Is(err, ctx.Err()) {
 					return err
 				}
-				lg.With(zap.Error(err)).Error("failed to put instance info during status update")
+				lg.With(logger.Err(err)).Error("failed to put instance info during status update")
 			}
 			return nil
 		}

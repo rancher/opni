@@ -8,15 +8,16 @@ import (
 	"strconv"
 	"time"
 
+	"log/slog"
+
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 func init() {
 	gin.ForceConsoleColor()
 }
 
-func GinLogger(lg *zap.SugaredLogger) gin.HandlerFunc {
+func GinLogger(lg *slog.Logger) gin.HandlerFunc {
 	v, ok := os.LookupEnv("OPNI_ENABLE_GIN_LOGGING")
 	enabled, _ := strconv.ParseBool(v)
 	if ok && enabled {

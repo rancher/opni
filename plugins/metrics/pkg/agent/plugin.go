@@ -2,6 +2,9 @@ package agent
 
 import (
 	"context"
+	"fmt"
+
+	"log/slog"
 
 	healthpkg "github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"
@@ -14,12 +17,11 @@ import (
 	"github.com/rancher/opni/pkg/util/notifier"
 	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
-	"go.uber.org/zap"
 )
 
 type Plugin struct {
 	ctx    context.Context
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 
 	httpServer   *HttpServer
 	ruleStreamer *RuleStreamer
@@ -29,7 +31,7 @@ type Plugin struct {
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
-	lg := logger.NewPluginLogger().Named("metrics")
+	lg := logger.NewPluginLogger().WithGroup("metrics")
 
 	ct := healthpkg.NewDefaultConditionTracker(lg)
 
@@ -50,7 +52,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		if err != nil {
 			lg.With(
 				"driver", name,
-				zap.Error(err),
+				logger.Err(err),
 			).Warn("failed to initialize node driver")
 			continue
 		}
@@ -79,7 +81,7 @@ func (p *Plugin) ConfigureNode(nodeId string, cfg *node.MetricsCapabilityStatus)
 				continue
 			}
 			if f := driver.ConfigureRuleGroupFinder(cfg.Spec.Rules); f != nil {
-				lg.Infof("prometheus rule finder configured for driver %s", name)
+				lg.Info(fmt.Sprintf("prometheus rule finder configured for driver %d", name))
 				finders = append(finders, f)
 			}
 		}

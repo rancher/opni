@@ -7,25 +7,27 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/health"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/util/notifier"
 	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"gopkg.in/yaml.v3"
 )
 
 type RuleStreamer struct {
-	logger              *zap.SugaredLogger
+	logger              *slog.Logger
 	remoteWriteClientMu sync.Mutex
 	remoteWriteClient   remotewrite.RemoteWriteClient
 	conditions          health.ConditionTracker
 }
 
-func NewRuleStreamer(ct health.ConditionTracker, lg *zap.SugaredLogger) *RuleStreamer {
+func NewRuleStreamer(ct health.ConditionTracker, lg *slog.Logger) *RuleStreamer {
 	return &RuleStreamer{
 		logger:     lg,
 		conditions: ct,
@@ -83,7 +85,7 @@ func (s *RuleStreamer) Run(ctx context.Context, config *v1beta1.RulesSpec, finde
 						s.conditions.Set(node.CondRuleSync, health.StatusFailure, err.Error())
 						// retry, unless another update is received from the channel
 						lg.With(
-							zap.Error(err),
+							logger.Err(err),
 						).Error("failed to send alert rules to gateway (retry in 5 seconds)")
 						select {
 						case docs = <-pending:
@@ -134,7 +136,7 @@ func (s *RuleStreamer) streamRuleGroupUpdates(
 	}
 	notifier := notifier.NewPeriodicUpdateNotifier(ctx, finder, searchInterval)
 	s.logger.With(
-		zap.String("interval", searchInterval.String()),
+		"interval", searchInterval.String(),
 	).Debug("rule discovery notifier configured")
 
 	notifierC := notifier.NotifyC(ctx)
@@ -163,8 +165,8 @@ func (s *RuleStreamer) marshalRuleGroups(ruleGroups []rules.RuleGroup) [][]byte 
 		doc, err := yaml.Marshal(ruleGroup)
 		if err != nil {
 			s.logger.With(
-				zap.Error(err),
-				zap.String("group", ruleGroup.Name),
+				logger.Err(err),
+				"group", ruleGroup.Name,
 			).Error("failed to marshal rule group")
 			continue
 		}

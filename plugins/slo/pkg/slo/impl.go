@@ -100,7 +100,7 @@ func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
 	}
 	err := createGrafanaSLOMask(s.ctx, s.p, clusterId, id)
 	if err != nil {
-		s.p.logger.Errorf("creating grafana mask failed %s", err)
+		s.p.logger.Error(fmt.Sprintf("creating grafana mask failed %s", err))
 		errArr = append(errArr, err)
 	}
 	return errors.Combine(errArr...)
@@ -214,8 +214,7 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 	now := time.Now()
 
 	if now.Sub(existing.CreatedAt.AsTime()) <= sloapi.MinEvaluateInterval*2 {
-		s.lg.With("sloId", existing.Id).Debug("SLO status is not ready to be evaluated : ",
-			(&sloapi.SLOStatus{State: sloapi.SLOStatusState_Creating}).String())
+		s.lg.Debug("SLO status is not ready to be evaluated : ", "sloId", existing.Id, "status", (&sloapi.SLOStatus{State: sloapi.SLOStatusState_Creating}).String())
 
 		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_Creating}, nil
 	}
@@ -235,7 +234,7 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 	if sliDataVector == nil || sliDataVector.Len() == 0 {
 		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_NoData}, nil
 	}
-	s.lg.With("sloId", slo.GetId()).Debug("sli status response vector : ", sliDataVector.String())
+	s.lg.With("sloId", slo.GetId()).Debug(fmt.Sprintf("sli status response vector : %s", sliDataVector.String()))
 	// ======================= error budget =======================
 	// race condition can cause initial evaluation to fail with empty vector, resulting in no data state
 	// this is why we return creating state with two intervals
@@ -251,7 +250,7 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 	if metadataBudget <= 0 {
 		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_Breaching}, nil
 	}
-	s.lg.With("sloId", slo.GetId()).Debug("sli status ", metadataVector.String())
+	s.lg.With("sloId", slo.GetId()).Debug(fmt.Sprintf("sli status %s", metadataVector.String()))
 	//
 	//// ======================= alert =======================
 

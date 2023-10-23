@@ -5,6 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"log/slog"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/rancher/opni/pkg/agent"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -14,11 +16,11 @@ import (
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/logger"
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -42,7 +44,7 @@ type AlertingNodeBackend struct {
 	node.UnsafeNodeAlertingCapabilityServer
 	node.UnsafeAlertingNodeConfigurationServer
 
-	lg *zap.SugaredLogger
+	lg *slog.Logger
 
 	nodeStatusMu sync.RWMutex
 	nodeStatus   map[string]*capabilityv1.NodeCapabilityStatus
@@ -55,7 +57,7 @@ type AlertingNodeBackend struct {
 }
 
 func NewAlertingNodeBackend(
-	lg *zap.SugaredLogger,
+	lg *slog.Logger,
 ) *AlertingNodeBackend {
 	return &AlertingNodeBackend{
 		lg:             lg,
@@ -118,7 +120,7 @@ func (a *AlertingNodeBackend) broadcastNodeSync(ctx context.Context) {
 			if err != nil {
 				a.lg.With(
 					"agent", target.GetId(),
-					zap.Error(err),
+					logger.Err(err),
 				).Warn("agent responded with error to sync request")
 			}
 		}).
@@ -227,7 +229,7 @@ func (a *AlertingNodeBackend) getNodeSpecOrDefault(ctx context.Context, id strin
 	if status.Code(err) == codes.NotFound {
 		return a.getDefaultNodeSpec(ctx)
 	} else if err != nil {
-		a.lg.With(zap.Error(err)).Error("failed to get node capability spec")
+		a.lg.With(logger.Err(err)).Error("failed to get node capability spec")
 		return nil, status.Errorf(codes.Unavailable, "failed to get node capability spec: %v", err)
 	}
 	return nodeSpec, nil

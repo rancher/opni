@@ -7,9 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
@@ -50,7 +51,7 @@ func (f ConnectionHandlerFunc) HandleAgentConnection(ctx context.Context, client
 type GatewayGRPCServer struct {
 	streamv1.UnsafeStreamServer
 	conf       *v1beta1.GatewayConfigSpec
-	logger     *zap.SugaredLogger
+	logger     *slog.Logger
 	serverOpts []grpc.ServerOption
 
 	servicesMu sync.Mutex
@@ -59,12 +60,12 @@ type GatewayGRPCServer struct {
 
 func NewGRPCServer(
 	cfg *v1beta1.GatewayConfigSpec,
-	lg *zap.SugaredLogger,
+	lg *slog.Logger,
 	opts ...grpc.ServerOption,
 ) *GatewayGRPCServer {
 	return &GatewayGRPCServer{
 		conf:       cfg,
-		logger:     lg.Named("grpc"),
+		logger:     lg.WithGroup("grpc"),
 		serverOpts: opts,
 	}
 }

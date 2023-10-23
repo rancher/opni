@@ -50,11 +50,11 @@ var _ = Describe("Node Config", Ordered, Label("integration"), NodeConfigTestSui
 var _ = Describe("Node Config (HA)", Ordered, Label("integration"), NodeConfigTestSuite(func() nodeConfigTestData {
 	By("Starting 2 test environments")
 	env1 := &test.Environment{
-		Logger: testlog.Log.Named("env1"),
+		Logger: testlog.Log.WithGroup("env1"),
 	}
 	Expect(env1.Start(test.WithStorageBackend(v1beta1.StorageTypeEtcd))).To(Succeed())
 	env2 := &test.Environment{
-		Logger: testlog.Log.Named("env2"),
+		Logger: testlog.Log.WithGroup("env2"),
 	}
 	Expect(env2.Start(test.WithStorageBackend(v1beta1.StorageTypeEtcd), test.WithRemoteEtcdPort(env1.GetPorts().Etcd))).To(Succeed())
 

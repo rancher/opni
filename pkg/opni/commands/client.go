@@ -14,6 +14,7 @@ import (
 	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/pkg/features"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/opni/common"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/util/k8sutil"
@@ -21,7 +22,6 @@ import (
 	"github.com/rancher/opni/pkg/versions"
 	"github.com/rancher/wrangler/pkg/crd"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap/zapcore"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -70,10 +70,7 @@ func BuildClientCmd() *cobra.Command {
 				disableUsage = true
 			}
 
-			level, err := zapcore.ParseLevel(logLevel)
-			if err != nil {
-				return err
-			}
+			level := logger.ParseLevel(logLevel)
 
 			ctrl.SetLogger(k8sutil.NewControllerRuntimeLogger(level))
 

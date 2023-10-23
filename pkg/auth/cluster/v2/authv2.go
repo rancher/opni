@@ -13,8 +13,8 @@ import (
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/streams"
-	"go.uber.org/zap"
 	"golang.org/x/crypto/blake2b"
+	"log/slog"
 
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/samber/lo"
@@ -28,12 +28,12 @@ const (
 )
 
 type Client struct {
-	logger     *zap.SugaredLogger
+	logger     *slog.Logger
 	clientId   string
 	sharedKeys *keyring.SharedKeys
 }
 
-func NewClientChallenge(kr keyring.Keyring, clientId string, logger *zap.SugaredLogger) (challenges.ChallengeHandler, error) {
+func NewClientChallenge(kr keyring.Keyring, clientId string, logger *slog.Logger) (challenges.ChallengeHandler, error) {
 	var sharedKeys *keyring.SharedKeys
 	ok := kr.Try(func(keys *keyring.SharedKeys) {
 		sharedKeys = keys
@@ -50,7 +50,7 @@ func NewClientChallenge(kr keyring.Keyring, clientId string, logger *zap.Sugared
 
 type Server struct {
 	ChallengeOptions
-	logger   *zap.SugaredLogger
+	logger   *slog.Logger
 	verifier challenges.KeyringVerifier
 }
 
@@ -76,7 +76,7 @@ func WithChallengeTimeout(challengeTimeout time.Duration) ChallengeOption {
 	}
 }
 
-func NewServerChallenge(verifier challenges.KeyringVerifier, logger *zap.SugaredLogger, opts ...ChallengeOption) challenges.ChallengeHandler {
+func NewServerChallenge(verifier challenges.KeyringVerifier, logger *slog.Logger, opts ...ChallengeOption) challenges.ChallengeHandler {
 	options := ChallengeOptions{
 		challengeTimeout: 1 * time.Second,
 	}

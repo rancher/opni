@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/jhump/protoreflect/desc"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -32,7 +34,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	channelzservice "google.golang.org/grpc/channelz/service"
 	"google.golang.org/grpc/codes"
@@ -71,7 +72,7 @@ type Server struct {
 	managementv1.UnsafeManagementServer
 	managementServerOptions
 	config            *v1beta1.ManagementSpec
-	logger            *zap.SugaredLogger
+	logger            *slog.Logger
 	rbacProvider      rbac.Provider
 	coreDataSource    CoreDataSource
 	grpcServer        *grpc.Server
@@ -122,7 +123,7 @@ func NewServer(
 	pluginLoader plugins.LoaderInterface,
 	opts ...ManagementServerOption,
 ) *Server {
-	lg := logger.New().Named("mgmt")
+	lg := logger.New().WithGroup("mgmt")
 	options := managementServerOptions{}
 	options.apply(opts...)
 
@@ -155,8 +156,8 @@ func NewServer(
 		go func() {
 			if err := sp.ServeAPIExtensions(m.config.GRPCListenAddress); err != nil {
 				lg.With(
-					zap.String("plugin", md.Module),
-					zap.Error(err),
+					"plugin", md.Module,
+					logger.Err(err),
 				).Error("failed to serve plugin API extensions")
 			}
 		}()

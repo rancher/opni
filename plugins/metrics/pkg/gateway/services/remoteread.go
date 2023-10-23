@@ -9,12 +9,12 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/types"
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -78,7 +78,7 @@ func (m *RemoteReadServer) AddTarget(_ context.Context, request *remoteread.Targ
 		"cluster", request.Target.Meta.ClusterId,
 		"target", request.Target.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
-	).Infof("added new target")
+	).Info("added new target")
 
 	return &emptypb.Empty{}, nil
 }
@@ -127,7 +127,7 @@ func (m *RemoteReadServer) EditTarget(ctx context.Context, request *remoteread.T
 		"cluster", request.Meta.ClusterId,
 		"target", request.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
-	).Infof("edited target")
+	).Info("edited target")
 
 	return &emptypb.Empty{}, nil
 }
@@ -160,7 +160,7 @@ func (m *RemoteReadServer) RemoveTarget(ctx context.Context, request *remoteread
 		"cluster", request.Meta.ClusterId,
 		"target", request.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
-	).Infof("removed target")
+	).Info("removed target")
 
 	return &emptypb.Empty{}, nil
 }
@@ -179,7 +179,7 @@ func (m *RemoteReadServer) ListTargets(ctx context.Context, request *remoteread.
 			eg.Go(func() error {
 				newStatus, err := m.GetTargetStatus(ctx, &remoteread.TargetStatusRequest{Meta: target.Meta})
 				if err != nil {
-					m.Context.Logger().Infof("could not get newStatus for target '%s/%s': %s", target.Meta.ClusterId, target.Meta.Name, err)
+					m.Context.Logger().Info(fmt.Sprintf("could not get newStatus for target '%s/%s': %s", target.Meta.ClusterId, target.Meta.Name, err))
 					newStatus.State = remoteread.TargetState_Unknown
 				}
 
@@ -195,7 +195,7 @@ func (m *RemoteReadServer) ListTargets(ctx context.Context, request *remoteread.
 	}
 
 	if err := eg.Wait(); err != nil {
-		m.Context.Logger().Errorf("error waiting for status to update: %s", err)
+		m.Context.Logger().With(logger.Err(err)).Error("error waiting for status to update")
 	}
 
 	list := &remoteread.TargetList{Targets: inner}
@@ -225,7 +225,7 @@ func (m *RemoteReadServer) GetTargetStatus(ctx context.Context, request *remoter
 			"cluster", request.Meta.ClusterId,
 			"capability", wellknown.CapabilityMetrics,
 			"target", request.Meta.Name,
-			zap.Error(err),
+			logger.Err(err),
 		).Error("failed to get target status")
 
 		return nil, err
@@ -256,7 +256,7 @@ func (m *RemoteReadServer) Start(ctx context.Context, request *remoteread.StartR
 			"cluster", request.Target.Meta.ClusterId,
 			"capability", wellknown.CapabilityMetrics,
 			"target", request.Target.Meta.Name,
-			zap.Error(err),
+			logger.Err(err),
 		).Error("failed to start target")
 
 		return nil, err
@@ -279,7 +279,7 @@ func (m *RemoteReadServer) Stop(ctx context.Context, request *remoteread.StopRea
 			"cluster", request.Meta.ClusterId,
 			"capability", wellknown.CapabilityMetrics,
 			"target", request.Meta.Name,
-			zap.Error(err),
+			logger.Err(err),
 		).Error("failed to stop target")
 
 		return nil, err
@@ -314,7 +314,7 @@ func (m *RemoteReadServer) Discover(ctx context.Context, request *remoteread.Dis
 	if err != nil {
 		m.Context.Logger().With(
 			"capability", wellknown.CapabilityMetrics,
-			zap.Error(err),
+			logger.Err(err),
 		).Error("failed to run import discovery")
 
 		return nil, err

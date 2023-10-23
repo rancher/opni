@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	"github.com/qmuntal/stateless"
 	"github.com/samber/lo"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -33,7 +33,7 @@ type Controller struct {
 	store   KVStore
 	locks   util.LockMap[string, *sync.Mutex]
 	runner  TaskRunner
-	logger  *zap.SugaredLogger
+	logger  *slog.Logger
 	tasks   map[string]context.CancelFunc
 	tasksMu sync.Mutex
 }
@@ -48,7 +48,7 @@ func NewController(ctx context.Context, name string, store KVStore, runner TaskR
 		store:  kvutil.WithPrefix(store, fmt.Sprintf("/tasks/%s/", name)),
 		locks:  util.NewLockMap[string, *sync.Mutex](),
 		runner: runner,
-		logger: logger.New().Named("tasks"),
+		logger: logger.New().WithGroup("tasks"),
 		tasks:  make(map[string]context.CancelFunc),
 	}
 	existingTasks, err := ctrl.ListTasks()
@@ -63,8 +63,8 @@ func NewController(ctx context.Context, name string, store KVStore, runner TaskR
 					break
 				}
 				ctrl.logger.With(
-					zap.String("id", id),
-					zap.Error(err),
+					"id", id,
+					logger.Err(err),
 				).Warn("failed to look up task (will retry)")
 				time.Sleep(time.Second)
 				continue
@@ -73,8 +73,8 @@ func NewController(ctx context.Context, name string, store KVStore, runner TaskR
 			case StatePending, StateRunning:
 				if err := ctrl.LaunchTask(id, WithJsonMetadata(status.GetMetadata())); err != nil {
 					ctrl.logger.With(
-						zap.String("id", id),
-						zap.Error(err),
+						"id", id,
+						logger.Err(err),
 					).Warn("failed to resume task (will retry)")
 					time.Sleep(time.Second)
 					continue
@@ -85,8 +85,8 @@ func NewController(ctx context.Context, name string, store KVStore, runner TaskR
 				rw.Lock()
 				if err := rw.Delete(ctx); err != nil {
 					ctrl.logger.With(
-						zap.String("id", id),
-						zap.Error(err),
+						"id", id,
+						logger.Err(err),
 					).Warn("failed to clean task state")
 					// continue anyway, this will be retried next time
 					// the controller is started
@@ -212,7 +212,7 @@ func (c *Controller) LaunchTask(id string, opts ...NewTaskOption) error {
 		id:     id,
 		cctx:   c.ctx,
 		status: rw,
-		logger: c.logger.With(zap.String("id", id)),
+		logger: c.logger.With("id", id),
 	}
 
 	sm := stateless.NewStateMachineWithExternalStorage(accessor, mutator, stateless.FiringQueued)
@@ -330,7 +330,7 @@ func (c *Controller) LaunchTask(id string, opts ...NewTaskOption) error {
 			prev.Metadata = mdJson
 			prev.Logs = append(prev.Logs, &corev1.LogEntry{
 				Msg:       fmt.Sprintf("internal: restarting task (previous state: %s)", state),
-				Level:     int32(zapcore.InfoLevel),
+				Level:     int32(slog.LevelInfo),
 				Timestamp: timestamppb.Now(),
 			})
 		case corev1.TaskState_Canceled:

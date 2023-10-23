@@ -8,6 +8,53 @@ import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialM
 import { Duration, Message, proto3 } from "@bufbuild/protobuf";
 
 /**
+ * @generated from message validation.DisabledRuleGroup
+ */
+export class DisabledRuleGroup extends Message<DisabledRuleGroup> {
+  /**
+   * namespace in which the rule group belongs
+   *
+   * @generated from field: optional string namespace = 1;
+   */
+  namespace?: string;
+
+  /**
+   * name of the rule group
+   *
+   * @generated from field: optional string name = 2;
+   */
+  name?: string;
+
+  constructor(data?: PartialMessage<DisabledRuleGroup>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "validation.DisabledRuleGroup";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "namespace", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 2, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DisabledRuleGroup {
+    return new DisabledRuleGroup().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): DisabledRuleGroup {
+    return new DisabledRuleGroup().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DisabledRuleGroup {
+    return new DisabledRuleGroup().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: DisabledRuleGroup | PlainMessage<DisabledRuleGroup> | undefined, b: DisabledRuleGroup | PlainMessage<DisabledRuleGroup> | undefined): boolean {
+    return proto3.util.equals(DisabledRuleGroup, a, b);
+  }
+}
+
+/**
  * @generated from message validation.Limits
  */
 export class Limits extends Message<Limits> {

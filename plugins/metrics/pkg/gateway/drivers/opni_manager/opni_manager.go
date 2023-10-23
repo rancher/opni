@@ -7,7 +7,6 @@ import (
 
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/crds"
@@ -132,10 +131,6 @@ func (k *OpniManager) ListPresets(context.Context, *emptypb.Empty) (*cortexops.P
 					},
 					CortexConfig: &cortexops.CortexApplicationConfig{
 						LogLevel: lo.ToPtr("debug"),
-						Storage: &storagev1.Config{
-							Backend:    lo.ToPtr(storagev1.Filesystem),
-							Filesystem: &storagev1.FilesystemConfig{},
-						},
 					},
 				},
 			},
@@ -165,9 +160,6 @@ func (k *OpniManager) ListPresets(context.Context, *emptypb.Empty) (*cortexops.P
 					},
 					CortexConfig: &cortexops.CortexApplicationConfig{
 						LogLevel: lo.ToPtr("debug"),
-						Storage: &storagev1.Config{
-							Backend: lo.ToPtr(storagev1.S3),
-						},
 					},
 				},
 			},

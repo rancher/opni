@@ -8,7 +8,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/util/future"
 	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
-	"go.uber.org/zap"
+	"log/slog"
 )
 
 const (
@@ -44,12 +44,12 @@ type Manager struct {
 	*loggingutil.AsyncOpensearchClient
 
 	systemKV future.Future[system.KeyValueStoreClient]
-	logger   *zap.SugaredLogger
+	logger   *slog.Logger
 
 	adminInitStateRW sync.RWMutex
 }
 
-func NewManager(logger *zap.SugaredLogger, kv future.Future[system.KeyValueStoreClient]) *Manager {
+func NewManager(logger *slog.Logger, kv future.Future[system.KeyValueStoreClient]) *Manager {
 	return &Manager{
 		AsyncOpensearchClient: loggingutil.NewAsyncOpensearchClient(),
 		systemKV:              kv,

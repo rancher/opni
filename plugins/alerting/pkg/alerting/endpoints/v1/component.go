@@ -11,7 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	notifications "github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
-	"go.uber.org/zap"
+	"log/slog"
 )
 
 type manualSync func(ctx context.Context, hashRing spec.HashRing, routers spec.RouterStorage) error
@@ -27,7 +27,7 @@ type EndpointServerComponent struct {
 
 	notifications *notifications.NotificationServerComponent
 
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 
 	endpointStorage  future.Future[spec.EndpointStorage]
 	conditionStorage future.Future[spec.ConditionStorage]
@@ -39,7 +39,7 @@ var _ server.ServerComponent = (*EndpointServerComponent)(nil)
 
 func NewEndpointServerComponent(
 	ctx context.Context,
-	logger *zap.SugaredLogger,
+	logger *slog.Logger,
 	notifications *notifications.NotificationServerComponent,
 ) *EndpointServerComponent {
 	return &EndpointServerComponent{

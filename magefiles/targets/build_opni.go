@@ -33,6 +33,7 @@ func (Build) OpniMinimal(ctx context.Context) error {
 	})
 }
 
+// Builds the opni release CLI binary, requires version as input
 func (Build) OpniReleaseCLI(ctx context.Context, fileSuffix string) error {
 	mg.CtxDeps(ctx, Build.Archives)
 

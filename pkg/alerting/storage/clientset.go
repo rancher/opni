@@ -24,7 +24,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/samber/lo"
-	"go.uber.org/zap"
+	"log/slog"
 )
 
 const defaultTrackerTTL = 24 * time.Hour
@@ -36,7 +36,7 @@ type CompositeAlertingClientSet struct {
 	states    spec.StateStorage
 	incidents spec.IncidentStorage
 	hashes    map[string]string
-	Logger    *zap.SugaredLogger
+	Logger    *slog.Logger
 }
 
 var _ spec.AlertingClientSet = (*CompositeAlertingClientSet)(nil)

@@ -3,6 +3,7 @@ package alarms
 import (
 	"bytes"
 	"context"
+	"fmt"
 
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/drivers/cortex"
@@ -168,7 +169,7 @@ func (p *AlarmServerComponent) handleSystemAlertCreation(
 ) error {
 	err := p.onSystemConditionCreate(newConditionId, conditionName, namespace, k)
 	if err != nil {
-		p.logger.Errorf("failed to create agent condition %s", err)
+		p.logger.Error(fmt.Sprintf("failed to create agent condition %s", err))
 	}
 	return nil
 }
@@ -182,7 +183,7 @@ func (p *AlarmServerComponent) handleDownstreamCapabilityAlertCreation(
 ) error {
 	err := p.onDownstreamCapabilityConditionCreate(newConditionId, conditionName, namespace, k)
 	if err != nil {
-		p.logger.Errorf("failed to create agent condition %s", err)
+		p.logger.Error(fmt.Sprintf("failed to create agent condition %s", err))
 	}
 	return nil
 }
@@ -196,7 +197,7 @@ func (p *AlarmServerComponent) handleMonitoringBackendAlertCreation(
 ) error {
 	err := p.onCortexClusterStatusCreate(newConditionId, conditionName, namespace, k)
 	if err != nil {
-		p.logger.Errorf("failed to create cortex cluster condition %s", err)
+		p.logger.Error(fmt.Sprintf("failed to create cortex cluster condition %s", err))
 	}
 	return nil
 }

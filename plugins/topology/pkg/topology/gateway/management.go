@@ -1,8 +1,8 @@
 package gateway
 
 import (
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/plugins/topology/pkg/topology/gateway/drivers"
-	"go.uber.org/zap"
 )
 
 func (p *Plugin) configureTopologyManagement() {
@@ -18,7 +18,7 @@ func (p *Plugin) configureTopologyManagement() {
 	if err != nil {
 		p.logger.With(
 			"driver", name,
-			zap.Error(err),
+			logger.Err(err),
 		).Error("failed to load cluster driver, using fallback no-op driver")
 		driver = &drivers.NoopClusterDriver{}
 	}

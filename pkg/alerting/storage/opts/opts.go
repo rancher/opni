@@ -5,7 +5,7 @@ import (
 
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
-	"go.uber.org/zap"
+	"log/slog"
 )
 
 type RequestOptions struct {
@@ -66,7 +66,7 @@ func NewSyncOptions() *SyncOptions {
 }
 
 type ClientSetOptions struct {
-	Logger     *zap.SugaredLogger
+	Logger     *slog.Logger
 	Timeout    time.Duration
 	TrackerTtl time.Duration
 }
@@ -79,7 +79,7 @@ func WithStorageTimeout(timeout time.Duration) ClientSetOption {
 	}
 }
 
-func WithLogger(lg *zap.SugaredLogger) ClientSetOption {
+func WithLogger(lg *slog.Logger) ClientSetOption {
 	return func(o *ClientSetOptions) {
 		o.Logger = lg
 	}

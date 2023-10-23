@@ -3,6 +3,7 @@ package gateway
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -130,7 +131,7 @@ func (p *AIOpsPlugin) aggregateWorkloadLogs() {
 	for {
 		var buf bytes.Buffer
 		if err := json.NewEncoder(&buf).Encode(request); err != nil {
-			p.Logger.Errorf("Error: Unable to encode request: %s", err)
+			p.Logger.Error(fmt.Sprintf("Error: Unable to encode request: %s", err))
 			return
 		}
 		res, err := p.osClient.Get().Search(
@@ -141,17 +142,17 @@ func (p *AIOpsPlugin) aggregateWorkloadLogs() {
 			p.osClient.Get().Search.WithPretty(),
 		)
 		if err != nil {
-			p.Logger.Errorf("Unable to connect to Opensearch %s", err)
+			p.Logger.Error(fmt.Sprintf("Unable to connect to Opensearch %s", err))
 			return
 		}
 		defer res.Body.Close()
 		if res.IsError() {
-			p.Logger.Errorf("Error: %s", res.String())
+			p.Logger.Error(fmt.Sprintf("Error: %s", res.String()))
 			return
 		}
 		var result SearchResponse
 		if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
-			p.Logger.Errorf("Error parsing the response body: %s", err)
+			p.Logger.Error(fmt.Sprintf("Error parsing the response body: %s", err))
 			return
 		}
 		for _, b := range result.Aggregations.Bucket.Buckets {
@@ -166,7 +167,7 @@ func (p *AIOpsPlugin) aggregateWorkloadLogs() {
 	}
 	aggregatedResults, err := json.Marshal(resultAgg)
 	if err != nil {
-		p.Logger.Errorf("Error: %s", err)
+		p.Logger.Error(fmt.Sprintf("Error: %s", err))
 		return
 	}
 	bytesAggregation := []byte(aggregatedResults)

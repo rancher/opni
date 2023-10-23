@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package node.metrics;
+
+import "github.com/rancher/opni/plugins/metrics/apis/node/config.proto";
+
+option go_package = "github.com/rancher/opni/plugins/metrics/apis/node";
+
+// The NodeMetricsCapability service serves implementation-specific config
+// for metrics capability nodes.
+// Served as a stream API extension.
+service NodeMetricsCapability {
+  rpc Sync(SyncRequest) returns (SyncResponse);
+}
+
+message SyncRequest {
+  config.MetricsCapabilityStatus currentConfig = 1;
+}
+
+message SyncResponse {
+  config.ConfigStatus            configStatus  = 1;
+  config.MetricsCapabilityStatus updatedConfig = 2;
+}

@@ -6,7 +6,6 @@ import (
 	"path"
 	"strings"
 	sync "sync"
-	"time"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/health"
@@ -18,6 +17,7 @@ import (
 )
 
 type HealthStatusWriterManager struct {
+	ctx                context.Context
 	healthQueue        chan health.HealthUpdate
 	statusQueue        chan health.StatusUpdate
 	queueLock          sync.Mutex
@@ -33,6 +33,7 @@ func NewHealthStatusWriterManager(ctx context.Context, rootKv storage.KeyValueSt
 	healthQueue := make(chan health.HealthUpdate, 256)
 	statusQueue := make(chan health.StatusUpdate, 256)
 	mgr := &HealthStatusWriterManager{
+		ctx:                ctx,
 		connectionsKv:      rootKv,
 		logger:             lg,
 		healthQueue:        healthQueue,
@@ -98,13 +99,14 @@ func (w *HealthStatusWriterManager) Close() {
 }
 
 // HandleTrackedConnection implements RemoteConnectionListener.
-func (wm *HealthStatusWriterManager) HandleTrackedConnection(ctx context.Context, agentId string, leaseId string, instanceInfo *corev1.InstanceInfo) {
-	w := NewHealthStatusWriter(ctx, kvutil.WithMessageCodec[*corev1.InstanceInfo](kvutil.WithKey(wm.connectionsKv, path.Join(agentId, leaseId))), wm.logger)
-	agentBuffer := health.AsBuffer(wm.agentHealthQueue(agentId), wm.agentStatusQueue(agentId))
-	wm.logger.Debugf("handling new tracked connection for %s", agentId)
+func (w *HealthStatusWriterManager) HandleTrackedConnection(ctx context.Context, agentId string, leaseId string, _ *corev1.InstanceInfo) {
+	// see docs for NewHealthStatusWriter for details on context usage
+	hsw := NewHealthStatusWriter(context.WithoutCancel(ctx), kvutil.WithMessageCodec[*corev1.InstanceInfo](kvutil.WithKey(w.connectionsKv, path.Join(agentId, leaseId))), w.logger)
+	agentBuffer := health.AsBuffer(w.agentHealthQueue(agentId), w.agentStatusQueue(agentId))
+	w.logger.Debugf("handling new tracked connection for %s", agentId)
 	go func() {
-		defer w.Close()
-		health.Copy(ctx, w, agentBuffer)
+		defer hsw.Close()
+		health.Copy(ctx, hsw, agentBuffer)
 	}()
 }
 
@@ -112,57 +114,113 @@ type HealthStatusWriter struct {
 	v       storage.ValueStoreT[*corev1.InstanceInfo]
 	healthC chan health.HealthUpdate
 	statusC chan health.StatusUpdate
+	closed  chan struct{}
 }
 
 var _ health.HealthStatusUpdateWriter = (*HealthStatusWriter)(nil)
 
-// Writes health and status updates to the keys "health" and "status" at the
-// root of the provided KeyValueStore. To write updates to a specific path,
-// use a prefixed KeyValueStore.
+// Writes health and status updates to an InstanceInfo object in the provided
+// value store.
+//
+// This writer only modifies the value if the key already exists. If it does not
+// exist or is deleted, updates will be ignored until it is created.
+//
+// The context is used to make requests to the value store. It should not need
+// to be canceled under normal operation. To ensure resources are released from
+// the writer, call Close() which will block until all messages have been
+// processed (or the context is canceled, in which case the writer may fail to
+// write the final health and status updates to the value store)
 func NewHealthStatusWriter(ctx context.Context, v storage.ValueStoreT[*corev1.InstanceInfo], lg *zap.SugaredLogger) health.HealthStatusUpdateWriter {
 	healthC := make(chan health.HealthUpdate, 8)
 	statusC := make(chan health.StatusUpdate, 8)
-
+	closed := make(chan struct{})
 	go func() {
+		defer close(closed)
+		recvHealth := func(h health.HealthUpdate) error {
+			var rev int64
+			ii, err := v.Get(ctx, storage.WithRevisionOut(&rev))
+			if err != nil {
+				if storage.IsNotFound(err) {
+					lg.Debug("discarding health update for non-existent instance")
+					return nil
+				}
+				if errors.Is(err, ctx.Err()) {
+					return err
+				}
+				lg.With(zap.Error(err)).Error("failed to get instance info during health update")
+				return nil
+			}
+			if ii == nil {
+				ii = &corev1.InstanceInfo{}
+			}
+			ii.Health = h.Health
+			if err := v.Put(ctx, ii, storage.WithRevision(rev)); err != nil {
+				if storage.IsConflict(err) {
+					lg.Debug("discarding health update for deleted instance")
+					return nil
+				}
+				if errors.Is(err, ctx.Err()) {
+					return err
+				}
+				lg.With(zap.Error(err)).Error("failed to put instance info during health update")
+			}
+			return nil
+		}
+		recvStatus := func(s health.StatusUpdate) error {
+			var rev int64
+			ii, err := v.Get(ctx, storage.WithRevisionOut(&rev))
+			if err != nil {
+				if storage.IsNotFound(err) {
+					lg.Debug("discarding status update for non-existent instance")
+					return nil
+				}
+				if errors.Is(err, ctx.Err()) {
+					return err
+				}
+				lg.With(zap.Error(err)).Error("failed to get instance info during status update")
+				return nil
+			}
+			if ii == nil {
+				ii = &corev1.InstanceInfo{}
+			}
+			ii.Status = s.Status
+			if err := v.Put(ctx, ii, storage.WithRevision(rev)); err != nil {
+				if storage.IsConflict(err) {
+					lg.Debug("discarding status update for deleted instance")
+					return nil
+				}
+				if errors.Is(err, ctx.Err()) {
+					return err
+				}
+				lg.With(zap.Error(err)).Error("failed to put instance info during status update")
+			}
+			return nil
+		}
 		for {
 			select {
-			case <-ctx.Done():
-				return
-			case h := <-healthC:
-				var rev int64
-				ii, err := v.Get(ctx, storage.WithRevisionOut(&rev))
-				if err != nil && !storage.IsNotFound(err) {
-					if errors.Is(err, ctx.Err()) {
-						return
+			case h, ok := <-healthC:
+				if !ok {
+					for h := range healthC {
+						if err := recvHealth(h); err != nil {
+							return
+						}
 					}
-					lg.With(zap.Error(err)).Error("failed to get instance info")
-					continue
+					return
 				}
-				if ii == nil {
-					ii = &corev1.InstanceInfo{}
+				if err := recvHealth(h); err != nil {
+					return
 				}
-				ii.Health = h.Health
-				if err := v.Put(ctx, ii, storage.WithRevision(rev)); err != nil {
-					lg.With(zap.Error(err)).Error("failed to put instance info")
-					continue
-				}
-			case s := <-statusC:
-				var rev int64
-				ii, err := v.Get(ctx, storage.WithRevisionOut(&rev))
-				if err != nil && !storage.IsNotFound(err) {
-					if errors.Is(err, ctx.Err()) {
-						return
+			case s, ok := <-statusC:
+				if !ok {
+					for s := range statusC {
+						if err := recvStatus(s); err != nil {
+							return
+						}
 					}
-					lg.With(zap.Error(err)).Error("failed to get instance info")
-					continue
+					return
 				}
-				if ii == nil {
-					ii = &corev1.InstanceInfo{}
-				}
-				ii.Status = s.Status
-				if err := v.Put(ctx, ii, storage.WithRevision(rev)); err != nil {
-					lg.With(zap.Error(err)).Error("failed to put instance info")
-					continue
+				if err := recvStatus(s); err != nil {
+					return
 				}
 			}
 		}
@@ -172,6 +230,7 @@ func NewHealthStatusWriter(ctx context.Context, v storage.ValueStoreT[*corev1.In
 		v:       v,
 		healthC: healthC,
 		statusC: statusC,
+		closed:  closed,
 	}
 }
 
@@ -188,6 +247,7 @@ func (w *HealthStatusWriter) StatusWriterC() chan<- health.StatusUpdate {
 func (w *HealthStatusWriter) Close() {
 	close(w.healthC)
 	close(w.statusC)
+	<-w.closed
 }
 
 type HealthStatusReader struct {
@@ -199,7 +259,6 @@ type HealthStatusReader struct {
 var _ health.HealthStatusUpdateReader = (*HealthStatusReader)(nil)
 
 type HealthStatusReaderOptions struct {
-	filter func(id string) bool
 }
 
 type HealthStatusReaderOption func(*HealthStatusReaderOptions)
@@ -210,15 +269,8 @@ func (o *HealthStatusReaderOptions) apply(opts ...HealthStatusReaderOption) {
 	}
 }
 
-func WithFilter(filter func(id string) bool) HealthStatusReaderOption {
-	return func(o *HealthStatusReaderOptions) {
-		o.filter = filter
-	}
-}
 func NewHealthStatusReader(ctx context.Context, kv storage.KeyValueStore, opts ...HealthStatusReaderOption) (health.HealthStatusUpdateReader, error) {
-	options := HealthStatusReaderOptions{
-		filter: func(_ string) bool { return true },
-	}
+	options := HealthStatusReaderOptions{}
 	options.apply(opts...)
 
 	healthC := make(chan health.HealthUpdate, 256)
@@ -236,9 +288,6 @@ func NewHealthStatusReader(ctx context.Context, kv storage.KeyValueStore, opts .
 		return parts[0], parts[1], true
 	}
 
-	healthTime := time.Time{}
-	statusTime := time.Time{}
-
 	go func() {
 		defer close(healthC)
 		defer close(statusC)
@@ -249,10 +298,6 @@ func NewHealthStatusReader(ctx context.Context, kv storage.KeyValueStore, opts .
 				id, _, ok := decodeKey(event.Current.Key())
 				if !ok {
 					// fmt.Println("could not decode key")
-					continue
-				}
-				if !options.filter(id) {
-					// fmt.Println("excluded by filter")
 					continue
 				}
 
@@ -266,48 +311,26 @@ func NewHealthStatusReader(ctx context.Context, kv storage.KeyValueStore, opts .
 					// ignore the event
 					continue
 				}
-				updatedHealthTime := info.GetHealth().GetTimestamp().AsTime()
 				if info.Health != nil {
-					if updatedHealthTime.After(healthTime) {
-						healthC <- health.HealthUpdate{
-							ID:     id,
-							Health: info.Health,
-						}
-					}
-				} else {
 					healthC <- health.HealthUpdate{
-						ID: id,
-						Health: &corev1.Health{
-							Timestamp: timestamppb.Now(),
-							Ready:     false,
-						},
+						ID:     id,
+						Health: info.Health,
 					}
 				}
-				healthTime = updatedHealthTime
 
-				updatedStatusTime := info.GetStatus().GetTimestamp().AsTime()
 				if info.Status != nil {
-					if updatedStatusTime.After(statusTime) {
-						statusC <- health.StatusUpdate{
-							ID:     id,
-							Status: info.Status,
-						}
-					}
-				} else {
 					statusC <- health.StatusUpdate{
-						ID: id,
-						Status: &corev1.Status{
-							Timestamp: timestamppb.Now(),
-							Connected: false,
-						},
+						ID:     id,
+						Status: info.Status,
 					}
 				}
-				statusTime = updatedStatusTime
 			case storage.WatchEventDelete:
 				id, _, ok := decodeKey(event.Previous.Key())
-				if !ok || !options.filter(id) {
+				if !ok {
+					// fmt.Println("could not decode key")
 					continue
 				}
+
 				var info corev1.InstanceInfo
 				if err := proto.Unmarshal(event.Previous.Value(), &info); err != nil {
 					// fmt.Println("could not unmarshal instance info")
@@ -326,7 +349,6 @@ func NewHealthStatusReader(ctx context.Context, kv storage.KeyValueStore, opts .
 						Ready:     false,
 					},
 				}
-				healthTime = time.Time{}
 				statusC <- health.StatusUpdate{
 					ID: id,
 					Status: &corev1.Status{
@@ -334,7 +356,6 @@ func NewHealthStatusReader(ctx context.Context, kv storage.KeyValueStore, opts .
 						Connected: false,
 					},
 				}
-				statusTime = time.Time{}
 			}
 		}
 	}()

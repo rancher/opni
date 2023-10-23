@@ -5,15 +5,14 @@ import (
 	"context"
 	"fmt"
 
-	// todo: needed instead of google.golang.org/protobuf/proto since prometheus Messages are built with it
-	"github.com/golang/protobuf/proto"
-
 	"io"
 	"net/http"
 
 	"github.com/golang/snappy"
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/prometheus/prompb"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/runtime/protoimpl"
 )
 
 type RemoteReader interface {
@@ -31,7 +30,7 @@ type remoteReader struct {
 }
 
 func (client *remoteReader) Read(ctx context.Context, endpoint string, readRequest *prompb.ReadRequest) (*prompb.ReadResponse, error) {
-	uncompressedData, err := proto.Marshal(readRequest)
+	uncompressedData, err := proto.Marshal(protoimpl.X.ProtoMessageV2Of(readRequest))
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal remote read readRequest: %w", err)
 	}
@@ -79,7 +78,7 @@ func (client *remoteReader) Read(ctx context.Context, endpoint string, readReque
 	}
 
 	var readResponse prompb.ReadResponse
-	err = proto.Unmarshal(uncompressedData, &readResponse)
+	err = proto.Unmarshal(uncompressedData, protoimpl.X.ProtoMessageV2Of(&readResponse))
 	if err != nil {
 		return nil, fmt.Errorf("could not unmarshal remote read reponse: %w", err)
 	}

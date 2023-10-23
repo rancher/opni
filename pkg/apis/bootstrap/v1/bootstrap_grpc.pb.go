@@ -58,15 +58,14 @@ func (c *bootstrapClient) Auth(ctx context.Context, in *BootstrapAuthRequest, op
 }
 
 // BootstrapServer is the server API for Bootstrap service.
-// All implementations must embed UnimplementedBootstrapServer
+// All implementations should embed UnimplementedBootstrapServer
 // for forward compatibility
 type BootstrapServer interface {
 	Join(context.Context, *BootstrapJoinRequest) (*BootstrapJoinResponse, error)
 	Auth(context.Context, *BootstrapAuthRequest) (*BootstrapAuthResponse, error)
-	mustEmbedUnimplementedBootstrapServer()
 }
 
-// UnimplementedBootstrapServer must be embedded to have forward compatible implementations.
+// UnimplementedBootstrapServer should be embedded to have forward compatible implementations.
 type UnimplementedBootstrapServer struct {
 }
 
@@ -76,7 +75,6 @@ func (UnimplementedBootstrapServer) Join(context.Context, *BootstrapJoinRequest)
 func (UnimplementedBootstrapServer) Auth(context.Context, *BootstrapAuthRequest) (*BootstrapAuthResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Auth not implemented")
 }
-func (UnimplementedBootstrapServer) mustEmbedUnimplementedBootstrapServer() {}
 
 // UnsafeBootstrapServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to BootstrapServer will

@@ -11,20 +11,17 @@ import "google/protobuf/timestamp.proto";
 option go_package = "github.com/rancher/opni/pkg/apis/capability/v1";
 
 service Backend {
-  // Returns info about the backend, including capability name
-  rpc Info(google.protobuf.Empty) returns (Details);
+  // Returns info about the backend, including capability name.
+  rpc Info(core.Reference) returns (Details);
 
-  // Returns an error if installing the capability would fail.
-  rpc CanInstall(google.protobuf.Empty) returns (google.protobuf.Empty) {
-    option deprecated = true;
-  }
+  // Returns a list of capabilities available in the backend.
+  rpc List(google.protobuf.Empty) returns (DetailsList);
 
-  // Installs the capability on a cluster.
+  // Installs the capability on an agent.
   rpc Install(InstallRequest) returns (InstallResponse);
 
-  // Returns common runtime config info for this capability from a specific
-  // cluster (node).
-  rpc Status(core.Reference) returns (NodeCapabilityStatus);
+  // Returns common runtime config info for this capability from a specific agent.
+  rpc Status(StatusRequest) returns (NodeCapabilityStatus);
 
   // Requests the backend to clean up any resources it owns and prepare
   // for uninstallation. This process is asynchronous. The status of the
@@ -33,17 +30,10 @@ service Backend {
   rpc Uninstall(UninstallRequest) returns (google.protobuf.Empty);
 
   // Gets the status of the uninstall task for the given cluster.
-  rpc UninstallStatus(core.Reference) returns (core.TaskStatus);
+  rpc UninstallStatus(UninstallStatusRequest) returns (core.TaskStatus);
 
   // Cancels an uninstall task for the given cluster, if it is still pending.
-  rpc CancelUninstall(core.Reference) returns (google.protobuf.Empty);
-
-  // Returns a go template string which will generate a shell command used to
-  // install the capability. This will be displayed to the user in the UI.
-  // See InstallerTemplateSpec above for the available template fields.
-  rpc InstallerTemplate(google.protobuf.Empty) returns (InstallerTemplateResponse) {
-    option deprecated = true;
-  }
+  rpc CancelUninstall(CancelUninstallRequest) returns (google.protobuf.Empty);
 }
 
 service Node {
@@ -55,15 +45,10 @@ service Node {
 }
 
 message Details {
-  string          name    = 1;
-  string          source  = 2;
-  repeated string drivers = 3;
-}
-
-message SyncRequest {
-  // An empty cluster ID indicates that all clusters should be synced.
-  core.Reference cluster = 1;
-  Filter         filter  = 2;
+  string          name             = 1;
+  string          source           = 2;
+  repeated string availableDrivers = 3;
+  string          enabledDriver    = 4;
 }
 
 message Filter {
@@ -71,8 +56,14 @@ message Filter {
 }
 
 message InstallRequest {
-  core.Reference cluster        = 1;
+  core.Reference capability     = 3;
+  core.Reference agent          = 1;
   bool           ignoreWarnings = 2;
+}
+
+message StatusRequest {
+  core.Reference capability = 3;
+  core.Reference agent      = 1;
 }
 
 enum InstallResponseStatus {
@@ -88,8 +79,9 @@ message InstallResponse {
 }
 
 message UninstallRequest {
-  core.Reference         cluster = 1;
-  google.protobuf.Struct options = 2;
+  core.Reference         capability = 3;
+  core.Reference         agent      = 1;
+  google.protobuf.Struct options    = 2;
 }
 
 message InstallerTemplateResponse {
@@ -97,7 +89,22 @@ message InstallerTemplateResponse {
 }
 
 message NodeCapabilityStatus {
-  bool                      enabled    = 1;
-  google.protobuf.Timestamp lastSync   = 2;
-  repeated string           conditions = 3;
+  bool                      enabled      = 1;
+  google.protobuf.Timestamp lastSync     = 2;
+  repeated string           conditions   = 3;
+  core.Revision             lastRevision = 4;
+}
+
+message UninstallStatusRequest {
+  core.Reference capability = 1;
+  core.Reference agent      = 2;
+}
+
+message CancelUninstallRequest {
+  core.Reference capability = 1;
+  core.Reference agent      = 2;
+}
+
+message DetailsList {
+  repeated Details items = 1;
 }

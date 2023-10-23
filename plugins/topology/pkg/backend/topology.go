@@ -73,7 +73,7 @@ func (t *TopologyBackend) Initialize(conf TopologyBackendConfig) {
 	})
 }
 
-func (t *TopologyBackend) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
+func (t *TopologyBackend) info() *capabilityv1.Details {
 	// !! Info must never block
 	var drivers []string
 	if t.Initialized() {
@@ -81,17 +81,22 @@ func (t *TopologyBackend) Info(_ context.Context, _ *emptypb.Empty) (*capability
 	}
 
 	return &capabilityv1.Details{
-		Name:    wellknown.CapabilityTopology,
-		Source:  "plugin_topology",
-		Drivers: drivers,
+		Name:             wellknown.CapabilityTopology,
+		Source:           "plugin_topology",
+		AvailableDrivers: drivers,
+		EnabledDriver:    t.ClusterDriver.Name(),
+	}
+}
+
+func (t *TopologyBackend) Info(_ context.Context, _ *corev1.Reference) (*capabilityv1.Details, error) {
+	return t.info(), nil
+}
+
+func (t *TopologyBackend) List(_ context.Context, _ *emptypb.Empty) (*capabilityv1.DetailsList, error) {
+	return &capabilityv1.DetailsList{
+		Items: []*capabilityv1.Details{t.info()},
 	}, nil
 }
-
-func (t *TopologyBackend) CanInstall(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	t.WaitForInit()
-	return &emptypb.Empty{}, nil
-}
-
 func (t *TopologyBackend) canInstall(ctx context.Context) error {
 	stat, err := t.ClusterDriver.GetClusterStatus(ctx, &emptypb.Empty{})
 	if err != nil {
@@ -151,14 +156,14 @@ func (t *TopologyBackend) Install(ctx context.Context, req *capabilityv1.Install
 		warningErr = err
 	}
 
-	_, err := t.StorageBackend.UpdateCluster(ctx, req.Cluster,
+	_, err := t.StorageBackend.UpdateCluster(ctx, req.Agent,
 		storage.NewAddCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityTopology)),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	t.requestNodeSync(ctx, req.Cluster)
+	t.requestNodeSync(ctx, req.Agent)
 
 	if warningErr != nil {
 		return &capabilityv1.InstallResponse{
@@ -171,13 +176,13 @@ func (t *TopologyBackend) Install(ctx context.Context, req *capabilityv1.Install
 	}, nil
 }
 
-func (t *TopologyBackend) Status(_ context.Context, req *corev1.Reference) (*capabilityv1.NodeCapabilityStatus, error) {
+func (t *TopologyBackend) Status(_ context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
 	t.WaitForInit()
 
 	t.nodeStatusMu.RLock()
 	defer t.nodeStatusMu.RUnlock()
 
-	if status, ok := t.nodeStatus[req.Id]; ok {
+	if status, ok := t.nodeStatus[req.Agent.GetId()]; ok {
 		return status, nil
 	}
 
@@ -187,7 +192,7 @@ func (t *TopologyBackend) Status(_ context.Context, req *corev1.Reference) (*cap
 func (t *TopologyBackend) Uninstall(ctx context.Context, req *capabilityv1.UninstallRequest) (*emptypb.Empty, error) {
 	t.WaitForInit()
 
-	cluster, err := t.MgmtClient.GetCluster(ctx, req.Cluster)
+	cluster, err := t.MgmtClient.GetCluster(ctx, req.Agent)
 	if err != nil {
 		return nil, err
 	}
@@ -239,30 +244,30 @@ func (t *TopologyBackend) Uninstall(ctx context.Context, req *capabilityv1.Unins
 	if updateErr != nil {
 		return nil, fmt.Errorf("failed to update cluster metadata : %v", err)
 	}
-	t.requestNodeSync(ctx, req.Cluster)
+	t.requestNodeSync(ctx, req.Agent)
 
 	md := uninstall.TimestampedMetadata{
 		DefaultUninstallOptions: defaultOpts,
 		DeletionTimestamp:       now.AsTime(),
 	}
-	err = t.UninstallController.LaunchTask(req.Cluster.Id, task.WithMetadata(md))
+	err = t.UninstallController.LaunchTask(req.Agent.GetId(), task.WithMetadata(md))
 	if err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (t *TopologyBackend) UninstallStatus(_ context.Context, cluster *corev1.Reference) (*corev1.TaskStatus, error) {
+func (t *TopologyBackend) UninstallStatus(_ context.Context, cluster *capabilityv1.UninstallStatusRequest) (*corev1.TaskStatus, error) {
 	t.WaitForInit()
 
-	return t.UninstallController.TaskStatus(cluster.Id)
+	return t.UninstallController.TaskStatus(cluster.Agent.GetId())
 }
 
-func (t *TopologyBackend) CancelUninstall(ctx context.Context, cluster *corev1.Reference) (*emptypb.Empty, error) {
+func (t *TopologyBackend) CancelUninstall(ctx context.Context, req *capabilityv1.CancelUninstallRequest) (*emptypb.Empty, error) {
 	t.WaitForInit()
 
-	t.UninstallController.CancelTask(cluster.Id)
-	t.requestNodeSync(ctx, cluster)
+	t.UninstallController.CancelTask(req.Agent.GetId())
+	t.requestNodeSync(ctx, req.Agent)
 	return &emptypb.Empty{}, nil
 }
 

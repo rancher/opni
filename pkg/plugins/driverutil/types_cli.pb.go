@@ -23,7 +23,7 @@ func (in *GetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *ConfigurationHistoryRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("ConfigurationHistoryRequest", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.EnumValue(&in.Target), strings.Join(append(prefix, "target"), "."), "The configuration type to return history for.")
+	fs.Var(flagutil.EnumValue(Target_ActiveConfiguration, &in.Target), strings.Join(append(prefix, "target"), "."), "The configuration type to return history for.")
 	if in.Revision == nil {
 		in.Revision = &v1.Revision{}
 	}

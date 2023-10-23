@@ -19,15 +19,6 @@ import (
 	time "time"
 )
 
-func (in *AzureConfig) DeepCopyInto(out *AzureConfig) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *AzureConfig) DeepCopy() *AzureConfig {
-	return proto.Clone(in).(*AzureConfig)
-}
-
 func (in *Config) DeepCopyInto(out *Config) {
 	out.Reset()
 	proto.Merge(out, in)
@@ -35,6 +26,15 @@ func (in *Config) DeepCopyInto(out *Config) {
 
 func (in *Config) DeepCopy() *Config {
 	return proto.Clone(in).(*Config)
+}
+
+func (in *AzureConfig) DeepCopyInto(out *AzureConfig) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *AzureConfig) DeepCopy() *AzureConfig {
+	return proto.Clone(in).(*AzureConfig)
 }
 
 func (in *FilesystemConfig) DeepCopyInto(out *FilesystemConfig) {

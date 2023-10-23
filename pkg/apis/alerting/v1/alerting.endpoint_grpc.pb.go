@@ -115,7 +115,7 @@ func (c *alertEndpointsClient) DeleteAlertEndpoint(ctx context.Context, in *Dele
 }
 
 // AlertEndpointsServer is the server API for AlertEndpoints service.
-// All implementations must embed UnimplementedAlertEndpointsServer
+// All implementations should embed UnimplementedAlertEndpointsServer
 // for forward compatibility
 type AlertEndpointsServer interface {
 	CreateAlertEndpoint(context.Context, *AlertEndpoint) (*v1.Reference, error)
@@ -135,10 +135,9 @@ type AlertEndpointsServer interface {
 	// deletes and applies the consequences of those changes
 	// to everything without warning
 	DeleteAlertEndpoint(context.Context, *DeleteAlertEndpointRequest) (*ConditionReferenceList, error)
-	mustEmbedUnimplementedAlertEndpointsServer()
 }
 
-// UnimplementedAlertEndpointsServer must be embedded to have forward compatible implementations.
+// UnimplementedAlertEndpointsServer should be embedded to have forward compatible implementations.
 type UnimplementedAlertEndpointsServer struct {
 }
 
@@ -160,7 +159,6 @@ func (UnimplementedAlertEndpointsServer) UpdateAlertEndpoint(context.Context, *U
 func (UnimplementedAlertEndpointsServer) DeleteAlertEndpoint(context.Context, *DeleteAlertEndpointRequest) (*ConditionReferenceList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAlertEndpoint not implemented")
 }
-func (UnimplementedAlertEndpointsServer) mustEmbedUnimplementedAlertEndpointsServer() {}
 
 // UnsafeAlertEndpointsServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to AlertEndpointsServer will

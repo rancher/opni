@@ -20,10 +20,10 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/rules"
+	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/inmemory"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/flagutil"
 	"github.com/rancher/opni/pkg/util/notifier"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/apis/node"
@@ -97,19 +97,22 @@ func (l *installStatusLocker) Use(f func(*driverutil.InstallStatus)) {
 
 type TestEnvMetricsClusterDriver struct {
 	cortexops.UnsafeCortexOpsServer
-	*driverutil.BaseConfigServer[*cortexops.ResetRequest, *cortexops.ConfigurationHistoryResponse, *cortexops.CapabilityBackendConfigSpec]
 
 	status     atomic.Pointer[installStatusLocker]
 	configLock sync.RWMutex
 
-	cortexCtx          context.Context
 	cortexCancel       context.CancelFunc
 	cortexCmdCtx       context.Context
 	stopCortexCmdAfter func()
 
 	Env             *test.Environment
 	ResourceVersion string
-	configTracker   *driverutil.DefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec]
+	activeStore     storage.ValueStoreT[*cortexops.CapabilityBackendConfigSpec]
+}
+
+// ActiveConfigStore implements drivers.ClusterDriver.
+func (d *TestEnvMetricsClusterDriver) ActiveConfigStore() storage.ValueStoreT[*cortexops.CapabilityBackendConfigSpec] {
+	return d.activeStore
 }
 
 // ListPresets implements cortexops.CortexOpsServer.
@@ -147,27 +150,11 @@ func (d *TestEnvMetricsClusterDriver) ListPresets(context.Context, *emptypb.Empt
 	}, nil
 }
 
-// DryRun implements cortexops.CortexOpsServer.
-func (d *TestEnvMetricsClusterDriver) DryRun(ctx context.Context, req *cortexops.DryRunRequest) (*cortexops.DryRunResponse, error) {
-	res, err := d.configTracker.DryRun(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	return &cortexops.DryRunResponse{
-		Current:          res.Current,
-		Modified:         res.Modified,
-		ValidationErrors: configutil.ValidateConfiguration(res.Modified),
-	}, nil
-}
-
-var _ cortexops.CortexOpsServer = (*TestEnvMetricsClusterDriver)(nil)
-
 func NewTestEnvMetricsClusterDriver(env *test.Environment) *TestEnvMetricsClusterDriver {
 	d := &TestEnvMetricsClusterDriver{
 		Env: env,
 	}
 	d.status.Store(&installStatusLocker{})
-	defaultStore := inmemory.NewValueStore[*cortexops.CapabilityBackendConfigSpec](util.ProtoClone)
 	activeStore := inmemory.NewValueStore[*cortexops.CapabilityBackendConfigSpec](util.ProtoClone)
 	updateC, err := activeStore.Watch(env.Context())
 	if err != nil {
@@ -185,13 +172,8 @@ func NewTestEnvMetricsClusterDriver(env *test.Environment) *TestEnvMetricsCluste
 			go d.onActiveConfigChanged(prevValue, curValue)
 		}
 	}()
-	configSrv := driverutil.NewBaseConfigServer[
-		*cortexops.ResetRequest,
-		*cortexops.ConfigurationHistoryResponse,
-	](defaultStore, activeStore, flagutil.LoadDefaults)
 
-	d.BaseConfigServer = configSrv
-	d.configTracker = configSrv.Tracker()
+	d.activeStore = activeStore
 	return d
 }
 
@@ -386,7 +368,7 @@ func (d *TestEnvPrometheusNodeDriver) ConfigureRuleGroupFinder(config *v1beta1.R
 var _ metrics_agent_drivers.MetricsNodeDriver = (*TestEnvPrometheusNodeDriver)(nil)
 
 // ConfigureNode implements drivers.MetricsNodeDriver
-func (d *TestEnvPrometheusNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) error {
+func (d *TestEnvPrometheusNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityStatus) error {
 	lg := d.env.Logger.With(
 		"node", nodeId,
 		"driver", "prometheus",
@@ -397,7 +379,8 @@ func (d *TestEnvPrometheusNodeDriver) ConfigureNode(nodeId string, conf *node.Me
 	defer d.prometheusMu.Unlock()
 
 	exists := d.prometheusCtx != nil && d.prometheusCancel != nil
-	shouldExist := conf.Enabled && conf.GetSpec().GetPrometheus() != nil
+	shouldExist := conf.Enabled && conf.GetSpec().GetPrometheus() != nil &&
+		conf.GetSpec().GetDriver() == node.MetricsCapabilityConfig_Prometheus
 
 	if exists && !shouldExist {
 		lg.Info("stopping prometheus")
@@ -445,7 +428,7 @@ type TestEnvOtelNodeDriver struct {
 }
 
 // ConfigureNode implements drivers.MetricsNodeDriver.
-func (d *TestEnvOtelNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) error {
+func (d *TestEnvOtelNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityStatus) error {
 	lg := d.env.Logger.With(
 		"node", nodeId,
 		"driver", "otel",
@@ -461,7 +444,8 @@ func (d *TestEnvOtelNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsC
 	defer d.otelMu.Unlock()
 
 	exists := d.otelCtx != nil && d.otelCancel != nil
-	shouldExist := conf.Enabled && conf.GetSpec().GetOtel() != nil
+	shouldExist := conf.Enabled && conf.GetSpec().GetOtel() != nil &&
+		conf.GetSpec().GetDriver() == node.MetricsCapabilityConfig_OpenTelemetry
 
 	if exists && !shouldExist {
 		lg.Info("stopping otel")

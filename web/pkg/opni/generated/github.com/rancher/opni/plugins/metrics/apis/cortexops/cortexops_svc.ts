@@ -3,7 +3,7 @@
 /* eslint-disable */
 
 import { ConfigurationHistoryRequest, GetRequest, InstallStatus } from "../../../../pkg/plugins/driverutil/types_pb";
-import { CapabilityBackendConfigSpec, ConfigurationHistoryResponse, DryRunRequest, DryRunResponse, PresetList, ResetRequest } from "./cortexops_pb";
+import { CapabilityBackendConfigSpec, ConfigurationHistoryResponse, DryRunRequest, DryRunResponse, PresetList, ResetRequest, SetRequest } from "./cortexops_pb";
 import { axios } from "@pkg/opni/utils/axios";
 
 
@@ -30,7 +30,7 @@ export async function GetDefaultConfiguration(input: GetRequest): Promise<Capabi
 }
 
 
-export async function SetDefaultConfiguration(input: CapabilityBackendConfigSpec): Promise<void> {
+export async function SetDefaultConfiguration(input: SetRequest): Promise<void> {
   try {
     return (await axios.request({
       method: 'put',
@@ -55,13 +55,13 @@ export async function SetDefaultConfiguration(input: CapabilityBackendConfigSpec
 export async function ResetDefaultConfiguration(): Promise<void> {
   try {
     return (await axios.request({
-      method: 'delete',
+      method: 'post',
       responseType: 'arraybuffer',
       headers: {
         'Content-Type': 'application/octet-stream',
         'Accept': 'application/octet-stream',
       },
-      url: `/opni-api/CortexOps/configuration/default`
+      url: `/opni-api/CortexOps/configuration/default/reset`
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {
@@ -96,7 +96,7 @@ export async function GetConfiguration(input: GetRequest): Promise<CapabilityBac
 }
 
 
-export async function SetConfiguration(input: CapabilityBackendConfigSpec): Promise<void> {
+export async function SetConfiguration(input: SetRequest): Promise<void> {
   try {
     return (await axios.request({
       method: 'put',
@@ -121,13 +121,59 @@ export async function SetConfiguration(input: CapabilityBackendConfigSpec): Prom
 export async function ResetConfiguration(input: ResetRequest): Promise<void> {
   try {
     return (await axios.request({
-      method: 'delete',
+      method: 'post',
       responseType: 'arraybuffer',
       headers: {
         'Content-Type': 'application/octet-stream',
         'Accept': 'application/octet-stream',
       },
-      url: `/opni-api/CortexOps/configuration`,
+      url: `/opni-api/CortexOps/configuration/reset`,
+    data: input?.toBinary() as ArrayBuffer
+    })).data;
+  } catch (ex) {
+    if (ex?.response?.data) {
+      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      console.error(s);
+    }
+    throw ex;
+  }
+}
+
+
+export async function DryRun(input: DryRunRequest): Promise<DryRunResponse> {
+  try {
+    return (await axios.request({
+    transformResponse: resp => DryRunResponse.fromBinary(new Uint8Array(resp)),
+      method: 'post',
+      responseType: 'arraybuffer',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Accept': 'application/octet-stream',
+      },
+      url: `/opni-api/CortexOps/dry-run`,
+    data: input?.toBinary() as ArrayBuffer
+    })).data;
+  } catch (ex) {
+    if (ex?.response?.data) {
+      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      console.error(s);
+    }
+    throw ex;
+  }
+}
+
+
+export async function ConfigurationHistory(input: ConfigurationHistoryRequest): Promise<ConfigurationHistoryResponse> {
+  try {
+    return (await axios.request({
+    transformResponse: resp => ConfigurationHistoryResponse.fromBinary(new Uint8Array(resp)),
+      method: 'get',
+      responseType: 'arraybuffer',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Accept': 'application/octet-stream',
+      },
+      url: `/opni-api/CortexOps/configuration/history`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
@@ -215,52 +261,6 @@ export async function ListPresets(): Promise<PresetList> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/CortexOps/presets`
-    })).data;
-  } catch (ex) {
-    if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
-      console.error(s);
-    }
-    throw ex;
-  }
-}
-
-
-export async function DryRun(input: DryRunRequest): Promise<DryRunResponse> {
-  try {
-    return (await axios.request({
-    transformResponse: resp => DryRunResponse.fromBinary(new Uint8Array(resp)),
-      method: 'post',
-      responseType: 'arraybuffer',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Accept': 'application/octet-stream',
-      },
-      url: `/opni-api/CortexOps/dry-run`,
-    data: input?.toBinary() as ArrayBuffer
-    })).data;
-  } catch (ex) {
-    if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
-      console.error(s);
-    }
-    throw ex;
-  }
-}
-
-
-export async function ConfigurationHistory(input: ConfigurationHistoryRequest): Promise<ConfigurationHistoryResponse> {
-  try {
-    return (await axios.request({
-    transformResponse: resp => ConfigurationHistoryResponse.fromBinary(new Uint8Array(resp)),
-      method: 'get',
-      responseType: 'arraybuffer',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Accept': 'application/octet-stream',
-      },
-      url: `/opni-api/CortexOps/configuration/history`,
-    data: input?.toBinary() as ArrayBuffer
     })).data;
   } catch (ex) {
     if (ex?.response?.data) {

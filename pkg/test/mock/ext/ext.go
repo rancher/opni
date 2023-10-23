@@ -259,7 +259,7 @@ func (mr *MockExt_ServerStreamClientMockRecorder) Recv() *gomock.Call {
 }
 
 // RecvMsg mocks base method.
-func (m_2 *MockExt_ServerStreamClient) RecvMsg(m interface{}) error {
+func (m_2 *MockExt_ServerStreamClient) RecvMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "RecvMsg", m)
 	ret0, _ := ret[0].(error)
@@ -273,7 +273,7 @@ func (mr *MockExt_ServerStreamClientMockRecorder) RecvMsg(m interface{}) *gomock
 }
 
 // SendMsg mocks base method.
-func (m_2 *MockExt_ServerStreamClient) SendMsg(m interface{}) error {
+func (m_2 *MockExt_ServerStreamClient) SendMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "SendMsg", m)
 	ret0, _ := ret[0].(error)
@@ -382,7 +382,7 @@ func (mr *MockExt_ClientStreamClientMockRecorder) Header() *gomock.Call {
 }
 
 // RecvMsg mocks base method.
-func (m_2 *MockExt_ClientStreamClient) RecvMsg(m interface{}) error {
+func (m_2 *MockExt_ClientStreamClient) RecvMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "RecvMsg", m)
 	ret0, _ := ret[0].(error)
@@ -410,7 +410,7 @@ func (mr *MockExt_ClientStreamClientMockRecorder) Send(arg0 interface{}) *gomock
 }
 
 // SendMsg mocks base method.
-func (m_2 *MockExt_ClientStreamClient) SendMsg(m interface{}) error {
+func (m_2 *MockExt_ClientStreamClient) SendMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "SendMsg", m)
 	ret0, _ := ret[0].(error)
@@ -519,7 +519,7 @@ func (mr *MockExt_BidirectionalStreamClientMockRecorder) Recv() *gomock.Call {
 }
 
 // RecvMsg mocks base method.
-func (m_2 *MockExt_BidirectionalStreamClient) RecvMsg(m interface{}) error {
+func (m_2 *MockExt_BidirectionalStreamClient) RecvMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "RecvMsg", m)
 	ret0, _ := ret[0].(error)
@@ -547,7 +547,7 @@ func (mr *MockExt_BidirectionalStreamClientMockRecorder) Send(arg0 interface{}) 
 }
 
 // SendMsg mocks base method.
-func (m_2 *MockExt_BidirectionalStreamClient) SendMsg(m interface{}) error {
+func (m_2 *MockExt_BidirectionalStreamClient) SendMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "SendMsg", m)
 	ret0, _ := ret[0].(error)
@@ -699,18 +699,6 @@ func (mr *MockExtServerMockRecorder) Set(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockExtServer)(nil).Set), arg0, arg1)
 }
 
-// mustEmbedUnimplementedExtServer mocks base method.
-func (m *MockExtServer) mustEmbedUnimplementedExtServer() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "mustEmbedUnimplementedExtServer")
-}
-
-// mustEmbedUnimplementedExtServer indicates an expected call of mustEmbedUnimplementedExtServer.
-func (mr *MockExtServerMockRecorder) mustEmbedUnimplementedExtServer() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedExtServer", reflect.TypeOf((*MockExtServer)(nil).mustEmbedUnimplementedExtServer))
-}
-
 // MockUnsafeExtServer is a mock of UnsafeExtServer interface.
 type MockUnsafeExtServer struct {
 	ctrl     *gomock.Controller
@@ -784,7 +772,7 @@ func (mr *MockExt_ServerStreamServerMockRecorder) Context() *gomock.Call {
 }
 
 // RecvMsg mocks base method.
-func (m_2 *MockExt_ServerStreamServer) RecvMsg(m interface{}) error {
+func (m_2 *MockExt_ServerStreamServer) RecvMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "RecvMsg", m)
 	ret0, _ := ret[0].(error)
@@ -826,7 +814,7 @@ func (mr *MockExt_ServerStreamServerMockRecorder) SendHeader(arg0 interface{}) *
 }
 
 // SendMsg mocks base method.
-func (m_2 *MockExt_ServerStreamServer) SendMsg(m interface{}) error {
+func (m_2 *MockExt_ServerStreamServer) SendMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "SendMsg", m)
 	ret0, _ := ret[0].(error)
@@ -918,7 +906,7 @@ func (mr *MockExt_ClientStreamServerMockRecorder) Recv() *gomock.Call {
 }
 
 // RecvMsg mocks base method.
-func (m_2 *MockExt_ClientStreamServer) RecvMsg(m interface{}) error {
+func (m_2 *MockExt_ClientStreamServer) RecvMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "RecvMsg", m)
 	ret0, _ := ret[0].(error)
@@ -960,7 +948,7 @@ func (mr *MockExt_ClientStreamServerMockRecorder) SendHeader(arg0 interface{}) *
 }
 
 // SendMsg mocks base method.
-func (m_2 *MockExt_ClientStreamServer) SendMsg(m interface{}) error {
+func (m_2 *MockExt_ClientStreamServer) SendMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "SendMsg", m)
 	ret0, _ := ret[0].(error)
@@ -1052,7 +1040,7 @@ func (mr *MockExt_BidirectionalStreamServerMockRecorder) Recv() *gomock.Call {
 }
 
 // RecvMsg mocks base method.
-func (m_2 *MockExt_BidirectionalStreamServer) RecvMsg(m interface{}) error {
+func (m_2 *MockExt_BidirectionalStreamServer) RecvMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "RecvMsg", m)
 	ret0, _ := ret[0].(error)
@@ -1094,7 +1082,7 @@ func (mr *MockExt_BidirectionalStreamServerMockRecorder) SendHeader(arg0 interfa
 }
 
 // SendMsg mocks base method.
-func (m_2 *MockExt_BidirectionalStreamServer) SendMsg(m interface{}) error {
+func (m_2 *MockExt_BidirectionalStreamServer) SendMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "SendMsg", m)
 	ret0, _ := ret[0].(error)
@@ -1212,18 +1200,6 @@ func (m *MockExt2Server) Foo(arg0 context.Context, arg1 *ext.FooRequest) (*ext.F
 func (mr *MockExt2ServerMockRecorder) Foo(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Foo", reflect.TypeOf((*MockExt2Server)(nil).Foo), arg0, arg1)
-}
-
-// mustEmbedUnimplementedExt2Server mocks base method.
-func (m *MockExt2Server) mustEmbedUnimplementedExt2Server() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "mustEmbedUnimplementedExt2Server")
-}
-
-// mustEmbedUnimplementedExt2Server indicates an expected call of mustEmbedUnimplementedExt2Server.
-func (mr *MockExt2ServerMockRecorder) mustEmbedUnimplementedExt2Server() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedExt2Server", reflect.TypeOf((*MockExt2Server)(nil).mustEmbedUnimplementedExt2Server))
 }
 
 // MockUnsafeExt2Server is a mock of UnsafeExt2Server interface.

@@ -12,6 +12,7 @@ import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/alerting"
@@ -182,11 +183,9 @@ var _ = Describe("metrics and alerting", Ordered, Label("integration"), func() {
 			cortexAdminClient := cortexadmin.NewCortexAdminClient(env.ManagementClientConn())
 			By("installing the metrics capabilities")
 			for _, agent := range agents {
-				_, err := mgmtClient.InstallCapability(env.Context(), &managementv1.CapabilityInstallRequest{
-					Name: "metrics",
-					Target: &capabilityv1.InstallRequest{
-						Cluster: &corev1.Reference{Id: agent},
-					},
+				_, err := mgmtClient.InstallCapability(env.Context(), &capabilityv1.InstallRequest{
+					Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+					Agent:      &corev1.Reference{Id: agent},
 				})
 				Expect(err).NotTo(HaveOccurred())
 			}

@@ -38,28 +38,8 @@ func (m *MockBackendClient) EXPECT() *MockBackendClientMockRecorder {
 	return m.recorder
 }
 
-// CanInstall mocks base method.
-func (m *MockBackendClient) CanInstall(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{ctx, in}
-	for _, a := range opts {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "CanInstall", varargs...)
-	ret0, _ := ret[0].(*emptypb.Empty)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CanInstall indicates an expected call of CanInstall.
-func (mr *MockBackendClientMockRecorder) CanInstall(ctx, in interface{}, opts ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanInstall", reflect.TypeOf((*MockBackendClient)(nil).CanInstall), varargs...)
-}
-
 // CancelUninstall mocks base method.
-func (m *MockBackendClient) CancelUninstall(ctx context.Context, in *v10.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (m *MockBackendClient) CancelUninstall(ctx context.Context, in *v1.CancelUninstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
@@ -79,7 +59,7 @@ func (mr *MockBackendClientMockRecorder) CancelUninstall(ctx, in interface{}, op
 }
 
 // Info mocks base method.
-func (m *MockBackendClient) Info(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.Details, error) {
+func (m *MockBackendClient) Info(ctx context.Context, in *v10.Reference, opts ...grpc.CallOption) (*v1.Details, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
@@ -118,28 +98,28 @@ func (mr *MockBackendClientMockRecorder) Install(ctx, in interface{}, opts ...in
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Install", reflect.TypeOf((*MockBackendClient)(nil).Install), varargs...)
 }
 
-// InstallerTemplate mocks base method.
-func (m *MockBackendClient) InstallerTemplate(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.InstallerTemplateResponse, error) {
+// List mocks base method.
+func (m *MockBackendClient) List(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.DetailsList, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "InstallerTemplate", varargs...)
-	ret0, _ := ret[0].(*v1.InstallerTemplateResponse)
+	ret := m.ctrl.Call(m, "List", varargs...)
+	ret0, _ := ret[0].(*v1.DetailsList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// InstallerTemplate indicates an expected call of InstallerTemplate.
-func (mr *MockBackendClientMockRecorder) InstallerTemplate(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+// List indicates an expected call of List.
+func (mr *MockBackendClientMockRecorder) List(ctx, in interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstallerTemplate", reflect.TypeOf((*MockBackendClient)(nil).InstallerTemplate), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockBackendClient)(nil).List), varargs...)
 }
 
 // Status mocks base method.
-func (m *MockBackendClient) Status(ctx context.Context, in *v10.Reference, opts ...grpc.CallOption) (*v1.NodeCapabilityStatus, error) {
+func (m *MockBackendClient) Status(ctx context.Context, in *v1.StatusRequest, opts ...grpc.CallOption) (*v1.NodeCapabilityStatus, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
@@ -179,7 +159,7 @@ func (mr *MockBackendClientMockRecorder) Uninstall(ctx, in interface{}, opts ...
 }
 
 // UninstallStatus mocks base method.
-func (m *MockBackendClient) UninstallStatus(ctx context.Context, in *v10.Reference, opts ...grpc.CallOption) (*v10.TaskStatus, error) {
+func (m *MockBackendClient) UninstallStatus(ctx context.Context, in *v1.UninstallStatusRequest, opts ...grpc.CallOption) (*v10.TaskStatus, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
@@ -221,23 +201,8 @@ func (m *MockBackendServer) EXPECT() *MockBackendServerMockRecorder {
 	return m.recorder
 }
 
-// CanInstall mocks base method.
-func (m *MockBackendServer) CanInstall(arg0 context.Context, arg1 *emptypb.Empty) (*emptypb.Empty, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CanInstall", arg0, arg1)
-	ret0, _ := ret[0].(*emptypb.Empty)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CanInstall indicates an expected call of CanInstall.
-func (mr *MockBackendServerMockRecorder) CanInstall(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanInstall", reflect.TypeOf((*MockBackendServer)(nil).CanInstall), arg0, arg1)
-}
-
 // CancelUninstall mocks base method.
-func (m *MockBackendServer) CancelUninstall(arg0 context.Context, arg1 *v10.Reference) (*emptypb.Empty, error) {
+func (m *MockBackendServer) CancelUninstall(arg0 context.Context, arg1 *v1.CancelUninstallRequest) (*emptypb.Empty, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CancelUninstall", arg0, arg1)
 	ret0, _ := ret[0].(*emptypb.Empty)
@@ -252,7 +217,7 @@ func (mr *MockBackendServerMockRecorder) CancelUninstall(arg0, arg1 interface{})
 }
 
 // Info mocks base method.
-func (m *MockBackendServer) Info(arg0 context.Context, arg1 *emptypb.Empty) (*v1.Details, error) {
+func (m *MockBackendServer) Info(arg0 context.Context, arg1 *v10.Reference) (*v1.Details, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Info", arg0, arg1)
 	ret0, _ := ret[0].(*v1.Details)
@@ -281,23 +246,23 @@ func (mr *MockBackendServerMockRecorder) Install(arg0, arg1 interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Install", reflect.TypeOf((*MockBackendServer)(nil).Install), arg0, arg1)
 }
 
-// InstallerTemplate mocks base method.
-func (m *MockBackendServer) InstallerTemplate(arg0 context.Context, arg1 *emptypb.Empty) (*v1.InstallerTemplateResponse, error) {
+// List mocks base method.
+func (m *MockBackendServer) List(arg0 context.Context, arg1 *emptypb.Empty) (*v1.DetailsList, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InstallerTemplate", arg0, arg1)
-	ret0, _ := ret[0].(*v1.InstallerTemplateResponse)
+	ret := m.ctrl.Call(m, "List", arg0, arg1)
+	ret0, _ := ret[0].(*v1.DetailsList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// InstallerTemplate indicates an expected call of InstallerTemplate.
-func (mr *MockBackendServerMockRecorder) InstallerTemplate(arg0, arg1 interface{}) *gomock.Call {
+// List indicates an expected call of List.
+func (mr *MockBackendServerMockRecorder) List(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstallerTemplate", reflect.TypeOf((*MockBackendServer)(nil).InstallerTemplate), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockBackendServer)(nil).List), arg0, arg1)
 }
 
 // Status mocks base method.
-func (m *MockBackendServer) Status(arg0 context.Context, arg1 *v10.Reference) (*v1.NodeCapabilityStatus, error) {
+func (m *MockBackendServer) Status(arg0 context.Context, arg1 *v1.StatusRequest) (*v1.NodeCapabilityStatus, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Status", arg0, arg1)
 	ret0, _ := ret[0].(*v1.NodeCapabilityStatus)
@@ -327,7 +292,7 @@ func (mr *MockBackendServerMockRecorder) Uninstall(arg0, arg1 interface{}) *gomo
 }
 
 // UninstallStatus mocks base method.
-func (m *MockBackendServer) UninstallStatus(arg0 context.Context, arg1 *v10.Reference) (*v10.TaskStatus, error) {
+func (m *MockBackendServer) UninstallStatus(arg0 context.Context, arg1 *v1.UninstallStatusRequest) (*v10.TaskStatus, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UninstallStatus", arg0, arg1)
 	ret0, _ := ret[0].(*v10.TaskStatus)
@@ -339,18 +304,6 @@ func (m *MockBackendServer) UninstallStatus(arg0 context.Context, arg1 *v10.Refe
 func (mr *MockBackendServerMockRecorder) UninstallStatus(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UninstallStatus", reflect.TypeOf((*MockBackendServer)(nil).UninstallStatus), arg0, arg1)
-}
-
-// mustEmbedUnimplementedBackendServer mocks base method.
-func (m *MockBackendServer) mustEmbedUnimplementedBackendServer() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "mustEmbedUnimplementedBackendServer")
-}
-
-// mustEmbedUnimplementedBackendServer indicates an expected call of mustEmbedUnimplementedBackendServer.
-func (mr *MockBackendServerMockRecorder) mustEmbedUnimplementedBackendServer() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedBackendServer", reflect.TypeOf((*MockBackendServer)(nil).mustEmbedUnimplementedBackendServer))
 }
 
 // MockUnsafeBackendServer is a mock of UnsafeBackendServer interface.
@@ -467,18 +420,6 @@ func (m *MockNodeServer) SyncNow(arg0 context.Context, arg1 *v1.Filter) (*emptyp
 func (mr *MockNodeServerMockRecorder) SyncNow(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncNow", reflect.TypeOf((*MockNodeServer)(nil).SyncNow), arg0, arg1)
-}
-
-// mustEmbedUnimplementedNodeServer mocks base method.
-func (m *MockNodeServer) mustEmbedUnimplementedNodeServer() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "mustEmbedUnimplementedNodeServer")
-}
-
-// mustEmbedUnimplementedNodeServer indicates an expected call of mustEmbedUnimplementedNodeServer.
-func (mr *MockNodeServerMockRecorder) mustEmbedUnimplementedNodeServer() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedNodeServer", reflect.TypeOf((*MockNodeServer)(nil).mustEmbedUnimplementedNodeServer))
 }
 
 // MockUnsafeNodeServer is a mock of UnsafeNodeServer interface.

@@ -2,6 +2,8 @@ package kvutil
 
 import (
 	"context"
+	"path"
+	"strings"
 	"sync"
 
 	"github.com/rancher/opni/pkg/storage"
@@ -64,7 +66,25 @@ func (s *kvStorePrefixImpl[T]) Get(ctx context.Context, key string, opts ...stor
 }
 
 func (s *kvStorePrefixImpl[T]) Watch(ctx context.Context, key string, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[T]], error) {
-	return s.base.Watch(ctx, s.prefix+key, opts...)
+	c, err := s.base.Watch(ctx, s.prefix+key, opts...)
+	if err != nil {
+		return nil, err
+	}
+	out := make(chan storage.WatchEvent[storage.KeyRevision[T]], 1)
+	go func() {
+		defer close(out)
+		for e := range c {
+			// TODO: what the / doin
+			if e.Current != nil {
+				e.Current.SetKey(strings.TrimPrefix("/"+e.Current.Key(), s.prefix))
+			}
+			if e.Previous != nil {
+				e.Previous.SetKey(strings.TrimPrefix("/"+e.Previous.Key(), s.prefix))
+			}
+			out <- e
+		}
+	}()
+	return out, nil
 }
 
 func (s *kvStorePrefixImpl[T]) Delete(ctx context.Context, key string, opts ...storage.DeleteOpt) error {
@@ -100,7 +120,24 @@ func (s *singleValueStoreImpl[T]) Get(ctx context.Context, opts ...storage.GetOp
 }
 
 func (s *singleValueStoreImpl[T]) Watch(ctx context.Context, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[T]], error) {
-	return s.base.Watch(ctx, s.key, opts...)
+	c, err := s.base.Watch(ctx, s.key, opts...)
+	if err != nil {
+		return nil, err
+	}
+	out := make(chan storage.WatchEvent[storage.KeyRevision[T]], 1)
+	go func() {
+		defer close(out)
+		for e := range c {
+			if e.Current != nil {
+				e.Current.SetKey(path.Base(s.key))
+			}
+			if e.Previous != nil {
+				e.Previous.SetKey(path.Base(s.key))
+			}
+			out <- e
+		}
+	}()
+	return out, nil
 }
 
 func (s *singleValueStoreImpl[T]) Delete(ctx context.Context, opts ...storage.DeleteOpt) error {

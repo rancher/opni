@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
+	"golang.org/x/tools/pkg/memoize"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -55,6 +56,7 @@ type ClientSet interface {
 	QueryFrontend() QueryFrontendClient
 	Querier() QuerierClient
 	HTTP(options ...HTTPClientOption) *http.Client
+	TLSConfig() *tls.Config
 }
 
 type DistributorClient interface {
@@ -532,7 +534,42 @@ func (c *clientSet) HTTP(opts ...HTTPClientOption) *http.Client {
 	return c.Client
 }
 
-func NewClientSet(ctx context.Context, cortexSpec *v1beta1.CortexSpec, tlsConfig *tls.Config) (ClientSet, error) {
+func (c *clientSet) TLSConfig() *tls.Config {
+	return c.tlsConfig
+}
+
+type clientSetKeyType struct{}
+
+var clientSetKey clientSetKeyType
+
+type clientSetResult struct {
+	ClientSet ClientSet
+	Err       error
+}
+
+func AcquireClientSet(ctx context.Context, promise *memoize.Promise) (ClientSet, error) {
+	res, err := promise.Get(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	clientSetResult := res.(clientSetResult)
+	return clientSetResult.ClientSet, clientSetResult.Err
+}
+
+func NewClientSet(config *v1beta1.GatewayConfig) (any, memoize.Function) {
+	return clientSetKey, func(ctx context.Context, arg any) any {
+		var res clientSetResult
+		tlsConfig, err := LoadTLSConfig(config)
+		if err != nil {
+			res.Err = err
+			return res
+		}
+		res.ClientSet, res.Err = newClientSet(ctx, &config.Spec.Cortex, tlsConfig)
+		return res
+	}
+}
+
+func newClientSet(ctx context.Context, cortexSpec *v1beta1.CortexSpec, tlsConfig *tls.Config) (ClientSet, error) {
 	distributorCC, err := grpc.DialContext(ctx, cortexSpec.Distributor.GRPCAddress,
 		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
 		grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor()),

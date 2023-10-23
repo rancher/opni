@@ -7,6 +7,7 @@ import (
 
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/go-logr/logr"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/util"
@@ -23,6 +24,7 @@ func StartManager(ctx context.Context, restConfig *rest.Config, scheme *k8srunti
 		Scheme:                 scheme,
 		MetricsBindAddress:     fmt.Sprintf(":%d", ports[0]),
 		HealthProbeBindAddress: fmt.Sprintf(":%d", ports[1]),
+		Logger:                 logr.Discard(),
 	}))
 	for _, reconciler := range reconcilers {
 		util.Must(reconciler.SetupWithManager(manager))

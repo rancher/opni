@@ -8,6 +8,7 @@ import (
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/metrics/collector"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	metricsExporter "github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/proxy"
@@ -22,7 +23,6 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
 	"github.com/rancher/opni/pkg/plugins/apis/metrics"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/endpoints/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
@@ -87,6 +87,40 @@ type Plugin struct {
 
 	httpProxy *proxy.ProxyServer
 	hsServer  *healthStatusServer
+}
+
+// ManagementServices implements managementext.ManagementAPIExtension.
+func (p *Plugin) ManagementServices(_ managementext.ServiceController) []util.ServicePackInterface {
+	return []util.ServicePackInterface{
+		util.PackService[alertingv1.AlertConditionsServer](
+			&alertingv1.AlertConditions_ServiceDesc,
+			p.AlarmServerComponent,
+		),
+		util.PackService[alertingv1.AlertEndpointsServer](
+			&alertingv1.AlertEndpoints_ServiceDesc,
+			p.EndpointServerComponent,
+		),
+		util.PackService[alertingv1.AlertNotificationsServer](
+			&alertingv1.AlertNotifications_ServiceDesc,
+			p.NotificationServerComponent,
+		),
+		util.PackService[alertops.AlertingAdminServer](
+			&alertops.AlertingAdmin_ServiceDesc,
+			p,
+		),
+		util.PackService[alertops.ConfigReconcilerServer](
+			&alertops.ConfigReconciler_ServiceDesc,
+			p,
+		),
+		util.PackService[node.AlertingNodeConfigurationServer](
+			&node.AlertingNodeConfiguration_ServiceDesc,
+			&p.node,
+		),
+		util.PackService[node.NodeAlertingCapabilityServer](
+			&node.NodeAlertingCapability_ServiceDesc,
+			&p.node,
+		),
+	}
 }
 
 var (
@@ -239,40 +273,8 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
-	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p))
-	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(
-			util.PackService(
-				&alertingv1.AlertConditions_ServiceDesc,
-				p.AlarmServerComponent,
-			),
-			util.PackService(
-				&alertingv1.AlertEndpoints_ServiceDesc,
-				p.EndpointServerComponent,
-			),
-			util.PackService(
-				&alertingv1.AlertNotifications_ServiceDesc,
-				p.NotificationServerComponent,
-			),
-			util.PackService(
-				&alertops.AlertingAdmin_ServiceDesc,
-				p,
-			),
-			util.PackService(
-				&alertops.ConfigReconciler_ServiceDesc,
-				p,
-			),
-			util.PackService(
-				&node.AlertingNodeConfiguration_ServiceDesc,
-				&p.node,
-			),
-			util.PackService(
-				&node.NodeAlertingCapability_ServiceDesc,
-				&p.node,
-			),
-		),
-	)
-
+	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p.httpProxy))
+	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(p))
 	scheme.Add(metrics.MetricsPluginID, metrics.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.node))
 	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(p))

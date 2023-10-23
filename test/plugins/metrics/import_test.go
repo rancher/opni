@@ -18,12 +18,9 @@ import (
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 
-	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
 	"github.com/rancher/opni/pkg/test/testk8s"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	corev1 "k8s.io/api/core/v1"
 	apimetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -136,17 +133,8 @@ var _ = Describe("Remote Read Import", Ordered, Label("integration", "slow"), fu
 		DeferCleanup(env.Stop, "Test Suite Finished")
 
 		By("adding an agent")
-		managementClient := env.NewManagementClient()
-		token, err := managementClient.CreateBootstrapToken(ctx, &managementv1.CreateBootstrapTokenRequest{
-			Ttl: durationpb.New(time.Hour),
-		})
-		Expect(err).ToNot(HaveOccurred())
-
-		certInfo, err := managementClient.CertsInfo(ctx, &emptypb.Empty{})
-		Expect(err).ToNot(HaveOccurred())
-
-		_, errC := env.StartAgent(agentId, token, []string{certInfo.Chain[len(certInfo.Chain)-1].Fingerprint})
-		Eventually(errC).Should(Receive(BeNil()))
+		err := env.BootstrapNewAgent(agentId)
+		Expect(err).NotTo(HaveOccurred())
 
 		cortexOpsClient := cortexops.NewCortexOpsClient(env.ManagementClientConn())
 		err = cortexops.InstallWithPreset(env.Context(), cortexOpsClient)

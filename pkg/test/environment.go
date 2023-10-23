@@ -85,7 +85,6 @@ import (
 	_ "github.com/rancher/opni/pkg/storage/etcd"
 	_ "github.com/rancher/opni/pkg/storage/jetstream"
 	"github.com/rancher/opni/pkg/update/noop"
-	_ "github.com/rancher/opni/pkg/update/noop"
 )
 
 var (
@@ -330,8 +329,13 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	} else if options.storageBackend == "jetstream" && !options.enableJetstream {
 		options.enableJetstream = true
 	}
+	if options.enableEtcd && options.remoteEtcdPort != 0 {
+		options.enableEtcd = false
+	}
 
-	e.Logger = testlog.Log.Named("env")
+	if e.Logger == nil {
+		e.Logger = testlog.Log.Named("env")
+	}
 	e.nodeConfigOverrides = make(map[string]*OverridePrometheusConfig)
 
 	e.EnvironmentOptions = options
@@ -1664,7 +1668,7 @@ func (e *Environment) NewManagementClient(opts ...EnvClientOption) managementv1.
 	return c
 }
 
-func (e *Environment) ManagementClientConn() grpc.ClientConnInterface {
+func (e *Environment) ManagementClientConn() *grpc.ClientConn {
 	if !e.enableGateway {
 		e.Logger.Panic("gateway disabled")
 	}
@@ -1724,12 +1728,13 @@ func (e *Environment) startGateway() {
 		},
 	}})
 	g := gateway.NewGateway(e.ctx, e.gatewayConfig, pluginLoader,
+		gateway.WithLogger(lg.Named("gateway")),
 		gateway.WithLifecycler(lifecycler),
 		gateway.WithExtraUpdateHandlers(noop.NewSyncServer()),
 	)
 
 	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g, pluginLoader,
-		management.WithCapabilitiesDataSource(g),
+		management.WithCapabilitiesDataSource(g.CapabilitiesDataSource()),
 		management.WithHealthStatusDataSource(g),
 		management.WithLifecycler(lifecycler),
 	)
@@ -1842,6 +1847,7 @@ func WithListenPort(port int) StartAgentOption {
 
 func (e *Environment) BootstrapNewAgent(id string, opts ...StartAgentOption) error {
 	cc := e.ManagementClientConn()
+	defer cc.Close()
 
 	client := managementv1.NewManagementClient(cc)
 	token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
@@ -1860,7 +1866,10 @@ func (e *Environment) BootstrapNewAgent(id string, opts ...StartAgentOption) err
 	_, errC := e.StartAgent(id, token, []string{fp}, opts...)
 	select {
 	case err := <-errC:
-		return err
+		if err != nil {
+			return err
+		}
+		return WaitForAgentReady(e.ctx, client, id)
 	case <-e.ctx.Done():
 		return e.ctx.Err()
 	}
@@ -2049,6 +2058,36 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		e.runningAgentsMu.Unlock()
 	}()
 	return agentCtx, errC
+}
+
+func WaitForAgentReady(ctx context.Context, client managementv1.ManagementClient, id string) error {
+	ctx, ca := context.WithCancel(ctx)
+	defer ca()
+	hs, err := client.WatchClusterHealthStatus(ctx, &emptypb.Empty{})
+	if err != nil {
+		return err
+	}
+	var lastErr error
+	for {
+		event, err := hs.Recv()
+		if err != nil {
+			if lastErr == nil {
+				lastErr = err
+			}
+			break
+		}
+		if event.GetCluster().GetId() == id {
+			if !event.GetHealthStatus().GetStatus().GetConnected() {
+				lastErr = fmt.Errorf("agent %q not connected", id)
+			} else if !event.GetHealthStatus().GetHealth().GetReady() {
+				lastErr = fmt.Errorf("agent %q not ready", id)
+			} else {
+				lastErr = nil
+				break
+			}
+		}
+	}
+	return lastErr
 }
 
 func (e *Environment) GetAgent(id string) RunningAgent {

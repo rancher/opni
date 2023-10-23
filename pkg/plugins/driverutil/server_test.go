@@ -19,7 +19,10 @@ import (
 
 var _ = Describe("Base Config Server", Label("unit"), Ordered, func() {
 	var server *driverutil.BaseConfigServer[
+		*driverutil.GetRequest,
+		*ext.SampleSetRequest,
 		*ext.SampleResetRequest,
+		*driverutil.ConfigurationHistoryRequest,
 		*ext.SampleConfigurationHistoryResponse,
 		*ext.SampleConfiguration,
 	]
@@ -49,10 +52,7 @@ var _ = Describe("Base Config Server", Label("unit"), Ordered, func() {
 	}
 
 	BeforeEach(func() {
-		server = driverutil.NewBaseConfigServer[
-			*ext.SampleResetRequest,
-			*ext.SampleConfigurationHistoryResponse,
-		](newValueStore(), newValueStore(), setDefaults)
+		server = server.Build(newValueStore(), newValueStore(), setDefaults)
 	})
 	Context("GetConfiguration", func() {
 		It("should forward the request to the tracker", func(ctx context.Context) {
@@ -251,7 +251,9 @@ var _ = Describe("Base Config Server", Label("unit"), Ordered, func() {
 			Expect(server.Tracker().ApplyConfig(ctx, util.ProtoClone(config))).To(Succeed())
 			By("setting the configuration")
 			config.Enabled = lo.ToPtr(true)
-			_, err := server.SetConfiguration(ctx, util.ProtoClone(config))
+			_, err := server.SetConfiguration(ctx, &ext.SampleSetRequest{
+				Spec: util.ProtoClone(config),
+			})
 			Expect(err).NotTo(HaveOccurred())
 			By("getting the configuration")
 			res, err := server.GetConfiguration(ctx, &driverutil.GetRequest{})
@@ -265,7 +267,9 @@ var _ = Describe("Base Config Server", Label("unit"), Ordered, func() {
 			defaults := newDefaults()
 			defaults.Enabled = lo.ToPtr(true)
 			By("setting the default configuration")
-			_, err := server.SetDefaultConfiguration(ctx, defaults)
+			_, err := server.SetDefaultConfiguration(ctx, &ext.SampleSetRequest{
+				Spec: defaults,
+			})
 			Expect(err).NotTo(HaveOccurred())
 			By("getting the default configuration")
 			res, err := server.GetDefaultConfiguration(ctx, &driverutil.GetRequest{})

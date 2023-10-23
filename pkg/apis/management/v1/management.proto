@@ -9,9 +9,6 @@ import "google/api/http.proto";
 import "google/protobuf/descriptor.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
-import "google/protobuf/struct.proto";
-import "google/protobuf/timestamp.proto";
-import "google/rpc/status.proto";
 
 option go_package = "github.com/rancher/opni/pkg/apis/management/v1";
 
@@ -159,39 +156,31 @@ service Management {
       get: "/capabilities"
     };
   }
-  // Deprecated: For agent v2, use InstallCapability instead.
-  rpc CapabilityInstaller(CapabilityInstallerRequest) returns (CapabilityInstallerResponse) {
-    option deprecated = true;
+  rpc InstallCapability(capability.InstallRequest) returns (capability.InstallResponse) {
     option (google.api.http) = {
-      post: "/capabilities/{name}/installer"
+      post: "/clusters/{agent.id}/capabilities/{capability.id}/install"
       body: "*"
     };
   }
-  rpc InstallCapability(CapabilityInstallRequest) returns (capability.InstallResponse) {
+  rpc UninstallCapability(capability.UninstallRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post: "/clusters/{target.cluster.id}/capabilities/{name}/install"
+      post: "/clusters/{agent.id}/capabilities/{capability.id}/uninstall"
       body: "*"
     };
   }
-  rpc UninstallCapability(CapabilityUninstallRequest) returns (google.protobuf.Empty) {
+  rpc CapabilityStatus(capability.StatusRequest) returns (capability.NodeCapabilityStatus) {
     option (google.api.http) = {
-      post: "/clusters/{target.cluster.id}/capabilities/{name}/uninstall"
-      body: "*"
+      get: "/clusters/{agent.id}/capabilities/{capability.id}/status"
     };
   }
-  rpc CapabilityStatus(CapabilityStatusRequest) returns (capability.NodeCapabilityStatus) {
+  rpc CapabilityUninstallStatus(capability.UninstallStatusRequest) returns (core.TaskStatus) {
     option (google.api.http) = {
-      get: "/clusters/{cluster.id}/capabilities/{name}/status"
+      get: "/clusters/{agent.id}/capabilities/{capability.id}/uninstall/status"
     };
   }
-  rpc CapabilityUninstallStatus(CapabilityStatusRequest) returns (core.TaskStatus) {
+  rpc CancelCapabilityUninstall(capability.CancelUninstallRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      get: "/clusters/{cluster.id}/capabilities/{name}/uninstall/status"
-    };
-  }
-  rpc CancelCapabilityUninstall(CapabilityUninstallCancelRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      post: "/clusters/{cluster.id}/capabilities/{name}/uninstall/cancel"
+      post: "/clusters/{agent.id}/capabilities/{capability.id}/uninstall/cancel"
     };
   }
   rpc GetDashboardSettings(google.protobuf.Empty) returns (DashboardSettings) {
@@ -282,36 +271,6 @@ message CapabilityList {
 message CapabilityInfo {
   capability.Details details   = 1;
   int32              nodeCount = 2;
-}
-
-message CapabilityInstallerRequest {
-  string name  = 1;
-  string token = 2;
-  string pin   = 3;
-}
-
-message CapabilityInstallRequest {
-  string                    name   = 1;
-  capability.InstallRequest target = 2;
-}
-
-message CapabilityInstallerResponse {
-  string command = 1;
-}
-
-message CapabilityUninstallRequest {
-  string                      name   = 1;
-  capability.UninstallRequest target = 2;
-}
-
-message CapabilityStatusRequest {
-  string         name    = 1;
-  core.Reference cluster = 2;
-}
-
-message CapabilityUninstallCancelRequest {
-  string         name    = 1;
-  core.Reference cluster = 2;
 }
 
 message DashboardSettings {

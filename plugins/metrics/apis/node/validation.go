@@ -15,7 +15,7 @@ func (s *SyncRequest) Validate() error {
 	return s.CurrentConfig.Spec.Validate()
 }
 
-func (m *MetricsCapabilitySpec) Validate() error {
+func (m *MetricsCapabilityConfig) Validate() error {
 	if m.GetPrometheus() != nil && m.GetOtel() != nil {
 		return validation.Errorf("Only one configuration can be set at a time: Prometheus, Otel")
 	}
@@ -30,7 +30,7 @@ func (m *MetricsCapabilitySpec) Validate() error {
 }
 
 func (o *OTELSpec) Validate() error {
-	if len(o.AdditionalScrapeConfigs) > 0 {
+	if len(o.GetAdditionalScrapeConfigs()) > 0 {
 		for _, config := range o.AdditionalScrapeConfigs {
 			if err := config.Validate(); err != nil {
 				return err
@@ -46,8 +46,8 @@ func (o *OTELSpec) Validate() error {
 }
 
 func (w *WALConfig) Validate() error {
-	if w.Enabled {
-		if w.BufferSize <= 0 {
+	if w.GetEnabled() {
+		if w.GetBufferSize() <= 0 {
 			return validation.Error("WAL BufferSize must be greater than 0")
 		}
 		if w.TruncateFrequency == nil {
@@ -58,10 +58,10 @@ func (w *WALConfig) Validate() error {
 }
 
 func (s *ScrapeConfig) Validate() error {
-	if s.JobName == "" {
+	if s.GetJobName() == "" {
 		return validation.Errorf("%w: %s", validation.ErrMissingRequiredField, "JobName")
 	}
-	if len(s.Targets) == 0 {
+	if len(s.GetTargets()) == 0 {
 		return validation.Errorf("%w: %s", validation.ErrMissingRequiredField, "Targets")
 	}
 	for _, t := range s.Targets {
@@ -69,10 +69,10 @@ func (s *ScrapeConfig) Validate() error {
 			return validation.Errorf("%w: %s", validation.ErrMissingRequiredField, "Target")
 		}
 	}
-	if s.ScrapeInterval == "" {
+	if s.GetScrapeInterval() == "" {
 		return validation.Errorf("%w: %s", validation.ErrMissingRequiredField, "ScrapeInterval")
 	}
-	_, err := model.ParseDuration(s.ScrapeInterval)
+	_, err := model.ParseDuration(s.GetScrapeInterval())
 	if err != nil {
 		return validation.Errorf("invalid ScrapeInterval: %s", err)
 	}

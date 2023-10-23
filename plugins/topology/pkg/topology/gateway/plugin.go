@@ -53,6 +53,14 @@ type Plugin struct {
 	clusterDriver       future.Future[drivers.ClusterDriver]
 }
 
+// ManagementServices implements managementext.ManagementAPIExtension.
+func (p *Plugin) ManagementServices(_ managementext.ServiceController) []util.ServicePackInterface {
+	return []util.ServicePackInterface{
+		util.PackService[representation.TopologyRepresentationServer](&representation.TopologyRepresentation_ServiceDesc, p),
+		util.PackService[orchestrator.TopologyOrchestratorServer](&orchestrator.TopologyOrchestrator_ServiceDesc, &p.topologyBackend),
+	}
+}
+
 func NewPlugin(ctx context.Context) *Plugin {
 	p := &Plugin{
 		ctx:                 ctx,
@@ -121,18 +129,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeGateway))
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
-	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(
-			util.PackService(
-				&representation.TopologyRepresentation_ServiceDesc,
-				p,
-			),
-			util.PackService(
-				&orchestrator.TopologyOrchestrator_ServiceDesc,
-				&p.topologyBackend,
-			),
-		),
-	)
+	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(p))
 	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.topologyBackend))
 	return scheme

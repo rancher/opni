@@ -21,7 +21,7 @@ service KeyValueStore {
   rpc Delete(DeleteRequest) returns (DeleteResponse);
   rpc ListKeys(ListKeysRequest) returns (ListKeysResponse);
   rpc History(HistoryRequest) returns (HistoryResponse);
-  rpc Lock(LockRequest) returns (google.protobuf.Empty);
+  rpc Lock(LockRequest) returns (stream LockResponse);
 }
 
 message BrokerID {
@@ -107,4 +107,15 @@ message LockRequest {
   // already held. Otherwise, the lock will be acquired, and the request will
   // block until canceled.
   bool tryLock = 2;
+}
+
+message LockResponse {
+  enum Event {
+    Unknown = 0;
+    // The lock was acquired.
+    Acquired = 1;
+    // The lock was not acquired because it is already held (TryLock only)
+    AcquireFailed = 2;
+  }
+  Event event = 1;
 }

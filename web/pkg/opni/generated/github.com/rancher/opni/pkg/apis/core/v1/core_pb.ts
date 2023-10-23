@@ -506,6 +506,13 @@ export class LastKnownConnectionDetails extends Message<LastKnownConnectionDetai
    */
   pluginVersions: { [key: string]: string } = {};
 
+  /**
+   * which gateway instance the agent was connected to
+   *
+   * @generated from field: core.InstanceInfo instanceInfo = 5;
+   */
+  instanceInfo?: InstanceInfo;
+
   constructor(data?: PartialMessage<LastKnownConnectionDetails>) {
     super();
     proto3.util.initPartial(data, this);
@@ -518,6 +525,7 @@ export class LastKnownConnectionDetails extends Message<LastKnownConnectionDetai
     { no: 2, name: "address", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "agentBuildInfo", kind: "message", T: BuildInfo },
     { no: 4, name: "pluginVersions", kind: "map", K: 9 /* ScalarType.STRING */, V: {kind: "scalar", T: 9 /* ScalarType.STRING */} },
+    { no: 5, name: "instanceInfo", kind: "message", T: InstanceInfo },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): LastKnownConnectionDetails {
@@ -2255,6 +2263,67 @@ export class Revision extends Message<Revision> {
 
   static equals(a: Revision | PlainMessage<Revision> | undefined, b: Revision | PlainMessage<Revision> | undefined): boolean {
     return proto3.util.equals(Revision, a, b);
+  }
+}
+
+/**
+ * @generated from message core.InstanceInfo
+ */
+export class InstanceInfo extends Message<InstanceInfo> {
+  /**
+   * @generated from field: string relayAddress = 1;
+   */
+  relayAddress = "";
+
+  /**
+   * @generated from field: string managementAddress = 2;
+   */
+  managementAddress = "";
+
+  /**
+   * @generated from field: bool acquired = 3;
+   */
+  acquired = false;
+
+  /**
+   * @generated from field: core.Health health = 4;
+   */
+  health?: Health;
+
+  /**
+   * @generated from field: core.Status status = 5;
+   */
+  status?: Status;
+
+  constructor(data?: PartialMessage<InstanceInfo>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "core.InstanceInfo";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "relayAddress", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "managementAddress", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "acquired", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 4, name: "health", kind: "message", T: Health },
+    { no: 5, name: "status", kind: "message", T: Status },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): InstanceInfo {
+    return new InstanceInfo().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): InstanceInfo {
+    return new InstanceInfo().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): InstanceInfo {
+    return new InstanceInfo().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: InstanceInfo | PlainMessage<InstanceInfo> | undefined, b: InstanceInfo | PlainMessage<InstanceInfo> | undefined): boolean {
+    return proto3.util.equals(InstanceInfo, a, b);
   }
 }
 

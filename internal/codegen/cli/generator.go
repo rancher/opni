@@ -11,6 +11,7 @@ import (
 
 	"github.com/iancoleman/strcase"
 	"github.com/rancher/opni/pkg/util/flagutil"
+	"golang.org/x/exp/slices"
 	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
@@ -43,6 +44,8 @@ func (cg Generator) Name() string {
 
 func (cg *Generator) Generate(gen *protogen.Plugin) error {
 	cg.plugin = gen
+
+	toGenerate := []*protogen.File{}
 	for _, file := range gen.Files {
 		if !file.Generate {
 			continue
@@ -50,10 +53,16 @@ func (cg *Generator) Generate(gen *protogen.Plugin) error {
 		if !proto.HasExtension(file.Desc.Options(), E_Generator) {
 			continue
 		}
-		ext := proto.GetExtension(file.Desc.Options(), E_Generator).(*GeneratorOptions)
-		if !ext.GetGenerate() {
+		ext, ok := getExtension[*GeneratorOptions](file.Desc, E_Generator)
+		if !ok || !ext.GetGenerate() {
 			continue
 		}
+		toGenerate = append(toGenerate, file)
+	}
+	slices.SortFunc(toGenerate, func(a, b *protogen.File) bool {
+		return a.Desc.Path() < b.Desc.Path()
+	})
+	for _, file := range toGenerate {
 		cg.generatedFiles[file.Desc.Path()] = cg.generateFile(gen, file)
 	}
 	return nil
@@ -129,7 +138,7 @@ func (cg *Generator) generateFile(gen *protogen.Plugin, file *protogen.File) *pr
 	if opts.GenerateFlagsForAllMessages {
 		for _, msg := range file.Messages {
 			// check if a flagset has already been generated for this message
-			if _, ok := cg.allFlagSets[g.QualifiedGoIdent(msg.GoIdent)]; ok {
+			if _, ok := cg.allFlagSets[msg.GoIdent.String()]; ok {
 				continue
 			}
 			cg.generateFlagSet(g, msg)
@@ -271,8 +280,11 @@ func generateContextInjectionFunctions(file *protogen.File, g *protogen.Generate
 	}
 }
 
-func (cg *Generator) generateServiceTopLevelCmd(service *protogen.Service, g *protogen.GeneratedFile, writers serviceGenWriters) {
-	leadingComments := formatComments(service.Comments)
+func (cg *Generator) generateServiceTopLevelCmd(service *protogen.Service, g *protogen.GeneratedFile, writers serviceGenWriters) error {
+	leadingComments, err := formatComments(service.Comments)
+	if err != nil {
+		return err
+	}
 
 	opts := CommandGroupOptions{
 		Use: strcase.ToKebab(service.GoName),
@@ -330,9 +342,10 @@ func (cg *Generator) generateServiceTopLevelCmd(service *protogen.Service, g *pr
 
 	g.P("return cmd")
 	g.P("}")
+	return nil
 }
 
-func (cg *Generator) generateMethodCmd(service *protogen.Service, method *protogen.Method, g *protogen.GeneratedFile, writers serviceGenWriters) {
+func (cg *Generator) generateMethodCmd(service *protogen.Service, method *protogen.Method, g *protogen.GeneratedFile, writers serviceGenWriters) error {
 	opts := CommandOptions{
 		Use: strcase.ToKebab(method.GoName),
 	}
@@ -352,21 +365,43 @@ func (cg *Generator) generateMethodCmd(service *protogen.Service, method *protog
 		g.P("in := &", g.QualifiedGoIdent(method.Input.GoIdent), "{}")
 	}
 	methodOptions := method.Desc.Options().(*descriptorpb.MethodOptions)
-	leadingComments := formatComments(method.Comments)
+	leadingComments, err := formatComments(method.Comments)
+	if err != nil {
+		return err
+	}
 
 	g.P("cmd := &", _cobra.Ident("Command"), "{")
 	g.P(" Use:   \"", opts.Use, "\",")
+
 	if len(leadingComments) > 0 {
 		g.P(" Short: ", fmt.Sprintf("%q", leadingComments[0]), ",")
+		if len(leadingComments) > 1 {
+			leadingComments = leadingComments[1:]
+		} else {
+			leadingComments = nil
+		}
 	}
+
+	// trim blank lines between the short and long descriptions
+	for len(leadingComments) > 0 {
+		if strings.TrimSpace(leadingComments[0]) != "" {
+			break
+		}
+		if len(leadingComments) == 1 {
+			leadingComments = nil
+		} else {
+			leadingComments = leadingComments[1:]
+		}
+	}
+
 	httpExt, hasHttpExt := getExtension[*annotations.HttpRule](method.Desc, annotations.E_Http)
-	if len(leadingComments) > 1 || hasHttpExt {
+	if len(leadingComments) > 0 || hasHttpExt {
 		g.P(" Long: `")
-		for _, c := range leadingComments[1:] {
+		for _, c := range leadingComments {
 			g.P(c)
 		}
 		if hasHttpExt {
-			if len(leadingComments) > 1 {
+			if len(leadingComments) > 0 {
 				g.P()
 			}
 			g.P("HTTP handlers for this method:")
@@ -411,7 +446,10 @@ func (cg *Generator) generateMethodCmd(service *protogen.Service, method *protog
 
 	// Generate flags for input fields recursively
 	if !isEmpty {
-		flagSet := cg.generateFlagSet(g, method.Input)
+		flagSet, err := cg.generateFlagSet(g, method.Input)
+		if err != nil {
+			return err
+		}
 		switch opts.Granularity {
 		case EditScope_EditFields:
 			if flagSet.flagCount > 0 {
@@ -438,6 +476,7 @@ func (cg *Generator) generateMethodCmd(service *protogen.Service, method *protog
 
 	g.P("return cmd")
 	g.P("}")
+	return nil
 }
 
 type fieldTypeDefaults struct {
@@ -547,9 +586,9 @@ func (b *buffer) QualifiedGoIdent(ident protogen.GoIdent) string {
 	return b.g.QualifiedGoIdent(ident)
 }
 
-func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protogen.Message) *flagSet {
-	if existing, ok := cg.allFlagSets[g.QualifiedGoIdent(message.GoIdent)]; ok {
-		return existing
+func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protogen.Message) (*flagSet, error) {
+	if existing, ok := cg.allFlagSets[message.GoIdent.String()]; ok {
+		return existing, nil
 	}
 
 	deps := make(map[string]*flagSet)
@@ -558,8 +597,7 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 		deps:     deps,
 	}
 
-	ident := g.QualifiedGoIdent(message.GoIdent)
-	cg.allFlagSets[ident] = fs
+	cg.allFlagSets[message.GoIdent.String()] = fs
 	cg.orderedFlagSets = append(cg.orderedFlagSets, fs)
 
 	if dest, ok := cg.generatedFiles[message.Desc.ParentFile().Path()]; ok {
@@ -581,7 +619,11 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 			}
 
 			kebabName := formatKebab(field.GoName)
-			commentLines := formatComments(field.Comments)
+			commentLines, err := formatComments(field.Comments)
+			if err != nil {
+				return nil, err
+			}
+
 			var comment string
 			if len(commentLines) > 0 {
 				comment = commentLines[0]
@@ -718,7 +760,45 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 
 			switch field.Desc.Kind() {
 			case protoreflect.EnumKind:
-				g.P(`fs.Var(`, _flagutil.Ident("EnumValue"), `(&in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
+				var valueFunc string
+				var def []any
+				var defaultEnumIdent protogen.GoIdent
+				if flagOpts.Default != nil {
+					found := false
+					for _, v := range field.Enum.Values {
+						if v.Desc.Name() == protoreflect.Name(*flagOpts.Default) {
+							found = true
+							defaultEnumIdent = v.GoIdent
+							break
+						}
+					}
+					if !found {
+						return nil, fmt.Errorf("unknown enum value %q for field %q", *flagOpts.Default, field.Desc.Name())
+					}
+				} else {
+					for _, v := range field.Enum.Values {
+						if v.Desc.Number() == 0 {
+							defaultEnumIdent = v.GoIdent
+							break
+						}
+					}
+				}
+				switch {
+				case field.Desc.IsList():
+					return nil, fmt.Errorf("unimplemented: repeated enum fields (try a bitmask instead)")
+				case field.Desc.HasPresence():
+					valueFunc = "EnumPtrValue"
+					if flagOpts.Default == nil {
+						// in this case, we want to set the default to nil anyway
+						def = []any{"nil"}
+					} else {
+						def = []any{_flagutil.Ident("Ptr"), "(", defaultEnumIdent, ")"}
+					}
+				default:
+					valueFunc = "EnumValue"
+					def = []any{defaultEnumIdent}
+				}
+				g.P(`fs.Var(`, _flagutil.Ident(valueFunc), `(`, def, `, &in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
 				var allValues []string
 				for _, v := range field.Enum.Values {
 					allValues = append(allValues, strconv.Quote(string(v.Desc.Name())))
@@ -744,7 +824,10 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 					// - the file is in cg.generatedFiles (special case, see generateFlagSet)
 					if (field.Message.Desc.ParentFile() == field.Parent.Desc.ParentFile() && field.Message != message) ||
 						cg.generatedFiles[field.Message.Desc.ParentFile().Path()] != nil {
-						depFs := cg.generateFlagSet(g.g, field.Message)
+						depFs, err := cg.generateFlagSet(g.g, field.Message)
+						if err != nil {
+							return nil, err
+						}
 						if depFs.flagCount == 0 {
 							continue
 						}
@@ -846,7 +929,7 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 		cg.genSecretMethods(g, fs)
 	}
 
-	return fs
+	return fs, nil
 }
 
 func (cg *Generator) genSecretMethods(g *buffer, fs *flagSet) {
@@ -1090,8 +1173,10 @@ func unparseStringSlice(commaSeparatedStrings string) (tokens []any) {
 	return append(tokens, "}")
 }
 
-func formatComments(comments protogen.CommentSet) (leadingComments []string) {
-	lines := strings.Split(strings.TrimSuffix(string(comments.Leading), "\n"), "\n")
+func formatComments(comments protogen.CommentSet) ([]string, error) {
+	leading := strings.TrimSpace(string(comments.Leading))
+	var leadingComments []string
+	lines := strings.Split(strings.TrimSuffix(leading, "\n"), "\n")
 	for _, line := range lines {
 		// remove at most one leading space, and all trailing spaces
 		line := strings.TrimRight(strings.TrimPrefix(line, " "), " ")
@@ -1100,37 +1185,44 @@ func formatComments(comments protogen.CommentSet) (leadingComments []string) {
 		}
 		leadingComments = append(leadingComments, line)
 	}
-	return
+	return leadingComments, nil
 }
 
 // Note that the final closing brace is not written.
-func (cg *Generator) generateInteractiveEdit(service *protogen.Service, method *protogen.Method, g *protogen.GeneratedFile, writers serviceGenWriters) {
+func (cg *Generator) generateInteractiveEdit(service *protogen.Service, method *protogen.Method, g *protogen.GeneratedFile) {
 	g.P(`if cmd.Flags().Lookup("interactive").Value.String() == "true" {`)
 	// try to find a matching "getter" method. If found, use it to obtain the current
 	// value of `in` and pass it to the setter method.
 	// Right now this will only match commands that look like the following:
 	// rpc Set*(Message) returns (google.protobuf.Empty);
 	// rpc Get*(google.protobuf.Empty) returns (Message);
+	editVar := "in"
 	for _, candidate := range service.Methods {
 		if candidate == method || cg.shouldSkipMethod(candidate) {
 			continue
 		}
-		if candidate.Desc.Output() == method.Desc.Input() &&
-			string(candidate.Desc.Name()) == "Get"+strings.TrimPrefix(string(method.Desc.Name()), "Set") {
-			writers.PrintObtainClient(service, g)
-
-			g.P(" if curValue, err := client.", candidate.GoName, "(cmd.Context(), &", candidate.Input.GoIdent, "{}); err == nil {")
-			g.P("  in = curValue")
-			g.P(" }")
+		if string(candidate.Desc.Name()) == "Get"+strings.TrimPrefix(string(method.Desc.Name()), "Set") {
+			if candidate.Desc.Output() == method.Desc.Input() {
+				g.P(" if curValue, err := client.", candidate.GoName, "(cmd.Context(), &", candidate.Input.GoIdent, "{}); err == nil {")
+				g.P("  in = curValue")
+				g.P(" }")
+			} else if spec := method.Desc.Input().Fields().ByName("spec"); spec != nil && candidate.Desc.Output() == spec.Message() {
+				editVar = "in.Spec"
+				g.P(" if curValue, err := client.", candidate.GoName, "(cmd.Context(), &", candidate.Input.GoIdent, "{}); err == nil {")
+				g.P("  in.Spec = curValue")
+				g.P(" }")
+			} else {
+				continue
+			}
 
 			break
 		}
 	}
 
-	g.P(` if edited, err := `, _cliutil.Ident("EditInteractive"), `(in); err != nil {`)
+	g.P(` if edited, err := `, _cliutil.Ident("EditInteractive"), `(`, editVar, `); err != nil {`)
 	g.P(`  return err`)
 	g.P(` } else {`)
-	g.P(`  in = edited`)
+	g.P(`  `, editVar, ` = edited`)
 	g.P(` }`)
 }
 
@@ -1145,7 +1237,7 @@ func (cg *Generator) generateRun(service *protogen.Service, method *protogen.Met
 	genEditInteractive := opts.Granularity == EditScope_EditMessage && !requestIsEmpty
 
 	if genEditInteractive {
-		cg.generateInteractiveEdit(service, method, g, writers)
+		cg.generateInteractiveEdit(service, method, g)
 	}
 
 	responseVarName := "_"

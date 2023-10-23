@@ -7,7 +7,9 @@ import (
 	context "context"
 	errors "errors"
 	cli "github.com/rancher/opni/internal/codegen/cli"
+	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
+	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
 	storage "github.com/rancher/opni/pkg/storage"
 	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	lo "github.com/samber/lo"
@@ -280,7 +282,7 @@ func (in *BazRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.BoolVar(&in.ParamBool, strings.Join(append(prefix, "param-bool"), "."), false, "")
 	fs.StringVar(&in.ParamString, strings.Join(append(prefix, "param-string"), "."), "", "")
 	fs.BytesHexVar(&in.ParamBytes, strings.Join(append(prefix, "param-bytes"), "."), nil, "")
-	fs.Var(flagutil.EnumValue(&in.ParamEnum), strings.Join(append(prefix, "param-enum"), "."), "")
+	fs.Var(flagutil.EnumValue(BazRequest_UNKNOWN, &in.ParamEnum), strings.Join(append(prefix, "param-enum"), "."), "")
 	fs.Var(flagutil.DurationpbValue(nil, &in.ParamDuration), strings.Join(append(prefix, "param-duration"), "."), "")
 	fs.StringSliceVar(&in.ParamRepeatedString, strings.Join(append(prefix, "param-repeated-string"), "."), nil, "")
 	return fs
@@ -334,7 +336,10 @@ func (in *BarResponse) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *SampleConfiguration) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("SampleConfiguration", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.BoolPtrValue(nil, &in.Enabled), strings.Join(append(prefix, "enabled"), "."), "")
+	if in.Revision == nil {
+		in.Revision = &v1.Revision{}
+	}
+	fs.AddFlagSet(in.Revision.FlagSet(append(prefix, "revision")...))
 	fs.Var(flagutil.StringPtrValue(nil, &in.StringField), strings.Join(append(prefix, "string-field"), "."), "")
 	fs.Var(flagutil.StringPtrValue(nil, &in.SecretField), strings.Join(append(prefix, "secret-field"), "."), "\x1b[31m[secret]\x1b[0m ")
 	fs.StringToStringVar(&in.MapField, strings.Join(append(prefix, "map-field"), "."), nil, "")
@@ -497,11 +502,47 @@ func (in *SampleMessage2) FlagSet(prefix ...string) *pflag.FlagSet {
 	return fs
 }
 
+func (in *SampleSetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SampleSetRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Spec == nil {
+		in.Spec = &SampleConfiguration{}
+	}
+	fs.AddFlagSet(in.Spec.FlagSet(append(prefix, "spec")...))
+	return fs
+}
+
+func (in *SampleSetRequest) RedactSecrets() {
+	if in == nil {
+		return
+	}
+	in.Spec.RedactSecrets()
+}
+
+func (in *SampleSetRequest) UnredactSecrets(unredacted *SampleSetRequest) error {
+	if in == nil {
+		return nil
+	}
+	var details []protoiface.MessageV1
+	if err := in.Spec.UnredactSecrets(unredacted.GetSpec()); storage.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "spec." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
+	}
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
+}
+
 func (in *SampleDryRunRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("SampleDryRunRequest", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.EnumValue(&in.Target), strings.Join(append(prefix, "target"), "."), "")
-	fs.Var(flagutil.EnumValue(&in.Action), strings.Join(append(prefix, "action"), "."), "")
+	fs.Var(flagutil.EnumValue(driverutil.Target_ActiveConfiguration, &in.Target), strings.Join(append(prefix, "target"), "."), "")
+	fs.Var(flagutil.EnumValue(driverutil.Action_NoAction, &in.Action), strings.Join(append(prefix, "action"), "."), "")
 	if in.Spec == nil {
 		in.Spec = &SampleConfiguration{}
 	}

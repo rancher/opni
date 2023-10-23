@@ -19,7 +19,7 @@ import (
 func (b *LoggingBackend) Uninstall(ctx context.Context, req *capabilityv1.UninstallRequest) (*emptypb.Empty, error) {
 	b.WaitForInit()
 
-	cluster, err := b.MgmtClient.GetCluster(ctx, req.Cluster)
+	cluster, err := b.MgmtClient.GetCluster(ctx, req.Agent)
 	if err != nil {
 		return nil, err
 	}
@@ -78,13 +78,13 @@ func (b *LoggingBackend) Uninstall(ctx context.Context, req *capabilityv1.Uninst
 		return nil, fmt.Errorf("failed to update cluster metadata: %v", err)
 	}
 
-	b.requestNodeSync(ctx, req.Cluster)
+	b.requestNodeSync(ctx, req.Agent)
 
 	md := uninstall.TimestampedMetadata{
 		DefaultUninstallOptions: defaultOpts,
 		DeletionTimestamp:       now.AsTime(),
 	}
-	err = b.UninstallController.LaunchTask(req.Cluster.Id, task.WithMetadata(md))
+	err = b.UninstallController.LaunchTask(req.Agent.Id, task.WithMetadata(md))
 	if err != nil {
 		return nil, err
 	}
@@ -92,13 +92,13 @@ func (b *LoggingBackend) Uninstall(ctx context.Context, req *capabilityv1.Uninst
 	return &emptypb.Empty{}, nil
 }
 
-func (b *LoggingBackend) UninstallStatus(_ context.Context, cluster *opnicorev1.Reference) (*opnicorev1.TaskStatus, error) {
+func (b *LoggingBackend) UninstallStatus(_ context.Context, req *capabilityv1.UninstallStatusRequest) (*opnicorev1.TaskStatus, error) {
 	b.WaitForInit()
-	return b.UninstallController.TaskStatus(cluster.Id)
+	return b.UninstallController.TaskStatus(req.Agent.GetId())
 }
 
-func (b *LoggingBackend) CancelUninstall(_ context.Context, cluster *opnicorev1.Reference) (*emptypb.Empty, error) {
+func (b *LoggingBackend) CancelUninstall(_ context.Context, req *capabilityv1.CancelUninstallRequest) (*emptypb.Empty, error) {
 	b.WaitForInit()
-	b.UninstallController.CancelTask(cluster.Id)
+	b.UninstallController.CancelTask(req.Agent.GetId())
 	return &emptypb.Empty{}, nil
 }

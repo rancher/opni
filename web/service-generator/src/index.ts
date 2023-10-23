@@ -89,11 +89,13 @@ export function ${ method.name }(input: `, input, `, callback: (data: `, output,
     }
   });
   socket.addEventListener(`, _EVENT_CONNECTING, `, () => {
-    socket.socket.binaryType = 'arraybuffer';
-  }, { once: true });
+    if (socket.socket) {
+      socket.socket.binaryType = 'arraybuffer';
+    }
+  });
   socket.addEventListener(`, _EVENT_CONNECTED, `, () => {
     socket.send(input.toBinary());
-  }, { once: true });
+  });
   socket.addEventListener(`, _EVENT_CONNECT_ERROR, `, (e) => {
     console.error(e);
   })

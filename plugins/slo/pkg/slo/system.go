@@ -45,4 +45,5 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 		NewSLOMonitoringStore(p, p.logger),
 		NewMonitoringServiceBackend(p, p.logger),
 	)
+	<-p.ctx.Done()
 }

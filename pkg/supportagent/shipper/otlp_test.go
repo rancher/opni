@@ -33,8 +33,8 @@ var _ = Describe("otlp shipper", Ordered, Label("unit"), func() {
 			conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
 				return lis.DialContext(ctx)
 			}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
-			defer conn.Close()
 			Expect(err).NotTo(HaveOccurred())
+			defer conn.Close()
 			timestamp := time.Now()
 			logLine := "this is a log line"
 			scanner := bufio.NewScanner(strings.NewReader(logLine))
@@ -82,8 +82,8 @@ var _ = Describe("otlp shipper", Ordered, Label("unit"), func() {
 			conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
 				return lis.DialContext(ctx)
 			}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
-			defer conn.Close()
 			Expect(err).NotTo(HaveOccurred())
+			defer conn.Close()
 
 			timestamp := time.Now()
 			logLine := "this is a log line"
@@ -124,8 +124,8 @@ var _ = Describe("otlp shipper", Ordered, Label("unit"), func() {
 			conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
 				return lis.DialContext(ctx)
 			}), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
-			defer conn.Close()
 			Expect(err).NotTo(HaveOccurred())
+			defer conn.Close()
 			timestamp := time.Now()
 			logs := `this is the first log line
 this is the second log line

@@ -1,13 +1,11 @@
 package capabilities
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var (
@@ -22,23 +20,19 @@ type BackendStore interface {
 	Add(name string, backend capabilityv1.BackendClient) error
 	// Returns all capability names known to the store
 	List() []string
-	// Render the installer command template for the given capability
-	RenderInstaller(name string, spec UserInstallerTemplateSpec) (string, error)
 }
 
 type backendStore struct {
 	capabilityv1.UnsafeBackendServer
-	serverSpec ServerInstallerTemplateSpec
-	mu         sync.RWMutex
-	backends   map[string]capabilityv1.BackendClient
-	logger     *zap.SugaredLogger
+	mu       sync.RWMutex
+	backends map[string]capabilityv1.BackendClient
+	logger   *zap.SugaredLogger
 }
 
-func NewBackendStore(serverSpec ServerInstallerTemplateSpec, logger *zap.SugaredLogger) BackendStore {
+func NewBackendStore(logger *zap.SugaredLogger) BackendStore {
 	return &backendStore{
-		serverSpec: serverSpec,
-		backends:   make(map[string]capabilityv1.BackendClient),
-		logger:     logger,
+		backends: make(map[string]capabilityv1.BackendClient),
+		logger:   logger,
 	}
 }
 
@@ -70,24 +64,4 @@ func (s *backendStore) List() []string {
 		capabilities = append(capabilities, capability)
 	}
 	return capabilities
-}
-
-func (s *backendStore) RenderInstaller(name string, spec UserInstallerTemplateSpec) (string, error) {
-	backend, err := s.Get(name)
-	if err != nil {
-		return "", err
-	}
-	resp, err := backend.InstallerTemplate(context.Background(), &emptypb.Empty{})
-	if err != nil {
-		return "", err
-	}
-	templateSpec := InstallerTemplateSpec{
-		UserInstallerTemplateSpec:   spec,
-		ServerInstallerTemplateSpec: s.serverSpec,
-	}
-	result, err := RenderInstallerCommand(resp.Template, templateSpec)
-	if err != nil {
-		return "", err
-	}
-	return RenderInstallerCommand(result, templateSpec)
 }

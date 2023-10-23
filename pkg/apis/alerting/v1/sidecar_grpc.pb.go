@@ -81,17 +81,16 @@ func (c *syncerClient) Status(ctx context.Context, in *emptypb.Empty, opts ...gr
 }
 
 // SyncerServer is the server API for Syncer service.
-// All implementations must embed UnimplementedSyncerServer
+// All implementations should embed UnimplementedSyncerServer
 // for forward compatibility
 type SyncerServer interface {
 	PutConfig(context.Context, *PutConfigRequest) (*emptypb.Empty, error)
 	Ready(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	Healthy(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	Status(context.Context, *emptypb.Empty) (*SyncerStatus, error)
-	mustEmbedUnimplementedSyncerServer()
 }
 
-// UnimplementedSyncerServer must be embedded to have forward compatible implementations.
+// UnimplementedSyncerServer should be embedded to have forward compatible implementations.
 type UnimplementedSyncerServer struct {
 }
 
@@ -107,7 +106,6 @@ func (UnimplementedSyncerServer) Healthy(context.Context, *emptypb.Empty) (*empt
 func (UnimplementedSyncerServer) Status(context.Context, *emptypb.Empty) (*SyncerStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
 }
-func (UnimplementedSyncerServer) mustEmbedUnimplementedSyncerServer() {}
 
 // UnsafeSyncerServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to SyncerServer will

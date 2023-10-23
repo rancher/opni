@@ -7,8 +7,10 @@ import (
 	context "context"
 	errors "errors"
 	cli "github.com/rancher/opni/internal/codegen/cli"
+	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
 	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
+	storage "github.com/rancher/opni/pkg/storage"
 	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	lo "github.com/samber/lo"
 	cobra "github.com/spf13/cobra"
@@ -234,7 +236,7 @@ func BuildConfigGetDefaultConfigurationCmd() *cobra.Command {
 }
 
 func BuildConfigSetDefaultConfigurationCmd() *cobra.Command {
-	in := &ConfigSpec{}
+	in := &SetRequest{}
 	cmd := &cobra.Command{
 		Use:               "set-default",
 		Short:             "",
@@ -247,18 +249,13 @@ func BuildConfigSetDefaultConfigurationCmd() *cobra.Command {
 				return nil
 			}
 			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
-				client, ok := ConfigClientFromContext(cmd.Context())
-				if !ok {
-					cmd.PrintErrln("failed to get client from context")
-					return nil
-				}
 				if curValue, err := client.GetDefaultConfiguration(cmd.Context(), &driverutil.GetRequest{}); err == nil {
-					in = curValue
+					in.Spec = curValue
 				}
-				if edited, err := cliutil.EditInteractive(in); err != nil {
+				if edited, err := cliutil.EditInteractive(in.Spec); err != nil {
 					return err
 				} else {
-					in = edited
+					in.Spec = edited
 				}
 			} else if fileName := cmd.Flags().Lookup("file").Value.String(); fileName != "" {
 				if err := cliutil.LoadFromFile(in, fileName); err != nil {
@@ -311,7 +308,7 @@ func BuildConfigGetConfigurationCmd() *cobra.Command {
 }
 
 func BuildConfigSetConfigurationCmd() *cobra.Command {
-	in := &ConfigSpec{}
+	in := &SetRequest{}
 	cmd := &cobra.Command{
 		Use:               "set",
 		Short:             "",
@@ -324,18 +321,13 @@ func BuildConfigSetConfigurationCmd() *cobra.Command {
 				return nil
 			}
 			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
-				client, ok := ConfigClientFromContext(cmd.Context())
-				if !ok {
-					cmd.PrintErrln("failed to get client from context")
-					return nil
-				}
 				if curValue, err := client.GetConfiguration(cmd.Context(), &driverutil.GetRequest{}); err == nil {
-					in = curValue
+					in.Spec = curValue
 				}
-				if edited, err := cliutil.EditInteractive(in); err != nil {
+				if edited, err := cliutil.EditInteractive(in.Spec); err != nil {
 					return err
 				} else {
-					in = edited
+					in.Spec = edited
 				}
 			} else if fileName := cmd.Flags().Lookup("file").Value.String(); fileName != "" {
 				if err := cliutil.LoadFromFile(in, fileName); err != nil {
@@ -460,9 +452,49 @@ func (in *EchoRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	return fs
 }
 
+func (in *SetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SetRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Spec == nil {
+		in.Spec = &ConfigSpec{}
+	}
+	fs.AddFlagSet(in.Spec.FlagSet(append(prefix, "spec")...))
+	return fs
+}
+
+func (in *SetRequest) RedactSecrets() {
+	if in == nil {
+		return
+	}
+	in.Spec.RedactSecrets()
+}
+
+func (in *SetRequest) UnredactSecrets(unredacted *SetRequest) error {
+	if in == nil {
+		return nil
+	}
+	var details []protoiface.MessageV1
+	if err := in.Spec.UnredactSecrets(unredacted.GetSpec()); storage.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "spec." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
+	}
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
+}
+
 func (in *ConfigSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("ConfigSpec", pflag.ExitOnError)
 	fs.SortFlags = true
+	if in.Revision == nil {
+		in.Revision = &v1.Revision{}
+	}
+	fs.AddFlagSet(in.Revision.FlagSet(append(prefix, "revision")...))
 	fs.Var(flagutil.StringPtrValue(nil, &in.StringVar), strings.Join(append(prefix, "string-var"), "."), "")
 	fs.Var(flagutil.IntPtrValue(nil, &in.IntVar), strings.Join(append(prefix, "int-var"), "."), "")
 	fs.Var(flagutil.BoolPtrValue(nil, &in.BoolVar), strings.Join(append(prefix, "bool-var"), "."), "")

@@ -15,7 +15,7 @@ import (
 	"github.com/cortexproject/cortex/pkg/util/validation"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/desc/builder"
-	"github.com/jhump/protoreflect/desc/protoprint"
+	"github.com/kralicky/protols/pkg/format"
 	"github.com/rancher/opni/internal/codegen/cli"
 	"github.com/rancher/opni/internal/codegen/descriptors"
 	"github.com/samber/lo"
@@ -172,10 +172,7 @@ func generate[T any](destFilename string, skipFunc ...func(rf reflect.StructFiel
 	customFieldTypes[tType] = func() *builder.FieldType {
 		return builder.FieldTypeImportedMessage(mainMsgDesc)
 	}
-	p := protoprint.Printer{
-		Compact:      true,
-		SortElements: true,
-	}
+	p := format.NewDefaultPrinter()
 	rootDir := strings.TrimPrefix(filepath.Dir(destFilename), "github.com/rancher/opni/")
 	return p.PrintProtoFiles([]*desc.FileDescriptor{fd}, func(name string) (io.WriteCloser, error) {
 		fullPath := filepath.Join(rootDir, filepath.Base(name))

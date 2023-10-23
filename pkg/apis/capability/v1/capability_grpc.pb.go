@@ -21,44 +21,36 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Backend_Info_FullMethodName              = "/capability.Backend/Info"
-	Backend_CanInstall_FullMethodName        = "/capability.Backend/CanInstall"
-	Backend_Install_FullMethodName           = "/capability.Backend/Install"
-	Backend_Status_FullMethodName            = "/capability.Backend/Status"
-	Backend_Uninstall_FullMethodName         = "/capability.Backend/Uninstall"
-	Backend_UninstallStatus_FullMethodName   = "/capability.Backend/UninstallStatus"
-	Backend_CancelUninstall_FullMethodName   = "/capability.Backend/CancelUninstall"
-	Backend_InstallerTemplate_FullMethodName = "/capability.Backend/InstallerTemplate"
+	Backend_Info_FullMethodName            = "/capability.Backend/Info"
+	Backend_List_FullMethodName            = "/capability.Backend/List"
+	Backend_Install_FullMethodName         = "/capability.Backend/Install"
+	Backend_Status_FullMethodName          = "/capability.Backend/Status"
+	Backend_Uninstall_FullMethodName       = "/capability.Backend/Uninstall"
+	Backend_UninstallStatus_FullMethodName = "/capability.Backend/UninstallStatus"
+	Backend_CancelUninstall_FullMethodName = "/capability.Backend/CancelUninstall"
 )
 
 // BackendClient is the client API for Backend service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type BackendClient interface {
-	// Returns info about the backend, including capability name
-	Info(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Details, error)
-	// Deprecated: Do not use.
-	// Returns an error if installing the capability would fail.
-	CanInstall(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// Installs the capability on a cluster.
+	// Returns info about the backend, including capability name.
+	Info(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*Details, error)
+	// Returns a list of capabilities available in the backend.
+	List(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DetailsList, error)
+	// Installs the capability on an agent.
 	Install(ctx context.Context, in *InstallRequest, opts ...grpc.CallOption) (*InstallResponse, error)
-	// Returns common runtime config info for this capability from a specific
-	// cluster (node).
-	Status(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*NodeCapabilityStatus, error)
+	// Returns common runtime config info for this capability from a specific agent.
+	Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*NodeCapabilityStatus, error)
 	// Requests the backend to clean up any resources it owns and prepare
 	// for uninstallation. This process is asynchronous. The status of the
 	// operation can be queried using the UninstallStatus method, or canceled
 	// using the CancelUninstall method.
 	Uninstall(ctx context.Context, in *UninstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Gets the status of the uninstall task for the given cluster.
-	UninstallStatus(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.TaskStatus, error)
+	UninstallStatus(ctx context.Context, in *UninstallStatusRequest, opts ...grpc.CallOption) (*v1.TaskStatus, error)
 	// Cancels an uninstall task for the given cluster, if it is still pending.
-	CancelUninstall(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// Deprecated: Do not use.
-	// Returns a go template string which will generate a shell command used to
-	// install the capability. This will be displayed to the user in the UI.
-	// See InstallerTemplateSpec above for the available template fields.
-	InstallerTemplate(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallerTemplateResponse, error)
+	CancelUninstall(ctx context.Context, in *CancelUninstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type backendClient struct {
@@ -69,7 +61,7 @@ func NewBackendClient(cc grpc.ClientConnInterface) BackendClient {
 	return &backendClient{cc}
 }
 
-func (c *backendClient) Info(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Details, error) {
+func (c *backendClient) Info(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*Details, error) {
 	out := new(Details)
 	err := c.cc.Invoke(ctx, Backend_Info_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -78,10 +70,9 @@ func (c *backendClient) Info(ctx context.Context, in *emptypb.Empty, opts ...grp
 	return out, nil
 }
 
-// Deprecated: Do not use.
-func (c *backendClient) CanInstall(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, Backend_CanInstall_FullMethodName, in, out, opts...)
+func (c *backendClient) List(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DetailsList, error) {
+	out := new(DetailsList)
+	err := c.cc.Invoke(ctx, Backend_List_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +88,7 @@ func (c *backendClient) Install(ctx context.Context, in *InstallRequest, opts ..
 	return out, nil
 }
 
-func (c *backendClient) Status(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*NodeCapabilityStatus, error) {
+func (c *backendClient) Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*NodeCapabilityStatus, error) {
 	out := new(NodeCapabilityStatus)
 	err := c.cc.Invoke(ctx, Backend_Status_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -115,7 +106,7 @@ func (c *backendClient) Uninstall(ctx context.Context, in *UninstallRequest, opt
 	return out, nil
 }
 
-func (c *backendClient) UninstallStatus(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.TaskStatus, error) {
+func (c *backendClient) UninstallStatus(ctx context.Context, in *UninstallStatusRequest, opts ...grpc.CallOption) (*v1.TaskStatus, error) {
 	out := new(v1.TaskStatus)
 	err := c.cc.Invoke(ctx, Backend_UninstallStatus_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -124,7 +115,7 @@ func (c *backendClient) UninstallStatus(ctx context.Context, in *v1.Reference, o
 	return out, nil
 }
 
-func (c *backendClient) CancelUninstall(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *backendClient) CancelUninstall(ctx context.Context, in *CancelUninstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, Backend_CancelUninstall_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -133,76 +124,54 @@ func (c *backendClient) CancelUninstall(ctx context.Context, in *v1.Reference, o
 	return out, nil
 }
 
-// Deprecated: Do not use.
-func (c *backendClient) InstallerTemplate(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallerTemplateResponse, error) {
-	out := new(InstallerTemplateResponse)
-	err := c.cc.Invoke(ctx, Backend_InstallerTemplate_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // BackendServer is the server API for Backend service.
-// All implementations must embed UnimplementedBackendServer
+// All implementations should embed UnimplementedBackendServer
 // for forward compatibility
 type BackendServer interface {
-	// Returns info about the backend, including capability name
-	Info(context.Context, *emptypb.Empty) (*Details, error)
-	// Deprecated: Do not use.
-	// Returns an error if installing the capability would fail.
-	CanInstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	// Installs the capability on a cluster.
+	// Returns info about the backend, including capability name.
+	Info(context.Context, *v1.Reference) (*Details, error)
+	// Returns a list of capabilities available in the backend.
+	List(context.Context, *emptypb.Empty) (*DetailsList, error)
+	// Installs the capability on an agent.
 	Install(context.Context, *InstallRequest) (*InstallResponse, error)
-	// Returns common runtime config info for this capability from a specific
-	// cluster (node).
-	Status(context.Context, *v1.Reference) (*NodeCapabilityStatus, error)
+	// Returns common runtime config info for this capability from a specific agent.
+	Status(context.Context, *StatusRequest) (*NodeCapabilityStatus, error)
 	// Requests the backend to clean up any resources it owns and prepare
 	// for uninstallation. This process is asynchronous. The status of the
 	// operation can be queried using the UninstallStatus method, or canceled
 	// using the CancelUninstall method.
 	Uninstall(context.Context, *UninstallRequest) (*emptypb.Empty, error)
 	// Gets the status of the uninstall task for the given cluster.
-	UninstallStatus(context.Context, *v1.Reference) (*v1.TaskStatus, error)
+	UninstallStatus(context.Context, *UninstallStatusRequest) (*v1.TaskStatus, error)
 	// Cancels an uninstall task for the given cluster, if it is still pending.
-	CancelUninstall(context.Context, *v1.Reference) (*emptypb.Empty, error)
-	// Deprecated: Do not use.
-	// Returns a go template string which will generate a shell command used to
-	// install the capability. This will be displayed to the user in the UI.
-	// See InstallerTemplateSpec above for the available template fields.
-	InstallerTemplate(context.Context, *emptypb.Empty) (*InstallerTemplateResponse, error)
-	mustEmbedUnimplementedBackendServer()
+	CancelUninstall(context.Context, *CancelUninstallRequest) (*emptypb.Empty, error)
 }
 
-// UnimplementedBackendServer must be embedded to have forward compatible implementations.
+// UnimplementedBackendServer should be embedded to have forward compatible implementations.
 type UnimplementedBackendServer struct {
 }
 
-func (UnimplementedBackendServer) Info(context.Context, *emptypb.Empty) (*Details, error) {
+func (UnimplementedBackendServer) Info(context.Context, *v1.Reference) (*Details, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Info not implemented")
 }
-func (UnimplementedBackendServer) CanInstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CanInstall not implemented")
+func (UnimplementedBackendServer) List(context.Context, *emptypb.Empty) (*DetailsList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method List not implemented")
 }
 func (UnimplementedBackendServer) Install(context.Context, *InstallRequest) (*InstallResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Install not implemented")
 }
-func (UnimplementedBackendServer) Status(context.Context, *v1.Reference) (*NodeCapabilityStatus, error) {
+func (UnimplementedBackendServer) Status(context.Context, *StatusRequest) (*NodeCapabilityStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
 }
 func (UnimplementedBackendServer) Uninstall(context.Context, *UninstallRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Uninstall not implemented")
 }
-func (UnimplementedBackendServer) UninstallStatus(context.Context, *v1.Reference) (*v1.TaskStatus, error) {
+func (UnimplementedBackendServer) UninstallStatus(context.Context, *UninstallStatusRequest) (*v1.TaskStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UninstallStatus not implemented")
 }
-func (UnimplementedBackendServer) CancelUninstall(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+func (UnimplementedBackendServer) CancelUninstall(context.Context, *CancelUninstallRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelUninstall not implemented")
 }
-func (UnimplementedBackendServer) InstallerTemplate(context.Context, *emptypb.Empty) (*InstallerTemplateResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method InstallerTemplate not implemented")
-}
-func (UnimplementedBackendServer) mustEmbedUnimplementedBackendServer() {}
 
 // UnsafeBackendServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to BackendServer will
@@ -216,7 +185,7 @@ func RegisterBackendServer(s grpc.ServiceRegistrar, srv BackendServer) {
 }
 
 func _Backend_Info_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(v1.Reference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -228,25 +197,25 @@ func _Backend_Info_Handler(srv interface{}, ctx context.Context, dec func(interf
 		FullMethod: Backend_Info_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BackendServer).Info(ctx, req.(*emptypb.Empty))
+		return srv.(BackendServer).Info(ctx, req.(*v1.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Backend_CanInstall_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Backend_List_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(BackendServer).CanInstall(ctx, in)
+		return srv.(BackendServer).List(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Backend_CanInstall_FullMethodName,
+		FullMethod: Backend_List_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BackendServer).CanInstall(ctx, req.(*emptypb.Empty))
+		return srv.(BackendServer).List(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -270,7 +239,7 @@ func _Backend_Install_Handler(srv interface{}, ctx context.Context, dec func(int
 }
 
 func _Backend_Status_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
+	in := new(StatusRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -282,7 +251,7 @@ func _Backend_Status_Handler(srv interface{}, ctx context.Context, dec func(inte
 		FullMethod: Backend_Status_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BackendServer).Status(ctx, req.(*v1.Reference))
+		return srv.(BackendServer).Status(ctx, req.(*StatusRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -306,7 +275,7 @@ func _Backend_Uninstall_Handler(srv interface{}, ctx context.Context, dec func(i
 }
 
 func _Backend_UninstallStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
+	in := new(UninstallStatusRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -318,13 +287,13 @@ func _Backend_UninstallStatus_Handler(srv interface{}, ctx context.Context, dec 
 		FullMethod: Backend_UninstallStatus_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BackendServer).UninstallStatus(ctx, req.(*v1.Reference))
+		return srv.(BackendServer).UninstallStatus(ctx, req.(*UninstallStatusRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _Backend_CancelUninstall_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
+	in := new(CancelUninstallRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -336,25 +305,7 @@ func _Backend_CancelUninstall_Handler(srv interface{}, ctx context.Context, dec 
 		FullMethod: Backend_CancelUninstall_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BackendServer).CancelUninstall(ctx, req.(*v1.Reference))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Backend_InstallerTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(BackendServer).InstallerTemplate(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Backend_InstallerTemplate_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BackendServer).InstallerTemplate(ctx, req.(*emptypb.Empty))
+		return srv.(BackendServer).CancelUninstall(ctx, req.(*CancelUninstallRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -371,8 +322,8 @@ var Backend_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Backend_Info_Handler,
 		},
 		{
-			MethodName: "CanInstall",
-			Handler:    _Backend_CanInstall_Handler,
+			MethodName: "List",
+			Handler:    _Backend_List_Handler,
 		},
 		{
 			MethodName: "Install",
@@ -393,10 +344,6 @@ var Backend_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CancelUninstall",
 			Handler:    _Backend_CancelUninstall_Handler,
-		},
-		{
-			MethodName: "InstallerTemplate",
-			Handler:    _Backend_InstallerTemplate_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -432,21 +379,19 @@ func (c *nodeClient) SyncNow(ctx context.Context, in *Filter, opts ...grpc.CallO
 }
 
 // NodeServer is the server API for Node service.
-// All implementations must embed UnimplementedNodeServer
+// All implementations should embed UnimplementedNodeServer
 // for forward compatibility
 type NodeServer interface {
 	SyncNow(context.Context, *Filter) (*emptypb.Empty, error)
-	mustEmbedUnimplementedNodeServer()
 }
 
-// UnimplementedNodeServer must be embedded to have forward compatible implementations.
+// UnimplementedNodeServer should be embedded to have forward compatible implementations.
 type UnimplementedNodeServer struct {
 }
 
 func (UnimplementedNodeServer) SyncNow(context.Context, *Filter) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SyncNow not implemented")
 }
-func (UnimplementedNodeServer) mustEmbedUnimplementedNodeServer() {}
 
 // UnsafeNodeServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to NodeServer will

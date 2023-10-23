@@ -11,10 +11,8 @@ import (
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/crds"
-	"github.com/rancher/opni/pkg/util/flagutil"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
-	"github.com/rancher/opni/plugins/metrics/pkg/cortex/configutil"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
@@ -28,11 +26,9 @@ import (
 )
 
 type OpniManagerClusterDriverOptions struct {
-	K8sClient             client.WithWatch                                            `option:"k8sClient"`
-	MonitoringCluster     types.NamespacedName                                        `option:"monitoringCluster"`
-	GatewayRef            types.NamespacedName                                        `option:"gatewayRef"`
-	DefaultConfigStore    storage.ValueStoreT[*cortexops.CapabilityBackendConfigSpec] `option:"defaultConfigStore"`
-	OnActiveConfigChanged func()                                                      `option:"onActiveConfigChanged"`
+	K8sClient         client.WithWatch     `option:"k8sClient"`
+	MonitoringCluster types.NamespacedName `option:"monitoringCluster"`
+	GatewayRef        types.NamespacedName `option:"gatewayRef"`
 }
 
 func (k OpniManagerClusterDriverOptions) newMonitoringCluster() *opnicorev1beta1.MonitoringCluster {
@@ -56,8 +52,7 @@ func (k OpniManagerClusterDriverOptions) newGateway() *opnicorev1beta1.Gateway {
 type OpniManager struct {
 	cortexops.UnsafeCortexOpsServer
 	OpniManagerClusterDriverOptions
-	*driverutil.BaseConfigServer[*cortexops.ResetRequest, *cortexops.ConfigurationHistoryResponse, *cortexops.CapabilityBackendConfigSpec]
-	configTracker *driverutil.DefaultingConfigTracker[*cortexops.CapabilityBackendConfigSpec]
+	activeStore storage.ValueStoreT[*cortexops.CapabilityBackendConfigSpec]
 }
 
 type methods struct {
@@ -100,9 +95,6 @@ func NewOpniManagerClusterDriver(ctx context.Context, options OpniManagerCluster
 		}
 		options.K8sClient = c
 	}
-	if options.DefaultConfigStore == nil {
-		return nil, fmt.Errorf("missing required option: DefaultConfigStore")
-	}
 
 	gateway := options.newGateway()
 	err := options.K8sClient.Get(ctx, options.GatewayRef, gateway)
@@ -113,25 +105,9 @@ func NewOpniManagerClusterDriver(ctx context.Context, options OpniManagerCluster
 		controllerRef: gateway,
 	}, crds.WithClient(options.K8sClient))
 
-	updateC, err := activeStore.Watch(ctx, storage.WithPrefix())
-	if err != nil {
-		return nil, err
-	}
-	go func() {
-		for range updateC {
-			options.OnActiveConfigChanged()
-		}
-	}()
-
-	configSrv := driverutil.NewBaseConfigServer[
-		*cortexops.ResetRequest,
-		*cortexops.ConfigurationHistoryResponse,
-	](options.DefaultConfigStore, activeStore, flagutil.LoadDefaults)
-
 	return &OpniManager{
-		BaseConfigServer:                configSrv,
+		activeStore:                     activeStore,
 		OpniManagerClusterDriverOptions: options,
-		configTracker:                   configSrv.Tracker(),
 	}, nil
 }
 
@@ -199,6 +175,10 @@ func (k *OpniManager) ListPresets(context.Context, *emptypb.Empty) (*cortexops.P
 	}, nil
 }
 
+func (k *OpniManager) ActiveConfigStore() storage.ValueStoreT[*cortexops.CapabilityBackendConfigSpec] {
+	return k.activeStore
+}
+
 // Status implements cortexops.CortexOpsServer.
 func (k *OpniManager) Status(ctx context.Context, _ *emptypb.Empty) (*driverutil.InstallStatus, error) {
 	status := &driverutil.InstallStatus{
@@ -259,18 +239,6 @@ func (k *OpniManager) ShouldDisableNode(_ *corev1.Reference) error {
 	}
 }
 
-func (k *OpniManager) DryRun(ctx context.Context, req *cortexops.DryRunRequest) (*cortexops.DryRunResponse, error) {
-	res, err := k.configTracker.DryRun(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	return &cortexops.DryRunResponse{
-		Current:          res.Current,
-		Modified:         res.Modified,
-		ValidationErrors: configutil.ValidateConfiguration(res.Modified),
-	}, nil
-}
-
 func init() {
 	drivers.ClusterDrivers.Register("opni-manager", func(ctx context.Context, opts ...driverutil.Option) (drivers.ClusterDriver, error) {
 		options := OpniManagerClusterDriverOptions{
@@ -282,7 +250,6 @@ func init() {
 				Namespace: os.Getenv("POD_NAMESPACE"),
 				Name:      os.Getenv("GATEWAY_NAME"),
 			},
-			OnActiveConfigChanged: func() {},
 		}
 		if err := driverutil.ApplyOptions(&options, opts...); err != nil {
 			return nil, err

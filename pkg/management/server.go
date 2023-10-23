@@ -13,12 +13,13 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/jhump/protoreflect/desc"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/caching"
-	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/plugins"
@@ -50,7 +51,7 @@ type CoreDataSource interface {
 // CapabilitiesDataSource provides a way to obtain data which the management
 // server needs to serve capabilities-related endpoints
 type CapabilitiesDataSource interface {
-	CapabilitiesStore() capabilities.BackendStore
+	capabilityv1.BackendServer
 }
 
 type HealthStatusDataSource interface {
@@ -61,6 +62,7 @@ type HealthStatusDataSource interface {
 type apiExtension struct {
 	client      apiextensions.ManagementAPIExtensionClient
 	clientConn  *grpc.ClientConn
+	status      *health.ServingStatus
 	serviceDesc *desc.ServiceDescriptor
 	httpRules   []*managementv1.HTTPRuleDescriptor
 }
@@ -291,51 +293,20 @@ func (m *Server) ListCapabilities(ctx context.Context, in *emptypb.Empty) (*mana
 		}
 	}
 
-	names := m.capabilitiesDataSource.CapabilitiesStore().List()
+	list, err := m.capabilitiesDataSource.List(ctx, in)
+	if err != nil {
+		return nil, err
+	}
 	var items []*managementv1.CapabilityInfo
-	for _, name := range names {
-		capability, err := m.capabilitiesDataSource.CapabilitiesStore().Get(name)
-		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-		details, err := capability.Info(ctx, in)
-		if err != nil {
-			m.logger.With(
-				zap.Error(err),
-				zap.String("capability", name),
-			).Error("failed to fetch capability details")
-			continue
-		}
+	for _, details := range list.GetItems() {
 		items = append(items, &managementv1.CapabilityInfo{
 			Details:   details,
-			NodeCount: counts[name],
+			NodeCount: counts[details.GetName()],
 		})
 	}
 
 	return &managementv1.CapabilityList{
 		Items: items,
-	}, nil
-}
-
-func (m *Server) CapabilityInstaller(
-	_ context.Context,
-	req *managementv1.CapabilityInstallerRequest,
-) (*managementv1.CapabilityInstallerResponse, error) {
-	if m.capabilitiesDataSource == nil {
-		return nil, status.Error(codes.Unavailable, "capability backend store not configured")
-	}
-
-	cmd, err := m.capabilitiesDataSource.
-		CapabilitiesStore().
-		RenderInstaller(req.Name, capabilities.UserInstallerTemplateSpec{
-			Token: req.Token,
-			Pin:   req.Pin,
-		})
-	if err != nil {
-		return nil, err
-	}
-	return &managementv1.CapabilityInstallerResponse{
-		Command: cmd,
 	}, nil
 }
 

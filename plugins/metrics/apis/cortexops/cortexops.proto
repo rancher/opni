@@ -26,11 +26,7 @@ service CortexOps {
     use: "ops"
   };
 
-  // Returns the default implementation-specific configuration, or one previously set.
-  // If a default configuration was previously set using SetDefaultConfiguration, it
-  // returns that configuration. Otherwise, returns implementation-specific defaults.
-  // An optional revision argument can be provided to get a specific historical
-  // version of the configuration instead of the current configuration.
+  // {{ template "GetDefaultConfiguration" }}
   rpc GetDefaultConfiguration(driverutil.GetRequest) returns (CapabilityBackendConfigSpec) {
     option (cli.command) = {
       use:          "config get-default"
@@ -41,16 +37,8 @@ service CortexOps {
     };
   }
 
-  // Sets the default configuration that will be used as the base for future configuration changes.
-  // If no custom default configuration is set using this method,
-  // implementation-specific defaults may be chosen.
-  // If all fields are unset, this will clear any previously-set default configuration
-  // and revert back to the implementation-specific defaults.
-  //
-  // This API is different from the SetConfiguration API, and should not be necessary
-  // for most use cases. It can be used in situations where an additional persistence
-  // layer that is not driver-specific is desired.
-  rpc SetDefaultConfiguration(CapabilityBackendConfigSpec) returns (google.protobuf.Empty) {
+  // {{ template "SetDefaultConfiguration" }}
+  rpc SetDefaultConfiguration(SetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
       use:         "config set-default"
       granularity: EditMessage
@@ -61,22 +49,17 @@ service CortexOps {
     };
   }
 
-  // Resets the default configuration to the implementation-specific defaults.
-  // If a custom default configuration was previously set using SetDefaultConfiguration,
-  // this will clear it and revert back to the implementation-specific defaults.
-  // Otherwise, this will have no effect.
+  // {{ template "ResetDefaultConfiguration" }}
   rpc ResetDefaultConfiguration(google.protobuf.Empty) returns (google.protobuf.Empty) {
     option (cli.command) = {
       use: "config reset-default"
     };
     option (google.api.http) = {
-      delete: "/configuration/default"
+      post: "/configuration/default/reset"
     };
   }
 
-  // Gets the current configuration of the managed Cortex cluster.
-  // An optional revision argument can be provided to get a specific historical
-  // version of the configuration instead of the current configuration.
+  // {{ template "GetConfiguration" }}
   rpc GetConfiguration(driverutil.GetRequest) returns (CapabilityBackendConfigSpec) {
     option (cli.command) = {
       use:          "config get"
@@ -87,20 +70,8 @@ service CortexOps {
     };
   }
 
-  // Updates the configuration of the managed Cortex cluster to match the provided configuration.
-  // If the cluster is not installed, it will be configured, but remain disabled.
-  // Otherwise, the already-installed cluster will be reconfigured.
-  // The provided configuration will be merged with the default configuration
-  // by directly overwriting fields. Slices and maps are overwritten and not combined.
-  // Subsequent calls to this API will merge inputs with the current configuration,
-  // not the default configuration.
-  // When updating an existing configuration, the revision number in the updated configuration
-  // must match the revision number of the existing configuration, otherwise a conflict
-  // error will be returned. The timestamp field of the revision is ignored.
-  //
-  // Note: some fields may contain secrets. The placeholder value "***" can be used to
-  // keep an existing secret when updating the cluster configuration.
-  rpc SetConfiguration(CapabilityBackendConfigSpec) returns (google.protobuf.Empty) {
+  // {{ template "SetConfiguration" }}
+  rpc SetConfiguration(SetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
       use:          "config set"
       enable_hooks: true
@@ -112,43 +83,33 @@ service CortexOps {
     };
   }
 
-  // Resets the configuration of the managed Cortex cluster to the current default configuration.
-  //
-  // The request may optionally contain a field mask to specify which fields should
-  // be preserved. Furthermore, if a mask is set, the request may also contain a patch
-  // object used to apply additional changes to the masked fields. These changes are
-  // applied atomically at the time of reset. Fields present in the patch object, but
-  // not in the mask, are ignored.
-  //
-  // For example, with the following message:
-  //   message Example {
-  //     optional int32 a = 1;
-  //     optional int32 b = 2;
-  //     optional int32 c = 3;
-  //   }
-  //
-  // and current state:
-  //   active:  { a: 1, b: 2, c: 3 }
-  //   default: { a: 4, b: 5, c: 6 }
-  //
-  // and reset request parameters:
-  // {
-  //   mask:    { paths: [ "a", "b" ] }
-  //   patch:   { a: 100 }
-  // }
-  //
-  // The resulting active configuration will be:
-  //  active:  {
-  //    a: 100, // masked, set to 100 via patch
-  //    b: 2,   // masked, but not set in patch, so left unchanged
-  //    c: 6,   // not masked, reset to default
-  //  }
+  // {{ template "ResetConfiguration" }}
   rpc ResetConfiguration(ResetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
       use: "config reset"
     };
     option (google.api.http) = {
-      delete: "/configuration"
+      post: "/configuration/reset"
+      body: "*"
+    };
+  }
+
+  // {{ template "DryRun" }}
+  rpc DryRun(DryRunRequest) returns (DryRunResponse) {
+    option (cli.command).skip = true;
+    option (google.api.http) = {
+      post: "/dry-run"
+      body: "*"
+    };
+  }
+
+  // {{ template "ConfigurationHistory" }}
+  rpc ConfigurationHistory(driverutil.ConfigurationHistoryRequest) returns (ConfigurationHistoryResponse) {
+    option (cli.command) = {
+      use: "config history"
+    };
+    option (google.api.http) = {
+      get: "/configuration/history"
     };
   }
 
@@ -207,45 +168,6 @@ service CortexOps {
     };
     option (google.api.http) = {
       get: "/presets"
-    };
-  }
-
-  // Show what changes would be made to a configuration without saving them.
-  // The request expects an action, target, and spec to be provided. These
-  // correspond roughly to the other APIs in this service.
-  //
-  // Configuring DryRunRequest:
-  // - Use the Active target for the SetConfiguration API, and the Default target
-  //   for the SetDefaultConfiguration API. Install and Uninstall actions do not
-  //   require a target.
-  // - Only the Set action requires a spec to be provided.
-  //
-  // Notes:
-  // - When DryRun is used on Install or Uninstall requests, the response will
-  //   contain modifications to the 'enabled' field only. This field is read-only
-  //   in the Set* APIs.
-  // - To validate the current configuration but keep it unchanged, use the
-  //   Set action with an empty spec.
-  // - Configurations returned by DryRun will always have an empty revision field.
-  rpc DryRun(DryRunRequest) returns (DryRunResponse) {
-    option (cli.command).skip = true;
-    option (google.api.http) = {
-      post: "/dry-run"
-      body: "*"
-    };
-  }
-
-  // Get a list of all past revisions of the configuration.
-  // Will return the history for either the active or default configuration
-  // depending on the specified target.
-  // The entries are ordered from oldest to newest, where the last entry is
-  // the current configuration.
-  rpc ConfigurationHistory(driverutil.ConfigurationHistoryRequest) returns (ConfigurationHistoryResponse) {
-    option (cli.command) = {
-      use: "config history"
-    };
-    option (google.api.http) = {
-      get: "/configuration/history"
     };
   }
 }
@@ -311,8 +233,9 @@ message DryRunRequest {
 
   CapabilityBackendConfigSpec spec = 3; // Set
 
-  CapabilityBackendConfigSpec patch = 4; // Reset
-  google.protobuf.FieldMask   mask  = 5 [(cli.flag).skip = true]; // Reset
+  core.Revision               revision = 4 [(cli.flag_set).no_prefix = true]; // Reset
+  CapabilityBackendConfigSpec patch    = 5 [(cli.flag).skip = true]; // Reset
+  google.protobuf.FieldMask   mask     = 6 [(cli.flag).skip = true]; // Reset
 }
 
 message DryRunResponse {
@@ -325,7 +248,12 @@ message ConfigurationHistoryResponse {
   repeated CapabilityBackendConfigSpec entries = 1;
 }
 
+message SetRequest {
+  CapabilityBackendConfigSpec spec = 1;
+}
+
 message ResetRequest {
-  google.protobuf.FieldMask   mask  = 1 [(cli.flag).skip = true];
-  CapabilityBackendConfigSpec patch = 2 [(cli.flag).skip = true];
+  core.Revision               revision = 1 [(cli.flag_set).no_prefix = true];
+  google.protobuf.FieldMask   mask     = 2 [(cli.flag).skip = true];
+  CapabilityBackendConfigSpec patch    = 3 [(cli.flag).skip = true];
 }

@@ -14,7 +14,6 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
@@ -52,7 +51,7 @@ func BuildCapabilityListCmd() *cobra.Command {
 			if err != nil {
 				lg.Fatal(err)
 			}
-			fmt.Println(cliutil.RenderCapabilityList(list))
+			fmt.Println(managementv1.RenderCapabilityList(list))
 		},
 	}
 	return cmd
@@ -72,14 +71,12 @@ func BuildCapabilityInstallCmd() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			for _, clusterID := range args[1:] {
-				resp, err := mgmtClient.InstallCapability(cmd.Context(), &managementv1.CapabilityInstallRequest{
-					Name: args[0],
-					Target: &capabilityv1.InstallRequest{
-						Cluster: &corev1.Reference{
-							Id: clusterID,
-						},
-						IgnoreWarnings: ignoreWarnings,
+				resp, err := mgmtClient.InstallCapability(cmd.Context(), &capabilityv1.InstallRequest{
+					Capability: &corev1.Reference{Id: args[0]},
+					Agent: &corev1.Reference{
+						Id: clusterID,
 					},
+					IgnoreWarnings: ignoreWarnings,
 				})
 				if err != nil {
 					return err
@@ -117,14 +114,12 @@ func BuildCapabilityUninstallCmd() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			for _, clusterID := range args[1:] {
-				_, err := mgmtClient.UninstallCapability(cmd.Context(), &managementv1.CapabilityUninstallRequest{
-					Name: args[0],
-					Target: &capabilityv1.UninstallRequest{
-						Cluster: &corev1.Reference{
-							Id: clusterID,
-						},
-						Options: options.ToStruct(),
+				_, err := mgmtClient.UninstallCapability(cmd.Context(), &capabilityv1.UninstallRequest{
+					Capability: &corev1.Reference{Id: args[0]},
+					Agent: &corev1.Reference{
+						Id: clusterID,
 					},
+					Options: options.ToStruct(),
 				})
 				if err != nil {
 					return fmt.Errorf("uninstall failed: %w", err)
@@ -165,9 +160,9 @@ func BuildCapabilityCancelUninstallCmd() *cobra.Command {
 			})
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			_, err := mgmtClient.CancelCapabilityUninstall(cmd.Context(), &managementv1.CapabilityUninstallCancelRequest{
-				Name: args[0],
-				Cluster: &corev1.Reference{
+			_, err := mgmtClient.CancelCapabilityUninstall(cmd.Context(), &capabilityv1.CancelUninstallRequest{
+				Capability: &corev1.Reference{Id: args[0]},
+				Agent: &corev1.Reference{
 					Id: args[1],
 				},
 			})
@@ -199,13 +194,13 @@ func BuildCapabilityStatusCmd() *cobra.Command {
 			return completeClusters(cmd, args[1:], toComplete, filterHasCapability(args[0]))
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			cluster, err := mgmtClient.GetCluster(cmd.Context(), &corev1.Reference{
+			agent, err := mgmtClient.GetCluster(cmd.Context(), &corev1.Reference{
 				Id: args[1],
 			})
 			if err != nil {
 				lg.Fatal(err)
 			}
-			for _, cap := range cluster.GetCapabilities() {
+			for _, cap := range agent.GetCapabilities() {
 				if cap.Name != args[0] {
 					continue
 				}
@@ -216,9 +211,9 @@ func BuildCapabilityStatusCmd() *cobra.Command {
 					}
 					return
 				}
-				stat, err := mgmtClient.CapabilityStatus(cmd.Context(), &managementv1.CapabilityStatusRequest{
-					Name:    cap.Name,
-					Cluster: cluster.Reference(),
+				stat, err := mgmtClient.CapabilityStatus(cmd.Context(), &capabilityv1.StatusRequest{
+					Capability: &corev1.Reference{Id: cap.Name},
+					Agent:      agent.Reference(),
 				})
 				fmt.Println(chalk.Green.Color("Installed"))
 				if err != nil {
@@ -242,14 +237,12 @@ func BuildCapabilityStatusCmd() *cobra.Command {
 	return cmd
 }
 
-func logTaskProgress(ctx context.Context, cluster, name string) error {
+func logTaskProgress(ctx context.Context, agent, name string) error {
 	lastLogTimestamp := time.Time{}
 	for {
-		status, err := mgmtClient.CapabilityUninstallStatus(ctx, &managementv1.CapabilityStatusRequest{
-			Name: name,
-			Cluster: &corev1.Reference{
-				Id: cluster,
-			},
+		status, err := mgmtClient.CapabilityUninstallStatus(ctx, &capabilityv1.UninstallStatusRequest{
+			Capability: &corev1.Reference{Id: name},
+			Agent:      &corev1.Reference{Id: agent},
 		})
 		if err != nil {
 			return fmt.Errorf("failed to get status: %w", err)

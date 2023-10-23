@@ -9,6 +9,7 @@ import (
 	"errors"
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
+	"github.com/rancher/opni/plugins/metrics/pkg/types"
 	"github.com/weaveworks/common/user"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -30,6 +31,8 @@ type federatingInterceptor struct {
 type InterceptorConfig struct {
 	// The label to use as the tenant ID
 	IdLabelName string
+	// If non-nil, will track remote write metrics
+	Metrics *types.Metrics
 }
 
 func NewFederatingInterceptor(conf InterceptorConfig) RequestInterceptor {
@@ -84,7 +87,7 @@ func (t *federatingInterceptor) Intercept(
 		panic(err)
 	}
 
-	record := true
+	record := (t.conf.Metrics != nil)
 	startTime := time.Now()
 
 	// save the original slice (header) over the whole timeseries array,
@@ -111,8 +114,8 @@ func (t *federatingInterceptor) Intercept(
 			if record {
 				record = false
 				latencyPerTimeseries := time.Since(startTime) / time.Duration(len(req.Timeseries))
-				hRemoteWriteProcessingLatency.Record(outgoingCtx, latencyPerTimeseries.Nanoseconds())
-				cRemoteWriteTotalProcessedSeries.Add(outgoingCtx, int64(len(req.Timeseries)))
+				t.conf.Metrics.RemoteWriteProcessingLatency.Record(outgoingCtx, latencyPerTimeseries.Nanoseconds())
+				t.conf.Metrics.RemoteWriteTotalProcessedSeries.Add(outgoingCtx, int64(len(req.Timeseries)))
 			}
 			req.Timeseries = allTimeseries[start:end] // reuse the same request
 			md, _, _ := metadata.FromOutgoingContextRaw(outgoingCtx)
@@ -164,16 +167,16 @@ func (t *federatingInterceptor) Intercept(
 	return emptyResponse, nil
 }
 
-type passthroughInterceptor struct{}
+type PassthroughInterceptor struct{}
 
-func (t *passthroughInterceptor) Intercept(
+func (t *PassthroughInterceptor) Intercept(
 	ctx context.Context, req *cortexpb.WriteRequest,
 	handler WriteHandlerFunc,
 ) (*cortexpb.WriteResponse, error) {
 	return handler(ctx, req)
 }
 
-func (t *passthroughInterceptor) InterceptSlow(
+func (t *PassthroughInterceptor) InterceptSlow(
 	ctx context.Context, req *cortexpb.WriteRequest,
 	handler WriteHandlerFunc,
 ) (*cortexpb.WriteResponse, error) {

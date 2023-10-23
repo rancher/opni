@@ -18,13 +18,13 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
-func (b *LoggingBackend) Status(ctx context.Context, req *opnicorev1.Reference) (*capabilityv1.NodeCapabilityStatus, error) {
+func (b *LoggingBackend) Status(ctx context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
 	b.WaitForInit()
 
 	b.nodeStatusMu.RLock()
 	defer b.nodeStatusMu.RUnlock()
 
-	capStatus, err := b.ClusterDriver.GetClusterStatus(ctx, req.GetId())
+	capStatus, err := b.ClusterDriver.GetClusterStatus(ctx, req.GetAgent().GetId())
 	if err != nil {
 		if errors.Is(err, loggingerrors.ErrInvalidList) {
 			return nil, status.Error(codes.NotFound, "unable to list cluster status")

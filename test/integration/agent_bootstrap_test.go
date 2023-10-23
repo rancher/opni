@@ -103,9 +103,9 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, testrunti
 	})
 
 	When("several agents bootstrap at the same time", func() {
-		It("should correctly bootstrap each agent", func() {
+		It("should correctly bootstrap each agent", func(ctx SpecContext) {
 			var err error
-			token, err = client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
+			token, err = client.CreateBootstrapToken(ctx, &managementv1.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Minute),
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -121,15 +121,15 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, testrunti
 
 					_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
 					Eventually(errC).Should(Receive(BeNil()))
-
-					cluster, err := client.GetCluster(context.Background(), &corev1.Reference{
+					Expect(test.WaitForAgentReady(ctx, client, clusterName)).To(Succeed())
+					cluster, err := client.GetCluster(ctx, &corev1.Reference{
 						Id: clusterName,
 					})
 					Expect(err).NotTo(HaveOccurred())
 
 					labels := cluster.GetLabels()
 					labels["i"] = "998"
-					_, err = client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
+					_, err = client.EditCluster(ctx, &managementv1.EditClusterRequest{
 						Cluster: &corev1.Reference{
 							Id: clusterName,
 						},
@@ -143,7 +143,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, testrunti
 			close(ch)                         // start all goroutines at the same time
 			wg.Wait()                         // wait until they all finish
 
-			clusterList, err := client.ListClusters(context.Background(), &managementv1.ListClustersRequest{
+			clusterList, err := client.ListClusters(ctx, &managementv1.ListClustersRequest{
 				MatchLabels: &corev1.LabelSelector{
 					MatchLabels: map[string]string{
 						"i": "998",

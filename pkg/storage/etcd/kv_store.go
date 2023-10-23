@@ -48,18 +48,35 @@ func (s *genericKeyValueStore) Put(ctx context.Context, key string, value []byte
 			comparisons = []clientv3.Cmp{clientv3.Compare(clientv3.Version(qualifiedKey), "=", 0)}
 		}
 	}
+	// This nested transaction applies the WithIgnoreLease option only if the key already has a lease.
 	resp, err := s.client.Txn(ctx).
-		If(comparisons...).
-		Then(clientv3.OpPut(qualifiedKey, encodedValue, clientv3.WithIgnoreLease())).
+		If(clientv3.Compare(clientv3.LeaseValue(qualifiedKey), "!=", clientv3.NoLease)).
+		Then(
+			// the key has a lease
+			clientv3.OpTxn(
+				/*   if */ comparisons,
+				/* then */ []clientv3.Op{clientv3.OpPut(qualifiedKey, encodedValue, clientv3.WithIgnoreLease())},
+				/* else */ nil,
+			),
+		).
+		Else(
+			// the key does not have a lease
+			clientv3.OpTxn(
+				/*   if */ comparisons,
+				/* then */ []clientv3.Op{clientv3.OpPut(qualifiedKey, encodedValue)},
+				/* else */ nil,
+			),
+		).
 		Commit()
 	if err != nil {
 		return etcdGrpcError(err)
 	}
-	if !resp.Succeeded {
+	txnResp := resp.Responses[0].GetResponseTxn() // unwrap the nested txn response
+	if !txnResp.Succeeded {
 		return fmt.Errorf("%w: revision mismatch", storage.ErrConflict)
 	}
 	if options.RevisionOut != nil {
-		*options.RevisionOut = resp.Header.Revision
+		*options.RevisionOut = txnResp.Responses[0].GetResponsePut().Header.Revision
 	}
 	return nil
 }

@@ -7,7 +7,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "github.com/rancher/opni/pkg/apis/core/v1"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/test"
@@ -54,7 +55,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 
 	var getConfig = func(agentId string) (*node.AlertingCapabilitySpec, bool, error) {
 		var trailer metadata.MD
-		spec, err := nodeClient.GetNodeConfiguration(context.Background(), &v1.Reference{Id: agentId}, grpc.Trailer(&trailer))
+		spec, err := nodeClient.GetNodeConfiguration(context.Background(), &corev1.Reference{Id: agentId}, grpc.Trailer(&trailer))
 		if err != nil {
 			return nil, false, err
 		}
@@ -66,9 +67,9 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		times := make(map[string]time.Time)
 		for _, id := range agentIds {
 			id := strings.TrimPrefix(id, "!")
-			req := &managementv1.CapabilityStatusRequest{
-				Name:    capability,
-				Cluster: &v1.Reference{Id: id},
+			req := &capabilityv1.StatusRequest{
+				Capability: &corev1.Reference{Id: capability},
+				Agent:      &corev1.Reference{Id: id},
 			}
 			Eventually(func() bool {
 				stat, err := mgmtClient.CapabilityStatus(context.Background(), req)
@@ -87,9 +88,9 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 		for _, id := range agentIds {
 			expectNoUpdate := strings.HasPrefix(id, "!")
 			id := strings.TrimPrefix(id, "!")
-			req := &managementv1.CapabilityStatusRequest{
-				Name:    capability,
-				Cluster: &v1.Reference{Id: id},
+			req := &capabilityv1.StatusRequest{
+				Capability: &corev1.Reference{Id: capability},
+				Agent:      &corev1.Reference{Id: id},
 			}
 
 			if expectNoUpdate {
@@ -184,7 +185,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 
 			verifySync(func() {
 				_, err = nodeClient.SetNodeConfiguration(context.Background(), &node.NodeConfigRequest{
-					Node: &v1.Reference{Id: "agent1"},
+					Node: &corev1.Reference{Id: "agent1"},
 					Spec: newConfig,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -209,7 +210,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 
 			verifySync(func() {
 				_, err = nodeClient.SetNodeConfiguration(context.Background(), &node.NodeConfigRequest{
-					Node: &v1.Reference{Id: "agent1"},
+					Node: &corev1.Reference{Id: "agent1"},
 					Spec: nil,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -253,7 +254,7 @@ var _ = Describe("Node Config", Ordered, Label("integration"), func() {
 
 			verifySync(func() {
 				_, err = nodeClient.SetNodeConfiguration(context.Background(), &node.NodeConfigRequest{
-					Node: &v1.Reference{Id: "agent1"},
+					Node: &corev1.Reference{Id: "agent1"},
 					Spec: defaultConfig,
 				})
 				Expect(err).NotTo(HaveOccurred())

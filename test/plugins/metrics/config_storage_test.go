@@ -29,45 +29,45 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("Config Storage Tests", Ordered, Label("integration"), func() {
+var _ = Describe("Config Storage Tests", Label("integration"), func() {
 	Context("Defaulting Config Tracker", func() {
-		Context("CRD active store + Etcd default store", func() {
-			var k8sClient client.WithWatch
-			var kvstoreClient storage.KeyValueStoreT[*cortexops.CapabilityBackendConfigSpec]
-			BeforeAll(func() {
-				environment := &test.Environment{}
-				Expect(environment.Start(test.WithEnableEtcd(true), test.WithEnableJetstream(false), test.WithStorageBackend(v1beta1.StorageTypeEtcd), test.WithEnableGateway(false))).To(Succeed())
-				DeferCleanup(environment.Stop)
-				restConfig, scheme, err := testk8s.StartK8s(environment.Context(), []string{"../../../config/crd/bases"}, apis.NewScheme())
-				Expect(err).NotTo(HaveOccurred())
-				k8sClient, err = k8sutil.NewK8sClient(k8sutil.ClientOptions{
-					RestConfig: restConfig,
-					Scheme:     scheme,
-				})
-				Expect(err).NotTo(HaveOccurred())
-
-				backend, err := machinery.ConfigureStorageBackend(environment.Context(), &v1beta1.StorageSpec{
-					Type: v1beta1.StorageTypeEtcd,
-					Etcd: environment.EtcdConfig(),
-				})
-				Expect(err).NotTo(HaveOccurred())
-
-				server := system.NewKVStoreServer(backend.KeyValueStore("test"), backend.(storage.LockManagerBroker).LockManager("test"))
-
-				listener := bufconn.Listen(1024)
-				srv := grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
-				system.RegisterKeyValueStoreServer(srv, server)
-				go srv.Serve(listener)
-				DeferCleanup(srv.Stop)
-
-				conn, err := grpc.DialContext(environment.Context(), "bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-					return listener.Dial()
-				}), grpc.WithTransportCredentials(insecure.NewCredentials()))
-				Expect(err).NotTo(HaveOccurred())
-				DeferCleanup(conn.Close)
-
-				kvstoreClient = system.NewKVStoreClient[*cortexops.CapabilityBackendConfigSpec](system.NewKeyValueStoreClient(conn))
+		var k8sClient client.WithWatch
+		var kvstoreClient storage.KeyValueStoreT[*cortexops.CapabilityBackendConfigSpec]
+		BeforeEach(OncePerOrdered, func() {
+			environment := &test.Environment{}
+			Expect(environment.Start(test.WithEnableEtcd(true), test.WithEnableJetstream(false), test.WithStorageBackend(v1beta1.StorageTypeEtcd), test.WithEnableGateway(false))).To(Succeed())
+			DeferCleanup(environment.Stop)
+			restConfig, scheme, err := testk8s.StartK8s(environment.Context(), []string{"../../../config/crd/bases"}, apis.NewScheme())
+			Expect(err).NotTo(HaveOccurred())
+			k8sClient, err = k8sutil.NewK8sClient(k8sutil.ClientOptions{
+				RestConfig: restConfig,
+				Scheme:     scheme,
 			})
+			Expect(err).NotTo(HaveOccurred())
+
+			backend, err := machinery.ConfigureStorageBackend(environment.Context(), &v1beta1.StorageSpec{
+				Type: v1beta1.StorageTypeEtcd,
+				Etcd: environment.EtcdConfig(),
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			server := system.NewKVStoreServer(backend.KeyValueStore("test"), backend.(storage.LockManagerBroker).LockManager("test"))
+
+			listener := bufconn.Listen(1024)
+			srv := grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
+			system.RegisterKeyValueStoreServer(srv, server)
+			go srv.Serve(listener)
+			DeferCleanup(srv.Stop)
+
+			conn, err := grpc.DialContext(environment.Context(), "bufconn", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+				return listener.Dial()
+			}), grpc.WithTransportCredentials(insecure.NewCredentials()))
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(conn.Close)
+
+			kvstoreClient = system.NewKVStoreClient[*cortexops.CapabilityBackendConfigSpec](system.NewKeyValueStoreClient(conn))
+		})
+		Context("CRD active store + Etcd default store", Ordered, func() {
 			Context("Test Suite", conformance_driverutil.DefaultingConfigTrackerTestSuite[*cortexops.CapabilityBackendConfigSpec](
 				func() storage.ValueStoreT[*cortexops.CapabilityBackendConfigSpec] {
 					return kvutil.WithKey(kvstoreClient, uuid.New().String())
@@ -87,7 +87,7 @@ var _ = Describe("Config Storage Tests", Ordered, Label("integration"), func() {
 				},
 			))
 		})
-		Context("Etcd active store + Etcd default store", func() {
+		Context("Etcd active store + Etcd default store", Ordered, func() {
 			var kvstoreClient storage.KeyValueStoreT[*cortexops.CapabilityBackendConfigSpec]
 			BeforeAll(func() {
 				environment := &test.Environment{}

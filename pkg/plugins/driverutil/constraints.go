@@ -4,17 +4,20 @@ import (
 	"context"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
-type Driver any
-
 type InstallableConfigType[T any] interface {
 	ConfigType[T]
 	GetEnabled() bool
+}
+
+type ContextKeyable interface {
+	ContextKey() string
 }
 
 type Revisioner interface {
@@ -45,18 +48,28 @@ type PresetType[T any] interface {
 	GetSpec() T
 }
 
-func WithNoopSecretsRedactor[U Revisioner, T any](partial U) ConfigType[T] {
-	return struct {
-		Revisioner
-		SecretsRedactor[T]
-	}{partial, NoopSecretsRedactor[T]{}}
+// Default constraint for a Get request.
+// Not generic; the built-in message type [driverutil.GetRequest] can be used for convenience
+type GetRequestType interface {
+	proto.Message
+	flagutil.FlagSetter
+	GetRevision() *corev1.Revision
 }
 
-type NoopSecretsRedactor[T any] struct{}
+type SetRequestType[T ConfigType[T]] interface {
+	proto.Message
+	GetSpec() T
+}
 
-func (NoopSecretsRedactor[T]) RedactSecrets() {}
-
-func (NoopSecretsRedactor[T]) UnredactSecrets(T) error { return nil }
+// Default constraint for a History request.
+// Not generic; the built-in message type [driverutil.ConfigurationHistoryRequest] can be used for convenience
+type HistoryRequestType interface {
+	proto.Message
+	flagutil.FlagSetter
+	GetTarget() Target
+	GetRevision() *corev1.Revision
+	GetIncludeValues() bool
+}
 
 type ResetRequestType[T ConfigType[T]] interface {
 	proto.Message
@@ -71,6 +84,7 @@ type DryRunRequestType[
 	GetAction() Action
 	GetTarget() Target
 	GetSpec() T
+	GetRevision() *corev1.Revision
 	GetPatch() T
 	GetMask() *fieldmaskpb.FieldMask
 }
@@ -87,59 +101,52 @@ type HistoryResponseType[T ConfigType[T]] interface {
 	GetEntries() []T
 }
 
-type BasicClientInterface[
-	T ConfigType[T],
-	R ResetRequestType[T],
-] interface {
-	GetDefaultConfiguration(context.Context, *GetRequest, ...grpc.CallOption) (T, error)
-	SetDefaultConfiguration(context.Context, T, ...grpc.CallOption) (*emptypb.Empty, error)
-	ResetDefaultConfiguration(context.Context, *emptypb.Empty, ...grpc.CallOption) (*emptypb.Empty, error)
-	GetConfiguration(context.Context, *GetRequest, ...grpc.CallOption) (T, error)
-	SetConfiguration(context.Context, T, ...grpc.CallOption) (*emptypb.Empty, error)
-	ResetConfiguration(context.Context, R, ...grpc.CallOption) (*emptypb.Empty, error)
-}
-
-type Client[
-	T ConfigType[T],
-	R ResetRequestType[T],
-	D DryRunRequestType[T],
-	DR DryRunResponseType[T],
-	HR HistoryResponseType[T],
-] interface {
-	BasicClientInterface[T, R]
-	DryRunClientInterface[T, D, DR]
-	HistoryClientInterface[T, HR]
-}
-
-type DryRunClientInterface[
-	T ConfigType[T],
-	D DryRunRequestType[T],
-	DR DryRunResponseType[T],
-] interface {
-	DryRun(context.Context, D, ...grpc.CallOption) (DR, error)
-}
-
-type HistoryClientInterface[
-	T ConfigType[T],
-	HR HistoryResponseType[T],
-] interface {
-	ConfigurationHistory(context.Context, *ConfigurationHistoryRequest, ...grpc.CallOption) (HR, error)
-}
-
 type BasicServer[
 	T ConfigType[T],
+	G GetRequestType,
+	S SetRequestType[T],
 ] interface {
-	GetDefaultConfiguration(context.Context, *GetRequest) (T, error)
-	SetDefaultConfiguration(context.Context, T) (*emptypb.Empty, error)
-	GetConfiguration(context.Context, *GetRequest) (T, error)
-	SetConfiguration(context.Context, T) (*emptypb.Empty, error)
+	BasicDefaultServer[T, G, S]
+	BasicActiveServer[T, G, S]
+}
+
+type BasicDefaultServer[
+	T ConfigType[T],
+	G GetRequestType,
+	S SetRequestType[T],
+] interface {
+	GetDefaultConfiguration(context.Context, G) (T, error)
+	SetDefaultConfiguration(context.Context, S) (*emptypb.Empty, error)
+}
+
+type BasicActiveServer[
+	T ConfigType[T],
+	G GetRequestType,
+	S SetRequestType[T],
+] interface {
+	GetConfiguration(context.Context, G) (T, error)
+	SetConfiguration(context.Context, S) (*emptypb.Empty, error)
 }
 
 type ResetServer[
 	T ConfigType[T],
 	R ResetRequestType[T],
 ] interface {
+	ResetDefaultServer[T, R]
+	ResetActiveServer[T, R]
+}
+
+type ResetDefaultServer[
+	T ConfigType[T],
+	R ResetRequestType[T],
+] interface {
 	ResetDefaultConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+}
+
+type ResetActiveServer[
+	T ConfigType[T],
+	R ResetRequestType[T],
+] interface {
 	ResetConfiguration(context.Context, R) (*emptypb.Empty, error)
 }
 
@@ -153,29 +160,36 @@ type DryRunServer[
 
 type HistoryServer[
 	T ConfigType[T],
+	H HistoryRequestType,
 	HR HistoryResponseType[T],
 ] interface {
-	ConfigurationHistory(context.Context, *ConfigurationHistoryRequest) (HR, error)
+	ConfigurationHistory(context.Context, H) (HR, error)
 }
 
 type ConfigServer[
 	T ConfigType[T],
+	G GetRequestType,
+	S SetRequestType[T],
 	R ResetRequestType[T],
+	H HistoryRequestType,
 	HR HistoryResponseType[T],
 ] interface {
-	BasicServer[T]
+	BasicServer[T, G, S]
 	ResetServer[T, R]
-	HistoryServer[T, HR]
+	HistoryServer[T, H, HR]
 }
 
 type DryRunConfigServer[
 	T ConfigType[T],
+	G GetRequestType,
+	S SetRequestType[T],
 	R ResetRequestType[T],
+	H HistoryRequestType,
 	HR HistoryResponseType[T],
 	D DryRunRequestType[T],
 	DR DryRunResponseType[T],
 ] interface {
-	ConfigServer[T, R, HR]
+	ConfigServer[T, G, S, R, H, HR]
 	DryRunServer[T, D, DR]
 }
 
@@ -189,4 +203,44 @@ type InstallerClient interface {
 	Install(context.Context, *emptypb.Empty, ...grpc.CallOption) (*emptypb.Empty, error)
 	Uninstall(context.Context, *emptypb.Empty, ...grpc.CallOption) (*emptypb.Empty, error)
 	Status(context.Context, *emptypb.Empty, ...grpc.CallOption) (*InstallStatus, error)
+}
+
+type GetClient[
+	T ConfigType[T],
+	G GetRequestType,
+] interface {
+	GetDefaultConfiguration(context.Context, G, ...grpc.CallOption) (T, error)
+	GetConfiguration(context.Context, G, ...grpc.CallOption) (T, error)
+}
+
+type SetClient[
+	T ConfigType[T],
+	S SetRequestType[T],
+] interface {
+	SetDefaultConfiguration(context.Context, S, ...grpc.CallOption) (*emptypb.Empty, error)
+	SetConfiguration(context.Context, S, ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type ResetClient[
+	T ConfigType[T],
+	R ResetRequestType[T],
+] interface {
+	ResetDefaultConfiguration(context.Context, *emptypb.Empty, ...grpc.CallOption) (*emptypb.Empty, error)
+	ResetConfiguration(context.Context, R, ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type DryRunClient[
+	T ConfigType[T],
+	D DryRunRequestType[T],
+	DR DryRunResponseType[T],
+] interface {
+	DryRun(context.Context, D, ...grpc.CallOption) (DR, error)
+}
+
+type HistoryClient[
+	T ConfigType[T],
+	H HistoryRequestType,
+	HR HistoryResponseType[T],
+] interface {
+	ConfigurationHistory(context.Context, H, ...grpc.CallOption) (HR, error)
 }

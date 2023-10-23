@@ -11,6 +11,7 @@ import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
@@ -83,11 +84,9 @@ var _ = Describe("Invalidated and clean up suite test", Ordered, Label("integrat
 			return nil
 		}, time.Second*30, time.Second).Should(Succeed())
 
-		_, err = mgmtClient.InstallCapability(env.Context(), &managementv1.CapabilityInstallRequest{
-			Name: "metrics",
-			Target: &capabilityv1.InstallRequest{
-				Cluster: &corev1.Reference{Id: agent1},
-			},
+		_, err = mgmtClient.InstallCapability(env.Context(), &capabilityv1.InstallRequest{
+			Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+			Agent:      &corev1.Reference{Id: agent1},
 		})
 		Expect(err).NotTo(HaveOccurred())
 		conditionsClient := env.NewAlertConditionsClient()
@@ -289,11 +288,9 @@ var _ = Describe("Invalidated and clean up suite test", Ordered, Label("integrat
 	When("We uninstall metrics capability from a cluster that has metrics alarms", func() {
 		It("should switch these alarms to the invalidated state", func() {
 			mgmtClient := env.NewManagementClient()
-			_, err := mgmtClient.UninstallCapability(env.Context(), &managementv1.CapabilityUninstallRequest{
-				Name: "metrics",
-				Target: &capabilityv1.UninstallRequest{
-					Cluster: &corev1.Reference{Id: agent1},
-				},
+			_, err := mgmtClient.UninstallCapability(env.Context(), &capabilityv1.UninstallRequest{
+				Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+				Agent:      &corev1.Reference{Id: agent1},
 			})
 			Expect(err).To(Succeed())
 			conditionsClient := env.NewAlertConditionsClient()

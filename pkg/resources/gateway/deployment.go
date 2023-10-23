@@ -33,6 +33,10 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 	}
 
 	gatewayApiVersion := r.gw.APIVersion
+	replicas := r.gw.Spec.Replicas
+	if replicas == nil {
+		replicas = lo.ToPtr[int32](3)
+	}
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -41,7 +45,7 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: lo.ToPtr[int32](3),
+			Replicas: replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},

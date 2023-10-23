@@ -14,20 +14,37 @@ import (
 	bootstrapv2 "github.com/rancher/opni/pkg/apis/bootstrap/v2"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/ident"
+	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/storage/inmemory"
 	mock_ident "github.com/rancher/opni/pkg/test/mock/ident"
 	mock_storage "github.com/rancher/opni/pkg/test/mock/storage"
 	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tokens"
+	"github.com/rancher/opni/pkg/trust"
+	"github.com/rancher/opni/pkg/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
 
+func pkpTrustStrategy(cert *x509.Certificate) trust.Strategy {
+	conf := trust.StrategyConfig{
+		PKP: &trust.PKPConfig{
+			Pins: trust.NewPinSource([]*pkp.PublicKeyPin{pkp.NewSha256(cert)}),
+		},
+	}
+	return util.Must(conf.Build())
+}
+
 var _ = Describe("Client V2", Ordered, Label("unit"), func() {
 	var fooIdent ident.Provider
 	var cert *tls.Certificate
-	var store storage.Backend
+	var store struct {
+		storage.Backend
+		storage.LockManagerBroker
+	}
+
 	var endpoint string
 
 	BeforeAll(func() {
@@ -41,7 +58,8 @@ var _ = Describe("Client V2", Ordered, Label("unit"), func() {
 		crt.Leaf, err = x509.ParseCertificate(crt.Certificate[0])
 		Expect(err).NotTo(HaveOccurred())
 		cert = &crt
-		store = mock_storage.NewTestStorageBackend(context.Background(), ctrl)
+		store.Backend = mock_storage.NewTestStorageBackend(context.Background(), ctrl)
+		store.LockManagerBroker = inmemory.NewLockManagerBroker()
 
 		srv := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{
 			Certificates: []tls.Certificate{*cert},

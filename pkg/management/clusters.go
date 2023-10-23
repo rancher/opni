@@ -3,7 +3,6 @@ package management
 import (
 	"context"
 	"fmt"
-
 	"maps"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -150,134 +149,73 @@ func (m *Server) EditCluster(
 
 func (m *Server) InstallCapability(
 	ctx context.Context,
-	in *managementv1.CapabilityInstallRequest,
+	in *capabilityv1.InstallRequest,
 ) (*capabilityv1.InstallResponse, error) {
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	if err := m.ensureReferenceResolved(ctx, in.Target.Cluster); err != nil {
+	if err := m.ensureReferenceResolved(ctx, in.Agent); err != nil {
 		return nil, err
 	}
 
-	backendStore := m.capabilitiesDataSource.CapabilitiesStore()
-	backend, err := backendStore.Get(in.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := backend.Install(ctx, in.Target)
-	if err != nil {
-		return nil, err
-	}
-	if resp == nil {
-		return &capabilityv1.InstallResponse{
-			Status: capabilityv1.InstallResponseStatus_Success,
-		}, nil
-	}
-	return resp, nil
+	return m.capabilitiesDataSource.Install(ctx, in)
 }
 
 func (m *Server) UninstallCapability(
 	ctx context.Context,
-	in *managementv1.CapabilityUninstallRequest,
+	in *capabilityv1.UninstallRequest,
 ) (*emptypb.Empty, error) {
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	if err := m.ensureReferenceResolved(ctx, in.Target.Cluster); err != nil {
+	if err := m.ensureReferenceResolved(ctx, in.Agent); err != nil {
 		return nil, err
 	}
 
-	backendStore := m.capabilitiesDataSource.CapabilitiesStore()
-	backend, err := backendStore.Get(in.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = backend.Uninstall(ctx, in.Target)
-	if err != nil {
-		return nil, err
-	}
-	return &emptypb.Empty{}, nil
+	return m.capabilitiesDataSource.Uninstall(ctx, in)
 }
 
 func (m *Server) CapabilityStatus(
 	ctx context.Context,
-	req *managementv1.CapabilityStatusRequest,
+	req *capabilityv1.StatusRequest,
 ) (*capabilityv1.NodeCapabilityStatus, error) {
 	if err := validation.Validate(req); err != nil {
 		return nil, err
 	}
 
-	if err := m.ensureReferenceResolved(ctx, req.Cluster); err != nil {
+	if err := m.ensureReferenceResolved(ctx, req.Agent); err != nil {
 		return nil, err
 	}
 
-	backendStore := m.capabilitiesDataSource.CapabilitiesStore()
-	backend, err := backendStore.Get(req.Name)
-	if err != nil {
-		if status.Code(err) == codes.NotFound {
-			return nil, status.Error(codes.NotFound, "capability not found")
-		}
-		return nil, err
-	}
-
-	return backend.Status(ctx, req.Cluster)
+	return m.capabilitiesDataSource.Status(ctx, req)
 }
 
 func (m *Server) CapabilityUninstallStatus(
 	ctx context.Context,
-	req *managementv1.CapabilityStatusRequest,
+	req *capabilityv1.UninstallStatusRequest,
 ) (*corev1.TaskStatus, error) {
 	if err := validation.Validate(req); err != nil {
 		return nil, err
 	}
-	if err := m.ensureReferenceResolved(ctx, req.Cluster); err != nil {
+	if err := m.ensureReferenceResolved(ctx, req.Agent); err != nil {
 		return nil, err
 	}
 
-	backendStore := m.capabilitiesDataSource.CapabilitiesStore()
-	backend, err := backendStore.Get(req.Name)
-	if err != nil {
-		if status.Code(err) == codes.NotFound {
-			return nil, status.Errorf(codes.NotFound, "capability not found for cluster %s", req.Cluster.Id)
-		}
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-
-	stat, err := backend.UninstallStatus(ctx, req.Cluster)
-	if err != nil {
-		if status.Code(err) == codes.NotFound {
-			return nil, status.Errorf(codes.NotFound, "no status available for cluster %s and capability %s", req.Cluster, req.Name)
-		}
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-
-	return stat, nil
+	return m.capabilitiesDataSource.UninstallStatus(ctx, req)
 }
 
 func (m *Server) CancelCapabilityUninstall(
 	ctx context.Context,
-	req *managementv1.CapabilityUninstallCancelRequest,
+	req *capabilityv1.CancelUninstallRequest,
 ) (*emptypb.Empty, error) {
 	if err := validation.Validate(req); err != nil {
 		return nil, err
 	}
-	if err := m.ensureReferenceResolved(ctx, req.Cluster); err != nil {
+	if err := m.ensureReferenceResolved(ctx, req.Agent); err != nil {
 		return nil, err
 	}
 
-	backendStore := m.capabilitiesDataSource.CapabilitiesStore()
-	backend, err := backendStore.Get(req.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = backend.CancelUninstall(ctx, req.Cluster)
-	if err != nil {
-		return nil, err
-	}
-	return &emptypb.Empty{}, nil
+	return m.capabilitiesDataSource.CancelUninstall(ctx, req)
 }
 
 func (m *Server) resolveClusters(ctx context.Context, refs ...*corev1.Reference) ([]*corev1.Cluster, error) {

@@ -7,13 +7,10 @@ import (
 	"fmt"
 	"path"
 	"sync"
-	"time"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.etcd.io/etcd/client/v3/concurrency"
 	"go.uber.org/zap"
 
-	"github.com/lestrrat-go/backoff/v2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
@@ -22,14 +19,7 @@ import (
 )
 
 var (
-	errRetry       = errors.New("the object has been modified, retrying")
-	defaultBackoff = backoff.NewExponentialPolicy(
-		backoff.WithMaxRetries(20),
-		backoff.WithMinInterval(10*time.Millisecond),
-		backoff.WithMaxInterval(1*time.Second),
-		backoff.WithJitterFactor(0.1),
-		backoff.WithMultiplier(1.5),
-	)
+	errRetry = errors.New("the object has been modified, retrying")
 )
 
 func isRetryErr(err error) bool {
@@ -47,9 +37,8 @@ const (
 // EtcdStore implements TokenStore and TenantStore.
 type EtcdStore struct {
 	EtcdStoreOptions
-	Logger  *zap.SugaredLogger
-	Client  *clientv3.Client
-	session *concurrency.Session
+	Logger *zap.SugaredLogger
+	Client *clientv3.Client
 
 	closeOnce sync.Once
 }
@@ -99,21 +88,15 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 	lg.With(
 		"endpoints", clientConfig.Endpoints,
 	).Info("connecting to etcd")
-	session, err := concurrency.NewSession(cli, concurrency.WithTTL(5))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create etcd client: %w", err)
-	}
 	return &EtcdStore{
 		EtcdStoreOptions: options,
 		Logger:           lg,
 		Client:           cli,
-		session:          session,
 	}, nil
 }
 
 func (e *EtcdStore) Close() {
 	e.closeOnce.Do(func() {
-		e.session.Close()
 		e.Client.Close()
 	})
 }
@@ -145,9 +128,8 @@ func (e *EtcdStore) LockManager(prefix string) storage.LockManager {
 		prefix = path.Join(e.Prefix, prefix)
 	}
 	return &EtcdLockManager{
-		client:  e.Client,
-		session: e.session,
-		prefix:  path.Join(prefix, "kv"),
+		client: e.Client,
+		prefix: path.Join(prefix, "kv"),
 	}
 }
 

@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/kralicky/ragu"
 	"github.com/kralicky/ragu/pkg/plugins/external"
@@ -16,9 +15,8 @@ import (
 	"github.com/magefile/mage/mg"
 	"github.com/rancher/opni/internal/codegen"
 	"github.com/rancher/opni/internal/codegen/cli"
+	"github.com/rancher/opni/internal/codegen/templating"
 	_ "go.opentelemetry.io/proto/otlp/metrics/v1"
-	"golang.org/x/exp/slices"
-	"google.golang.org/protobuf/types/pluginpb"
 )
 
 // Generates Go protobuf code
@@ -27,14 +25,17 @@ func (Generate) ProtobufGo(ctx context.Context) error {
 	_, tr := Tracer.Start(ctx, "target.generate.protobuf.go")
 	defer tr.End()
 
-	generators := []ragu.Generator{golang.Generator, grpc.Generator, cli.NewGenerator()}
+	grpc.SetRequireUnimplemented(false)
+	generators := []ragu.Generator{templating.CommentRenderer{}, golang.Generator, grpc.Generator, cli.NewGenerator()}
 
 	out, err := ragu.GenerateCode(
 		generators,
-		"internal/codegen/cli/*.proto",
-		"internal/cortex/**/*.proto",
-		"pkg/**/*.proto",
-		"plugins/**/*.proto",
+		[]string{
+			"internal/codegen/cli",
+			"internal/cortex",
+			"pkg",
+			"plugins",
+		},
 	)
 	if err != nil {
 		return err
@@ -51,7 +52,7 @@ func (Generate) ProtobufGo(ctx context.Context) error {
 // Can be used to "bootstrap" the cli generator when modifying cli.proto
 func (Generate) ProtobufCLI() error {
 	out, err := ragu.GenerateCode([]ragu.Generator{golang.Generator, grpc.Generator, cli.NewGenerator()},
-		"internal/codegen/cli/*.proto",
+		[]string{"internal/codegen/cli"},
 	)
 	if err != nil {
 		return err
@@ -70,9 +71,7 @@ func (Generate) ProtobufPython(ctx context.Context) error {
 	defer tr.End()
 
 	generators := []ragu.Generator{python.Generator}
-	out, err := ragu.GenerateCode(generators,
-		"aiops/**/*.proto",
-	)
+	out, err := ragu.GenerateCode(generators, []string{"aiops"})
 	if err != nil {
 		return err
 	}
@@ -88,27 +87,23 @@ func (Generate) ProtobufTypescript() error {
 	mg.Deps(Build.TypescriptServiceGenerator)
 	destDir := "web/pkg/opni/generated"
 
-	targets := []string{
-		"pkg/apis/management/v1/management.proto",
-		"plugins/metrics/apis/cortexadmin/cortexadmin.proto",
-		"plugins/metrics/apis/cortexops/cortexops.proto",
+	searchDirs := []string{
+		"pkg/config/v1beta1",
+		"pkg/apis/capability/v1",
+		"pkg/apis/management/v1",
+		"plugins/metrics/apis/cortexadmin",
+		"plugins/metrics/apis/cortexops",
+		"plugins/metrics/apis/node",
 	}
 
 	out, err := ragu.GenerateCode([]ragu.Generator{
 		external.NewGenerator("./web/service-generator/node_modules/.bin/protoc-gen-es", external.GeneratorOptions{
 			Opt: "target=ts,import_extension=none,ts_nocheck=false",
-			CodeGeneratorRequestHook: func(req *pluginpb.CodeGeneratorRequest) {
-				for _, f := range req.ProtoFile {
-					if !slices.Contains(targets, f.GetName()) && !strings.HasPrefix(f.GetName(), "google/protobuf") {
-						req.FileToGenerate = append(req.FileToGenerate, f.GetName())
-					}
-				}
-			},
 		}),
 		external.NewGenerator([]string{"./web/service-generator/generate"}, external.GeneratorOptions{
 			Opt: "target=ts,import_extension=none,ts_nocheck=false",
 		}),
-	}, targets...)
+	}, searchDirs)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error generating typescript code: %v\n", err)
 		return err

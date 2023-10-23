@@ -79,7 +79,9 @@ func init() {
 							}
 							spec = modified
 						}
-						_, err := client.SetConfiguration(cmd.Context(), spec)
+						_, err := client.SetConfiguration(cmd.Context(), &SetRequest{
+							Spec: spec,
+						})
 						return err
 					}
 				}
@@ -96,7 +98,9 @@ func init() {
 			if !ok {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
-			return complete.Revisions(cmd.Context(), driverutil.Target_ActiveConfiguration, client)
+			return complete.Revisions(cmd.Context(), &driverutil.ConfigurationHistoryRequest{
+				Target: driverutil.Target_ActiveConfiguration,
+			}, client)
 		})
 	})
 
@@ -107,7 +111,9 @@ func init() {
 			if !ok {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
-			return complete.Revisions(cmd.Context(), driverutil.Target_DefaultConfiguration, client)
+			return complete.Revisions(cmd.Context(), &driverutil.ConfigurationHistoryRequest{
+				Target: driverutil.Target_DefaultConfiguration,
+			}, client)
 		})
 	})
 

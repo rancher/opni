@@ -4,13 +4,15 @@ import (
 	"container/ring"
 	"context"
 	"fmt"
+	"os"
+	"runtime"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
-	gsync "github.com/kralicky/gpkg/sync"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/samber/lo"
+	"github.com/ttacon/chalk"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -23,17 +25,19 @@ type valueStoreElement[T any] struct {
 }
 
 type inMemoryValueStore[T any] struct {
-	lock      sync.RWMutex
-	revision  int64
-	values    *ring.Ring
-	cloneFunc func(T) T
-	watches   gsync.Map[string, func(storage.WatchEvent[storage.KeyRevision[T]])]
+	lock        sync.RWMutex
+	revision    int64
+	values      *ring.Ring
+	cloneFunc   func(T) T
+	watchesLock sync.RWMutex
+	watches     map[string]func(storage.WatchEvent[storage.KeyRevision[T]])
 }
 
 // Returns a new value store for any type T that can be cloned using the provided clone function.
 func NewValueStore[T any](cloneFunc func(T) T) storage.ValueStoreT[T] {
 	return &inMemoryValueStore[T]{
 		values:    ring.New(64),
+		watches:   make(map[string]func(storage.WatchEvent[storage.KeyRevision[T]])),
 		cloneFunc: cloneFunc,
 	}
 }
@@ -76,8 +80,11 @@ func (s *inMemoryValueStore[T]) Put(_ context.Context, value T, opts ...storage.
 		prevValue = previous.(*valueStoreElement[T])
 	}
 	var wg sync.WaitGroup
-	s.watches.Range(func(_ string, listener func(storage.WatchEvent[storage.KeyRevision[T]])) bool {
-		wg.Add(1)
+	s.watchesLock.RLock()
+	defer s.watchesLock.RUnlock()
+	wg.Add(len(s.watches))
+	for _, listener := range s.watches {
+		listener := listener
 		go func() {
 			defer wg.Done()
 			current := &storage.KeyRevisionImpl[T]{
@@ -101,8 +108,7 @@ func (s *inMemoryValueStore[T]) Put(_ context.Context, value T, opts ...storage.
 				Previous:  prev,
 			})
 		}()
-		return true
-	})
+	}
 	wg.Wait()
 
 	return nil
@@ -173,8 +179,9 @@ func (s *inMemoryValueStore[T]) Watch(ctx context.Context, opts ...storage.Watch
 	defer s.lock.RUnlock()
 	current := s.values
 	if options.Revision != nil {
-		// walk back until we find the starting revision
-		if options.Revision != nil {
+		// revision 0 indicates that the first event should be the current value
+		if *options.Revision > 0 {
+			// walk back until we find the starting revision
 			for ; current != s.values.Next(); current = current.Prev() {
 				if current.Value == nil {
 					return nil, storage.ErrNotFound
@@ -214,9 +221,13 @@ func (s *inMemoryValueStore[T]) Watch(ctx context.Context, opts ...storage.Watch
 		}
 		curElem := current.Value.(*valueStoreElement[T])
 		if curElem.deleted {
-			updateC <- storage.WatchEvent[storage.KeyRevision[T]]{
-				EventType: storage.WatchEventDelete,
-				Previous:  previous,
+			// revision 0 indicates that the first event should be the current value
+			// if the current value is deleted, don't send a delete event first
+			if options.Revision == nil || *options.Revision > 0 {
+				updateC <- storage.WatchEvent[storage.KeyRevision[T]]{
+					EventType: storage.WatchEventDelete,
+					Previous:  previous,
+				}
 			}
 			previous = nil
 			continue
@@ -246,29 +257,52 @@ func (s *inMemoryValueStore[T]) Watch(ctx context.Context, opts ...storage.Watch
 	// watch for future updates
 	id := uuid.NewString()
 
-	s.watches.Store(id, func(ev storage.WatchEvent[storage.KeyRevision[T]]) {
-		select {
-		case <-ctx.Done():
-		case buffer <- ev:
-		}
-	})
+	callback := func(ev storage.WatchEvent[storage.KeyRevision[T]]) {
+		buffer <- ev
+	}
 
+	s.watchesLock.Lock()
+	s.watches[id] = callback
+	s.watchesLock.Unlock()
+
+	_, file, line, _ := runtime.Caller(1)
 	go func() {
+		defer func() {
+			defer func() {
+				if err := recover(); err != nil {
+					panic(err)
+				}
+			}()
+			s.lock.RLock()
+			defer s.lock.RUnlock()
+			s.watchesLock.Lock()
+			delete(s.watches, id)
+			s.watchesLock.Unlock()
+			for {
+				select {
+				case ev := <-buffer:
+					updateC <- ev
+				default:
+					close(buffer)
+					close(updateC)
+					return
+				}
+			}
+		}()
 		for {
 			select {
 			case <-ctx.Done():
-				s.watches.Delete(id)
-				for {
-					select {
-					case v := <-buffer:
-						updateC <- v
-					default:
-						close(updateC)
+				return
+			case ev := <-buffer:
+				select {
+				case updateC <- ev:
+				default:
+					if len(updateC) == cap(updateC) {
+						fmt.Fprintf(os.Stderr, chalk.Red.Color("WARNING: canceling watch, event channel is not being read from\n=> caller: %s:%d\n"), file, line)
 						return
 					}
+					updateC <- ev
 				}
-			case ev := <-buffer:
-				updateC <- ev
 			}
 		}
 	}()
@@ -303,8 +337,11 @@ func (s *inMemoryValueStore[T]) Delete(_ context.Context, opts ...storage.Delete
 
 	prevValue := previous.(*valueStoreElement[T])
 	var wg sync.WaitGroup
-	s.watches.Range(func(_ string, listener func(storage.WatchEvent[storage.KeyRevision[T]])) bool {
-		wg.Add(1)
+	s.watchesLock.RLock()
+	defer s.watchesLock.RUnlock()
+	wg.Add(len(s.watches))
+	for _, listener := range s.watches {
+		listener := listener
 		go func() {
 			defer wg.Done()
 			listener(storage.WatchEvent[storage.KeyRevision[T]]{
@@ -316,8 +353,7 @@ func (s *inMemoryValueStore[T]) Delete(_ context.Context, opts ...storage.Delete
 				},
 			})
 		}()
-		return true
-	})
+	}
 	wg.Wait()
 	return nil
 }

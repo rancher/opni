@@ -22,6 +22,7 @@ import (
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/tui"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"go.etcd.io/etcd/etcdctl/v3/ctlv3"
@@ -43,6 +44,7 @@ func BuildDebugCmd() *cobra.Command {
 	debugCmd.AddCommand(BuildDebugChannelzCmd())
 	debugCmd.AddCommand(BuildDebugDashboardSettingsCmd())
 	debugCmd.AddCommand(BuildDebugImportAgentCmd())
+	debugCmd.AddCommand(BuildDebugKvCmd())
 	ConfigureManagementCommand(debugCmd)
 	return debugCmd
 }
@@ -459,6 +461,72 @@ func BuildDebugImportAgentCmd() *cobra.Command {
 	cmd.MarkFlagRequired("id")
 	cmd.MarkFlagRequired("keyring")
 
+	return cmd
+}
+
+func BuildDebugKvCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "kv",
+		Short: "key-value store debug tools",
+	}
+
+	cmd.AddCommand(BuildDebugKvWatchCmd())
+	return cmd
+}
+
+func BuildDebugKvWatchCmd() *cobra.Command {
+	var namespace string
+	cmd := &cobra.Command{
+		Use:   "watch",
+		Short: "Watch the key-value store for changes",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := mgmtClient.GetConfig(cmd.Context(), &emptypb.Empty{})
+			if err != nil {
+				return fmt.Errorf("failed to get config: %w", err)
+			}
+			objects, err := machinery.LoadDocuments(resp.Documents)
+			if err != nil {
+				return fmt.Errorf("failed to load config: %w", err)
+			}
+			var gatewayConf *v1beta1.GatewayConfig
+			ok := objects.Visit(func(gc *v1beta1.GatewayConfig) {
+				if gatewayConf == nil {
+					gatewayConf = gc
+				}
+			})
+			if !ok {
+				return fmt.Errorf("gateway config not found")
+			}
+
+			backend, err := machinery.ConfigureStorageBackend(cmd.Context(), &gatewayConf.Spec.Storage)
+			if err != nil {
+				return fmt.Errorf("failed to configure storage backend: %w", err)
+			}
+
+			events, err := backend.KeyValueStore(namespace).Watch(cmd.Context(), "", storage.WithPrefix(), storage.WithRevision(0))
+			if err != nil {
+				return fmt.Errorf("failed to watch key-value store: %w", err)
+			}
+
+			switch namespace {
+			case "connections":
+				ui := tui.NewKeyValueStoreUI[*corev1.InstanceInfo](events)
+				return ui.Run()
+			default:
+				return fmt.Errorf("unknown namespace: %s", namespace)
+			}
+		},
+	}
+	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Prefix to watch")
+	cmd.RegisterFlagCompletionFunc("namespace", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) == 0 {
+			return []string{
+				"connections",
+			}, cobra.ShellCompDirectiveNoFileComp
+		}
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	})
+	cmd.MarkFlagRequired("namespace")
 	return cmd
 }
 

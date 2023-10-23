@@ -12,6 +12,7 @@ import (
 	runtimeconfig "github.com/rancher/opni/internal/cortex/config/runtimeconfig"
 	storage "github.com/rancher/opni/internal/cortex/config/storage"
 	validation "github.com/rancher/opni/internal/cortex/config/validation"
+	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
 	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
 	storage1 "github.com/rancher/opni/pkg/storage"
@@ -62,11 +63,11 @@ func BuildCortexOpsCmd() *cobra.Command {
 		BuildCortexOpsGetConfigurationCmd(),
 		BuildCortexOpsSetConfigurationCmd(),
 		BuildCortexOpsResetConfigurationCmd(),
+		BuildCortexOpsConfigurationHistoryCmd(),
 		BuildCortexOpsStatusCmd(),
 		BuildCortexOpsInstallCmd(),
 		BuildCortexOpsUninstallCmd(),
 		BuildCortexOpsListPresetsCmd(),
-		BuildCortexOpsConfigurationHistoryCmd(),
 	}, extraCmds_CortexOps...)...)
 	cli.AddOutputFlag(cmd)
 	return cmd
@@ -86,6 +87,7 @@ func BuildCortexOpsGetDefaultConfigurationCmd() *cobra.Command {
 		Long: `
 If a default configuration was previously set using SetDefaultConfiguration, it
 returns that configuration. Otherwise, returns implementation-specific defaults.
+
 An optional revision argument can be provided to get a specific historical
 version of the configuration instead of the current configuration.
 
@@ -119,15 +121,19 @@ HTTP handlers for this method:
 }
 
 func BuildCortexOpsSetDefaultConfigurationCmd() *cobra.Command {
-	in := &CapabilityBackendConfigSpec{}
+	in := &SetRequest{}
 	cmd := &cobra.Command{
 		Use:   "config set-default",
 		Short: "Sets the default configuration that will be used as the base for future configuration changes.",
 		Long: `
-If no custom default configuration is set using this method,
-implementation-specific defaults may be chosen.
-If all fields are unset, this will clear any previously-set default configuration
-and revert back to the implementation-specific defaults.
+If no custom default configuration is set using this method, implementation-specific
+defaults may be chosen.
+
+Unlike with SetConfiguration, the input is not merged with the existing configuration,
+instead replacing it directly.
+
+If the revision field is set, the server will reject the request if the current
+revision does not match the provided revision.
 
 This API is different from the SetConfiguration API, and should not be necessary
 for most use cases. It can be used in situations where an additional persistence
@@ -145,18 +151,13 @@ HTTP handlers for this method:
 				return nil
 			}
 			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
-				client, ok := CortexOpsClientFromContext(cmd.Context())
-				if !ok {
-					cmd.PrintErrln("failed to get client from context")
-					return nil
-				}
 				if curValue, err := client.GetDefaultConfiguration(cmd.Context(), &driverutil.GetRequest{}); err == nil {
-					in = curValue
+					in.Spec = curValue
 				}
-				if edited, err := cliutil.EditInteractive(in); err != nil {
+				if edited, err := cliutil.EditInteractive(in.Spec); err != nil {
 					return err
 				} else {
-					in = edited
+					in.Spec = edited
 				}
 			} else if fileName := cmd.Flags().Lookup("file").Value.String(); fileName != "" {
 				if err := cliutil.LoadFromFile(in, fileName); err != nil {
@@ -186,11 +187,11 @@ func BuildCortexOpsResetDefaultConfigurationCmd() *cobra.Command {
 		Short: "Resets the default configuration to the implementation-specific defaults.",
 		Long: `
 If a custom default configuration was previously set using SetDefaultConfiguration,
-this will clear it and revert back to the implementation-specific defaults.
-Otherwise, this will have no effect.
+it will be replaced with the implementation-specific defaults. Otherwise,
+this will have no effect.
 
 HTTP handlers for this method:
-- DELETE /configuration/default
+- POST /configuration/default/reset
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
@@ -220,10 +221,20 @@ func BuildCortexOpsGetConfigurationCmd() *cobra.Command {
 	in := &driverutil.GetRequest{}
 	cmd := &cobra.Command{
 		Use:   "config get",
-		Short: "Gets the current configuration of the managed Cortex cluster.",
+		Short: "Gets the current configuration, or the default configuration if not set.",
 		Long: `
+This configuration is maintained and versioned separately from the default
+configuration, and has different semantics regarding merging and persistence.
+
+The active configuration can be set using SetConfiguration. Then, future
+calls to GetConfiguration will return that configuration instead of falling
+back to the default.
+
 An optional revision argument can be provided to get a specific historical
 version of the configuration instead of the current configuration.
+This revision value can be obtained from the revision field of a previous
+call to GetConfiguration, or from the revision field of one of the history
+entries returned by GetConfigurationHistory.
 
 HTTP handlers for this method:
 - GET /configuration
@@ -261,23 +272,40 @@ func addBuildHook_CortexOpsSetConfiguration(hook func(*cobra.Command)) {
 }
 
 func BuildCortexOpsSetConfigurationCmd() *cobra.Command {
-	in := &CapabilityBackendConfigSpec{}
+	in := &SetRequest{}
 	cmd := &cobra.Command{
 		Use:   "config set",
-		Short: "Updates the configuration of the managed Cortex cluster to match the provided configuration.",
+		Short: "Updates the active configuration by merging the input with the current active configuration.",
 		Long: `
-If the cluster is not installed, it will be configured, but remain disabled.
-Otherwise, the already-installed cluster will be reconfigured.
-The provided configuration will be merged with the default configuration
-by directly overwriting fields. Slices and maps are overwritten and not combined.
-Subsequent calls to this API will merge inputs with the current configuration,
-not the default configuration.
-When updating an existing configuration, the revision number in the updated configuration
-must match the revision number of the existing configuration, otherwise a conflict
-error will be returned. The timestamp field of the revision is ignored.
+If there is no active configuration, the input will be merged with the default configuration.
 
-Note: some fields may contain secrets. The placeholder value "***" can be used to
-keep an existing secret when updating the cluster configuration.
+The merge is performed by replacing all *present* fields in the input with the
+corresponding fields in the target. Slices and maps are overwritten and not combined.
+Any *non-present* fields in the input are ignored, and the corresponding fields
+in the target are left unchanged.
+
+Field presence is defined by the protobuf spec. The following kinds of fields
+have presence semantics:
+- Messages
+- Repeated fields (scalars or messages)
+- Maps
+- Optional scalars
+Non-optional scalars do *not* have presence semantics, and are always treated
+as present for the purposes of merging. For this reason, it is not recommended
+to use non-optional scalars in messages intended to be used with this API.
+
+Subsequent calls to this API will merge inputs with the previous active configuration,
+not the default configuration.
+
+When updating an existing configuration, the revision number in the input configuration
+must match the revision number of the existing configuration, otherwise a conflict
+error will be returned. The timestamp field of the revision is ignored for this purpose.
+
+Some fields in the configuration may be marked as secrets. These fields are
+write-only from this API, and the placeholder value "***" will be returned in
+place of the actual value when getting the configuration.
+When setting the configuration, the same placeholder value can be used to indicate
+the existing value should be preserved.
 
 HTTP handlers for this method:
 - PUT /configuration
@@ -291,18 +319,13 @@ HTTP handlers for this method:
 				return nil
 			}
 			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
-				client, ok := CortexOpsClientFromContext(cmd.Context())
-				if !ok {
-					cmd.PrintErrln("failed to get client from context")
-					return nil
-				}
 				if curValue, err := client.GetConfiguration(cmd.Context(), &driverutil.GetRequest{}); err == nil {
-					in = curValue
+					in.Spec = curValue
 				}
-				if edited, err := cliutil.EditInteractive(in); err != nil {
+				if edited, err := cliutil.EditInteractive(in.Spec); err != nil {
 					return err
 				} else {
-					in = edited
+					in.Spec = edited
 				}
 			} else if fileName := cmd.Flags().Lookup("file").Value.String(); fileName != "" {
 				if err := cliutil.LoadFromFile(in, fileName); err != nil {
@@ -333,9 +356,8 @@ func BuildCortexOpsResetConfigurationCmd() *cobra.Command {
 	in := &ResetRequest{}
 	cmd := &cobra.Command{
 		Use:   "config reset",
-		Short: "Resets the configuration of the managed Cortex cluster to the current default configuration.",
+		Short: "Resets the active configuration to the current default configuration.",
 		Long: `
-
 The request may optionally contain a field mask to specify which fields should
 be preserved. Furthermore, if a mask is set, the request may also contain a patch
 object used to apply additional changes to the masked fields. These changes are
@@ -343,31 +365,31 @@ applied atomically at the time of reset. Fields present in the patch object, but
 not in the mask, are ignored.
 
 For example, with the following message:
-  message Example {
-    optional int32 a = 1;
-    optional int32 b = 2;
-    optional int32 c = 3;
-  }
-
-and current state:
-  active:  { a: 1, b: 2, c: 3 }
-  default: { a: 4, b: 5, c: 6 }
-
-and reset request parameters:
-{
-  mask:    { paths: [ "a", "b" ] }
-  patch:   { a: 100 }
+message Example {
+ optional int32 a = 1;
+ optional int32 b = 2;
+ optional int32 c = 3;
 }
 
+and current state:
+ active:  { a: 1, b: 2, c: 3 }
+ default: { a: 4, b: 5, c: 6 }
+
+and reset request parameters:
+ {
+   mask:  { paths: [ "a", "b" ] }
+   patch: { a: 100 }
+ }
+
 The resulting active configuration will be:
- active:  {
+ active: {
    a: 100, // masked, set to 100 via patch
    b: 2,   // masked, but not set in patch, so left unchanged
    c: 6,   // not masked, reset to default
  }
 
 HTTP handlers for this method:
-- DELETE /configuration
+- POST /configuration/reset
 `[1:],
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
@@ -387,6 +409,48 @@ HTTP handlers for this method:
 			return nil
 		},
 	}
+	cmd.Flags().AddFlagSet(in.FlagSet())
+	return cmd
+}
+
+func BuildCortexOpsConfigurationHistoryCmd() *cobra.Command {
+	in := &driverutil.ConfigurationHistoryRequest{}
+	cmd := &cobra.Command{
+		Use:   "config history",
+		Short: "Get a list of all past revisions of the configuration.",
+		Long: `
+Will return the history for either the active or default configuration
+depending on the specified target.
+
+The entries are ordered from oldest to newest, where the last entry is
+the current configuration.
+
+HTTP handlers for this method:
+- GET /configuration/history
+`[1:],
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, ok := CortexOpsClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			if in == nil {
+				return errors.New("no input provided")
+			}
+			response, err := client.ConfigurationHistory(cmd.Context(), in)
+			if err != nil {
+				return err
+			}
+			cli.RenderOutput(cmd, response)
+			return nil
+		},
+	}
+	cmd.Flags().AddFlagSet(in.FlagSet())
+	cmd.RegisterFlagCompletionFunc("target", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"ActiveConfiguration", "DefaultConfiguration"}, cobra.ShellCompDirectiveDefault
+	})
 	return cmd
 }
 
@@ -518,44 +582,40 @@ HTTP handlers for this method:
 	return cmd
 }
 
-func BuildCortexOpsConfigurationHistoryCmd() *cobra.Command {
-	in := &driverutil.ConfigurationHistoryRequest{}
-	cmd := &cobra.Command{
-		Use:   "config history",
-		Short: "Get a list of all past revisions of the configuration.",
-		Long: `
-Will return the history for either the active or default configuration
-depending on the specified target.
-The entries are ordered from oldest to newest, where the last entry is
-the current configuration.
-
-HTTP handlers for this method:
-- GET /configuration/history
-`[1:],
-		Args:              cobra.NoArgs,
-		ValidArgsFunction: cobra.NoFileCompletions,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, ok := CortexOpsClientFromContext(cmd.Context())
-			if !ok {
-				cmd.PrintErrln("failed to get client from context")
-				return nil
-			}
-			if in == nil {
-				return errors.New("no input provided")
-			}
-			response, err := client.ConfigurationHistory(cmd.Context(), in)
-			if err != nil {
-				return err
-			}
-			cli.RenderOutput(cmd, response)
-			return nil
-		},
+func (in *SetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SetRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Spec == nil {
+		in.Spec = &CapabilityBackendConfigSpec{}
 	}
-	cmd.Flags().AddFlagSet(in.FlagSet())
-	cmd.RegisterFlagCompletionFunc("target", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return []string{"ActiveConfiguration", "DefaultConfiguration"}, cobra.ShellCompDirectiveDefault
-	})
-	return cmd
+	fs.AddFlagSet(in.Spec.FlagSet(append(prefix, "spec")...))
+	return fs
+}
+
+func (in *SetRequest) RedactSecrets() {
+	if in == nil {
+		return
+	}
+	in.Spec.RedactSecrets()
+}
+
+func (in *SetRequest) UnredactSecrets(unredacted *SetRequest) error {
+	if in == nil {
+		return nil
+	}
+	var details []protoiface.MessageV1
+	if err := in.Spec.UnredactSecrets(unredacted.GetSpec()); storage1.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "spec." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
+	}
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
 }
 
 func (in *CapabilityBackendConfigSpec) FlagSet(prefix ...string) *pflag.FlagSet {
@@ -663,6 +723,16 @@ func (in *GrafanaConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	return fs
 }
 
+func (in *ResetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("ResetRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	if in.Revision == nil {
+		in.Revision = &v1.Revision{}
+	}
+	fs.AddFlagSet(in.Revision.FlagSet(prefix...))
+	return fs
+}
+
 func (in *CapabilityBackendConfigSpec) DeepCopyInto(out *CapabilityBackendConfigSpec) {
 	out.Reset()
 	proto.Merge(out, in)
@@ -751,6 +821,15 @@ func (in *ConfigurationHistoryResponse) DeepCopyInto(out *ConfigurationHistoryRe
 
 func (in *ConfigurationHistoryResponse) DeepCopy() *ConfigurationHistoryResponse {
 	return proto.Clone(in).(*ConfigurationHistoryResponse)
+}
+
+func (in *SetRequest) DeepCopyInto(out *SetRequest) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *SetRequest) DeepCopy() *SetRequest {
+	return proto.Clone(in).(*SetRequest)
 }
 
 func (in *ResetRequest) DeepCopyInto(out *ResetRequest) {

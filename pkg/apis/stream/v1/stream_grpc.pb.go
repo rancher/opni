@@ -84,17 +84,16 @@ func (c *streamClient) Notify(ctx context.Context, in *StreamEvent, opts ...grpc
 }
 
 // StreamServer is the server API for Stream service.
-// All implementations must embed UnimplementedStreamServer
+// All implementations should embed UnimplementedStreamServer
 // for forward compatibility
 type StreamServer interface {
 	Connect(Stream_ConnectServer) error
 	// Used for implementation-specific events. No guarantees are made about
 	// whether events will be sent or when.
 	Notify(context.Context, *StreamEvent) (*emptypb.Empty, error)
-	mustEmbedUnimplementedStreamServer()
 }
 
-// UnimplementedStreamServer must be embedded to have forward compatible implementations.
+// UnimplementedStreamServer should be embedded to have forward compatible implementations.
 type UnimplementedStreamServer struct {
 }
 
@@ -104,7 +103,6 @@ func (UnimplementedStreamServer) Connect(Stream_ConnectServer) error {
 func (UnimplementedStreamServer) Notify(context.Context, *StreamEvent) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Notify not implemented")
 }
-func (UnimplementedStreamServer) mustEmbedUnimplementedStreamServer() {}
 
 // UnsafeStreamServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to StreamServer will
@@ -194,7 +192,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DelegateClient interface {
 	// A synchronous request-response RPC sent to a single client.
-	Request(ctx context.Context, in *DelegatedMessage, opts ...grpc.CallOption) (*totem.RPC, error)
+	Request(ctx context.Context, in *DelegatedMessage, opts ...grpc.CallOption) (*totem.Response, error)
 	// A best-effort broadcast sent to all connected clients, with an
 	// optional target filter.
 	Broadcast(ctx context.Context, in *BroadcastMessage, opts ...grpc.CallOption) (*BroadcastReplyList, error)
@@ -208,8 +206,8 @@ func NewDelegateClient(cc grpc.ClientConnInterface) DelegateClient {
 	return &delegateClient{cc}
 }
 
-func (c *delegateClient) Request(ctx context.Context, in *DelegatedMessage, opts ...grpc.CallOption) (*totem.RPC, error) {
-	out := new(totem.RPC)
+func (c *delegateClient) Request(ctx context.Context, in *DelegatedMessage, opts ...grpc.CallOption) (*totem.Response, error) {
+	out := new(totem.Response)
 	err := c.cc.Invoke(ctx, Delegate_Request_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -227,28 +225,26 @@ func (c *delegateClient) Broadcast(ctx context.Context, in *BroadcastMessage, op
 }
 
 // DelegateServer is the server API for Delegate service.
-// All implementations must embed UnimplementedDelegateServer
+// All implementations should embed UnimplementedDelegateServer
 // for forward compatibility
 type DelegateServer interface {
 	// A synchronous request-response RPC sent to a single client.
-	Request(context.Context, *DelegatedMessage) (*totem.RPC, error)
+	Request(context.Context, *DelegatedMessage) (*totem.Response, error)
 	// A best-effort broadcast sent to all connected clients, with an
 	// optional target filter.
 	Broadcast(context.Context, *BroadcastMessage) (*BroadcastReplyList, error)
-	mustEmbedUnimplementedDelegateServer()
 }
 
-// UnimplementedDelegateServer must be embedded to have forward compatible implementations.
+// UnimplementedDelegateServer should be embedded to have forward compatible implementations.
 type UnimplementedDelegateServer struct {
 }
 
-func (UnimplementedDelegateServer) Request(context.Context, *DelegatedMessage) (*totem.RPC, error) {
+func (UnimplementedDelegateServer) Request(context.Context, *DelegatedMessage) (*totem.Response, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Request not implemented")
 }
 func (UnimplementedDelegateServer) Broadcast(context.Context, *BroadcastMessage) (*BroadcastReplyList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Broadcast not implemented")
 }
-func (UnimplementedDelegateServer) mustEmbedUnimplementedDelegateServer() {}
 
 // UnsafeDelegateServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to DelegateServer will
@@ -325,7 +321,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RelayClient interface {
-	RelayDelegateRequest(ctx context.Context, in *RelayedDelegatedMessage, opts ...grpc.CallOption) (*DelegatedMessageReply, error)
+	RelayDelegateRequest(ctx context.Context, in *RelayedDelegatedMessage, opts ...grpc.CallOption) (*totem.Response, error)
 }
 
 type relayClient struct {
@@ -336,8 +332,8 @@ func NewRelayClient(cc grpc.ClientConnInterface) RelayClient {
 	return &relayClient{cc}
 }
 
-func (c *relayClient) RelayDelegateRequest(ctx context.Context, in *RelayedDelegatedMessage, opts ...grpc.CallOption) (*DelegatedMessageReply, error) {
-	out := new(DelegatedMessageReply)
+func (c *relayClient) RelayDelegateRequest(ctx context.Context, in *RelayedDelegatedMessage, opts ...grpc.CallOption) (*totem.Response, error) {
+	out := new(totem.Response)
 	err := c.cc.Invoke(ctx, Relay_RelayDelegateRequest_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -346,21 +342,19 @@ func (c *relayClient) RelayDelegateRequest(ctx context.Context, in *RelayedDeleg
 }
 
 // RelayServer is the server API for Relay service.
-// All implementations must embed UnimplementedRelayServer
+// All implementations should embed UnimplementedRelayServer
 // for forward compatibility
 type RelayServer interface {
-	RelayDelegateRequest(context.Context, *RelayedDelegatedMessage) (*DelegatedMessageReply, error)
-	mustEmbedUnimplementedRelayServer()
+	RelayDelegateRequest(context.Context, *RelayedDelegatedMessage) (*totem.Response, error)
 }
 
-// UnimplementedRelayServer must be embedded to have forward compatible implementations.
+// UnimplementedRelayServer should be embedded to have forward compatible implementations.
 type UnimplementedRelayServer struct {
 }
 
-func (UnimplementedRelayServer) RelayDelegateRequest(context.Context, *RelayedDelegatedMessage) (*DelegatedMessageReply, error) {
+func (UnimplementedRelayServer) RelayDelegateRequest(context.Context, *RelayedDelegatedMessage) (*totem.Response, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RelayDelegateRequest not implemented")
 }
-func (UnimplementedRelayServer) mustEmbedUnimplementedRelayServer() {}
 
 // UnsafeRelayServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to RelayServer will

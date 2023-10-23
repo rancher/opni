@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,7 +29,7 @@ var configLog = logger.New().Named("config")
 type GatewayConfig = v1beta1.GatewayConfig
 
 func LoadObjectsFromFile(path string) (meta.ObjectList, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

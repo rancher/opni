@@ -14,7 +14,9 @@ type GatewayConfigSpec struct {
 	//+kubebuilder:default=":8080"
 	HTTPListenAddress string `json:"httpListenAddress,omitempty"`
 	//+kubebuilder:default=":9090"
-	GRPCListenAddress string `json:"grpcListenAddress,omitempty"`
+	GRPCListenAddress    string `json:"grpcListenAddress,omitempty"`
+	GRPCAdvertiseAddress string `json:"grpcAdvertiseAddress,omitempty"`
+
 	//+kubebuilder:default=":8086"
 	MetricsListenAddress string `json:"metricsListenAddress,omitempty"`
 	//+kubebuilder:default="localhost"

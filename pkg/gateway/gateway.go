@@ -283,6 +283,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		connectionsLm := storageBackendLmBroker.LockManager("connections")
 		relayAdvertiseAddr := conf.Spec.Management.RelayAdvertiseAddress
 		mgmtAdvertiseAddr := conf.Spec.Management.GRPCAdvertiseAddress
+		gatewayAdvertiseAddr := conf.Spec.GRPCAdvertiseAddress
 		if relayAdvertiseAddr == "" {
 			lg.Warn("relay advertise address not set; will advertise the listen address")
 			relayAdvertiseAddr = conf.Spec.Management.RelayListenAddress
@@ -291,10 +292,15 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 			lg.Warn("management advertise address not set; will advertise the listen address")
 			mgmtAdvertiseAddr = conf.Spec.Management.GRPCListenAddress
 		}
+		if gatewayAdvertiseAddr == "" {
+			lg.Warn("gateway advertise address not set; will advertise the listen address")
+			gatewayAdvertiseAddr = conf.Spec.GRPCListenAddress
+		}
 		hostname, _ := os.Hostname()
 		connectionTracker = NewConnectionTracker(ctx, &corev1.InstanceInfo{
 			RelayAddress:      os.ExpandEnv(relayAdvertiseAddr),
 			ManagementAddress: os.ExpandEnv(mgmtAdvertiseAddr),
+			GatewayAddress:    os.ExpandEnv(gatewayAdvertiseAddr),
 			Annotations: map[string]string{
 				"hostname": hostname,
 				"pid":      fmt.Sprint(os.Getpid()),

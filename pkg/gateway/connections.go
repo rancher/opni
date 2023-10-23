@@ -159,29 +159,39 @@ func (ct *ConnectionTracker) LocalInstanceInfo() *corev1.InstanceInfo {
 // Starts the connection tracker. This will block until the context is canceled
 // and the underlying kv store watcher is closed.
 func (ct *ConnectionTracker) Run(ctx context.Context) error {
+	var wg sync.WaitGroup
 	if ct.localInstanceInfo != nil {
-		go ct.lockInstance(ctx)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ct.lockInstance(ctx)
+		}()
 	}
 	watcher, err := ct.kv.Watch(ctx, "", storage.WithPrefix(), storage.WithRevision(0))
 	if err != nil {
 		return err
 	}
-	for event := range watcher {
-		ct.mu.Lock()
-		var key string
-		switch event.EventType {
-		case storage.WatchEventPut:
-			key = event.Current.Key()
-		case storage.WatchEventDelete:
-			key = event.Previous.Key()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for event := range watcher {
+			ct.mu.Lock()
+			var key string
+			switch event.EventType {
+			case storage.WatchEventPut:
+				key = event.Current.Key()
+			case storage.WatchEventDelete:
+				key = event.Previous.Key()
+			}
+			if strings.HasPrefix(key, instancesKey) {
+				ct.handleInstanceEventLocked(event)
+			} else {
+				ct.handleConnectionEventLocked(event)
+			}
+			ct.mu.Unlock()
 		}
-		if strings.HasPrefix(key, instancesKey) {
-			ct.handleInstanceEventLocked(event)
-		} else {
-			ct.handleConnectionEventLocked(event)
-		}
-		ct.mu.Unlock()
-	}
+	}()
+	wg.Wait()
 	return nil
 }
 
@@ -193,6 +203,7 @@ func (ct *ConnectionTracker) lockInstance(ctx context.Context) {
 		RelayAddress:      ct.localInstanceInfo.GetRelayAddress(),
 		ManagementAddress: ct.localInstanceInfo.GetManagementAddress(),
 		GatewayAddress:    ct.localInstanceInfo.GetGatewayAddress(),
+		WebAddress:        ct.localInstanceInfo.GetWebAddress(),
 	}
 	for ctx.Err() == nil {
 		locker := ct.lm.Locker(instancesKey, lock.WithAcquireContext(ctx),
@@ -212,6 +223,7 @@ func (ct *ConnectionTracker) StreamServerInterceptor() grpc.StreamServerIntercep
 			RelayAddress:      ct.localInstanceInfo.GetRelayAddress(),
 			ManagementAddress: ct.localInstanceInfo.GetManagementAddress(),
 			GatewayAddress:    ct.localInstanceInfo.GetGatewayAddress(),
+			WebAddress:        ct.localInstanceInfo.GetWebAddress(),
 		}
 		locker := ct.lm.Locker(agentId,
 			lock.WithAcquireContext(ss.Context()),

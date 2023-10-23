@@ -364,8 +364,9 @@ message InstanceInfo {
   string              relayAddress      = 1;
   string              managementAddress = 2;
   string              gatewayAddress    = 3;
-  bool                acquired          = 4;
-  Health              health            = 5;
-  Status              status            = 6;
-  map<string, string> annotations       = 7;
+  string              webAddress        = 4;
+  bool                acquired          = 5;
+  Health              health            = 6;
+  Status              status            = 7;
+  map<string, string> annotations       = 8;
 }

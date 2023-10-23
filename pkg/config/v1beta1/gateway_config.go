@@ -108,6 +108,7 @@ type ManagementSpec struct {
 	RelayListenAddress    string `json:"relayListenAddress,omitempty"`
 	RelayAdvertiseAddress string `json:"relayAdvertiseAddress,omitempty"`
 	GRPCAdvertiseAddress  string `json:"grpcAdvertiseAddress,omitempty"`
+	WebAdvertiseAddress   string `json:"webAdvertiseAddress,omitempty"`
 
 	WebCerts *CertsSpec `json:"webCerts,omitempty"`
 }

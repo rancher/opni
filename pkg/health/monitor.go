@@ -4,10 +4,12 @@ import (
 	"context"
 	"sync"
 
+	"log/slog"
+
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/health/annotations"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/util"
-	"go.uber.org/zap"
 )
 
 type Monitor struct {
@@ -20,7 +22,7 @@ type Monitor struct {
 }
 
 type MonitorOptions struct {
-	lg *zap.SugaredLogger
+	lg *slog.Logger
 }
 
 type MonitorOption func(*MonitorOptions)
@@ -31,7 +33,7 @@ func (o *MonitorOptions) apply(opts ...MonitorOption) {
 	}
 }
 
-func WithLogger(lg *zap.SugaredLogger) MonitorOption {
+func WithLogger(lg *slog.Logger) MonitorOption {
 	return func(o *MonitorOptions) {
 		o.lg = lg
 	}
@@ -39,7 +41,7 @@ func WithLogger(lg *zap.SugaredLogger) MonitorOption {
 
 func NewMonitor(opts ...MonitorOption) *Monitor {
 	options := MonitorOptions{
-		lg: zap.NewNop().Sugar(),
+		lg: logger.NewNop(),
 	}
 	options.apply(opts...)
 

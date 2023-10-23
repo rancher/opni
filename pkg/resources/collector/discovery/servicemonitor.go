@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"log/slog"
+
 	promcfg "github.com/prometheus/prometheus/config"
 
 	"slices"
@@ -15,7 +17,6 @@ import (
 	promcommon "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
-	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
@@ -28,7 +29,7 @@ import (
 
 type serviceMonitorScrapeConfigRetriever struct {
 	client client.Client
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 	// current namespace the collector is defined in.
 	// it should only discoverer secrets for TLS/auth in this namespace.
 	namespace string
@@ -36,7 +37,7 @@ type serviceMonitorScrapeConfigRetriever struct {
 }
 
 func NewServiceMonitorScrapeConfigRetriever(
-	logger *zap.SugaredLogger,
+	logger *slog.Logger,
 	client client.Client,
 	namespace string,
 	discovery monitoringv1beta1.PrometheusDiscovery,
@@ -137,7 +138,7 @@ func (s *serviceMonitorScrapeConfigRetriever) findEndpoints(svcMon *promoperator
 			}
 			err = s.client.List(context.TODO(), eList, listOptions)
 			if err != nil {
-				lg.Warnf("failed to select endpointslices for service monitor %s: %s", err, selectorMap)
+				lg.Warn(fmt.Sprintf("failed to select endpointslices for service monitor %s: %s", err, selectorMap))
 				continue
 			}
 			endpList.Items = append(endpList.Items, eList.Items...)
@@ -239,7 +240,7 @@ func (s *serviceMonitorScrapeConfigRetriever) findServices(svcMon *promoperatorv
 			}
 			err = s.client.List(context.TODO(), sList, listOptions)
 			if err != nil {
-				lg.Warnf("failed to select endpointslices for service monitor %s: %s", err, selectorMap)
+				lg.Warn(fmt.Sprintf("failed to select endpointslices for service monitor %s: %s", err, selectorMap))
 				continue
 			}
 			svcList.Items = append(svcList.Items, sList.Items...)
@@ -272,7 +273,7 @@ func (s *serviceMonitorScrapeConfigRetriever) resolveServiceTargets(
 		client.MatchingLabels(svc.Spec.Selector),
 	)
 	if err != nil {
-		lg.Warnf("failed to find pods for service %s", svc.Namespace+"-"+svc.Name)
+		lg.Warn(fmt.Sprintf("failed to find pods for service %s", svc.Namespace+"-"+svc.Name))
 		return
 	}
 	// deref pods
@@ -317,7 +318,7 @@ func (s *serviceMonitorScrapeConfigRetriever) resolveServiceTargets(
 			client.MatchingLabels(svc.Labels),
 		)
 		if err != nil {
-			lg.Warnf("failed to find pods for service %s", svc.Namespace+"-"+svc.Name)
+			lg.Warn(fmt.Sprintf("failed to find pods for service %s", svc.Namespace+"-"+svc.Name))
 			return
 		}
 		for _, endp := range endpointList.Items {
@@ -373,7 +374,7 @@ func (s serviceMonitorScrapeConfigRetriever) Yield() (cfg *promCRDOperatorConfig
 	// jobName -> scrapeConfig
 	cfgMap := jobs{}
 	secretRes := []SecretResolutionConfig{}
-	s.logger.Debugf("found %d service monitors", len(sMons))
+	s.logger.Debug(fmt.Sprintf("found %d service monitors", len(sMons)))
 	for _, svcMon := range sMons {
 		lg := s.logger.With(
 			"serviceMonitor", svcMon.Namespace+"-"+svcMon.Name,
@@ -383,7 +384,7 @@ func (s serviceMonitorScrapeConfigRetriever) Yield() (cfg *promCRDOperatorConfig
 		numTargets := 0
 		svcList, err := s.findServices(svcMon)
 		if err != nil {
-			lg.Warnf("failed to select services for service monitor %s: %s", svcMon.Spec.Selector, err)
+			lg.Warn(fmt.Sprintf("failed to select services for service monitor %s: %s", svcMon.Spec.Selector, err))
 			continue
 		}
 		// in the case of multiple services here, we need to dedupe static targets that are pointed
@@ -500,7 +501,7 @@ func (s *serviceMonitorScrapeConfigRetriever) generateStaticServiceConfig(
 				CredentialsFile: bearerSecretRes.Path(),
 			}
 		} else {
-			s.logger.Warnf("failed to find a specified bearer token secret : %v", ep.BearerTokenSecret)
+			s.logger.Warn(fmt.Sprintf("failed to find a specified bearer token secret : %v", ep.BearerTokenSecret))
 		}
 	}
 

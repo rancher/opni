@@ -15,12 +15,13 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	"github.com/cortexproject/cortex/pkg/cortexpb"
 	"github.com/cortexproject/cortex/pkg/distributor"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -29,6 +30,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/util"
 	metricsutil "github.com/rancher/opni/plugins/metrics/pkg/util"
 )
@@ -42,7 +44,7 @@ type CortexAdminServer struct {
 type CortexAdminServerConfig struct {
 	CortexClientSet ClientSet                  `validate:"required"`
 	Config          *v1beta1.GatewayConfigSpec `validate:"required"`
-	Logger          *zap.SugaredLogger         `validate:"required"`
+	Logger          *slog.Logger               `validate:"required"`
 }
 
 func (p *CortexAdminServer) Initialize(conf CortexAdminServerConfig) {
@@ -160,7 +162,7 @@ func (p *CortexAdminServer) WriteMetrics(ctx context.Context, in *cortexadmin.Wr
 	lg.Debug("writing metrics to cortex")
 	_, err := p.CortexClientSet.Distributor().Push(outgoingContext(ctx, in), cortexReq)
 	if err != nil {
-		p.Logger.With(zap.Error(err)).Error("failed to write metrics")
+		p.Logger.With(logger.Err(err)).Error("failed to write metrics")
 		return nil, err
 	}
 	return &cortexadmin.WriteResponse{}, nil
@@ -392,7 +394,7 @@ func (p *CortexAdminServer) ListRules(ctx context.Context, req *cortexadmin.List
 			defer wg.Done()
 			resp, err := p.listCortexRules(ctx, clusterId)
 			if err != nil {
-				lg.Error(err)
+				lg.Error("error", logger.Err(err))
 				return
 			}
 			if resp.StatusCode != http.StatusOK {
@@ -403,14 +405,14 @@ func (p *CortexAdminServer) ListRules(ctx context.Context, req *cortexadmin.List
 			}
 			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				lg.Errorf("failed to read response body: %w", err)
+				lg.Error(fmt.Sprintf("failed to read response body: %v", err))
 				return
 			}
 
 			ruleResp := &cortexadmin.ListRulesResponse{}
 			err = json.Unmarshal(body, ruleResp)
 			if err != nil {
-				lg.Error(err)
+				lg.Error("error", logger.Err(err))
 				return
 			}
 
@@ -674,7 +676,7 @@ func (p *CortexAdminServer) FlushBlocks(
 			resp, err := httpClient.Do(req)
 			if err != nil {
 				lg.With(
-					zap.Error(err),
+					logger.Err(err),
 				).Error("failed to flush ingester")
 				return err
 			}
@@ -682,14 +684,12 @@ func (p *CortexAdminServer) FlushBlocks(
 				body, _ := io.ReadAll(resp.Body)
 				err := resp.Body.Close()
 				if err != nil {
-					lg.Error(
-						"failed to close response body",
-					)
+					lg.Error("failed to close response body")
 				}
 				lg.With(
 					"code", resp.StatusCode,
 					"error", string(body),
-				).Errorf("failed to flush ingester")
+				).Error("failed to flush ingester")
 			}
 
 			lg.Info("flushed ingester successfully")
@@ -802,13 +802,13 @@ func (p *CortexAdminServer) proxyCortexToPrometheus(
 	if err != nil {
 		p.Logger.With(
 			"request", url,
-		).Errorf("failed with %v", err)
+		).Error("failed with %v", err)
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		p.Logger.With(
 			"request", url,
-		).Errorf("request failed with %s", resp.Status)
+		).Error(fmt.Sprintf("request failed with %s", resp.Status))
 		return nil, fmt.Errorf("request failed with: %s", resp.Status)
 	}
 	return resp, nil

@@ -2,6 +2,7 @@ package otel
 
 import (
 	"compress/gzip"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -45,7 +46,7 @@ func (p protoJSON) Render(w http.ResponseWriter) error {
 func (f *OTELForwarder) renderProto(c *gin.Context) {
 	body, err := readBody(c)
 	if err != nil {
-		f.lg.Errorf("failed to read body: %v", err)
+		f.lg.Error(fmt.Sprintf("failed to read body: %v", err))
 		c.Status(http.StatusBadRequest)
 		return
 	}
@@ -53,8 +54,8 @@ func (f *OTELForwarder) renderProto(c *gin.Context) {
 	req := &collogspb.ExportLogsServiceRequest{}
 	err = proto.Unmarshal(body, req)
 	if err != nil {
-		f.lg.Errorf("failed to unmarshal body: %v", err)
-		f.lg.Debugf("body: %x", body)
+		f.lg.Error(fmt.Sprintf("failed to unmarshal body: %v", err))
+		f.lg.Debug(fmt.Sprintf("body: %x", body))
 		c.Status(http.StatusBadRequest)
 		return
 	}
@@ -72,7 +73,7 @@ func (f *OTELForwarder) renderProto(c *gin.Context) {
 func (f *OTELForwarder) renderProtoJSON(c *gin.Context) {
 	body, err := readBody(c)
 	if err != nil {
-		f.lg.Errorf("failed to read body: %v", err)
+		f.lg.Error(fmt.Sprintf("failed to read body: %v", err))
 		c.Status(http.StatusBadRequest)
 		return
 	}
@@ -80,7 +81,7 @@ func (f *OTELForwarder) renderProtoJSON(c *gin.Context) {
 	req := &collogspb.ExportLogsServiceRequest{}
 	err = protojson.Unmarshal(body, req)
 	if err != nil {
-		f.lg.Errorf("failed to unmarshal body: %v", err)
+		f.lg.Error(fmt.Sprintf("failed to unmarshal body: %v", err))
 		c.Status(http.StatusBadRequest)
 		return
 	}

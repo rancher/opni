@@ -8,13 +8,13 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/machinery/uninstall"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -167,7 +167,7 @@ func (m *MetricsBackend) Uninstall(ctx context.Context, req *v1.UninstallRequest
 	}
 	if err := m.requestNodeSync(ctx, req.Cluster); err != nil {
 		m.Logger.With(
-			zap.Error(err),
+			logger.Err(err),
 			"agent", req.Cluster,
 		).Warn("sync request failed; agent may not be updated immediately")
 		// continue; this is not a fatal error

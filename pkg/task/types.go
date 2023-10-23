@@ -2,10 +2,10 @@ package task
 
 import (
 	"context"
+	"log/slog"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
-	"go.uber.org/zap/zapcore"
 )
 
 type (
@@ -45,7 +45,7 @@ type ActiveTask interface {
 	// Gets the task's progress.
 	GetProgress() *corev1.Progress
 	// Adds a log entry to the task's status.
-	AddLogEntry(level zapcore.Level, msg string)
+	AddLogEntry(level slog.Level, msg string)
 }
 
 type TaskRunner interface {

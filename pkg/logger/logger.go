@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
+	"log/slog"
+	"os"
+	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/logr/slogr"
 	"github.com/kralicky/gpkg/sync"
-	"github.com/ttacon/chalk"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	slogmulti "github.com/samber/slog-multi"
+	slogsampling "github.com/samber/slog-sampling"
 )
 
 var (
@@ -22,70 +25,44 @@ var (
  Observability + AIOps for Kubernetes
 `
 
-	levelToColor = map[zapcore.Level]chalk.Color{
-		zapcore.DebugLevel:  chalk.Magenta,
-		zapcore.InfoLevel:   chalk.Blue,
-		zapcore.WarnLevel:   chalk.Yellow,
-		zapcore.ErrorLevel:  chalk.Red,
-		zapcore.DPanicLevel: chalk.Red,
-		zapcore.PanicLevel:  chalk.Red,
-		zapcore.FatalLevel:  chalk.Red,
-	}
-
-	levelToColorString = make(map[zapcore.Level]string, len(levelToColor))
-	DefaultLogLevel    = zap.NewAtomicLevelAt(zapcore.DebugLevel)
-	DefaultWriter      io.Writer
+	DefaultLogLevel   = slog.LevelDebug
+	DefaultWriter     io.Writer
+	DefaultAddSource  = true
+	pluginGroupPrefix = "plugin"
+	NoRepeatInterval  = 3600 * time.Hour // arbitrarily long time to denote one-time sampling
+	DefaultTimeFormat = "2006 Jan 02 15:04:05"
+	errKey            = "err"
 )
 
-func init() {
-	for level, color := range levelToColor {
-		levelToColorString[level] = color.Color(level.CapitalString())
-	}
-}
+var logSampler = &sampler{}
 
 func AsciiLogo() string {
 	return asciiLogo
 }
 
-type loggerContextKey struct{}
-
-var key = loggerContextKey{}
-
-type extendedSugaredLogger struct {
-	SugaredLogger
-	level zap.AtomicLevel
-}
-
-func (l *extendedSugaredLogger) Zap() *zap.SugaredLogger {
-	return l.SugaredLogger.(*zap.SugaredLogger)
-}
-
-func (l *extendedSugaredLogger) AtomicLevel() zap.AtomicLevel {
-	return l.level
-}
-
-func (l *extendedSugaredLogger) XWith(args ...interface{}) ExtendedSugaredLogger {
-	return &extendedSugaredLogger{
-		SugaredLogger: l.With(args...),
-		level:         zap.NewAtomicLevelAt(l.level.Level()),
-	}
-}
-
-func (l *extendedSugaredLogger) XNamed(name string) ExtendedSugaredLogger {
-	return &extendedSugaredLogger{
-		SugaredLogger: l.Named(name),
-		level:         zap.NewAtomicLevelAt(l.level.Level()),
-	}
-}
-
 type LoggerOptions struct {
-	logLevel      zapcore.Level
-	writer        io.Writer
-	color         *bool
-	disableCaller bool
-	timeEncoder   zapcore.TimeEncoder
-	zapOptions    []zap.Option
-	sampling      *zap.SamplingConfig
+	Level              slog.Level
+	AddSource          bool
+	ReplaceAttr        func(groups []string, a slog.Attr) slog.Attr
+	Writer             io.Writer
+	ColorEnabled       bool
+	Sampling           *slogsampling.ThresholdSamplingOption
+	TimeFormat         string
+	TotemFormatEnabled bool
+	OmitLoggerName     bool
+}
+
+func ParseLevel(lvl string) slog.Level {
+	l := &slog.LevelVar{}
+	l.UnmarshalText([]byte(lvl))
+	return l.Level()
+}
+
+func Err(e error) slog.Attr {
+	if e != nil {
+		e = noAllocErr{e}
+	}
+	return slog.Any(errKey, e)
 }
 
 type LoggerOption func(*LoggerOptions)
@@ -96,181 +73,134 @@ func (o *LoggerOptions) apply(opts ...LoggerOption) {
 	}
 }
 
-func WithLogLevel(l zapcore.Level) LoggerOption {
+func WithLogLevel(l slog.Level) LoggerOption {
 	return func(o *LoggerOptions) {
-		o.logLevel = l
+		o.Level = slog.Level(l)
 	}
 }
 
 func WithWriter(w io.Writer) LoggerOption {
 	return func(o *LoggerOptions) {
-		o.writer = w
+		o.Writer = w
 	}
 }
 
 func WithColor(color bool) LoggerOption {
 	return func(o *LoggerOptions) {
-		o.color = &color
-	}
-}
-
-func WithZapOptions(opts ...zap.Option) LoggerOption {
-	return func(o *LoggerOptions) {
-		o.zapOptions = append(o.zapOptions, opts...)
+		o.ColorEnabled = color
 	}
 }
 
 func WithDisableCaller() LoggerOption {
 	return func(o *LoggerOptions) {
-		o.disableCaller = true
+		o.AddSource = false
 	}
 }
 
-func WithTimeEncoder(enc zapcore.TimeEncoder) LoggerOption {
+func WithTimeFormat(format string) LoggerOption {
 	return func(o *LoggerOptions) {
-		o.timeEncoder = enc
+		o.TimeFormat = format
 	}
 }
 
-func WithSampling(cfg *zap.SamplingConfig) LoggerOption {
+func WithSampling(cfg *slogsampling.ThresholdSamplingOption) LoggerOption {
 	return func(o *LoggerOptions) {
-		s := &sampler{}
-		o.sampling = &zap.SamplingConfig{
-			Initial:    cfg.Initial,
-			Thereafter: cfg.Thereafter,
-			Hook:       s.Hook,
+		o.Sampling = &slogsampling.ThresholdSamplingOption{
+			Tick:      cfg.Tick,
+			Threshold: cfg.Threshold,
+			Rate:      cfg.Rate,
+			OnDropped: logSampler.onDroppedHook,
+		}
+		o.ReplaceAttr = func(groups []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.MessageKey {
+				msg := a.Value.String()
+				count, _ := logSampler.dropped.Load(msg)
+				if count > 0 {
+					numDropped, _ := logSampler.dropped.LoadAndDelete(msg)
+					a.Value = slog.StringValue(fmt.Sprintf("x%d %s", numDropped+1, msg))
+				}
+			}
+			return a
 		}
 	}
 }
 
-func New(opts ...LoggerOption) ExtendedSugaredLogger {
+func WithTotemFormat(enable bool) LoggerOption {
+	return func(o *LoggerOptions) {
+		o.TotemFormatEnabled = enable
+	}
+}
+
+func WithOmitLoggerName() LoggerOption {
+	return func(o *LoggerOptions) {
+		o.OmitLoggerName = true
+	}
+}
+
+func colorHandlerWithOptions(opts ...LoggerOption) slog.Handler {
 	options := &LoggerOptions{
-		logLevel:    DefaultLogLevel.Level(),
-		timeEncoder: zapcore.RFC3339TimeEncoder,
-		writer:      DefaultWriter,
+		Writer:         DefaultWriter,
+		ColorEnabled:   ColorEnabled(),
+		Level:          DefaultLogLevel,
+		AddSource:      DefaultAddSource,
+		TimeFormat:     DefaultTimeFormat,
+		OmitLoggerName: true,
 	}
 
 	options.apply(opts...)
-	var color bool
-	if options.color != nil {
-		color = *options.color
-	} else {
-		color = ColorEnabled()
-	}
-	encoderConfig := zapcore.EncoderConfig{
-		MessageKey:    "M",
-		LevelKey:      "L",
-		TimeKey:       "T",
-		NameKey:       "N",
-		CallerKey:     "C",
-		FunctionKey:   "",
-		StacktraceKey: "S",
-		LineEnding:    "\n",
-		EncodeLevel:   zapcore.CapitalColorLevelEncoder,
-		EncodeCaller: func(ec zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
-			if color {
-				enc.AppendString(TextStyle(ec.TrimmedPath(), chalk.Dim))
-			} else {
-				enc.AppendString(ec.TrimmedPath())
-			}
-		},
-		EncodeName: func(s string, enc zapcore.PrimitiveArrayEncoder) {
-			if len(s) == 0 {
-				return
-			}
-			var name string
-			if s[0] == 'x' {
-				// if the string starts with 'x', check if the name is prefixed with the
-				// dropped sample count of the form "x## " and if so, color it differently
-			LOOP:
-				for i := 1; i < len(s); i++ {
-					switch s[i] {
-					case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-						continue
-					case ' ':
-						enc.AppendString(Color(s[:i], chalk.White))
-						name = s[i+1:]
-						break LOOP
-					default:
-						name = s
-						break LOOP
-					}
-				}
-			} else {
-				name = s
-			}
 
-			if strings.HasPrefix(name, "plugin.") {
-				enc.AppendString(Color(name, chalk.Cyan))
-			} else {
-				enc.AppendString(Color(name, chalk.Green))
-			}
-		},
-		EncodeDuration:   zapcore.SecondsDurationEncoder,
-		EncodeTime:       options.timeEncoder,
-		ConsoleSeparator: " ",
+	if DefaultWriter == nil {
+		DefaultWriter = os.Stderr
 	}
-	level := zap.NewAtomicLevelAt(options.logLevel)
-	if options.writer != nil {
-		ws := zapcore.Lock(zapcore.AddSync(options.writer))
-		encoder := zapcore.NewConsoleEncoder(encoderConfig)
-		core := zapcore.NewCore(encoder, ws, level)
-		return &extendedSugaredLogger{
-			SugaredLogger: zap.New(core, options.zapOptions...).Sugar(),
-			level:         level,
+
+	var middlewares []slogmulti.Middleware
+	if options.TotemFormatEnabled {
+		options.OmitLoggerName = true
+		middlewares = append(middlewares, newTotemNameMiddleware())
+	}
+	if options.Sampling != nil {
+		middlewares = append(middlewares, options.Sampling.NewMiddleware())
+	}
+	var chain *slogmulti.PipeBuilder
+	for i, middleware := range middlewares {
+		if i == 0 {
+			chain = slogmulti.Pipe(middleware)
+		} else {
+			chain = chain.Pipe(middleware)
 		}
 	}
-	zapConfig := zap.Config{
-		Level:             level,
-		Development:       false,
-		DisableCaller:     options.disableCaller,
-		DisableStacktrace: true,
-		Sampling:          options.sampling,
-		Encoding:          "console",
-		EncoderConfig:     encoderConfig,
-		OutputPaths:       []string{"stderr"},
-		ErrorOutputPaths:  []string{"stderr"},
+
+	handler := newColorHandler(options.Writer, options)
+
+	if chain != nil {
+		handler = chain.Handler(handler)
 	}
-	lg, err := zapConfig.Build(options.zapOptions...)
-	if err != nil {
-		panic(err)
-	}
-	return &extendedSugaredLogger{
-		SugaredLogger: lg.Sugar(),
-		level:         level,
-	}
+
+	return handler
 }
 
-func AddToContext(ctx context.Context, lg ExtendedSugaredLogger) context.Context {
-	return context.WithValue(ctx, key, lg)
+func New(opts ...LoggerOption) *slog.Logger {
+	return slog.New(colorHandlerWithOptions(opts...))
 }
 
-func FromContext(ctx context.Context) ExtendedSugaredLogger {
-	lg, ok := ctx.Value(key).(ExtendedSugaredLogger)
-	if !ok {
-		panic("logger not found in context")
-	}
-	return lg
+func NewLogr(opts ...LoggerOption) logr.Logger {
+	return slogr.NewLogr(colorHandlerWithOptions(opts...))
 }
 
-func NewPluginLogger() ExtendedSugaredLogger {
-	return New().XNamed("plugin")
+func NewNop() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{}))
+}
+
+func NewPluginLogger(opts ...LoggerOption) *slog.Logger {
+	return New(opts...).WithGroup(pluginGroupPrefix)
 }
 
 type sampler struct {
 	dropped sync.Map[string, uint64]
 }
 
-func (s *sampler) Hook(e *zapcore.Entry, sd zapcore.SamplingDecision) {
-	key := e.Message
+func (s *sampler) onDroppedHook(_ context.Context, r slog.Record) {
+	key := r.Message
 	count, _ := s.dropped.LoadOrStore(key, 0)
-	switch sd {
-	case zapcore.LogDropped:
-		s.dropped.Store(key, count+1)
-	case zapcore.LogSampled:
-		if count > 0 {
-			numDropped, _ := s.dropped.LoadAndDelete(key)
-			e.LoggerName = fmt.Sprintf("x%d %s", numDropped+1, e.LoggerName)
-		}
-	}
+	s.dropped.Store(key, count+1)
 }

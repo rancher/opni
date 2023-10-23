@@ -130,7 +130,7 @@ func (a *AlertingClusterManager) InstallCluster(ctx context.Context, _ *emptypb.
 		return a.K8sClient.Patch(ctx, existing, client.RawPatch(types.MergePatchType, cmp.Patch))
 	})
 	if retryErr != nil {
-		lg.Errorf("%s", retryErr)
+		lg.Error(fmt.Sprintf("%s", retryErr))
 		return nil, retryErr
 	}
 	return &emptypb.Empty{}, nil
@@ -221,7 +221,7 @@ func (a *AlertingClusterManager) ConfigureCluster(ctx context.Context, conf *ale
 		}
 		clone := existing.DeepCopy()
 		mutator(clone)
-		lg.Debugf("updated alerting spec : %v", clone.Spec)
+		lg.Debug(fmt.Sprintf("updated alerting spec : %v", clone.Spec))
 		cmp, err := patch.DefaultPatchMaker.Calculate(existing, clone,
 			patch.IgnoreStatusFields(),
 			patch.IgnoreVolumeClaimTemplateTypeMetaAndStatus(),
@@ -236,7 +236,7 @@ func (a *AlertingClusterManager) ConfigureCluster(ctx context.Context, conf *ale
 		return a.K8sClient.Patch(ctx, existing, client.RawPatch(types.MergePatchType, cmp.Patch))
 	})
 	if retryErr != nil {
-		lg.Errorf("%s", retryErr)
+		lg.Error(fmt.Sprintf("%s", retryErr))
 		return nil, retryErr
 	}
 	a.notify(int(conf.NumReplicas))
@@ -382,7 +382,7 @@ func init() {
 			},
 			ConfigKey:          shared.AlertManagerConfigKey,
 			InternalRoutingKey: shared.InternalRoutingConfigKey,
-			Logger:             logger.NewPluginLogger().Named("alerting").Named("alerting-manager"),
+			Logger:             logger.NewPluginLogger().WithGroup("alerting").WithGroup("alerting-manager"),
 		}
 		driverutil.ApplyOptions(&options, opts...)
 		return NewAlertingClusterManager(options)

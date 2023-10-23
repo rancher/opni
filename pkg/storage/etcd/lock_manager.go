@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log/slog"
 
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
@@ -11,11 +12,10 @@ import (
 	"github.com/rancher/opni/pkg/storage/lock"
 	"github.com/rancher/opni/pkg/util"
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.uber.org/zap"
 )
 
 type EtcdLockManager struct {
-	lg      *zap.SugaredLogger
+	lg      *slog.Logger
 	options EtcdStoreOptions
 	client  *clientv3.Client
 }
@@ -23,7 +23,7 @@ type EtcdLockManager struct {
 func NewEtcdLockManager(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...EtcdStoreOption) (*EtcdLockManager, error) {
 	options := EtcdStoreOptions{}
 	options.apply(opts...)
-	lg := logger.New(logger.WithLogLevel(zap.WarnLevel)).Named("etcd-locker")
+	lg := logger.New(logger.WithLogLevel(slog.LevelWarn)).WithGroup("etcd-locker")
 	var tlsConfig *tls.Config
 	if conf.Certs != nil {
 		var err error
@@ -32,11 +32,11 @@ func NewEtcdLockManager(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts
 			return nil, fmt.Errorf("failed to load client TLS config: %w", err)
 		}
 	}
+	slog.SetDefault(lg.WithGroup("etcd-locker"))
 	clientConfig := clientv3.Config{
 		Endpoints: conf.Endpoints,
 		TLS:       tlsConfig,
 		Context:   ctx,
-		Logger:    lg.Desugar(),
 	}
 	etcdClient, err := clientv3.New(clientConfig)
 	if err != nil {

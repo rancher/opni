@@ -125,7 +125,7 @@ func BuildImportAddCmd() *cobra.Command {
 				return err
 			}
 
-			lg.Infof("target added")
+			lg.Info("target added")
 			return nil
 		},
 	}
@@ -156,7 +156,7 @@ func BuildImportEditCmd() *cobra.Command {
 			}
 
 			if newEndpoint == "" && newName == "" {
-				lg.Infof("no edits specified, doing nothing")
+				lg.Info("no edits specified, doing nothing")
 			}
 
 			request := &remoteread.TargetEditRequest{
@@ -176,7 +176,7 @@ func BuildImportEditCmd() *cobra.Command {
 				return err
 			}
 
-			lg.Infof("target edited")
+			lg.Info("target edited")
 			return nil
 		},
 	}
@@ -222,7 +222,7 @@ func BuildImportRemoveCmd() *cobra.Command {
 				return err
 			}
 
-			lg.Infof("target removed")
+			lg.Info("target removed")
 			return nil
 		},
 	}
@@ -323,7 +323,7 @@ func BuildImportStartCmd() *cobra.Command {
 				return err
 			}
 
-			lg.Infof("import started")
+			lg.Info("import started")
 
 			if follow {
 				return followProgress(cmd.Context(), targetName, clusterId)
@@ -378,7 +378,7 @@ func BuildImportStopCmd() *cobra.Command {
 				return err
 			}
 
-			lg.Infof("import stopped")
+			lg.Info("import stopped")
 
 			return nil
 		},

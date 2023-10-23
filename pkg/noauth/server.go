@@ -9,13 +9,14 @@ import (
 	"net"
 	"net/http"
 
+	"log/slog"
+
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/ory/fosite"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth/openid"
 	"github.com/rancher/opni/pkg/util"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -31,7 +32,7 @@ type ServerConfig struct {
 	Debug                 bool                `json:"debug,omitempty"`
 	OpenID                openid.OpenidConfig `json:"openid,omitempty"`
 
-	Logger *zap.SugaredLogger `json:"-"`
+	Logger *slog.Logger `json:"-"`
 }
 
 type Server struct {

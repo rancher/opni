@@ -5,21 +5,22 @@ import (
 	"fmt"
 	"sort"
 
+	"log/slog"
+
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/rbac"
-	"go.uber.org/zap"
 )
 
 type rbacProvider struct {
 	store  SubjectAccessCapableStore
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 }
 
 func NewRBACProvider(store SubjectAccessCapableStore) rbac.Provider {
 	return &rbacProvider{
 		store:  store,
-		logger: logger.New().Named("rbac"),
+		logger: logger.New().WithGroup("rbac"),
 	}
 }
 
@@ -57,7 +58,7 @@ func (p *rbacProvider) SubjectAccess(
 		role, err := p.store.GetRole(ctx, roleBinding.RoleReference())
 		if err != nil {
 			p.logger.With(
-				zap.Error(err),
+				logger.Err(err),
 				"roleBinding", roleBinding.Id,
 				"role", roleBinding.RoleId,
 			).Warn("error looking up role")

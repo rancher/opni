@@ -15,6 +15,7 @@ import (
 	"github.com/rancher/opni/internal/alerting/syncer"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/spf13/cobra"
 )
@@ -67,12 +68,13 @@ func BuildAlertingSyncer() *cobra.Command {
 			}
 
 			if err := serverConfig.Validate(); err != nil {
-				lg.Fatal(err)
+				lg.Error("error", logger.Err(err))
+				os.Exit(1)
 			}
 			lg.Debug("syncer gateway join address" + syncerGatewayJoinAddress)
 			err := syncer.Main(cmd.Context(), serverConfig)
 			if err != nil {
-				lg.Error(err)
+				lg.Error("error", logger.Err(err))
 			}
 		},
 		Args: cobra.NoArgs,

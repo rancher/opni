@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/metrics"
 	"github.com/weaveworks/common/user"
 	"google.golang.org/grpc"
@@ -111,7 +112,8 @@ func Test_federatingInterceptor_Intercept(t *testing.T) {
 		return nil, nil
 	})
 	if err != nil {
-		t.Fatal(err)
+		t.Error("error", logger.Err(err))
+		os.Exit(1)
 	}
 }
 

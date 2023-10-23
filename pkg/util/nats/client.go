@@ -5,16 +5,17 @@ import (
 	"fmt"
 	"time"
 
+	"log/slog"
+
 	"github.com/cenkalti/backoff"
 	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
-	"go.uber.org/zap"
 )
 
 type natsAcquireOptions struct {
-	lg       *zap.SugaredLogger
+	lg       *slog.Logger
 	retrier  backoffv2.Policy
 	natsOpts []nats.Option
 	streams  []*nats.StreamConfig
@@ -34,7 +35,7 @@ func WithNatsOptions(opts []nats.Option) NatsAcquireOption {
 	}
 }
 
-func WithLogger(lg *zap.SugaredLogger) NatsAcquireOption {
+func WithLogger(lg *slog.Logger) NatsAcquireOption {
 	return func(o *natsAcquireOptions) {
 		o.lg = lg
 	}
@@ -93,7 +94,7 @@ func AcquireNATSConnection(
 	opts ...NatsAcquireOption,
 ) (*nats.Conn, error) {
 	options := &natsAcquireOptions{
-		lg: logger.NewPluginLogger().Named("nats-conn"),
+		lg: logger.NewPluginLogger().WithGroup("nats-conn"),
 		retrier: backoffv2.Exponential(
 			backoffv2.WithMaxRetries(0),
 			backoffv2.WithMinInterval(5*time.Second),
@@ -120,18 +121,18 @@ func AcquireNATSConnection(
 		for _, stream := range options.streams {
 			err = NewPersistentStream(mgr, stream)
 			if err != nil {
-				options.lg.Error(err)
+				options.lg.Error("error", logger.Err(err))
 			}
 		}
 	} else {
-		options.lg.Error(err)
+		options.lg.Error("error", logger.Err(err))
 	}
 
 	return nc, err
 }
 
 // until we have a better way to do this
-func newNatsConnection(cfg *v1beta1.JetStreamStorageSpec, lg *zap.SugaredLogger, options ...nats.Option) (*nats.Conn, error) {
+func newNatsConnection(cfg *v1beta1.JetStreamStorageSpec, lg *slog.Logger, options ...nats.Option) (*nats.Conn, error) {
 	opt, err := nats.NkeyOptionFromSeed(cfg.NkeySeedPath)
 	if err != nil {
 		return nil, err
@@ -150,7 +151,7 @@ func newNatsConnection(cfg *v1beta1.JetStreamStorageSpec, lg *zap.SugaredLogger,
 		),
 		nats.DisconnectErrHandler(
 			func(nc *nats.Conn, err error) {
-				lg.Error(err)
+				lg.Error("error", logger.Err(err))
 			},
 		),
 	}

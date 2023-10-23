@@ -10,6 +10,7 @@ import (
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/otel"
 	"github.com/rancher/opni/pkg/resources"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
@@ -75,7 +76,7 @@ func (r *Reconciler) getDaemonConfig(loggingReceivers []string) otel.NodeConfig 
 func (r *Reconciler) getDaemonOTELConfig() otel.NodeOTELConfig {
 	nodeOTELCfg := r.collector.Spec.NodeOTELConfigSpec
 	if nodeOTELCfg == nil {
-		r.logger.Warn("found no config for the daemon's OTEL Collector, falling back to default")
+		r.lg.Warn("found no config for the daemon's OTEL Collector, falling back to default")
 		nodeOTELCfg = opnicorev1beta1.NewDefaultNodeOTELConfigSpec()
 	}
 
@@ -117,7 +118,7 @@ func (r *Reconciler) getAggregatorConfig(
 func (r *Reconciler) getAggregatorOTELConfig() otel.AggregatorOTELConfig {
 	aggregatorOTELCfg := r.collector.Spec.AggregatorOTELConfigSpec
 	if aggregatorOTELCfg == nil {
-		r.logger.Warn("found no config for the aggregator's OTEL Collector, falling back to default")
+		r.lg.Warn("found no config for the aggregator's OTEL Collector, falling back to default")
 		aggregatorOTELCfg = opnicorev1beta1.NewDefaultAggregatorOTELConfigSpec()
 	}
 	return otel.AggregatorOTELConfig{
@@ -218,14 +219,14 @@ func (r *Reconciler) agentConfigMap() (resources.Resource, string) {
 
 	receiverData, logReceivers, err := r.receiverConfig()
 	if err != nil {
-		r.logger.Error(err)
+		r.lg.Error("error", logger.Err(err))
 		return resources.Error(cm, err), ""
 	}
 	cm.Data[receiversKey] = string(receiverData)
 
 	mainData, err := r.mainConfig(logReceivers)
 	if err != nil {
-		r.logger.Error(err)
+		r.lg.Error("error", logger.Err(err))
 		return resources.Error(cm, err), ""
 	}
 	cm.Data[mainKey] = string(mainData)
@@ -262,7 +263,7 @@ func (r *Reconciler) aggregatorConfigMap(curCfg otel.AggregatorConfig) (resource
 	}
 	err = t.Execute(&buffer, curCfg)
 	if err != nil {
-		r.logger.Error(err)
+		r.lg.Error("error", logger.Err(err))
 		return resources.Error(nil, err), ""
 	}
 	config := buffer.Bytes()

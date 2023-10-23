@@ -264,14 +264,14 @@ var _ = Describe("Agent Memory Tests", Ordered, Serial, Label("integration", "sl
 
 		// check that the memory usage is not monotonically increasing
 		var changeOverTime []int
-		testlog.Log.Debugf("rss 0: %d", rssValues[0])
+		testlog.Log.Debug(fmt.Sprintf("rss 0: %d", rssValues[0]))
 		for i := 1; i < len(rssValues); i++ {
 			diff := rssValues[i] - rssValues[i-1]
 			changeOverTime = append(changeOverTime, diff)
 			if diff >= 0 {
-				testlog.Log.Debugf("rss %d: %d (+%d)", i, rssValues[i], diff)
+				testlog.Log.Debug(fmt.Sprintf("rss %d: %d (+%d)", i, rssValues[i], diff))
 			} else {
-				testlog.Log.Debugf("rss %d: %d (%d)", i, rssValues[i], diff)
+				testlog.Log.Debug(fmt.Sprintf("rss %d: %d (%d)", i, rssValues[i], diff))
 			}
 		}
 		Expect(changeOverTime).To(ContainElement(BeNumerically("<=", 0)), "memory usage should not be monotonically increasing")

@@ -21,11 +21,11 @@ import (
 	"github.com/prometheus/prometheus/model/rulefmt"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -75,7 +75,7 @@ func BuildDeleteRuleGroupsCmd() *cobra.Command {
 				GroupName: args[0],
 			})
 			if err != nil {
-				lg.Error(err)
+				lg.Error("error", logger.Err(err))
 				return
 			}
 			fmt.Println("Rule Group deleted successfully")
@@ -99,7 +99,8 @@ func BuildLoadRuleGroupsCmd() *cobra.Command {
 
 			clMeta, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			cl := lo.Map(clMeta.Items, func(cl *corev1.Cluster, _ int) string {
 				return cl.Id
@@ -112,20 +113,23 @@ func BuildLoadRuleGroupsCmd() *cobra.Command {
 				// by writing unsuported names to its (remote) store
 				for _, c := range clusters {
 					if !slices.Contains(cl, c) {
-						lg.Fatalf("invalid cluster id %s", c)
+						lg.Error(fmt.Sprintf("invalid cluster id %s", c))
+						os.Exit(1)
 					}
 				}
 			}
 			yamlContent, err := os.ReadFile(args[0])
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			rgs, errors := rulefmt.Parse(yamlContent)
 			if len(errors) > 0 {
 				for _, err := range errors {
-					lg.Error(err)
+					lg.Error("error", logger.Err(err))
 				}
-				lg.Fatal("Failed to parse rule group file")
+				lg.Error("Failed to parse rule group file")
+				os.Exit(1)
 			}
 
 			var wg sync.WaitGroup
@@ -141,7 +145,7 @@ func BuildLoadRuleGroupsCmd() *cobra.Command {
 							YamlContent: util.Must(yaml.Marshal(group)),
 						})
 						if err != nil {
-							lg.Errorf("Failed to load rule group :\n `%s`\n\n for cluster `%s`", string(util.Must(yaml.Marshal(group))), cl)
+							lg.Error(fmt.Sprintf("Failed to load rule group :\n `%s`\n\n for cluster `%s`", string(util.Must(yaml.Marshal(group))), cl))
 						} else {
 							fmt.Printf("Successfully loaded rule group `%s` for clusterId `%s`\n", group.Name, cl)
 						}
@@ -174,7 +178,8 @@ func BuildListRulesCmd() *cobra.Command {
 		ValidArgsFunction: cobra.NoFileCompletions,
 		Run: func(cmd *cobra.Command, args []string) {
 			if outputFormat != "table" && outputFormat != "json" {
-				lg.Fatal("invalid output format")
+				lg.Error("invalid output format")
+				os.Exit(1)
 			}
 
 			// since cortexadmin Server no longer embeds an opni management client,
@@ -183,7 +188,8 @@ func BuildListRulesCmd() *cobra.Command {
 			if len(clusters) == 0 || invalidDiagnosticRequested || all {
 				cl, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
 				if err != nil {
-					lg.Fatal(err)
+					lg.Error("fatal", logger.Err(err))
+					os.Exit(1)
 				}
 				clusters = lo.Map(cl.Items, func(cl *corev1.Cluster, _ int) string {
 					return cl.Id
@@ -202,7 +208,7 @@ func BuildListRulesCmd() *cobra.Command {
 				RequestAll:      &all,
 			})
 			if err != nil {
-				lg.Error(err)
+				lg.Error("error", logger.Err(err))
 				return
 			}
 			if outputFormat == "table" {
@@ -236,7 +242,8 @@ func BuildQueryCmd() *cobra.Command {
 			if len(clusters) == 0 {
 				cl, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
 				if err != nil {
-					lg.Fatal(err)
+					lg.Error("fatal", logger.Err(err))
+					os.Exit(1)
 				}
 				for _, c := range cl.Items {
 					clusters = append(clusters, c.Id)
@@ -247,7 +254,8 @@ func BuildQueryCmd() *cobra.Command {
 				Query:   args[0],
 			})
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			fmt.Println(string(resp.GetData()))
 		},
@@ -271,7 +279,8 @@ func BuildQueryRangeCmd() *cobra.Command {
 			if len(clusters) == 0 {
 				cl, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
 				if err != nil {
-					lg.Fatal(err)
+					lg.Error("fatal", logger.Err(err))
+					os.Exit(1)
 				}
 				for _, c := range cl.Items {
 					clusters = append(clusters, c.Id)
@@ -285,7 +294,8 @@ func BuildQueryRangeCmd() *cobra.Command {
 				Step:    durationpb.New(step),
 			})
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			fmt.Println(string(resp.GetData()))
 		},
@@ -303,7 +313,8 @@ func parseTimeOrDie(timeStr string) time.Time {
 	}
 	t, err := when.EN.Parse(timeStr, time.Now())
 	if err != nil || t == nil {
-		lg.Fatal("could not interpret start time")
+		lg.Error("could not interpret start time")
+		os.Exit(1)
 	}
 	return t.Time
 }
@@ -320,7 +331,8 @@ func BuildStorageInfoCmd() *cobra.Command {
 			if len(args) == 0 {
 				cl, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
 				if err != nil {
-					lg.Fatal(err)
+					lg.Error("fatal", logger.Err(err))
+					os.Exit(1)
 				}
 				for _, c := range cl.Items {
 					args = append(args, c.Id)
@@ -427,7 +439,8 @@ func BuildClusterStatsCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			t, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			var clusterStats *cortexadmin.UserIDStatsList
 			var healthStatus []*corev1.HealthStatus
@@ -443,7 +456,7 @@ func BuildClusterStatsCmd() *cobra.Command {
 			stats, err := adminClient.AllUserStats(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
 				lg.With(
-					zap.Error(err),
+					logger.Err(err),
 				).Warn("failed to query cortex stats")
 			}
 			clusterStats = stats

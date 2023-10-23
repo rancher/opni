@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"go.uber.org/zap/zapcore"
+	"log/slog"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	"github.com/rancher/opni/pkg/task"
@@ -23,9 +23,9 @@ func (DefaultPendingHandler) OnTaskPending(ctx context.Context, ti task.ActiveTa
 	ti.LoadTaskMetadata(&md)
 
 	if md.DeleteStoredData {
-		ti.AddLogEntry(zapcore.WarnLevel, "Stored data will be deleted")
+		ti.AddLogEntry(slog.LevelWarn, "Stored data will be deleted")
 	} else {
-		ti.AddLogEntry(zapcore.InfoLevel, "Stored data will not be deleted")
+		ti.AddLogEntry(slog.LevelInfo, "Stored data will not be deleted")
 	}
 
 	if md.InitialDelay > 0 {
@@ -39,12 +39,12 @@ func (DefaultPendingHandler) OnTaskPending(ctx context.Context, ti task.ActiveTa
 			} else {
 				format = "Delaying uninstall until %s (%s from now)"
 			}
-			ti.AddLogEntry(zapcore.InfoLevel, fmt.Sprintf(format, endTime.Format(time.Stamp), endTime.Sub(now).Round(time.Second)))
+			ti.AddLogEntry(slog.LevelInfo, fmt.Sprintf(format, endTime.Format(time.Stamp), endTime.Sub(now).Round(time.Second)))
 			timer := time.NewTimer(endTime.Sub(now))
 			defer timer.Stop()
 			select {
 			case <-ctx.Done():
-				ti.AddLogEntry(zapcore.InfoLevel, "Uninstall canceled during delay period; no changes will be made")
+				ti.AddLogEntry(slog.LevelInfo, "Uninstall canceled during delay period; no changes will be made")
 				return ctx.Err()
 			case <-timer.C:
 				return nil

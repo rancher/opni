@@ -400,12 +400,12 @@ func (d *KubernetesManagerDriver) storeS3Credentials(ctx context.Context, creden
 			}
 			err = d.K8sClient.Create(ctx, secret)
 			if err != nil {
-				d.Logger.Errorf("failed to create s3 credentials secret: %v", err)
+				d.Logger.Error(fmt.Sprintf("failed to create s3 credentials secret: %v", err))
 				return k8sutilerrors.GRPCFromK8s(err)
 			}
 			return nil
 		}
-		d.Logger.Errorf("failed to get existing s3 credentials: %v", err)
+		d.Logger.Error(fmt.Sprintf("failed to get existing s3 credentials: %v", err))
 		return k8sutilerrors.GRPCFromK8s(err)
 	}
 
@@ -422,7 +422,7 @@ func (d *KubernetesManagerDriver) storeS3Credentials(ctx context.Context, creden
 		return d.K8sClient.Update(ctx, secret)
 	})
 	if err != nil {
-		d.Logger.Errorf("failed to update s3 credentials: %v", err)
+		d.Logger.Error(fmt.Sprintf("failed to update s3 credentials: %v", err))
 		return k8sutilerrors.GRPCFromK8s(err)
 	}
 	return nil
@@ -438,7 +438,7 @@ func (d *KubernetesManagerDriver) getS3Credentials(ctx context.Context) (*loggin
 		if k8serrors.IsNotFound(err) {
 			return nil, nil
 		}
-		d.Logger.Errorf("failed to get s3 credentials: %v", err)
+		d.Logger.Error(fmt.Sprintf("failed to get s3 credentials: %v", err))
 		return nil, k8sutilerrors.GRPCFromK8s(err)
 	}
 	return &loggingadmin.S3Credentials{
@@ -496,14 +496,14 @@ func (d *KubernetesManagerDriver) createOrUpdateRecurringSnapshot(
 	err := d.K8sClient.Get(ctx, client.ObjectKeyFromObject(k8sSnapshot), k8sSnapshot)
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
-			d.Logger.Errorf("failed to check if snapshot exists: %v", err)
+			d.Logger.Error(fmt.Sprintf("failed to check if snapshot exists: %v", err))
 			return k8sutilerrors.GRPCFromK8s(err)
 		}
 		controllerutil.SetOwnerReference(owner, k8sSnapshot, d.K8sClient.Scheme())
 		d.updateRecurringSnapshot(k8sSnapshot, snapshot, defaultIndices)
 		err = d.K8sClient.Create(ctx, k8sSnapshot)
 		if err != nil {
-			d.Logger.Errorf("failed to create snapshot: %v", err)
+			d.Logger.Error(fmt.Sprintf("failed to create snapshot: %v", err))
 			return k8sutilerrors.GRPCFromK8s(err)
 		}
 	}
@@ -518,7 +518,7 @@ func (d *KubernetesManagerDriver) createOrUpdateRecurringSnapshot(
 	})
 
 	if err != nil {
-		d.Logger.Errorf("failed to update snapshot: %v", err)
+		d.Logger.Error(fmt.Sprintf("failed to update snapshot: %v", err))
 		return k8sutilerrors.GRPCFromK8s(err)
 	}
 	return nil
@@ -556,7 +556,7 @@ func (d *KubernetesManagerDriver) listRecurringSnapshots(ctx context.Context) (r
 	list := &loggingv1beta1.RecurringSnapshotList{}
 	retErr = d.K8sClient.List(ctx, list, client.InNamespace(d.OpensearchCluster.Namespace))
 	if retErr != nil {
-		d.Logger.Errorf("failed to list recurring snapshots: %v", retErr)
+		d.Logger.Error(fmt.Sprintf("failed to list recurring snapshots: %v", retErr))
 		retErr = k8sutilerrors.GRPCFromK8s(retErr)
 		return
 	}

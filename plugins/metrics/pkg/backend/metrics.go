@@ -8,12 +8,14 @@ import (
 
 	"github.com/rancher/opni/pkg/agent"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 
+	"log/slog"
+
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -61,7 +63,7 @@ type MetricsAgentClientSet interface {
 }
 
 type MetricsBackendConfig struct {
-	Logger              *zap.SugaredLogger                              `validate:"required"`
+	Logger              *slog.Logger                                    `validate:"required"`
 	StorageBackend      storage.Backend                                 `validate:"required"`
 	MgmtClient          managementv1.ManagementClient                   `validate:"required"`
 	UninstallController *task.Controller                                `validate:"required"`
@@ -117,7 +119,7 @@ func (m *MetricsBackend) broadcastNodeSync(ctx context.Context) {
 		})
 	if len(errs) > 0 {
 		m.Logger.With(
-			zap.Error(errors.Join(errs...)),
+			logger.Err(errors.Join(errs...)),
 		).Warn("one or more agents failed to sync; they may not be updated immediately")
 	}
 }
@@ -168,7 +170,7 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 	m.Logger.With(
 		"id", id,
 		"time", status.LastSync.AsTime(),
-	).Debugf("synced node")
+	).Debug("synced node")
 
 	nodeSpec, err := m.getNodeSpecOrDefault(ctx, id)
 	if err != nil {
@@ -206,7 +208,7 @@ func (m *MetricsBackend) getDefaultNodeSpec(ctx context.Context) (*node.MetricsC
 	if status.Code(err) == codes.NotFound {
 		nodeSpec = FallbackDefaultNodeSpec.Load()
 	} else if err != nil {
-		m.Logger.With(zap.Error(err)).Error("failed to get default capability spec")
+		m.Logger.With(logger.Err(err)).Error("failed to get default capability spec")
 		return nil, status.Errorf(codes.Unavailable, "failed to get default capability spec: %v", err)
 	}
 	grpc.SetTrailer(ctx, node.DefaultConfigMetadata())
@@ -218,7 +220,7 @@ func (m *MetricsBackend) getNodeSpecOrDefault(ctx context.Context, id string) (*
 	if status.Code(err) == codes.NotFound {
 		return m.getDefaultNodeSpec(ctx)
 	} else if err != nil {
-		m.Logger.With(zap.Error(err)).Error("failed to get node capability spec")
+		m.Logger.With(logger.Err(err)).Error("failed to get node capability spec")
 		return nil, status.Errorf(codes.Unavailable, "failed to get node capability spec: %v", err)
 	}
 	// handle the case where an older config is now invalid: reset to factory default

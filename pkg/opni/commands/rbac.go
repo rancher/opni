@@ -4,10 +4,12 @@ package commands
 
 import (
 	"fmt"
+	"os"
 	"sort"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -71,7 +73,8 @@ func BuildRolesCreateCmd() *cobra.Command {
 			}
 			_, err := mgmtClient.CreateRole(cmd.Context(), role)
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			fmt.Println(cliutil.RenderRole(role))
 		},
@@ -111,7 +114,8 @@ func BuildRolesUpdateCmd() *cobra.Command {
 			}
 			_, err := mgmtClient.UpdateRole(cmd.Context(), role)
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			fmt.Println(cliutil.RenderRole(role))
 		},
@@ -137,7 +141,8 @@ func BuildRolesDeleteCmd() *cobra.Command {
 						Id: role,
 					})
 				if err != nil {
-					lg.Fatal(err)
+					lg.Error("fatal", logger.Err(err))
+					os.Exit(1)
 				}
 				fmt.Println(role)
 			}
@@ -159,7 +164,8 @@ func BuildRolesShowCmd() *cobra.Command {
 					Id: args[0],
 				})
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			fmt.Println(cliutil.RenderRole(role))
 		},
@@ -174,7 +180,8 @@ func BuildRolesListCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			t, err := mgmtClient.ListRoles(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			fmt.Println(cliutil.RenderRoleList(t))
 		},
@@ -201,11 +208,13 @@ func BuildRoleBindingsCreateCmd() *cobra.Command {
 			}
 			_, err := mgmtClient.CreateRoleBinding(cmd.Context(), rb)
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			rb, err = mgmtClient.GetRoleBinding(cmd.Context(), rb.Reference())
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			fmt.Println(cliutil.RenderRoleBinding(rb))
 		},
@@ -235,11 +244,13 @@ func BuildRoleBindingsUpdateCmd() *cobra.Command {
 			}
 			_, err := mgmtClient.UpdateRoleBinding(cmd.Context(), rb)
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			rb, err = mgmtClient.GetRoleBinding(cmd.Context(), rb.Reference())
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			fmt.Println(cliutil.RenderRoleBinding(rb))
 		},
@@ -262,7 +273,8 @@ func BuildRoleBindingsDeleteCmd() *cobra.Command {
 						Id: rb,
 					})
 				if err != nil {
-					lg.Fatal(err)
+					lg.Error("fatal", logger.Err(err))
+					os.Exit(1)
 				}
 				fmt.Println(rb)
 			}
@@ -284,7 +296,8 @@ func BuildRoleBindingsShowCmd() *cobra.Command {
 					Id: args[0],
 				})
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			} else {
 				fmt.Println(cliutil.RenderRoleBinding(rb))
 			}
@@ -300,7 +313,8 @@ func BuildRoleBindingsListCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			t, err := mgmtClient.ListRoleBindings(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			fmt.Println(cliutil.RenderRoleBindingList(t))
 		},
@@ -327,7 +341,8 @@ func BuildAccessMatrixCmd() *cobra.Command {
 			}
 			clusters, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
 			if err != nil {
-				lg.Fatal(err)
+				lg.Error("fatal", logger.Err(err))
+				os.Exit(1)
 			}
 			for _, cluster := range clusters.Items {
 				allClusters[cluster.Id] = struct{}{}
@@ -339,7 +354,8 @@ func BuildAccessMatrixCmd() *cobra.Command {
 						Subject: user,
 					})
 				if err != nil {
-					lg.Fatal(err)
+					lg.Error("fatal", logger.Err(err))
+					os.Exit(1)
 				}
 				for _, ref := range clusterIds.Items {
 					if _, ok := clusterToUsers[ref.Id]; !ok {

@@ -18,13 +18,13 @@ import (
 	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/health"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/validation"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
-	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -171,7 +171,7 @@ func (p *AlarmServerComponent) fetchKubeStateInfo(ctx context.Context) (*alertin
 	}
 	adminClient, err := p.adminClient.GetContext(ctx)
 	if err != nil {
-		lg.Errorf("failed to get cortex client %s", err)
+		lg.Error(fmt.Sprintf("failed to get cortex client %s", err))
 	}
 	var wg sync.WaitGroup
 	var lock sync.Mutex
@@ -187,12 +187,12 @@ func (p *AlarmServerComponent) fetchKubeStateInfo(ctx context.Context) (*alertin
 					MatchExpr: naming.KubeObjMetricNameMatcher,
 				})
 				if err != nil {
-					lg.Warnf("failed to extract raw series for cluster %s and match expr %s : %s", cl.Id, naming.KubeObjMetricNameMatcher, err)
+					lg.Warn(fmt.Sprintf("failed to extract raw series for cluster %s and match expr %s : %s", cl.Id, naming.KubeObjMetricNameMatcher, err))
 					return
 				}
 				result := gjson.Get(string(rawKubeStateSeries.Data), "data.result")
 				if !result.Exists() || len(result.Array()) == 0 {
-					lg.Warnf("no result kube state metrics found for cluster %s : %s", cl.Id, result)
+					lg.Warn(fmt.Sprintf("no result kube state metrics found for cluster %s : %s", cl.Id, result))
 					return
 				}
 				for _, series := range result.Array() {
@@ -201,7 +201,7 @@ func (p *AlarmServerComponent) fetchKubeStateInfo(ctx context.Context) (*alertin
 					seriesTsAndValue := series.Get("value")
 
 					if !seriesInfo.Exists() || !seriesTsAndValue.Exists() {
-						lg.Warnf("series info or value does not exist %s", series)
+						lg.Warn(fmt.Sprintf("series info or value does not exist %s", series))
 						continue
 					}
 					value := seriesTsAndValue.Array()[1].Int()
@@ -219,7 +219,7 @@ func (p *AlarmServerComponent) fetchKubeStateInfo(ctx context.Context) (*alertin
 					}
 					objName := seriesInfoMap[objType]
 					if !objName.Exists() {
-						lg.Warnf("failed to find object name for series %s", seriesInfo)
+						lg.Warn(fmt.Sprintf("failed to find object name for series %s", seriesInfo))
 						continue
 					}
 					lock.Lock()
@@ -274,12 +274,12 @@ func (p *AlarmServerComponent) fetchCPUSaturationInfo(ctx context.Context) (*ale
 		&managementv1.ListClustersRequest{},
 	)
 	if err != nil {
-		lg.Error("failed to get clusters", zap.Error(err))
+		lg.Error("failed to get clusters", logger.Err(err))
 		return nil, err
 	}
 	adminClient, err := p.adminClient.GetContext(ctx)
 	if err != nil {
-		lg.Errorf("failed to get cortex client %s", err)
+		lg.Error(fmt.Sprintf("failed to get cortex client %s", err))
 	}
 
 	results := make(chan (<-chan *clusterCpuSaturation), len(clusters.Items))
@@ -296,14 +296,14 @@ func (p *AlarmServerComponent) fetchCPUSaturationInfo(ctx context.Context) (*ale
 				MatchExpr: metrics.CPUMatcherName,
 			})
 			if err != nil {
-				lg.Warnf("failed to extract raw series for cluster %s and match expr %s : %s", cl.Id, metrics.CPUMatcherName, err)
+				lg.Warn(fmt.Sprintf("failed to extract raw series for cluster %s and match expr %s : %s", cl.Id, metrics.CPUMatcherName, err))
 				return &clusterCpuSaturation{
 					clusterId: cl.Id,
 				}
 			}
 			result := gjson.Get(string(rawCPUSeries.Data), "data.result")
 			if !result.Exists() || len(result.Array()) == 0 {
-				lg.Warnf("no result kube state metrics found for cluster %s : %s", cl.Id, result)
+				lg.Warn(fmt.Sprintf("no result kube state metrics found for cluster %s : %s", cl.Id, result))
 				return &clusterCpuSaturation{
 					clusterId: cl.Id,
 				}
@@ -319,7 +319,7 @@ func (p *AlarmServerComponent) fetchCPUSaturationInfo(ctx context.Context) (*ale
 				node := seriesInfoMap[metrics.NodeExporterNodeLabel]
 				nodeName := ""
 				if !node.Exists() {
-					lg.Warnf("failed to find node name for series %s", seriesInfo)
+					lg.Warn(fmt.Sprintf("failed to find node name for series %s", seriesInfo))
 					nodeName = metrics.UnlabelledNode
 				} else {
 					nodeName = node.String()
@@ -331,7 +331,7 @@ func (p *AlarmServerComponent) fetchCPUSaturationInfo(ctx context.Context) (*ale
 				}
 				core := seriesInfoMap["cpu"]
 				if !core.Exists() {
-					lg.Warnf("failed to find core name for series %s", seriesInfo)
+					lg.Warn(fmt.Sprintf("failed to find core name for series %s", seriesInfo))
 					continue
 				}
 				if _, ok := cpuNodeGroup.Nodes[nodeName]; !ok {
@@ -344,7 +344,7 @@ func (p *AlarmServerComponent) fetchCPUSaturationInfo(ctx context.Context) (*ale
 
 				cpuState := seriesInfoMap["mode"]
 				if !cpuState.Exists() {
-					lg.Warnf("failed to find cpu state for series %s", seriesInfo)
+					lg.Warn(fmt.Sprintf("failed to find cpu state for series %s", seriesInfo))
 					continue
 				}
 				tempCpuStates[cpuState.String()] = struct{}{}
@@ -395,12 +395,12 @@ func (p *AlarmServerComponent) fetchMemorySaturationInfo(ctx context.Context) (*
 		caching.WithGrpcClientCaching(ctx, 1*time.Minute),
 		&managementv1.ListClustersRequest{})
 	if err != nil {
-		lg.Error("failed to get clusters", zap.Error(err))
+		lg.Error("failed to get clusters", logger.Err(err))
 		return nil, err
 	}
 	adminClient, err := p.adminClient.GetContext(ctx)
 	if err != nil {
-		lg.Errorf("failed to get cortex client %s", err)
+		lg.Error(fmt.Sprintf("failed to get cortex client %s", err))
 	}
 
 	results := make(chan (<-chan *clusterMemorySaturation), len(clusters.Items))
@@ -417,14 +417,14 @@ func (p *AlarmServerComponent) fetchMemorySaturationInfo(ctx context.Context) (*
 				MatchExpr: metrics.MemoryMatcherName,
 			})
 			if err != nil {
-				lg.Warnf("failed to extract raw series for cluster %s and match expr %s : %s", cl.Id, metrics.CPUMatcherName, err)
+				lg.Warn(fmt.Sprintf("failed to extract raw series for cluster %s and match expr %s : %s", cl.Id, metrics.CPUMatcherName, err))
 				return &clusterMemorySaturation{
 					id: cl.Id,
 				}
 			}
 			result := gjson.Get(string(rawMemorySeries.Data), "data.result")
 			if !result.Exists() || len(result.Array()) == 0 {
-				lg.Warnf("no node memory metrics found for cluster %s : %s", cl.Id, result)
+				lg.Warn(fmt.Sprintf("no node memory metrics found for cluster %s : %s", cl.Id, result))
 				return &clusterMemorySaturation{
 					id: cl.Id,
 				}
@@ -446,7 +446,7 @@ func (p *AlarmServerComponent) fetchMemorySaturationInfo(ctx context.Context) (*
 				node := seriesInfoMap[metrics.NodeExporterNodeLabel]
 				nodeName := ""
 				if !node.Exists() {
-					lg.Warnf("failed to find node name for series %s", seriesInfo)
+					lg.Warn(fmt.Sprintf("failed to find node name for series %s", seriesInfo))
 					nodeName = metrics.UnlabelledNode
 				} else {
 					nodeName = node.String()
@@ -522,12 +522,12 @@ func (p *AlarmServerComponent) fetchFsSaturationInfo(ctx context.Context) (*aler
 		&managementv1.ListClustersRequest{},
 	)
 	if err != nil {
-		lg.Error("failed to get clusters", zap.Error(err))
+		lg.Error("failed to get clusters", logger.Err(err))
 		return nil, err
 	}
 	adminClient, err := p.adminClient.GetContext(ctx)
 	if err != nil {
-		lg.Errorf("failed to get cortex client %s", err)
+		lg.Error(fmt.Sprintf("failed to get cortex client %s", err))
 	}
 
 	results := make(chan (<-chan *clusterFilesystemSaturation), len(clusters.Items))
@@ -544,14 +544,14 @@ func (p *AlarmServerComponent) fetchFsSaturationInfo(ctx context.Context) (*aler
 				MatchExpr: metrics.FilesystemMatcherName,
 			})
 			if err != nil {
-				lg.Warnf("failed to extract raw series for cluster %s and match expr %s : %s", cl.Id, metrics.CPUMatcherName, err)
+				lg.Warn(fmt.Sprintf("failed to extract raw series for cluster %s and match expr %s : %s", cl.Id, metrics.CPUMatcherName, err))
 				return &clusterFilesystemSaturation{
 					clusterId: cl.Id,
 				}
 			}
 			result := gjson.Get(string(rawFsSeries.Data), "data.result")
 			if !result.Exists() || len(result.Array()) == 0 {
-				lg.Warnf("no node fs metrics found for cluster %s : %s", cl.Id, result)
+				lg.Warn(fmt.Sprintf("no node fs metrics found for cluster %s : %s", cl.Id, result))
 				return &clusterFilesystemSaturation{
 					clusterId: cl.Id,
 				}
@@ -568,7 +568,7 @@ func (p *AlarmServerComponent) fetchFsSaturationInfo(ctx context.Context) (*aler
 				node := seriesInfoMap[metrics.NodeExporterNodeLabel]
 				nodeName := ""
 				if !node.Exists() {
-					lg.Warnf("failed to find node name for series %s", seriesInfo)
+					lg.Warn(fmt.Sprintf("failed to find node name for series %s", seriesInfo))
 					nodeName = metrics.UnlabelledNode
 				} else {
 					nodeName = node.String()

@@ -2,6 +2,9 @@ package prometheusrule
 
 import (
 	"context"
+	"fmt"
+
+	"log/slog"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/prometheus/common/model"
@@ -9,7 +12,6 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/samber/lo"
-	"go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -20,7 +22,7 @@ type PrometheusRuleFinder struct {
 }
 
 type PrometheusRuleFinderOptions struct {
-	logger     *zap.SugaredLogger
+	logger     *slog.Logger
 	namespaces []string
 }
 
@@ -38,15 +40,15 @@ func WithNamespaces(namespaces ...string) PrometheusRuleFinderOption {
 	}
 }
 
-func WithLogger(lg *zap.SugaredLogger) PrometheusRuleFinderOption {
+func WithLogger(lg *slog.Logger) PrometheusRuleFinderOption {
 	return func(o *PrometheusRuleFinderOptions) {
-		o.logger = lg.Named("rules")
+		o.logger = lg.WithGroup("rules")
 	}
 }
 
 func NewPrometheusRuleFinder(k8sClient client.Client, opts ...PrometheusRuleFinderOption) *PrometheusRuleFinder {
 	options := PrometheusRuleFinderOptions{
-		logger: logger.New().Named("rules"),
+		logger: logger.New().WithGroup("rules"),
 	}
 	options.apply(opts...)
 	return &PrometheusRuleFinder{
@@ -73,7 +75,7 @@ func (f *PrometheusRuleFinder) Find(ctx context.Context) ([]rules.RuleGroup, err
 		groups, err := f.findRulesInNamespace(ctx, namespace)
 		if err != nil {
 			lg.With(
-				zap.Error(err),
+				logger.Err(err),
 				"namespace", namespace,
 			).Warn("failed to find PrometheusRules in namespace, skipping")
 			continue
@@ -84,7 +86,7 @@ func (f *PrometheusRuleFinder) Find(ctx context.Context) ([]rules.RuleGroup, err
 		}
 	}
 
-	lg.Debugf("found %d PrometheusRules", len(ruleGroups))
+	lg.Debug(fmt.Sprintf("found %d PrometheusRules", len(ruleGroups)))
 	return ruleGroups, nil
 }
 

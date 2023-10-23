@@ -18,6 +18,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/storage/inmemory"
@@ -32,7 +33,6 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex/configutil"
 	metrics_drivers "github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 	"github.com/samber/lo"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -201,14 +201,14 @@ func (d *TestEnvMetricsClusterDriver) onActiveConfigChanged(old, new *cortexops.
 		d.Env.Logger.Info("Waiting for a previous config update to complete...")
 		d.configLock.Lock()
 		d.Env.Logger.With(
-			zap.Duration("waited", time.Since(start)),
+			"waited", time.Since(start),
 		).Info("Previous config update completed, continuing")
 	}
 	defer d.configLock.Unlock()
 
 	d.Env.Logger.With(
-		zap.Any("old", old),
-		zap.Any("new", new),
+		"old", old,
+		"new", new,
 	).Info("Config changed")
 
 	if d.cortexCancel != nil {
@@ -307,7 +307,7 @@ func (d *TestEnvMetricsClusterDriver) onActiveConfigChanged(old, new *cortexops.
 		})
 
 		d.Env.Logger.Error("failed to start cortex")
-		d.Env.Logger.Error(err)
+		d.Env.Logger.Error("error", logger.Err(err))
 		return
 	}
 
@@ -415,7 +415,7 @@ func (d *TestEnvPrometheusNodeDriver) ConfigureNode(nodeId string, conf *node.Me
 				lg.Info("test environment stopped before prometheus could start")
 				return nil
 			}
-			lg.With("err", err).Error("failed to start prometheus")
+			lg.With(logger.Err(err)).Error("failed to start prometheus")
 			return err
 		}
 		lg.Info("started prometheus")
@@ -473,7 +473,7 @@ func (d *TestEnvOtelNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsC
 		var err error
 		d.otelCmdCtx, err = d.env.StartOTELCollectorContext(ctx, nodeId, node.CompatOTELStruct(conf.GetSpec().GetOtel()))
 		if err != nil {
-			lg.With("err", err).Error("failed to configure otel collector")
+			lg.With(logger.Err(err)).Error("failed to configure otel collector")
 			ca()
 			return fmt.Errorf("failed to configure otel collector: %w", err)
 		}

@@ -2,11 +2,11 @@ package v1
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/ttacon/chalk"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -29,18 +29,18 @@ func (s *HealthStatus) Summary() string {
 type TimestampedLog interface {
 	GetTimestamp() *timestamppb.Timestamp
 	GetMsg() string
-	GetLogLevel() zapcore.Level
+	GetLogLevel() slog.Level
 }
 
 var _ TimestampedLog = (*LogEntry)(nil)
 var _ TimestampedLog = (*StateTransition)(nil)
 
-func (s *LogEntry) GetLogLevel() zapcore.Level {
-	return zapcore.Level(s.Level)
+func (s *LogEntry) GetLogLevel() slog.Level {
+	return slog.Level(s.Level)
 }
 
-func (s *StateTransition) GetLogLevel() zapcore.Level {
-	return zapcore.InfoLevel
+func (s *StateTransition) GetLogLevel() slog.Level {
+	return slog.LevelInfo
 }
 
 func (s *StateTransition) GetMsg() string {

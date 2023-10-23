@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"sort"
@@ -30,7 +31,6 @@ import (
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -63,7 +63,7 @@ type Agent struct {
 	AgentOptions
 	config v1beta1.AgentConfigSpec
 	router *gin.Engine
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 
 	tenantID         string
 	identityProvider ident.Provider
@@ -99,14 +99,10 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	options.apply(opts...)
 	level := logger.DefaultLogLevel.Level()
 	if conf.Spec.LogLevel != "" {
-		l, err := zap.ParseAtomicLevel(conf.Spec.LogLevel)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing log level: %w", err)
-		}
-		level = l.Level()
+		level = logger.ParseLevel(conf.Spec.LogLevel)
 	}
-	lg := logger.New(logger.WithLogLevel(level)).Named("agent")
-	lg.Debugf("using log level: %s", level)
+	lg := logger.New(logger.WithLogLevel(level)).WithGroup("agent")
+	lg.Debug(fmt.Sprintf("using log level: %s", level.String()))
 
 	router := gin.New()
 	router.Use(logger.GinLogger(lg), gin.Recovery())
@@ -206,7 +202,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 					go func() {
 						if err := agent.streamRulesToGateway(ctx); err != nil {
 							lg.With(
-								zap.Error(err),
+								logger.Err(err),
 							).Error("error streaming rules to gateway")
 						}
 					}()
@@ -218,12 +214,12 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 				// })
 
 				lg.With(
-					zap.Error(errF.Get()), // this will block until an error is received
+					logger.Err(errF.Get()), // this will block until an error is received
 				).Warn("disconnected from gateway")
 				agent.remoteWriteClient.Close()
 			} else {
 				lg.With(
-					zap.Error(errF.Get()),
+					logger.Err(errF.Get()),
 				).Warn("error connecting to gateway")
 			}
 			if util.StatusCode(errF.Get()) == codes.FailedPrecondition {
@@ -235,7 +231,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 			isRetry = true
 		}
 		lg.With(
-			zap.Error(ctx.Err()),
+			logger.Err(ctx.Err()),
 		).Warn("shutting down gateway client")
 	}()
 
@@ -285,7 +281,7 @@ func (a *Agent) bootstrap(ctx context.Context) (keyring.Keyring, error) {
 			// Keep retrying until it succeeds.
 			err = a.keyringStore.Put(ctx, newKeyring)
 			if err != nil {
-				lg.With(zap.Error(err)).Error("failed to persist keyring (retry in 1 second)")
+				lg.With(logger.Err(err)).Error("failed to persist keyring (retry in 1 second)")
 				time.Sleep(1 * time.Second)
 			} else {
 				break

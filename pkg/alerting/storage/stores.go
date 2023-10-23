@@ -34,7 +34,7 @@ func NewDefaultAlertingBroker(js nats.JetStreamContext, opts ...storage_opts.Cli
 	options := &storage_opts.ClientSetOptions{}
 	options.Apply(opts...)
 	if options.Logger == nil {
-		options.Logger = logger.NewPluginLogger().Named("alerting-storage-client-set")
+		options.Logger = logger.NewPluginLogger().WithGroup("alerting-storage-client-set")
 	}
 	if options.TrackerTtl == 0 {
 		options.TrackerTtl = defaultTrackerTTLV1

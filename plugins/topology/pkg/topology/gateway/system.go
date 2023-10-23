@@ -7,11 +7,11 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/task"
 	natsutil "github.com/rancher/opni/pkg/util/nats"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -28,13 +28,13 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		grpc.WaitForReady(true),
 	)
 	if err != nil {
-		p.logger.With("err", err).Error("failed to get config")
+		p.logger.With(logger.Err(err)).Error("failed to get config")
 		os.Exit(1)
 	}
 
 	objectList, err := machinery.LoadDocuments(cfg.Documents)
 	if err != nil {
-		p.logger.With("err", err).Error("failed to load config")
+		p.logger.With(logger.Err(err)).Error("failed to load config")
 		os.Exit(1)
 	}
 	machinery.LoadAuthProviders(p.ctx, objectList)
@@ -63,7 +63,7 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 
 	if err != nil {
 		p.logger.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Error("failed to create uninstall task controller")
 	}
 	p.uninstallController.Set(ctrl)
@@ -86,7 +86,7 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	nc, err := natsutil.AcquireNATSConnection(p.ctx, cfg)
 	if err != nil {
 		p.logger.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Error("fatal :  failed to acquire NATS connection")
 		os.Exit(1)
 	}

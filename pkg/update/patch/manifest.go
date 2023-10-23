@@ -3,16 +3,17 @@ package patch
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"path/filepath"
 	"sync"
 
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/urn"
 	"github.com/samber/lo"
 	"github.com/spf13/afero"
-	"go.uber.org/zap"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -93,9 +94,9 @@ func GetFilesystemPlugins(dc plugins.DiscoveryConfig) (*controlv1.PluginArchive,
 	}
 	lg := dc.Logger
 	if lg == nil {
-		lg = zap.NewNop().Sugar()
+		lg = logger.NewNop()
 	}
-	lg.Debugf("found %d plugins", len(matches))
+	lg.Debug(fmt.Sprintf("found %d plugins", len(matches)))
 	var wg sync.WaitGroup
 	for i, md := range matches {
 		i, md := i, md
@@ -106,7 +107,7 @@ func GetFilesystemPlugins(dc plugins.DiscoveryConfig) (*controlv1.PluginArchive,
 			f, err := dc.Fs.Open(md.BinaryPath)
 			if err != nil {
 				lg.With(
-					zap.Error(err),
+					logger.Err(err),
 				).Error("failed to read plugin, skipping")
 				return
 			}
@@ -120,7 +121,7 @@ func GetFilesystemPlugins(dc plugins.DiscoveryConfig) (*controlv1.PluginArchive,
 
 			if _, err := io.Copy(io.MultiWriter(hash, contents), f); err != nil {
 				lg.With(
-					zap.Error(err),
+					logger.Err(err),
 				).Error("failed to read plugin, skipping")
 				return
 			}
@@ -145,7 +146,7 @@ func GetFilesystemPlugins(dc plugins.DiscoveryConfig) (*controlv1.PluginArchive,
 		}
 	}
 	if numFailed > 0 {
-		lg.Warnf("%d plugins failed to load", numFailed)
+		lg.Warn(fmt.Sprintf("%d plugins failed to load", numFailed))
 	}
 
 	res.Items = lo.WithoutEmpty(res.Items)

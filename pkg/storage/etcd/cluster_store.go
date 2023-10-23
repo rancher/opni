@@ -9,11 +9,11 @@ import (
 
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/lestrrat-go/backoff/v2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 )
 
@@ -131,7 +131,7 @@ func (e *EtcdStore) UpdateCluster(
 			Commit()
 		if err != nil {
 			e.Logger.With(
-				zap.Error(err),
+				logger.Err(err),
 			).Error("error updating cluster")
 			return err
 		}
@@ -179,7 +179,7 @@ func (e *EtcdStore) WatchCluster(
 			case event := <-wc:
 				if event.Err() != nil {
 					e.Logger.With(
-						zap.Error(event.Err()),
+						logger.Err(event.Err()),
 					).Error("error watching cluster")
 					return
 				}
@@ -202,7 +202,7 @@ func (e *EtcdStore) WatchCluster(
 						current := &corev1.Cluster{}
 						if err := protojson.Unmarshal(ev.Kv.Value, current); err != nil {
 							e.Logger.With(
-								zap.Error(err),
+								logger.Err(err),
 							).Error("error unmarshaling cluster")
 							continue
 						}
@@ -213,7 +213,7 @@ func (e *EtcdStore) WatchCluster(
 						previous := &corev1.Cluster{}
 						if err := protojson.Unmarshal(ev.PrevKv.Value, previous); err != nil {
 							e.Logger.With(
-								zap.Error(err),
+								logger.Err(err),
 							).Error("error unmarshaling cluster")
 							continue
 						}
@@ -289,7 +289,7 @@ func (e *EtcdStore) WatchClusters(
 			case event := <-wc:
 				if event.Err() != nil {
 					e.Logger.With(
-						zap.Error(event.Err()),
+						logger.Err(event.Err()),
 					).Error("error watching clusters")
 					return
 				}
@@ -304,7 +304,7 @@ func (e *EtcdStore) WatchClusters(
 						// created
 						if err := protojson.Unmarshal(ev.Kv.Value, current); err != nil {
 							e.Logger.With(
-								zap.Error(err),
+								logger.Err(err),
 							).Error("error unmarshaling cluster")
 							continue
 						}
@@ -315,7 +315,7 @@ func (e *EtcdStore) WatchClusters(
 						if ev.IsModify() {
 							if err := protojson.Unmarshal(ev.Kv.Value, current); err != nil {
 								e.Logger.With(
-									zap.Error(err),
+									logger.Err(err),
 								).Error("error unmarshaling cluster")
 								continue
 							}
@@ -328,7 +328,7 @@ func (e *EtcdStore) WatchClusters(
 						// if we get here, version is > 1 or 0, therefore PrevKv will always be set
 						if err := protojson.Unmarshal(ev.PrevKv.Value, previous); err != nil {
 							e.Logger.With(
-								zap.Error(err),
+								logger.Err(err),
 							).Error("error unmarshaling cluster")
 							continue
 						}

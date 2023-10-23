@@ -7,17 +7,19 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	"github.com/google/uuid"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
 	alertingSync "github.com/rancher/opni/pkg/alerting/server/sync"
@@ -43,7 +45,7 @@ type RemoteInfo struct {
 }
 
 type SyncController struct {
-	lg *zap.SugaredLogger
+	lg *slog.Logger
 
 	hashMu          sync.Mutex
 	syncMu          sync.RWMutex
@@ -132,7 +134,7 @@ func (s *SyncController) PushOne(lifecycleId string, payload *syncPayload) {
 	}
 }
 
-func NewSyncController(lg *zap.SugaredLogger) SyncController {
+func NewSyncController(lg *slog.Logger) SyncController {
 	return SyncController{
 		lg:              lg,
 		syncPushers:     map[string]chan *alertops.SyncRequest{},
@@ -216,7 +218,7 @@ func (p *Plugin) UninstallCluster(ctx context.Context, request *alertops.Uninsta
 		go func() {
 			err := p.storageClientSet.Get().Purge(context.Background())
 			if err != nil {
-				p.logger.Warnf("failed to purge data %s", err)
+				p.logger.Warn(fmt.Sprintf("failed to purge data %s", err))
 			}
 		}()
 	}
@@ -273,7 +275,7 @@ func (p *Plugin) constructManualSync() (*syncPayload, error) {
 func (p *Plugin) SyncConfig(server alertops.ConfigReconciler_SyncConfigServer) error {
 	assignedLifecycleUuid := uuid.New().String()
 	lg := p.logger.With("method", "SyncConfig", "assignedId", assignedLifecycleUuid)
-	lg.Infof(" remote syncer connected, performing initial sync...")
+	lg.Info(" remote syncer connected, performing initial sync...")
 	syncChan := make(chan *alertops.SyncRequest, 16)
 	defer close(syncChan)
 	p.syncController.AddSyncPusher(assignedLifecycleUuid, syncChan)
@@ -331,7 +333,7 @@ func (p *Plugin) SyncConfig(server alertops.ConfigReconciler_SyncConfigServer) e
 			err := server.Send(syncReq)
 			mu.Unlock()
 			if err != nil {
-				lg.Errorf("could not send sync request to remote syncer %s", err)
+				lg.Error(fmt.Sprintf("could not send sync request to remote syncer %s", err))
 			}
 		}
 	}
@@ -355,13 +357,13 @@ func (p *Plugin) constructPartialSyncRequest(
 	lg := p.logger.With("method", "constructSyncRequest")
 	hash, err := hashRing.GetHash(ctx, shared.SingleConfigId)
 	if err != nil {
-		lg.Errorf("failed to get hash for %s: %s", shared.SingleConfigId, err)
+		lg.Error(fmt.Sprintf("failed to get hash for %s: %s", shared.SingleConfigId, err))
 		panic(err)
 	}
 	key := shared.SingleConfigId
 	router, err := routers.Get(ctx, key)
 	if err != nil {
-		lg.Errorf("failed to get router %s from storage: %s", key, err)
+		lg.Error(fmt.Sprintf("failed to get router %s from storage: %s", key, err))
 		return nil, err
 	}
 	if recv := driver.GetDefaultReceiver(); recv != nil {
@@ -369,13 +371,13 @@ func (p *Plugin) constructPartialSyncRequest(
 	}
 	config, err := router.BuildConfig()
 	if err != nil {
-		lg.Errorf("failed to build config for router %s: %s", key, err)
+		lg.Error(fmt.Sprintf("failed to build config for router %s: %s", key, err))
 		return nil, err
 	}
 
 	data, err := yaml.Marshal(config)
 	if err != nil {
-		lg.Errorf("failed to marshal config for router %s: %s", key, err)
+		lg.Error(fmt.Sprintf("failed to marshal config for router %s: %s", key, err))
 		return nil, err
 	}
 
@@ -409,7 +411,7 @@ func (p *Plugin) doConfigSync(ctx context.Context, syncInfo alertingSync.SyncInf
 
 	routerKeys, err := clientSet.Sync(ctx)
 	if err != nil {
-		lg.Errorf("failed to sync configuration in alerting clientset %s", err)
+		lg.Error(fmt.Sprintf("failed to sync configuration in alerting clientset %s", err))
 		return err
 	}
 	if len(routerKeys) > 0 { // global configuration has changed and never been applied
@@ -462,7 +464,7 @@ func (p *Plugin) doConfigForceSync(ctx context.Context, syncInfo alertingSync.Sy
 		return err
 	}
 	if err := clientSet.ForceSync(ctx); err != nil {
-		lg.Errorf("failed to force sync configuration in alerting clientset %s", err)
+		lg.Error(fmt.Sprintf("failed to force sync configuration in alerting clientset %s", err))
 		return err
 	}
 	payload, err := p.constructPartialSyncRequest(p.ctx, driver, clientSet, clientSet.Routers())
@@ -525,7 +527,7 @@ func (p *Plugin) runSyncTasks(tasks []alertingSync.SyncTask) (retErr error) {
 
 	syncInfo, err := p.getSyncInfo(ctx)
 	if err != nil {
-		lg.Error("skipping alerting periodic sync due to error : %s", err)
+		lg.Error("skipping alerting periodic sync due to error : %s", logger.Err(err))
 		return err
 	}
 
@@ -538,7 +540,7 @@ func (p *Plugin) runSyncTasks(tasks []alertingSync.SyncTask) (retErr error) {
 	}
 	eg.Wait()
 	if err := eg.Error(); err != nil {
-		lg.Errorf(" ran %d/%d tasks successfully %s", len(tasks)-len(eg.Errors()), len(tasks), err)
+		lg.Error(fmt.Sprintf(" ran %d/%d tasks successfully %v", len(tasks)-len(eg.Errors()), len(tasks), err))
 		retErr = err
 	}
 	return
@@ -562,11 +564,11 @@ func (p *Plugin) runSync() {
 			return
 		case <-ticker.C:
 			if err := p.runSyncTasks(syncTasks); err != nil {
-				p.logger.Errorf("failed to successfully run all alerting sync tasks : %s", err)
+				p.logger.Error(fmt.Sprintf("failed to successfully run all alerting sync tasks : %s", err))
 			}
 		case <-longTicker.C:
 			if err := p.runSyncTasks(forceSyncTasks); err != nil {
-				p.logger.Errorf("failed to successfully run all alerting force sync tasks : %s", err)
+				p.logger.Error(fmt.Sprintf("failed to successfully run all alerting force sync tasks : %s", err))
 			}
 		}
 	}

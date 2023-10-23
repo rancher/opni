@@ -18,11 +18,11 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
 	"github.com/rancher/opni/plugins/logging/pkg/otel"
 	"github.com/samber/lo"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	corev1 "k8s.io/api/core/v1"
+	"log/slog"
 )
 
 const defaultOpniVersion = "0.11.2"
@@ -63,7 +63,7 @@ type LoggingManagerV2 struct {
 	loggingadmin.UnsafeLoggingAdminV2Server
 	managementDriver  management.ClusterDriver
 	backendDriver     backend.ClusterDriver
-	logger            *zap.SugaredLogger
+	logger            *slog.Logger
 	alertingServer    *alerting.AlertingManagementServer
 	opensearchManager *opensearchdata.Manager
 	otelForwarder     *otel.OTELForwarder
@@ -182,7 +182,7 @@ func (m *LoggingManagerV2) DoUpgrade(ctx context.Context, options *loggingadmin.
 func (m *LoggingManagerV2) GetStorageClasses(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.StorageClassResponse, error) {
 	storageClassNames, err := m.managementDriver.GetStorageClasses(ctx)
 	if err != nil {
-		m.logger.Errorf("failed to list storageclasses: %v", err)
+		m.logger.Error(fmt.Sprintf("failed to list storageclasses: %v", err))
 		return nil, err
 	}
 
@@ -285,7 +285,7 @@ func (m *LoggingManagerV2) ListSnapshotSchedules(ctx context.Context, _ *emptypb
 func (m *LoggingManagerV2) validDurationString(duration string) bool {
 	match, err := regexp.MatchString(`^\d+[dMmyh]`, duration)
 	if err != nil {
-		m.logger.Errorf("could not run regexp: %v", err)
+		m.logger.Error(fmt.Sprintf("could not run regexp: %v", err))
 		return false
 	}
 	return match

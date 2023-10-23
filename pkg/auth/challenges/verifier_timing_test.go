@@ -17,8 +17,8 @@ import (
 	"github.com/rancher/opni/pkg/auth/challenges"
 	"github.com/rancher/opni/pkg/ecdh"
 	"github.com/rancher/opni/pkg/keyring"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
-	"go.uber.org/zap"
 )
 
 // Can't use the test keyring store broker due to possible extra overhead
@@ -96,7 +96,7 @@ var _ = Describe("Keyring Verifier Timing", Ordered, Serial, FlakeAttempts(2), L
 		}).Put(context.Background(), keyring.New(keyring.NewSharedKeys(testSharedSecret)))
 		const domain = "Verifier Timing Test"
 
-		mw := challenges.NewKeyringVerifier(broker, domain, zap.NewNop().Sugar())
+		mw := challenges.NewKeyringVerifier(broker, domain, logger.NewNop())
 
 		challenge := [32]byte{
 			0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,

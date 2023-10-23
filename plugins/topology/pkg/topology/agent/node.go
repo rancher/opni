@@ -15,17 +15,17 @@ import (
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/topology/apis/node"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"log/slog"
 )
 
 type TopologyNode struct {
 	capabilityv1.UnsafeNodeServer
 	controlv1.UnsafeHealthServer
 
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 
 	clientMu sync.RWMutex
 	client   node.NodeTopologyCapabilityClient
@@ -40,7 +40,7 @@ type TopologyNode struct {
 var _ capabilityv1.NodeServer = &TopologyNode{}
 var _ controlv1.HealthServer = &TopologyNode{}
 
-func NewTopologyNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *TopologyNode {
+func NewTopologyNode(ct health.ConditionTracker, lg *slog.Logger) *TopologyNode {
 	return &TopologyNode{
 		logger:     lg,
 		conditions: ct,

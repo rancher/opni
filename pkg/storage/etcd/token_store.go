@@ -7,11 +7,11 @@ import (
 	"time"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/lestrrat-go/backoff/v2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/tokens"
 )
@@ -55,7 +55,7 @@ func (e *EtcdStore) DeleteToken(ctx context.Context, ref *corev1.Reference) erro
 		defer func(id int64) {
 			_, err := e.Client.Revoke(context.Background(), clientv3.LeaseID(id))
 			if err != nil {
-				e.Logger.Warnf("failed to revoke lease: %v", err)
+				e.Logger.Warn(fmt.Sprintf("failed to revoke lease: %v", err))
 			}
 		}(t.Metadata.LeaseID)
 	}
@@ -144,7 +144,7 @@ func (e *EtcdStore) UpdateToken(ctx context.Context, ref *corev1.Reference, muta
 			Commit()
 		if err != nil {
 			e.Logger.With(
-				zap.Error(err),
+				logger.Err(err),
 			).Error("error updating token")
 			return err
 		}
@@ -196,7 +196,7 @@ func (e *EtcdStore) garbageCollectToken(token *corev1.BootstrapToken) {
 		defer func(id int64) {
 			_, err := e.Client.Revoke(context.Background(), clientv3.LeaseID(id))
 			if err != nil {
-				e.Logger.Warnf("failed to revoke lease: %v", err)
+				e.Logger.Warn(fmt.Sprintf("failed to revoke lease: %v", err))
 			}
 		}(token.Metadata.LeaseID)
 	}

@@ -17,18 +17,18 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/logging/apis/node"
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"log/slog"
 )
 
 type LoggingNode struct {
 	capabilityv1.UnsafeNodeServer
 	controlv1.UnsafeHealthServer
 
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 
 	clientMu sync.RWMutex
 	client   node.NodeLoggingCapabilityClient
@@ -40,7 +40,7 @@ type LoggingNode struct {
 	conditions health.ConditionTracker
 }
 
-func NewLoggingNode(ct health.ConditionTracker, lg *zap.SugaredLogger) *LoggingNode {
+func NewLoggingNode(ct health.ConditionTracker, lg *slog.Logger) *LoggingNode {
 	return &LoggingNode{
 		logger:     lg,
 		conditions: ct,

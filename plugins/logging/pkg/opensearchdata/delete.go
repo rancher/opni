@@ -65,13 +65,13 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc 
 		defer resp.Body.Close()
 
 		if resp.IsError() {
-			m.logger.Errorf("opensearch request failed: %s", resp.String())
+			m.logger.Error(fmt.Sprintf("opensearch request failed: %s", resp.String()))
 			return loggingerrors.ErrOpensearchResponse
 		}
 
 		respString := util.ReadString(resp.Body)
 		taskID := gjson.Get(respString, "task").String()
-		m.logger.Debugf("opensearch taskID is :%s", taskID)
+		m.logger.Debug(fmt.Sprintf("opensearch taskID is :%s", taskID))
 		_, err = m.systemKV.Get().Put(ctx, &system.PutRequest{
 			Key:   fmt.Sprintf("%s%s", opensearchPrefix, id),
 			Value: []byte(taskID),

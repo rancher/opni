@@ -31,8 +31,7 @@ require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-kit/kit v0.12.0
 	github.com/go-kit/log v0.2.1
-	github.com/go-logr/logr v1.2.4
-	github.com/go-logr/zapr v1.2.4
+	github.com/go-logr/logr v1.2.5-0.20231009135404-2ea8628b184c
 	github.com/go-openapi/strfmt v0.21.7
 	github.com/go-playground/validator/v10 v10.14.1
 	github.com/golang/protobuf v1.5.3
@@ -59,7 +58,7 @@ require (
 	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
 	github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c
 	github.com/kralicky/ragu v1.0.11-0.20230627162951-2dd00e0cbbf3
-	github.com/kralicky/totem v1.2.1
+	github.com/kralicky/totem v1.2.2-0.20231013192319-ab56f5483c40
 	github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d
 	github.com/lestrrat-go/backoff/v2 v2.0.8
 	github.com/lestrrat-go/jwx v1.2.26
@@ -100,6 +99,8 @@ require (
 	github.com/rancher/kubernetes-provider-detector v0.1.5
 	github.com/rancher/wrangler v1.1.1-0.20230419173538-80fdf092be3b
 	github.com/samber/lo v1.38.1
+	github.com/samber/slog-multi v1.0.1
+	github.com/samber/slog-sampling v1.0.0
 	github.com/spf13/afero v1.9.5
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
@@ -136,7 +137,6 @@ require (
 	go.uber.org/atomic v1.11.0
 	go.uber.org/mock v0.2.0
 	go.uber.org/multierr v1.11.0
-	go.uber.org/zap v1.25.0
 	golang.org/x/crypto v0.12.0
 	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1
 	golang.org/x/mod v0.12.0
@@ -165,6 +165,11 @@ require (
 	sigs.k8s.io/controller-runtime v0.15.0
 	sigs.k8s.io/node-feature-discovery-operator v0.2.1-0.20230131182250-99b8584e2745
 	sigs.k8s.io/yaml v1.3.0
+)
+
+require (
+	github.com/go-logr/zapr v1.2.4 // indirect
+	go.uber.org/zap v1.25.0 // indirect
 )
 
 require (
@@ -584,10 +589,11 @@ replace (
 	github.com/grafana-operator/grafana-operator/v4 => github.com/kralicky/grafana-operator/v4 v4.2.1-0.20230714191401-f7b79b2f8d98
 	// https://github.com/hashicorp/go-plugin/pull/251
 	github.com/hashicorp/go-plugin => github.com/alexandreLamarre/go-plugin v0.1.1-0.20230417174342-eab684801be5
-	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza => github.com/dbason/opentelemetry-collector-contrib/pkg/stanza v0.0.0-20230704041503-6f0f267c2d92
+	// TODO update once PR merged here: github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza => github.com/dbason/opentelemetry-collector-contrib/pkg/stanza v0.0.0-20230704041503-6f0f267c2d92
+	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza => github.com/jan-law/opentelemetry-collector-contrib/pkg/stanza v0.0.0-20231011183323-1da8f0d6468b
 	github.com/opensearch-project/opensearch-go/v2 => github.com/dbason/opensearch-go/v2 v2.0.0-20221202021211-6aec8f80bc41
 	github.com/rancher/charts-build-scripts => github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116
-	go.uber.org/zap => github.com/kralicky/zap v1.24.1-0.20230718165024-a2256218e4cc
+	github.com/samber/slog-sampling => github.com/jan-law/slog-sampling v0.0.0-20231013170129-ef692b2d04c4
 	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20230911044558-c677eb01b26a
 )
 

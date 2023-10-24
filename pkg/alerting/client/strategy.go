@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-func AtMostOne[Resp any](ctx context.Context, client *http.Client, reqs []*http.Request) (*Resp, error) {
+func AtMostOne[Resp any](ctx context.Context, client http.Client, reqs []*http.Request) (*Resp, error) {
 	var retErr error
 	for _, req := range reqs {
 		var workingResp Resp

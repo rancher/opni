@@ -167,7 +167,6 @@ func (k *OpniManager) ListPresets(context.Context, *emptypb.Empty) (*cortexops.P
 							"compactor":      {Replicas: lo.ToPtr[int32](3)},
 							"store-gateway":  {Replicas: lo.ToPtr[int32](3)},
 							"ingester":       {Replicas: lo.ToPtr[int32](3)},
-							"alertmanager":   {Replicas: lo.ToPtr[int32](3)},
 							"querier":        {Replicas: lo.ToPtr[int32](3)},
 						},
 					},

@@ -86,7 +86,13 @@ type StandardOverridesShape = struct {
 type ImplementationSpecificOverridesShape = struct {
 	QueryFrontendAddress string
 	MemberlistJoinAddrs  []string
-	AlertmanagerURL      string
+	AlertManager         AlertmanagerOverrideShape
+}
+
+type AlertmanagerOverrideShape struct {
+	AlertmanagerURL string
+	EnableV2        bool
+	ClientTLS       TLSClientConfigShape
 }
 
 type cortexConfigOverrider[T any] interface {
@@ -390,7 +396,9 @@ func NewImplementationSpecificOverrides(impl ImplementationSpecificOverridesShap
 			return true
 		}),
 		NewOverrider(func(t *ruler.Config) bool {
-			t.AlertmanagerURL = impl.AlertmanagerURL
+			t.AlertmanagerURL = impl.AlertManager.AlertmanagerURL
+			t.AlertmanangerEnableV2API = impl.AlertManager.EnableV2
+			// t.Notifier.TLS = cortextls.ClientConfig(impl.AlertManager.ClientTLS)
 			return true
 		}),
 	}

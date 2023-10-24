@@ -2,32 +2,31 @@ package proxy
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rancher/opni/pkg/alerting/server"
 	ssync "github.com/rancher/opni/pkg/alerting/server/sync"
 	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/future"
 )
 
 const proxyPath = "/plugin_alerting/alertmanager"
 
 type ProxyServer struct {
-	util.Initializer
 	lg *slog.Logger
 
-	proxy *alertmanagerProxy
+	*alertmanagerProxy
 }
 
 var _ server.ServerComponent = (*ProxyServer)(nil)
-
-func (p *ProxyServer) Initialize() {
-}
 
 func (p *ProxyServer) Name() string {
 	return "alerting-proxy"
@@ -52,15 +51,15 @@ func (p *ProxyServer) Status() server.Status {
 }
 
 func (p *ProxyServer) SetConfig(cfg server.Config) {
-	p.proxy.SetConfig(cfg)
+	p.alertmanagerProxy.SetConfig(cfg)
 }
 
 func NewProxyServer(
 	lg *slog.Logger,
 ) *ProxyServer {
 	return &ProxyServer{
-		lg:    lg,
-		proxy: newAlertmanagerProxy(lg),
+		lg:                lg,
+		alertmanagerProxy: newAlertmanagerProxy(lg),
 	}
 }
 
@@ -70,7 +69,7 @@ func (p *ProxyServer) ConfigureRoutes(router *gin.Engine) {
 		gin.WrapH(
 			http.StripPrefix(
 				proxyPath,
-				p.proxy,
+				p.alertmanagerProxy,
 			),
 		),
 	)
@@ -79,9 +78,19 @@ func (p *ProxyServer) ConfigureRoutes(router *gin.Engine) {
 var _ httpext.HTTPAPIExtension = (*ProxyServer)(nil)
 
 type alertmanagerProxy struct {
-	lg           *slog.Logger
+	util.Initializer
+
+	lg *slog.Logger
+
+	tlsConfig    future.Future[*tls.Config]
 	configMu     sync.RWMutex
 	reverseProxy *httputil.ReverseProxy
+}
+
+func (a *alertmanagerProxy) Initialize(tlsConfig *tls.Config) {
+	a.InitOnce(func() {
+		a.tlsConfig.Set(tlsConfig)
+	})
 }
 
 func (a *alertmanagerProxy) SetConfig(config server.Config) {
@@ -94,13 +103,27 @@ func (a *alertmanagerProxy) SetConfig(config server.Config) {
 	}
 	targetURL := config.Client.ProxyClient().ProxyURL()
 	a.lg.Info(fmt.Sprintf("configuring alertmanager proxy to : %s", targetURL.String()))
-	a.reverseProxy = httputil.NewSingleHostReverseProxy(targetURL)
+	ctxca, ca := context.WithTimeout(context.Background(), time.Second)
+	defer ca()
+	tlsConfig, err := a.tlsConfig.GetContext(ctxca)
+	if err != nil {
+		a.lg.Error("tls config for alertmanager reverse proxy is not initialized")
+		a.reverseProxy = nil
+		return
+	}
+	httptransport := &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
+	reverseProxy := httputil.NewSingleHostReverseProxy(targetURL)
+	reverseProxy.Transport = httptransport
+	a.reverseProxy = reverseProxy
 }
 
 func newAlertmanagerProxy(lg *slog.Logger) *alertmanagerProxy {
 	return &alertmanagerProxy{
 		reverseProxy: nil,
 		lg:           lg,
+		tlsConfig:    future.New[*tls.Config](),
 	}
 }
 
@@ -111,6 +134,6 @@ func (a *alertmanagerProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Alertmanager proxy unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	r.URL.Scheme = "http"
+	r.Close = true
 	a.reverseProxy.ServeHTTP(w, r)
 }

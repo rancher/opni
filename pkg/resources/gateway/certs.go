@@ -36,6 +36,12 @@ func (r *Reconciler) certs() ([]resources.Resource, error) {
 		r.cortexClientCAIssuer(),
 		r.cortexClientCert(),
 		r.cortexServingCert(),
+		r.alertingIntermediateCa(),
+		r.alertingIntermediateCaIssuer(),
+		r.alertingClientCa(),
+		r.alertingClientCaIssuer(),
+		r.alertingClientCert(),
+		r.alertingServingCert(),
 		r.etcdIntermediateCA(),
 		r.etcdIntermediateCAIssuer(),
 		r.etcdClientCert(),
@@ -161,6 +167,152 @@ func (r *Reconciler) gatewayClientCert() client.Object {
 				cmv1.UsageClientAuth,
 				cmv1.UsageDigitalSignature,
 				cmv1.UsageKeyEncipherment,
+			},
+		},
+	}
+}
+
+func (r *Reconciler) alertingIntermediateCa() client.Object {
+	return &cmv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "alerting-intermediate-ca",
+			Namespace: r.gw.Namespace,
+		},
+		Spec: cmv1.CertificateSpec{
+			IsCA:       true,
+			SecretName: "alerting-intermediate-ca-keys",
+			PrivateKey: &cmv1.CertificatePrivateKey{
+				Algorithm: cmv1.Ed25519KeyAlgorithm,
+				Encoding:  cmv1.PKCS1,
+			},
+			DNSNames: []string{
+				"alerting-intermediate-ca",
+			},
+			IssuerRef: cmmetav1.ObjectReference{
+				Group: "cert-manager.io",
+				Kind:  "Issuer",
+				Name:  "opni-gateway-ca-issuer",
+			},
+		},
+	}
+}
+
+func (r *Reconciler) alertingIntermediateCaIssuer() client.Object {
+	return &cmv1.Issuer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "alerting-intermediate-ca-issuer",
+			Namespace: r.gw.Namespace,
+		},
+		Spec: cmv1.IssuerSpec{
+			IssuerConfig: cmv1.IssuerConfig{
+				CA: &cmv1.CAIssuer{
+					SecretName: "alerting-intermediate-ca-keys",
+				},
+			},
+		},
+	}
+}
+
+func (r *Reconciler) alertingClientCa() client.Object {
+	return &cmv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "alerting-client-ca",
+			Namespace: r.gw.Namespace,
+		},
+		Spec: cmv1.CertificateSpec{
+			IsCA:       true,
+			SecretName: "alerting-client-ca-keys",
+			PrivateKey: &cmv1.CertificatePrivateKey{
+				Algorithm: cmv1.Ed25519KeyAlgorithm,
+				Encoding:  cmv1.PKCS1,
+			},
+			DNSNames: []string{
+				"alerting-client-ca",
+			},
+			IssuerRef: cmmetav1.ObjectReference{
+				Group: "cert-manager.io",
+				Kind:  "Issuer",
+				Name:  "alerting-intermediate-ca-issuer",
+			},
+			Usages: []cmv1.KeyUsage{
+				cmv1.UsageDigitalSignature,
+				cmv1.UsageKeyEncipherment,
+				cmv1.UsageClientAuth,
+			},
+		},
+	}
+}
+
+func (r *Reconciler) alertingClientCaIssuer() client.Object {
+	return &cmv1.Issuer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "alerting-client-ca-issuer",
+			Namespace: r.gw.Namespace,
+		},
+		Spec: cmv1.IssuerSpec{
+			IssuerConfig: cmv1.IssuerConfig{
+				CA: &cmv1.CAIssuer{
+					SecretName: "alerting-client-cert-keys",
+				},
+			},
+		},
+	}
+}
+
+func (r *Reconciler) alertingClientCert() client.Object {
+	return &cmv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "alerting-client-cert",
+			Namespace: r.gw.Namespace,
+		},
+		Spec: cmv1.CertificateSpec{
+			SecretName: "alerting-client-cert-keys",
+			PrivateKey: &cmv1.CertificatePrivateKey{
+				Algorithm: cmv1.Ed25519KeyAlgorithm,
+				Encoding:  cmv1.PKCS1,
+			},
+			IssuerRef: cmmetav1.ObjectReference{
+				Group: "cert-manager.io",
+				Kind:  "Issuer",
+				Name:  "alerting-client-ca-issuer",
+			},
+			DNSNames: []string{
+				"alerting-client",
+			},
+			Usages: []cmv1.KeyUsage{
+				cmv1.UsageDigitalSignature,
+				cmv1.UsageKeyEncipherment,
+				cmv1.UsageClientAuth,
+			},
+		},
+	}
+}
+
+func (r *Reconciler) alertingServingCert() client.Object {
+	return &cmv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "alerting-serving-cert",
+			Namespace: r.gw.Namespace,
+		},
+		Spec: cmv1.CertificateSpec{
+			SecretName: "alerting-serving-cert-keys",
+			PrivateKey: &cmv1.CertificatePrivateKey{
+				Algorithm: cmv1.Ed25519KeyAlgorithm,
+				Encoding:  cmv1.PKCS1,
+			},
+			IssuerRef: cmmetav1.ObjectReference{
+				Group: "cert-manager.io",
+				Kind:  "Issuer",
+				Name:  "alerting-intermediate-ca-issuer",
+			},
+			DNSNames: []string{
+				"localhost",
+				"opni-alerting",
+				"opni-alertmanager",
+				"opni-alertmanager-alerting",
+				"opni-alerting-alertmanager",
+				"*.opni-alerting-alertmanager",
+				"*.opni-alertmanager-alerting",
 			},
 		},
 	}

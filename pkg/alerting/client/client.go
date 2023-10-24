@@ -3,10 +3,13 @@ package client
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"sync"
 	"time"
 
@@ -24,14 +27,60 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-var (
-	DefaultOptions = &ClientOptions{
-		httpClient:          http.DefaultClient,
+func DefaultOptions() *ClientOptions {
+	return &ClientOptions{
+		proxyClient:         http.Client{},
+		queryClient:         http.Client{},
 		alertmanagerAddress: fmt.Sprintf("%s:9093", shared.AlertmanagerService),
 		querierAddress:      fmt.Sprintf("%s:3000", shared.AlertmanagerService),
 		proxyAddress:        fmt.Sprintf("%s:9093", shared.AlertmanagerService),
 	}
-)
+}
+
+type TLSClientConfig struct {
+	// Path to the server CA certificate.
+	ServerCA string
+	// Path to the client CA certificate (not needed in all cases).
+	ClientCA string
+	// Path to the certificate used for client-cert auth.
+	ClientCert string
+	// Path to the private key used for client-cert auth.
+	ClientKey string
+}
+
+func (t *TLSClientConfig) Init() (*tls.Config, error) {
+	clientCert, err := tls.LoadX509KeyPair(t.ClientCert, t.ClientKey) //alertingClientCert, alertingClientKey)
+	if err != nil {
+		return nil, err
+	}
+
+	serverCaPool := x509.NewCertPool()
+	serverCaData, err := os.ReadFile(t.ServerCA)
+	if err != nil {
+		return nil, err
+	}
+
+	if ok := serverCaPool.AppendCertsFromPEM(serverCaData); !ok {
+		return nil, fmt.Errorf("failed to load alerting server CA")
+	}
+
+	clientCaPool := x509.NewCertPool()
+	clientCaData, err := os.ReadFile(t.ClientCA)
+	if err != nil {
+		return nil, err
+	}
+
+	if ok := clientCaPool.AppendCertsFromPEM(clientCaData); !ok {
+		return nil, fmt.Errorf("failed to load alerting client Ca")
+	}
+
+	return &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		Certificates: []tls.Certificate{clientCert},
+		ClientCAs:    clientCaPool,
+		RootCAs:      serverCaPool,
+	}, nil
+}
 
 type AlertingPeer struct {
 	ApiAddress      string
@@ -70,10 +119,12 @@ type Client struct {
 var _ AlertingClient = (*Client)(nil)
 
 type ClientOptions struct {
-	httpClient          *http.Client
+	proxyClient         http.Client
+	queryClient         http.Client
 	alertmanagerAddress string
 	proxyAddress        string
 	querierAddress      string
+	tlsConfig           *tls.Config
 }
 
 func (o *ClientOptions) Apply(opts ...ClientOption) {
@@ -100,24 +151,30 @@ func WithQuerierAddress(addr string) ClientOption {
 	}
 }
 
-func WithHttpClient(client *http.Client) ClientOption {
+func WithProxyHttpClient(client http.Client) ClientOption {
 	return func(o *ClientOptions) {
-		o.httpClient = client
+		o.proxyClient = client
 	}
 }
 
-func (o *ClientOptions) Validate(scheme string) error {
-	if _, err := url.Parse(scheme + "://" + o.alertmanagerAddress); err != nil {
+func WithTLSConfig(config *tls.Config) ClientOption {
+	return func(o *ClientOptions) {
+		o.tlsConfig = config
+	}
+}
+
+func (o *ClientOptions) Validate(
+	proxyScheme string,
+	queryScheme string,
+) error {
+	if _, err := url.Parse(proxyScheme + "://" + o.alertmanagerAddress); err != nil {
 		return err
 	}
-	if _, err := url.Parse(scheme + "://" + o.proxyAddress); err != nil {
+	if _, err := url.Parse(proxyScheme + "://" + o.proxyAddress); err != nil {
 		return err
 	}
-	if _, err := url.Parse(scheme + "://" + o.querierAddress); err != nil {
+	if _, err := url.Parse(queryScheme + "://" + o.querierAddress); err != nil {
 		return err
-	}
-	if o.httpClient == nil {
-		return fmt.Errorf("http client must be specified")
 	}
 	return nil
 }
@@ -127,15 +184,24 @@ type ClientOption func(*ClientOptions)
 func NewClient(
 	opts ...ClientOption,
 ) (*Client, error) {
-	options := DefaultOptions
+	options := DefaultOptions()
 	options.Apply(opts...)
 	c := &Client{
 		knownPeers: []AlertingPeer{},
 		peerMu:     sync.RWMutex{},
 	}
-	if err := options.Validate(c.scheme()); err != nil {
+
+	if err := options.Validate(
+		c.proxyScheme(),
+		c.queryScheme(),
+	); err != nil {
 		return nil, err
 	}
+	httptransport := &http.Transport{
+		TLSClientConfig: options.tlsConfig,
+	}
+	options.proxyClient.Transport = httptransport
+
 	c.ClientOptions = options
 	return c, nil
 }
@@ -146,7 +212,6 @@ func NewClient(
 //
 // In our alerting client abstraction
 type AlertingClient interface {
-	ConfigureHttp(mutateFn func(*http.Client))
 	MemberlistClient() MemberlistClient
 	ControlClient() ControlClient
 	StatusClient() StatusClient
@@ -220,10 +285,6 @@ func (c *Client) Clone() AlertingClient {
 	return cl
 }
 
-func (c *Client) ConfigureHttp(mutateFn func(*http.Client)) {
-	mutateFn(c.httpClient)
-}
-
 func (c *Client) MemberlistClient() MemberlistClient {
 	return c
 }
@@ -256,13 +317,25 @@ func (c *Client) ProxyClient() ProxyClient {
 	return c
 }
 
-func (c *Client) scheme() string {
+func (c *Client) proxyScheme() string {
+	return "https"
+}
+
+func (c *Client) queryScheme() string {
 	return "http"
 }
 
-func (c *Client) target(addr string) string {
+func (c *Client) alertmanagerTarget(addr string) string {
 	target := url.URL{
-		Scheme: c.scheme(),
+		Scheme: c.proxyScheme(),
+		Host:   addr,
+	}
+	return target.String()
+}
+
+func (c *Client) querierTarget(addr string) string {
+	target := url.URL{
+		Scheme: c.queryScheme(),
 		Host:   addr,
 	}
 	return target.String()
@@ -270,7 +343,7 @@ func (c *Client) target(addr string) string {
 
 func (c *Client) proxyTarget() string {
 	proxyTarget := url.URL{
-		Scheme: c.scheme(),
+		Scheme: c.proxyScheme(),
 		Host:   c.proxyAddress,
 	}
 	return proxyTarget.String()
@@ -279,11 +352,14 @@ func (c *Client) proxyTarget() string {
 func (c *Client) Reload(ctx context.Context) error {
 	addrs := c.MemberPeers()
 	for _, addr := range addrs {
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/-/reload", c.target(addr.ApiAddress)), nil)
+		req, err := http.NewRequestWithContext(ctx,
+			http.MethodPost,
+			fmt.Sprintf("%s/-/reload", c.alertmanagerTarget(addr.ApiAddress)),
+			nil)
 		if err != nil {
 			return err
 		}
-		resp, err := c.httpClient.Do(req)
+		resp, err := c.proxyClient.Do(req)
 		if err != nil {
 			return err
 		}
@@ -329,7 +405,7 @@ func (c *Client) Status(ctx context.Context) ([]alertmanagerv2.AlertmanagerStatu
 		req, err := http.NewRequestWithContext(
 			ctx,
 			http.MethodGet,
-			fmt.Sprintf("%s/api/v2/status", c.target(addr.ApiAddress)),
+			fmt.Sprintf("%s/api/v2/status", c.alertmanagerTarget(addr.ApiAddress)),
 			nil,
 		)
 		if err != nil {
@@ -337,7 +413,7 @@ func (c *Client) Status(ctx context.Context) ([]alertmanagerv2.AlertmanagerStatu
 			continue
 		}
 		req.Header.Set("Accept", "application/json")
-		resp, err := c.httpClient.Do(req)
+		resp, err := c.proxyClient.Do(req)
 		if err != nil {
 			errors = append(errors, err)
 			continue
@@ -361,11 +437,11 @@ func (c *Client) Status(ctx context.Context) ([]alertmanagerv2.AlertmanagerStatu
 func (c *Client) Ready(ctx context.Context) error {
 	addrs := c.MemberPeers()
 	for _, addr := range addrs {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/-/ready", c.target(addr.ApiAddress)), nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/-/ready", c.alertmanagerTarget(addr.ApiAddress)), nil)
 		if err != nil {
 			return err
 		}
-		resp, err := c.httpClient.Do(req)
+		resp, err := c.proxyClient.Do(req)
 		if err != nil {
 			return err
 		}
@@ -399,13 +475,13 @@ func (c *Client) ListReceivers(ctx context.Context) (recvs []alertmanagerv2.Rece
 	errors := []error{}
 	mappedReceivers := map[string]lo.Tuple2[int, alertmanagerv2.Receiver]{}
 	for _, addr := range addrs {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v2/receivers", c.target(addr.ApiAddress)), nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v2/receivers", c.alertmanagerTarget(addr.ApiAddress)), nil)
 		if err != nil {
 			return recvs, err
 		}
 		req.Header.Set("Accept", "application/json")
 
-		resp, err := c.httpClient.Do(req)
+		resp, err := c.proxyClient.Do(req)
 		if err != nil {
 			errors = append(errors, err)
 			continue
@@ -452,7 +528,7 @@ func (c *Client) ListAlerts(ctx context.Context) (alertmanagerv2.AlertGroups, er
 			ctx,
 			http.MethodGet,
 			fmt.Sprintf("%s/api/v2/alerts/groups",
-				c.target(addr.ApiAddress),
+				c.alertmanagerTarget(addr.ApiAddress),
 			),
 			nil,
 		)
@@ -460,7 +536,7 @@ func (c *Client) ListAlerts(ctx context.Context) (alertmanagerv2.AlertGroups, er
 			return alertmanagerv2.AlertGroups{}, err
 		}
 		req.Header.Set("Accept", "application/json")
-		resp, err := c.httpClient.Do(req)
+		resp, err := c.proxyClient.Do(req)
 		if err != nil {
 			n--
 			errors = append(errors, err)
@@ -571,7 +647,7 @@ func (c *Client) PostAlarm(
 		req, err := http.NewRequestWithContext(
 			ctx,
 			http.MethodPost,
-			fmt.Sprintf("%s/api/v2/alerts", c.target(addr.ApiAddress)),
+			fmt.Sprintf("%s/api/v2/alerts", c.alertmanagerTarget(addr.ApiAddress)),
 			bytes.NewReader(b.Bytes()),
 		)
 		if err != nil {
@@ -579,7 +655,7 @@ func (c *Client) PostAlarm(
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
-		resp, err := c.httpClient.Do(req)
+		resp, err := c.proxyClient.Do(req)
 		if err != nil {
 			errors = append(errors, err)
 			continue
@@ -630,7 +706,7 @@ func (c *Client) PostNotification(
 		req, err := http.NewRequestWithContext(
 			ctx,
 			http.MethodPost,
-			fmt.Sprintf("%s/api/v2/alerts", c.target(addr.ApiAddress)),
+			fmt.Sprintf("%s/api/v2/alerts", c.alertmanagerTarget(addr.ApiAddress)),
 			bytes.NewReader(b.Bytes()),
 		)
 		if err != nil {
@@ -638,7 +714,7 @@ func (c *Client) PostNotification(
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
-		resp, err := c.httpClient.Do(req)
+		resp, err := c.proxyClient.Do(req)
 		if err != nil {
 			errors = append(errors, err)
 			continue
@@ -681,14 +757,14 @@ func (c *Client) ResolveAlert(ctx context.Context, alertObject AlertObject) erro
 		req, err := http.NewRequestWithContext(
 			ctx,
 			http.MethodPost,
-			fmt.Sprintf("%s/api/v2/alerts", c.target(addr.ApiAddress)),
+			fmt.Sprintf("%s/api/v2/alerts", c.alertmanagerTarget(addr.ApiAddress)),
 			bytes.NewReader(b.Bytes()),
 		)
 		if err != nil {
 			return err
 		}
 		req.Header.Set("Accept", "application/json")
-		resp, err := c.httpClient.Do(req)
+		resp, err := c.proxyClient.Do(req)
 		if err != nil {
 			errors = append(errors, err)
 			continue
@@ -715,14 +791,14 @@ func (c *Client) ListSilences(ctx context.Context) (alertmanagerv2.GettableSilen
 		req, err := http.NewRequestWithContext(
 			ctx,
 			http.MethodGet,
-			fmt.Sprintf("%s/api/v2/silences", c.target(addr.ApiAddress)),
+			fmt.Sprintf("%s/api/v2/silences", c.alertmanagerTarget(addr.ApiAddress)),
 			nil,
 		)
 		if err != nil {
 			return alertmanagerv2.GettableSilences{}, err
 		}
 		req.Header.Set("Accept", "application/json")
-		resp, err := c.httpClient.Do(req)
+		resp, err := c.proxyClient.Do(req)
 		if err != nil {
 			errors = append(errors, err)
 			continue
@@ -848,7 +924,7 @@ func (c *Client) PostSilence(ctx context.Context, alertingObjectId string, dur t
 		req, err := http.NewRequestWithContext(
 			ctx,
 			http.MethodPost,
-			fmt.Sprintf("%s/api/v2/silences", c.target(addr.ApiAddress)),
+			fmt.Sprintf("%s/api/v2/silences", c.alertmanagerTarget(addr.ApiAddress)),
 			bytes.NewReader(b.Bytes()),
 		)
 		if err != nil {
@@ -858,7 +934,7 @@ func (c *Client) PostSilence(ctx context.Context, alertingObjectId string, dur t
 		req.Header.Set("Accept", "application/json")
 		reqs[i] = req
 	}
-	silenceResp, err := AtMostOne[postSilenceResponse](ctx, c.httpClient, reqs)
+	silenceResp, err := AtMostOne[postSilenceResponse](ctx, c.proxyClient, reqs)
 	if err != nil {
 		return "", err
 	}
@@ -872,14 +948,14 @@ func (c *Client) DeleteSilence(ctx context.Context, silenceId string) error {
 		req, err := http.NewRequestWithContext(
 			ctx,
 			http.MethodDelete,
-			fmt.Sprintf("%s/api/v2/silence/%s", c.target(addr.ApiAddress), silenceId),
+			fmt.Sprintf("%s/api/v2/silence/%s", c.alertmanagerTarget(addr.ApiAddress), silenceId),
 			nil,
 		)
 		if err != nil {
 			errors = append(errors, err)
 			continue
 		}
-		resp, err := c.httpClient.Do(req)
+		resp, err := c.proxyClient.Do(req)
 		if err != nil {
 			errors = append(errors, err)
 			continue
@@ -909,14 +985,14 @@ func (c *Client) ListAlarmMessages(ctx context.Context, listReq *alertingv1.List
 		req, err := http.NewRequestWithContext(
 			ctx,
 			http.MethodPost,
-			fmt.Sprintf("%s/alarms/list", c.target(addr.EmbeddedAddress)),
+			fmt.Sprintf("%s/alarms/list", c.querierTarget(addr.EmbeddedAddress)),
 			bytes.NewReader(b),
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		resp, err := c.httpClient.Do(req)
+		resp, err := c.queryClient.Do(req)
 		if err != nil {
 			return nil, err
 		}
@@ -978,14 +1054,14 @@ func (c *Client) ListNotificationMessages(
 		req, err := http.NewRequestWithContext(
 			ctx,
 			http.MethodPost,
-			fmt.Sprintf("%s/notifications/list", c.target(addr.EmbeddedAddress)),
+			fmt.Sprintf("%s/notifications/list", c.querierTarget(addr.EmbeddedAddress)),
 			bytes.NewReader(b),
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		resp, err := c.httpClient.Do(req)
+		resp, err := c.queryClient.Do(req)
 		if err != nil {
 			return nil, err
 		}

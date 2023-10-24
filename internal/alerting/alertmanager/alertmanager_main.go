@@ -261,6 +261,12 @@ func run(args []string) int {
 
 	logger := promlog.New(&promlogConfig)
 
+	level.Debug(logger).Log("msg", "waiting for alertmanager file", "config.file", *configFile)
+	if ok := waitForAlertmanagerFile(ctxCa, *configFile); !ok {
+		level.Error(logger).Log("msg", "file does not exist", "config.file", *configFile)
+		return 1
+	}
+
 	level.Info(logger).Log("msg", "Starting Alertmanager", "version", version.Info())
 	level.Info(logger).Log("build_context", version.BuildContext())
 

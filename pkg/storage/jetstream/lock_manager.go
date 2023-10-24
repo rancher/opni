@@ -2,6 +2,7 @@ package jetstream
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/lestrrat-go/backoff/v2"
@@ -10,7 +11,6 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/lock"
-	"go.uber.org/zap"
 )
 
 // Requires jetstream 2.9+
@@ -26,7 +26,7 @@ func NewJetstreamLockManager(ctx context.Context, conf *v1beta1.JetStreamStorage
 	}
 	options.apply(opts...)
 
-	lg := logger.New(logger.WithLogLevel(zap.WarnLevel)).Named("jetstream")
+	lg := logger.New(logger.WithLogLevel(slog.LevelWarn)).WithGroup("jetstream")
 
 	nkeyOpt, err := nats.NkeyOptionFromSeed(conf.NkeySeedPath)
 	if err != nil {
@@ -38,16 +38,17 @@ func NewJetstreamLockManager(ctx context.Context, conf *v1beta1.JetStreamStorage
 		nats.RetryOnFailedConnect(true),
 		nats.DisconnectErrHandler(func(c *nats.Conn, err error) {
 			lg.With(
-				zap.Error(err),
+				logger.Err(err),
 			).Warn("disconnected from jetstream")
 		}),
 		nats.ReconnectHandler(func(c *nats.Conn) {
-			lg.With(
-				"server", c.ConnectedAddr(),
+			lg.Info(
+
+				"reconnected to jetstream", "server", c.ConnectedAddr(),
 				"id", c.ConnectedServerId(),
 				"name", c.ConnectedServerName(),
-				"version", c.ConnectedServerVersion(),
-			).Info("reconnected to jetstream")
+				"version", c.ConnectedServerVersion())
+
 		}),
 	)
 	if err != nil {
@@ -67,7 +68,7 @@ func NewJetstreamLockManager(ctx context.Context, conf *v1beta1.JetStreamStorage
 	).Start(ctx)
 	for {
 		if rtt, err := nc.RTT(); err == nil {
-			lg.With("rtt", rtt).Info("nats server connection is healthy")
+			lg.Info("nats server connection is healthy", "rtt", rtt)
 			break
 		}
 		select {

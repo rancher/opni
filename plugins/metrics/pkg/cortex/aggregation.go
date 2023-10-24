@@ -10,13 +10,14 @@ import (
 	"net/http"
 	"sync"
 
+	"log/slog"
+
 	"github.com/andybalholm/brotli"
 	"github.com/gin-gonic/gin"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/rbac"
 	"github.com/rancher/opni/plugins/metrics/pkg/util"
-	"go.uber.org/zap"
 )
 
 type DataFormat string
@@ -40,7 +41,7 @@ type MultiTenantRuleAggregator struct {
 	cortexClient *http.Client
 	headerCodec  rbac.HeaderCodec
 	bufferPool   *sync.Pool
-	logger       *zap.SugaredLogger
+	logger       *slog.Logger
 	format       DataFormat
 }
 
@@ -60,7 +61,7 @@ func NewMultiTenantRuleAggregator(
 		cortexClient: cortexClient,
 		headerCodec:  headerCodec,
 		bufferPool:   pool,
-		logger:       logger.New().Named("aggregation"),
+		logger:       logger.New().WithGroup("aggregation"),
 		format:       format,
 	}
 }
@@ -78,7 +79,7 @@ func (a *MultiTenantRuleAggregator) Handle(c *gin.Context) {
 	ids := util.AuthorizedClusterIDs(c)
 	a.logger.With(
 		"request", c.FullPath(),
-	).Debugf("aggregating query over %d tenants", len(ids))
+	).Debug(fmt.Sprintf("aggregating query over %d tenants", len(ids)))
 
 	buf := a.bufferPool.Get().(*bytes.Buffer)
 	switch a.format {

@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/rancher/opni/pkg/agent"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -12,7 +13,6 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
-	"go.uber.org/zap"
 	"golang.org/x/tools/pkg/memoize"
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -20,7 +20,7 @@ import (
 
 type PluginContext interface {
 	context.Context
-	Logger() *zap.SugaredLogger
+	Logger() *slog.Logger
 	Metrics() *Metrics
 	Memoize(key any, fn memoize.Function) *memoize.Promise
 

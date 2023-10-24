@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/otel"
 	"github.com/rancher/opni/pkg/resources"
 	promdiscover "github.com/rancher/opni/pkg/resources/collector/discovery"
@@ -56,7 +57,7 @@ func (r *Reconciler) getMetricsConfig() (config *otel.MetricsConfig) {
 			Namespace: r.collector.Namespace,
 		}, &metricsConfig)
 		if err != nil {
-			r.logger.Error(err)
+			r.lg.Error("error", logger.Err(err))
 			return
 		}
 		config.Enabled = true
@@ -64,7 +65,7 @@ func (r *Reconciler) getMetricsConfig() (config *otel.MetricsConfig) {
 		config.Spec = &metricsConfig.Spec.OtelSpec
 		r.PrometheusDiscovery = lo.ToPtr(
 			promdiscover.NewPrometheusDiscovery(
-				r.logger.With("component", "prometheus-discovery"),
+				r.lg.With("component", "prometheus-discovery"),
 				r.client,
 				r.collector.Spec.SystemNamespace,
 				metricsConfig.Spec.PrometheusDiscovery,
@@ -87,7 +88,7 @@ func (r *Reconciler) withPrometheusCrdDiscovery(
 	}
 	discStr, secrets, err := r.discoveredScrapeCfg(config)
 	if err != nil {
-		r.logger.Warn("failed to discover prometheus targets : %s", err)
+		r.lg.Warn("failed to discover prometheus targets : %s", err)
 	}
 	config.DiscoveredScrapeCfg = discStr
 	return config, secrets

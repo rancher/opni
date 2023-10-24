@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/jhump/protoreflect/desc"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -71,8 +73,8 @@ type Server struct {
 	managementv1.UnsafeManagementServer
 	managementServerOptions
 	config            *v1beta1.ManagementSpec
-	logger            *zap.SugaredLogger
 	rbacManagerStore  capabilities.RBACManagerStore
+	logger            *slog.Logger
 	coreDataSource    CoreDataSource
 	grpcServer        *grpc.Server
 	dashboardSettings *DashboardSettingsManager
@@ -122,7 +124,7 @@ func NewServer(
 	pluginLoader plugins.LoaderInterface,
 	opts ...ManagementServerOption,
 ) *Server {
-	lg := logger.New().Named("mgmt")
+	lg := logger.New().WithGroup("mgmt")
 	options := managementServerOptions{}
 	options.apply(opts...)
 
@@ -155,8 +157,8 @@ func NewServer(
 		go func() {
 			if err := sp.ServeAPIExtensions(m.config.GRPCListenAddress); err != nil {
 				lg.With(
-					zap.String("plugin", md.Module),
-					zap.Error(err),
+					"plugin", md.Module,
+					logger.Err(err),
 				).Error("failed to serve plugin API extensions")
 			}
 		}()
@@ -166,8 +168,8 @@ func NewServer(
 		list, err := p.List(ctx, &emptypb.Empty{})
 		if err != nil {
 			lg.With(
-				zap.String("plugin", md.Module),
-				zap.Error(err),
+				"plugin", md.Module,
+				logger.Err(err),
 			).Error("failed to list capabilities")
 			return
 		}
@@ -181,13 +183,13 @@ func NewServer(
 			}
 			if err := m.rbacManagerStore.Add(info.Name, p); err != nil {
 				lg.With(
-					zap.String("plugin", md.Module),
-					zap.Error(err),
+					"plugin", md.Module,
+					logger.Err(err),
 				).Error("failed to add capability backend rbac")
 			}
 			lg.With(
-				zap.String("plugin", md.Module),
-				zap.String("capability", info.Name),
+				"plugin", md.Module,
+				"capability", info.Name,
 			).Info("added capability rbac backend")
 		}
 	}))

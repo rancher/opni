@@ -21,15 +21,15 @@ var _ = FDescribe("Multi Gateway", Ordered, Label("integration"), func() {
 	BeforeAll(func() {
 		By("Starting 3 test environments")
 		env1 := &test.Environment{
-			Logger: testlog.Log.Named("env1"),
+			Logger: testlog.Log.WithGroup("env1"),
 		}
 		Expect(env1.Start(test.WithStorageBackend(v1beta1.StorageTypeEtcd))).To(Succeed())
 		env2 := &test.Environment{
-			Logger: testlog.Log.Named("env2"),
+			Logger: testlog.Log.WithGroup("env2"),
 		}
 		Expect(env2.Start(test.WithStorageBackend(v1beta1.StorageTypeEtcd), test.WithRemoteEtcdPort(env1.GetPorts().Etcd))).To(Succeed())
 		env3 := &test.Environment{
-			Logger: testlog.Log.Named("env3"),
+			Logger: testlog.Log.WithGroup("env3"),
 		}
 		Expect(env3.Start(test.WithStorageBackend(v1beta1.StorageTypeEtcd), test.WithRemoteEtcdPort(env1.GetPorts().Etcd))).To(Succeed())
 

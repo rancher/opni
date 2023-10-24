@@ -26,8 +26,8 @@ import (
 	"github.com/rancher/opni/plugins/topology/pkg/backend"
 	"github.com/rancher/opni/plugins/topology/pkg/topology/gateway/drivers"
 	"github.com/rancher/opni/plugins/topology/pkg/topology/gateway/stream"
-	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
+	"log/slog"
 )
 
 type Plugin struct {
@@ -36,7 +36,7 @@ type Plugin struct {
 	uninstallRunner TopologyUninstallTaskRunner
 
 	ctx    context.Context
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 
 	topologyRemoteWrite stream.TopologyStreamWriter
 	topologyBackend     backend.TopologyBackend
@@ -64,7 +64,7 @@ func (p *Plugin) ManagementServices(_ managementext.ServiceController) []util.Se
 func NewPlugin(ctx context.Context) *Plugin {
 	p := &Plugin{
 		ctx:                 ctx,
-		logger:              logger.NewPluginLogger().Named("topology"),
+		logger:              logger.NewPluginLogger().WithGroup("topology"),
 		nc:                  future.New[*nats.Conn](),
 		storage:             future.New[ConfigStorageAPIs](),
 		mgmtClient:          future.New[managementv1.ManagementClient](),
@@ -84,7 +84,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 
 	future.Wait2(p.storageBackend, p.uninstallController,
 		func(storageBackend storage.Backend, uninstallController *task.Controller) {
-			p.uninstallRunner.logger = p.logger.Named("topology-uninstall-runner")
+			p.uninstallRunner.logger = p.logger.WithGroup("topology-uninstall-runner")
 			p.uninstallRunner.storageBackend = storageBackend
 		})
 
@@ -105,7 +105,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 				"clusterDriver", clusterDriver,
 			).Debug("async requirements for starting topology backend are ready")
 			p.topologyBackend.Initialize(backend.TopologyBackendConfig{
-				Logger:              p.logger.Named("topology-backend"),
+				Logger:              p.logger.WithGroup("topology-backend"),
 				StorageBackend:      storageBackend,
 				MgmtClient:          mgmtClient,
 				Delegate:            delegate,

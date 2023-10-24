@@ -9,10 +9,10 @@ import (
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/plugins/logging/apis/node"
 	loggingerrors "github.com/rancher/opni/plugins/logging/pkg/errors"
 	driver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -124,7 +124,7 @@ func (b *LoggingBackend) requestNodeSync(ctx context.Context, cluster *opnicorev
 		b.Logger.With(
 			"cluster", name,
 			"capability", wellknown.CapabilityLogs,
-			zap.Error(err),
+			logger.Err(err),
 		).Warn("failed to request node sync; nodes may not be updated immediately")
 		return
 	}

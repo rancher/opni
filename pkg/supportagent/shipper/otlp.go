@@ -3,17 +3,21 @@ package shipper
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"runtime"
 	"strings"
 	"sync"
 
+	"log/slog"
+
+	"github.com/go-logr/logr/slogr"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/adapter"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza/entry"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/supportagent/dateparser"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/plog/plogotlp"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
@@ -27,7 +31,7 @@ type otlpShipper struct {
 	failureCount           int
 
 	wg sync.WaitGroup
-	lg *zap.SugaredLogger
+	lg *slog.Logger
 
 	rMutex      sync.RWMutex
 	readingDone bool
@@ -77,7 +81,7 @@ func WithWorkers(workers int) OTLPShipperOption {
 func NewOTLPShipper(
 	cc grpc.ClientConnInterface,
 	parser dateparser.DateParser,
-	lg *zap.SugaredLogger,
+	lg *slog.Logger,
 	opts ...OTLPShipperOption,
 ) Shipper {
 	options := otlpShipperOptions{
@@ -89,7 +93,7 @@ func NewOTLPShipper(
 		otlpShipperOptions: options,
 		client:             collogspb.NewLogsServiceClient(cc),
 		dateParser:         parser,
-		converter:          adapter.NewConverter(lg.Desugar()),
+		converter:          adapter.NewConverter(slogr.NewLogr(lg.Handler())),
 		lg:                 lg,
 	}
 }
@@ -116,13 +120,13 @@ func (s *otlpShipper) Publish(ctx context.Context, tokens *bufio.Scanner) error 
 			}
 
 			if len(entries) >= s.batchSize {
-				s.lg.Infof("batching %d logs", len(entries))
+				s.lg.Info(fmt.Sprintf("batching %d logs", len(entries)))
 
 				s.wgCounter.Add(1)
 				err := s.converter.Batch(entries)
 				if err != nil {
 					s.wgCounter.Done()
-					s.lg.Errorw("failed to batch logs", zap.Error(err))
+					s.lg.Error("failed to batch logs", logger.Err(err))
 					s.failureCount += len(entries)
 					s.collectedErrorMessages = append(s.collectedErrorMessages, err.Error())
 				}
@@ -155,14 +159,14 @@ func (s *otlpShipper) Publish(ctx context.Context, tokens *bufio.Scanner) error 
 		err := s.converter.Batch(entries)
 		if err != nil {
 			s.wgCounter.Done()
-			s.lg.Errorw("failed to batch logs", zap.Error(err))
+			s.lg.Error("failed to batch logs", logger.Err(err))
 			s.failureCount += len(entries)
 			s.collectedErrorMessages = append(s.collectedErrorMessages, err.Error())
 		}
 	}
 
 	if err := tokens.Err(); err != nil {
-		s.lg.Errorw("failed to scan logs", zap.Error(err))
+		s.lg.Error("failed to scan logs", logger.Err(err))
 	}
 
 	// wait for batching to finish
@@ -175,9 +179,9 @@ func (s *otlpShipper) Publish(ctx context.Context, tokens *bufio.Scanner) error 
 	s.lg.Info("waiting for shipping to finish")
 	s.wg.Wait()
 	if s.failureCount > 0 {
-		s.lg.Errorf("failed to ship %d logs for log type %s", s.failureCount, s.logType)
+		s.lg.Error(fmt.Sprintf("failed to ship %d logs for log type %s", s.failureCount, s.logType))
 		if s.component != "" {
-			s.lg.Errorf("failed component was %s", s.component)
+			s.lg.Error(fmt.Sprintf("failed component was %s", s.component))
 		}
 		s.lg.Error(strings.Join(s.collectedErrorMessages, "\n"))
 	}
@@ -227,7 +231,7 @@ func (s *otlpShipper) exportLogs(ctx context.Context, logs plog.Logs) {
 
 	resp, err := s.client.Export(ctx, req)
 	if err != nil {
-		s.lg.With("error", err).Error("failed to ship logs")
+		s.lg.Error("failed to ship logs", "error", err)
 		s.collectedErrorMessages = append(s.collectedErrorMessages, err.Error())
 		s.failureCount += len(req.GetResourceLogs())
 		return
@@ -235,7 +239,7 @@ func (s *otlpShipper) exportLogs(ctx context.Context, logs plog.Logs) {
 	if resp.GetPartialSuccess().GetRejectedLogRecords() > 0 {
 		s.collectedErrorMessages = append(s.collectedErrorMessages, resp.GetPartialSuccess().GetErrorMessage())
 	}
-	s.lg.Infof("shipped %d batch", len(req.GetResourceLogs()))
+	s.lg.Info(fmt.Sprintf("shipped %d batch", len(req.GetResourceLogs())))
 }
 
 func (s *otlpShipper) newEntry() *entry.Entry {

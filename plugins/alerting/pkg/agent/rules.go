@@ -2,27 +2,33 @@ package agent
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"time"
 
+	"log/slog"
+
+	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	healthpkg "github.com/rancher/opni/pkg/health"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/plugins/alerting/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/node"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/rules"
-	"go.uber.org/zap"
 )
 
 var RuleSyncInterval = time.Minute * 2
 
+const (
+	CondRuleSync = "Rule Sync"
+)
+
 type RuleStreamer struct {
-	util.Initializer
-
 	parentCtx context.Context
+	lg        *slog.Logger
 
-	lg *zap.SugaredLogger
-
-	ruleStreamCtx  context.Context
 	stopRuleStream context.CancelFunc
+
+	clientMu       sync.RWMutex
 	ruleSyncClient rules.RuleSyncClient
 
 	conditions healthpkg.ConditionTracker
@@ -33,22 +39,31 @@ var _ drivers.ConfigPropagator = (*RuleStreamer)(nil)
 
 func NewRuleStreamer(
 	ctx context.Context,
-	lg *zap.SugaredLogger,
+	lg *slog.Logger,
 	ct healthpkg.ConditionTracker,
 	nodeDriver drivers.NodeDriver,
 ) *RuleStreamer {
 	return &RuleStreamer{
-		parentCtx:  ctx,
-		lg:         lg,
-		conditions: ct,
-		nodeDriver: nodeDriver,
+		parentCtx:      ctx,
+		lg:             lg,
+		conditions:     ct,
+		nodeDriver:     nodeDriver,
+		ruleSyncClient: nil,
 	}
 }
 
-func (r *RuleStreamer) Initialize(ruleSyncClient rules.RuleSyncClient) {
-	r.InitOnce(func() {
-		r.ruleSyncClient = ruleSyncClient
-	})
+func (r *RuleStreamer) SetClients(
+	ruleClient rules.RuleSyncClient,
+) {
+	r.clientMu.Lock()
+	defer r.clientMu.Unlock()
+	r.ruleSyncClient = ruleClient
+}
+
+func (r *RuleStreamer) isSet() bool {
+	r.clientMu.RLock()
+	defer r.clientMu.RUnlock()
+	return r.ruleSyncClient != nil
 }
 
 func (r *RuleStreamer) ConfigureNode(nodeId string, cfg *node.AlertingCapabilityConfig) error {
@@ -86,20 +101,43 @@ func (r *RuleStreamer) configureRuleStreamer(nodeId string, cfg *node.AlertingCa
 }
 
 func (r *RuleStreamer) sync(ctx context.Context) {
-	ruleManifest, err := r.nodeDriver.DiscoverRules(ctx)
-	if err != nil {
-		r.lg.Warnf("failed to discover rules %s", err)
-	}
-	r.lg.Infof("discovered %d rules", len(ruleManifest.Rules))
-	if _, err := r.ruleSyncClient.SyncRules(ctx, ruleManifest); err != nil {
-		r.lg.Warnf("failed to sync rules %s", err)
+	r.conditions.Set(CondRuleSync, healthpkg.StatusPending, "")
+
+	retrier := backoffv2.Exponential(
+		backoffv2.WithMaxRetries(10),
+		backoffv2.WithMinInterval(5*time.Millisecond),
+		backoffv2.WithMaxInterval(10*time.Millisecond),
+		backoffv2.WithMultiplier(1.5),
+	)
+	b := retrier.Start(ctx)
+	for backoffv2.Continue(b) {
+		if !r.isSet() {
+			r.conditions.Set(CondRuleSync, healthpkg.StatusFailure, "Rule sync client not set")
+			r.lg.Warn("rule sync client not yet set")
+			continue
+		}
+		ruleManifest, err := r.nodeDriver.DiscoverRules(ctx)
+		if err != nil {
+			r.lg.Warn("failed to discover rules", logger.Err(err))
+			r.conditions.Set(CondRuleSync, healthpkg.StatusFailure, fmt.Sprintf("Failed to discover rules : %s", err))
+			continue
+		}
+
+		r.clientMu.RLock()
+		_, err = r.ruleSyncClient.SyncRules(ctx, ruleManifest)
+		r.clientMu.RUnlock()
+		if err == nil {
+			r.conditions.Clear(CondRuleSync)
+			r.lg.Info(fmt.Sprintf("successfully synced (%d) rules with gateway", len(ruleManifest.GetRules())))
+			break
+		}
+		r.lg.Warn("failed to sync rules with gateway", logger.Err(err))
+		r.conditions.Set(CondRuleSync, healthpkg.StatusFailure, fmt.Sprintf("Failed to sync rules : %s", err))
 	}
 }
 
 func (r *RuleStreamer) run(ctx context.Context) {
-	r.lg.Info("waiting for rule sync client...")
-	r.WaitForInitContext(ctx)
-	r.lg.Info("rule sync client acquired")
+	r.lg.Info("starting initial sync...")
 	r.sync(ctx)
 	t := time.NewTicker(RuleSyncInterval)
 	defer t.Stop()

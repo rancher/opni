@@ -122,5 +122,6 @@ message CancelUninstallRequest {
 }
 
 message DetailsList {
-  repeated Details items = 1;
+  repeated Details items        = 1;
+  core.Revision    lastRevision = 4;
 }

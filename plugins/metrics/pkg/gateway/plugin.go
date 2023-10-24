@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/rancher/opni/pkg/logger"
@@ -17,7 +18,6 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 	"github.com/rancher/opni/plugins/metrics/pkg/types"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
-	"go.uber.org/zap"
 )
 
 type Plugin struct {
@@ -25,7 +25,7 @@ type Plugin struct {
 	collector.CollectorServer
 	ctx context.Context
 
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 
 	*pluginContextData
 
@@ -44,7 +44,7 @@ func NewPlugin(ctx context.Context, scheme meta.Scheme) *Plugin {
 	p := &Plugin{
 		ctx:             ctx,
 		CollectorServer: collector,
-		logger:          logger.NewPluginLogger().Named("metrics"),
+		logger:          logger.NewPluginLogger().WithGroup("metrics"),
 	}
 
 	var pctx types.PluginContext
@@ -52,7 +52,7 @@ func NewPlugin(ctx context.Context, scheme meta.Scheme) *Plugin {
 	go func() {
 		driver, err := initClusterDriver(pctx)
 		if err != nil {
-			p.logger.With(zap.Error(err)).Error("failed to initialize cluster driver")
+			p.logger.With(logger.Err(err)).Error("failed to initialize cluster driver")
 			return
 		}
 		p.clusterDriver.C() <- driver
@@ -62,7 +62,7 @@ func NewPlugin(ctx context.Context, scheme meta.Scheme) *Plugin {
 		lg := p.logger.With("service", name)
 		svc, err := builder(ctx, driverutil.NewOption("context", pctx))
 		if err != nil {
-			lg.With(zap.Error(err)).Error("failed to initialize service")
+			lg.With(logger.Err(err)).Error("failed to initialize service")
 			return
 		}
 		lg.Info("loading service")
@@ -85,7 +85,7 @@ func NewPlugin(ctx context.Context, scheme meta.Scheme) *Plugin {
 			defer ca()
 			defer cancelWarn()
 			if err := svc.Activate(); err != nil {
-				lg.With(zap.Error(err)).Error("failed to activate service")
+				lg.With(logger.Err(err)).Error("failed to activate service")
 				return
 			}
 			lg.Info("activated service")

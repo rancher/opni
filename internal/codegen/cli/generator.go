@@ -11,6 +11,7 @@ import (
 
 	"github.com/iancoleman/strcase"
 	"github.com/rancher/opni/pkg/util/flagutil"
+	"golang.org/x/exp/slices"
 	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
@@ -43,6 +44,8 @@ func (cg Generator) Name() string {
 
 func (cg *Generator) Generate(gen *protogen.Plugin) error {
 	cg.plugin = gen
+
+	toGenerate := []*protogen.File{}
 	for _, file := range gen.Files {
 		if !file.Generate {
 			continue
@@ -54,6 +57,12 @@ func (cg *Generator) Generate(gen *protogen.Plugin) error {
 		if !ok || !ext.GetGenerate() {
 			continue
 		}
+		toGenerate = append(toGenerate, file)
+	}
+	slices.SortFunc(toGenerate, func(a, b *protogen.File) bool {
+		return a.Desc.Path() < b.Desc.Path()
+	})
+	for _, file := range toGenerate {
 		cg.generatedFiles[file.Desc.Path()] = cg.generateFile(gen, file)
 	}
 	return nil

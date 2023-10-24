@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/subtle"
 
+	"log/slog"
+
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/keyring"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 )
 
@@ -23,10 +25,10 @@ type PreCachedVerifier interface {
 type keyringVerifier struct {
 	domain             string
 	keyringStoreBroker storage.KeyringStoreBroker
-	logger             *zap.SugaredLogger
+	logger             *slog.Logger
 }
 
-func NewKeyringVerifier(ksb storage.KeyringStoreBroker, domain string, lg *zap.SugaredLogger) KeyringVerifier {
+func NewKeyringVerifier(ksb storage.KeyringStoreBroker, domain string, lg *slog.Logger) KeyringVerifier {
 	return &keyringVerifier{
 		domain:             domain,
 		keyringStoreBroker: ksb,
@@ -46,7 +48,7 @@ func (v *keyringVerifier) Prepare(ctx context.Context, cm ClientMetadata, req *c
 		if storage.IsNotFound(err) {
 			return nil, util.StatusError(codes.Unauthenticated)
 		}
-		v.logger.With(zap.Error(err)).Error("failed to get keyring during cluster auth")
+		v.logger.With(logger.Err(err)).Error("failed to get keyring during cluster auth")
 		return nil, util.StatusError(codes.Unavailable)
 	}
 

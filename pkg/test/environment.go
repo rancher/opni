@@ -27,6 +27,8 @@ import (
 	"text/template"
 	"time"
 
+	"log/slog"
+
 	"github.com/google/uuid"
 	"github.com/kralicky/totem"
 	natsserver "github.com/nats-io/nats-server/v2/server"
@@ -54,6 +56,7 @@ import (
 	"github.com/rancher/opni/pkg/gateway"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring/ephemeral"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/otel"
 	"github.com/rancher/opni/pkg/pkp"
@@ -74,7 +77,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.uber.org/mock/gomock"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -153,7 +155,7 @@ type Environment struct {
 	EnvironmentOptions
 
 	TestBin           string
-	Logger            *zap.SugaredLogger
+	Logger            *slog.Logger
 	CRDDirectoryPaths []string
 
 	mockCtrl *gomock.Controller
@@ -334,7 +336,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	}
 
 	if e.Logger == nil {
-		e.Logger = testlog.Log.Named("env")
+		e.Logger = testlog.Log.WithGroup("env")
 	}
 	e.nodeConfigOverrides = make(map[string]*OverridePrometheusConfig)
 
@@ -386,7 +388,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		}
 
 		entries, _ := fs.ReadDir(testdata.TestDataFS, "testdata/cortex")
-		lg.Infof("Copying %d files from embedded testdata/cortex to %s", len(entries), cortexTempDir)
+		lg.Info("Copying files from embedded testdata/cortex to:", "count", len(entries), "dir", cortexTempDir)
 		for _, entry := range entries {
 			if err := os.WriteFile(path.Join(cortexTempDir, entry.Name()), testdata.TestData("cortex/"+entry.Name()), 0644); err != nil {
 				return err
@@ -536,21 +538,21 @@ func EnvFromContext(ctx context.Context) *Environment {
 
 func (e *Environment) startJetstream() {
 	if !e.enableJetstream {
-		e.Logger.Panic("jetstream disabled")
+		panic("jetstream disabled")
 	}
 	lg := e.Logger
 	// set up keys
 	user, err := nkeys.CreateUser()
 	if err != nil {
-		lg.Error(err)
+		lg.Error("error", logger.Err(err))
 	}
 	seed, err := user.Seed()
 	if err != nil {
-		lg.Error(err)
+		lg.Error("error", logger.Err(err))
 	}
 	publicKey, err := user.PublicKey()
 	if err != nil {
-		lg.Error(err)
+		lg.Error("error", logger.Err(err))
 	}
 	t := template.Must(template.New("jetstream").Parse(`
 	authorization : {
@@ -620,7 +622,7 @@ func (e *Environment) startJetstream() {
 			}
 			break
 		} else {
-			lg.Error(err)
+			lg.Error("error", logger.Err(err))
 		}
 	}
 	lg.Info("Jetstream started")
@@ -700,7 +702,7 @@ func (e *Environment) StartEmbeddedAlertManager(
 
 func (e *Environment) startEtcd() {
 	if !e.enableEtcd {
-		e.Logger.Panic("etcd disabled")
+		panic("etcd disabled")
 	}
 	lg := e.Logger
 	defaultArgs := []string{
@@ -851,7 +853,7 @@ READY:
 			if resp != nil {
 				if retryCount%100 == 0 {
 					lg.With(
-						zap.Error(err),
+						logger.Err(err),
 						"status", resp.Status,
 					).Info("Waiting for cortex to start...")
 				}
@@ -1151,7 +1153,7 @@ func (e *Environment) StartOTELCollectorContext(ctx context.Context, opniAgentId
 	aggregatorArgs := []string{
 		fmt.Sprintf("--config=%s", path.Join(otelDir, "aggregator.yaml")),
 	}
-	e.Logger.Infof("launching process: `%s %s`", otelColBin, strings.Join(nodeArgs, " "))
+	e.Logger.Info("launching process:", otelColBin, strings.Join(nodeArgs, " "))
 	nodeCmd := exec.CommandContext(ctx, otelColBin, nodeArgs...)
 	plugins.ConfigureSysProcAttr(nodeCmd)
 	nodeCmd.Cancel = func() error {
@@ -1159,7 +1161,7 @@ func (e *Environment) StartOTELCollectorContext(ctx context.Context, opniAgentId
 	}
 	nodeExited := lo.Async(nodeCmd.Run)
 
-	e.Logger.Infof("launching process: `%s %s`", otelColBin, strings.Join(aggregatorArgs, " "))
+	e.Logger.Info(fmt.Sprintf("launching process: `%s %s`", otelColBin, strings.Join(aggregatorArgs, " ")))
 	aggregatorCmd := exec.CommandContext(ctx, otelColBin, aggregatorArgs...)
 	plugins.ConfigureSysProcAttr(aggregatorCmd)
 	aggregatorExited := lo.Async(aggregatorCmd.Run)
@@ -1212,7 +1214,7 @@ func (e *Environment) StartOTELCollectorContext(ctx context.Context, opniAgentId
 //
 // Returns port number of the server & a channel that shutdowns the server
 func (e *Environment) StartInstrumentationServer() (int, chan struct{}) {
-	// lg := e.logger
+	// lg := e.Logger
 	port := freeport.GetFreePort()
 
 	mux := http.NewServeMux()
@@ -1360,7 +1362,7 @@ func (e *Environment) StartNodeExporter() {
 		}
 		time.Sleep(time.Second)
 	}
-	e.Logger.With("address", fmt.Sprintf("http://localhost:%d", e.ports.NodeExporterPort)).Info("Node exporter started")
+	e.Logger.Info("Node exporter started", "address", fmt.Sprintf("http://localhost:%d", e.ports.NodeExporterPort))
 	e.addShutdownHook(func() {
 		session.Wait()
 	})
@@ -1392,12 +1394,12 @@ func (e *Environment) SimulateKubeObject(kPort int) {
 	go func() {
 		resp, err := client.Do(req)
 		if err != nil {
-			e.Logger.Error("got error from mock kube metrics api : ", zap.Error(err))
+			e.Logger.Error("got error from mock kube metrics api : ", logger.Err(err))
 			return
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			e.Logger.Error("got response code %d from mock kube metrics api", resp.StatusCode)
+			e.Logger.Error("got response code from mock kube metrics api", "code", resp.StatusCode)
 		}
 	}()
 }
@@ -1649,7 +1651,7 @@ func (e *Environment) NewManagementClient(opts ...EnvClientOption) managementv1.
 	}
 	options.apply(opts...)
 	if !e.enableGateway {
-		e.Logger.Panic("gateway disabled")
+		panic("gateway disabled")
 	}
 
 	dialOpts := append([]grpc.DialOption{
@@ -1670,7 +1672,7 @@ func (e *Environment) NewManagementClient(opts ...EnvClientOption) managementv1.
 
 func (e *Environment) ManagementClientConn() *grpc.ClientConn {
 	if !e.enableGateway {
-		e.Logger.Panic("gateway disabled")
+		panic("gateway disabled")
 	}
 	cc, err := grpc.DialContext(e.ctx, fmt.Sprintf("localhost:%d", e.ports.ManagementGRPC),
 		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
@@ -1684,21 +1686,21 @@ func (e *Environment) ManagementClientConn() *grpc.ClientConn {
 
 func (e *Environment) NewAlertEndpointsClient() alertingv1.AlertEndpointsClient {
 	if !e.enableGateway {
-		e.Logger.Panic("gateway disabled")
+		panic("gateway disabled")
 	}
 	return alertingv1.NewAlertEndpointsClient(e.ManagementClientConn())
 }
 
 func (e *Environment) NewAlertConditionsClient() alertingv1.AlertConditionsClient {
 	if !e.enableGateway {
-		e.Logger.Panic("gateway disabled")
+		panic("gateway disabled")
 	}
 	return alertingv1.NewAlertConditionsClient(e.ManagementClientConn())
 }
 
 func (e *Environment) NewAlertNotificationsClient() alertingv1.AlertNotificationsClient {
 	if !e.enableGateway {
-		e.Logger.Panic("gateway disabled")
+		panic("gateway disabled")
 	}
 	return alertingv1.NewAlertNotificationsClient(e.ManagementClientConn())
 }
@@ -1709,7 +1711,7 @@ func (e *Environment) PrometheusAPIEndpoint() string {
 
 func (e *Environment) startGateway() {
 	if !e.enableGateway {
-		e.Logger.Panic("gateway disabled")
+		panic("gateway disabled")
 	}
 	lg := e.Logger
 	e.gatewayConfig = e.NewGatewayConfig()
@@ -1728,7 +1730,7 @@ func (e *Environment) startGateway() {
 		},
 	}})
 	g := gateway.NewGateway(e.ctx, e.gatewayConfig, pluginLoader,
-		gateway.WithLogger(lg.Named("gateway")),
+		gateway.WithLogger(lg.WithGroup("gateway")),
 		gateway.WithLifecycler(lifecycler),
 		gateway.WithExtraUpdateHandlers(noop.NewSyncServer()),
 	)
@@ -1742,7 +1744,7 @@ func (e *Environment) startGateway() {
 
 	doneLoadingPlugins := make(chan struct{})
 	pluginLoader.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
-		lg.Infof("loaded %d plugins", numLoaded)
+		lg.Info(fmt.Sprintf("loaded %d plugins", numLoaded))
 		close(doneLoadingPlugins)
 	}))
 	lg.Info("Loading gateway plugins...")
@@ -1762,7 +1764,7 @@ func (e *Environment) startGateway() {
 		if errors.Is(err, context.Canceled) {
 			lg.Info("gateway server stopped")
 		} else if err != nil {
-			lg.With(zap.Error(err)).Warn("gateway server exited with error")
+			lg.Warn("gateway server exited with error", logger.Err(err))
 		}
 	}()
 	wg.Add(1)
@@ -1772,7 +1774,7 @@ func (e *Environment) startGateway() {
 		if errors.Is(err, context.Canceled) {
 			lg.Info("management server stopped")
 		} else if err != nil {
-			lg.With(zap.Error(err)).Warn("management server exited with error")
+			lg.Warn("management server exited with error", logger.Err(err))
 		}
 	}()
 	e.addShutdownHook(wg.Wait)
@@ -1793,7 +1795,7 @@ func (e *Environment) startGateway() {
 		time.Sleep(10 * time.Millisecond)
 	}
 	if !started {
-		lg.Panic("gateway failed to start")
+		panic("gateway failed to start")
 	}
 
 	lg.Info("Gateway started")
@@ -1895,7 +1897,10 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 	options.apply(e.defaultAgentOpts...)
 	options.apply(opts...)
 	if !e.enableGateway && options.remoteGatewayAddress == "" {
-		e.Logger.Panic("gateway disabled")
+		panic("gateway disabled")
+	}
+	if options.listenPort == 0 {
+		options.listenPort = freeport.GetFreePort()
 	}
 	if options.listenPort == 0 {
 		options.listenPort = freeport.GetFreePort()
@@ -2024,7 +2029,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 				agentv2.WithUnmanagedPluginLoader(pl),
 			)
 			if err != nil {
-				testlog.Log.With(zap.Error(err)).Error("failed to start agent")
+				testlog.Log.With(err).Error("failed to start agent")
 				errC <- err
 				cancel()
 				mu.Unlock()
@@ -2048,9 +2053,9 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		errC <- nil
 		if err := a.ListenAndServe(options.ctx); err != nil {
 			if errors.Is(err, context.Canceled) {
-				testlog.Log.Infof("agent %q stopped", id)
+				testlog.Log.Info(fmt.Sprintf("agent %q stopped", id))
 			} else {
-				testlog.Log.With(zap.Error(err)).Error("agent exited with error")
+				testlog.Log.Error("agent exited with error", logger.Err(err))
 			}
 		}
 		e.runningAgentsMu.Lock()
@@ -2102,14 +2107,14 @@ func (e *Environment) GatewayTLSConfig() *tls.Config {
 	case e.gatewayConfig.Spec.Certs.CACert != nil:
 		data, err := os.ReadFile(*e.gatewayConfig.Spec.Certs.CACert)
 		if err != nil {
-			e.Logger.Panic(err)
+			panic("gateway panic")
 		}
 		if !pool.AppendCertsFromPEM(data) {
-			e.Logger.Panic("failed to load gateway CA cert")
+			panic("failed to load gateway CA cert")
 		}
 	case e.gatewayConfig.Spec.Certs.CACertData != nil:
 		if !pool.AppendCertsFromPEM(e.gatewayConfig.Spec.Certs.CACertData) {
-			e.Logger.Panic("failed to load gateway CA cert")
+			panic("failed to load gateway CA cert")
 		}
 	}
 	return &tls.Config{
@@ -2147,13 +2152,13 @@ func (e *Environment) GatewayClientTLSConfig() *tls.Config {
 func (e *Environment) CortexTLSConfig() *tls.Config {
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(testdata.TestData("cortex/root.crt")) {
-		e.Logger.Panic("failed to load Cortex CA cert")
+		panic("failed to load Cortex CA cert")
 	}
 	clientCert := testdata.TestData("cortex/client.crt")
 	clientKey := testdata.TestData("cortex/client.key")
 	cert, err := tls.X509KeyPair(clientCert, clientKey)
 	if err != nil {
-		e.Logger.Panic(err)
+		panic("tls panic")
 	}
 	return &tls.Config{
 		MinVersion:   tls.VersionTLS12,
@@ -2174,18 +2179,18 @@ func (e *Environment) GetAlertingManagementWebhookEndpoint() string {
 
 func (e *Environment) EtcdClient() (*clientv3.Client, error) {
 	if !e.enableEtcd {
-		e.Logger.Panic("etcd disabled")
+		panic("etcd disabled")
 	}
+	slog.SetDefault(e.Logger)
 	return clientv3.New(clientv3.Config{
 		Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
 		Context:   e.ctx,
-		Logger:    e.Logger.Desugar(),
 	})
 }
 
 func (e *Environment) EtcdConfig() *v1beta1.EtcdStorageSpec {
 	if !e.enableEtcd {
-		e.Logger.Panic("etcd disabled")
+		panic("etcd disabled")
 	}
 	return &v1beta1.EtcdStorageSpec{
 		Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
@@ -2194,7 +2199,7 @@ func (e *Environment) EtcdConfig() *v1beta1.EtcdStorageSpec {
 
 func (e *Environment) JetStreamConfig() *v1beta1.JetStreamStorageSpec {
 	if !e.enableJetstream {
-		e.Logger.Panic("JetStream disabled")
+		panic("JetStream disabled")
 	}
 	return &v1beta1.JetStreamStorageSpec{
 		Endpoint:     fmt.Sprintf("http://localhost:%d", e.ports.Jetstream),

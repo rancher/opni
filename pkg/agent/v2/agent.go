@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -37,8 +38,8 @@ import (
 	"github.com/rancher/opni/pkg/util/fwd"
 	"github.com/rancher/opni/pkg/versions"
 	"github.com/samber/lo"
+	slogsampling "github.com/samber/slog-sampling"
 	"github.com/spf13/afero"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -65,7 +66,7 @@ type Agent struct {
 
 	config       v1beta1.AgentConfigSpec
 	router       *gin.Engine
-	Logger       *zap.SugaredLogger
+	logger       *slog.Logger
 	pluginLoader *plugins.PluginLoader
 
 	tenantID         string
@@ -119,14 +120,10 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	options.apply(opts...)
 	level := logger.DefaultLogLevel.Level()
 	if conf.Spec.LogLevel != "" {
-		l, err := zap.ParseAtomicLevel(conf.Spec.LogLevel)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing log level: %w", err)
-		}
-		level = l.Level()
+		level = logger.ParseLevel(conf.Spec.LogLevel)
 	}
-	lg := logger.New(logger.WithLogLevel(level)).Named("agent")
-	lg.Debugf("using log level: %s", level)
+	lg := logger.New(logger.WithLogLevel(level)).WithGroup("agent")
+	lg.Debug(fmt.Sprintf("using log level: %s", level.String()))
 
 	var pl *plugins.PluginLoader
 	if options.unmanagedPluginLoader != nil {
@@ -136,7 +133,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	}
 
 	pl.Hook(hooks.OnLoadM(func(p types.CapabilityNodePlugin, m meta.PluginMeta) {
-		lg.Infof("loaded capability node plugin %s", m.Module)
+		lg.Info(fmt.Sprintf("loaded capability node plugin %s", m.Module))
 	}))
 
 	router := gin.New()
@@ -176,8 +173,8 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		cfg, err := p.Configure(ctx, apiextensions.NewInsecureCertConfig())
 		if err != nil {
 			lg.With(
-				zap.String("plugin", md.Module),
-				zap.Error(err),
+				"plugin", md.Module,
+				logger.Err(err),
 			).Error("failed to configure routes")
 			return
 		}
@@ -187,7 +184,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	pluginUpgrader, err := machinery.ConfigurePluginUpgrader(
 		conf.Spec.PluginUpgrade,
 		conf.Spec.PluginDir,
-		lg.Named("plugin-upgrader"),
+		lg.WithGroup("plugin-upgrader"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure plugin syncer: %w", err)
@@ -195,7 +192,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 
 	upgrader, err := machinery.ConfigureAgentUpgrader(
 		&conf.Spec.Upgrade,
-		lg.Named("agent-upgrader"),
+		lg.WithGroup("agent-upgrader"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("agent upgrade configuration error: %w", err)
@@ -262,7 +259,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 			// Keep retrying until it succeeds.
 			err = ks.Put(ctx, kr)
 			if err != nil {
-				lg.With(zap.Error(err)).Error("failed to persist keyring (retry in 1 second)")
+				lg.With(logger.Err(err)).Error("failed to persist keyring (retry in 1 second)")
 				time.Sleep(1 * time.Second)
 			} else {
 				if options.rebootstrap {
@@ -285,7 +282,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	}, conf.Spec.Keyring.EphemeralKeyDirs...)
 	if err != nil {
 		lg.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Warn("error loading ephemeral keys")
 	} else if len(ekeys) > 0 {
 		kr = kr.Merge(keyring.New(lo.ToAnySlice(ekeys)...))
@@ -310,7 +307,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 
 	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
 		lg.With(
-			zap.String("plugin", md.Module),
+			"plugin", md.Module,
 		).Debug("loaded stream api extension plugin")
 		gatewayClient.RegisterSplicedStream(cc, md.Filename())
 	}))
@@ -319,7 +316,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		AgentOptions: options,
 		config:       conf.Spec,
 		router:       router,
-		Logger:       lg,
+		logger:       lg,
 		pluginLoader: pl,
 
 		tenantID:         id,
@@ -343,13 +340,13 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 	agentSyncConf := update.SyncConfig{
 		Client: syncClient,
 		Syncer: a.agentSyncer,
-		Logger: a.Logger.Named("agent-updater"),
+		Logger: logger.New(logger.WithLogLevel(logger.ParseLevel(a.config.LogLevel))).WithGroup("agent-updater"),
 	}
 	pluginSyncConf := update.SyncConfig{
 		Client:      syncClient,
 		StatsClient: a.gatewayClient,
 		Syncer:      a.pluginSyncer,
-		Logger:      a.Logger.Named("plugin-updater"),
+		Logger:      logger.New(logger.WithLogLevel(logger.ParseLevel(a.config.LogLevel))).WithGroup("plugin-updater"),
 	}
 
 	for _, conf := range []update.SyncConfig{agentSyncConf, pluginSyncConf} {
@@ -359,20 +356,20 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 				switch status.Code(err) {
 				case codes.Unauthenticated:
 					if a.loadedExistingKeyring {
-						a.Logger.With(
-							zap.Error(err),
+						a.logger.With(
+							logger.Err(err),
 						).Warn("The agent failed to authorize to the gateway using an existing keyring. " +
 							"This could be due to a leftover keyring from a previous installation that was not deleted.",
 						)
 						if a.config.ContainsBootstrapCredentials() {
-							a.Logger.Warn("Bootstrap credentials have been provided in the config file - " +
+							a.logger.Warn("Bootstrap credentials have been provided in the config file - " +
 								"the agent will restart and attempt to re-bootstrap a new keyring using these credentials.")
 							return ErrRebootstrap
 						}
 					}
 				case codes.Unavailable:
-					a.Logger.With(
-						zap.Error(err),
+					a.logger.With(
+						logger.Err(err),
 					).Warn("error syncing manifest (retrying)")
 					continue
 				}
@@ -394,7 +391,7 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 	if a.unmanagedPluginLoader == nil {
 		done := make(chan struct{})
 		a.pluginLoader.Hook(hooks.OnLoadingCompleted(func(numPlugins int) {
-			a.Logger.Infof("loaded %d plugins", numPlugins)
+			a.logger.Info(fmt.Sprintf("loaded %d plugins", numPlugins))
 			close(done)
 		}))
 
@@ -408,7 +405,7 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 			return ctx.Err()
 		}
 	} else {
-		a.Logger.Info("using unmanaged plugin loader")
+		a.logger.Info("using unmanaged plugin loader")
 	}
 	// eventually passed to runGatewayClient
 	buildInfo, ok := versions.ReadBuildInfo()
@@ -432,8 +429,8 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	a.Logger.With(
-		zap.String("address", listener.Addr().String()),
+	a.logger.With(
+		"address", listener.Addr().String(),
 	).Info("agent http server starting")
 
 	ctx, ca := context.WithCancelCause(ctx)
@@ -454,7 +451,7 @@ func (a *Agent) ListenAddress() string {
 }
 
 func setupPluginRoutes(
-	lg *zap.SugaredLogger,
+	lg *slog.Logger,
 	mutex *sync.Mutex,
 	router *gin.Engine,
 	cfg *apiextensions.HTTPAPIExtensionConfig,
@@ -465,11 +462,12 @@ func setupPluginRoutes(
 	defer mutex.Unlock()
 
 	sampledLogger := logger.New(
-		logger.WithSampling(&zap.SamplingConfig{
-			Initial:    1,
-			Thereafter: 0,
+		logger.WithSampling(&slogsampling.ThresholdSamplingOption{
+			Threshold: 1,
+			Tick:      logger.NoRepeatInterval,
+			Rate:      0,
 		}),
-	).Named("api")
+	).WithGroup("api")
 	forwarder := fwd.To(cfg.HttpAddr,
 		fwd.WithLogger(sampledLogger),
 		fwd.WithDestHint(pluginMeta.Filename()),
@@ -494,7 +492,7 @@ ROUTES:
 }
 
 func (a *Agent) runGatewayClient(ctx context.Context) error {
-	lg := a.Logger
+	lg := a.logger
 	isRetry := false
 	for ctx.Err() == nil {
 		if isRetry {
@@ -522,7 +520,7 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 			if status.Code(err) == codes.Canceled {
 				lg.Info("gateway client stopped")
 			} else {
-				lg.With(zap.Error(errF.Get())).Warn("disconnected from gateway")
+				lg.With(logger.Err(errF.Get())).Warn("disconnected from gateway")
 			}
 
 			a.healthzMu.Lock()
@@ -530,7 +528,7 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 			a.healthzMu.Unlock()
 		} else {
 			lg.With(
-				zap.Error(errF.Get()),
+				logger.Err(errF.Get()),
 			).Warn("error connecting to gateway")
 		}
 

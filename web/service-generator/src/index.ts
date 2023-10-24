@@ -1,10 +1,12 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { createEcmaScriptPlugin } from '@bufbuild/protoplugin';
 import {
   GeneratedFile,
   Schema,
   findCustomMessageOption,
 } from '@bufbuild/protoplugin/ecmascript';
-import { DescMethod, MethodKind } from '@bufbuild/protobuf';
+import { DescMethod, MethodKind, DescService } from '@bufbuild/protobuf';
 import { HttpRule } from '../../pkg/opni/generated/google/api/http_pb';
 import { version } from '../package.json';
 
@@ -21,12 +23,12 @@ function generateTs(schema: Schema) {
     f.preamble(file);
 
     file.services.forEach((service) => {
-      service.methods.forEach(method => printMethod(f, method));
+      service.methods.forEach(method => printMethod(f, method, service));
     });
   });
 }
 
-function printMethod(f: GeneratedFile, method: DescMethod) {
+function printMethod(f: GeneratedFile, method: DescMethod, service: DescService) {
   const m = findCustomMessageOption(method, 72295728, HttpRule);
   const input = f.import(method.input);
   const output = f.import(method.output);
@@ -47,13 +49,25 @@ function printMethod(f: GeneratedFile, method: DescMethod) {
   const transformResponse = outputIsEmpty ? '' : [`\n    transformResponse: resp => `, output, `.fromBinary(new Uint8Array(resp)),`];
   const data = inputIsEmpty ? '' : `,\n    data: input?.toBinary() as ArrayBuffer`;
   const urlPath = (m?.pattern.value as any || '').replaceAll('{', '${input.');
+  const potentialModelPath = output ? path.join('./web/pkg/opni/models', service.name, `${ output.name }.ts`) : '';
+  const modelFound = potentialModelPath && fs.existsSync(potentialModelPath);
+  const modelImport = modelFound ? f.import(output.name, `@pkg/opni/models/${ service.name }/${ output.name }`) : null;
+
+  const inputLogMessage = inputIsEmpty ? '' : `
+    if (input) {
+      console.info('Here is the input for a request to ${ service.name }-${ method.name }:', input);
+    }
+  `;
+
+  const returnText = modelImport ? [`return new `, modelImport, `(response)`] : [`return response`];
 
   switch (method.methodKind) {
   case MethodKind.Unary:
     f.print(`
-export async function ${ method.name }(`, ...(inputIsEmpty ? [] : ['input: ', input]), `): Promise<`, outputIsEmpty ? 'void' : output, `> {
+export async function ${ method.name }(`, ...(inputIsEmpty ? [] : ['input: ', input]), `): Promise<`, outputIsEmpty ? 'void' : modelImport || output, `> {
   try {
-    return (await `, _axios, `.request({`, ...transformResponse, `
+    ${ inputLogMessage }
+    const response = (await `, _axios, `.request({`, ...transformResponse, `
       method: '${ m?.pattern.case || 'get' }',
       responseType: 'arraybuffer',
       headers: {
@@ -62,9 +76,12 @@ export async function ${ method.name }(`, ...(inputIsEmpty ? [] : ['input: ', in
       },
       url: \`/opni-api/${ method.parent.name }${ urlPath }\`${ data }
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to ${ service.name }-${ method.name }:', response);
+    `, ...returnText, `
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -89,11 +106,13 @@ export function ${ method.name }(input: `, input, `, callback: (data: `, output,
     }
   });
   socket.addEventListener(`, _EVENT_CONNECTING, `, () => {
-    socket.socket.binaryType = 'arraybuffer';
-  }, { once: true });
+    if (socket.socket) {
+      socket.socket.binaryType = 'arraybuffer';
+    }
+  });
   socket.addEventListener(`, _EVENT_CONNECTED, `, () => {
     socket.send(input.toBinary());
-  }, { once: true });
+  });
   socket.addEventListener(`, _EVENT_CONNECT_ERROR, `, (e) => {
     console.error(e);
   })

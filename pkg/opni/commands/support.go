@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"os"
 
+	"log/slog"
+
 	"github.com/AlecAivazis/survey/v2"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -28,12 +30,9 @@ import (
 	"github.com/rancher/opni/pkg/update"
 	"github.com/rancher/opni/pkg/update/noop"
 	"github.com/rancher/opni/pkg/urn"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/ttacon/chalk"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -62,7 +61,7 @@ func BuildSupportBootstrapCmd() *cobra.Command {
 			ctx, ca := context.WithCancel(cmd.Context())
 			defer ca()
 
-			agentlg := logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(logLevel))))
+			agentlg := logger.New(logger.WithLogLevel(logger.ParseLevel(logLevel)))
 
 			if configFile == "" {
 				// find config file
@@ -75,11 +74,12 @@ func BuildSupportBootstrapCmd() *cobra.Command {
 					configFile = path
 				case errors.Is(err, config.ErrConfigNotFound):
 					wd, _ := os.Getwd()
-					agentlg.Infof(`could not find a config file in ["%s", "$home/.opni], and --config was not given`, wd)
+					agentlg.Info(fmt.Sprintf(`could not find a config file in ["%s", "$home/.opni], and --config was not given`, wd))
 				default:
 					agentlg.With(
-						zap.Error(err),
-					).Fatal("an error occurred while searching for a config file")
+						logger.Err(err),
+					).Error("an error occurred while searching for a config file")
+					os.Exit(1)
 				}
 			}
 
@@ -88,13 +88,15 @@ func BuildSupportBootstrapCmd() *cobra.Command {
 				objects, err := config.LoadObjectsFromFile(configFile)
 				if err != nil {
 					agentlg.With(
-						zap.Error(err),
-					).Fatal("failed to load config")
+						logger.Err(err),
+					).Error("failed to load config")
+					os.Exit(1)
 				}
 				if ok := objects.Visit(func(config *v1beta1.SupportAgentConfig) {
 					agentConfig = config
 				}); !ok {
-					agentlg.Fatal("no support agent config found in config file")
+					agentlg.Error("no support agent config found in config file")
+					os.Exit(1)
 				}
 			} else {
 				agentConfig.TypeMeta = v1beta1.SupportAgentConfigTypeMeta
@@ -117,7 +119,8 @@ func BuildSupportBootstrapCmd() *cobra.Command {
 			case agentConfig.Spec.AuthData.Token != "":
 				token = agentConfig.Spec.AuthData.Token
 			default:
-				agentlg.Fatal("no token provided")
+				agentlg.Error("no token provided")
+				os.Exit(1)
 			}
 
 			bootstrapper, err := configureSupportAgentBootstrap(
@@ -128,37 +131,42 @@ func BuildSupportBootstrapCmd() *cobra.Command {
 			)
 			if err != nil {
 				agentlg.With(
-					zap.Error(err),
-				).Fatal("failed to configure bootstrap")
+					logger.Err(err),
+				).Error("failed to configure bootstrap")
+				os.Exit(1)
 			}
 
 			ipBuilder, err := ident.GetProviderBuilder("supportagent")
 			if err != nil {
 				agentlg.With(
-					zap.Error(err),
-				).Fatal("failed to get ident provider")
+					logger.Err(err),
+				).Error("failed to get ident provider")
+				os.Exit(1)
 			}
 			ip := ipBuilder(agentConfig)
 
 			userid, err := ip.UniqueIdentifier(ctx)
 			if err != nil {
 				agentlg.With(
-					zap.Error(err),
-				).Fatal("failed to get unique identifier")
+					logger.Err(err),
+				).Error("failed to get unique identifier")
+				os.Exit(1)
 			}
 
 			kr, err := bootstrapper.Bootstrap(ctx, ip)
 			if err != nil {
 				agentlg.With(
-					zap.Error(err),
-				).Fatal("failed to bootstrap")
+					logger.Err(err),
+				).Error("failed to bootstrap")
+				os.Exit(1)
 			}
 
 			keyringData, err := kr.Marshal()
 			if err != nil {
 				agentlg.With(
-					zap.Error(err),
-				).Fatal("failed to marshal keyring")
+					logger.Err(err),
+				).Error("failed to marshal keyring")
+				os.Exit(1)
 			}
 
 			agentConfig.Spec.UserID = userid
@@ -168,8 +176,9 @@ func BuildSupportBootstrapCmd() *cobra.Command {
 			err = supportagentconfig.PersistConfig(configFile, agentConfig, keyringData, getStorePassword)
 			if err != nil {
 				agentlg.With(
-					zap.Error(err),
-				).Fatal("failed to persist config")
+					logger.Err(err),
+				).Error("failed to persist config")
+				os.Exit(1)
 			}
 		},
 	}
@@ -193,31 +202,34 @@ func BuildSupportPingCmd() *cobra.Command {
 			ctx, ca := context.WithCancel(cmd.Context())
 			defer ca()
 
-			agentlg := logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(logLevel))))
+			agentlg := logger.New(logger.WithLogLevel(logger.ParseLevel(logLevel)))
 
 			config := supportagentconfig.MustLoadConfig(configFile, agentlg)
 
 			gatewayClient, err := supportagentconfig.GatewayClientFromConfig(ctx, config, getRetrievePassword)
 			if err != nil {
 				agentlg.With(
-					zap.Error(err),
-				).Fatal("failed to get gateway client")
+					logger.Err(err),
+				).Error("failed to get gateway client")
+				os.Exit(1)
 			}
 
-			ctx = handleUpdates(ctx, agentlg.Zap(), gatewayClient)
+			ctx = handleUpdates(ctx, agentlg, gatewayClient)
 
 			cc, futureErr := gatewayClient.Connect(ctx)
 			if futureErr.IsSet() {
 				agentlg.With(
-					zap.Error(futureErr.Get()),
-				).Fatal("failed to connect to gateway")
+					logger.Err(futureErr.Get()),
+				).Error("failed to connect to gateway")
+				os.Exit(1)
 			}
 			pingClient := corev1.NewPingerClient(cc)
 			resp, err := pingClient.Ping(ctx, &emptypb.Empty{})
 			if err != nil {
 				agentlg.With(
-					zap.Error(err),
-				).Fatal("failed to ping gateway")
+					logger.Err(err),
+				).Error("failed to ping gateway")
+				os.Exit(1)
 			}
 			agentlg.Info(resp.Message)
 		},
@@ -249,30 +261,33 @@ func BuildSupportShipCmd() *cobra.Command {
 			ctx, ca := context.WithCancel(cmd.Context())
 			defer ca()
 
-			agentlg := logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(logLevel))))
+			agentlg := logger.New(logger.WithLogLevel(logger.ParseLevel(logLevel)))
 
 			config := supportagentconfig.MustLoadConfig(configFile, agentlg)
 
 			gatewayClient, err := supportagentconfig.GatewayClientFromConfig(ctx, config, getRetrievePassword)
 			if err != nil {
 				agentlg.With(
-					zap.Error(err),
-				).Fatal("failed to get gateway client")
+					logger.Err(err),
+				).Error("failed to get gateway client")
+				os.Exit(1)
 			}
 
-			ctx = handleUpdates(ctx, agentlg.Zap(), gatewayClient)
+			ctx = handleUpdates(ctx, agentlg, gatewayClient)
 
 			cc, futureErr := gatewayClient.Connect(ctx)
 			if futureErr.IsSet() {
 				agentlg.With(
-					zap.Error(futureErr.Get()),
-				).Fatal("failed to connect to gateway")
+					logger.Err(futureErr.Get()),
+				).Error("failed to connect to gateway")
+				os.Exit(1)
 			}
 
 			if cc == nil {
 				agentlg.With(
-					zap.Error(futureErr.Get()),
-				).Fatal("failed to connect to gateway")
+					logger.Err(futureErr.Get()),
+				).Error("failed to connect to gateway")
+				os.Exit(1)
 			}
 
 			md := metadata.New(map[string]string{
@@ -287,11 +302,11 @@ func BuildSupportShipCmd() *cobra.Command {
 
 			switch Distribution(args[0]) {
 			case RKE:
-				shipRKELogs(ctx, cc, agentlg.Zap())
+				shipRKELogs(ctx, cc, agentlg)
 			case K3S:
-				shipK3sLogs(ctx, cc, agentlg.Zap())
+				shipK3sLogs(ctx, cc, agentlg)
 			case RKE2:
-				shipRKE2Logs(ctx, cc, agentlg.Zap())
+				shipRKE2Logs(ctx, cc, agentlg)
 			default:
 				agentlg.Error("invalid cluster type, must be one of rke, k3s, or rke2")
 			}
@@ -312,13 +327,14 @@ func BuildSupportPasswordCmd() *cobra.Command {
 		Use:   "password",
 		Short: "Shows the initial password for Opensearch Dashboards",
 		Run: func(cmd *cobra.Command, args []string) {
-			agentlg := logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(logLevel))))
+			agentlg := logger.New(logger.WithLogLevel(logger.ParseLevel(logLevel)))
 
 			kr, err := supportagentconfig.LoadKeyring(getRetrievePassword)
 			if err != nil {
 				agentlg.With(
-					zap.Error(err),
-				).Fatal("failed to get keyring")
+					logger.Err(err),
+				).Error("failed to get keyring")
+				os.Exit(1)
 			}
 
 			var sharedKeys *keyring.SharedKeys
@@ -327,15 +343,17 @@ func BuildSupportPasswordCmd() *cobra.Command {
 			})
 
 			if !ok {
-				agentlg.Fatal("failed to get shared keys")
+				agentlg.Error("failed to get shared keys")
+				os.Exit(1)
 			}
 
 			hasher := crypto.NewCShakeHasher(sharedKeys.ServerKey, supportagent.SupportAgentDomain)
 			p, err := hasher.Hash(sharedKeys.ClientKey, 32)
 			if err != nil {
 				agentlg.With(
-					zap.Error(err),
-				).Fatal("failed create hash")
+					logger.Err(err),
+				).Error("failed create hash")
+				os.Exit(1)
 			}
 
 			fmt.Println(base64.StdEncoding.EncodeToString(p))
@@ -358,7 +376,7 @@ func configureSupportAgentBootstrap(
 	flags *pflag.FlagSet,
 	tokenData string,
 	endpoint string,
-	agentlg logger.ExtendedSugaredLogger,
+	agentlg *slog.Logger,
 ) (bootstrap.Bootstrapper, error) {
 	strategyConfig, err := trust.BuildConfigFromFlags(flags)
 	if err != nil {
@@ -372,8 +390,8 @@ func configureSupportAgentBootstrap(
 	token, err := tokens.ParseHex(tokenData)
 	if err != nil {
 		agentlg.With(
-			zap.Error(err),
-			zap.String("token", fmt.Sprintf("[redacted (len: %d)]", len(tokenData))),
+			logger.Err(err),
+			"token", fmt.Sprintf("[redacted (len: %d)]", len(tokenData)),
 		).Error("failed to parse token")
 		return nil, err
 	}
@@ -417,7 +435,7 @@ func getRetrievePassword(_ string) (string, error) {
 	return password, nil
 }
 
-func handleUpdates(ctx context.Context, lg *zap.SugaredLogger, client clients.GatewayClient) context.Context {
+func handleUpdates(ctx context.Context, lg *slog.Logger, client clients.GatewayClient) context.Context {
 	syncClient := controlv1.NewUpdateSyncClient(client.ClientConn())
 	pluginHandler := noop.NewPluginSyncHandler()
 	agentHandler := noop.NewAgentSyncHandler()
@@ -425,35 +443,38 @@ func handleUpdates(ctx context.Context, lg *zap.SugaredLogger, client clients.Ga
 	agentSyncConf := update.SyncConfig{
 		Client: syncClient,
 		Syncer: agentHandler,
-		Logger: lg.Named("agent-updater"),
+		Logger: lg.WithGroup("agent-updater"),
 	}
 	pluginSyncConf := update.SyncConfig{
 		Client: syncClient,
 		Syncer: pluginHandler,
-		Logger: lg.Named("plugin-updater"),
+		Logger: lg.WithGroup("plugin-updater"),
 	}
 
 	for _, conf := range []update.SyncConfig{agentSyncConf, pluginSyncConf} {
 		err := conf.DoSync(ctx)
 		if err != nil {
 			lg.With(
-				zap.Error(err),
-			).Fatal("failed to sync updates")
+				logger.Err(err),
+			).Error("failed to sync updates")
+			os.Exit(1)
 		}
 	}
 
 	agentManifest, err := agentSyncConf.Result(ctx)
 	if err != nil {
 		lg.With(
-			zap.Error(err),
-		).Fatal("failed to get updated agent manifest")
+			logger.Err(err),
+		).Error("failed to get updated agent manifest")
+		os.Exit(1)
 	}
 
 	pluginManifest, err := pluginSyncConf.Result(ctx)
 	if err != nil {
 		lg.With(
-			zap.Error(err),
-		).Fatal("failed to get updated plugin manifest")
+			logger.Err(err),
+		).Error("failed to get updated plugin manifest")
+		os.Exit(1)
 	}
 
 	ctx = metadata.AppendToOutgoingContext(ctx,

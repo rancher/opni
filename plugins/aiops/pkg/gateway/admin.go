@@ -11,6 +11,7 @@ import (
 
 	"github.com/Masterminds/semver"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/util/nats"
 	"github.com/rancher/opni/pkg/versions"
 	"github.com/rancher/opni/plugins/aiops/apis/admin"
@@ -186,7 +187,7 @@ func (s *AIOpsPlugin) GetAISettings(ctx context.Context, _ *emptypb.Empty) (*adm
 			Namespace: opni.Spec.S3.External.Credentials.Namespace,
 		}, secret)
 		if err != nil {
-			s.Logger.Error(err, "failed to get s3 secret")
+			s.Logger.Error("failed to get s3 secret", logger.Err(err))
 		}
 		s3Settings = &admin.S3Settings{
 			Endpoint:    opni.Spec.S3.External.Endpoint,

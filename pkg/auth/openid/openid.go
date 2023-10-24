@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	"github.com/gin-gonic/gin"
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/lestrrat-go/jwx/jwk"
@@ -21,7 +23,6 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/rbac"
 	"github.com/rancher/opni/pkg/util"
-	"go.uber.org/zap"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -37,7 +38,7 @@ const (
 type OpenidMiddleware struct {
 	keyRefresher *jwk.AutoRefresh
 	conf         *OpenidConfig
-	logger       *zap.SugaredLogger
+	logger       *slog.Logger
 
 	wellKnownConfig *WellKnownConfiguration
 	lock            sync.Mutex
@@ -58,7 +59,7 @@ func New(ctx context.Context, config v1beta1.AuthProviderSpec) (*OpenidMiddlewar
 	m := &OpenidMiddleware{
 		keyRefresher: jwk.NewAutoRefresh(ctx),
 		conf:         conf,
-		logger:       logger.New().Named("openid"),
+		logger:       logger.New().WithGroup("openid"),
 		configId:     string(sum[:]),
 	}
 
@@ -88,7 +89,7 @@ func (m *OpenidMiddleware) Handle(c *gin.Context) {
 	defer ca()
 	set, err := m.keyRefresher.Fetch(ctx, m.wellKnownConfig.JwksUri)
 	if err != nil {
-		lg.Errorf("failed to fetch JWK set: %v", err)
+		lg.Error(fmt.Sprintf("failed to fetch JWK set: %v", err))
 		c.AbortWithStatus(http.StatusServiceUnavailable)
 		return
 	}
@@ -104,13 +105,13 @@ func (m *OpenidMiddleware) Handle(c *gin.Context) {
 	case IDToken:
 		idt, err := ValidateIDToken(bearerToken, set)
 		if err != nil {
-			lg.Errorf("failed to validate ID token: %v", err)
+			lg.Error(fmt.Sprintf("failed to validate ID token: %v", err))
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 		claim, ok := idt.Get(m.conf.IdentifyingClaim)
 		if !ok {
-			lg.Errorf("identifying claim %q not found in ID token", m.conf.IdentifyingClaim)
+			lg.Error(fmt.Sprintf("identifying claim %q not found in ID token", m.conf.IdentifyingClaim))
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
@@ -118,13 +119,13 @@ func (m *OpenidMiddleware) Handle(c *gin.Context) {
 	case Opaque:
 		userInfo, err := m.cache.Get(bearerToken)
 		if err != nil {
-			lg.Errorf("failed to get user info: %v", err)
+			lg.Error(fmt.Sprintf("failed to get user info: %v", err))
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 		uid, err := userInfo.UserID()
 		if err != nil {
-			lg.Errorf("failed to get user id: %v", err)
+			lg.Error(fmt.Sprintf("failed to get user id: %v", err))
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
@@ -154,11 +155,12 @@ func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
 			if err != nil {
 				if isDiscoveryErrFatal(err) {
 					lg.With(
-						zap.Error(err),
-					).Panic("fatal error fetching openid configuration")
+						logger.Err(err),
+					).Error("fatal error fetching openid configuration")
+					panic("fatal error fetching openid configuration")
 				} else {
 					lg.With(
-						zap.Error(err),
+						logger.Err(err),
 					).Warn("failed to fetch openid configuration (will retry)")
 				}
 				continue
@@ -184,12 +186,13 @@ func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
 		data, err := os.ReadFile(*m.conf.Discovery.CACert)
 		if err != nil {
 			lg.With(
-				zap.Error(err),
+				logger.Err(err),
 				"filename", m.conf.Discovery.CACert,
-			).Panic("openid discovery: failed to read CA cert")
+			).Error("openid discovery: failed to read CA cert")
+			panic("openid discovery: failed to read CA cert")
 		}
 		if !certPool.AppendCertsFromPEM(data) {
-			lg.Panic("openid discovery: invalid ca cert")
+			panic("openid discovery: invalid ca cert")
 		}
 		httpClient = &http.Client{
 			Transport: &http.Transport{
@@ -206,7 +209,8 @@ func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
 	m.cache, err = NewUserInfoCache(m.conf, m.logger, WithHTTPClient(httpClient))
 	if err != nil {
 		lg.With(
-			zap.Error(err),
-		).Panic("failed to create user info cache")
+			logger.Err(err),
+		).Error("failed to create user info cache")
+		panic("failed to create user info cache")
 	}
 }

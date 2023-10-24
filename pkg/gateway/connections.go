@@ -3,16 +3,17 @@ package gateway
 import (
 	"context"
 	"encoding/base64"
+	"log/slog"
 	"strings"
 	sync "sync"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/lock"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/streams"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -45,7 +46,7 @@ type ConnectionTracker struct {
 	rootContext       context.Context
 	kv                storage.KeyValueStore
 	lm                storage.LockManager
-	logger            *zap.SugaredLogger
+	logger            *slog.Logger
 
 	listenersMu sync.Mutex
 	listeners   []TrackedConnectionListener
@@ -59,7 +60,7 @@ func NewConnectionTracker(
 	localInstanceInfo *corev1.InstanceInfo,
 	kv storage.KeyValueStore,
 	lm storage.LockManager,
-	lg *zap.SugaredLogger,
+	lg *slog.Logger,
 ) *ConnectionTracker {
 	return &ConnectionTracker{
 		localInstanceInfo: localInstanceInfo,
@@ -147,10 +148,10 @@ func (ct *ConnectionTracker) StreamServerInterceptor() grpc.StreamServerIntercep
 			lock.WithAcquireContext(ss.Context()),
 			lock.WithInitialValue(base64.StdEncoding.EncodeToString(util.Must(proto.Marshal(instanceInfo)))),
 		)
-		ct.logger.Debug("attempting to acquire connection lock for agent: ", agentId)
+		ct.logger.With("agentId", agentId).Debug("attempting to acquire connection lock")
 		if acquired, err := locker.TryLock(); !acquired {
 			ct.logger.With(
-				zap.Error(err),
+				logger.Err(err),
 				"agentId", agentId,
 			).Error("failed to acquire lock on agent connection")
 			if err == nil {
@@ -158,13 +159,13 @@ func (ct *ConnectionTracker) StreamServerInterceptor() grpc.StreamServerIntercep
 			}
 			return status.Errorf(codes.Internal, "failed to acquire lock on agent connection: %v", err)
 		}
-		ct.logger.Debug("acquired connection lock for agent: ", agentId)
+		ct.logger.With("agentId", agentId).Debug("acquired agent connection lock")
 
 		defer func() {
-			ct.logger.Debug("releasing connection lock for agent: ", agentId)
+			ct.logger.With("agentId", agentId).Debug("releasing agent connection lock")
 			if err := locker.Unlock(); err != nil {
 				ct.logger.With(
-					zap.Error(err),
+					logger.Err(err),
 					"agentId", agentId,
 				).Error("failed to release lock on agent connection")
 			}
@@ -221,33 +222,33 @@ func (ct *ConnectionTracker) handleEventLocked(event storage.WatchEvent[storage.
 			}
 			info, err := instanceInfo()
 			if err != nil {
-				lg.With(zap.Error(err)).Error("failed to unmarshal instance info")
+				lg.With(logger.Err(err)).Error("failed to unmarshal instance info")
 				return
 			}
 			if !info.GetAcquired() {
 				// a different instance is only attempting to acquire the lock,
 				// ignore the event
-				ct.logger.Debugf("observed lock attempt for agent %s from instance %s", agentId, info.GetRelayAddress())
+				ct.logger.With("agent", agentId, "instance", info.GetRelayAddress()).Debug("observed lock attempt from another instance")
 				return
 			}
 			// a different instance has acquired the lock, invalidate
 			// the current tracked connection
-			ct.logger.Debug("tracked connection invalidated: ", agentId)
+			ct.logger.With("agentId", agentId).Debug("tracked connection invalidated")
 			conn.cancelTrackingContext()
 			delete(ct.activeConnections, agentId)
 		}
 		info, err := instanceInfo()
 		if err != nil {
-			lg.With(zap.Error(err)).Error("failed to unmarshal instance info")
+			lg.With(logger.Err(err)).Error("failed to unmarshal instance info")
 			return
 		}
 		if !info.GetAcquired() {
 			return // ignore unacquired connections
 		}
 		if ct.IsLocalInstance(info) {
-			ct.logger.Debug("tracking new connection (local): ", agentId)
+			ct.logger.With("agentId", agentId).Debug("tracking new connection (local)")
 		} else {
-			ct.logger.Debug("tracking new connection: ", agentId)
+			ct.logger.With("agentId", agentId).Debug("tracking new connection")
 		}
 		ctx, cancel := context.WithCancel(ct.rootContext)
 		conn := &activeTrackedConnection{
@@ -294,7 +295,7 @@ func (ct *ConnectionTracker) handleEventLocked(event storage.WatchEvent[storage.
 
 			delete(ct.activeConnections, agentId)
 		} else {
-			lg.Debug("ignoring untracked key deletion event: ", event.Previous.Key())
+			lg.With("key", event.Previous.Key()).Debug("ignoring untracked key deletion event")
 		}
 	}
 }

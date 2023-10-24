@@ -3,6 +3,7 @@ package extensions
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
 	"github.com/rancher/opni/pkg/alerting/message"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/encoding/protojson"
 )
@@ -61,7 +63,7 @@ func (e *EmbeddedServer) handleWebhook(wr http.ResponseWriter, req *http.Request
 		}
 		if e.sendK8s {
 			if err := e.k8sDestination.Push(req.Context(), wMsg); err != nil {
-				e.logger.Error(err)
+				e.logger.Error("error", logger.Err(err))
 			}
 		}
 	}
@@ -72,17 +74,17 @@ func (e *EmbeddedServer) handleListNotifications(wr http.ResponseWriter, req *ht
 	var listRequest alertingv1.ListNotificationRequest
 	var b bytes.Buffer
 	if _, err := b.ReadFrom(req.Body); err != nil {
-		e.logger.Error(err)
+		e.logger.Error("error", logger.Err(err))
 		wr.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	if err := protojson.Unmarshal(b.Bytes(), &listRequest); err != nil {
-		e.logger.Error(err)
+		e.logger.Error("error", logger.Err(err))
 		wr.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	if err := listRequest.Validate(); err != nil {
-		e.logger.Error(err)
+		e.logger.Error("error", logger.Err(err))
 		wr.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -125,12 +127,12 @@ func (e *EmbeddedServer) handleListAlarms(wr http.ResponseWriter, req *http.Requ
 	var listRequest alertingv1.ListAlarmMessageRequest
 	var b bytes.Buffer
 	if _, err := b.ReadFrom(req.Body); err != nil {
-		e.logger.Error(err)
+		e.logger.Error("error", logger.Err(err))
 		wr.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	if err := protojson.Unmarshal(b.Bytes(), &listRequest); err != nil {
-		e.logger.Error(err)
+		e.logger.Error("error", logger.Err(err))
 		wr.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -158,7 +160,7 @@ func (e *EmbeddedServer) handleListAlarms(wr http.ResponseWriter, req *http.Requ
 			}
 
 			if len(key) == n {
-				e.logger.Warnf("fallback matching for condition %s -- no fingerprints found", listRequest.ConditionId)
+				e.logger.Warn(fmt.Sprintf("fallback matching for condition %s -- no fingerprints found", listRequest.ConditionId))
 				// fallback : match purely based on timestamp
 				msg, _ := e.alarmCache.Get(severity, key)
 				receivedAt := msg.ReceivedAt.AsTime()

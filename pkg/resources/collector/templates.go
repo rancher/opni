@@ -19,7 +19,7 @@ var (
 filelog/k8s:
   include: [ /var/log/pods/*/*/*.log ]
   exclude: []
-  start_at: beginning
+  storage: file_storage
   include_file_path: true
   include_file_name: false
   operators:
@@ -87,7 +87,7 @@ filelog/k8s:
 	templateLogAgentRKE = `
 filelog/rke:
   include: [ /var/lib/rancher/rke/log/*.log ]
-  start_at: beginning
+  storage: file_storage
   include_file_path: true
   include_file_name: false
   operators:
@@ -106,7 +106,7 @@ journald/k3s:
 	templateKubeAuditLogs = template.Must(template.New("kubeauditlogsreceiver").Parse(`
 filelog/kubeauditlogs:
   include: [ {{ . }} ]
-  start_at: beginning
+  storage: file_storage
   include_file_path: false
   include_file_name: false
   operators:
@@ -157,7 +157,7 @@ journald/rke2:
   directory: {{ . }}
 filelog/rke2:
   include: [ /var/lib/rancher/rke2/agent/logs/kubelet.log ]
-  start_at: beginning
+  storage: file_storage
   include_file_path: true
   include_file_name: false
   operators:
@@ -194,15 +194,16 @@ exporters:
     tls:
       insecure: true
     sending_queue:
-      num_consumers: 4
-      queue_size: 100
+      enabled: {{ .OTELConfig.Exporters.OTLP.QueueSettings.Enabled }}
+      num_consumers: {{ .OTELConfig.Exporters.OTLP.QueueSettings.NumConsumers }}
+      queue_size: {{ .OTELConfig.Exporters.OTLP.QueueSettings.QueueSize }}
     retry_on_failure:
       enabled: true
 processors:
   memory_limiter:
-    limit_mib: 250
-    spike_limit_mib: 50
-    check_interval: 1s
+    limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemoryLimitMiB }}
+    spike_limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemorySpikeLimitMiB }}
+    check_interval: {{ .OTELConfig.Processors.MemoryLimiter.CheckInterval }}
   k8sattributes:
     passthrough: false
     pod_association:
@@ -230,7 +231,12 @@ processors:
       - key: tier
       - key: component
     {{ template "metrics-system-processor" . }}
+extensions:
+  file_storage:
+    directory: /var/otel/filestorage
+    timeout: 1s
 service:
+  extensions: [file_storage]
   telemetry:
     logs:
       level: {{ .LogLevel }}
@@ -264,12 +270,13 @@ receivers:
 
 processors:
   batch:
-    send_batch_size: 1000
-    timeout: 15s
+    timeout: {{ .OTELConfig.Processors.Batch.Timeout }}
+    send_batch_size: {{ .OTELConfig.Processors.Batch.SendBatchSize }}
+    send_batch_max_size: {{ .OTELConfig.Processors.Batch.SendBatchMaxSize }} 
   memory_limiter:
-    limit_mib: 1000
-    spike_limit_mib: 350 
-    check_interval: 1s
+    limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemoryLimitMiB }}
+    spike_limit_mib: {{ .OTELConfig.Processors.MemoryLimiter.MemorySpikeLimitMiB }}
+    check_interval: {{ .OTELConfig.Processors.MemoryLimiter.CheckInterval }}
   transform:
     log_statements:
     - context: log
@@ -282,8 +289,9 @@ exporters:
     tls:
       insecure: true
     sending_queue:
-      num_consumers: 4
-      queue_size: 100
+      enabled: {{ .OTELConfig.Exporters.OTLPHTTP.QueueSettings.Enabled }}
+      num_consumers: {{ .OTELConfig.Exporters.OTLPHTTP.QueueSettings.NumConsumers }}
+      queue_size: {{ .OTELConfig.Exporters.OTLPHTTP.QueueSettings.QueueSize }}
     retry_on_failure:
       enabled: true
   {{ template "metrics-remotewrite-exporter" .}}

@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"sync"
 
-	"go.uber.org/zap"
+	"log/slog"
+
+	"github.com/rancher/opni/pkg/logger"
 )
 
 type UserInfo struct {
@@ -27,12 +29,12 @@ type UserInfoCache struct {
 	mu         sync.Mutex
 	config     *OpenidConfig
 	wellKnown  *WellKnownConfiguration
-	logger     *zap.SugaredLogger
+	logger     *slog.Logger
 }
 
 func NewUserInfoCache(
 	config *OpenidConfig,
-	logger *zap.SugaredLogger,
+	logger *slog.Logger,
 	opts ...ClientOption,
 ) (*UserInfoCache, error) {
 	options := ClientOptions{
@@ -70,7 +72,7 @@ func (c *UserInfoCache) Get(accessToken string) (*UserInfo, error) {
 	)
 	if err != nil {
 		lg.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Error("failed to fetch user info")
 		return nil, err
 	}
@@ -81,7 +83,7 @@ func (c *UserInfoCache) Get(accessToken string) (*UserInfo, error) {
 	id, err := info.UserID()
 	if err != nil {
 		lg.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Error("user info is invalid")
 		return nil, err
 	}

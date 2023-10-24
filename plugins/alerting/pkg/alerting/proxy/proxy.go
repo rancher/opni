@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"sync"
@@ -12,14 +13,13 @@ import (
 	ssync "github.com/rancher/opni/pkg/alerting/server/sync"
 	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
 	"github.com/rancher/opni/pkg/util"
-	"go.uber.org/zap"
 )
 
 const proxyPath = "/plugin_alerting/alertmanager"
 
 type ProxyServer struct {
 	util.Initializer
-	lg *zap.SugaredLogger
+	lg *slog.Logger
 
 	proxy *alertmanagerProxy
 }
@@ -56,7 +56,7 @@ func (p *ProxyServer) SetConfig(cfg server.Config) {
 }
 
 func NewProxyServer(
-	lg *zap.SugaredLogger,
+	lg *slog.Logger,
 ) *ProxyServer {
 	return &ProxyServer{
 		lg:    lg,
@@ -79,7 +79,7 @@ func (p *ProxyServer) ConfigureRoutes(router *gin.Engine) {
 var _ httpext.HTTPAPIExtension = (*ProxyServer)(nil)
 
 type alertmanagerProxy struct {
-	lg           *zap.SugaredLogger
+	lg           *slog.Logger
 	configMu     sync.RWMutex
 	reverseProxy *httputil.ReverseProxy
 }
@@ -93,11 +93,11 @@ func (a *alertmanagerProxy) SetConfig(config server.Config) {
 		return
 	}
 	targetURL := config.Client.ProxyClient().ProxyURL()
-	a.lg.Infof("configuring alertmanager proxy to : %s", targetURL.String())
+	a.lg.Info(fmt.Sprintf("configuring alertmanager proxy to : %s", targetURL.String()))
 	a.reverseProxy = httputil.NewSingleHostReverseProxy(targetURL)
 }
 
-func newAlertmanagerProxy(lg *zap.SugaredLogger) *alertmanagerProxy {
+func newAlertmanagerProxy(lg *slog.Logger) *alertmanagerProxy {
 	return &alertmanagerProxy{
 		reverseProxy: nil,
 		lg:           lg,

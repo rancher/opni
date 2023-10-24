@@ -16,7 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/logger"
-	"go.uber.org/zap"
+	"log/slog"
 
 	// add profiles
 	_ "net/http/pprof"
@@ -25,7 +25,7 @@ import (
 var defaultSeverity = alertingv1.OpniSeverity_Info.String()
 
 type EmbeddedServer struct {
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 	// maxSize of the combined caches
 	lub int
 	// layered caches
@@ -36,7 +36,7 @@ type EmbeddedServer struct {
 }
 
 func NewEmbeddedServer(
-	lg *zap.SugaredLogger,
+	lg *slog.Logger,
 	lub int,
 	sendK8s bool,
 ) *EmbeddedServer {
@@ -64,7 +64,7 @@ func StartOpniEmbeddedServer(
 	opniAddr string,
 	sendK8s bool,
 ) *http.Server {
-	lg := logger.NewPluginLogger().Named("opni.alerting")
+	lg := logger.NewPluginLogger().WithGroup("opni.alerting")
 	es := NewEmbeddedServer(lg, 125, sendK8s)
 	mux := http.NewServeMux()
 

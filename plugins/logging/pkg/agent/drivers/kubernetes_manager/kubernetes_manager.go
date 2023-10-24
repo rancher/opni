@@ -7,6 +7,8 @@ import (
 	"os"
 	"sync"
 
+	"log/slog"
+
 	"github.com/cisco-open/k8s-objectmatcher/patch"
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/apis"
@@ -21,7 +23,6 @@ import (
 	"github.com/rancher/opni/plugins/logging/apis/node"
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers"
 	"github.com/samber/lo"
-	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -60,9 +61,9 @@ type reconcilerState struct {
 }
 
 type KubernetesManagerDriverOptions struct {
-	Namespace  string             `option:"namespace"`
-	RestConfig *rest.Config       `option:"restConfig"`
-	Logger     *zap.SugaredLogger `option:"logger"`
+	Namespace  string       `option:"namespace"`
+	RestConfig *rest.Config `option:"restConfig"`
+	Logger     *slog.Logger `option:"logger"`
 }
 
 func NewKubernetesManagerDriver(options KubernetesManagerDriverOptions) (*KubernetesManagerDriver, error) {
@@ -123,14 +124,14 @@ BACKOFF:
 		if err := m.reconcileObject(collectorConf, config.Enabled); err != nil {
 			m.Logger.With(
 				"object", client.ObjectKeyFromObject(collectorConf).String(),
-				zap.Error(err),
+				logger.Err(err),
 			).Error("error reconciling object")
 			continue BACKOFF
 		}
 		if err := m.reconcileCollector(config.Enabled); err != nil {
 			m.Logger.With(
 				"object", "opni collector",
-				zap.Error(err),
+				logger.Err(err),
 			).Error("error reconciling object")
 		}
 
@@ -153,7 +154,7 @@ func (m *KubernetesManagerDriver) buildLoggingCollectorConfig() *opniloggingv1be
 		Spec: opniloggingv1beta1.CollectorConfigSpec{
 			Provider: opniloggingv1beta1.LogProvider(m.provider),
 			KubeAuditLogs: &opniloggingv1beta1.KubeAuditLogsSpec{
-				Enabled: true,
+				Enabled: false,
 			},
 		},
 	}
@@ -276,7 +277,7 @@ func (m *KubernetesManagerDriver) patchObject(current client.Object, desired cli
 	patchResult, err := patch.DefaultPatchMaker.Calculate(current, desired, patch.IgnoreStatusFields())
 	if err != nil {
 		m.Logger.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Warn("could not match objects")
 		return err
 	}
@@ -288,7 +289,7 @@ func (m *KubernetesManagerDriver) patchObject(current client.Object, desired cli
 
 	if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(desired); err != nil {
 		m.Logger.With(
-			zap.Error(err),
+			logger.Err(err),
 		).Error("failed to set last applied annotation")
 	}
 
@@ -321,8 +322,10 @@ func (m *KubernetesManagerDriver) buildEmptyCollector() *opnicorev1beta1.Collect
 			ImageSpec: opnimeta.ImageSpec{
 				ImagePullPolicy: lo.ToPtr(corev1.PullAlways),
 			},
-			SystemNamespace: m.Namespace,
-			AgentEndpoint:   otel.AgentEndpoint(serviceName),
+			SystemNamespace:          m.Namespace,
+			AgentEndpoint:            otel.AgentEndpoint(serviceName),
+			AggregatorOTELConfigSpec: opnicorev1beta1.NewDefaultAggregatorOTELConfigSpec(),
+			NodeOTELConfigSpec:       opnicorev1beta1.NewDefaultNodeOTELConfigSpec(),
 		},
 	}
 }
@@ -331,7 +334,7 @@ func init() {
 	drivers.NodeDrivers.Register("kubernetes-manager", func(_ context.Context, opts ...driverutil.Option) (drivers.LoggingNodeDriver, error) {
 		options := KubernetesManagerDriverOptions{
 			Namespace: os.Getenv("POD_NAMESPACE"),
-			Logger:    logger.NewPluginLogger().Named("logging").Named("kubernetes-manager"),
+			Logger:    logger.NewPluginLogger().WithGroup("logging").WithGroup("kubernetes-manager"),
 		}
 		driverutil.ApplyOptions(&options, opts...)
 		return NewKubernetesManagerDriver(options)

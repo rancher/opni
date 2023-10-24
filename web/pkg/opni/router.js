@@ -20,6 +20,8 @@ import AlertingOverview from './pages/AlertingOverview';
 import AlertingBackend from './pages/AlertingBackend';
 import LogAnomalyBackend from './pages/LogAnomalyBackend';
 import PretrainedModels from './pages/PretrainedModels';
+import Snapshots from './pages/Snapshots';
+import Snapshot from './pages/Snapshot';
 import Root from './pages/Root';
 
 export const NAVIGATION = {
@@ -47,10 +49,33 @@ export const NAVIGATION = {
     },
     {
       name:      'logging-config',
-      path:      '/logging-config',
+      path:      '/logging',
       labelKey:  'opni.nav.loggingConfig',
       component: LoggingBackend,
-      display:   true
+      display:   true,
+      routes:    [
+        {
+          name:      'snapshots',
+          path:      '/snapshots',
+          labelKey:  'opni.nav.snapshots',
+          component: Snapshots,
+          display:   true,
+          routes:     [
+            {
+              name:      'snapshot-create',
+              path:      '/create',
+              component: Snapshot,
+              display:   false,
+            },
+            {
+              name:      'snapshot',
+              path:      '/:id',
+              component: Snapshot,
+              display:   false
+            },
+          ]
+        }
+      ]
     },
     {
       name:      'monitoring',

@@ -11,7 +11,6 @@ import (
 	"github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
-	"go.uber.org/zap"
 	"sigs.k8s.io/yaml"
 )
 
@@ -24,7 +23,7 @@ type Unmarshaler interface {
 	Unmarshal(into interface{}) error
 }
 
-var configLog = logger.New().Named("config")
+var configLog = logger.New().WithGroup("config")
 
 type GatewayConfig = v1beta1.GatewayConfig
 
@@ -48,7 +47,7 @@ func LoadObjects(documents [][]byte) (meta.ObjectList, error) {
 		object, err := LoadObject(document)
 		if err != nil {
 			lg.With(
-				zap.Error(err),
+				logger.Err(err),
 			).Error("error loading config")
 			continue
 		}

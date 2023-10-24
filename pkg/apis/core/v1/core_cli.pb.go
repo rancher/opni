@@ -574,7 +574,7 @@ func (in *Revision) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *Reference) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Reference", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.StringVar(&in.Id, strings.Join(append(prefix, "id"), "."), "", "")
+	fs.Var(flagutil.IntPtrValue(nil, &in.Revision), strings.Join(append(prefix, "revision"), "."), "A numerical revision uniquely identifying a specific version of the resource.")
 	return fs
 }
 

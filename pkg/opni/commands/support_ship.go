@@ -6,14 +6,15 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
 
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/supportagent/dateparser"
 	"github.com/rancher/opni/pkg/supportagent/filereader"
 	"github.com/rancher/opni/pkg/supportagent/shipper"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
@@ -31,7 +32,7 @@ const (
 	K3S  Distribution = "k3s"
 )
 
-func shipRKELogs(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipRKELogs(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	lg.Info("shipping rke etcd logs")
 	if err := shipRKEEtcd(ctx, cc, lg); err != nil {
 		return err
@@ -63,7 +64,7 @@ func shipRKELogs(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.Sugar
 	return nil
 }
 
-func shipRKEEtcd(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipRKEEtcd(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	reader, err := filereader.NewFileReader("k8s/containerlogs/etcd")
 	if err != nil {
 		if os.IsExist(err) {
@@ -82,7 +83,7 @@ func shipRKEEtcd(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.Sugar
 	return s.Publish(ctx, reader.Scan())
 }
 
-func shipRKEKubeApi(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipRKEKubeApi(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	reader, err := filereader.NewFileReader("k8s/containerlogs/kube-apiserver")
 	if err != nil {
 		if os.IsExist(err) {
@@ -101,7 +102,7 @@ func shipRKEKubeApi(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.Su
 	return s.Publish(ctx, reader.Scan())
 }
 
-func shipRKEKubelet(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipRKEKubelet(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	reader, err := filereader.NewFileReader("k8s/containerlogs/kubelet")
 	if err != nil {
 		if os.IsExist(err) {
@@ -120,7 +121,7 @@ func shipRKEKubelet(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.Su
 	return s.Publish(ctx, reader.Scan())
 }
 
-func shipRKEKubeControllerManager(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipRKEKubeControllerManager(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	reader, err := filereader.NewFileReader("k8s/containerlogs/kube-controller-manager")
 	if err != nil {
 		if os.IsExist(err) {
@@ -139,7 +140,7 @@ func shipRKEKubeControllerManager(ctx context.Context, cc grpc.ClientConnInterfa
 	return s.Publish(ctx, reader.Scan())
 }
 
-func shipRKEKubeScheduler(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipRKEKubeScheduler(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	reader, err := filereader.NewFileReader("k8s/containerlogs/kube-scheduler")
 	if err != nil {
 		if os.IsExist(err) {
@@ -158,7 +159,7 @@ func shipRKEKubeScheduler(ctx context.Context, cc grpc.ClientConnInterface, lg *
 	return s.Publish(ctx, reader.Scan())
 }
 
-func shipRKEKubeProxy(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipRKEKubeProxy(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	reader, err := filereader.NewFileReader("k8s/containerlogs/kube-proxy")
 	if err != nil {
 		if os.IsExist(err) {
@@ -177,10 +178,10 @@ func shipRKEKubeProxy(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.
 	return s.Publish(ctx, reader.Scan())
 }
 
-func shipRKERancher(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipRKERancher(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	files, err := filepath.Glob("rancher/containerlogs/server-*")
 	if err != nil {
-		lg.Errorw("failed to glob rancher logs", zap.Error(err))
+		lg.Error("failed to glob rancher logs", logger.Err(err))
 		return err
 	}
 
@@ -213,14 +214,14 @@ func shipRKERancher(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.Su
 		}
 		err = s.Publish(ctx, reader.Scan())
 		if err != nil {
-			lg.With(zap.Error(err)).Errorf("failed to publish rancher logs %s", file)
+			lg.With(logger.Err(err)).Error(fmt.Sprintf("failed to publish rancher logs %s", file))
 		}
 		reader.Close()
 	}
 	return nil
 }
 
-func shipK3sLogs(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipK3sLogs(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	lg.Info("shipping k3s service logs")
 	if err := shipK3sControlplane(ctx, cc, lg); err != nil {
 		return err
@@ -252,7 +253,7 @@ func zoneAndYearFromDatefile() (string, string) {
 	return "", ""
 }
 
-func shipK3sControlplane(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipK3sControlplane(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	// Extract timezone and year from the date output
 	timezone, year := zoneAndYearFromDatefile()
 
@@ -279,12 +280,12 @@ func shipK3sControlplane(ctx context.Context, cc grpc.ClientConnInterface, lg *z
 	return s.Publish(ctx, reader.Scan())
 }
 
-func shipK3sRancher(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipK3sRancher(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	timezone, year := zoneAndYearFromDatefile()
 
 	files, err := filepath.Glob("k3s/podlogs/cattle-system-rancher-*")
 	if err != nil {
-		lg.Errorw("failed to glob rancher logs", zap.Error(err))
+		lg.Error("failed to glob rancher logs", logger.Err(err))
 		return err
 	}
 
@@ -318,7 +319,7 @@ func shipK3sRancher(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.Su
 		}
 		err = s.Publish(ctx, reader.Scan())
 		if err != nil {
-			lg.With(zap.Error(err)).Errorf("failed to publish rancher logs %s", file)
+			lg.With(logger.Err(err)).Error(fmt.Sprintf("failed to publish rancher logs %s", file))
 		}
 		reader.Close()
 	}
@@ -326,7 +327,7 @@ func shipK3sRancher(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.Su
 	return nil
 }
 
-func shipRKE2Logs(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipRKE2Logs(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	lg.Info("shipping rke2 etcd logs")
 	if err := shipRKE2Etcd(ctx, cc, lg); err != nil {
 		return err
@@ -362,10 +363,10 @@ func shipRKE2Logs(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.Suga
 	return nil
 }
 
-func shipRKE2Etcd(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipRKE2Etcd(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	files, err := filepath.Glob("rke2/podlogs/kube-system-etcd-*")
 	if err != nil {
-		lg.Errorw("failed to glob rke2 etcd logs", zap.Error(err))
+		lg.Error("failed to glob rke2 etcd logs", logger.Err(err))
 		return err
 	}
 
@@ -385,7 +386,7 @@ func shipRKE2Etcd(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.Suga
 		}
 		err = s.Publish(ctx, reader.Scan())
 		if err != nil {
-			lg.With(zap.Error(err)).Errorf("failed to publish rke2 etcd logs %s", file)
+			lg.With(logger.Err(err)).Error(fmt.Sprintf("failed to publish rke2 etcd logs %s", file))
 		}
 		reader.Close()
 	}
@@ -393,7 +394,7 @@ func shipRKE2Etcd(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.Suga
 	return nil
 }
 
-func shipRKE2Kubelet(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipRKE2Kubelet(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	reader, err := filereader.NewFileReader("rke2/agent-logs/kubelet.log")
 	if err != nil {
 		if os.IsExist(err) {
@@ -418,10 +419,10 @@ func shipRKE2Kubelet(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.S
 	return s.Publish(ctx, reader.Scan())
 }
 
-func shipRKE2KubeAPI(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipRKE2KubeAPI(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	files, err := filepath.Glob("rke2/podlogs/kube-system-kube-apiserver-*")
 	if err != nil {
-		lg.Errorw("failed to glob rke2 kube-api logs", zap.Error(err))
+		lg.Error("failed to glob rke2 kube-api logs", logger.Err(err))
 		return err
 	}
 
@@ -447,7 +448,7 @@ func shipRKE2KubeAPI(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.S
 		}
 		err = s.Publish(ctx, reader.Scan())
 		if err != nil {
-			lg.With(zap.Error(err)).Errorf("failed to publish rke2 kube-api logs %s", file)
+			lg.With(logger.Err(err)).Error(fmt.Sprintf("failed to publish rke2 kube-api logs %s", file))
 		}
 		reader.Close()
 	}
@@ -455,10 +456,10 @@ func shipRKE2KubeAPI(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.S
 	return nil
 }
 
-func shipRKE2KubeControllerManager(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipRKE2KubeControllerManager(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	files, err := filepath.Glob("rke2/podlogs/kube-system-kube-controller-manager-*")
 	if err != nil {
-		lg.Errorw("failed to glob rke2 kube-controller-manager logs", zap.Error(err))
+		lg.Error("failed to glob rke2 kube-controller-manager logs", logger.Err(err))
 		return err
 	}
 
@@ -484,7 +485,7 @@ func shipRKE2KubeControllerManager(ctx context.Context, cc grpc.ClientConnInterf
 		}
 		err = s.Publish(ctx, reader.Scan())
 		if err != nil {
-			lg.With(zap.Error(err)).Errorf("failed to publish rke2 kube-controller-manager logs %s", file)
+			lg.With(logger.Err(err)).Error(fmt.Sprintf("failed to publish rke2 kube-controller-manager logs %s", file))
 		}
 		reader.Close()
 	}
@@ -492,10 +493,10 @@ func shipRKE2KubeControllerManager(ctx context.Context, cc grpc.ClientConnInterf
 	return nil
 }
 
-func shipRKE2KubeScheduler(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipRKE2KubeScheduler(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	files, err := filepath.Glob("rke2/podlogs/kube-system-kube-scheduler-*")
 	if err != nil {
-		lg.Errorw("failed to glob rke2 kube-scheduler logs", zap.Error(err))
+		lg.Error("failed to glob rke2 kube-scheduler logs", logger.Err(err))
 		return err
 	}
 
@@ -521,7 +522,7 @@ func shipRKE2KubeScheduler(ctx context.Context, cc grpc.ClientConnInterface, lg 
 		}
 		err = s.Publish(ctx, reader.Scan())
 		if err != nil {
-			lg.With(zap.Error(err)).Errorf("failed to publish rke2 kube-scheduler logs %s", file)
+			lg.With(logger.Err(err)).Error(fmt.Sprintf("failed to publish rke2 kube-scheduler logs %s", file))
 		}
 		reader.Close()
 	}
@@ -529,10 +530,10 @@ func shipRKE2KubeScheduler(ctx context.Context, cc grpc.ClientConnInterface, lg 
 	return nil
 }
 
-func shipRKE2KubeProxy(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipRKE2KubeProxy(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	files, err := filepath.Glob("rke2/podlogs/kube-system-kube-proxy-*")
 	if err != nil {
-		lg.Errorw("failed to glob rke2 kube-proxy logs", zap.Error(err))
+		lg.Error("failed to glob rke2 kube-proxy logs", logger.Err(err))
 		return err
 	}
 
@@ -558,7 +559,7 @@ func shipRKE2KubeProxy(ctx context.Context, cc grpc.ClientConnInterface, lg *zap
 		}
 		err = s.Publish(ctx, reader.Scan())
 		if err != nil {
-			lg.With(zap.Error(err)).Errorf("failed to publish rke2 kube-proxy logs %s", file)
+			lg.With(logger.Err(err)).Error(fmt.Sprintf("failed to publish rke2 kube-proxy logs %s", file))
 		}
 		reader.Close()
 	}
@@ -566,7 +567,7 @@ func shipRKE2KubeProxy(ctx context.Context, cc grpc.ClientConnInterface, lg *zap
 	return nil
 }
 
-func shipRKE2Journald(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipRKE2Journald(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	reader, err := filereader.NewFileReader("journald/rke2-server")
 	if err != nil {
 		if os.IsExist(err) {
@@ -591,10 +592,10 @@ func shipRKE2Journald(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.
 	return s.Publish(ctx, reader.Scan())
 }
 
-func shipRKE2Rancher(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.SugaredLogger) error {
+func shipRKE2Rancher(ctx context.Context, cc grpc.ClientConnInterface, lg *slog.Logger) error {
 	files, err := filepath.Glob("rke2/podlogs/cattle-system-rancher-*")
 	if err != nil {
-		lg.Errorw("failed to glob rke2 rancher logs", zap.Error(err))
+		lg.Error("failed to glob rke2 rancher logs", logger.Err(err))
 		return err
 	}
 
@@ -629,7 +630,7 @@ func shipRKE2Rancher(ctx context.Context, cc grpc.ClientConnInterface, lg *zap.S
 		}
 		err = s.Publish(ctx, reader.Scan())
 		if err != nil {
-			lg.With(zap.Error(err)).Errorf("failed to publish rke2 rancher logs %s", file)
+			lg.With(logger.Err(err)).Error(fmt.Sprintf("failed to publish rke2 rancher logs %s", file))
 		}
 		reader.Close()
 	}

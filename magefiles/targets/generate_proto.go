@@ -94,6 +94,7 @@ func (Generate) ProtobufTypescript() error {
 		"plugins/metrics/apis/cortexadmin",
 		"plugins/metrics/apis/cortexops",
 		"plugins/metrics/apis/node",
+		"plugins/logging/apis/loggingadmin",
 	}
 
 	out, err := ragu.GenerateCode([]ragu.Generator{

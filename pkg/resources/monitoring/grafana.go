@@ -344,7 +344,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		}
 
 		if spec.InsecureSkipVerify != nil && *spec.InsecureSkipVerify {
-			r.logger.Warn(chalk.Yellow.Color("InsecureSkipVerify enabled for openid auth"))
+			r.lg.Warn(chalk.Yellow.Color("InsecureSkipVerify enabled for openid auth"))
 		}
 	}
 

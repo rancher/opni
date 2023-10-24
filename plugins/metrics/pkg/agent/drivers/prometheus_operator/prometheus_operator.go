@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	"log/slog"
+
 	"github.com/lestrrat-go/backoff/v2"
 	monitoringcoreosv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringcoreosv1alpha1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1alpha1"
@@ -20,7 +22,6 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
 	reconcilerutil "github.com/rancher/opni/plugins/metrics/pkg/agent/drivers/util"
 	"github.com/samber/lo"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,9 +35,9 @@ type ExternalPromOperatorDriver struct {
 }
 
 type ExternalPromOperatorDriverOptions struct {
-	K8sClient client.Client      `option:"k8sClient"`
-	Logger    *zap.SugaredLogger `option:"logger"`
-	Namespace string             `option:"namespace"`
+	K8sClient client.Client `option:"k8sClient"`
+	Logger    *slog.Logger  `option:"logger"`
+	Namespace string        `option:"namespace"`
 }
 
 func NewExternalPromOperatorDriver(options ExternalPromOperatorDriverOptions) (*ExternalPromOperatorDriver, error) {
@@ -108,11 +109,11 @@ func (d *ExternalPromOperatorDriver) ConfigureNode(nodeId string, conf *node.Met
 BACKOFF:
 	for backoff.Continue(b) {
 		for _, obj := range objList {
-			lg.Debugf("object : %s, should exist : %t", client.ObjectKeyFromObject(obj.A).String(), obj.B)
+			lg.Debug(fmt.Sprintf("object : %s, should exist : %t", client.ObjectKeyFromObject(obj.A).String(), obj.B))
 			if err := reconcilerutil.ReconcileObject(lg, d.K8sClient, d.Namespace, obj); err != nil {
 				lg.With(
 					"object", client.ObjectKeyFromObject(obj.A).String(),
-					zap.Error(err),
+					logger.Err(err),
 				).Error("error reconciling object")
 				continue BACKOFF
 			}
@@ -327,7 +328,7 @@ func init() {
 	drivers.NodeDrivers.Register("prometheus-operator", func(_ context.Context, opts ...driverutil.Option) (drivers.MetricsNodeDriver, error) {
 		options := ExternalPromOperatorDriverOptions{
 			Namespace: os.Getenv("POD_NAMESPACE"),
-			Logger:    logger.NewPluginLogger().Named("metrics").Named("prometheus-operator"),
+			Logger:    logger.NewPluginLogger().WithGroup("metrics").WithGroup("prometheus-operator"),
 		}
 		if err := driverutil.ApplyOptions(&options, opts...); err != nil {
 			return nil, err

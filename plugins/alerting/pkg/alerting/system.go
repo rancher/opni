@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/caching"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/node_backend"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
-	"go.uber.org/zap"
 
 	"github.com/nats-io/nats.go"
 	alertingClient "github.com/rancher/opni/pkg/alerting/client"
@@ -61,7 +61,7 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		p.gatewayConfig.Set(config)
 		backend, err := machinery.ConfigureStorageBackend(p.ctx, &config.Spec.Storage)
 		if err != nil {
-			p.logger.With(zap.Error(err)).Error("failed to configure storage backend")
+			p.logger.With(logger.Err(err)).Error("failed to configure storage backend")
 			os.Exit(1)
 		}
 		p.storageBackend.Set(backend)
@@ -78,7 +78,7 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		}
 		p.configureDriver(p.ctx,
 			driverutil.NewOption("alertingOptions", opt),
-			driverutil.NewOption("logger", p.logger.Named("alerting-manager")),
+			driverutil.NewOption("logger", p.logger.WithGroup("alerting-manager")),
 			driverutil.NewOption("subscribers", []chan alertingClient.AlertingClient{p.clusterNotifier}),
 		)
 	})
@@ -127,7 +127,7 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		}),
 	)
 	if err != nil {
-		p.logger.With("err", err).Error("fatal error connecting to NATs")
+		p.logger.With(logger.Err(err)).Error("fatal error connecting to NATs")
 	}
 	p.natsConn.Set(nc)
 	mgr, err := p.natsConn.Get().JetStream()
@@ -145,13 +145,13 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		}
 		clStatus, err := p.GetClusterStatus(p.ctx, &emptypb.Empty{})
 		if err != nil {
-			p.logger.With("err", err).Error("failed to get cluster status")
+			p.logger.With(logger.Err(err)).Error("failed to get cluster status")
 			return
 		}
 		if clStatus.State == alertops.InstallState_Installed || clStatus.State == alertops.InstallState_InstallUpdating {
 			syncInfo, err := p.getSyncInfo(p.ctx)
 			if err != nil {
-				p.logger.With("err", err).Error("failed to get sync info")
+				p.logger.With(logger.Err(err)).Error("failed to get sync info")
 			} else {
 				for _, comp := range p.Components() {
 					comp.Sync(p.ctx, syncInfo)
@@ -159,11 +159,11 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 			}
 			conf, err := p.GetClusterConfiguration(p.ctx, &emptypb.Empty{})
 			if err != nil {
-				p.logger.With("err", err).Error("failed to get cluster configuration")
+				p.logger.With(logger.Err(err)).Error("failed to get cluster configuration")
 				return
 			}
 			peers := listPeers(int(conf.GetNumReplicas()))
-			p.logger.Infof("reindexing known alerting peers to : %v", peers)
+			p.logger.Info(fmt.Sprintf("reindexing known alerting peers to : %v", peers))
 			p.AlertingClient.MemberlistClient().SetKnownPeers(peers)
 			for _, comp := range p.Components() {
 				comp.SetConfig(server.Config{
@@ -183,7 +183,7 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	services := []string{"CortexAdmin", "CortexOps"}
 	cc, err := intf.GetClientConn(p.ctx, services...)
 	if err != nil {
-		p.logger.With("err", err).Error("failed to get required clients for alerting : %s", strings.Join(services, ","))
+		p.logger.With(logger.Err(err)).Error(fmt.Sprintf("failed to get required clients for alerting : %s", strings.Join(services, ",")))
 		if p.ctx.Err() != nil {
 			// Plugin is shutting down, don't exit
 			return
@@ -202,7 +202,7 @@ func (p *Plugin) handleDriverNotifications() {
 			p.logger.Info("shutting down cluster driver update handler")
 			return
 		case client := <-p.clusterNotifier:
-			p.logger.Infof("updating alerting client based on cluster status : %v", client)
+			p.logger.Info(fmt.Sprintf("updating alerting client based on cluster status : %v", client))
 			serverCfg := server.Config{
 				Client: client.Clone(),
 			}

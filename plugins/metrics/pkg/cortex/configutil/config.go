@@ -359,7 +359,6 @@ func NewHostOverrides(impl StandardOverridesShape) []CortexConfigOverrider {
 			return true
 		}),
 		NewOverrider(func(t *rulestore.Config) bool {
-			t.Backend = "filesystem"
 			t.Filesystem.Directory = filepath.Join(impl.StorageDir, "rules")
 			return true
 		}),

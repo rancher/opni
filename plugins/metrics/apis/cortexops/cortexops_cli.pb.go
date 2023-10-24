@@ -582,6 +582,114 @@ HTTP handlers for this method:
 	return cmd
 }
 
+func (in *CapabilityBackendConfigSpec) DeepCopyInto(out *CapabilityBackendConfigSpec) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *CapabilityBackendConfigSpec) DeepCopy() *CapabilityBackendConfigSpec {
+	return proto.Clone(in).(*CapabilityBackendConfigSpec)
+}
+
+func (in *CortexWorkloadsConfig) DeepCopyInto(out *CortexWorkloadsConfig) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *CortexWorkloadsConfig) DeepCopy() *CortexWorkloadsConfig {
+	return proto.Clone(in).(*CortexWorkloadsConfig)
+}
+
+func (in *CortexWorkloadSpec) DeepCopyInto(out *CortexWorkloadSpec) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *CortexWorkloadSpec) DeepCopy() *CortexWorkloadSpec {
+	return proto.Clone(in).(*CortexWorkloadSpec)
+}
+
+func (in *CortexApplicationConfig) DeepCopyInto(out *CortexApplicationConfig) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *CortexApplicationConfig) DeepCopy() *CortexApplicationConfig {
+	return proto.Clone(in).(*CortexApplicationConfig)
+}
+
+func (in *GrafanaConfig) DeepCopyInto(out *GrafanaConfig) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *GrafanaConfig) DeepCopy() *GrafanaConfig {
+	return proto.Clone(in).(*GrafanaConfig)
+}
+
+func (in *PresetList) DeepCopyInto(out *PresetList) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *PresetList) DeepCopy() *PresetList {
+	return proto.Clone(in).(*PresetList)
+}
+
+func (in *Preset) DeepCopyInto(out *Preset) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *Preset) DeepCopy() *Preset {
+	return proto.Clone(in).(*Preset)
+}
+
+func (in *DryRunRequest) DeepCopyInto(out *DryRunRequest) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *DryRunRequest) DeepCopy() *DryRunRequest {
+	return proto.Clone(in).(*DryRunRequest)
+}
+
+func (in *DryRunResponse) DeepCopyInto(out *DryRunResponse) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *DryRunResponse) DeepCopy() *DryRunResponse {
+	return proto.Clone(in).(*DryRunResponse)
+}
+
+func (in *ConfigurationHistoryResponse) DeepCopyInto(out *ConfigurationHistoryResponse) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ConfigurationHistoryResponse) DeepCopy() *ConfigurationHistoryResponse {
+	return proto.Clone(in).(*ConfigurationHistoryResponse)
+}
+
+func (in *SetRequest) DeepCopyInto(out *SetRequest) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *SetRequest) DeepCopy() *SetRequest {
+	return proto.Clone(in).(*SetRequest)
+}
+
+func (in *ResetRequest) DeepCopyInto(out *ResetRequest) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *ResetRequest) DeepCopy() *ResetRequest {
+	return proto.Clone(in).(*ResetRequest)
+}
+
 func (in *SetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("SetRequest", pflag.ExitOnError)
 	fs.SortFlags = true
@@ -731,112 +839,4 @@ func (in *ResetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	}
 	fs.AddFlagSet(in.Revision.FlagSet(prefix...))
 	return fs
-}
-
-func (in *CapabilityBackendConfigSpec) DeepCopyInto(out *CapabilityBackendConfigSpec) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *CapabilityBackendConfigSpec) DeepCopy() *CapabilityBackendConfigSpec {
-	return proto.Clone(in).(*CapabilityBackendConfigSpec)
-}
-
-func (in *CortexWorkloadsConfig) DeepCopyInto(out *CortexWorkloadsConfig) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *CortexWorkloadsConfig) DeepCopy() *CortexWorkloadsConfig {
-	return proto.Clone(in).(*CortexWorkloadsConfig)
-}
-
-func (in *CortexWorkloadSpec) DeepCopyInto(out *CortexWorkloadSpec) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *CortexWorkloadSpec) DeepCopy() *CortexWorkloadSpec {
-	return proto.Clone(in).(*CortexWorkloadSpec)
-}
-
-func (in *CortexApplicationConfig) DeepCopyInto(out *CortexApplicationConfig) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *CortexApplicationConfig) DeepCopy() *CortexApplicationConfig {
-	return proto.Clone(in).(*CortexApplicationConfig)
-}
-
-func (in *GrafanaConfig) DeepCopyInto(out *GrafanaConfig) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *GrafanaConfig) DeepCopy() *GrafanaConfig {
-	return proto.Clone(in).(*GrafanaConfig)
-}
-
-func (in *PresetList) DeepCopyInto(out *PresetList) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *PresetList) DeepCopy() *PresetList {
-	return proto.Clone(in).(*PresetList)
-}
-
-func (in *Preset) DeepCopyInto(out *Preset) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *Preset) DeepCopy() *Preset {
-	return proto.Clone(in).(*Preset)
-}
-
-func (in *DryRunRequest) DeepCopyInto(out *DryRunRequest) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *DryRunRequest) DeepCopy() *DryRunRequest {
-	return proto.Clone(in).(*DryRunRequest)
-}
-
-func (in *DryRunResponse) DeepCopyInto(out *DryRunResponse) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *DryRunResponse) DeepCopy() *DryRunResponse {
-	return proto.Clone(in).(*DryRunResponse)
-}
-
-func (in *ConfigurationHistoryResponse) DeepCopyInto(out *ConfigurationHistoryResponse) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *ConfigurationHistoryResponse) DeepCopy() *ConfigurationHistoryResponse {
-	return proto.Clone(in).(*ConfigurationHistoryResponse)
-}
-
-func (in *SetRequest) DeepCopyInto(out *SetRequest) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *SetRequest) DeepCopy() *SetRequest {
-	return proto.Clone(in).(*SetRequest)
-}
-
-func (in *ResetRequest) DeepCopyInto(out *ResetRequest) {
-	out.Reset()
-	proto.Merge(out, in)
-}
-
-func (in *ResetRequest) DeepCopy() *ResetRequest {
-	return proto.Clone(in).(*ResetRequest)
 }

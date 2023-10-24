@@ -63,7 +63,7 @@ func (s *CortexApiService) ConfigureRoutes(router *gin.Engine) {
 		Provider:   provider,
 		Codec:      cortex.OrgIDCodec,
 		Store:      s.Context.StorageBackend(),
-		Logger:     s.Context.Logger().Named("middleware"),
+		Logger:     s.Context.Logger().WithGroup("middleware"),
 		Capability: wellknown.CapabilityMetrics,
 	})
 

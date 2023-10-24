@@ -4,10 +4,11 @@ import (
 	"context"
 	"net/http"
 
+	"log/slog"
+
 	"github.com/gin-gonic/gin"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
-	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 )
 
@@ -70,7 +71,7 @@ type MiddlewareConfig struct {
 	Codec      HeaderCodec
 	Store      storage.RoleBindingStore
 	Capability string
-	Logger     *zap.SugaredLogger
+	Logger     *slog.Logger
 }
 
 func NewMiddleware(config MiddlewareConfig) gin.HandlerFunc {

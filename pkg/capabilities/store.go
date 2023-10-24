@@ -79,10 +79,10 @@ func (s *backendStore) List() []string {
 type rbacManagerStore struct {
 	mu           sync.RWMutex
 	rbacManagers map[string]capabilityv1.RBACManagerClient
-	logger       *zap.SugaredLogger
+	logger       *slog.Logger
 }
 
-func NewRBACManagerStore(logger *zap.SugaredLogger) RBACManagerStore {
+func NewRBACManagerStore(logger *slog.Logger) RBACManagerStore {
 	return &rbacManagerStore{
 		rbacManagers: make(map[string]capabilityv1.RBACManagerClient),
 		logger:       logger,

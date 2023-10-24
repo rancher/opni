@@ -194,7 +194,7 @@ message BackendRole {
 
 message BackendRoleRequest {
   CapabilityType capability = 1;
-  core.Reference roleRef    = 2;
+  Reference roleRef    = 2;
 }
 
 message RoleList {

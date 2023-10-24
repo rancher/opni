@@ -564,38 +564,6 @@ func (in *InstanceInfo) DeepCopy() *InstanceInfo {
 	return proto.Clone(in).(*InstanceInfo)
 }
 
-func (in *Revision) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("Revision", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.Var(flagutil.IntPtrValue(nil, &in.Revision), strings.Join(append(prefix, "revision"), "."), "A numerical revision uniquely identifying a specific version of the resource.")
-	return fs
-}
-
-func (in *Reference) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("Reference", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.Var(flagutil.IntPtrValue(nil, &in.Revision), strings.Join(append(prefix, "revision"), "."), "A numerical revision uniquely identifying a specific version of the resource.")
-	return fs
-}
-
-func (in *Role) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("Role", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.StringVar(&in.Id, strings.Join(append(prefix, "id"), "."), "", "")
-	if in.Metadata == nil {
-		in.Metadata = &RoleMetadata{}
-	}
-	fs.AddFlagSet(in.Metadata.FlagSet(append(prefix, "metadata")...))
-	return fs
-}
-
-func (in *RoleMetadata) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("RoleMetadata", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.StringVar(&in.ResourceVersion, strings.Join(append(prefix, "resource-version"), "."), "", "read-only")
-	return fs
-}
-
 func (in *LabelSelector) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("LabelSelector", pflag.ExitOnError)
 	fs.SortFlags = true
@@ -657,5 +625,12 @@ func (in *RoleBindingMetadata) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.SortFlags = true
 	fs.StringVar(&in.ResourceVersion, strings.Join(append(prefix, "resource-version"), "."), "", "read-only")
 	fs.Var(flagutil.StringPtrValue(nil, &in.Capability), strings.Join(append(prefix, "capability"), "."), "immutable after creation")
+	return fs
+}
+
+func (in *Revision) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Revision", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Var(flagutil.IntPtrValue(nil, &in.Revision), strings.Join(append(prefix, "revision"), "."), "A numerical revision uniquely identifying a specific version of the resource.")
 	return fs
 }

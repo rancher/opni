@@ -555,6 +555,13 @@ func BuildRBACManagerListRolesCmd() *cobra.Command {
 	return cmd
 }
 
+func (in *Reference) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Reference", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringVar(&in.Id, strings.Join(append(prefix, "id"), "."), "", "")
+	return fs
+}
+
 func (in *InstallRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("InstallRequest", pflag.ExitOnError)
 	fs.SortFlags = true
@@ -630,5 +637,23 @@ func (in *Filter) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Filter", pflag.ExitOnError)
 	fs.SortFlags = true
 	fs.StringSliceVar(&in.CapabilityNames, strings.Join(append(prefix, "capability-names"), "."), nil, "")
+	return fs
+}
+
+func (in *Role) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("Role", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringVar(&in.Id, strings.Join(append(prefix, "id"), "."), "", "")
+	if in.Metadata == nil {
+		in.Metadata = &v1.RoleMetadata{}
+	}
+	fs.AddFlagSet(in.Metadata.FlagSet(append(prefix, "metadata")...))
+	return fs
+}
+
+func (in *RoleMetadata) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("RoleMetadata", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringVar(&in.ResourceVersion, strings.Join(append(prefix, "resource-version"), "."), "", "read-only")
 	return fs
 }

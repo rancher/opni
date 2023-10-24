@@ -8,7 +8,12 @@ import { axios } from "@pkg/opni/utils/axios";
 
 export async function GetDefaultConfiguration(input: GetRequest): Promise<MetricsCapabilityConfig> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to NodeConfiguration-GetDefaultConfiguration:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => MetricsCapabilityConfig.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -19,9 +24,12 @@ export async function GetDefaultConfiguration(input: GetRequest): Promise<Metric
       url: `/opni-api/NodeConfiguration/node_config`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to NodeConfiguration-GetDefaultConfiguration:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -31,7 +39,12 @@ export async function GetDefaultConfiguration(input: GetRequest): Promise<Metric
 
 export async function SetDefaultConfiguration(input: SetRequest): Promise<void> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to NodeConfiguration-SetDefaultConfiguration:', input);
+    }
+  
+    const response = (await axios.request({
       method: 'put',
       responseType: 'arraybuffer',
       headers: {
@@ -41,9 +54,12 @@ export async function SetDefaultConfiguration(input: SetRequest): Promise<void> 
       url: `/opni-api/NodeConfiguration/node_config`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to NodeConfiguration-SetDefaultConfiguration:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -53,7 +69,8 @@ export async function SetDefaultConfiguration(input: SetRequest): Promise<void> 
 
 export async function ResetDefaultConfiguration(): Promise<void> {
   try {
-    return (await axios.request({
+    
+    const response = (await axios.request({
       method: 'post',
       responseType: 'arraybuffer',
       headers: {
@@ -62,9 +79,12 @@ export async function ResetDefaultConfiguration(): Promise<void> {
       },
       url: `/opni-api/NodeConfiguration/node_config/reset`
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to NodeConfiguration-ResetDefaultConfiguration:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -74,7 +94,12 @@ export async function ResetDefaultConfiguration(): Promise<void> {
 
 export async function GetConfiguration(input: GetRequest): Promise<MetricsCapabilityConfig> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to NodeConfiguration-GetConfiguration:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => MetricsCapabilityConfig.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -85,9 +110,12 @@ export async function GetConfiguration(input: GetRequest): Promise<MetricsCapabi
       url: `/opni-api/NodeConfiguration/node_config/${input.node.id}`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to NodeConfiguration-GetConfiguration:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -97,7 +125,12 @@ export async function GetConfiguration(input: GetRequest): Promise<MetricsCapabi
 
 export async function SetConfiguration(input: SetRequest): Promise<void> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to NodeConfiguration-SetConfiguration:', input);
+    }
+  
+    const response = (await axios.request({
       method: 'put',
       responseType: 'arraybuffer',
       headers: {
@@ -107,9 +140,12 @@ export async function SetConfiguration(input: SetRequest): Promise<void> {
       url: `/opni-api/NodeConfiguration/node_config/${input.node.id}`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to NodeConfiguration-SetConfiguration:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -119,7 +155,12 @@ export async function SetConfiguration(input: SetRequest): Promise<void> {
 
 export async function ResetConfiguration(input: ResetRequest): Promise<void> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to NodeConfiguration-ResetConfiguration:', input);
+    }
+  
+    const response = (await axios.request({
       method: 'post',
       responseType: 'arraybuffer',
       headers: {
@@ -129,9 +170,12 @@ export async function ResetConfiguration(input: ResetRequest): Promise<void> {
       url: `/opni-api/NodeConfiguration/node_config/${input.node.id}/reset`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to NodeConfiguration-ResetConfiguration:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -141,7 +185,12 @@ export async function ResetConfiguration(input: ResetRequest): Promise<void> {
 
 export async function ConfigurationHistory(input: ConfigurationHistoryRequest): Promise<ConfigurationHistoryResponse> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to NodeConfiguration-ConfigurationHistory:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => ConfigurationHistoryResponse.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -152,9 +201,12 @@ export async function ConfigurationHistory(input: ConfigurationHistoryRequest): 
       url: `/opni-api/NodeConfiguration/node_config/${input.node.id}/history`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to NodeConfiguration-ConfigurationHistory:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;

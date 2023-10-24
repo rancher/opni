@@ -2,14 +2,19 @@
 // @generated from file github.com/rancher/opni/pkg/apis/capability/v1/capability.proto (package capability, syntax proto3)
 /* eslint-disable */
 
-import { Reference, TaskStatus } from "../../core/v1/core_pb";
+import { AvailablePermissions, Reference, Role, RoleList, TaskStatus } from "../../core/v1/core_pb";
 import { CancelUninstallRequest, Details, DetailsList, Filter, InstallRequest, InstallResponse, NodeCapabilityStatus, StatusRequest, UninstallRequest, UninstallStatusRequest } from "./capability_pb";
 import { axios } from "@pkg/opni/utils/axios";
 
 
 export async function Info(input: Reference): Promise<Details> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to Backend-Info:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => Details.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -20,9 +25,12 @@ export async function Info(input: Reference): Promise<Details> {
       url: `/opni-api/Backend`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to Backend-Info:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -32,7 +40,8 @@ export async function Info(input: Reference): Promise<Details> {
 
 export async function List(): Promise<DetailsList> {
   try {
-    return (await axios.request({
+    
+    const response = (await axios.request({
     transformResponse: resp => DetailsList.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -42,9 +51,12 @@ export async function List(): Promise<DetailsList> {
       },
       url: `/opni-api/Backend`
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to Backend-List:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -54,7 +66,12 @@ export async function List(): Promise<DetailsList> {
 
 export async function Install(input: InstallRequest): Promise<InstallResponse> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to Backend-Install:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => InstallResponse.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -65,9 +82,12 @@ export async function Install(input: InstallRequest): Promise<InstallResponse> {
       url: `/opni-api/Backend`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to Backend-Install:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -77,7 +97,12 @@ export async function Install(input: InstallRequest): Promise<InstallResponse> {
 
 export async function Status(input: StatusRequest): Promise<NodeCapabilityStatus> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to Backend-Status:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => NodeCapabilityStatus.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -88,9 +113,12 @@ export async function Status(input: StatusRequest): Promise<NodeCapabilityStatus
       url: `/opni-api/Backend`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to Backend-Status:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -100,7 +128,12 @@ export async function Status(input: StatusRequest): Promise<NodeCapabilityStatus
 
 export async function Uninstall(input: UninstallRequest): Promise<void> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to Backend-Uninstall:', input);
+    }
+  
+    const response = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -110,9 +143,12 @@ export async function Uninstall(input: UninstallRequest): Promise<void> {
       url: `/opni-api/Backend`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to Backend-Uninstall:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -122,7 +158,12 @@ export async function Uninstall(input: UninstallRequest): Promise<void> {
 
 export async function UninstallStatus(input: UninstallStatusRequest): Promise<TaskStatus> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to Backend-UninstallStatus:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => TaskStatus.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -133,9 +174,12 @@ export async function UninstallStatus(input: UninstallStatusRequest): Promise<Ta
       url: `/opni-api/Backend`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to Backend-UninstallStatus:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -145,7 +189,12 @@ export async function UninstallStatus(input: UninstallStatusRequest): Promise<Ta
 
 export async function CancelUninstall(input: CancelUninstallRequest): Promise<void> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to Backend-CancelUninstall:', input);
+    }
+  
+    const response = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -155,9 +204,12 @@ export async function CancelUninstall(input: CancelUninstallRequest): Promise<vo
       url: `/opni-api/Backend`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to Backend-CancelUninstall:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -167,7 +219,12 @@ export async function CancelUninstall(input: CancelUninstallRequest): Promise<vo
 
 export async function SyncNow(input: Filter): Promise<void> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to Node-SyncNow:', input);
+    }
+  
+    const response = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -177,9 +234,242 @@ export async function SyncNow(input: Filter): Promise<void> {
       url: `/opni-api/Node`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to Node-SyncNow:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
+      console.error(s);
+    }
+    throw ex;
+  }
+}
+
+
+export async function Info(input: Reference): Promise<Details> {
+  try {
+    
+    if (input) {
+      console.info('Here is the input for a request to RBACManager-Info:', input);
+    }
+  
+    const response = (await axios.request({
+    transformResponse: resp => Details.fromBinary(new Uint8Array(resp)),
+      method: 'get',
+      responseType: 'arraybuffer',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Accept': 'application/octet-stream',
+      },
+      url: `/opni-api/RBACManager`,
+    data: input?.toBinary() as ArrayBuffer
+    })).data;
+
+    console.info('Here is the response for a request to RBACManager-Info:', response);
+    return response
+  } catch (ex: any) {
+    if (ex?.response?.data) {
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
+      console.error(s);
+    }
+    throw ex;
+  }
+}
+
+
+export async function List(): Promise<DetailsList> {
+  try {
+    
+    const response = (await axios.request({
+    transformResponse: resp => DetailsList.fromBinary(new Uint8Array(resp)),
+      method: 'get',
+      responseType: 'arraybuffer',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Accept': 'application/octet-stream',
+      },
+      url: `/opni-api/RBACManager`
+    })).data;
+
+    console.info('Here is the response for a request to RBACManager-List:', response);
+    return response
+  } catch (ex: any) {
+    if (ex?.response?.data) {
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
+      console.error(s);
+    }
+    throw ex;
+  }
+}
+
+
+export async function GetAvailablePermissions(): Promise<AvailablePermissions> {
+  try {
+    
+    const response = (await axios.request({
+    transformResponse: resp => AvailablePermissions.fromBinary(new Uint8Array(resp)),
+      method: 'get',
+      responseType: 'arraybuffer',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Accept': 'application/octet-stream',
+      },
+      url: `/opni-api/RBACManager`
+    })).data;
+
+    console.info('Here is the response for a request to RBACManager-GetAvailablePermissions:', response);
+    return response
+  } catch (ex: any) {
+    if (ex?.response?.data) {
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
+      console.error(s);
+    }
+    throw ex;
+  }
+}
+
+
+export async function GetRole(input: Reference): Promise<Role> {
+  try {
+    
+    if (input) {
+      console.info('Here is the input for a request to RBACManager-GetRole:', input);
+    }
+  
+    const response = (await axios.request({
+    transformResponse: resp => Role.fromBinary(new Uint8Array(resp)),
+      method: 'get',
+      responseType: 'arraybuffer',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Accept': 'application/octet-stream',
+      },
+      url: `/opni-api/RBACManager`,
+    data: input?.toBinary() as ArrayBuffer
+    })).data;
+
+    console.info('Here is the response for a request to RBACManager-GetRole:', response);
+    return response
+  } catch (ex: any) {
+    if (ex?.response?.data) {
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
+      console.error(s);
+    }
+    throw ex;
+  }
+}
+
+
+export async function CreateRole(input: Role): Promise<void> {
+  try {
+    
+    if (input) {
+      console.info('Here is the input for a request to RBACManager-CreateRole:', input);
+    }
+  
+    const response = (await axios.request({
+      method: 'get',
+      responseType: 'arraybuffer',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Accept': 'application/octet-stream',
+      },
+      url: `/opni-api/RBACManager`,
+    data: input?.toBinary() as ArrayBuffer
+    })).data;
+
+    console.info('Here is the response for a request to RBACManager-CreateRole:', response);
+    return response
+  } catch (ex: any) {
+    if (ex?.response?.data) {
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
+      console.error(s);
+    }
+    throw ex;
+  }
+}
+
+
+export async function UpdateRole(input: Role): Promise<void> {
+  try {
+    
+    if (input) {
+      console.info('Here is the input for a request to RBACManager-UpdateRole:', input);
+    }
+  
+    const response = (await axios.request({
+      method: 'get',
+      responseType: 'arraybuffer',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Accept': 'application/octet-stream',
+      },
+      url: `/opni-api/RBACManager`,
+    data: input?.toBinary() as ArrayBuffer
+    })).data;
+
+    console.info('Here is the response for a request to RBACManager-UpdateRole:', response);
+    return response
+  } catch (ex: any) {
+    if (ex?.response?.data) {
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
+      console.error(s);
+    }
+    throw ex;
+  }
+}
+
+
+export async function DeleteRole(input: Reference): Promise<void> {
+  try {
+    
+    if (input) {
+      console.info('Here is the input for a request to RBACManager-DeleteRole:', input);
+    }
+  
+    const response = (await axios.request({
+      method: 'get',
+      responseType: 'arraybuffer',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Accept': 'application/octet-stream',
+      },
+      url: `/opni-api/RBACManager`,
+    data: input?.toBinary() as ArrayBuffer
+    })).data;
+
+    console.info('Here is the response for a request to RBACManager-DeleteRole:', response);
+    return response
+  } catch (ex: any) {
+    if (ex?.response?.data) {
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
+      console.error(s);
+    }
+    throw ex;
+  }
+}
+
+
+export async function ListRoles(): Promise<RoleList> {
+  try {
+    
+    const response = (await axios.request({
+    transformResponse: resp => RoleList.fromBinary(new Uint8Array(resp)),
+      method: 'get',
+      responseType: 'arraybuffer',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Accept': 'application/octet-stream',
+      },
+      url: `/opni-api/RBACManager`
+    })).data;
+
+    console.info('Here is the response for a request to RBACManager-ListRoles:', response);
+    return response
+  } catch (ex: any) {
+    if (ex?.response?.data) {
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;

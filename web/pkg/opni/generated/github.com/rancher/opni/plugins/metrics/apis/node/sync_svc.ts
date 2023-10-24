@@ -8,7 +8,12 @@ import { axios } from "@pkg/opni/utils/axios";
 
 export async function Sync(input: SyncRequest): Promise<SyncResponse> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to NodeMetricsCapability-Sync:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => SyncResponse.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -19,9 +24,12 @@ export async function Sync(input: SyncRequest): Promise<SyncResponse> {
       url: `/opni-api/NodeMetricsCapability`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to NodeMetricsCapability-Sync:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;

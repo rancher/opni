@@ -580,6 +580,26 @@ func (mr *MockRBACManagerClientMockRecorder) Info(ctx, in interface{}, opts ...i
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockRBACManagerClient)(nil).Info), varargs...)
 }
 
+// List mocks base method.
+func (m *MockRBACManagerClient) List(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.DetailsList, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "List", varargs...)
+	ret0, _ := ret[0].(*v1.DetailsList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// List indicates an expected call of List.
+func (mr *MockRBACManagerClientMockRecorder) List(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockRBACManagerClient)(nil).List), varargs...)
+}
+
 // ListRoles mocks base method.
 func (m *MockRBACManagerClient) ListRoles(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v10.RoleList, error) {
 	m.ctrl.T.Helper()
@@ -716,6 +736,21 @@ func (m *MockRBACManagerServer) Info(arg0 context.Context, arg1 *v10.Reference) 
 func (mr *MockRBACManagerServerMockRecorder) Info(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockRBACManagerServer)(nil).Info), arg0, arg1)
+}
+
+// List mocks base method.
+func (m *MockRBACManagerServer) List(arg0 context.Context, arg1 *emptypb.Empty) (*v1.DetailsList, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "List", arg0, arg1)
+	ret0, _ := ret[0].(*v1.DetailsList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// List indicates an expected call of List.
+func (mr *MockRBACManagerServerMockRecorder) List(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockRBACManagerServer)(nil).List), arg0, arg1)
 }
 
 // ListRoles mocks base method.

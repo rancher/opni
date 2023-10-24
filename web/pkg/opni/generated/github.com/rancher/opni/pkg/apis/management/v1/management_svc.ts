@@ -2,7 +2,7 @@
 // @generated from file github.com/rancher/opni/pkg/apis/management/v1/management.proto (package management, syntax proto3)
 /* eslint-disable */
 
-import { APIExtensionInfoList, CapabilityInstallerRequest, CapabilityInstallerResponse, CapabilityInstallRequest, CapabilityList, CapabilityStatusRequest, CapabilityUninstallCancelRequest, CapabilityUninstallRequest, CertsInfoResponse, CreateBootstrapTokenRequest, DashboardSettings, EditClusterRequest, GatewayConfig, ListClustersRequest, UpdateConfigRequest, WatchClustersRequest, WatchEvent } from "./management_pb";
+import { APIExtensionInfoList, CapabilityList, CertsInfoResponse, CreateBootstrapTokenRequest, DashboardSettings, EditClusterRequest, GatewayConfig, ListClustersRequest, UpdateConfigRequest, WatchClustersRequest, WatchEvent } from "./management_pb";
 import { AvailablePermissions, BackendRole, BackendRoleRequest, BootstrapToken, BootstrapTokenList, CapabilityType, CapabilityTypeList, Cluster, ClusterHealthStatus, ClusterList, HealthStatus, Reference, Role, RoleBinding, RoleBindingList, RoleList, TaskStatus } from "../../core/v1/core_pb";
 import { axios } from "@pkg/opni/utils/axios";
 import { Socket } from "@pkg/opni/utils/socket";
@@ -371,7 +371,8 @@ export async function EditCluster(input: EditClusterRequest): Promise<Cluster> {
 
 export async function ListRBACBackends(): Promise<CapabilityTypeList> {
   try {
-    return (await axios.request({
+    
+    const response = (await axios.request({
     transformResponse: resp => CapabilityTypeList.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -381,9 +382,12 @@ export async function ListRBACBackends(): Promise<CapabilityTypeList> {
       },
       url: `/opni-api/Management/rbac/backend`
     })).data;
-  } catch (ex) {
+
+    console.info('Here is the response for a request to Management-ListRBACBackends:', response);
+    return response
+  } catch (ex: any) {
     if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, new Uint8Array(ex?.response?.data));
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
       console.error(s);
     }
     throw ex;
@@ -393,7 +397,12 @@ export async function ListRBACBackends(): Promise<CapabilityTypeList> {
 
 export async function GetAvailableBackendPermissions(input: CapabilityType): Promise<AvailablePermissions> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to Management-GetAvailableBackendPermissions:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => AvailablePermissions.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -405,7 +414,7 @@ export async function GetAvailableBackendPermissions(input: CapabilityType): Pro
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    console.info('Here is the response for a request to Management-CreateRole:', response);
+    console.info('Here is the response for a request to Management-GetAvailableBackendPermissions:', response);
     return response
   } catch (ex: any) {
     if (ex?.response?.data) {
@@ -419,7 +428,12 @@ export async function GetAvailableBackendPermissions(input: CapabilityType): Pro
 
 export async function CreateBackendRole(input: BackendRole): Promise<void> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to Management-CreateBackendRole:', input);
+    }
+  
+    const response = (await axios.request({
       method: 'post',
       responseType: 'arraybuffer',
       headers: {
@@ -430,7 +444,7 @@ export async function CreateBackendRole(input: BackendRole): Promise<void> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    console.info('Here is the response for a request to Management-UpdateRole:', response);
+    console.info('Here is the response for a request to Management-CreateBackendRole:', response);
     return response
   } catch (ex: any) {
     if (ex?.response?.data) {
@@ -444,7 +458,12 @@ export async function CreateBackendRole(input: BackendRole): Promise<void> {
 
 export async function UpdateBackendRole(input: BackendRole): Promise<void> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to Management-UpdateBackendRole:', input);
+    }
+  
+    const response = (await axios.request({
       method: 'put',
       responseType: 'arraybuffer',
       headers: {
@@ -455,7 +474,7 @@ export async function UpdateBackendRole(input: BackendRole): Promise<void> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    console.info('Here is the response for a request to Management-DeleteRole:', response);
+    console.info('Here is the response for a request to Management-UpdateBackendRole:', response);
     return response
   } catch (ex: any) {
     if (ex?.response?.data) {
@@ -469,7 +488,12 @@ export async function UpdateBackendRole(input: BackendRole): Promise<void> {
 
 export async function DeleteBackendRole(input: BackendRoleRequest): Promise<void> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to Management-DeleteBackendRole:', input);
+    }
+  
+    const response = (await axios.request({
       method: 'delete',
       responseType: 'arraybuffer',
       headers: {
@@ -480,7 +504,7 @@ export async function DeleteBackendRole(input: BackendRoleRequest): Promise<void
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    console.info('Here is the response for a request to Management-GetRole:', response);
+    console.info('Here is the response for a request to Management-DeleteBackendRole:', response);
     return response
   } catch (ex: any) {
     if (ex?.response?.data) {
@@ -494,7 +518,12 @@ export async function DeleteBackendRole(input: BackendRoleRequest): Promise<void
 
 export async function GetBackendRole(input: BackendRoleRequest): Promise<Role> {
   try {
-    return (await axios.request({
+    
+    if (input) {
+      console.info('Here is the input for a request to Management-GetBackendRole:', input);
+    }
+  
+    const response = (await axios.request({
     transformResponse: resp => Role.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -503,6 +532,67 @@ export async function GetBackendRole(input: BackendRoleRequest): Promise<Role> {
         'Accept': 'application/octet-stream',
       },
       url: `/opni-api/Management/rbac/backend/${input.capability.name}/roles/${input.roleRef.id}`,
+    data: input?.toBinary() as ArrayBuffer
+    })).data;
+
+    console.info('Here is the response for a request to Management-GetBackendRole:', response);
+    return response
+  } catch (ex: any) {
+    if (ex?.response?.data) {
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
+      console.error(s);
+    }
+    throw ex;
+  }
+}
+
+
+export async function ListBackendRoles(input: CapabilityType): Promise<RoleList> {
+  try {
+    
+    if (input) {
+      console.info('Here is the input for a request to Management-ListBackendRoles:', input);
+    }
+  
+    const response = (await axios.request({
+    transformResponse: resp => RoleList.fromBinary(new Uint8Array(resp)),
+      method: 'get',
+      responseType: 'arraybuffer',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Accept': 'application/octet-stream',
+      },
+      url: `/opni-api/Management/rbac/backend/${input.name}/roles`,
+    data: input?.toBinary() as ArrayBuffer
+    })).data;
+
+    console.info('Here is the response for a request to Management-ListBackendRoles:', response);
+    return response
+  } catch (ex: any) {
+    if (ex?.response?.data) {
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
+      console.error(s);
+    }
+    throw ex;
+  }
+}
+
+
+export async function CreateRoleBinding(input: RoleBinding): Promise<void> {
+  try {
+    
+    if (input) {
+      console.info('Here is the input for a request to Management-CreateRoleBinding:', input);
+    }
+  
+    const response = (await axios.request({
+      method: 'post',
+      responseType: 'arraybuffer',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Accept': 'application/octet-stream',
+      },
+      url: `/opni-api/Management/rolebindings`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
@@ -518,17 +608,21 @@ export async function GetBackendRole(input: BackendRoleRequest): Promise<Role> {
 }
 
 
-export async function ListBackendRoles(input: CapabilityType): Promise<RoleList> {
+export async function UpdateRoleBinding(input: RoleBinding): Promise<void> {
   try {
-    return (await axios.request({
-    transformResponse: resp => RoleList.fromBinary(new Uint8Array(resp)),
-      method: 'get',
+    
+    if (input) {
+      console.info('Here is the input for a request to Management-UpdateRoleBinding:', input);
+    }
+  
+    const response = (await axios.request({
+      method: 'put',
       responseType: 'arraybuffer',
       headers: {
         'Content-Type': 'application/octet-stream',
         'Accept': 'application/octet-stream',
       },
-      url: `/opni-api/Management/rbac/backend/${input.name}/roles`,
+      url: `/opni-api/Management/rolebindings`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
@@ -544,16 +638,21 @@ export async function ListBackendRoles(input: CapabilityType): Promise<RoleList>
 }
 
 
-export async function CreateRoleBinding(input: RoleBinding): Promise<void> {
+export async function DeleteRoleBinding(input: Reference): Promise<void> {
   try {
-    return (await axios.request({
-      method: 'post',
+    
+    if (input) {
+      console.info('Here is the input for a request to Management-DeleteRoleBinding:', input);
+    }
+  
+    const response = (await axios.request({
+      method: 'delete',
       responseType: 'arraybuffer',
       headers: {
         'Content-Type': 'application/octet-stream',
         'Accept': 'application/octet-stream',
       },
-      url: `/opni-api/Management/rolebindings`,
+      url: `/opni-api/Management/rolebindings/${input.id}`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
@@ -569,16 +668,22 @@ export async function CreateRoleBinding(input: RoleBinding): Promise<void> {
 }
 
 
-export async function UpdateRoleBinding(input: RoleBinding): Promise<void> {
+export async function GetRoleBinding(input: Reference): Promise<RoleBinding> {
   try {
-    return (await axios.request({
-      method: 'put',
+    
+    if (input) {
+      console.info('Here is the input for a request to Management-GetRoleBinding:', input);
+    }
+  
+    const response = (await axios.request({
+    transformResponse: resp => RoleBinding.fromBinary(new Uint8Array(resp)),
+      method: 'get',
       responseType: 'arraybuffer',
       headers: {
         'Content-Type': 'application/octet-stream',
         'Accept': 'application/octet-stream',
       },
-      url: `/opni-api/Management/rolebindings`,
+      url: `/opni-api/Management/rolebindings/${input.id}`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
@@ -594,60 +699,10 @@ export async function UpdateRoleBinding(input: RoleBinding): Promise<void> {
 }
 
 
-export async function DeleteRoleBinding(input: Reference): Promise<void> {
-  try {
-    return (await axios.request({
-      method: 'delete',
-      responseType: 'arraybuffer',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Accept': 'application/octet-stream',
-      },
-      url: `/opni-api/Management/rolebindings/${input.id}`,
-    data: input?.toBinary() as ArrayBuffer
-    })).data;
-
-    console.info('Here is the response for a request to Management-ListRoles:', response);
-    return response
-  } catch (ex: any) {
-    if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
-      console.error(s);
-    }
-    throw ex;
-  }
-}
-
-
-export async function GetRoleBinding(input: Reference): Promise<RoleBinding> {
-  try {
-    return (await axios.request({
-    transformResponse: resp => RoleBinding.fromBinary(new Uint8Array(resp)),
-      method: 'get',
-      responseType: 'arraybuffer',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Accept': 'application/octet-stream',
-      },
-      url: `/opni-api/Management/rolebindings/${input.id}`,
-    data: input?.toBinary() as ArrayBuffer
-    })).data;
-
-    console.info('Here is the response for a request to Management-ListRoleBindings:', response);
-    return response
-  } catch (ex: any) {
-    if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
-      console.error(s);
-    }
-    throw ex;
-  }
-}
-
-
 export async function ListRoleBindings(): Promise<RoleBindingList> {
   try {
-    return (await axios.request({
+    
+    const response = (await axios.request({
     transformResponse: resp => RoleBindingList.fromBinary(new Uint8Array(resp)),
       method: 'get',
       responseType: 'arraybuffer',
@@ -658,7 +713,7 @@ export async function ListRoleBindings(): Promise<RoleBindingList> {
       url: `/opni-api/Management/rolebindings`
     })).data;
 
-    console.info('Here is the response for a request to Management-SubjectAccess:', response);
+    console.info('Here is the response for a request to Management-ListRoleBindings:', response);
     return response
   } catch (ex: any) {
     if (ex?.response?.data) {

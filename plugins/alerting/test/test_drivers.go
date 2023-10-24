@@ -423,9 +423,11 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 			} else {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					l.logger.Warn(err)
+					l.logger.Warn(err.Error())
 				}
-				l.logger.With("code", resp.StatusCode, "resp", string(body)).Warnf("Alertmanager not ready yet : %d", resp.StatusCode)
+				l.logger.
+					With("code", resp.StatusCode, "resp", string(body)).
+					Warn(fmt.Sprintf("Alertmanager not ready yet : %d", resp.StatusCode))
 			}
 		}
 		time.Sleep(time.Second)

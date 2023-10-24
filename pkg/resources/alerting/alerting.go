@@ -63,7 +63,7 @@ func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 
 	alertingRsc, err := r.alerting()
 	if err != nil {
-		r.logger.Error(err)
+		r.lg.Error(err.Error())
 		return k8sutil.RequeueErr(err).Result()
 	}
 	allResources = append(allResources, alertingRsc...)

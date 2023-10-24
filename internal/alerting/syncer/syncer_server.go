@@ -65,6 +65,7 @@ func NewAlertingSyncerV1(
 	server := &AlertManagerSyncerV1{
 		serverConfig: serverConfig,
 		lg:           logger.NewPluginLogger().WithGroup("alerting-syncer"),
+		tlsConfig:    tlsConfig,
 	}
 	go func() {
 		server.Initialize(ctx, mgmtClient)
@@ -101,6 +102,7 @@ func (a *AlertManagerSyncerV1) Initialize(
 			client.WithQuerierAddress(
 				a.serverConfig.HookListenAddress,
 			),
+			client.WithTLSConfig(a.tlsConfig),
 		}
 		if a.tlsConfig != nil {
 			a.lg.Debug("passing tls config into alerting client")

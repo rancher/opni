@@ -16,13 +16,12 @@ import (
 	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
-	"go.uber.org/zap"
 )
 
 const proxyPath = "/plugin_alerting/alertmanager"
 
 type ProxyServer struct {
-	lg *zap.SugaredLogger
+	lg *slog.Logger
 
 	*alertmanagerProxy
 }
@@ -81,7 +80,7 @@ var _ httpext.HTTPAPIExtension = (*ProxyServer)(nil)
 type alertmanagerProxy struct {
 	util.Initializer
 
-	lg *zap.SugaredLogger
+	lg *slog.Logger
 
 	tlsConfig    future.Future[*tls.Config]
 	configMu     sync.RWMutex
@@ -103,7 +102,7 @@ func (a *alertmanagerProxy) SetConfig(config server.Config) {
 		return
 	}
 	targetURL := config.Client.ProxyClient().ProxyURL()
-	a.lg.Infof("configuring alertmanager proxy to : %s", targetURL.String())
+	a.lg.Info(fmt.Sprintf("configuring alertmanager proxy to : %s", targetURL.String()))
 	ctxca, ca := context.WithTimeout(context.Background(), time.Second)
 	defer ca()
 	tlsConfig, err := a.tlsConfig.GetContext(ctxca)

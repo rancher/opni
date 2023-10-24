@@ -71,7 +71,7 @@ func BuildAlertingSyncer() *cobra.Command {
 			}
 
 			if err := serverConfig.Validate(); err != nil {
-				lg.Error(err)
+				lg.Error(err.Error())
 				return err
 			}
 			lg.Debug("syncer gateway join address" + syncerGatewayJoinAddress)
@@ -90,12 +90,12 @@ func BuildAlertingSyncer() *cobra.Command {
 			}
 			tlsConfig, err := clientConfig.Init()
 			if err != nil {
-				lg.Errorf("failed to load tls client config %s, exiting...", err)
+				lg.Error(fmt.Sprintf("failed to load tls client config %s, exiting...", err))
 				return err
 			}
 			err = syncer.Main(cmd.Context(), serverConfig, tlsConfig)
 			if err != nil {
-				lg.Error(err)
+				lg.Error(err.Error())
 				return err
 			}
 			return nil

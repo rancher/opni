@@ -163,12 +163,12 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 				return
 			}
 			peers := listPeers(int(conf.GetNumReplicas()))
-			p.logger.Infof("reindexing known alerting peers to : %v", peers)
+			p.logger.Info(fmt.Sprintf("reindexing known alerting peers to : %v", peers))
 			ctxca, ca := context.WithTimeout(context.Background(), 5*time.Second)
 			defer ca()
 			alertingClient, err := p.alertingClient.GetContext(ctxca)
 			if err != nil {
-				p.logger.Error(err)
+				p.logger.Error(err.Error())
 				return
 			}
 

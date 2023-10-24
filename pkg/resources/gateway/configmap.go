@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/logger"
 
 	"emperror.dev/errors"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
@@ -238,7 +239,7 @@ func (r *Reconciler) amtoolConfigMap() resources.Resource {
 
 	amToolConfigBytes, err := yamlv3.Marshal(amToolConfig)
 	if err != nil {
-		r.logger.Errorw("failed to marshal amtool config", "error", err)
+		r.lg.Error("failed to marshal amtool config", logger.Err(err))
 		amToolConfigBytes = []byte{}
 	}
 
@@ -252,7 +253,7 @@ func (r *Reconciler) amtoolConfigMap() resources.Resource {
 	}
 	httpBytes, err := yamlv3.Marshal(httpConfig)
 	if err != nil {
-		r.logger.Errorw("failed to marshal http config", "error", err)
+		r.lg.Error("failed to marshal http config", logger.Err(err))
 		httpBytes = []byte{}
 	}
 	cm := &corev1.ConfigMap{

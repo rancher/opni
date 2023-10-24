@@ -391,7 +391,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 			return err
 		}
 		entries, _ := fs.ReadDir(testdata.TestDataFS, "testdata/alerting")
-		lg.Infof("Copying %d files from embedded testdata/alerting to %s", len(entries), alertingTempDir)
+		lg.Info(fmt.Sprintf("Copying %d files from embedded testdata/alerting to %s", len(entries), alertingTempDir))
 		for _, entry := range entries {
 			if entry.IsDir() {
 				continue
@@ -737,7 +737,7 @@ func (e *Environment) StartEmbeddedAlertManager(
 				e.Logger.With("code", resp.StatusCode, "resp", string(body)).Warn("AlertManager not ready yet")
 			}
 		} else {
-			e.Logger.Warn(err)
+			e.Logger.Warn(err.Error())
 		}
 		time.Sleep(time.Second)
 	}
@@ -2186,20 +2186,20 @@ func (e *Environment) GatewayClientTLSConfig() *tls.Config {
 func (e *Environment) AlertingClientTLSConfig() *tls.Config {
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(testdata.TestData("alerting/root.crt")) {
-		e.Logger.Panic("failed to load Alerting CA cert")
+		panic("failed to load Alerting CA cert")
 	}
 	clientCert := testdata.TestData("alerting/client.crt")
 	clientKey := testdata.TestData("alerting/client.key")
 	clientCa := testdata.TestData("alerting/root.crt")
 	cert, err := tls.X509KeyPair(clientCert, clientKey)
 	if err != nil {
-		e.Logger.Panic(err)
+		panic(err)
 	}
 
 	clientCaPool := x509.NewCertPool()
 
 	if ok := clientCaPool.AppendCertsFromPEM(clientCa); !ok {
-		e.Logger.Panic("failed to load Alerting CA cert")
+		panic("failed to load Alerting CA cert")
 	}
 	return &tls.Config{
 		MinVersion:   tls.VersionTLS12,

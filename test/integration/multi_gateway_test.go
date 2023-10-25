@@ -1,4 +1,4 @@
-package integration
+package integration_test
 
 import (
 	"errors"
@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var _ = FDescribe("Multi Gateway", Ordered, Label("integration"), func() {
+var _ = Describe("Multi Gateway", Ordered, Label("integration"), func() {
 	var mgmtClient managementv1.ManagementClient
 	BeforeAll(func() {
 		By("Starting 3 test environments")

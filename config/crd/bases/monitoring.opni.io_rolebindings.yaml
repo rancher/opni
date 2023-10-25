@@ -30,6 +30,8 @@ spec:
                 type: string
               metadata:
                 properties:
+                  capability:
+                    type: string
                   resourceVersion:
                     type: string
                 type: object

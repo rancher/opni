@@ -3,7 +3,7 @@ package storage
 type CompositeBackend struct {
 	TokenStore
 	ClusterStore
-	RBACStore
+	RoleBindingStore
 	KeyringStoreBroker
 	KeyValueStoreBroker
 	LockManagerBroker
@@ -20,8 +20,8 @@ func (cb CompositeBackend) Close() {
 	if cb.ClusterStore != nil {
 		uniqueStores[cb.ClusterStore] = struct{}{}
 	}
-	if cb.RBACStore != nil {
-		uniqueStores[cb.RBACStore] = struct{}{}
+	if cb.RoleBindingStore != nil {
+		uniqueStores[cb.RoleBindingStore] = struct{}{}
 	}
 	if cb.KeyringStoreBroker != nil {
 		uniqueStores[cb.KeyringStoreBroker] = struct{}{}
@@ -49,8 +49,8 @@ func (cb *CompositeBackend) Use(store any) {
 	if cs, ok := store.(ClusterStore); ok {
 		cb.ClusterStore = cs
 	}
-	if rb, ok := store.(RBACStore); ok {
-		cb.RBACStore = rb
+	if rb, ok := store.(RoleBindingStore); ok {
+		cb.RoleBindingStore = rb
 	}
 	if ks, ok := store.(KeyringStoreBroker); ok {
 		cb.KeyringStoreBroker = ks
@@ -66,7 +66,7 @@ func (cb *CompositeBackend) Use(store any) {
 func (cb *CompositeBackend) IsValid() bool {
 	return cb.TokenStore != nil &&
 		cb.ClusterStore != nil &&
-		cb.RBACStore != nil &&
+		cb.RoleBindingStore != nil &&
 		cb.KeyringStoreBroker != nil &&
 		cb.KeyValueStoreBroker != nil
 }

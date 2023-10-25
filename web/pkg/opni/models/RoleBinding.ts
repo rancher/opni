@@ -5,7 +5,12 @@ export interface RoleBindingResponse {
   id: string;
   roleId: string;
   subjects: string[];
+  metadata: Metadata;
   taints: string[];
+}
+
+export interface Metadata {
+  capability: string;
 }
 
 export interface RoleBindingsResponse {

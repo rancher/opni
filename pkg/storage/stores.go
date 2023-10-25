@@ -12,7 +12,7 @@ import (
 type Backend interface {
 	TokenStore
 	ClusterStore
-	RBACStore
+	RoleBindingStore
 	KeyringStoreBroker
 	KeyValueStoreBroker
 
@@ -46,16 +46,11 @@ type ClusterStore interface {
 	ListClusters(ctx context.Context, matchLabels *corev1.LabelSelector, matchOptions corev1.MatchOptions) (*corev1.ClusterList, error)
 }
 
-type RBACStore interface {
-	CreateRole(context.Context, *corev1.Role) error
-	UpdateRole(ctx context.Context, ref *corev1.Reference, mutator RoleMutator) (*corev1.Role, error)
-	DeleteRole(context.Context, *corev1.Reference) error
-	GetRole(context.Context, *corev1.Reference) (*corev1.Role, error)
+type RoleBindingStore interface {
 	CreateRoleBinding(context.Context, *corev1.RoleBinding) error
 	UpdateRoleBinding(ctx context.Context, ref *corev1.Reference, mutator RoleBindingMutator) (*corev1.RoleBinding, error)
 	DeleteRoleBinding(context.Context, *corev1.Reference) error
 	GetRoleBinding(context.Context, *corev1.Reference) (*corev1.RoleBinding, error)
-	ListRoles(context.Context) (*corev1.RoleList, error)
 	ListRoleBindings(context.Context) (*corev1.RoleBindingList, error)
 }
 
@@ -145,6 +140,8 @@ type KeyValueStoreT[T any] interface {
 	History(ctx context.Context, key string, opts ...HistoryOpt) ([]KeyRevision[T], error)
 }
 
+type RoleStore = KeyValueStoreT[*corev1.Role]
+
 type ValueStoreT[T any] interface {
 	Put(ctx context.Context, value T, opts ...PutOpt) error
 	Get(ctx context.Context, opts ...GetOpt) (T, error)
@@ -172,11 +169,11 @@ type LockManagerBroker interface {
 }
 
 // A store that can be used to compute subject access rules
-type SubjectAccessCapableStore interface {
-	ListClusters(ctx context.Context, matchLabels *corev1.LabelSelector, matchOptions corev1.MatchOptions) (*corev1.ClusterList, error)
-	GetRole(ctx context.Context, ref *corev1.Reference) (*corev1.Role, error)
-	ListRoleBindings(ctx context.Context) (*corev1.RoleBindingList, error)
-}
+// type SubjectAccessCapableStore interface {
+// 	ListClusters(ctx context.Context, matchLabels *corev1.LabelSelector, matchOptions corev1.MatchOptions) (*corev1.ClusterList, error)
+// 	GetRole(ctx context.Context, ref *corev1.Reference) (*corev1.Role, error)
+// 	ListRoleBindings(ctx context.Context) (*corev1.RoleBindingList, error)
+// }
 
 type WatchEventType string
 

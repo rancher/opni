@@ -6,7 +6,7 @@ import { Management } from '../../api/opni';
 import { WatchClustersRequest } from '../../generated/github.com/rancher/opni/pkg/apis/management/v1/management_pb';
 import { TokensResponse, Token } from '../../models/Token';
 import { CapabilityStatusResponse } from '../../models/Cluster';
-import { MatchLabel, Role, RolesResponse } from '../../models/Role';
+import { MatchLabel, Role, RoleResponse, RolesResponse } from '../../models/Role';
 import { RoleBinding, RoleBindingsResponse } from '../../models/RoleBinding';
 import { GatewayConfig, ConfigDocument } from '../../models/Config';
 import { LABEL_KEYS } from '../../models/shared';
@@ -140,18 +140,37 @@ export function deleteCluster(id: string): Promise<undefined> {
 }
 
 export async function getRoles(vue: any): Promise<Role[]> {
-  const rolesResponse = (await axios.get<RolesResponse>(`opni-api/Management/roles`)).data.items;
+  const rolesList = (await axios.get<RolesResponse>(`opni-api/Management/rbac/backend/metrics/roles`)).data.items;
 
-  return rolesResponse.map(roleResponse => new Role(roleResponse, vue));
+  return rolesList.map(ref => (
+    new Role({id: ref.id, permissions: []}, vue)
+  ));
+}
+
+export async function getRole(id: string, vue: any): Promise<Role> {
+  const roleResponse = (await axios.get<RoleResponse>(`opni-api/Management/rbac/backend/metrics/roles/${ id }`)).data;
+
+  return new Role(roleResponse, vue)
 }
 
 export function deleteRole(id: string): Promise<undefined> {
-  return axios.delete(`opni-api/Management/roles/${ id }`);
+  return axios.delete(`opni-api/Management/rbac/backend/metrics/roles/${ id }`);
 }
 
 export async function createRole(name: string, clusterIDs: string[], matchLabels: MatchLabel) {
-  (await axios.post<any>(`opni-api/Management/roles`, {
-    id: name, clusterIDs, matchLabels
+  const capability: string = "metrics"
+  const permissions = [{
+    ids: clusterIDs,
+    type: "cluster",
+    matchLabels: matchLabels,
+    verbs: [{verb: "GET"}],
+  }];
+  const role = {
+    id: name,
+    permissions: permissions,
+  };
+  (await axios.post<any>(`opni-api/Management/rbac/backend/metrics/roles`, {
+    capability: { name: capability }, role
   }));
 }
 
@@ -166,8 +185,11 @@ export function deleteRoleBinding(id: string): Promise<undefined> {
 }
 
 export async function createRoleBinding(name: string, roleName: string, subjects: string[]) {
+  const metadata = {
+    capability: "metrics",
+  };
   (await axios.post<any>(`opni-api/Management/rolebindings`, {
-    id: name, roleId: roleName, subjects
+    id: name, roleId: roleName, subjects, metadata
   }));
 }
 

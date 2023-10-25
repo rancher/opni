@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package management;
 
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 import "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/api/annotations.proto";
@@ -11,6 +12,10 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 
 option go_package = "github.com/rancher/opni/pkg/apis/management/v1";
+
+option (cli.generator) = {
+  generate:          true
+};
 
 service Management {
   rpc CreateBootstrapToken(CreateBootstrapTokenRequest) returns (core.BootstrapToken) {
@@ -76,26 +81,58 @@ service Management {
       body: "*"
     };
   }
-  rpc CreateRole(core.Role) returns (google.protobuf.Empty) {
+  rpc ListRBACBackends(google.protobuf.Empty) returns (core.CapabilityTypeList) {
     option (google.api.http) = {
-      post: "/roles"
+      get: "/rbac/backend"
+    };
+  }
+  rpc GetAvailableBackendPermissions(core.CapabilityType) returns (core.AvailablePermissions) {
+    option (google.api.http) = {
+      get: "/rbac/backend/{name}/permissions"
+    };
+  }
+  rpc CreateBackendRole(core.BackendRole) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use:         "backend-roles create"
+      granularity: EditMessage
+    };
+    option (google.api.http) = {
+      post: "/rbac/backend/{capability.name}/roles"
       body: "*"
     };
   }
-  rpc UpdateRole(core.Role) returns (google.protobuf.Empty) {
+  rpc UpdateBackendRole(core.BackendRole) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use:         "backend-roles update"
+      granularity: EditMessage
+    };
     option (google.api.http) = {
-      put:  "/roles"
+      put: "/rbac/backend/{capability.name}/roles"
       body: "*"
     };
   }
-  rpc DeleteRole(core.Reference) returns (google.protobuf.Empty) {
+  rpc DeleteBackendRole(core.BackendRoleRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use:         "backend-roles delete"
+    };
     option (google.api.http) = {
-      delete: "/roles/{id}"
+      delete: "/rbac/backend/{capability.name}/roles/{roleRef.id}"
     };
   }
-  rpc GetRole(core.Reference) returns (core.Role) {
+  rpc GetBackendRole(core.BackendRoleRequest) returns (core.Role) {
+    option (cli.command) = {
+      use:         "backend-roles get"
+    };
     option (google.api.http) = {
-      get: "/roles/{id}"
+      get: "/rbac/backend/{capability.name}/roles/{roleRef.id}"
+    };
+  }
+  rpc ListBackendRoles(core.CapabilityType) returns (core.RoleList) {
+    option (cli.command) = {
+      use:         "backend-roles list"
+    };
+    option (google.api.http) = {
+      get: "/rbac/backend/{name}/roles"
     };
   }
   rpc CreateRoleBinding(core.RoleBinding) returns (google.protobuf.Empty) {
@@ -120,19 +157,9 @@ service Management {
       get: "/rolebindings/{id}"
     };
   }
-  rpc ListRoles(google.protobuf.Empty) returns (core.RoleList) {
-    option (google.api.http) = {
-      get: "/roles"
-    };
-  }
   rpc ListRoleBindings(google.protobuf.Empty) returns (core.RoleBindingList) {
     option (google.api.http) = {
       get: "/rolebindings"
-    };
-  }
-  rpc SubjectAccess(core.SubjectAccessRequest) returns (core.ReferenceList) {
-    option (google.api.http) = {
-      get: "/subjectaccess"
     };
   }
   rpc APIExtensions(google.protobuf.Empty) returns (APIExtensionInfoList) {

@@ -110,21 +110,26 @@ func (r *Role) Validate() error {
 	if err := validation.ValidateID(r.Id); err != nil {
 		return fmt.Errorf("%w: %q", err, r.Id)
 	}
-	for _, clusterID := range r.ClusterIDs {
-		if err := validation.ValidateID(clusterID); err != nil {
-			return fmt.Errorf("%w: %q", err, clusterID)
+	for _, perm := range r.Permissions {
+		if perm.Type == "" {
+			return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "permission type")
 		}
-	}
-	if len(lo.Uniq(r.ClusterIDs)) != len(r.ClusterIDs) {
-		return fmt.Errorf("%w: %s", validation.ErrDuplicate, "clusterIDs")
-	}
-	if r.MatchLabels != nil {
-		if err := r.MatchLabels.WithRestrictInternalLabels().Validate(); err != nil {
-			return err
+		for _, id := range perm.Ids {
+			if err := validation.ValidateID(id); err != nil {
+				return fmt.Errorf("%w: %q", err, id)
+			}
 		}
-	}
-	if len(r.ClusterIDs) == 0 && len(r.GetMatchLabels().GetMatchLabels()) == 0 && len(r.GetMatchLabels().GetMatchExpressions()) == 0 {
-		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "role must have at least one cluster ID or label selector")
+		if len(lo.Uniq(perm.Ids)) != len(perm.Ids) {
+			return fmt.Errorf("%w: %s %s", validation.ErrDuplicate, perm.Type, "Ids")
+		}
+		if perm.MatchLabels != nil {
+			if err := perm.MatchLabels.WithRestrictInternalLabels().Validate(); err != nil {
+				return err
+			}
+		}
+		if len(perm.Ids) == 0 && len(perm.GetMatchLabels().GetMatchLabels()) == 0 && len(perm.GetMatchLabels().GetMatchExpressions()) == 0 {
+			return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "role must have at least one ID or label selector")
+		}
 	}
 	return nil
 }

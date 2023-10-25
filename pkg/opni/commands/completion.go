@@ -103,35 +103,35 @@ func completeRoleBindings(cmd *cobra.Command, args []string, toComplete string, 
 			continue
 		}
 		if strings.HasPrefix(roleBinding.Id, toComplete) {
-			comps = append(comps, fmt.Sprintf("%s\t%s", roleBinding.Id, fmt.Sprintf("role: %s, subjects: %v", roleBinding.RoleId, roleBinding.Subjects)))
+			comps = append(comps, fmt.Sprintf("%s\t%s", roleBinding.Id, fmt.Sprintf("role: %v, subjects: %s", roleBinding.RoleId, roleBinding.Subjects)))
 		}
 	}
 	return comps, cobra.ShellCompDirectiveNoFileComp
 }
 
-func completeRoles(cmd *cobra.Command, args []string, toComplete string, filters ...func(*corev1.Role) bool) ([]string, cobra.ShellCompDirective) {
-	if err := managementPreRunE(cmd, nil); err != nil {
-		return nil, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
-	}
-	roles, err := mgmtClient.ListRoles(cmd.Context(), &emptypb.Empty{})
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-	for _, f := range filters {
-		roles.Items = lo.Filter(roles.Items, util.Indexed(f))
-	}
+// func completeRoles(cmd *cobra.Command, args []string, toComplete string, filters ...func(*corev1.Role) bool) ([]string, cobra.ShellCompDirective) {
+// 	if err := managementPreRunE(cmd, nil); err != nil {
+// 		return nil, cobra.ShellCompDirectiveError | cobra.ShellCompDirectiveNoFileComp
+// 	}
+// 	roles, err := mgmtClient.ListRoles(cmd.Context(), &emptypb.Empty{})
+// 	if err != nil {
+// 		return nil, cobra.ShellCompDirectiveNoFileComp
+// 	}
+// 	for _, f := range filters {
+// 		roles.Items = lo.Filter(roles.Items, util.Indexed(f))
+// 	}
 
-	var comps []string
-	for _, role := range roles.Items {
-		if slices.Contains(args, role.Id) {
-			continue
-		}
-		if strings.HasPrefix(role.Id, toComplete) {
-			comps = append(comps, fmt.Sprintf("%s\t%s", role.Id, role.MatchLabels.ExpressionString()))
-		}
-	}
-	return comps, cobra.ShellCompDirectiveNoFileComp
-}
+// 	var comps []string
+// 	for _, role := range roles.Items {
+// 		if slices.Contains(args, role.Id) {
+// 			continue
+// 		}
+// 		if strings.HasPrefix(role.Id, toComplete) {
+// 			comps = append(comps, fmt.Sprintf("%s\t%s", role.Id, role.MatchLabels.ExpressionString()))
+// 		}
+// 	}
+// 	return comps, cobra.ShellCompDirectiveNoFileComp
+// }
 
 func completeBootstrapTokens(cmd *cobra.Command, args []string, toComplete string, filters ...func(*corev1.BootstrapToken) bool) ([]string, cobra.ShellCompDirective) {
 	if err := managementPreRunE(cmd, nil); err != nil {

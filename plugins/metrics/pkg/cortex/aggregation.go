@@ -17,6 +17,7 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/rbac"
+	"github.com/rancher/opni/plugins/metrics/pkg/util"
 )
 
 type DataFormat string
@@ -75,7 +76,7 @@ type rawPromJSONData struct {
 }
 
 func (a *MultiTenantRuleAggregator) Handle(c *gin.Context) {
-	ids := rbac.AuthorizedClusterIDs(c)
+	ids := util.AuthorizedClusterIDs(c)
 	a.logger.With(
 		"request", c.FullPath(),
 	).Debug(fmt.Sprintf("aggregating query over %d tenants", len(ids)))

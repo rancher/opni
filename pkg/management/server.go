@@ -19,6 +19,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/caching"
+	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/health"
@@ -29,11 +30,11 @@ import (
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
-	"github.com/rancher/opni/pkg/rbac"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	channelzservice "google.golang.org/grpc/channelz/service"
 	"google.golang.org/grpc/codes"
@@ -72,8 +73,8 @@ type Server struct {
 	managementv1.UnsafeManagementServer
 	managementServerOptions
 	config            *v1beta1.ManagementSpec
+	rbacManagerStore  capabilities.RBACManagerStore
 	logger            *slog.Logger
-	rbacProvider      rbac.Provider
 	coreDataSource    CoreDataSource
 	grpcServer        *grpc.Server
 	dashboardSettings *DashboardSettingsManager
@@ -132,7 +133,7 @@ func NewServer(
 		config:                  conf,
 		logger:                  lg,
 		coreDataSource:          cds,
-		rbacProvider:            storage.NewRBACProvider(cds.StorageBackend()),
+		rbacManagerStore:        capabilities.NewRBACManagerStore(lg),
 		dashboardSettings: &DashboardSettingsManager{
 			kv:     cds.StorageBackend().KeyValueStore("dashboard"),
 			logger: lg,
@@ -161,6 +162,36 @@ func NewServer(
 				).Error("failed to serve plugin API extensions")
 			}
 		}()
+	}))
+
+	pluginLoader.Hook(hooks.OnLoadM(func(p types.CapabilityRBACPlugin, md meta.PluginMeta) {
+		list, err := p.List(ctx, &emptypb.Empty{})
+		if err != nil {
+			lg.With(
+				"plugin", md.Module,
+				logger.Err(err),
+			).Error("failed to list capabilities")
+			return
+		}
+		for _, cap := range list.GetItems() {
+			info, err := p.Info(ctx, &corev1.Reference{Id: cap.GetName()})
+			if err != nil {
+				lg.With(
+					zap.String("plugin", md.Module),
+				).Error("failed to get capability info")
+				return
+			}
+			if err := m.rbacManagerStore.Add(info.Name, p); err != nil {
+				lg.With(
+					"plugin", md.Module,
+					logger.Err(err),
+				).Error("failed to add capability backend rbac")
+			}
+			lg.With(
+				"plugin", md.Module,
+				"capability", info.Name,
+			).Info("added capability rbac backend")
+		}
 	}))
 
 	return m

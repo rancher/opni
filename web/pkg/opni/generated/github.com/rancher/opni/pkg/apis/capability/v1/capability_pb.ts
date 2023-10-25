@@ -501,6 +501,11 @@ export class DetailsList extends Message<DetailsList> {
    */
   items: Details[] = [];
 
+  /**
+   * @generated from field: core.Revision lastRevision = 4;
+   */
+  lastRevision?: Revision;
+
   constructor(data?: PartialMessage<DetailsList>) {
     super();
     proto3.util.initPartial(data, this);
@@ -510,6 +515,7 @@ export class DetailsList extends Message<DetailsList> {
   static readonly typeName = "capability.DetailsList";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "items", kind: "message", T: Details, repeated: true },
+    { no: 4, name: "lastRevision", kind: "message", T: Revision },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DetailsList {

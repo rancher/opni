@@ -3,11 +3,20 @@ package v1
 import (
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ttacon/chalk"
 	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+type CorePermissionType string
+
+const (
+	PermissionTypeCluster   CorePermissionType = "cluster"
+	PermissionTypeNamespace CorePermissionType = "namespace"
+	PermissionTypeAPI       CorePermissionType = "api"
 )
 
 func (s *HealthStatus) Summary() string {
@@ -86,4 +95,31 @@ func (r *Revision) Set(revision int64) {
 		*r.Revision = revision
 		r.Timestamp = nil
 	}
+}
+
+func VerbGet() *PermissionVerb {
+	return &PermissionVerb{
+		Verb: "GET",
+	}
+}
+
+func (v *PermissionVerb) InList(in []*PermissionVerb) bool {
+	for _, verb := range in {
+		if v.GetVerb() == verb.GetVerb() {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Role) GetRevision() int64 {
+	rev := r.GetMetadata().GetResourceVersion()
+	if rev == "" {
+		return 0
+	}
+	revision, err := strconv.ParseInt(rev, 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	return revision
 }

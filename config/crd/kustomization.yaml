@@ -5,7 +5,6 @@ resources:
 - opensearch/opensearch.opster.io_opensearchclusters.yaml
 - grafana/grafana.opni.io_grafanadashboards.yaml
 - grafana/grafana.opni.io_grafanadatasources.yaml
-- grafana/grafana.opni.io_grafanafolders.yaml
 - grafana/grafana.opni.io_grafanas.yaml
 - bases/ai.opni.io_opniclusters.yaml
 - bases/ai.opni.io_pretrainedmodels.yaml

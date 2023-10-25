@@ -58,6 +58,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/go-logr/logr"
 
@@ -430,7 +431,7 @@ func RunTestEnvironment(
 	// add the opnicluster manager
 	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     fmt.Sprintf(":%d", ports[0]),
+		Metrics:                server.Options{BindAddress: fmt.Sprintf(":%d", ports[0])},
 		HealthProbeBindAddress: fmt.Sprintf(":%d", ports[1]),
 	})
 	Expect(err).NotTo(HaveOccurred())

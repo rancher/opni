@@ -9,6 +9,5 @@ func init() {
 		&grafanav1beta1.Grafana{}, &grafanav1beta1.GrafanaList{},
 		&grafanav1beta1.GrafanaDashboard{}, &grafanav1beta1.GrafanaDashboardList{},
 		&grafanav1beta1.GrafanaDatasource{}, &grafanav1beta1.GrafanaDatasourceList{},
-		&grafanav1beta1.GrafanaFolder{}, &grafanav1beta1.GrafanaFolderList{},
 	)
 }

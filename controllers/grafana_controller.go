@@ -45,15 +45,6 @@ type GrafanaDatasourceReconciler struct {
 	scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=grafana.opni.io,resources=grafanafolders,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=grafana.opni.io,resources=grafanafolders/status,verbs=get;update;patch
-
-type GrafanaFolderReconciler struct {
-	client.Client
-	Log    logr.Logger
-	scheme *runtime.Scheme
-}
-
 func (r *GrafanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
@@ -88,20 +79,6 @@ func (r *GrafanaDatasourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Log = mgr.GetLogger().WithName("controllers").WithName("GrafanaDatasource").V(int(slog.LevelWarn))
 
 	gc := &grafanactrl.GrafanaDatasourceReconciler{
-		Client: r.Client,
-		Scheme: r.scheme,
-		Log:    r.Log,
-	}
-
-	return gc.SetupWithManager(mgr, context.Background())
-}
-
-func (r *GrafanaFolderReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.Client = mgr.GetClient()
-	r.scheme = mgr.GetScheme()
-	r.Log = mgr.GetLogger().WithName("controllers").WithName("GrafanaFolder").V(int(slog.LevelWarn))
-
-	gc := &grafanactrl.GrafanaFolderReconciler{
 		Client: r.Client,
 		Scheme: r.scheme,
 		Log:    r.Log,

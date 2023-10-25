@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
 	"github.com/rancher/opni/controllers"
@@ -52,8 +54,8 @@ func BuildManagerCmd() *cobra.Command {
 
 		mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 			Scheme:                 scheme,
-			MetricsBindAddress:     metricsAddr,
-			Port:                   9443,
+			Metrics:                server.Options{BindAddress: metricsAddr},
+			WebhookServer:          webhook.NewServer(webhook.Options{Port: 9443}),
 			HealthProbeBindAddress: probeAddr,
 			LeaderElection:         enableLeaderElection,
 			LeaderElectionID:       "98e737d4.opni.io",
@@ -152,6 +154,11 @@ func BuildManagerCmd() *cobra.Command {
 
 		if err = (&controllers.GrafanaDatasourceReconciler{}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "GrafanaDatasource")
+			return err
+		}
+
+		if err = (&controllers.GrafanaFolderReconciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "GrafanaFolder")
 			return err
 		}
 

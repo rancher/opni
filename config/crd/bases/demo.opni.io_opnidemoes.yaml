@@ -23,7 +23,7 @@ spec:
     - jsonPath: .status.state
       name: State
       type: string
-    name: v1alpha1
+    name: v1beta1
     schema:
       openAPIV3Schema:
         properties:

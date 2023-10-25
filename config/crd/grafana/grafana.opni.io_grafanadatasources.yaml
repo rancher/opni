@@ -3,47 +3,60 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: grafanadatasources.grafana.opni.io
 spec:
   group: grafana.opni.io
   names:
-    kind: GrafanaDataSource
-    listKind: GrafanaDataSourceList
+    kind: GrafanaDatasource
+    listKind: GrafanaDatasourceList
     plural: grafanadatasources
     singular: grafanadatasource
   scope: Namespaced
   versions:
-  - name: v1alpha1
-    schema:
-      openAPIV3Schema:
-        properties:
-          apiVersion:
-            type: string
-          kind:
-            type: string
-          metadata:
-            type: object
-          spec:
-            properties:
-              datasources:
-                items:
+    - additionalPrinterColumns:
+        - jsonPath: .status.NoMatchingInstances
+          name: No matching instances
+          type: boolean
+        - format: date-time
+          jsonPath: .status.lastResync
+          name: Last resync
+          type: date
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+      name: v1beta1
+      schema:
+        openAPIV3Schema:
+          description: GrafanaDatasource is the Schema for the grafanadatasources API
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: GrafanaDatasourceSpec defines the desired state of GrafanaDatasource
+              properties:
+                allowCrossNamespaceImport:
+                  description: allow to import this resources from an operator in a
+                    different namespace
+                  type: boolean
+                datasource:
                   properties:
                     access:
                       type: string
                     basicAuth:
                       type: boolean
-                    basicAuthPassword:
-                      type: string
                     basicAuthUser:
                       type: string
-                    customJsonData:
-                      type: object
-                      x-kubernetes-preserve-unknown-fields: true
-                    customSecureJsonData:
-                      type: object
-                      x-kubernetes-preserve-unknown-fields: true
                     database:
                       type: string
                     editable:
@@ -51,292 +64,16 @@ spec:
                     isDefault:
                       type: boolean
                     jsonData:
-                      properties:
-                        addCorsHeader:
-                          type: boolean
-                        alertmanagerUid:
-                          type: string
-                        allowInfraExplore:
-                          type: boolean
-                        apiToken:
-                          type: string
-                        appInsightsAppId:
-                          type: string
-                        assumeRoleArn:
-                          type: string
-                        authType:
-                          type: string
-                        authenticationType:
-                          type: string
-                        azureLogAnalyticsSameAs:
-                          type: string
-                        clientEmail:
-                          type: string
-                        clientId:
-                          type: string
-                        cloudName:
-                          type: string
-                        clusterUrl:
-                          type: string
-                        connMaxLifetime:
-                          type: integer
-                        customMetricsNamespaces:
-                          type: string
-                        customQueryParameters:
-                          type: string
-                        defaultBucket:
-                          type: string
-                        defaultDatabase:
-                          type: string
-                        defaultProject:
-                          type: string
-                        defaultRegion:
-                          type: string
-                        derivedFields:
-                          items:
-                            properties:
-                              datasourceUid:
-                                type: string
-                              matcherRegex:
-                                type: string
-                              name:
-                                type: string
-                              url:
-                                type: string
-                            type: object
-                          type: array
-                        encrypt:
-                          type: string
-                        esVersion:
-                          anyOf:
-                          - type: integer
-                          - type: string
-                          x-kubernetes-int-or-string: true
-                        exemplarTraceIdDestinations:
-                          items:
-                            properties:
-                              datasourceUid:
-                                type: string
-                              name:
-                                type: string
-                              url:
-                                type: string
-                              urlDisplayLabel:
-                                type: string
-                            type: object
-                          type: array
-                        githubUrl:
-                          type: string
-                        graphiteVersion:
-                          type: string
-                        httpHeaderName1:
-                          type: string
-                        httpHeaderName2:
-                          type: string
-                        httpHeaderName3:
-                          type: string
-                        httpHeaderName4:
-                          type: string
-                        httpHeaderName5:
-                          type: string
-                        httpHeaderName6:
-                          type: string
-                        httpHeaderName7:
-                          type: string
-                        httpHeaderName8:
-                          type: string
-                        httpHeaderName9:
-                          type: string
-                        httpMethod:
-                          type: string
-                        httpMode:
-                          type: string
-                        implementation:
-                          type: string
-                        interval:
-                          type: string
-                        logAnalyticsClientId:
-                          type: string
-                        logAnalyticsDefaultWorkspace:
-                          type: string
-                        logAnalyticsSubscriptionId:
-                          type: string
-                        logAnalyticsTenantId:
-                          type: string
-                        logLevelField:
-                          type: string
-                        logMessageField:
-                          type: string
-                        manageAlerts:
-                          type: boolean
-                        maxIdleConns:
-                          type: integer
-                        maxLines:
-                          type: integer
-                        maxOpenConns:
-                          type: integer
-                        nodeGraph:
-                          properties:
-                            enabled:
-                              type: boolean
-                          type: object
-                        oauthPassThru:
-                          type: boolean
-                        organization:
-                          type: string
-                        port:
-                          type: integer
-                        postgresVersion:
-                          type: integer
-                        queryTimeout:
-                          type: string
-                        search:
-                          properties:
-                            hide:
-                              type: boolean
-                          type: object
-                        server:
-                          type: string
-                        serviceMap:
-                          properties:
-                            datasourceUid:
-                              type: string
-                          type: object
-                        showOffline:
-                          type: boolean
-                        sigV4AssumeRoleArn:
-                          type: string
-                        sigV4Auth:
-                          type: boolean
-                        sigV4AuthType:
-                          type: string
-                        sigV4ExternalId:
-                          type: string
-                        sigV4Profile:
-                          type: string
-                        sigV4Region:
-                          type: string
-                        sslmode:
-                          type: string
-                        subscriptionId:
-                          type: string
-                        tenantId:
-                          type: string
-                        timeField:
-                          type: string
-                        timeInterval:
-                          type: string
-                        timeout:
-                          type: integer
-                        timescaledb:
-                          type: boolean
-                        timezone:
-                          type: string
-                        tlsAuth:
-                          type: boolean
-                        tlsAuthWithCACert:
-                          type: boolean
-                        tlsSkipVerify:
-                          type: boolean
-                        tokenUri:
-                          type: string
-                        tracesToLogs:
-                          properties:
-                            datasourceUid:
-                              type: string
-                            filterBySpanID:
-                              type: boolean
-                            filterByTraceID:
-                              type: boolean
-                            lokiSearch:
-                              type: boolean
-                            spanEndTimeShift:
-                              type: string
-                            spanStartTimeShift:
-                              type: string
-                            tags:
-                              items:
-                                type: string
-                              type: array
-                          type: object
-                        tsdbResolution:
-                          type: string
-                        tsdbVersion:
-                          type: string
-                        url:
-                          type: string
-                        usePOST:
-                          type: boolean
-                        useProxy:
-                          type: boolean
-                        useYandexCloudAuthorization:
-                          type: boolean
-                        username:
-                          type: string
-                        version:
-                          type: string
-                        xHeaderKey:
-                          type: string
-                        xHeaderUser:
-                          type: string
                       type: object
+                      x-kubernetes-preserve-unknown-fields: true
                     name:
                       type: string
                     orgId:
+                      format: int64
                       type: integer
-                    password:
-                      type: string
                     secureJsonData:
-                      properties:
-                        accessKey:
-                          type: string
-                        accessToken:
-                          type: string
-                        appInsightsApiKey:
-                          type: string
-                        basicAuthPassword:
-                          type: string
-                        clientSecret:
-                          type: string
-                        httpHeaderValue1:
-                          type: string
-                        httpHeaderValue2:
-                          type: string
-                        httpHeaderValue3:
-                          type: string
-                        httpHeaderValue4:
-                          type: string
-                        httpHeaderValue5:
-                          type: string
-                        httpHeaderValue6:
-                          type: string
-                        httpHeaderValue7:
-                          type: string
-                        httpHeaderValue8:
-                          type: string
-                        httpHeaderValue9:
-                          type: string
-                        logAnalyticsClientSecret:
-                          type: string
-                        password:
-                          type: string
-                        privateKey:
-                          type: string
-                        secretKey:
-                          type: string
-                        sigV4AccessKey:
-                          type: string
-                        sigV4SecretKey:
-                          type: string
-                        tlsCACert:
-                          type: string
-                        tlsClientCert:
-                          type: string
-                        tlsClientKey:
-                          type: string
-                        token:
-                          type: string
                       type: object
+                      x-kubernetes-preserve-unknown-fields: true
                     type:
                       type: string
                     uid:
@@ -345,39 +82,149 @@ spec:
                       type: string
                     user:
                       type: string
-                    version:
-                      type: integer
-                    withCredentials:
-                      type: boolean
                   required:
-                  - name
-                  - type
+                    - access
+                    - name
+                    - type
+                    - url
                   type: object
-                type: array
-              name:
-                type: string
-            required:
-            - datasources
-            - name
-            type: object
-          status:
-            properties:
-              message:
-                type: string
-              phase:
-                type: string
-            required:
-            - message
-            - phase
-            type: object
-        type: object
-    served: true
-    storage: true
-    subresources:
-      status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
+                instanceSelector:
+                  description: selects Grafana instances for import
+                  properties:
+                    matchExpressions:
+                      description: matchExpressions is a list of label selector requirements.
+                        The requirements are ANDed.
+                      items:
+                        description: A label selector requirement is a selector that
+                          contains values, a key, and an operator that relates the key
+                          and values.
+                        properties:
+                          key:
+                            description: key is the label key that the selector applies
+                              to.
+                            type: string
+                          operator:
+                            description: operator represents a key's relationship to
+                              a set of values. Valid operators are In, NotIn, Exists
+                              and DoesNotExist.
+                            type: string
+                          values:
+                            description: values is an array of string values. If the
+                              operator is In or NotIn, the values array must be non-empty.
+                              If the operator is Exists or DoesNotExist, the values
+                              array must be empty. This array is replaced during a strategic
+                              merge patch.
+                            items:
+                              type: string
+                            type: array
+                        required:
+                          - key
+                          - operator
+                        type: object
+                      type: array
+                    matchLabels:
+                      additionalProperties:
+                        type: string
+                      description: matchLabels is a map of {key,value} pairs. A single
+                        {key,value} in the matchLabels map is equivalent to an element
+                        of matchExpressions, whose key field is "key", the operator
+                        is "In", and the values array contains only "value". The requirements
+                        are ANDed.
+                      type: object
+                  type: object
+                  x-kubernetes-map-type: atomic
+                plugins:
+                  description: plugins
+                  items:
+                    properties:
+                      name:
+                        type: string
+                      version:
+                        type: string
+                    required:
+                      - name
+                      - version
+                    type: object
+                  type: array
+                resyncPeriod:
+                  description: how often the datasource is refreshed, defaults to 5m
+                    if not set
+                  type: string
+                valuesFrom:
+                  description: environments variables from secrets or config maps
+                  items:
+                    properties:
+                      targetPath:
+                        type: string
+                      valueFrom:
+                        properties:
+                          configMapKeyRef:
+                            description: Selects a key of a ConfigMap.
+                            properties:
+                              key:
+                                description: The key to select.
+                                type: string
+                              name:
+                                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
+                                type: string
+                              optional:
+                                description: Specify whether the ConfigMap or its key
+                                  must be defined
+                                type: boolean
+                            required:
+                              - key
+                            type: object
+                            x-kubernetes-map-type: atomic
+                          secretKeyRef:
+                            description: Selects a key of a Secret.
+                            properties:
+                              key:
+                                description: The key of the secret to select from.  Must
+                                  be a valid secret key.
+                                type: string
+                              name:
+                                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
+                                type: string
+                              optional:
+                                description: Specify whether the Secret or its key must
+                                  be defined
+                                type: boolean
+                            required:
+                              - key
+                            type: object
+                            x-kubernetes-map-type: atomic
+                        type: object
+                    required:
+                      - targetPath
+                      - valueFrom
+                    type: object
+                  type: array
+              required:
+                - datasource
+                - instanceSelector
+              type: object
+            status:
+              description: GrafanaDatasourceStatus defines the observed state of GrafanaDatasource
+              properties:
+                NoMatchingInstances:
+                  description: The datasource instanceSelector can't find matching grafana
+                    instances
+                  type: boolean
+                hash:
+                  type: string
+                lastMessage:
+                  type: string
+                lastResync:
+                  description: Last time the datasource was resynced
+                  format: date-time
+                  type: string
+                uid:
+                  type: string
+              type: object
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}

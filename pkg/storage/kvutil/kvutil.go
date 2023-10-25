@@ -98,7 +98,11 @@ func (s *kvStorePrefixImpl[T]) ListKeys(ctx context.Context, prefix string, opts
 	}
 	retKeys := make([]string, len(keys))
 	for i, key := range keys {
-		retKeys[i] = strings.TrimPrefix(key, s.prefix)
+		if strings.Contains(key, s.prefix) {
+			retKeys[i] = strings.TrimPrefix(key, s.prefix)
+		} else {
+			retKeys[i] = strings.TrimPrefix(key, strings.ReplaceAll(s.prefix, "/", ""))
+		}
 	}
 	return retKeys, nil
 }

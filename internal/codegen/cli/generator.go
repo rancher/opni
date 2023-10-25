@@ -126,7 +126,7 @@ func genLeadingComments(g *protogen.GeneratedFile, loc protoreflect.SourceLocati
 	}
 }
 
-func (cg *Generator) generateFileContents(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile) {
+func (cg *Generator) generateFileContents(_ *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile) {
 	opts := GeneratorOptions{}
 	applyOptions(file.Desc, &opts)
 

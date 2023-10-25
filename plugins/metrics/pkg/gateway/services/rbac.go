@@ -138,13 +138,12 @@ func (r *RBACBackendService) UpdateRole(ctx context.Context, in *corev1.Role) (*
 			innerErr = err
 			return
 		}
-		revision, err := strconv.ParseInt(in.GetMetadata().GetResourceVersion(), 10, 64)
 		if err != nil {
 			innerErr = err
 			return
 		}
 		oldRole.Permissions = in.GetPermissions()
-		innerErr = r.rolesStore.Put(ctx, oldRole.Reference().GetId(), oldRole, storage.WithRevision(revision))
+		innerErr = r.rolesStore.Put(ctx, oldRole.Reference().GetId(), oldRole, storage.WithRevision(in.GetRevision()))
 	})
 
 	if err != nil {

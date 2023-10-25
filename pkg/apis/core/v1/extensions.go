@@ -3,6 +3,7 @@ package v1
 import (
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -109,4 +110,16 @@ func (v *PermissionVerb) InList(in []*PermissionVerb) bool {
 		}
 	}
 	return false
+}
+
+func (r *Role) GetRevision() int64 {
+	rev := r.GetMetadata().GetResourceVersion()
+	if rev == "" {
+		return 0
+	}
+	revision, err := strconv.ParseInt(rev, 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	return revision
 }

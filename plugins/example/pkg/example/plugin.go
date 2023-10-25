@@ -281,13 +281,8 @@ func (p *ExamplePlugin) UpdateRole(ctx context.Context, in *corev1.Role) (*empty
 		return &emptypb.Empty{}, err
 	}
 
-	revision, err := strconv.ParseInt(in.GetMetadata().GetResourceVersion(), 10, 64)
-	if err != nil {
-		return &emptypb.Empty{}, err
-	}
-
 	oldRole.Permissions = in.GetPermissions()
-	err = store.Put(ctx, oldRole.Reference().GetId(), oldRole, storage.WithRevision(revision))
+	err = store.Put(ctx, oldRole.Reference().GetId(), oldRole, storage.WithRevision(in.GetRevision()))
 	return &emptypb.Empty{}, err
 }
 

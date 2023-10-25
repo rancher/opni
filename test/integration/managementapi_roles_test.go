@@ -84,7 +84,7 @@ var _ = Describe("Management API Roles Management Tests", Ordered, Label("integr
 	})
 
 	It("can update an existing role", func() {
-		_, err := client.GetBackendRole(context.Background(), &corev1.BackendRoleRequest{
+		old, err := client.GetBackendRole(context.Background(), &corev1.BackendRoleRequest{
 			Capability: capability,
 			RoleRef: &corev1.Reference{
 				Id: "test-role1",
@@ -93,7 +93,8 @@ var _ = Describe("Management API Roles Management Tests", Ordered, Label("integr
 		Expect(err).NotTo(HaveOccurred())
 
 		role := &corev1.Role{
-			Id: "test-role1",
+			Metadata: old.GetMetadata(),
+			Id:       "test-role1",
 			Permissions: []*corev1.PermissionItem{
 				{
 					Type: string(corev1.PermissionTypeCluster),

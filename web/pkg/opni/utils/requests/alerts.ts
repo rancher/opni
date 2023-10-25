@@ -4,9 +4,7 @@ import { Reference } from '../../models/shared';
 import {
   AlertCondition, AlertConditionList, AlertDetailChoicesRequest, AlertStatusResponse, Condition, ConditionReference, ListAlarmMessageRequest, ListAlertTypeDetails, ListMessageResponse, ListStatusResponse, SilenceRequest, TimelineRequest, TimelineResponse, UpdateAlertConditionRequest
 } from '../../models/alerting/Condition';
-import {
-  AlertEndpoint, AlertEndpointList, Endpoint, UpdateAlertEndpointRequest
-} from '../../models/alerting/Endpoint';
+import { AlertEndpoint, AlertEndpointList, Endpoint, UpdateAlertEndpointRequest } from '../../models/alerting/Endpoint';
 import { Cluster } from '../../models/Cluster';
 
 export async function createAlertEndpoint(endpoint: AlertEndpoint) {
@@ -68,8 +66,8 @@ export async function getAlertConditionChoices(request: AlertDetailChoicesReques
   return (await axios.post<ListAlertTypeDetails>('opni-api/AlertConditions/choices', request)).data;
 }
 
-export function deleteAlertCondition(id: string) {
-  return axios.delete(`opni-api/AlertConditions/configure`, { data: { id } });
+export function deleteAlertCondition(id: string, groupId : string) {
+  return axios.delete(`opni-api/AlertConditions/configure`, { data: { id, groupId } });
 }
 
 export async function getAlertConditionStatus(id: string): Promise<AlertStatusResponse> {

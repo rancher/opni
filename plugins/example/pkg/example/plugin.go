@@ -263,14 +263,15 @@ func (p *ExamplePlugin) GetRole(ctx context.Context, in *corev1.Reference) (*cor
 }
 
 func (p *ExamplePlugin) CreateRole(ctx context.Context, in *corev1.Role) (*emptypb.Empty, error) {
-	_, err := p.rbacStorage.Get().Get(ctx, in.Reference().GetId())
+	var revision int64
+	_, err := p.rbacStorage.Get().Get(ctx, in.Reference().GetId(), storage.WithRevisionOut(&revision))
 	if err == nil {
 		return nil, storage.ErrAlreadyExists
 	}
 	if !storage.IsNotFound(err) {
 		return nil, err
 	}
-	err = p.rbacStorage.Get().Put(ctx, in.GetId(), in)
+	err = p.rbacStorage.Get().Put(ctx, in.GetId(), in, storage.WithRevision(revision))
 	return &emptypb.Empty{}, err
 }
 

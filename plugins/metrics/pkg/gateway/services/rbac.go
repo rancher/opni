@@ -100,28 +100,17 @@ func (r *RBACBackendService) CreateRole(ctx context.Context, in *corev1.Role) (*
 		return &emptypb.Empty{}, err
 	}
 
-	_, err := r.rolesStore.Get(ctx, in.Reference().GetId())
+	var revision int64
+	_, err := r.rolesStore.Get(ctx, in.Reference().GetId(), storage.WithRevisionOut(&revision))
 	if err == nil {
 		return nil, storage.ErrAlreadyExists
 	}
 	if !storage.IsNotFound(err) {
 		return nil, err
 	}
+	err = r.rolesStore.Put(ctx, in.GetId(), in, storage.WithRevision(revision))
 
-	locker := system.NewLock(ctx, r.Context.KeyValueStoreClient(), lockKey(in.Reference().GetId()))
-
-	var innerErr error
-	err = locker.Try(func() {
-		innerErr = r.rolesStore.Put(ctx, in.GetId(), in)
-	}, func() {
-		innerErr = status.Error(codes.Aborted, "could not obtain lock")
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &emptypb.Empty{}, innerErr
+	return &emptypb.Empty{}, err
 }
 
 func (r *RBACBackendService) UpdateRole(ctx context.Context, in *corev1.Role) (*emptypb.Empty, error) {
@@ -129,28 +118,15 @@ func (r *RBACBackendService) UpdateRole(ctx context.Context, in *corev1.Role) (*
 		return &emptypb.Empty{}, err
 	}
 
-	locker := system.NewLock(ctx, r.Context.KeyValueStoreClient(), lockKey(in.Reference().GetId()))
-	var innerErr error
-
-	err := locker.Do(func() {
-		oldRole, err := r.rolesStore.Get(ctx, in.Reference().GetId())
-		if err != nil {
-			innerErr = err
-			return
-		}
-		if err != nil {
-			innerErr = err
-			return
-		}
-		oldRole.Permissions = in.GetPermissions()
-		innerErr = r.rolesStore.Put(ctx, oldRole.Reference().GetId(), oldRole, storage.WithRevision(in.GetRevision()))
-	})
-
+	oldRole, err := r.rolesStore.Get(ctx, in.Reference().GetId())
 	if err != nil {
 		return nil, err
 	}
 
-	return &emptypb.Empty{}, innerErr
+	oldRole.Permissions = in.GetPermissions()
+	err = r.rolesStore.Put(ctx, oldRole.Reference().GetId(), oldRole, storage.WithRevision(in.GetRevision()))
+
+	return &emptypb.Empty{}, err
 }
 
 func (r *RBACBackendService) DeleteRole(ctx context.Context, in *corev1.Reference) (*emptypb.Empty, error) {

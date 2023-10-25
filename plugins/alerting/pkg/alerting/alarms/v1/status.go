@@ -408,5 +408,8 @@ func evaluatePrometheusRuleHealth(ruleList *cortexadmin.RuleGroups, id string) *
 			}
 		}
 	}
-	return nil
+	return &alertingv1.AlertStatusResponse{
+		State:  alertingv1.AlertConditionState_Pending,
+		Reason: "prometheus rule is not found in metrics backend",
+	}
 }

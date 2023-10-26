@@ -56,7 +56,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 
 	grafana := &grafanav1beta1.Grafana{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni",
+			Name:      "grafana",
 			Namespace: r.mc.Namespace,
 			Labels:    dashboardSelector.MatchLabels,
 		},
@@ -88,10 +88,13 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 
 	opniDatasource := &grafanav1beta1.GrafanaDatasource{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni",
+			Name:      "opni-datasource",
 			Namespace: r.mc.Namespace,
 		},
 		Spec: grafanav1beta1.GrafanaDatasourceSpec{
+			InstanceSelector: &metav1.LabelSelector{
+				MatchLabels: dashboardSelector.MatchLabels,
+			},
 			Datasource: &grafanav1beta1.GrafanaDatasourceInternal{
 				Name:   "Opni",
 				Type:   "prometheus",
@@ -103,6 +106,14 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 				JSONData:       opniDatasourceJSONCfg,
 				SecureJSONData: opniDatasourceSecureJSONCfg,
 			},
+			//Plugins: []grafanav1beta1.GrafanaPlugin{
+			//	{
+			//		Name: "grafana-polystat-panel",
+			//	},
+			//	{
+			//		Name: "marcusolsson-treemap-panel",
+			//	},
+			//},
 		},
 	}
 
@@ -113,19 +124,31 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 
 	opniAlertManagerDatasource := &grafanav1beta1.GrafanaDatasource{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni",
+			Name:      "opni-alert-manager-datasource",
 			Namespace: r.mc.Namespace,
 		},
 		Spec: grafanav1beta1.GrafanaDatasourceSpec{
+			InstanceSelector: &metav1.LabelSelector{
+				MatchLabels: dashboardSelector.MatchLabels,
+			},
 			Datasource: &grafanav1beta1.GrafanaDatasourceInternal{
 				Name:   "Opni Alertmanager",
-				Type:   "opni_alertmanager",
+				UID:    "opni_alertmanager",
+				Type:   "alertmanager",
 				Access: "proxy",
 				URL:    fmt.Sprintf("https://opni-internal.%s.svc:8080/api/prom", r.mc.Namespace),
 				// WithCredentials: lo.toPtr(true),
 				Editable:       lo.ToPtr(false),
 				JSONData:       opniAlertManagerDatasourceJSONCfg,
 				SecureJSONData: opniDatasourceSecureJSONCfg,
+			},
+			Plugins: []grafanav1beta1.GrafanaPlugin{
+				{
+					Name: "grafana-polystat-panel",
+				},
+				{
+					Name: "marcusolsson-treemap-panel",
+				},
 			},
 		},
 	}
@@ -135,12 +158,17 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "opni-gateway.json",
 				Namespace: r.mc.Namespace,
-				Labels:    dashboardSelector.MatchLabels,
 			},
 			Spec: grafanav1beta1.GrafanaDashboardSpec{
 				Json: string(opniGatewayJson),
 				InstanceSelector: &metav1.LabelSelector{
 					MatchLabels: dashboardSelector.MatchLabels,
+				},
+				Datasources: []grafanav1beta1.GrafanaDashboardDatasource{
+					{
+						DatasourceName: "Opni",
+						InputName:      "P0BEE70D62F42845E",
+					},
 				},
 			},
 		},
@@ -148,7 +176,6 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "opni-home.json",
 				Namespace: r.mc.Namespace,
-				Labels:    dashboardSelector.MatchLabels,
 			},
 			Spec: grafanav1beta1.GrafanaDashboardSpec{
 				Json: string(homeDashboardJson),
@@ -162,7 +189,6 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "opni-service-latency.json",
 				Namespace: r.mc.Namespace,
-				Labels:    dashboardSelector.MatchLabels,
 			},
 			Spec: grafanav1beta1.GrafanaDashboardSpec{
 				Json: string(serviceLatencyDashboardJson),
@@ -175,7 +201,6 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "slo-overview.json",
 				Namespace: r.mc.Namespace,
-				Labels:    dashboardSelector.MatchLabels,
 			},
 			Spec: grafanav1beta1.GrafanaDashboardSpec{
 				Json: string(sloOverviewDashboard),
@@ -188,7 +213,6 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "slo-detailed.json",
 				Namespace: r.mc.Namespace,
-				Labels:    dashboardSelector.MatchLabels,
 			},
 			Spec: grafanav1beta1.GrafanaDashboardSpec{
 				Json: string(sloDetailedDashboard),
@@ -253,6 +277,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		tag = strings.TrimSpace(r.mc.Spec.Grafana.GetVersion())
 	}
 
+	secret := "opni-gateway-client-cert"
 	defaults := grafanav1beta1.GrafanaSpec{
 		Client: &grafanav1beta1.GrafanaClient{
 			PreferIngress: lo.ToPtr(false),
@@ -264,6 +289,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 					Spec: &grafanav1beta1.DeploymentV1PodSpec{
 						Containers: []corev1.Container{
 							{
+								Name:  "grafana",
 								Image: grafanaImageRepo + "/grafana:" + tag,
 								Env: []corev1.EnvVar{
 									{
@@ -271,16 +297,32 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 										Value: "grafana-polystat-panel,marcusolsson-treemap-panel",
 									},
 								},
+								VolumeMounts: []corev1.VolumeMount{
+									{
+										Name:      fmt.Sprintf("secret-%s", secret),
+										MountPath: "/etc/grafana-secrets/" + secret,
+									},
+								},
 							},
 						},
 						SecurityContext: &corev1.PodSecurityContext{
 							FSGroup: lo.ToPtr(int64(472)),
 						},
+						Volumes: []corev1.Volume{
+							{
+								Name: fmt.Sprintf("secret-%s", secret),
+								VolumeSource: corev1.VolumeSource{
+									Secret: &corev1.SecretVolumeSource{
+										SecretName: secret,
+										Optional:   lo.ToPtr(true),
+									},
+								},
+							},
+						},
 					},
 				},
 			},
 		},
-		// Secrets: []string{"opni-gateway-client-cert"},
 		PersistentVolumeClaim: &grafanav1beta1.PersistentVolumeClaimV1{
 			Spec: &grafanav1beta1.PersistentVolumeClaimV1Spec{
 				Resources: &corev1.ResourceRequirements{
@@ -344,22 +386,35 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 			scopes = []string{"openid", "profile", "email"}
 		}
 		grafanaAuthGenericOauthCfg := map[string]string{
-			"enabled":                  "true",
-			"client_id":                spec.ClientID,
-			"client_secret":            spec.ClientSecret,
-			"scopes":                   strings.Join(scopes, " "),
-			"auth_url":                 wkc.AuthEndpoint,
-			"token_url":                wkc.TokenEndpoint,
-			"api_url":                  wkc.UserinfoEndpoint,
-			"role_attribute_path":      spec.RoleAttributePath,
-			"allow_sign_up":            strconv.FormatBool(lo.FromPtrOr(spec.AllowSignUp, false)),
-			"allowed_domains":          strings.Join(spec.AllowedDomains, " "),
-			"role_attribute_strict":    strconv.FormatBool(lo.FromPtrOr(spec.RoleAttributeStrict, false)),
-			"email_attribute_path":     spec.EmailAttributePath,
-			"tls_skip_verify_insecure": strconv.FormatBool(lo.FromPtrOr(spec.InsecureSkipVerify, false)),
-			"tls_client_cert":          spec.TLSClientCert,
-			"tls_client_key":           spec.TLSClientKey,
-			"tls_client_ca":            spec.TLSClientCA,
+			"enabled":             "true",
+			"client_id":           spec.ClientID,
+			"client_secret":       spec.ClientSecret,
+			"scopes":              strings.Join(scopes, " "),
+			"auth_url":            wkc.AuthEndpoint,
+			"token_url":           wkc.TokenEndpoint,
+			"api_url":             wkc.UserinfoEndpoint,
+			"role_attribute_path": spec.RoleAttributePath,
+		}
+		if len(spec.AllowedDomains) > 0 {
+			grafanaAuthGenericOauthCfg["allowed_domains"] = strings.Join(spec.AllowedDomains, " ")
+		}
+		if spec.AllowSignUp != nil {
+			grafanaAuthGenericOauthCfg["allow_sign_up"] = strconv.FormatBool(lo.FromPtr(spec.AllowSignUp))
+		}
+		if spec.InsecureSkipVerify != nil {
+			grafanaAuthGenericOauthCfg["tls_skip_verify_insecure"] = strconv.FormatBool(lo.FromPtr(spec.InsecureSkipVerify))
+		}
+		if spec.RoleAttributeStrict != nil {
+			grafanaAuthGenericOauthCfg["role_attribute_strict"] = strconv.FormatBool(lo.FromPtr(spec.RoleAttributeStrict))
+		}
+		if spec.TLSClientCA != "" && spec.TLSClientCert != "" && spec.TLSClientKey != "" {
+			grafanaAuthGenericOauthCfg["tls_client_cert"] = spec.TLSClientCert
+			grafanaAuthGenericOauthCfg["tls_client_key"] = spec.TLSClientKey
+			grafanaAuthGenericOauthCfg["tls_client_ca"] = spec.TLSClientCA
+		}
+		if spec.EmailAttributePath != "" {
+			grafanaAuthGenericOauthCfg["email_attribute_path"] = spec.EmailAttributePath
+
 		}
 
 		grafana.Spec.Config["auth.generic_oauth"] = grafanaAuthGenericOauthCfg
@@ -405,7 +460,7 @@ func createDefaultGrafanaIni(grafanaHostname string) map[string]map[string]strin
 	oauthSection := make(map[string]string)
 	oauthSection["enabled"] = "true"
 	oauthSection["scopes"] = "openid profile email"
-	config["authGenericOauth"] = oauthSection
+	config["auth.generic_oauth"] = oauthSection
 
 	unifiedAlertingSection := make(map[string]string)
 	unifiedAlertingSection["enabled"] = "true"
@@ -424,38 +479,38 @@ func createDefaultGrafanaIni(grafanaHostname string) map[string]map[string]strin
 func createDatasourceJSONData() (json.RawMessage, error) {
 	datasourceCfg := make(map[string]any)
 	datasourceCfg["alertmanagerUid"] = "opni_alertmanager"
-	datasourceCfg["oauthPassThru"] = "true"
-	datasourceCfg["TlsAuthWithCACert"] = "true"
+	datasourceCfg["oauthPassThru"] = true
+	datasourceCfg["tlsAuthWithCACert"] = true
 
 	jsonData, err := json.Marshal(datasourceCfg)
 	if err != nil {
 		return nil, err
 	}
-	return json.RawMessage(jsonData), nil
+	return jsonData, nil
 }
 
 func createAlertManagerDatasourceJSONData() (json.RawMessage, error) {
 	datasourceCfg := make(map[string]any)
 	datasourceCfg["implementation"] = "cortex"
-	datasourceCfg["oauthPassThru"] = "true"
-	datasourceCfg["TlsAuthWithCACert"] = "true"
+	datasourceCfg["oauthPassThru"] = true
+	datasourceCfg["tlsAuthWithCACert"] = true
 
 	jsonData, err := json.Marshal(datasourceCfg)
 	if err != nil {
 		return nil, err
 	}
-	return json.RawMessage(jsonData), nil
+	return jsonData, nil
 }
 
 func createDatasourceSecureJSONData() (json.RawMessage, error) {
 	datasourceSecureCfg := make(map[string]any)
 	datasourceSecureCfg["tlsCACert"] = "$__file{/etc/grafana-secrets/opni-gateway-client-cert/ca.crt}"
-	datasourceSecureCfg["TlsClientCert"] = "$__file{/etc/grafana-secrets/opni-gateway-client-cert/tls.crt}"
-	datasourceSecureCfg["TlsClientKey"] = "$__file{/etc/grafana-secrets/opni-gateway-client-cert/tls.key}"
+	datasourceSecureCfg["tlsClientCert"] = "$__file{/etc/grafana-secrets/opni-gateway-client-cert/tls.crt}"
+	datasourceSecureCfg["tlsClientKey"] = "$__file{/etc/grafana-secrets/opni-gateway-client-cert/tls.key}"
 
 	jsonData, err := json.Marshal(datasourceSecureCfg)
 	if err != nil {
 		return nil, err
 	}
-	return json.RawMessage(jsonData), nil
+	return jsonData, nil
 }

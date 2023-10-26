@@ -3,11 +3,13 @@
 package controllers
 
 import (
-	"context"
+	grafanav1beta1 "github.com/grafana-operator/grafana-operator/v5/api/v1beta1"
 	"log/slog"
 
 	"github.com/go-logr/logr"
 	grafanactrl "github.com/grafana-operator/grafana-operator/v5/controllers"
+	v1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,7 +58,11 @@ func (r *GrafanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Log:    r.Log,
 	}
 
-	return gc.SetupWithManager(mgr)
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&grafanav1beta1.Grafana{}).
+		Owns(&v1.Deployment{}).
+		Owns(&corev1.ConfigMap{}).
+		Complete(gc)
 }
 
 func (r *GrafanaDashboardReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -70,7 +76,9 @@ func (r *GrafanaDashboardReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Log:    r.Log,
 	}
 
-	return gc.SetupWithManager(mgr, context.Background())
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&grafanav1beta1.GrafanaDashboard{}).
+		Complete(&gc)
 }
 
 func (r *GrafanaDatasourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -84,5 +92,8 @@ func (r *GrafanaDatasourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Log:    r.Log,
 	}
 
-	return gc.SetupWithManager(mgr, context.Background())
+	//return gc.SetupWithManager(mgr, context.Background())
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&grafanav1beta1.GrafanaDatasource{}).
+		Complete(gc)
 }

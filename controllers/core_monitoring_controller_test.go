@@ -3,11 +3,11 @@ package controllers_test
 import (
 	"context"
 	"fmt"
+	grafanav1beta1 "github.com/grafana-operator/grafana-operator/v5/api/v1beta1"
 	"os"
 	"time"
 
 	"github.com/cortexproject/cortex/pkg/cortex"
-	grafanav1alpha1 "github.com/grafana-operator/grafana-operator/v4/api/integreatly/v1alpha1"
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -153,7 +153,7 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 						"grafana": map[string]any{
 							"config": map[string]any{
 								"auth.generic_oauth": map[string]any{
-									"enabled": true,
+									"enabled": "true",
 								},
 							},
 							"enabled":  true,
@@ -239,10 +239,10 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 				Enabled:  lo.ToPtr(true),
 				Hostname: lo.ToPtr("x"),
 			}))
-			Expect(target.Spec.Grafana.GrafanaSpec).To(Equal(grafanav1alpha1.GrafanaSpec{
-				Config: grafanav1alpha1.GrafanaConfig{
-					AuthGenericOauth: &grafanav1alpha1.GrafanaConfigAuthGenericOauth{
-						Enabled: lo.ToPtr(true),
+			Expect(target.Spec.Grafana.GrafanaSpec).To(Equal(grafanav1beta1.GrafanaSpec{
+				Config: map[string]map[string]string{
+					"auth.generic_oauth": {
+						"enabled": "true",
 					},
 				},
 			}))

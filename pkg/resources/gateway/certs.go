@@ -252,7 +252,7 @@ func (r *Reconciler) alertingClientCaIssuer() client.Object {
 		Spec: cmv1.IssuerSpec{
 			IssuerConfig: cmv1.IssuerConfig{
 				CA: &cmv1.CAIssuer{
-					SecretName: "alerting-client-cert-keys",
+					SecretName: "alerting-client-ca-keys",
 				},
 			},
 		},

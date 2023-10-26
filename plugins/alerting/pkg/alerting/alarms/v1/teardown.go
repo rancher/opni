@@ -2,6 +2,7 @@ package alarms
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/rancher/opni/pkg/alerting/drivers/cortex"
@@ -22,13 +23,20 @@ func (p *AlarmServerComponent) teardownCondition(
 	cleanup bool,
 ) (retErr error) {
 	defer func() {
-		if cleanup && retErr == nil {
-			condStorage, err := p.conditionStorage.GetContext(ctx)
-			if err != nil {
-				retErr = err
-				return
-			}
+		condStorage, err := p.conditionStorage.GetContext(ctx)
+		if err != nil {
+			retErr = errors.Join(retErr, err)
+		}
+		if cleanup && retErr == nil { // user has requested a delete
 			if err := condStorage.Group(req.GroupId).Delete(ctx, id); err != nil {
+				retErr = err
+			}
+		} else if !cleanup && retErr == nil { // user has requested an uninstall without purging data
+			if req.Metadata == nil {
+				req.Metadata = map[string]string{}
+			}
+			req.Metadata[metadataInactiveAlarm] = "true"
+			if err := condStorage.Group(req.GroupId).Put(ctx, id, req); err != nil {
 				retErr = err
 			}
 		}

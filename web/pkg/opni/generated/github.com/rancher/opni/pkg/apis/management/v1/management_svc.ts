@@ -18,8 +18,7 @@ export async function CreateBootstrapToken(input: CreateBootstrapTokenRequest): 
       console.info('Here is the input for a request to Management-CreateBootstrapToken:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => BootstrapToken.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'post',
       responseType: 'arraybuffer',
       headers: {
@@ -30,8 +29,9 @@ export async function CreateBootstrapToken(input: CreateBootstrapTokenRequest): 
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = BootstrapToken.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-CreateBootstrapToken:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -49,7 +49,7 @@ export async function RevokeBootstrapToken(input: Reference): Promise<void> {
       console.info('Here is the input for a request to Management-RevokeBootstrapToken:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'delete',
       responseType: 'arraybuffer',
       headers: {
@@ -60,8 +60,9 @@ export async function RevokeBootstrapToken(input: Reference): Promise<void> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to Management-RevokeBootstrapToken:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -75,8 +76,7 @@ export async function RevokeBootstrapToken(input: Reference): Promise<void> {
 export async function ListBootstrapTokens(): Promise<BootstrapTokenList> {
   try {
     
-    const response = (await axios.request({
-    transformResponse: resp => BootstrapTokenList.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -86,8 +86,9 @@ export async function ListBootstrapTokens(): Promise<BootstrapTokenList> {
       url: `/opni-api/Management/tokens`
     })).data;
 
+    const response = BootstrapTokenList.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-ListBootstrapTokens:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -105,8 +106,7 @@ export async function GetBootstrapToken(input: Reference): Promise<BootstrapToke
       console.info('Here is the input for a request to Management-GetBootstrapToken:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => BootstrapToken.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -117,8 +117,9 @@ export async function GetBootstrapToken(input: Reference): Promise<BootstrapToke
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = BootstrapToken.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-GetBootstrapToken:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -136,8 +137,7 @@ export async function ListClusters(input: ListClustersRequest): Promise<ClusterL
       console.info('Here is the input for a request to Management-ListClusters:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => ClusterList.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -148,8 +148,9 @@ export async function ListClusters(input: ListClustersRequest): Promise<ClusterL
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = ClusterList.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-ListClusters:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -195,7 +196,7 @@ export async function DeleteCluster(input: Reference): Promise<void> {
       console.info('Here is the input for a request to Management-DeleteCluster:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'delete',
       responseType: 'arraybuffer',
       headers: {
@@ -206,8 +207,9 @@ export async function DeleteCluster(input: Reference): Promise<void> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to Management-DeleteCluster:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -221,8 +223,7 @@ export async function DeleteCluster(input: Reference): Promise<void> {
 export async function CertsInfo(): Promise<CertsInfoResponse> {
   try {
     
-    const response = (await axios.request({
-    transformResponse: resp => CertsInfoResponse.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -232,8 +233,9 @@ export async function CertsInfo(): Promise<CertsInfoResponse> {
       url: `/opni-api/Management/certs`
     })).data;
 
+    const response = CertsInfoResponse.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-CertsInfo:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -251,8 +253,7 @@ export async function GetCluster(input: Reference): Promise<Cluster> {
       console.info('Here is the input for a request to Management-GetCluster:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => Cluster.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -263,8 +264,9 @@ export async function GetCluster(input: Reference): Promise<Cluster> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = Cluster.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-GetCluster:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -282,8 +284,7 @@ export async function GetClusterHealthStatus(input: Reference): Promise<HealthSt
       console.info('Here is the input for a request to Management-GetClusterHealthStatus:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => HealthStatus.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -294,8 +295,9 @@ export async function GetClusterHealthStatus(input: Reference): Promise<HealthSt
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = HealthStatus.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-GetClusterHealthStatus:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -341,8 +343,7 @@ export async function EditCluster(input: EditClusterRequest): Promise<Cluster> {
       console.info('Here is the input for a request to Management-EditCluster:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => Cluster.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'put',
       responseType: 'arraybuffer',
       headers: {
@@ -353,8 +354,9 @@ export async function EditCluster(input: EditClusterRequest): Promise<Cluster> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = Cluster.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-EditCluster:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -372,7 +374,7 @@ export async function CreateRole(input: Role): Promise<void> {
       console.info('Here is the input for a request to Management-CreateRole:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'post',
       responseType: 'arraybuffer',
       headers: {
@@ -383,8 +385,9 @@ export async function CreateRole(input: Role): Promise<void> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to Management-CreateRole:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -402,7 +405,7 @@ export async function UpdateRole(input: Role): Promise<void> {
       console.info('Here is the input for a request to Management-UpdateRole:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'put',
       responseType: 'arraybuffer',
       headers: {
@@ -413,8 +416,9 @@ export async function UpdateRole(input: Role): Promise<void> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to Management-UpdateRole:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -432,7 +436,7 @@ export async function DeleteRole(input: Reference): Promise<void> {
       console.info('Here is the input for a request to Management-DeleteRole:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'delete',
       responseType: 'arraybuffer',
       headers: {
@@ -443,8 +447,9 @@ export async function DeleteRole(input: Reference): Promise<void> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to Management-DeleteRole:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -462,8 +467,7 @@ export async function GetRole(input: Reference): Promise<Role> {
       console.info('Here is the input for a request to Management-GetRole:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => Role.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -474,8 +478,9 @@ export async function GetRole(input: Reference): Promise<Role> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = Role.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-GetRole:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -493,7 +498,7 @@ export async function CreateRoleBinding(input: RoleBinding): Promise<void> {
       console.info('Here is the input for a request to Management-CreateRoleBinding:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'post',
       responseType: 'arraybuffer',
       headers: {
@@ -504,8 +509,9 @@ export async function CreateRoleBinding(input: RoleBinding): Promise<void> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to Management-CreateRoleBinding:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -523,7 +529,7 @@ export async function UpdateRoleBinding(input: RoleBinding): Promise<void> {
       console.info('Here is the input for a request to Management-UpdateRoleBinding:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'put',
       responseType: 'arraybuffer',
       headers: {
@@ -534,8 +540,9 @@ export async function UpdateRoleBinding(input: RoleBinding): Promise<void> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to Management-UpdateRoleBinding:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -553,7 +560,7 @@ export async function DeleteRoleBinding(input: Reference): Promise<void> {
       console.info('Here is the input for a request to Management-DeleteRoleBinding:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'delete',
       responseType: 'arraybuffer',
       headers: {
@@ -564,8 +571,9 @@ export async function DeleteRoleBinding(input: Reference): Promise<void> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to Management-DeleteRoleBinding:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -583,8 +591,7 @@ export async function GetRoleBinding(input: Reference): Promise<RoleBinding> {
       console.info('Here is the input for a request to Management-GetRoleBinding:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => RoleBinding.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -595,8 +602,9 @@ export async function GetRoleBinding(input: Reference): Promise<RoleBinding> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = RoleBinding.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-GetRoleBinding:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -610,8 +618,7 @@ export async function GetRoleBinding(input: Reference): Promise<RoleBinding> {
 export async function ListRoles(): Promise<RoleList> {
   try {
     
-    const response = (await axios.request({
-    transformResponse: resp => RoleList.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -621,8 +628,9 @@ export async function ListRoles(): Promise<RoleList> {
       url: `/opni-api/Management/roles`
     })).data;
 
+    const response = RoleList.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-ListRoles:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -636,8 +644,7 @@ export async function ListRoles(): Promise<RoleList> {
 export async function ListRoleBindings(): Promise<RoleBindingList> {
   try {
     
-    const response = (await axios.request({
-    transformResponse: resp => RoleBindingList.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -647,8 +654,9 @@ export async function ListRoleBindings(): Promise<RoleBindingList> {
       url: `/opni-api/Management/rolebindings`
     })).data;
 
+    const response = RoleBindingList.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-ListRoleBindings:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -666,8 +674,7 @@ export async function SubjectAccess(input: SubjectAccessRequest): Promise<Refere
       console.info('Here is the input for a request to Management-SubjectAccess:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => ReferenceList.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -678,8 +685,9 @@ export async function SubjectAccess(input: SubjectAccessRequest): Promise<Refere
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = ReferenceList.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-SubjectAccess:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -693,8 +701,7 @@ export async function SubjectAccess(input: SubjectAccessRequest): Promise<Refere
 export async function APIExtensions(): Promise<APIExtensionInfoList> {
   try {
     
-    const response = (await axios.request({
-    transformResponse: resp => APIExtensionInfoList.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -704,8 +711,9 @@ export async function APIExtensions(): Promise<APIExtensionInfoList> {
       url: `/opni-api/Management/apiextensions`
     })).data;
 
+    const response = APIExtensionInfoList.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-APIExtensions:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -719,8 +727,7 @@ export async function APIExtensions(): Promise<APIExtensionInfoList> {
 export async function GetConfig(): Promise<GatewayConfig> {
   try {
     
-    const response = (await axios.request({
-    transformResponse: resp => GatewayConfig.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -730,8 +737,9 @@ export async function GetConfig(): Promise<GatewayConfig> {
       url: `/opni-api/Management/config`
     })).data;
 
+    const response = GatewayConfig.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-GetConfig:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -749,7 +757,7 @@ export async function UpdateConfig(input: UpdateConfigRequest): Promise<void> {
       console.info('Here is the input for a request to Management-UpdateConfig:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'put',
       responseType: 'arraybuffer',
       headers: {
@@ -760,8 +768,9 @@ export async function UpdateConfig(input: UpdateConfigRequest): Promise<void> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to Management-UpdateConfig:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -775,8 +784,7 @@ export async function UpdateConfig(input: UpdateConfigRequest): Promise<void> {
 export async function ListCapabilities(): Promise<CapabilityList> {
   try {
     
-    const response = (await axios.request({
-    transformResponse: resp => CapabilityList.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -786,8 +794,9 @@ export async function ListCapabilities(): Promise<CapabilityList> {
       url: `/opni-api/Management/capabilities`
     })).data;
 
+    const response = CapabilityList.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-ListCapabilities:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -805,8 +814,7 @@ export async function CapabilityInstaller(input: CapabilityInstallerRequest): Pr
       console.info('Here is the input for a request to Management-CapabilityInstaller:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => CapabilityInstallerResponse.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'post',
       responseType: 'arraybuffer',
       headers: {
@@ -817,8 +825,9 @@ export async function CapabilityInstaller(input: CapabilityInstallerRequest): Pr
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = CapabilityInstallerResponse.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-CapabilityInstaller:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -836,8 +845,7 @@ export async function InstallCapability(input: CapabilityInstallRequest): Promis
       console.info('Here is the input for a request to Management-InstallCapability:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => InstallResponse.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'post',
       responseType: 'arraybuffer',
       headers: {
@@ -848,8 +856,9 @@ export async function InstallCapability(input: CapabilityInstallRequest): Promis
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = InstallResponse.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-InstallCapability:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -867,7 +876,7 @@ export async function UninstallCapability(input: CapabilityUninstallRequest): Pr
       console.info('Here is the input for a request to Management-UninstallCapability:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'post',
       responseType: 'arraybuffer',
       headers: {
@@ -878,8 +887,9 @@ export async function UninstallCapability(input: CapabilityUninstallRequest): Pr
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to Management-UninstallCapability:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -897,8 +907,7 @@ export async function CapabilityStatus(input: CapabilityStatusRequest): Promise<
       console.info('Here is the input for a request to Management-CapabilityStatus:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => NodeCapabilityStatus.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -909,8 +918,9 @@ export async function CapabilityStatus(input: CapabilityStatusRequest): Promise<
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = NodeCapabilityStatus.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-CapabilityStatus:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -928,8 +938,7 @@ export async function CapabilityUninstallStatus(input: CapabilityStatusRequest):
       console.info('Here is the input for a request to Management-CapabilityUninstallStatus:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => TaskStatus.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -940,8 +949,9 @@ export async function CapabilityUninstallStatus(input: CapabilityStatusRequest):
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = TaskStatus.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-CapabilityUninstallStatus:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -959,7 +969,7 @@ export async function CancelCapabilityUninstall(input: CapabilityUninstallCancel
       console.info('Here is the input for a request to Management-CancelCapabilityUninstall:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'post',
       responseType: 'arraybuffer',
       headers: {
@@ -970,8 +980,9 @@ export async function CancelCapabilityUninstall(input: CapabilityUninstallCancel
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to Management-CancelCapabilityUninstall:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -985,8 +996,7 @@ export async function CancelCapabilityUninstall(input: CapabilityUninstallCancel
 export async function GetDashboardSettings(): Promise<DashboardSettings> {
   try {
     
-    const response = (await axios.request({
-    transformResponse: resp => DashboardSettings.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -996,8 +1006,9 @@ export async function GetDashboardSettings(): Promise<DashboardSettings> {
       url: `/opni-api/Management/dashboard/settings`
     })).data;
 
+    const response = DashboardSettings.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to Management-GetDashboardSettings:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -1015,7 +1026,7 @@ export async function UpdateDashboardSettings(input: DashboardSettings): Promise
       console.info('Here is the input for a request to Management-UpdateDashboardSettings:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'put',
       responseType: 'arraybuffer',
       headers: {
@@ -1026,8 +1037,9 @@ export async function UpdateDashboardSettings(input: DashboardSettings): Promise
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to Management-UpdateDashboardSettings:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));

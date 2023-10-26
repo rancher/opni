@@ -14,8 +14,7 @@ export async function GetDefaultConfiguration(input: GetRequest): Promise<Capabi
       console.info('Here is the input for a request to CortexOps-GetDefaultConfiguration:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => CapabilityBackendConfigSpec.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -26,8 +25,9 @@ export async function GetDefaultConfiguration(input: GetRequest): Promise<Capabi
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = CapabilityBackendConfigSpec.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to CortexOps-GetDefaultConfiguration:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -45,7 +45,7 @@ export async function SetDefaultConfiguration(input: CapabilityBackendConfigSpec
       console.info('Here is the input for a request to CortexOps-SetDefaultConfiguration:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'put',
       responseType: 'arraybuffer',
       headers: {
@@ -56,8 +56,9 @@ export async function SetDefaultConfiguration(input: CapabilityBackendConfigSpec
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to CortexOps-SetDefaultConfiguration:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -71,7 +72,7 @@ export async function SetDefaultConfiguration(input: CapabilityBackendConfigSpec
 export async function ResetDefaultConfiguration(): Promise<void> {
   try {
     
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'delete',
       responseType: 'arraybuffer',
       headers: {
@@ -81,8 +82,9 @@ export async function ResetDefaultConfiguration(): Promise<void> {
       url: `/opni-api/CortexOps/configuration/default`
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to CortexOps-ResetDefaultConfiguration:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -100,8 +102,7 @@ export async function GetConfiguration(input: GetRequest): Promise<CapabilityBac
       console.info('Here is the input for a request to CortexOps-GetConfiguration:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => CapabilityBackendConfigSpec.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -112,8 +113,9 @@ export async function GetConfiguration(input: GetRequest): Promise<CapabilityBac
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = CapabilityBackendConfigSpec.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to CortexOps-GetConfiguration:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -131,7 +133,7 @@ export async function SetConfiguration(input: CapabilityBackendConfigSpec): Prom
       console.info('Here is the input for a request to CortexOps-SetConfiguration:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'put',
       responseType: 'arraybuffer',
       headers: {
@@ -142,8 +144,9 @@ export async function SetConfiguration(input: CapabilityBackendConfigSpec): Prom
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to CortexOps-SetConfiguration:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -161,7 +164,7 @@ export async function ResetConfiguration(input: ResetRequest): Promise<void> {
       console.info('Here is the input for a request to CortexOps-ResetConfiguration:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'delete',
       responseType: 'arraybuffer',
       headers: {
@@ -172,8 +175,9 @@ export async function ResetConfiguration(input: ResetRequest): Promise<void> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to CortexOps-ResetConfiguration:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -187,8 +191,7 @@ export async function ResetConfiguration(input: ResetRequest): Promise<void> {
 export async function Status(): Promise<InstallStatus> {
   try {
     
-    const response = (await axios.request({
-    transformResponse: resp => InstallStatus.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -198,8 +201,9 @@ export async function Status(): Promise<InstallStatus> {
       url: `/opni-api/CortexOps/status`
     })).data;
 
+    const response = InstallStatus.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to CortexOps-Status:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -213,7 +217,7 @@ export async function Status(): Promise<InstallStatus> {
 export async function Install(): Promise<void> {
   try {
     
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'post',
       responseType: 'arraybuffer',
       headers: {
@@ -223,8 +227,9 @@ export async function Install(): Promise<void> {
       url: `/opni-api/CortexOps/install`
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to CortexOps-Install:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -238,7 +243,7 @@ export async function Install(): Promise<void> {
 export async function Uninstall(): Promise<void> {
   try {
     
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'post',
       responseType: 'arraybuffer',
       headers: {
@@ -248,8 +253,9 @@ export async function Uninstall(): Promise<void> {
       url: `/opni-api/CortexOps/uninstall`
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to CortexOps-Uninstall:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -263,8 +269,7 @@ export async function Uninstall(): Promise<void> {
 export async function ListPresets(): Promise<PresetList> {
   try {
     
-    const response = (await axios.request({
-    transformResponse: resp => PresetList.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -274,8 +279,9 @@ export async function ListPresets(): Promise<PresetList> {
       url: `/opni-api/CortexOps/presets`
     })).data;
 
+    const response = PresetList.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to CortexOps-ListPresets:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -293,8 +299,7 @@ export async function DryRun(input: DryRunRequest): Promise<DryRunResponse> {
       console.info('Here is the input for a request to CortexOps-DryRun:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => DryRunResponse.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'post',
       responseType: 'arraybuffer',
       headers: {
@@ -305,8 +310,9 @@ export async function DryRun(input: DryRunRequest): Promise<DryRunResponse> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = DryRunResponse.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to CortexOps-DryRun:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -324,8 +330,7 @@ export async function ConfigurationHistory(input: ConfigurationHistoryRequest): 
       console.info('Here is the input for a request to CortexOps-ConfigurationHistory:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => ConfigurationHistoryResponse.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -336,8 +341,9 @@ export async function ConfigurationHistory(input: ConfigurationHistoryRequest): 
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = ConfigurationHistoryResponse.fromBinary(new Uint8Array(rawResponse))
     console.info('Here is the response for a request to CortexOps-ConfigurationHistory:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));

@@ -10,7 +10,10 @@ import (
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/alerting/pkg/apis/rules"
+	"github.com/samber/lo"
 	"go.uber.org/multierr"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -51,7 +54,6 @@ func areRuleSpecsEqual(old, new *alertingv1.AlertCondition) bool {
 	ignoreOpniConfigurations(oldIgnoreOpniConf)
 	ignoreOpniConfigurations(newIgnoreOpniConf)
 	return cmp.Equal(oldIgnoreOpniConf, newIgnoreOpniConf, protocmp.Transform())
-
 }
 
 func (a *AlarmServerComponent) SyncRules(ctx context.Context, rules *rules.RuleManifest) (*emptypb.Empty, error) {
@@ -89,13 +91,22 @@ func (a *AlarmServerComponent) SyncRules(ctx context.Context, rules *rules.RuleM
 
 		existing, err := condStorage.Group(rule.GetGroupId().Id).Get(ctx, rule.GetRuleId().Id)
 		if err == nil {
+			metadata := existing.GetMetadata()
+			if metadata == nil {
+				metadata = map[string]string{}
+			}
+			// keep opni managed metadata, unless overriden
+			retMetadata := lo.Assign(metadata, incomingCond.Metadata)
 			if !areRuleSpecsEqual(existing, incomingCond) {
 				applyMutableReadOnlyFields(incomingCond, existing)
+				incomingCond.Metadata = retMetadata
 				if err := condStorage.Group(rule.GroupId.Id).Put(ctx, rule.RuleId.Id, incomingCond); err != nil {
 					errors = append(errors, err)
 				}
 			}
-		} else {
+		}
+
+		if st, ok := status.FromError(err); ok && st.Code() == codes.NotFound {
 			if err := condStorage.Group(rule.GroupId.Id).Put(ctx, rule.RuleId.Id, incomingCond); err != nil {
 				errors = append(errors, err)
 			}

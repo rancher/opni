@@ -464,9 +464,6 @@ func (in *HealthServerSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("HealthServerSpec", pflag.ExitOnError)
 	fs.SortFlags = true
 	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("0.0.0.0:8086"), &in.HttpListenAddress), strings.Join(append(prefix, "http-listen-address"), "."), "Address and port to serve the gateway's internal health/metrics/profiling")
-	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("/healthz"), &in.HealthSubpath), strings.Join(append(prefix, "health-subpath"), "."), "The subpath at which to serve the health endpoint")
-	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("/metrics"), &in.MetricsSubpath), strings.Join(append(prefix, "metrics-subpath"), "."), "The subpath at which to serve the metrics endpoint")
-	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("/debug/pprof"), &in.ProfilingSubpath), strings.Join(append(prefix, "profiling-subpath"), "."), "The subpath at which to serve the profiling endpoint")
 	return fs
 }
 
@@ -719,7 +716,7 @@ func (in *CertsSpec) UnredactSecrets(unredacted *CertsSpec) error {
 func (in *PluginsSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("PluginsSpec", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.StringPtrValue(nil, &in.Dir), strings.Join(append(prefix, "dir"), "."), "Directory to search for plugin binaries.")
+	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("/var/lib/opni/plugins"), &in.Dir), strings.Join(append(prefix, "dir"), "."), "Directory to search for plugin binaries.")
 	if in.Cache == nil {
 		in.Cache = &CacheSpec{}
 	}
@@ -742,7 +739,7 @@ func (in *CacheSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *FilesystemCacheSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("FilesystemCacheSpec", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.StringPtrValue(nil, &in.Dir), strings.Join(append(prefix, "dir"), "."), "")
+	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("/var/lib/opni/plugin-cache"), &in.Dir), strings.Join(append(prefix, "dir"), "."), "")
 	return fs
 }
 
@@ -766,7 +763,7 @@ func (in *AgentUpgradesSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *KubernetesAgentUpgradeSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("KubernetesAgentUpgradeSpec", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.EnumValue(ImageResolverType_Kubernetes, &in.ImageResolver), strings.Join(append(prefix, "image-resolver"), "."), "")
+	fs.Var(flagutil.EnumPtrValue(flagutil.Ptr(ImageResolverType_Kubernetes), &in.ImageResolver), strings.Join(append(prefix, "image-resolver"), "."), "")
 	return fs
 }
 

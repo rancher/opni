@@ -5,10 +5,11 @@ package config.v1;
 import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "github.com/rancher/opni/pkg/plugins/driverutil/types.proto";
+import "github.com/rancher/opni/pkg/validation/validate.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
 
-option go_package = "github.com/rancher/opni/pkg/config/v1";
+option go_package      = "github.com/rancher/opni/pkg/config/v1";
 option (cli.generator) = {
   generate: true
 };
@@ -16,7 +17,7 @@ option (cli.generator) = {
 // Gateway configuration management
 service GatewayConfig {
   option (cli.command_group) = {
-    use: "config";
+    use: "config"
   };
 
   rpc GetDefaultConfiguration(driverutil.GetRequest) returns (GatewayConfigSpec) {
@@ -26,8 +27,8 @@ service GatewayConfig {
   }
   rpc SetDefaultConfiguration(SetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
-      use: "set-default"
-      granularity: EditMessage;
+      use:         "set-default"
+      granularity: EditMessage
     };
   }
   rpc GetConfiguration(driverutil.GetRequest) returns (GatewayConfigSpec) {
@@ -37,8 +38,8 @@ service GatewayConfig {
   }
   rpc SetConfiguration(SetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
-      use: "set"
-      granularity: EditMessage;
+      use:         "set"
+      granularity: EditMessage
     };
   }
   rpc ResetDefaultConfiguration(google.protobuf.Empty) returns (google.protobuf.Empty) {
@@ -48,8 +49,8 @@ service GatewayConfig {
   }
   rpc ResetConfiguration(ResetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
-      use: "reset"
-      granularity: EditMessage;
+      use:         "reset"
+      granularity: EditMessage
     };
   }
   rpc DryRun(DryRunRequest) returns (DryRunResponse) {
@@ -79,7 +80,10 @@ message GatewayConfigSpec {
 
 message ServerSpec {
   // Address and port to serve the gateway's internal http server on.
-  optional string httpListenAddress = 1 [(cli.flag).default = "0.0.0.0:8080"];
+  optional string httpListenAddress = 1 [
+    (cli.flag) = {default: "0.0.0.0:8080"},
+    (buf.validate.field) = {}
+  ];
   // Address and port to serve the gateway's external grpc server on.
   optional string grpcListenAddress = 2 [(cli.flag).default = "0.0.0.0:9090"];
 }
@@ -89,6 +93,9 @@ message ManagementServerSpec {
   optional string httpListenAddress = 1 [(cli.flag).default = "0.0.0.0:11080"];
   // Address and port to serve the management grpc server on.
   optional string grpcListenAddress = 2 [(cli.flag).default = "0.0.0.0:11090"];
+  // The advertise address for the management server. This is the address at
+  // which other gateway instances will be able to reach this management server.
+  optional string advertiseAddress = 3 [(cli.flag).skip = true];
 }
 
 message RelayServerSpec {
@@ -104,22 +111,18 @@ message HealthServerSpec {
   // Address and port to serve the gateway's internal health/metrics/profiling
   // http server on.
   optional string httpListenAddress = 1 [(cli.flag).default = "0.0.0.0:8086"];
-  // The subpath at which to serve the health endpoint
-  optional string healthSubpath = 4 [(cli.flag).default = "/healthz"];
-  // The subpath at which to serve the metrics endpoint
-  optional string metricsSubpath = 2 [(cli.flag).default = "/metrics"];
-  // The subpath at which to serve the profiling endpoint
-  optional string profilingSubpath = 3 [(cli.flag).default = "/debug/pprof"];
 }
 
 message DashboardServerSpec {
   // Address and port to serve the web dashboard on.
   optional string httpListenAddress = 1 [(cli.flag).default = "0.0.0.0:12080"];
+  // The advertise address for the dashboard server.
+  optional string advertiseAddress = 2 [(cli.flag).skip = true];
   // The hostname at which the dashboard is expected to be reachable. This is
   // required when using OpenID Connect authentication.
-  optional string hostname = 2;
+  optional string hostname = 3;
   // List of trusted proxies for the dashboard's http server.
-  repeated string trustedProxies = 3;
+  repeated string trustedProxies = 4;
 }
 
 enum StorageType {
@@ -130,6 +133,11 @@ enum StorageType {
 }
 
 message StorageSpec {
+  option (buf.validate.message).cel = {
+    id:         "storage_type_configured"
+    message:    "selected storage type must have matching configuration set"
+    expression: "(this.type == 'Etcd' && this.etcd) || (this.type == 'JetStream' && this.jetstream)"
+  };
   optional StorageType type      = 1 [(cli.flag).default = "Etcd"];
   EtcdSpec             etcd      = 2;
   JetStreamSpec        jetstream = 3;
@@ -141,6 +149,30 @@ message EtcdSpec {
 }
 
 message MTLSSpec {
+  option (buf.validate.message) = {
+    cel: [
+      {
+        id:         "fields_mutually_exclusive_serverca"
+        message:    "fields serverCA and serverCAData are mutually exclusive"
+        expression: "!(this.serverCA && this.serverCAData)"
+      },
+      {
+        id:         "fields_mutually_exclusive_clientca"
+        message:    "fields clientCA and clientCAData are mutually exclusive"
+        expression: "!(this.clientCA && this.clientCAData)"
+      },
+      {
+        id:         "fields_mutually_exclusive_clientcert"
+        message:    "fields clientCert and clientCertData are mutually exclusive"
+        expression: "!(this.clientCert && this.clientCertData)"
+      },
+      {
+        id:         "fields_mutually_exclusive_clientkey"
+        message:    "fields clientKey and clientKeyData are mutually exclusive"
+        expression: "!(this.clientKey && this.clientKeyData)"
+      }
+    ]
+  };
   // Path to the server CA certificate. Mutually exclusive with serverCAData.
   optional string serverCA = 1;
   // PEM encoded server CA certificate data. Mutually exclusive with serverCA.
@@ -165,6 +197,26 @@ message JetStreamSpec {
 }
 
 message CertsSpec {
+  option (buf.validate.message) = {
+    cel: [
+      {
+        id:         "fields_mutually_exclusive_ca"
+        message:    "fields caCert and caCertData are mutually exclusive"
+        expression: "!(this.caCert && this.caCertData)"
+      },
+      {
+        id:         "fields_mutually_exclusive_servingcert"
+        message:    "fields servingCert and servingCertData are mutually exclusive"
+        expression: "!(this.servingCert && this.servingCertData)"
+      },
+      {
+        id:         "fields_mutually_exclusive_servingkey"
+        message:    "fields servingKey and servingKeyData are mutually exclusive"
+        expression: "!(this.servingKey && this.servingKeyData)"
+      }
+    ]
+  };
+
   // Path to a PEM encoded CA certificate file. Mutually exclusive with caCertData.
   optional string caCert = 1;
   // PEM encoded CA certificate data. Mutually exclusive with caCert.
@@ -181,7 +233,7 @@ message CertsSpec {
 
 message PluginsSpec {
   // Directory to search for plugin binaries.
-  optional string dir = 1;
+  optional string dir = 1 [(cli.flag).default = "/var/lib/opni/plugins"];
 
   CacheSpec cache = 2;
 }
@@ -203,7 +255,7 @@ message CacheSpec {
 }
 
 message FilesystemCacheSpec {
-  optional string dir = 1;
+  optional string dir = 1 [(cli.flag).default = "/var/lib/opni/plugin-cache"];
 }
 
 message KeyringSpec {
@@ -223,7 +275,7 @@ enum ImageResolverType {
 }
 
 message KubernetesAgentUpgradeSpec {
-  ImageResolverType imageResolver = 1 [(cli.flag).default = "Kubernetes"];
+  optional ImageResolverType imageResolver = 1 [(cli.flag).default = "Kubernetes"];
 }
 
 message RateLimitingSpec {
@@ -253,9 +305,9 @@ message DryRunRequest {
 }
 
 message DryRunResponse {
-  GatewayConfigSpec                   current          = 1;
-  GatewayConfigSpec                   modified         = 2;
-  repeated driverutil.ValidationError validationErrors = 3;
+  GatewayConfigSpec       current          = 1;
+  GatewayConfigSpec       modified         = 2;
+  buf.validate.Violations validationErrors = 3;
 }
 
 message HistoryResponse {

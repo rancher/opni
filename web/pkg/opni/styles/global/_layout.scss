@@ -3,6 +3,11 @@
     align-items: center;
 }
 
+.center {
+    display: flex;
+    justify-content: center;
+}
+
 .bottom {
     border-bottom: 1px solid var(--header-border);
     padding-bottom: 20px;

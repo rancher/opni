@@ -39,6 +39,7 @@ import (
 )
 
 func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
+	opt := &shared.AlertingClusterOptions{}
 	p.mgmtClient.Set(client)
 	cfg, err := client.GetConfig(context.Background(),
 		&emptypb.Empty{}, grpc.WaitForReady(true))
@@ -63,7 +64,7 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			os.Exit(1)
 		}
 		p.storageBackend.Set(backend)
-		opt := &shared.AlertingClusterOptions{
+		opt = &shared.AlertingClusterOptions{
 			Namespace:             config.Spec.Alerting.Namespace,
 			WorkerNodesService:    config.Spec.Alerting.WorkerNodeService,
 			WorkerNodePort:        config.Spec.Alerting.WorkerPort,
@@ -74,13 +75,16 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			ConfigMap:             config.Spec.Alerting.ConfigMap,
 			ManagementHookHandler: config.Spec.Alerting.ManagementHookHandler,
 		}
-		p.configureDriver(p.ctx,
-			driverutil.NewOption("alertingOptions", opt),
-			driverutil.NewOption("logger", p.logger.WithGroup("alerting-manager")),
-			driverutil.NewOption("subscribers", []chan alertingClient.AlertingClient{p.clusterNotifier}),
-		)
+
 	})
 	tlsConfig := p.loadCerts()
+	p.configureDriver(
+		p.ctx,
+		driverutil.NewOption("alertingOptions", opt),
+		driverutil.NewOption("logger", p.logger.WithGroup("alerting-manager")),
+		driverutil.NewOption("subscribers", []chan alertingClient.AlertingClient{p.clusterNotifier}),
+		driverutil.NewOption("tlsConfig", tlsConfig),
+	)
 	p.alertingTLSConfig.Set(tlsConfig)
 	go p.handleDriverNotifications()
 	go p.runSync()

@@ -133,6 +133,7 @@ func (a *AlertingClusterManager) InstallCluster(ctx context.Context, _ *emptypb.
 		lg.Error(fmt.Sprintf("%s", retryErr))
 		return nil, retryErr
 	}
+	a.notify(1)
 	return &emptypb.Empty{}, nil
 }
 
@@ -343,6 +344,7 @@ func (a *AlertingClusterManager) notify(replicas int) {
 		alertingClient.WithQuerierAddress(
 			fmt.Sprintf("%s:3000", shared.AlertmanagerService),
 		),
+		alertingClient.WithTLSConfig(a.TlsConfig),
 	)
 	if err != nil {
 		panic(err)

@@ -1,10 +1,12 @@
 package alerting_manager
 
 import (
+	"crypto/tls"
+	"log/slog"
+
 	alertingClient "github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"k8s.io/apimachinery/pkg/types"
-	"log/slog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -16,4 +18,5 @@ type AlertingDriverOptions struct {
 	InternalRoutingKey string                               `option:"internalRoutingKey"`
 	AlertingOptions    *shared.AlertingClusterOptions       `option:"alertingOptions"`
 	Subscribers        []chan alertingClient.AlertingClient `option:"subscribers"`
+	TlsConfig          *tls.Config                          `option:"tlsConfig"`
 }

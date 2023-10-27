@@ -3,6 +3,8 @@ package services
 import (
 	"context"
 
+	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
+	"github.com/bufbuild/protovalidate-go"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
@@ -27,12 +29,20 @@ type CortexOpsService struct {
 		*cortexops.CapabilityBackendConfigSpec,
 	]
 	drivers.PartialCortexOpsServer
+
+	validator *protovalidate.Validator
 }
 
 var _ cortexops.CortexOpsServer = (*CortexOpsService)(nil)
 
 func (s *CortexOpsService) Activate() error {
 	defer s.Context.SetServingStatus(cortexops.CortexOps_ServiceDesc.ServiceName, managementext.Serving)
+
+	var err error
+	s.validator, err = protovalidate.New(protovalidate.WithMessages(&cortexops.CapabilityBackendConfigSpec{}))
+	if err != nil {
+		return err
+	}
 
 	defaultStore := kvutil.WithKey(system.NewKVStoreClient[*cortexops.CapabilityBackendConfigSpec](s.Context.KeyValueStoreClient()), "/config/cluster/default")
 	activeStore := s.Context.ClusterDriver().ActiveConfigStore()
@@ -53,10 +63,24 @@ func (s *CortexOpsService) DryRun(ctx context.Context, req *cortexops.DryRunRequ
 	if err != nil {
 		return nil, err
 	}
+
+	upstreamErrs := configutil.CollectValidationErrorLogs(res.Modified.CortexConfig)
+	if len(upstreamErrs) > 0 {
+		if res.ValidationErrors == nil {
+			res.ValidationErrors = &protovalidate.ValidationError{}
+		}
+		for _, err := range upstreamErrs {
+			res.ValidationErrors.Violations = append(res.ValidationErrors.Violations, &validate.Violation{
+				ConstraintId: "cortex",
+				Message:      err.Error(),
+			})
+		}
+	}
+
 	return &cortexops.DryRunResponse{
 		Current:          res.Current,
 		Modified:         res.Modified,
-		ValidationErrors: configutil.ValidateConfiguration(res.Modified),
+		ValidationErrors: res.ValidationErrors.ToProto(),
 	}, nil
 }
 

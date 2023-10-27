@@ -2,9 +2,11 @@ package driverutil
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
+	"github.com/bufbuild/protovalidate-go"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
@@ -19,8 +21,9 @@ import (
 type DefaultLoaderFunc[T any] func(T)
 
 type DryRunResults[T any] struct {
-	Current  T
-	Modified T
+	Current          T
+	Modified         T
+	ValidationErrors *protovalidate.ValidationError
 }
 
 type DefaultingConfigTracker[T ConfigType[T]] struct {
@@ -32,6 +35,8 @@ type DefaultingConfigTracker[T ConfigType[T]] struct {
 
 	redact   func(SecretsRedactor[T])
 	unredact func(SecretsRedactor[T], T) error
+
+	validator *protovalidate.Validator
 }
 
 func NewDefaultingConfigTracker[T ConfigType[T]](
@@ -46,6 +51,7 @@ func NewDefaultingConfigTracker[T ConfigType[T]](
 		revisionFieldIndex: GetRevisionFieldIndex[T](),
 		redact:             (SecretsRedactor[T]).RedactSecrets,
 		unredact:           (SecretsRedactor[T]).UnredactSecrets,
+		validator:          util.Must(protovalidate.New(protovalidate.WithMessages(util.NewMessage[T]()))),
 	}
 }
 
@@ -312,6 +318,18 @@ func (ct *DefaultingConfigTracker[T]) History(ctx context.Context, target Target
 	return revisions, nil
 }
 
+func (ct *DefaultingConfigTracker[T]) runValidation(conf T) (*protovalidate.ValidationError, error) {
+	err := ct.validator.Validate(conf)
+	var valErr *protovalidate.ValidationError
+	if err != nil {
+		if !errors.As(err, &valErr) {
+			// invalid validation rules, etc.
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+	}
+	return valErr, nil
+}
+
 func (ct *DefaultingConfigTracker[T]) DryRunApplyConfig(ctx context.Context, newConfig T) (DryRunResults[T], error) {
 	ct.lock.Lock()
 	defer ct.lock.Unlock()
@@ -340,9 +358,14 @@ func (ct *DefaultingConfigTracker[T]) DryRunApplyConfig(ctx context.Context, new
 	// in the diff.
 	CopyRevision(modified, current)
 
+	valErr, err := ct.runValidation(modified)
+	if err != nil {
+		return DryRunResults[T]{}, err
+	}
 	return DryRunResults[T]{
-		Current:  current,
-		Modified: modified,
+		Current:          current,
+		Modified:         modified,
+		ValidationErrors: valErr,
 	}, nil
 }
 
@@ -367,9 +390,15 @@ func (ct *DefaultingConfigTracker[T]) DryRunSetDefaultConfig(ctx context.Context
 	SetRevision(current, rev)
 	CopyRevision(newDefault, current)
 
+	valErr, err := ct.runValidation(newDefault)
+	if err != nil {
+		return DryRunResults[T]{}, err
+	}
+
 	return DryRunResults[T]{
-		Current:  current,
-		Modified: newDefault,
+		Current:          current,
+		Modified:         newDefault,
+		ValidationErrors: valErr,
 	}, nil
 }
 
@@ -388,9 +417,15 @@ func (ct *DefaultingConfigTracker[T]) DryRunResetDefaultConfig(ctx context.Conte
 
 	ct.redact(current)
 	ct.redact(newDefault)
+
+	valErr, err := ct.runValidation(newDefault)
+	if err != nil {
+		return DryRunResults[T]{}, err
+	}
 	return DryRunResults[T]{
-		Current:  current,
-		Modified: newDefault,
+		Current:          current,
+		Modified:         newDefault,
+		ValidationErrors: valErr,
 	}, nil
 }
 
@@ -408,9 +443,15 @@ func (ct *DefaultingConfigTracker[T]) DryRunResetConfig(ctx context.Context, mas
 	if mask == nil {
 		ct.redact(activeConfig)
 		ct.redact(defaultConfig)
+
+		valErr, err := ct.runValidation(defaultConfig)
+		if err != nil {
+			return DryRunResults[T]{}, err
+		}
 		return DryRunResults[T]{
-			Current:  activeConfig,
-			Modified: defaultConfig,
+			Current:          activeConfig,
+			Modified:         defaultConfig,
+			ValidationErrors: valErr,
 		}, nil
 	}
 
@@ -437,9 +478,15 @@ func (ct *DefaultingConfigTracker[T]) DryRunResetConfig(ctx context.Context, mas
 
 	ct.redact(originalCurrent)
 	ct.redact(defaultConfig)
+
+	valErr, err := ct.runValidation(defaultConfig)
+	if err != nil {
+		return DryRunResults[T]{}, err
+	}
 	return DryRunResults[T]{
-		Current:  originalCurrent,
-		Modified: defaultConfig,
+		Current:          originalCurrent,
+		Modified:         defaultConfig,
+		ValidationErrors: valErr,
 	}, nil
 }
 

@@ -5,6 +5,7 @@ package ext;
 import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "github.com/rancher/opni/pkg/plugins/driverutil/types.proto";
+import "github.com/rancher/opni/pkg/validation/validate.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
@@ -210,9 +211,9 @@ message SampleDryRunRequest {
 }
 
 message SampleDryRunResponse {
-  SampleConfiguration                 current          = 1;
-  SampleConfiguration                 modified         = 2;
-  repeated driverutil.ValidationError validationErrors = 3;
+  SampleConfiguration     current          = 1;
+  SampleConfiguration     modified         = 2;
+  buf.validate.Violations validationErrors = 3;
 }
 
 message SampleHistoryRequest {

@@ -53,7 +53,7 @@ func (s *NodeConfigService) DryRun(ctx context.Context, req *node.DryRunRequest)
 	return &node.DryRunResponse{
 		Current:          res.Current,
 		Modified:         res.Modified,
-		ValidationErrors: []*driverutil.ValidationError{}, // TODO: implement node config validation
+		ValidationErrors: res.ValidationErrors.ToProto(),
 	}, nil
 }
 

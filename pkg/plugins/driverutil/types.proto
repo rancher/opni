@@ -40,17 +40,6 @@ message ConfigurationHistoryRequest {
   bool includeValues = 3 [(cli.flag).default = "true"];
 }
 
-message ValidationError {
-  enum Severity {
-    Unknown = 0;
-    Warning = 1;
-    Error   = 2;
-  }
-  Severity severity = 1;
-  string   message  = 2;
-  string   source   = 3;
-}
-
 enum InstallState {
   NotInstalled = 0;
   Installed    = 1;

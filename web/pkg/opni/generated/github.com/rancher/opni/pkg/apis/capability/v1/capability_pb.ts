@@ -4,7 +4,7 @@
 
 import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
 import { Message, proto3, Struct, Timestamp } from "@bufbuild/protobuf";
-import { Reference } from "../../core/v1/core_pb";
+import { Reference, Revision } from "../../core/v1/core_pb";
 
 /**
  * @generated from enum capability.InstallResponseStatus
@@ -354,6 +354,11 @@ export class NodeCapabilityStatus extends Message<NodeCapabilityStatus> {
    */
   conditions: string[] = [];
 
+  /**
+   * @generated from field: core.Revision lastRevision = 4;
+   */
+  lastRevision?: Revision;
+
   constructor(data?: PartialMessage<NodeCapabilityStatus>) {
     super();
     proto3.util.initPartial(data, this);
@@ -365,6 +370,7 @@ export class NodeCapabilityStatus extends Message<NodeCapabilityStatus> {
     { no: 1, name: "enabled", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 2, name: "lastSync", kind: "message", T: Timestamp },
     { no: 3, name: "conditions", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 4, name: "lastRevision", kind: "message", T: Revision },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): NodeCapabilityStatus {

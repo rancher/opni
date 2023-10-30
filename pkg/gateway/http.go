@@ -26,6 +26,8 @@ import (
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
+	proxyrouter "github.com/rancher/opni/pkg/proxy/router"
+	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/fwd"
 	"github.com/samber/lo"
@@ -54,6 +56,7 @@ type GatewayHTTPServer struct {
 	tlsConfig         *tls.Config
 	metricsRouter     *gin.Engine
 	metricsRegisterer prometheus.Registerer
+	rb                storage.RoleBindingStore
 
 	routesMu             sync.Mutex
 	reservedPrefixRoutes []string
@@ -64,6 +67,7 @@ func NewHTTPServer(
 	cfg *v1beta1.GatewayConfigSpec,
 	lg *slog.Logger,
 	pl plugins.LoaderInterface,
+	rb storage.RoleBindingStore,
 ) *GatewayHTTPServer {
 	lg = lg.WithGroup("http")
 
@@ -188,6 +192,25 @@ func NewHTTPServer(
 			return
 		}
 		srv.setupPluginRoutes(cfg, md)
+	}))
+
+	proxy := srv.router.Group("/proxy")
+	// Add middleware here to extract username from claims
+	// proxy.Use(middleware)
+	pl.Hook(hooks.OnLoad(func(p types.ProxyPlugin) {
+		log := lg.WithGroup("proxy")
+		pluginRouter, err := proxyrouter.NewRouter(proxyrouter.RouterConfig{
+			Store:  rb,
+			Logger: log,
+			Client: p,
+		})
+		if err != nil {
+			log.With(
+				logger.Err(err),
+			).Error("failed to create plugin router")
+			return
+		}
+		pluginRouter.SetRoutes(proxy)
 	}))
 
 	return srv

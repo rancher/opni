@@ -23,7 +23,7 @@ const (
 )
 
 type Router interface {
-	SetRoutes(*gin.Engine)
+	SetRoutes(*gin.RouterGroup)
 }
 
 type RouterConfig struct {
@@ -104,6 +104,6 @@ func (r *implRouter) fetchRoles(userID string) (*corev1.ReferenceList, error) {
 	return roleList, nil
 }
 
-func (r *implRouter) SetRoutes(router *gin.Engine) {
+func (r *implRouter) SetRoutes(router *gin.RouterGroup) {
 	router.Any(fmt.Sprintf("%s/*%s", r.path, pathParam), r.handle)
 }

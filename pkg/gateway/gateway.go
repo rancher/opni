@@ -175,7 +175,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	}))
 
 	// set up http server
-	httpServer := NewHTTPServer(ctx, &conf.Spec, lg, pl)
+	httpServer := NewHTTPServer(ctx, &conf.Spec, lg, pl, storageBackend)
 
 	// Set up cluster auth
 	ephemeralKeys, err := machinery.LoadEphemeralKeys(afero.Afero{

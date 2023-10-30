@@ -211,9 +211,9 @@ message SampleDryRunRequest {
 }
 
 message SampleDryRunResponse {
-  SampleConfiguration     current          = 1;
-  SampleConfiguration     modified         = 2;
-  buf.validate.Violations validationErrors = 3;
+  SampleConfiguration     current          = 1 [(cli.flag).skip = true];
+  SampleConfiguration     modified         = 2 [(cli.flag).skip = true];
+  buf.validate.Violations validationErrors = 3 [(cli.flag).skip = true];
 }
 
 message SampleHistoryRequest {

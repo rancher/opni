@@ -30,6 +30,10 @@ func (contextInjector_Backend_type) NewClient(cc grpc.ClientConnInterface) Backe
 	return NewBackendClient(cc)
 }
 
+func (contextInjector_Backend_type) UnderlyingConn(client BackendClient) grpc.ClientConnInterface {
+	return client.(*backendClient).cc
+}
+
 func (contextInjector_Backend_type) ContextWithClient(ctx context.Context, client BackendClient) context.Context {
 	return context.WithValue(ctx, contextKey_Backend, client)
 }
@@ -53,6 +57,10 @@ func (contextInjector_Node_type) NewClient(cc grpc.ClientConnInterface) NodeClie
 	return NewNodeClient(cc)
 }
 
+func (contextInjector_Node_type) UnderlyingConn(client NodeClient) grpc.ClientConnInterface {
+	return client.(*nodeClient).cc
+}
+
 func (contextInjector_Node_type) ContextWithClient(ctx context.Context, client NodeClient) context.Context {
 	return context.WithValue(ctx, contextKey_Node, client)
 }
@@ -74,6 +82,10 @@ var (
 
 func (contextInjector_RBACManager_type) NewClient(cc grpc.ClientConnInterface) RBACManagerClient {
 	return NewRBACManagerClient(cc)
+}
+
+func (contextInjector_RBACManager_type) UnderlyingConn(client RBACManagerClient) grpc.ClientConnInterface {
+	return client.(*rBACManagerClient).cc
 }
 
 func (contextInjector_RBACManager_type) ContextWithClient(ctx context.Context, client RBACManagerClient) context.Context {

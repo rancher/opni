@@ -44,6 +44,10 @@ func (contextInjector_CortexOps_type) NewClient(cc grpc.ClientConnInterface) Cor
 	return NewCortexOpsClient(cc)
 }
 
+func (contextInjector_CortexOps_type) UnderlyingConn(client CortexOpsClient) grpc.ClientConnInterface {
+	return client.(*cortexOpsClient).cc
+}
+
 func (contextInjector_CortexOps_type) ContextWithClient(ctx context.Context, client CortexOpsClient) context.Context {
 	return context.WithValue(ctx, contextKey_CortexOps, client)
 }

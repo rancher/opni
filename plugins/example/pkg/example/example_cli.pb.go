@@ -38,6 +38,10 @@ func (contextInjector_ExampleAPIExtension_type) NewClient(cc grpc.ClientConnInte
 	return NewExampleAPIExtensionClient(cc)
 }
 
+func (contextInjector_ExampleAPIExtension_type) UnderlyingConn(client ExampleAPIExtensionClient) grpc.ClientConnInterface {
+	return client.(*exampleAPIExtensionClient).cc
+}
+
 func (contextInjector_ExampleAPIExtension_type) ContextWithClient(ctx context.Context, client ExampleAPIExtensionClient) context.Context {
 	return context.WithValue(ctx, contextKey_ExampleAPIExtension, client)
 }
@@ -61,6 +65,10 @@ func (contextInjector_ExampleUnaryExtension_type) NewClient(cc grpc.ClientConnIn
 	return NewExampleUnaryExtensionClient(cc)
 }
 
+func (contextInjector_ExampleUnaryExtension_type) UnderlyingConn(client ExampleUnaryExtensionClient) grpc.ClientConnInterface {
+	return client.(*exampleUnaryExtensionClient).cc
+}
+
 func (contextInjector_ExampleUnaryExtension_type) ContextWithClient(ctx context.Context, client ExampleUnaryExtensionClient) context.Context {
 	return context.WithValue(ctx, contextKey_ExampleUnaryExtension, client)
 }
@@ -82,6 +90,10 @@ var (
 
 func (contextInjector_Config_type) NewClient(cc grpc.ClientConnInterface) ConfigClient {
 	return NewConfigClient(cc)
+}
+
+func (contextInjector_Config_type) UnderlyingConn(client ConfigClient) grpc.ClientConnInterface {
+	return client.(*configClient).cc
 }
 
 func (contextInjector_Config_type) ContextWithClient(ctx context.Context, client ConfigClient) context.Context {

@@ -32,6 +32,10 @@ func (contextInjector_Management_type) NewClient(cc grpc.ClientConnInterface) Ma
 	return NewManagementClient(cc)
 }
 
+func (contextInjector_Management_type) UnderlyingConn(client ManagementClient) grpc.ClientConnInterface {
+	return client.(*managementClient).cc
+}
+
 func (contextInjector_Management_type) ContextWithClient(ctx context.Context, client ManagementClient) context.Context {
 	return context.WithValue(ctx, contextKey_Management, client)
 }

@@ -37,6 +37,10 @@ func (contextInjector_Ext_type) NewClient(cc grpc.ClientConnInterface) ExtClient
 	return NewExtClient(cc)
 }
 
+func (contextInjector_Ext_type) UnderlyingConn(client ExtClient) grpc.ClientConnInterface {
+	return client.(*extClient).cc
+}
+
 func (contextInjector_Ext_type) ContextWithClient(ctx context.Context, client ExtClient) context.Context {
 	return context.WithValue(ctx, contextKey_Ext, client)
 }
@@ -58,6 +62,10 @@ var (
 
 func (contextInjector_Ext2_type) NewClient(cc grpc.ClientConnInterface) Ext2Client {
 	return NewExt2Client(cc)
+}
+
+func (contextInjector_Ext2_type) UnderlyingConn(client Ext2Client) grpc.ClientConnInterface {
+	return client.(*ext2Client).cc
 }
 
 func (contextInjector_Ext2_type) ContextWithClient(ctx context.Context, client Ext2Client) context.Context {

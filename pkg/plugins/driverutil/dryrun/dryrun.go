@@ -3,6 +3,7 @@ package dryrun
 import (
 	"context"
 	"fmt"
+	"path"
 	"reflect"
 	strings "strings"
 
@@ -16,6 +17,7 @@ import (
 	"google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -84,7 +86,7 @@ func BuildCmd[
 			// inject the dry-run client into the context
 			client, ok := cci.ClientFromContext(cmd.Context())
 			if ok {
-				cmd.SetContext(cci.ContextWithClient(cmd.Context(), NewDryRunClient(client).AsClient()))
+				cmd.SetContext(cci.ContextWithClient(cmd.Context(), cci.NewClient(NewDryRunClient(client).AsClientConn(cci))))
 			}
 			return nil
 		},
@@ -97,7 +99,7 @@ func BuildCmd[
 			if !ok {
 				return nil
 			}
-			dryRunClient := NewDryRunClient(client)
+			dryRunClient := NewDryRunClient(client).FromClientConn(cci.UnderlyingConn(client))
 
 			response := dryRunClient.Response()
 			if errs := response.GetValidationErrors(); len(errs) > 0 {
@@ -202,14 +204,12 @@ type DryRunClient[
 	installable *bool
 }
 
-func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) AsClient() C {
-	return interface {
-		driverutil.GetClient[T, G]
-		driverutil.SetClient[T, S]
-		driverutil.ResetClient[T, R]
-		driverutil.DryRunClient[T, D, DR]
-		driverutil.HistoryClient[T, H, HR]
-	}(dc).(C)
+func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) AsClientConn(cci driverutil.ClientContextInjector[C]) grpc.ClientConnInterface {
+	return NewDryRunClientShim(dc, cci)
+}
+
+func (*DryRunClient[T, G, S, R, D, DR, H, HR, C]) FromClientConn(cc grpc.ClientConnInterface) *DryRunClient[T, G, S, R, D, DR, H, HR, C] {
+	return cc.(*DryRunClientShim[T, G, S, R, D, DR, H, HR, C]).dr
 }
 
 func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) Response() DR {
@@ -261,7 +261,7 @@ func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) ResetDefaultConfiguration(c
 
 // SetConfiguration implements driverutil.SetClient[T, S].
 func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) SetConfiguration(ctx context.Context, in S, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	if dc.isInstallableConfigType() {
+	if in.GetSpec().ProtoReflect().IsValid() && dc.isInstallableConfigType() {
 		in.GetSpec().ProtoReflect().Clear(util.FieldByName[T]("enabled"))
 	}
 	dc.request = NewDryRunRequest[T, D]().
@@ -280,7 +280,7 @@ func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) SetConfiguration(ctx contex
 
 // SetDefaultConfiguration implements driverutil.SetClient[T, S].
 func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) SetDefaultConfiguration(ctx context.Context, in S, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	if dc.isInstallableConfigType() {
+	if in.GetSpec().ProtoReflect().IsValid() && dc.isInstallableConfigType() {
 		in.GetSpec().ProtoReflect().Clear(util.FieldByName[T]("enabled"))
 	}
 	dc.request = NewDryRunRequest[T, D]().
@@ -360,4 +360,115 @@ func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) ConfigurationHistory(_ cont
 // Status implements driverutil.InstallerClient.
 func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) Status(_ context.Context, _ *emptypb.Empty, _ ...grpc.CallOption) (*driverutil.InstallStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "[dry-run] method Status not implemented")
+}
+
+type DryRunClientShim[
+	T driverutil.ConfigType[T],
+	G driverutil.GetRequestType,
+	S driverutil.SetRequestType[T],
+	R driverutil.ResetRequestType[T],
+	D driverutil.DryRunRequestType[T],
+	DR driverutil.DryRunResponseType[T],
+	H driverutil.HistoryRequestType,
+	HR driverutil.HistoryResponseType[T],
+	C interface {
+		driverutil.GetClient[T, G]
+		driverutil.SetClient[T, S]
+		driverutil.ResetClient[T, R]
+		driverutil.DryRunClient[T, D, DR]
+		driverutil.HistoryClient[T, H, HR]
+	},
+] struct {
+	cc grpc.ClientConnInterface
+	dr *DryRunClient[T, G, S, R, D, DR, H, HR, C]
+}
+
+func NewDryRunClientShim[
+	T driverutil.ConfigType[T],
+	G driverutil.GetRequestType,
+	S driverutil.SetRequestType[T],
+	R driverutil.ResetRequestType[T],
+	D driverutil.DryRunRequestType[T],
+	DR driverutil.DryRunResponseType[T],
+	H driverutil.HistoryRequestType,
+	HR driverutil.HistoryResponseType[T],
+	C interface {
+		driverutil.GetClient[T, G]
+		driverutil.SetClient[T, S]
+		driverutil.ResetClient[T, R]
+		driverutil.DryRunClient[T, D, DR]
+		driverutil.HistoryClient[T, H, HR]
+	},
+](
+	dr *DryRunClient[T, G, S, R, D, DR, H, HR, C],
+	cci driverutil.ClientContextInjector[C],
+) grpc.ClientConnInterface {
+	return &DryRunClientShim[T, G, S, R, D, DR, H, HR, C]{
+		dr: dr,
+		cc: cci.UnderlyingConn(dr.client),
+	}
+}
+
+// Invoke implements grpc.ClientConnInterface.
+func (dc *DryRunClientShim[T, G, S, R, D, DR, H, HR, C]) Invoke(ctx context.Context, method string, args any, reply any, opts ...grpc.CallOption) error {
+	switch path.Base(method) {
+	case "GetDefaultConfiguration":
+		resp, err := dc.dr.GetDefaultConfiguration(ctx, args.(G), opts...)
+		if err != nil {
+			return err
+		}
+		proto.Merge(reply.(proto.Message), resp)
+	case "SetDefaultConfiguration":
+		resp, err := dc.dr.SetDefaultConfiguration(ctx, args.(S), opts...)
+		if err != nil {
+			return err
+		}
+		proto.Merge(reply.(proto.Message), resp)
+	case "ResetDefaultConfiguration":
+		resp, err := dc.dr.ResetDefaultConfiguration(ctx, args.(*emptypb.Empty), opts...)
+		if err != nil {
+			return err
+		}
+		proto.Merge(reply.(proto.Message), resp)
+	case "GetConfiguration":
+		resp, err := dc.dr.GetConfiguration(ctx, args.(G), opts...)
+		if err != nil {
+			return err
+		}
+		proto.Merge(reply.(proto.Message), resp)
+	case "SetConfiguration":
+		resp, err := dc.dr.SetConfiguration(ctx, args.(S), opts...)
+		if err != nil {
+			return err
+		}
+		proto.Merge(reply.(proto.Message), resp)
+	case "ResetConfiguration":
+		resp, err := dc.dr.ResetConfiguration(ctx, args.(R), opts...)
+		if err != nil {
+			return err
+		}
+		proto.Merge(reply.(proto.Message), resp)
+	case "Install":
+		resp, err := dc.dr.Install(ctx, args.(*emptypb.Empty), opts...)
+		if err != nil {
+			return err
+		}
+		proto.Merge(reply.(proto.Message), resp)
+	case "Uninstall":
+		resp, err := dc.dr.Uninstall(ctx, args.(*emptypb.Empty), opts...)
+		if err != nil {
+			return err
+		}
+		proto.Merge(reply.(proto.Message), resp)
+	case "DryRun":
+		return status.Errorf(codes.Unimplemented, "[dry-run] attempted to recursively invoke DryRun")
+	default:
+		return dc.cc.Invoke(ctx, method, args, reply, opts...)
+	}
+	return nil
+}
+
+// NewStream implements grpc.ClientConnInterface.
+func (dc *DryRunClientShim[T, G, S, R, D, DR, H, HR, C]) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+	return dc.cc.NewStream(ctx, desc, method, opts...)
 }

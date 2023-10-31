@@ -33,6 +33,10 @@ func (contextInjector_NodeConfiguration_type) NewClient(cc grpc.ClientConnInterf
 	return NewNodeConfigurationClient(cc)
 }
 
+func (contextInjector_NodeConfiguration_type) UnderlyingConn(client NodeConfigurationClient) grpc.ClientConnInterface {
+	return client.(*nodeConfigurationClient).cc
+}
+
 func (contextInjector_NodeConfiguration_type) ContextWithClient(ctx context.Context, client NodeConfigurationClient) context.Context {
 	return context.WithValue(ctx, contextKey_NodeConfiguration, client)
 }

@@ -95,21 +95,21 @@ func (b dryRunRequestBuilderImpl_ResetDefault[T, D]) Reset() DryRunRequestBuilde
 
 func (b *dryRunRequestBuilderImpl[T, D]) Mask(mask *fieldmaskpb.FieldMask) DryRunRequestBuilder_ResetOrBuild[T, D] {
 	if mask != nil {
-		b.request.ProtoReflect().Set(util.FieldByName[D]("mask"), protoreflect.ValueOf(mask))
+		b.request.ProtoReflect().Set(util.FieldByName[D]("mask"), protoreflect.ValueOfMessage(mask.ProtoReflect()))
 	}
 	return b
 }
 
 func (b *dryRunRequestBuilderImpl[T, D]) Patch(patch T) DryRunRequestBuilder_ResetOrBuild[T, D] {
 	if !reflect.ValueOf(patch).IsNil() {
-		b.request.ProtoReflect().Set(util.FieldByName[D]("patch"), protoreflect.ValueOf(patch))
+		b.request.ProtoReflect().Set(util.FieldByName[D]("patch"), protoreflect.ValueOfMessage(patch.ProtoReflect()))
 	}
 	return b
 }
 
 func (b *dryRunRequestBuilderImpl[T, D]) Revision(rev *corev1.Revision) DryRunRequestBuilder_ResetOrBuild[T, D] {
 	if rev != nil {
-		b.request.ProtoReflect().Set(util.FieldByName[D]("revision"), protoreflect.ValueOf(rev))
+		b.request.ProtoReflect().Set(util.FieldByName[D]("revision"), protoreflect.ValueOfMessage(rev.ProtoReflect()))
 	}
 	return b
 }
@@ -135,7 +135,9 @@ func (b *dryRunRequestBuilderImpl[T, D]) Active() DryRunRequestBuilder_Active[T,
 }
 
 func (b *dryRunRequestBuilderImpl[T, D]) Spec(spec T) DryRunRequestBuilder_Build[T, D] {
-	b.request.ProtoReflect().Set(util.FieldByName[D]("spec"), protoreflect.ValueOf(spec))
+	if !reflect.ValueOf(spec).IsNil() {
+		b.request.ProtoReflect().Set(util.FieldByName[D]("spec"), protoreflect.ValueOfMessage(spec.ProtoReflect()))
+	}
 	return b
 }
 

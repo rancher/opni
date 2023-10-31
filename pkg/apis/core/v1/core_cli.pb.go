@@ -29,6 +29,10 @@ func (contextInjector_Pinger_type) NewClient(cc grpc.ClientConnInterface) Pinger
 	return NewPingerClient(cc)
 }
 
+func (contextInjector_Pinger_type) UnderlyingConn(client PingerClient) grpc.ClientConnInterface {
+	return client.(*pingerClient).cc
+}
+
 func (contextInjector_Pinger_type) ContextWithClient(ctx context.Context, client PingerClient) context.Context {
 	return context.WithValue(ctx, contextKey_Pinger, client)
 }

@@ -1,4 +1,4 @@
-//go:build linux
+//go:build darwin
 
 package clients
 
@@ -20,20 +20,20 @@ func (gc *gatewayClient) QueryConnStats() (ConnStats, error) {
 
 type ConnStats struct {
 	Timestamp time.Time
-	Raw       unix.TCPInfo
+	Raw       unix.TCPConnectionInfo
 }
 
-// Returns the socket throughput in bytes per second
+// !! Darwin's sock_opt options don't have an option_name for accessing an underling tcp_stats struct
 func (c *ConnStats) DeliveryRate() uint64 {
-	return c.Raw.Delivery_rate
+	return uint64(0)
 }
 
 func (c *ConnStats) RTT() time.Duration {
-	return time.Duration(c.Raw.Rtt) * time.Microsecond
+	return time.Duration(c.Raw.Rttcur) * time.Microsecond
 }
 
 func (c *ConnStats) HumanizedBytesReceived() string {
-	str, err := util.Humanize(c.Raw.Bytes_received)
+	str, err := util.Humanize(c.Raw.Rxbytes)
 	if err != nil {
 		return "0"
 	}
@@ -41,12 +41,15 @@ func (c *ConnStats) HumanizedBytesReceived() string {
 }
 
 func (c *ConnStats) HumanizedBytesSent() string {
-	str, err := util.Humanize(c.Raw.Bytes_sent)
+	str, err := util.Humanize(c.Raw.Txbytes)
 	if err != nil {
 		return "0"
 	}
 	return str
 }
+
+// On darwin systems : <netinet/tpc.h>
+const TCP_CONNECTION_INFO = 0x106
 
 func queryStats(nc net.Conn) (ConnStats, error) {
 	if nc == nil {
@@ -57,9 +60,10 @@ func queryStats(nc net.Conn) (ConnStats, error) {
 		if err != nil {
 			return ConnStats{}, err
 		}
-		var info *unix.TCPInfo
+		var info *unix.TCPConnectionInfo
+
 		if err := raw.Control(func(fd uintptr) {
-			info, err = unix.GetsockoptTCPInfo(int(fd), syscall.IPPROTO_TCP, syscall.TCP_INFO)
+			info, err = unix.GetsockoptTCPConnectionInfo(int(fd), syscall.IPPROTO_TCP, TCP_CONNECTION_INFO)
 		}); err != nil {
 			return ConnStats{}, err
 		}

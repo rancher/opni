@@ -12,6 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/fieldmask"
 	"github.com/rancher/opni/pkg/util/merge"
+	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -51,7 +52,7 @@ func NewDefaultingConfigTracker[T ConfigType[T]](
 		revisionFieldIndex: GetRevisionFieldIndex[T](),
 		redact:             (SecretsRedactor[T]).RedactSecrets,
 		unredact:           (SecretsRedactor[T]).UnredactSecrets,
-		validator:          util.Must(protovalidate.New(protovalidate.WithMessages(util.NewMessage[T]()))),
+		validator:          util.Must(validation.NewValidator[T]()),
 	}
 }
 

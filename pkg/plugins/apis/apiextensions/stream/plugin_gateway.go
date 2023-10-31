@@ -11,12 +11,12 @@ import (
 	"log/slog"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/kralicky/totem"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
+	"github.com/rancher/opni/pkg/util"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -80,17 +80,9 @@ func NewGatewayPlugin(p StreamAPIExtension, opts ...GatewayStreamApiExtensionPlu
 				)),
 			)
 		}
-		servers := p.StreamServers()
-		for _, srv := range servers {
-			desc, _ := srv.Unpack()
-			descriptor, err := grpcreflect.LoadServiceDescriptor(desc)
-			if err != nil {
-				panic(err)
-			}
-			ext.servers = append(ext.servers, &richServer{
-				ServicePackInterface: srv,
-				richDesc:             descriptor,
-			})
+		for _, srv := range p.StreamServers() {
+			srv := srv
+			ext.servers = append(ext.servers, srv)
 		}
 		if clientHandler, ok := p.(StreamClientHandler); ok {
 			ext.clientHandler = clientHandler
@@ -106,7 +98,7 @@ type gatewayStreamExtensionServerImpl struct {
 	apiextensions.UnsafeStreamAPIExtensionServer
 
 	name          string
-	servers       []*richServer
+	servers       []util.ServicePackInterface
 	clientHandler StreamClientHandler
 	logger        *slog.Logger
 	metricsConfig GatewayStreamMetricsConfig

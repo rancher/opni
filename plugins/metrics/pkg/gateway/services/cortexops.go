@@ -29,20 +29,12 @@ type CortexOpsService struct {
 		*cortexops.CapabilityBackendConfigSpec,
 	]
 	drivers.PartialCortexOpsServer
-
-	validator *protovalidate.Validator
 }
 
 var _ cortexops.CortexOpsServer = (*CortexOpsService)(nil)
 
 func (s *CortexOpsService) Activate() error {
 	defer s.Context.SetServingStatus(cortexops.CortexOps_ServiceDesc.ServiceName, managementext.Serving)
-
-	var err error
-	s.validator, err = protovalidate.New(protovalidate.WithMessages(&cortexops.CapabilityBackendConfigSpec{}))
-	if err != nil {
-		return err
-	}
 
 	defaultStore := kvutil.WithKey(system.NewKVStoreClient[*cortexops.CapabilityBackendConfigSpec](s.Context.KeyValueStoreClient()), "/config/cluster/default")
 	activeStore := s.Context.ClusterDriver().ActiveConfigStore()

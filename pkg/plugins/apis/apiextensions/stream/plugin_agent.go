@@ -15,11 +15,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-plugin"
-	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/kralicky/totem"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -56,17 +56,9 @@ func NewAgentPlugin(p StreamAPIExtension) plugin.Plugin {
 		activeStreams: make(map[string]chan struct{}),
 	}
 	if p != nil {
-		servers := p.StreamServers()
-		for _, srv := range servers {
-			desc, _ := srv.Unpack()
-			descriptor, err := grpcreflect.LoadServiceDescriptor(desc)
-			if err != nil {
-				panic(err)
-			}
-			ext.servers = append(ext.servers, &richServer{
-				ServicePackInterface: srv,
-				richDesc:             descriptor,
-			})
+		for _, srv := range p.StreamServers() {
+			srv := srv
+			ext.servers = append(ext.servers, srv)
 		}
 		if clientHandler, ok := p.(StreamClientHandler); ok {
 			ext.clientHandler = clientHandler
@@ -82,7 +74,7 @@ type agentStreamExtensionServerImpl struct {
 	apiextensions.UnimplementedStreamAPIExtensionServer
 
 	name          string
-	servers       []*richServer
+	servers       []util.ServicePackInterface
 	clientHandler StreamClientHandler
 	logger        *slog.Logger
 

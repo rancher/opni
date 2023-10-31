@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/jhump/protoreflect/desc"
 	"google.golang.org/grpc"
 
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
@@ -31,11 +30,6 @@ type StreamClientHandler interface {
 type StreamAPIExtensionWithHandlers interface {
 	StreamAPIExtension
 	StreamClientHandler
-}
-
-type richServer struct {
-	util.ServicePackInterface
-	richDesc *desc.ServiceDescriptor
 }
 
 type streamExtPlugin interface {

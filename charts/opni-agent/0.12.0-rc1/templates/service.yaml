@@ -1,0 +1,32 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opni-agent
+  namespace: {{ include "opni-agent.namespace" . }}
+  labels:
+    {{- include "opni-agent.labels" . | nindent 4 }}
+    opni.io/app: agent
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "opni-agent.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opni-agent-webhook
+  namespace: {{ include "opni-agent.namespace" . }}
+  labels:
+    {{- include "opni-agent.labels" . | nindent 4 }}
+spec:
+  ports:
+    - port: 443
+      targetPort: 9443
+  selector:
+    {{- include "opni-agent.selectorLabels" . | nindent 4 }}
+---

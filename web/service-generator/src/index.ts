@@ -59,7 +59,8 @@ function printMethod(f: GeneratedFile, method: DescMethod, service: DescService)
     }
   `;
 
-  const responseTranform = outputIsEmpty ? [`rawResponse;`] : [output, `.fromBinary(new Uint8Array(rawResponse))`];
+  const responseTranform = outputIsEmpty ? [`rawResponse;`] : [output, `.fromBinary(new Uint8Array(rawResponse));`];
+  const returnValue = modelImport ? [`return new `, modelImport, `(response);`] : [`return response;`];
 
   switch (method.methodKind) {
   case MethodKind.Unary:
@@ -79,7 +80,7 @@ export async function ${ method.name }(`, ...(inputIsEmpty ? [] : ['input: ', in
 
     const response = `, ...responseTranform, `
     console.info('Here is the response for a request to ${ service.name }-${ method.name }:', response);
-    return response;
+    `, ...returnValue, `
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));

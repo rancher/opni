@@ -29,7 +29,7 @@ export async function CreateBootstrapToken(input: CreateBootstrapTokenRequest): 
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = BootstrapToken.fromBinary(new Uint8Array(rawResponse))
+    const response = BootstrapToken.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-CreateBootstrapToken:', response);
     return response;
   } catch (ex: any) {
@@ -86,7 +86,7 @@ export async function ListBootstrapTokens(): Promise<BootstrapTokenList> {
       url: `/opni-api/Management/tokens`
     })).data;
 
-    const response = BootstrapTokenList.fromBinary(new Uint8Array(rawResponse))
+    const response = BootstrapTokenList.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-ListBootstrapTokens:', response);
     return response;
   } catch (ex: any) {
@@ -117,7 +117,7 @@ export async function GetBootstrapToken(input: Reference): Promise<BootstrapToke
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = BootstrapToken.fromBinary(new Uint8Array(rawResponse))
+    const response = BootstrapToken.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-GetBootstrapToken:', response);
     return response;
   } catch (ex: any) {
@@ -148,7 +148,7 @@ export async function ListClusters(input: ListClustersRequest): Promise<ClusterL
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = ClusterList.fromBinary(new Uint8Array(rawResponse))
+    const response = ClusterList.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-ListClusters:', response);
     return response;
   } catch (ex: any) {
@@ -233,7 +233,7 @@ export async function CertsInfo(): Promise<CertsInfoResponse> {
       url: `/opni-api/Management/certs`
     })).data;
 
-    const response = CertsInfoResponse.fromBinary(new Uint8Array(rawResponse))
+    const response = CertsInfoResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-CertsInfo:', response);
     return response;
   } catch (ex: any) {
@@ -264,7 +264,7 @@ export async function GetCluster(input: Reference): Promise<Cluster> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = Cluster.fromBinary(new Uint8Array(rawResponse))
+    const response = Cluster.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-GetCluster:', response);
     return response;
   } catch (ex: any) {
@@ -295,7 +295,7 @@ export async function GetClusterHealthStatus(input: Reference): Promise<HealthSt
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = HealthStatus.fromBinary(new Uint8Array(rawResponse))
+    const response = HealthStatus.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-GetClusterHealthStatus:', response);
     return response;
   } catch (ex: any) {
@@ -354,7 +354,7 @@ export async function EditCluster(input: EditClusterRequest): Promise<Cluster> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = Cluster.fromBinary(new Uint8Array(rawResponse))
+    const response = Cluster.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-EditCluster:', response);
     return response;
   } catch (ex: any) {
@@ -478,7 +478,7 @@ export async function GetRole(input: Reference): Promise<Role> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = Role.fromBinary(new Uint8Array(rawResponse))
+    const response = Role.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-GetRole:', response);
     return response;
   } catch (ex: any) {
@@ -602,7 +602,7 @@ export async function GetRoleBinding(input: Reference): Promise<RoleBinding> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = RoleBinding.fromBinary(new Uint8Array(rawResponse))
+    const response = RoleBinding.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-GetRoleBinding:', response);
     return response;
   } catch (ex: any) {
@@ -628,7 +628,7 @@ export async function ListRoles(): Promise<RoleList> {
       url: `/opni-api/Management/roles`
     })).data;
 
-    const response = RoleList.fromBinary(new Uint8Array(rawResponse))
+    const response = RoleList.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-ListRoles:', response);
     return response;
   } catch (ex: any) {
@@ -654,7 +654,7 @@ export async function ListRoleBindings(): Promise<RoleBindingList> {
       url: `/opni-api/Management/rolebindings`
     })).data;
 
-    const response = RoleBindingList.fromBinary(new Uint8Array(rawResponse))
+    const response = RoleBindingList.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-ListRoleBindings:', response);
     return response;
   } catch (ex: any) {
@@ -685,7 +685,7 @@ export async function SubjectAccess(input: SubjectAccessRequest): Promise<Refere
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = ReferenceList.fromBinary(new Uint8Array(rawResponse))
+    const response = ReferenceList.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-SubjectAccess:', response);
     return response;
   } catch (ex: any) {
@@ -711,7 +711,7 @@ export async function APIExtensions(): Promise<APIExtensionInfoList> {
       url: `/opni-api/Management/apiextensions`
     })).data;
 
-    const response = APIExtensionInfoList.fromBinary(new Uint8Array(rawResponse))
+    const response = APIExtensionInfoList.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-APIExtensions:', response);
     return response;
   } catch (ex: any) {
@@ -737,7 +737,7 @@ export async function GetConfig(): Promise<GatewayConfig> {
       url: `/opni-api/Management/config`
     })).data;
 
-    const response = GatewayConfig.fromBinary(new Uint8Array(rawResponse))
+    const response = GatewayConfig.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-GetConfig:', response);
     return response;
   } catch (ex: any) {
@@ -794,7 +794,7 @@ export async function ListCapabilities(): Promise<CapabilityList> {
       url: `/opni-api/Management/capabilities`
     })).data;
 
-    const response = CapabilityList.fromBinary(new Uint8Array(rawResponse))
+    const response = CapabilityList.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-ListCapabilities:', response);
     return response;
   } catch (ex: any) {
@@ -825,7 +825,7 @@ export async function CapabilityInstaller(input: CapabilityInstallerRequest): Pr
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = CapabilityInstallerResponse.fromBinary(new Uint8Array(rawResponse))
+    const response = CapabilityInstallerResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-CapabilityInstaller:', response);
     return response;
   } catch (ex: any) {
@@ -856,7 +856,7 @@ export async function InstallCapability(input: CapabilityInstallRequest): Promis
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = InstallResponse.fromBinary(new Uint8Array(rawResponse))
+    const response = InstallResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-InstallCapability:', response);
     return response;
   } catch (ex: any) {
@@ -918,7 +918,7 @@ export async function CapabilityStatus(input: CapabilityStatusRequest): Promise<
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = NodeCapabilityStatus.fromBinary(new Uint8Array(rawResponse))
+    const response = NodeCapabilityStatus.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-CapabilityStatus:', response);
     return response;
   } catch (ex: any) {
@@ -949,7 +949,7 @@ export async function CapabilityUninstallStatus(input: CapabilityStatusRequest):
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = TaskStatus.fromBinary(new Uint8Array(rawResponse))
+    const response = TaskStatus.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-CapabilityUninstallStatus:', response);
     return response;
   } catch (ex: any) {
@@ -1006,7 +1006,7 @@ export async function GetDashboardSettings(): Promise<DashboardSettings> {
       url: `/opni-api/Management/dashboard/settings`
     })).data;
 
-    const response = DashboardSettings.fromBinary(new Uint8Array(rawResponse))
+    const response = DashboardSettings.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Management-GetDashboardSettings:', response);
     return response;
   } catch (ex: any) {

@@ -1281,6 +1281,9 @@ func (r *Reconciler) snapshotPolicyNeedsUpdate(new, current types.SnapshotManage
 		return false
 	}
 
+	if current.Deletion == nil {
+		return false
+	}
 	lg.Info("new deletion is empty, but current isn't")
 	if !reflect.DeepEqual(new.Creation.Schedule, current.Deletion.Schedule) {
 		lg.Info(fmt.Sprintf("deletion schedule is different; current %+v new %+v", current.Deletion.Schedule, new.Creation.Schedule))

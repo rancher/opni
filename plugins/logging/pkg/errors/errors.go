@@ -24,6 +24,7 @@ var (
 	ErrReplicasZero            = utilerrors.New(codes.InvalidArgument, errors.New("replicas must be a positive nonzero integer"))
 	ErrAlreadyExists           = utilerrors.New(codes.AlreadyExists, errors.New("object with that name already exists"))
 	ErrObjectNotFound          = utilerrors.New(codes.NotFound, errors.New("object not found"))
+	ErrSnapshotName            = utilerrors.New(codes.InvalidArgument, errors.New("snapshot name is required"))
 )
 
 func WrappedGetPrereqFailed(inner error) *utilerrors.GRPCError {

@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	"log/slog"
+
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/apis"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
@@ -28,7 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
-	"log/slog"
 	opsterv1 "opensearch.opster.io/api/v1"
 	"opensearch.opster.io/pkg/helpers"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -53,7 +54,7 @@ type KubernetesManagerDriver struct {
 type KubernetesManagerDriverOptions struct {
 	OpensearchCluster *opnimeta.OpensearchClusterRef `option:"opensearchCluster"`
 	K8sClient         client.Client                  `option:"k8sClient"`
-	Logger            *slog.Logger
+	Logger            *slog.Logger                   `option:"logger"`
 }
 
 func NewKubernetesManagerDriver(options KubernetesManagerDriverOptions) (*KubernetesManagerDriver, error) {
@@ -433,6 +434,10 @@ func (d *KubernetesManagerDriver) CreateOrUpdateSnapshotSchedule(
 		}
 		d.Logger.Error(fmt.Sprintf("failed to list opensearch repositories: %v", err))
 		return k8sutilerrors.GRPCFromK8s(err)
+	}
+
+	if snapshot.Ref == nil {
+		return loggingerrors.ErrSnapshotName
 	}
 
 	return d.createOrUpdateRecurringSnapshot(ctx, snapshot, defaultIndices, repo)

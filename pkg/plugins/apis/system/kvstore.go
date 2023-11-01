@@ -4,8 +4,10 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/bufbuild/protovalidate-go"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/lock"
+	"github.com/rancher/opni/pkg/validation"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -17,17 +19,22 @@ type kvStoreServer struct {
 	UnsafeKeyValueStoreServer
 	kv storage.KeyValueStore
 	lm storage.LockManager
+
+	validator *protovalidate.Validator
 }
 
 func NewKVStoreServer(store storage.KeyValueStore, lockMgr storage.LockManager) KeyValueStoreServer {
 	return &kvStoreServer{
 		kv: store,
 		lm: lockMgr,
+		validator: validation.MustNewValidator(
+			protovalidate.WithMessages(&PutRequest{}, &GetRequest{}, &DeleteRequest{}, &ListKeysRequest{}, &HistoryRequest{}, &LockRequest{}),
+		),
 	}
 }
 
 func (s *kvStoreServer) Put(ctx context.Context, in *PutRequest) (*PutResponse, error) {
-	if err := in.Validate(); err != nil {
+	if err := s.validator.Validate(in); err != nil {
 		return nil, err
 	}
 	var revOut int64
@@ -47,7 +54,7 @@ func (s *kvStoreServer) Put(ctx context.Context, in *PutRequest) (*PutResponse, 
 }
 
 func (s *kvStoreServer) Get(ctx context.Context, in *GetRequest) (*GetResponse, error) {
-	if err := in.Validate(); err != nil {
+	if err := s.validator.Validate(in); err != nil {
 		return nil, err
 	}
 	var revOut int64
@@ -68,6 +75,9 @@ func (s *kvStoreServer) Get(ctx context.Context, in *GetRequest) (*GetResponse, 
 }
 
 func (s *kvStoreServer) Watch(in *WatchRequest, stream KeyValueStore_WatchServer) error {
+	if err := s.validator.Validate(in); err != nil {
+		return err
+	}
 	opts := []storage.WatchOpt{}
 	if in.Revision != nil {
 		opts = append(opts, storage.WithRevision(*in.Revision))
@@ -126,7 +136,7 @@ func (s *kvStoreServer) Watch(in *WatchRequest, stream KeyValueStore_WatchServer
 }
 
 func (s *kvStoreServer) Delete(ctx context.Context, in *DeleteRequest) (*DeleteResponse, error) {
-	if err := in.Validate(); err != nil {
+	if err := s.validator.Validate(in); err != nil {
 		return nil, err
 	}
 	opts := []storage.DeleteOpt{}
@@ -141,7 +151,7 @@ func (s *kvStoreServer) Delete(ctx context.Context, in *DeleteRequest) (*DeleteR
 }
 
 func (s *kvStoreServer) ListKeys(ctx context.Context, in *ListKeysRequest) (*ListKeysResponse, error) {
-	if err := in.Validate(); err != nil {
+	if err := s.validator.Validate(in); err != nil {
 		return nil, err
 	}
 	opts := []storage.ListOpt{}
@@ -158,7 +168,7 @@ func (s *kvStoreServer) ListKeys(ctx context.Context, in *ListKeysRequest) (*Lis
 }
 
 func (s *kvStoreServer) History(ctx context.Context, in *HistoryRequest) (*HistoryResponse, error) {
-	if err := in.Validate(); err != nil {
+	if err := s.validator.Validate(in); err != nil {
 		return nil, err
 	}
 	opts := []storage.HistoryOpt{}
@@ -189,7 +199,7 @@ func (s *kvStoreServer) Lock(in *LockRequest, stream KeyValueStore_LockServer) e
 	if s.lm == nil {
 		return status.Errorf(codes.Unimplemented, "not available with the current storage backend")
 	}
-	if err := in.Validate(); err != nil {
+	if err := s.validator.Validate(in); err != nil {
 		return err
 	}
 

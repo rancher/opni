@@ -52,7 +52,7 @@ func NewDefaultingConfigTracker[T ConfigType[T]](
 		revisionFieldIndex: GetRevisionFieldIndex[T](),
 		redact:             (SecretsRedactor[T]).RedactSecrets,
 		unredact:           (SecretsRedactor[T]).UnredactSecrets,
-		validator:          util.Must(validation.NewValidator[T]()),
+		validator:          validation.MustNewValidator(),
 	}
 }
 

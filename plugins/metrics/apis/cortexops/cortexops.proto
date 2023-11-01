@@ -181,8 +181,8 @@ message CapabilityBackendConfigSpec {
         id:         "filesystem_target_check"
         message:    "filesystem storage backend can only be used with a single 'all' target"
         expression: 
-          "this.cortexConfig.storage.type == 'filesystem'"
-          "? size(this.cortexWorkloads.targets) == 1 && this.cortexWorkloads.targets['all']"
+          "this.cortexConfig.storage.backend == 'filesystem'"
+          "? size(this.cortexWorkloads.targets) == 1 && ('all' in this.cortexWorkloads.targets)"
           ": true"
       }
     ]
@@ -196,7 +196,7 @@ message CapabilityBackendConfigSpec {
 
 message CortexWorkloadsConfig {
   map<string, CortexWorkloadSpec> targets = 1 [
-    (cli.flag).skip = true,
+    (cli.flag).skip          = true,
     (buf.validate.field).map = {
       min_pairs: 1
       keys: {
@@ -252,11 +252,21 @@ message CortexApplicationConfig {
       }
     }
   }];
-  runtimeconfig.RuntimeConfigValues runtime_config = 2;
+  runtimeconfig.RuntimeConfigValues runtime_config = 2 [(buf.validate.field).ignore_empty = true];
   compactor.Config                  compactor      = 3;
   querier.Config                    querier        = 4;
   storage.Config                    storage        = 5;
-  optional string                   log_level      = 6 [(cli.flag).default = "debug"];
+  optional string log_level = 6 [
+    (cli.flag).default          = "debug",
+    (buf.validate.field).string = {
+      in: [
+        "debug",
+        "info",
+        "warn",
+        "error"
+      ]
+    }
+  ];
 }
 
 message GrafanaConfig {

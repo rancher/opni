@@ -1,7 +1,7 @@
 syntax = "proto3";
 package validate;
 
-// note: import this file instead of "buf/validate/expression.proto"
+// note: import this file instead of "buf/validate/*.proto"
 
 import public "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate/validate.proto";
 import public "buf/validate/expression.proto";

@@ -3,7 +3,7 @@ module github.com/rancher/opni
 go 1.21
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.31.0-20231017183020-0de7443d03cf.2
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.31.0-20231030212536-12f9cba37c9d.2
 	emperror.dev/errors v0.8.1
 	github.com/99designs/keyring v1.2.2
 	github.com/AlecAivazis/survey/v2 v2.3.7
@@ -585,8 +585,9 @@ replace github.com/openshift/api => github.com/openshift/api v0.0.0-202102162110
 
 // Forks
 replace (
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go => github.com/kralicky/protovalidate/tools/internal/gen v0.0.0-20231101175952-8d70fb095d71
 	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be
-	github.com/bufbuild/protovalidate-go => github.com/kralicky/protovalidate-go v0.0.0-20231030225400-35fe3d470cb1
+	github.com/bufbuild/protovalidate-go => github.com/kralicky/protovalidate-go v0.0.0-20231101181423-77d6a4fdf2a1
 	github.com/cortexproject/cortex => github.com/kralicky/cortex v1.16.0-opni.9
 	github.com/grafana-operator/grafana-operator/v4 => github.com/kralicky/grafana-operator/v4 v4.2.1-0.20230714191401-f7b79b2f8d98
 	// https://github.com/hashicorp/go-plugin/pull/251

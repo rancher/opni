@@ -56,7 +56,7 @@ func Execute() {
 		os.Exit(1)
 	}()
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
-		rootCmd.PrintErrln(err.Error())
+		// rootCmd.PrintErrln(err.Error())
 		os.Exit(1)
 	}
 }

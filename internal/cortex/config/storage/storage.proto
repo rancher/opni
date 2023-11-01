@@ -30,11 +30,46 @@ message Config {
       default: "s3"
     }
   ];
-  S3Config         s3         = 2;
-  GcsConfig        gcs        = 3;
-  AzureConfig      azure      = 4;
-  SwiftConfig      swift      = 5;
-  FilesystemConfig filesystem = 6;
+  S3Config s3 = 2 [
+    (buf.validate.field) = {
+      ignore_if: {
+        id:         "s3"
+        expression: "this.backend != 's3'"
+      }
+    }
+  ];
+  GcsConfig gcs = 3 [
+    (buf.validate.field) = {
+      ignore_if: {
+        id:         "gcs"
+        expression: "this.backend != 'gcs'"
+      }
+    }
+  ];
+  AzureConfig azure = 4 [
+    (buf.validate.field) = {
+      ignore_if: {
+        id:         "azure"
+        expression: "this.backend != 'azure'"
+      }
+    }
+  ];
+  SwiftConfig swift = 5 [
+    (buf.validate.field) = {
+      ignore_if: {
+        id:         "swift"
+        expression: "this.backend != 'swift'"
+      }
+    }
+  ];
+  FilesystemConfig filesystem = 6 [
+    (buf.validate.field) = {
+      ignore_if: {
+        id:         "filesystem"
+        expression: "this.backend != 'filesystem'"
+      }
+    }
+  ];
 }
 
 message AzureConfig {
@@ -192,12 +227,12 @@ message SwiftConfig {
       {
         id:         "autodetect_auth_version_url"
         message:    "when auth_version is set to 0 (autodetect) auth_url must end with /v2.X or /v3"
-        expression: "this.auth_version == 0 ? (this.auth_url.matches('.*/v2\\.[0-9]$') || this.auth_url.endsWith('/v3')) : true"
+        expression: "this.auth_version == 0 ? (this.auth_url.matches(r'.*/v2\\.[0-9]$') || this.auth_url.endsWith('/v3')) : true"
       },
       {
         id:         "explicit_auth_version_url"
         message:    "when auth_version is not 0 (autodetect) auth_url must not end with a version"
-        expression: "this.auth_version != 0 ? (!this.auth_url.matches('.*/v[0-9\\.]+$')) : true"
+        expression: "this.auth_version != 0 ? (!this.auth_url.matches(r'.*/v[0-9\\.]+$')) : true"
       }
     ]
   };

@@ -25,13 +25,13 @@ func CollectValidationErrorLogs(cfg *cortexops.CortexApplicationConfig, override
 	errs := []error{}
 	conf, _, err := CortexAPISpecToCortexConfig(cfg, overriders...)
 	if err != nil {
-		errs = append(errs, fmt.Errorf("internal: %w", err))
+		errs = append(errs, fmt.Errorf("cortex: %w", err))
 		return errs
 	}
 	lg := errLogger{}
 	errLogger := gokitlog.NewJSONLogger(&lg)
 	if err := conf.Validate(errLogger); err != nil {
-		errs = append(errs, fmt.Errorf("internal: %w", err))
+		errs = append(errs, fmt.Errorf("cortex: %w", err))
 	}
 	for _, err := range lg.errs {
 		errs = append(errs, fmt.Errorf("cortex: %s", err))

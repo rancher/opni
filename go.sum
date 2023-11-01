@@ -1,6 +1,4 @@
 bazil.org/fuse v0.0.0-20160811212531-371fbbdaa898/go.mod h1:Xbm+BRKSBEpa4q4hTSxohYNQpsxXPbPry4JJWOB3LB8=
-buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.31.0-20231017183020-0de7443d03cf.2 h1:t3Bq7+sq30Ga31zuUZVk02meAYwhiZ9SGMRVQPJJgqs=
-buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.31.0-20231017183020-0de7443d03cf.2/go.mod h1:xafc+XIsTxTy76GJQ1TKgvJWsSugFBqMaN27WhUblew=
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 cloud.google.com/go v0.34.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 cloud.google.com/go v0.38.0/go.mod h1:990N+gfupTy94rShfmMCWGDn0LpTmnzTp2qbd1dvSRU=
@@ -1817,8 +1815,10 @@ github.com/kralicky/protocompile v0.0.0-20231030041518-0ad723357927 h1:D7r9vPx77
 github.com/kralicky/protocompile v0.0.0-20231030041518-0ad723357927/go.mod h1:PKTb5dlH+6m/g0i7rXfTH7a+jzVTzz9xE6Y+0y+2LJc=
 github.com/kralicky/protols v0.0.0-20231031175015-9c7a7b5aea8e h1:rdIpIXFyVFr0YNjHp+ucg2792xBds02fJdEKfHukvnY=
 github.com/kralicky/protols v0.0.0-20231031175015-9c7a7b5aea8e/go.mod h1:tm2x0Yf9dgjFyY1OiEqH/mskmv1tZKtbRB6HmREMbq8=
-github.com/kralicky/protovalidate-go v0.0.0-20231030225400-35fe3d470cb1 h1:wUpgBcc414T5izTEzJH66PZj2UQ2TMOAb56k4FWEM84=
-github.com/kralicky/protovalidate-go v0.0.0-20231030225400-35fe3d470cb1/go.mod h1:Au57xmLypglbQAF0GzuDDYbYIct7SZ9QnwJlaPolyFw=
+github.com/kralicky/protovalidate-go v0.0.0-20231101181423-77d6a4fdf2a1 h1:8THjT3JjW6L7gQUbGR3h4w20ZP5dDzfaCBUEF04lfXQ=
+github.com/kralicky/protovalidate-go v0.0.0-20231101181423-77d6a4fdf2a1/go.mod h1:LDS5v+E/2cx5aybVOAJcxiEwwYgmoIa3E3wyA+osWV0=
+github.com/kralicky/protovalidate/tools/internal/gen v0.0.0-20231101175952-8d70fb095d71 h1:dLwSPb8ASUs4kuE13yKsaxywOOeBvE7tf+I2FqU4fYI=
+github.com/kralicky/protovalidate/tools/internal/gen v0.0.0-20231101175952-8d70fb095d71/go.mod h1:xafc+XIsTxTy76GJQ1TKgvJWsSugFBqMaN27WhUblew=
 github.com/kralicky/ragu v1.0.11-0.20231031175336-0612d4bec2a0 h1:HHYlIEcgHJL8n98nPQOwADGE44yQgRfuRDzAjBePshg=
 github.com/kralicky/ragu v1.0.11-0.20231031175336-0612d4bec2a0/go.mod h1:lOvexakQYy8ShDH/FRBl3ZKDuVgS6rMDNbGekbqdaWs=
 github.com/kralicky/tools v0.0.0-20231015012334-9bbd10d902a7 h1:KkST7Lh2/hNdbARdARazfWXCo8A6zYybWKn9uOigxGE=

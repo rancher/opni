@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package node.metrics.config;
 
+import "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate/validate.proto";
 import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "github.com/rancher/opni/pkg/config/v1beta1/agent_config.proto";
@@ -146,20 +147,49 @@ message MetricsCapabilityConfig {
     Prometheus    = 1;
     OpenTelemetry = 2;
   }
-  optional Driver driver     = 4 [(cli.flag).default = "Prometheus"];
-  PrometheusSpec  prometheus = 2;
-  OTELSpec        otel       = 3;
+  optional Driver driver = 4 [(cli.flag).default = "Prometheus"];
+  PrometheusSpec prometheus = 2 [
+    (buf.validate.field).ignore_if = {
+      id:         "prometheus"
+      expression: "this.driver != Prometheus"
+    }
+  ];
+  OTELSpec otel = 3 [
+    (buf.validate.field).ignore_if = {
+      id:         "otel"
+      expression: "this.driver != OpenTelemetry"
+    }
+  ];
 }
 
 message PrometheusSpec {
-  optional string image = 1 [(cli.flag).default = "quay.io/prometheus/prometheus:latest"];
+  optional string image = 1 [
+    (cli.flag).default       = "quay.io/prometheus/prometheus:latest",
+    (buf.validate.field).cel = {
+      id:         "prometheus_image"
+      message:    "invalid prometheus image"
+      expression: "this.isValidImage()"
+    }
+  ];
   reserved 2;
 }
 
 message ScrapeConfig {
-  optional string jobName        = 1;
-  repeated string targets        = 2;
-  optional string scrapeInterval = 3;
+  optional string jobName = 1 [(buf.validate.field).required = true];
+  repeated string targets = 2 [(buf.validate.field).repeated = {
+    min_items: 1
+    unique:    true
+  }];
+  optional string scrapeInterval = 3 [
+    (buf.validate.field) = {
+      required: true
+      cel: {
+        id:         "scrape_interval_duration"
+        message:    "invalid scrape interval duration"
+        expression: "prometheusDuration(this) >= duration('1s')"
+      }
+    }
+  ];
 }
 
 message OTELSpec {
@@ -169,9 +199,17 @@ message OTELSpec {
 }
 
 message WALConfig {
-  optional bool            enabled           = 1;
-  optional int64           bufferSize        = 2;
-  google.protobuf.Duration truncateFrequency = 3;
+  optional bool enabled = 1;
+  optional int64 bufferSize = 2 [
+    (buf.validate.field).ignore_if = {id: "bufferSize", expression: "!this.enabled"},
+    (buf.validate.field).required  = true,
+    (buf.validate.field).int64.gt  = 0
+  ];
+  google.protobuf.Duration truncateFrequency = 3 [
+    (buf.validate.field).ignore_if   = {id: "truncateFrequency", expression: "!this.enabled"},
+    (buf.validate.field).required    = true,
+    (buf.validate.field).duration.gt = {seconds: 0, nanos: 0}
+  ];
 }
 
 enum ConfigStatus {

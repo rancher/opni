@@ -34,7 +34,7 @@
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "gridPos": {
         "h": 1,
@@ -48,7 +48,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "refId": "A"
         }
@@ -59,7 +59,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "The SLOs that currently are burning more error budget that then available",
       "fieldConfig": {
@@ -162,7 +162,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -216,7 +216,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "The burning rate of the all the Service SLOs",
       "fieldConfig": {
@@ -298,7 +298,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -317,7 +317,7 @@
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "gridPos": {
         "h": 1,
@@ -333,7 +333,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "refId": "A"
         }
@@ -344,7 +344,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -394,7 +394,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -413,7 +413,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -531,7 +531,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -545,7 +545,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -564,7 +564,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -615,7 +615,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -632,7 +632,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "This moment burning % of the budget.",
       "fieldConfig": {
@@ -691,7 +691,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -708,7 +708,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "This month remaining error budget, starts the 1st of the month and ends  28th-31st (not rolling window)",
       "fieldConfig": {
@@ -767,7 +767,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -784,7 +784,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "A rolling window of the total period (30d) error budget remaining.",
       "fieldConfig": {
@@ -843,7 +843,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -860,7 +860,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "This graph shows the month error budget burn down chart (starts the 1st until the end of the month)",
       "fieldConfig": {
@@ -983,7 +983,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -998,7 +998,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "1 - sum_over_time(\n  (\n    (1 / (days_in_month() * 24)) *\n    (month() == bool vector(${__to:date:M}))\n  )[32d:1h]\n)",
@@ -1026,7 +1026,7 @@
       "dataFormat": "timeseries",
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -1100,7 +1100,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -1134,7 +1134,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1207,7 +1207,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -1224,7 +1224,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1297,7 +1297,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -1331,7 +1331,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "P0BEE70D62F42845E"
+          "uid": "${DS_PROMETHEUS}"
         },
         "definition": "label_values(__tenant_id__)",
         "description": "The cluster we want to look at",
@@ -1376,7 +1376,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "P0BEE70D62F42845E"
+          "uid": "${DS_PROMETHEUS}"
         },
         "definition": "label_values(slo:objective:ratio{__tenant_id__=\"$clusterId\"}, slo_opni_service)",
         "hide": 0,
@@ -1409,7 +1409,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "P0BEE70D62F42845E"
+          "uid": "${DS_PROMETHEUS}"
         },
         "definition": "label_values(slo:objective:ratio{slo_opni_service=\"${service}\", __tenant_id__=\"$clusterId\"}, slo_opni_name)",
         "hide": 0,

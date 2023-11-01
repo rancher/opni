@@ -36,7 +36,8 @@ export default {
       storageOptions,
       storage:            storageOptions[0],
       regionOptions:      ['Unknown', ...S3_REGIONS],
-      region:             DEFAULT_S3_REGION
+      region:             DEFAULT_S3_REGION,
+      settings:           {}
     };
   },
 
@@ -55,6 +56,8 @@ export default {
 
     async load() {
       const settings = await getAISettings();
+
+      this.$set(this, 'settings', settings);
 
       if (settings.s3Settings) {
         this.$set(this, 'storage', 'S3');
@@ -109,7 +112,7 @@ export default {
         }
       }
 
-      const settings = this.storage === 'S3' ? { s3Settings: this.config } : undefined;
+      const settings = { ...this.settings, s3Settings: this.storage === 'S3' ? this.config : undefined } ;
 
       await updateAISettings(settings);
 

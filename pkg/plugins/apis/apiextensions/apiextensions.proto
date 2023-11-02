@@ -6,11 +6,13 @@ import "github.com/kralicky/totem/totem.proto";
 import "google.golang.org/grpc/health/grpc_health_v1/health.proto";
 import "google/protobuf/descriptor.proto";
 import "google/protobuf/empty.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 
 option go_package = "github.com/rancher/opni/pkg/plugins/apis/apiextensions";
 
 service ManagementAPIExtension {
   rpc Descriptors(google.protobuf.Empty) returns (ServiceDescriptorProtoList);
+  rpc Authorized(AuthzRequest) returns (AuthzResponse);
 
   rpc CheckHealth(grpc.health.v1.HealthCheckRequest) returns (grpc.health.v1.HealthCheckResponse);
   rpc WatchHealth(grpc.health.v1.HealthCheckRequest) returns (stream grpc.health.v1.HealthCheckResponse);
@@ -50,4 +52,18 @@ message ServiceDescriptorProtoList {
 message RouteInfo {
   string method = 1;
   string path   = 2;
+}
+
+message AuthzRequest {
+  core.ReferenceList roleList = 1;
+  RequestDetails details = 2;
+}
+
+message AuthzResponse {
+  bool authorized = 1;
+}
+
+message RequestDetails {
+  string path = 1;
+  string verb = 2;
 }

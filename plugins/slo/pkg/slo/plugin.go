@@ -3,11 +3,13 @@ package slo
 import (
 	"context"
 
-	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
-	"github.com/rancher/opni/plugins/slo/apis/slo"
 	"log/slog"
 
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/slo/apis/slo"
+
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
@@ -36,6 +38,11 @@ func (p *Plugin) ManagementServices(_ managementext.ServiceController) []util.Se
 	return []util.ServicePackInterface{
 		util.PackService[slo.SLOServer](&slo.SLO_ServiceDesc, p),
 	}
+}
+
+// Authorized checks whether a given set of roles is allowed to access a given request
+func (p *Plugin) CheckAuthz(_ context.Context, _ *corev1.ReferenceList, _, _ string) bool {
+	return true
 }
 
 type StorageAPIs struct {

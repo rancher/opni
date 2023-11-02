@@ -13,6 +13,7 @@ import (
 
 	"log/slog"
 
+	"github.com/gin-gonic/gin"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/jhump/protoreflect/desc"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -66,6 +67,8 @@ type apiExtension struct {
 	status      *health.ServingStatus
 	serviceDesc *desc.ServiceDescriptor
 	httpRules   []*managementv1.HTTPRuleDescriptor
+	group       *gin.RouterGroup
+	mux         *runtime.ServeMux
 }
 
 type Server struct {
@@ -77,6 +80,7 @@ type Server struct {
 	coreDataSource    CoreDataSource
 	grpcServer        *grpc.Server
 	dashboardSettings *DashboardSettingsManager
+	router            *gin.Engine
 
 	apiExtMu      sync.RWMutex
 	apiExtensions []apiExtension
@@ -88,6 +92,7 @@ type managementServerOptions struct {
 	lifecycler             config.Lifecycler
 	capabilitiesDataSource CapabilitiesDataSource
 	healthStatusDataSource HealthStatusDataSource
+	rolebindingDataStore   storage.RoleBindingStore
 }
 
 type ManagementServerOption func(*managementServerOptions)
@@ -116,6 +121,12 @@ func WithHealthStatusDataSource(src HealthStatusDataSource) ManagementServerOpti
 	}
 }
 
+func WithRoleBindingDataStore(store storage.RoleBindingStore) ManagementServerOption {
+	return func(o *managementServerOptions) {
+		o.rolebindingDataStore = store
+	}
+}
+
 func NewServer(
 	ctx context.Context,
 	conf *v1beta1.ManagementSpec,
@@ -137,9 +148,10 @@ func NewServer(
 			kv:     cds.StorageBackend().KeyValueStore("dashboard"),
 			logger: lg,
 		},
+		router: gin.New(),
 	}
 
-	director := m.configureApiExtensionDirector(ctx, pluginLoader)
+	director := m.configureApiExtensionDirector(ctx, pluginLoader, m.router)
 	m.grpcServer = grpc.NewServer(
 		grpc.Creds(insecure.NewCredentials()),
 		grpc.UnknownServiceHandler(unknownServiceHandler(director)),
@@ -263,7 +275,7 @@ func (m *Server) listenAndServeHttp(ctx context.Context) error {
 	)
 
 	m.configureManagementHttpApi(ctx, gwmux)
-	m.configureHttpApiExtensions(gwmux)
+	m.configureHttpApiExtensions()
 	mux.Handle("/", gwmux)
 	server := &http.Server{
 		Addr:    m.config.HTTPListenAddress,

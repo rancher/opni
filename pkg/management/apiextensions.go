@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	dpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/gorilla/websocket"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -30,6 +31,8 @@ import (
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
 	"github.com/rancher/opni/pkg/util"
+	ginoauth2 "github.com/zalando/gin-oauth2"
+	"golang.org/x/oauth2"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/grpc"
@@ -67,7 +70,8 @@ type UnknownStreamMetadata struct {
 
 type StreamDirector func(ctx context.Context, fullMethodName string) (context.Context, *UnknownStreamMetadata, error)
 
-func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.LoaderInterface) StreamDirector {
+func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.LoaderInterface, router *gin.Engine) StreamDirector {
+	extensionPathPrefix := "/ext"
 	lg := m.logger
 	methodTable := gsync.Map[string, *UnknownStreamMetadata]{}
 	pl.Hook(hooks.OnLoadMC(func(p types.ManagementAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
@@ -142,6 +146,12 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.L
 				).Info("service has no http rules")
 			}
 
+			mux := runtime.NewServeMux(
+				runtime.WithMarshalerOption("application/json", &LegacyJsonMarshaler{}),
+				runtime.WithMarshalerOption("application/octet-stream", &DynamicV1Marshaler{}),
+				runtime.WithMarshalerOption(runtime.MIMEWildcard, &DynamicV1Marshaler{}),
+			)
+
 			m.apiExtMu.Lock()
 			m.apiExtensions = append(m.apiExtensions, apiExtension{
 				client:      client,
@@ -149,6 +159,8 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.L
 				status:      servingStatus,
 				serviceDesc: svcDesc,
 				httpRules:   httpRules,
+				group:       router.Group(fmt.Sprintf("%s/%s", extensionPathPrefix, md.BinaryPath)),
+				mux:         mux,
 			})
 			m.apiExtMu.Unlock()
 		}
@@ -197,14 +209,23 @@ func (m *Server) configureManagementHttpApi(ctx context.Context, mux *runtime.Se
 	return nil
 }
 
-func (m *Server) configureHttpApiExtensions(mux *runtime.ServeMux) {
+func (m *Server) configureHttpApiExtensions() {
 	m.apiExtMu.RLock()
 	defer m.apiExtMu.RUnlock()
 	for _, ext := range m.apiExtensions {
 		stub := grpcdynamic.NewStub(ext.clientConn)
 		svcDesc := ext.serviceDesc
 		httpRules := ext.httpRules
-		m.configureServiceStubHandlers(mux, stub, svcDesc, httpRules, ext.status)
+		checker := accessChecker{
+			client: ext.client,
+			logger: m.logger.WithGroup("access-checker"),
+			store:  m.rolebindingDataStore,
+		}
+		// TODO add config here from gateway
+		endpoints := oauth2.Endpoint{}
+		ext.group.Use(ginoauth2.Auth(checker.CheckAccessForExtension, endpoints))
+		m.configureServiceStubHandlers(ext.mux, stub, svcDesc, httpRules, ext.status)
+		ext.group.Any("/*any", gin.WrapF(ext.mux.ServeHTTP))
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/opensearch-project/opensearch-go"
 	"github.com/rancher/opni/apis"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
@@ -45,6 +46,11 @@ func (p *AIOpsPlugin) ManagementServices(_ managementext.ServiceController) []ut
 		util.PackService[modeltraining.ModelTrainingServer](&modeltraining.ModelTraining_ServiceDesc, p),
 		util.PackService[admin.AIAdminServer](&admin.AIAdmin_ServiceDesc, p),
 	}
+}
+
+// Authorized checks whether a given set of roles is allowed to access a given request
+func (p *AIOpsPlugin) CheckAuthz(_ context.Context, _ *corev1.ReferenceList, _, _ string) bool {
+	return true
 }
 
 type PluginOptions struct {

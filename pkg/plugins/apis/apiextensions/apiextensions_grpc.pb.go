@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	ManagementAPIExtension_Descriptors_FullMethodName = "/apiextensions.ManagementAPIExtension/Descriptors"
+	ManagementAPIExtension_Authorized_FullMethodName  = "/apiextensions.ManagementAPIExtension/Authorized"
 	ManagementAPIExtension_CheckHealth_FullMethodName = "/apiextensions.ManagementAPIExtension/CheckHealth"
 	ManagementAPIExtension_WatchHealth_FullMethodName = "/apiextensions.ManagementAPIExtension/WatchHealth"
 )
@@ -33,6 +34,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ManagementAPIExtensionClient interface {
 	Descriptors(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceDescriptorProtoList, error)
+	Authorized(ctx context.Context, in *AuthzRequest, opts ...grpc.CallOption) (*AuthzResponse, error)
 	CheckHealth(ctx context.Context, in *grpc_health_v1.HealthCheckRequest, opts ...grpc.CallOption) (*grpc_health_v1.HealthCheckResponse, error)
 	WatchHealth(ctx context.Context, in *grpc_health_v1.HealthCheckRequest, opts ...grpc.CallOption) (ManagementAPIExtension_WatchHealthClient, error)
 }
@@ -48,6 +50,15 @@ func NewManagementAPIExtensionClient(cc grpc.ClientConnInterface) ManagementAPIE
 func (c *managementAPIExtensionClient) Descriptors(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceDescriptorProtoList, error) {
 	out := new(ServiceDescriptorProtoList)
 	err := c.cc.Invoke(ctx, ManagementAPIExtension_Descriptors_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementAPIExtensionClient) Authorized(ctx context.Context, in *AuthzRequest, opts ...grpc.CallOption) (*AuthzResponse, error) {
+	out := new(AuthzResponse)
+	err := c.cc.Invoke(ctx, ManagementAPIExtension_Authorized_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -100,6 +111,7 @@ func (x *managementAPIExtensionWatchHealthClient) Recv() (*grpc_health_v1.Health
 // for forward compatibility
 type ManagementAPIExtensionServer interface {
 	Descriptors(context.Context, *emptypb.Empty) (*ServiceDescriptorProtoList, error)
+	Authorized(context.Context, *AuthzRequest) (*AuthzResponse, error)
 	CheckHealth(context.Context, *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error)
 	WatchHealth(*grpc_health_v1.HealthCheckRequest, ManagementAPIExtension_WatchHealthServer) error
 }
@@ -110,6 +122,9 @@ type UnimplementedManagementAPIExtensionServer struct {
 
 func (UnimplementedManagementAPIExtensionServer) Descriptors(context.Context, *emptypb.Empty) (*ServiceDescriptorProtoList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Descriptors not implemented")
+}
+func (UnimplementedManagementAPIExtensionServer) Authorized(context.Context, *AuthzRequest) (*AuthzResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Authorized not implemented")
 }
 func (UnimplementedManagementAPIExtensionServer) CheckHealth(context.Context, *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CheckHealth not implemented")
@@ -143,6 +158,24 @@ func _ManagementAPIExtension_Descriptors_Handler(srv interface{}, ctx context.Co
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ManagementAPIExtensionServer).Descriptors(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ManagementAPIExtension_Authorized_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AuthzRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementAPIExtensionServer).Authorized(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ManagementAPIExtension_Authorized_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementAPIExtensionServer).Authorized(ctx, req.(*AuthzRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -196,6 +229,10 @@ var ManagementAPIExtension_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Descriptors",
 			Handler:    _ManagementAPIExtension_Descriptors_Handler,
+		},
+		{
+			MethodName: "Authorized",
+			Handler:    _ManagementAPIExtension_Authorized_Handler,
 		},
 		{
 			MethodName: "CheckHealth",

@@ -12,7 +12,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
 
-option go_package = "github.com/rancher/opni/plugins/metrics/apis/node";
+option go_package      = "github.com/rancher/opni/plugins/metrics/apis/node";
 option (cli.generator) = {
   generate: true
 };
@@ -39,8 +39,8 @@ service NodeConfiguration {
   // {{ template "SetDefaultConfiguration" }}
   rpc SetDefaultConfiguration(SetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
-      use: "set-default"
-      granularity: EditMessage;
+      use:         "set-default"
+      granularity: EditMessage
     };
     option (google.api.http) = {
       put:  "/node_config"
@@ -72,9 +72,9 @@ service NodeConfiguration {
   // {{ template "SetConfiguration" }}
   rpc SetConfiguration(SetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
-      use: "set"
+      use:          "set"
       enable_hooks: true
-      granularity: EditMessage;
+      granularity:  EditMessage
     };
     option (google.api.http) = {
       put:  "/node_config/{node.id}"
@@ -134,7 +134,7 @@ message MetricsCapabilityConfig {
     [type.googleapis.com/config.v1beta1.RulesSpec]: {
       discovery: {
         prometheusRules: {
-          searchNamespaces: [""]; // search all namespaces
+          searchNamespaces: [""]
         }
       }
     }
@@ -201,14 +201,16 @@ message SetRequest {
 }
 
 message DryRunRequest {
-  driverutil.Target target = 1;
-  driverutil.Action action = 2;
+  core.Reference node = 1; // Only used for active config requests
 
-  MetricsCapabilityConfig spec = 3; // Set
+  driverutil.Target target = 2;
+  driverutil.Action action = 3;
 
-  core.Revision             revision = 4 [(cli.flag_set).no_prefix = true]; // Reset
-  MetricsCapabilityConfig   patch    = 5 [(cli.flag).skip = true]; // Reset
-  google.protobuf.FieldMask mask     = 6 [(cli.flag).skip = true]; // Reset
+  MetricsCapabilityConfig spec = 4; // Set
+
+  core.Revision             revision = 5 [(cli.flag_set).no_prefix = true]; // Reset
+  MetricsCapabilityConfig   patch    = 6 [(cli.flag).skip = true]; // Reset
+  google.protobuf.FieldMask mask     = 7 [(cli.flag).skip = true]; // Reset
 }
 
 message DryRunResponse {

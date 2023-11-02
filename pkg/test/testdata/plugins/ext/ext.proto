@@ -9,7 +9,7 @@ import "google/api/annotations.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
 
-option go_package = "github.com/rancher/opni/pkg/test/testdata/plugins/ext";
+option go_package      = "github.com/rancher/opni/pkg/test/testdata/plugins/ext";
 option (cli.generator) = {
   generate:                        true
   generate_flags_for_all_messages: true
@@ -61,7 +61,7 @@ service Ext {
   }
   rpc Set(SetRequest) returns (SetRequest) {
     option (google.api.http) = {
-      put: "/set/{node.id}"
+      put:  "/set/{node.id}"
       body: "*"
 
       additional_bindings {
@@ -140,11 +140,20 @@ message SampleConfiguration {
   SampleMessage       messageField  = 7;
 }
 
+message SampleGetRequest {
+  optional string key = 10; // for context key tests
+
+  core.Revision revision = 1 [(cli.flag_set).no_prefix = true];
+}
+
 message SampleSetRequest {
+  optional string     key  = 10; // for context key tests
   SampleConfiguration spec = 2;
 }
 
 message SampleDryRunRequest {
+  optional string key = 10; // for context key tests
+
   driverutil.Target target = 1;
   driverutil.Action action = 2;
 
@@ -159,11 +168,21 @@ message SampleDryRunResponse {
   SampleConfiguration                 modified         = 2;
   repeated driverutil.ValidationError validationErrors = 3;
 }
+
+message SampleHistoryRequest {
+  optional string   key           = 10; // for context key tests
+  driverutil.Target target        = 1;
+  core.Revision     revision      = 2  [(cli.flag_set).no_prefix = true];
+  bool              includeValues = 3  [(cli.flag).default = "true"];
+}
+
 message SampleConfigurationHistoryResponse {
   repeated SampleConfiguration entries = 1;
 }
 
 message SampleResetRequest {
+  optional string key = 10; // for context key tests
+
   core.Revision             revision = 1 [(cli.flag_set).no_prefix = true];
   google.protobuf.FieldMask mask     = 2 [(cli.flag).skip = true];
   SampleConfiguration       patch    = 3 [(cli.flag).skip = true];

@@ -44,10 +44,6 @@ func DefaultingConfigTrackerTestSuite[
 			driverutil.UnsetRevision(t)
 			return t
 		}
-		// var withoutTimestamp = func(t T) T {
-		// 	driverutil.SetRevision(t, t.GetRevision().GetRevision())
-		// 	return t
-		// }
 
 		var (
 			wctx          context.Context

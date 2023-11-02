@@ -163,6 +163,28 @@ func (s *BaseConfigServer[G, S, R, H, HR, T]) Tracker() *DefaultingConfigTracker
 	return s.tracker
 }
 
+// ServerDryRun sends a dry-run request to the tracker and returns the results
+// in a generic wrapper type.
+//
+// Because DryRun is an optional config server API, the request and response
+// types are not part of the collection of required type parameters for this
+// server. The typed request can be passed directly to ServerDryRun using the
+// generic interface DryRunRequestType[T], which it will already implement
+// if the request is well-formed. The corresponding response type can't be
+// known at compile-time, so the caller will need to translate the generic
+// response type DryRunResults[T] into the correct response type for the rpc.
+//
+// This is typically most of the work required to implement a dry-run endpoint,
+// but callers may wish to perform additional validation on the modified config
+// before returning the dry-run response to the client using the typed dry-run
+// response message.
+//
+// If the config type has validation rules defined using protovalidate, they
+// will be run against the modified config and included in this response.
+func (s *BaseConfigServer[G, S, R, H, HR, T]) ServerDryRun(ctx context.Context, req DryRunRequestType[T]) (DryRunResults[T], error) {
+	return s.tracker.DryRun(ctx, req)
+}
+
 type ContextKeyableConfigServer[
 	G interface {
 		GetRequestType
@@ -241,6 +263,13 @@ func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) Uninstall(ctx context.Co
 	return s.base.Uninstall(contextWithKey(ctx, in.ContextKey()), &emptypb.Empty{})
 }
 
-func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) Tracker() *DefaultingConfigTracker[T] {
-	return s.base.tracker
+func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) ServerDryRun(ctx context.Context, req interface {
+	DryRunRequestType[T]
+	ContextKeyable
+}) (DryRunResults[T], error) {
+	return s.base.ServerDryRun(contextWithKey(ctx, req.ContextKey()), req)
+}
+
+func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) InjectContextKey(ctx context.Context, in ContextKeyable) context.Context {
+	return contextWithKey(ctx, in.ContextKey())
 }

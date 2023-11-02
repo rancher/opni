@@ -58,6 +58,11 @@ func (g *ResetRequest) ContextKey() string {
 }
 
 // Implements driverutil.ContextKeyable
+func (g *DryRunRequest) ContextKey() string {
+	return g.GetNode().GetId()
+}
+
+// Implements driverutil.ContextKeyable
 func (g *ConfigurationHistoryRequest) ContextKey() string {
 	return g.GetNode().GetId()
 }
@@ -72,11 +77,11 @@ func (h *ConfigurationHistoryResponse) RenderText(out cli.Writer) {
 }
 
 func init() {
-	addExtraNodeConfigurationCmd(dryrun.BuildCmd("config dry-run", NodeConfigurationContextInjector,
+	addExtraNodeConfigurationCmd(dryrun.BuildCmd("dry-run", NodeConfigurationContextInjector,
 		BuildNodeConfigurationSetConfigurationCmd(),
 		BuildNodeConfigurationSetDefaultConfigurationCmd(),
 		BuildNodeConfigurationResetConfigurationCmd(),
 		BuildNodeConfigurationResetDefaultConfigurationCmd(),
 	))
-	addExtraNodeConfigurationCmd(rollback.BuildCmd("config rollback", NodeConfigurationContextInjector))
+	addExtraNodeConfigurationCmd(rollback.BuildCmd("rollback", NodeConfigurationContextInjector))
 }

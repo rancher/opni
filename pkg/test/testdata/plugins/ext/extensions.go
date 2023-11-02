@@ -13,3 +13,23 @@ func (c *SampleConfiguration) WithoutRevision() *SampleConfiguration {
 	c.Revision = nil
 	return c
 }
+
+// Implements driverutil.ContextKeyable
+func (g *SampleGetRequest) ContextKey() string {
+	return g.GetKey()
+}
+
+// Implements driverutil.ContextKeyable
+func (g *SampleSetRequest) ContextKey() string {
+	return g.GetKey()
+}
+
+// Implements driverutil.ContextKeyable
+func (g *SampleResetRequest) ContextKey() string {
+	return g.GetKey()
+}
+
+// Implements driverutil.ContextKeyable
+func (g *SampleHistoryRequest) ContextKey() string {
+	return g.GetKey()
+}

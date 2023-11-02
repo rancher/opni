@@ -266,56 +266,28 @@ func (ct *DefaultingConfigTracker[T]) ApplyConfig(ctx context.Context, newConfig
 	return ct.activeStore.Put(ctx, existing, storage.WithRevision(rev))
 }
 
-func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, req DryRunRequestType[T]) (*DryRunResults[T], error) {
+func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, req DryRunRequestType[T]) (DryRunResults[T], error) {
 	switch req.GetTarget() {
 	case Target_ActiveConfiguration:
 		switch req.GetAction() {
 		case Action_Set:
-			res, err := ct.DryRunApplyConfig(ctx, req.GetSpec())
-			if err != nil {
-				return nil, err
-			}
-			return &DryRunResults[T]{
-				Current:  res.Current,
-				Modified: res.Modified,
-			}, nil
+			return ct.DryRunApplyConfig(ctx, req.GetSpec())
 		case Action_Reset:
-			res, err := ct.DryRunResetConfig(ctx, req.GetMask(), req.GetPatch(), req.GetRevision())
-			if err != nil {
-				return nil, err
-			}
-			return &DryRunResults[T]{
-				Current:  res.Current,
-				Modified: res.Modified,
-			}, nil
+			return ct.DryRunResetConfig(ctx, req.GetMask(), req.GetPatch(), req.GetRevision())
 		default:
-			return nil, fmt.Errorf("invalid action: %s", req.GetAction())
+			return DryRunResults[T]{}, fmt.Errorf("invalid action: %s", req.GetAction())
 		}
 	case Target_DefaultConfiguration:
 		switch req.GetAction() {
 		case Action_Set:
-			res, err := ct.DryRunSetDefaultConfig(ctx, req.GetSpec())
-			if err != nil {
-				return nil, err
-			}
-			return &DryRunResults[T]{
-				Current:  res.Current,
-				Modified: res.Modified,
-			}, nil
+			return ct.DryRunSetDefaultConfig(ctx, req.GetSpec())
 		case Action_Reset:
-			res, err := ct.DryRunResetDefaultConfig(ctx, req.GetRevision())
-			if err != nil {
-				return nil, err
-			}
-			return &DryRunResults[T]{
-				Current:  res.Current,
-				Modified: res.Modified,
-			}, nil
+			return ct.DryRunResetDefaultConfig(ctx, req.GetRevision())
 		default:
-			return nil, fmt.Errorf("invalid action: %s", req.GetAction())
+			return DryRunResults[T]{}, fmt.Errorf("invalid action: %s", req.GetAction())
 		}
 	default:
-		return nil, fmt.Errorf("invalid target: %s", req.GetTarget())
+		return DryRunResults[T]{}, fmt.Errorf("invalid target: %s", req.GetTarget())
 	}
 }
 
@@ -362,10 +334,11 @@ func (ct *DefaultingConfigTracker[T]) DryRunApplyConfig(ctx context.Context, new
 	ct.redact(current)
 	ct.redact(modified)
 
-	// Unset the revision for the modified config. Revisions are not stored
+	// Preserve the revision for the modified config. Revisions are not stored
 	// in the actual object inside the kv store, so they should not be included
 	// in the diff.
-	UnsetRevision(modified)
+	CopyRevision(modified, current)
+
 	return DryRunResults[T]{
 		Current:  current,
 		Modified: modified,

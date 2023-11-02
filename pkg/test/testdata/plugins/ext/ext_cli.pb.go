@@ -531,9 +531,21 @@ func (in *SampleMessage2) FlagSet(prefix ...string) *pflag.FlagSet {
 	return fs
 }
 
+func (in *SampleGetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SampleGetRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Var(flagutil.StringPtrValue(nil, &in.Key), strings.Join(append(prefix, "key"), "."), "")
+	if in.Revision == nil {
+		in.Revision = &v1.Revision{}
+	}
+	fs.AddFlagSet(in.Revision.FlagSet(prefix...))
+	return fs
+}
+
 func (in *SampleSetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("SampleSetRequest", pflag.ExitOnError)
 	fs.SortFlags = true
+	fs.Var(flagutil.StringPtrValue(nil, &in.Key), strings.Join(append(prefix, "key"), "."), "")
 	if in.Spec == nil {
 		in.Spec = &SampleConfiguration{}
 	}
@@ -570,6 +582,7 @@ func (in *SampleSetRequest) UnredactSecrets(unredacted *SampleSetRequest) error 
 func (in *SampleDryRunRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("SampleDryRunRequest", pflag.ExitOnError)
 	fs.SortFlags = true
+	fs.Var(flagutil.StringPtrValue(nil, &in.Key), strings.Join(append(prefix, "key"), "."), "")
 	fs.Var(flagutil.EnumValue(driverutil.Target_ActiveConfiguration, &in.Target), strings.Join(append(prefix, "target"), "."), "")
 	fs.Var(flagutil.EnumValue(driverutil.Action_NoAction, &in.Action), strings.Join(append(prefix, "action"), "."), "")
 	if in.Spec == nil {
@@ -654,6 +667,19 @@ func (in *SampleDryRunResponse) UnredactSecrets(unredacted *SampleDryRunResponse
 	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
 }
 
+func (in *SampleHistoryRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SampleHistoryRequest", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Var(flagutil.StringPtrValue(nil, &in.Key), strings.Join(append(prefix, "key"), "."), "")
+	fs.Var(flagutil.EnumValue(driverutil.Target_ActiveConfiguration, &in.Target), strings.Join(append(prefix, "target"), "."), "")
+	if in.Revision == nil {
+		in.Revision = &v1.Revision{}
+	}
+	fs.AddFlagSet(in.Revision.FlagSet(prefix...))
+	fs.BoolVar(&in.IncludeValues, strings.Join(append(prefix, "include-values"), "."), true, "")
+	return fs
+}
+
 func (in *SampleConfigurationHistoryResponse) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("SampleConfigurationHistoryResponse", pflag.ExitOnError)
 	fs.SortFlags = true
@@ -663,6 +689,7 @@ func (in *SampleConfigurationHistoryResponse) FlagSet(prefix ...string) *pflag.F
 func (in *SampleResetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("SampleResetRequest", pflag.ExitOnError)
 	fs.SortFlags = true
+	fs.Var(flagutil.StringPtrValue(nil, &in.Key), strings.Join(append(prefix, "key"), "."), "")
 	if in.Revision == nil {
 		in.Revision = &v1.Revision{}
 	}

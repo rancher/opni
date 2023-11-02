@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"slices"
 
@@ -320,7 +321,8 @@ func (s *AIOpsPlugin) PutAISettings(ctx context.Context, settings *admin.AISetti
 	return &emptypb.Empty{}, err
 }
 
-func (s *AIOpsPlugin) DeleteAISettings(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (s *AIOpsPlugin) deleteAIOpsResources(ctx context.Context) error {
+	s.Logger.Info("deleting aiops resources...")
 	err := s.k8sClient.Delete(ctx, &aiv1beta1.OpniCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      OpniServicesName,
@@ -328,7 +330,7 @@ func (s *AIOpsPlugin) DeleteAISettings(ctx context.Context, _ *emptypb.Empty) (*
 		},
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	err = s.k8sClient.Delete(ctx, &corev1.Secret{
@@ -338,11 +340,27 @@ func (s *AIOpsPlugin) DeleteAISettings(ctx context.Context, _ *emptypb.Empty) (*
 		},
 	})
 	if client.IgnoreNotFound(err) != nil {
-		return nil, err
+		return err
 	}
 
 	err = s.k8sClient.DeleteAllOf(ctx, &aiv1beta1.PretrainedModel{}, client.InNamespace(s.storageNamespace))
 	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *AIOpsPlugin) DeleteAISettings(ctx context.Context, options *admin.DeleteOptions) (*emptypb.Empty, error) {
+	if lo.FromPtrOr(options.PurgeModelTrainingData, false) {
+		ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
+		defer ca()
+		if err := s.deleteTrainingJobInfo(ctxca); err != nil {
+			s.Logger.Error(fmt.Sprintf("failed to purge %s", err))
+			return nil, err
+		}
+	}
+	if err := s.deleteAIOpsResources(ctx); err != nil {
+		s.Logger.Error(fmt.Sprintf("failed to delete AiOps resources : %s", err))
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil

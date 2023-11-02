@@ -27,30 +27,30 @@ export class SnapshotStatus extends Resource {
 
     get status() {
       switch (this.base.status) {
-      case 'SUCCESS':
+      case 'Success':
         return {
           state:   'success',
-          message: 'Complete'
+          message: 'Success'
         };
-      case 'IN_PROGRESS':
+      case 'In Progress':
         return {
           state:   'info',
-          message: 'InProgress'
+          message: 'In Progress'
         };
-      case 'PARTIAL':
+      case 'Retrying':
         return {
           state:   'warning',
-          message: 'Partial'
+          message: 'Retrying'
         };
-      case 'FAILED':
+      case 'Failed':
         return {
           state:   'error',
           message: 'Failed'
         };
-      case 'INCOMPATIBLE':
+      case 'Timed Out':
         return {
           state:   'error',
-          message: 'Incompatible'
+          message: 'Timed Out'
         };
       default:
         return {

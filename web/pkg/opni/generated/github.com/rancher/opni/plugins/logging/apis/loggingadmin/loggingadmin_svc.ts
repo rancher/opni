@@ -20,7 +20,7 @@ export async function GetOpensearchCluster(): Promise<OpensearchClusterV2> {
       url: `/opni-api/LoggingAdminV2/logging/cluster`
     })).data;
 
-    const response = OpensearchClusterV2.fromBinary(new Uint8Array(rawResponse))
+    const response = OpensearchClusterV2.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to LoggingAdminV2-GetOpensearchCluster:', response);
     return response;
   } catch (ex: any) {
@@ -103,7 +103,7 @@ export async function UpgradeAvailable(): Promise<UpgradeAvailableResponse> {
       url: `/opni-api/LoggingAdminV2/logging/upgrade/available`
     })).data;
 
-    const response = UpgradeAvailableResponse.fromBinary(new Uint8Array(rawResponse))
+    const response = UpgradeAvailableResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to LoggingAdminV2-UpgradeAvailable:', response);
     return response;
   } catch (ex: any) {
@@ -160,7 +160,7 @@ export async function GetStorageClasses(): Promise<StorageClassResponse> {
       url: `/opni-api/LoggingAdminV2/logging/storageclasses`
     })).data;
 
-    const response = StorageClassResponse.fromBinary(new Uint8Array(rawResponse))
+    const response = StorageClassResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to LoggingAdminV2-GetStorageClasses:', response);
     return response;
   } catch (ex: any) {
@@ -186,7 +186,7 @@ export async function GetOpensearchStatus(): Promise<StatusResponse> {
       url: `/opni-api/LoggingAdminV2/logging/status`
     })).data;
 
-    const response = StatusResponse.fromBinary(new Uint8Array(rawResponse))
+    const response = StatusResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to LoggingAdminV2-GetOpensearchStatus:', response);
     return response;
   } catch (ex: any) {
@@ -248,7 +248,7 @@ export async function GetSnapshotSchedule(input: SnapshotReference): Promise<Sna
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = SnapshotSchedule.fromBinary(new Uint8Array(rawResponse))
+    const response = SnapshotSchedule.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to LoggingAdminV2-GetSnapshotSchedule:', response);
     return response;
   } catch (ex: any) {
@@ -305,9 +305,9 @@ export async function ListSnapshotSchedules(): Promise<SnapshotStatusList> {
       url: `/opni-api/LoggingAdminV2/logging/snapshot`
     })).data;
 
-    const response = SnapshotStatusList$1.fromBinary(new Uint8Array(rawResponse))
+    const response = SnapshotStatusList$1.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to LoggingAdminV2-ListSnapshotSchedules:', response);
-    return response;
+    return new SnapshotStatusList(response);
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));

@@ -20,7 +20,7 @@ export async function AllUserStats(): Promise<UserIDStatsList> {
       url: `/opni-api/CortexAdmin/all_user_stats`
     })).data;
 
-    const response = UserIDStatsList.fromBinary(new Uint8Array(rawResponse))
+    const response = UserIDStatsList.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to CortexAdmin-AllUserStats:', response);
     return response;
   } catch (ex: any) {
@@ -51,7 +51,7 @@ export async function WriteMetrics(input: WriteRequest): Promise<WriteResponse> 
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = WriteResponse.fromBinary(new Uint8Array(rawResponse))
+    const response = WriteResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to CortexAdmin-WriteMetrics:', response);
     return response;
   } catch (ex: any) {
@@ -82,7 +82,7 @@ export async function Query(input: QueryRequest): Promise<QueryResponse> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = QueryResponse.fromBinary(new Uint8Array(rawResponse))
+    const response = QueryResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to CortexAdmin-Query:', response);
     return response;
   } catch (ex: any) {
@@ -113,7 +113,7 @@ export async function QueryRange(input: QueryRangeRequest): Promise<QueryRespons
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = QueryResponse.fromBinary(new Uint8Array(rawResponse))
+    const response = QueryResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to CortexAdmin-QueryRange:', response);
     return response;
   } catch (ex: any) {
@@ -144,7 +144,7 @@ export async function GetRule(input: GetRuleRequest): Promise<QueryResponse> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = QueryResponse.fromBinary(new Uint8Array(rawResponse))
+    const response = QueryResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to CortexAdmin-GetRule:', response);
     return response;
   } catch (ex: any) {
@@ -175,7 +175,7 @@ export async function GetMetricMetadata(input: MetricMetadataRequest): Promise<M
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = MetricMetadata.fromBinary(new Uint8Array(rawResponse))
+    const response = MetricMetadata.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to CortexAdmin-GetMetricMetadata:', response);
     return response;
   } catch (ex: any) {
@@ -206,7 +206,7 @@ export async function ListRules(input: ListRulesRequest): Promise<ListRulesRespo
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = ListRulesResponse.fromBinary(new Uint8Array(rawResponse))
+    const response = ListRulesResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to CortexAdmin-ListRules:', response);
     return response;
   } catch (ex: any) {
@@ -325,7 +325,7 @@ export async function GetSeriesMetrics(input: SeriesRequest): Promise<SeriesInfo
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = SeriesInfoList.fromBinary(new Uint8Array(rawResponse))
+    const response = SeriesInfoList.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to CortexAdmin-GetSeriesMetrics:', response);
     return response;
   } catch (ex: any) {
@@ -356,7 +356,7 @@ export async function GetMetricLabelSets(input: LabelRequest): Promise<MetricLab
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = MetricLabels.fromBinary(new Uint8Array(rawResponse))
+    const response = MetricLabels.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to CortexAdmin-GetMetricLabelSets:', response);
     return response;
   } catch (ex: any) {
@@ -382,7 +382,7 @@ export async function GetCortexStatus(): Promise<CortexStatus> {
       url: `/opni-api/CortexAdmin/status`
     })).data;
 
-    const response = CortexStatus.fromBinary(new Uint8Array(rawResponse))
+    const response = CortexStatus.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to CortexAdmin-GetCortexStatus:', response);
     return response;
   } catch (ex: any) {
@@ -413,7 +413,7 @@ export async function GetCortexConfig(input: ConfigRequest): Promise<ConfigRespo
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = ConfigResponse.fromBinary(new Uint8Array(rawResponse))
+    const response = ConfigResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to CortexAdmin-GetCortexConfig:', response);
     return response;
   } catch (ex: any) {
@@ -444,7 +444,7 @@ export async function ExtractRawSeries(input: MatcherRequest): Promise<QueryResp
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = QueryResponse.fromBinary(new Uint8Array(rawResponse))
+    const response = QueryResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to CortexAdmin-ExtractRawSeries:', response);
     return response;
   } catch (ex: any) {

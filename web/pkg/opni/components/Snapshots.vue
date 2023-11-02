@@ -67,8 +67,6 @@ export default {
         if (isLoggingEnabled) {
           const snapshotStatuses = await LoggingAdmin.Service.ListSnapshotSchedules();
 
-          console.log(snapshotStatuses);
-
           this.$set(this, 'snapshots', snapshotStatuses.statuses || []);
         }
       } finally {

@@ -25,7 +25,7 @@ export async function GetDefaultConfiguration(input: GetRequest): Promise<Capabi
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = CapabilityBackendConfigSpec.fromBinary(new Uint8Array(rawResponse))
+    const response = CapabilityBackendConfigSpec.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to CortexOps-GetDefaultConfiguration:', response);
     return response;
   } catch (ex: any) {
@@ -113,7 +113,7 @@ export async function GetConfiguration(input: GetRequest): Promise<CapabilityBac
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = CapabilityBackendConfigSpec.fromBinary(new Uint8Array(rawResponse))
+    const response = CapabilityBackendConfigSpec.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to CortexOps-GetConfiguration:', response);
     return response;
   } catch (ex: any) {
@@ -201,7 +201,7 @@ export async function Status(): Promise<InstallStatus> {
       url: `/opni-api/CortexOps/status`
     })).data;
 
-    const response = InstallStatus.fromBinary(new Uint8Array(rawResponse))
+    const response = InstallStatus.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to CortexOps-Status:', response);
     return response;
   } catch (ex: any) {
@@ -279,7 +279,7 @@ export async function ListPresets(): Promise<PresetList> {
       url: `/opni-api/CortexOps/presets`
     })).data;
 
-    const response = PresetList.fromBinary(new Uint8Array(rawResponse))
+    const response = PresetList.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to CortexOps-ListPresets:', response);
     return response;
   } catch (ex: any) {
@@ -310,7 +310,7 @@ export async function DryRun(input: DryRunRequest): Promise<DryRunResponse> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = DryRunResponse.fromBinary(new Uint8Array(rawResponse))
+    const response = DryRunResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to CortexOps-DryRun:', response);
     return response;
   } catch (ex: any) {
@@ -341,7 +341,7 @@ export async function ConfigurationHistory(input: ConfigurationHistoryRequest): 
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
-    const response = ConfigurationHistoryResponse.fromBinary(new Uint8Array(rawResponse))
+    const response = ConfigurationHistoryResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to CortexOps-ConfigurationHistory:', response);
     return response;
   } catch (ex: any) {

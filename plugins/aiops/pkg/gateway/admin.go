@@ -230,6 +230,9 @@ func (s *AIOpsPlugin) GetAISettings(ctx context.Context, _ *emptypb.Empty) (*adm
 }
 
 func (s *AIOpsPlugin) PutAISettings(ctx context.Context, settings *admin.AISettings) (*emptypb.Empty, error) {
+	if err := settings.Validate(); err != nil {
+		return nil, err
+	}
 	models := []corev1.LocalObjectReference{}
 	if settings.GetControlplane() != nil {
 		models = append(models, corev1.LocalObjectReference{

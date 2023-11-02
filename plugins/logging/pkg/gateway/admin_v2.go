@@ -103,6 +103,9 @@ func (m *LoggingManagerV2) DeleteOpensearchCluster(ctx context.Context, _ *empty
 }
 
 func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, cluster *loggingadmin.OpensearchClusterV2) (*emptypb.Empty, error) {
+	if err := cluster.Validate(); err != nil {
+		return nil, err
+	}
 	// Validate retention string
 	if !m.validDurationString(lo.FromPtrOr(cluster.DataRetention, "7d")) {
 		return &emptypb.Empty{}, loggingerrors.ErrInvalidDuration

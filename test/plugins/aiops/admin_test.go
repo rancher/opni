@@ -60,7 +60,7 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 			Expect(err).To(testutil.MatchStatusCode(codes.NotFound))
 		})
 		Specify("delete should error", func() {
-			_, err := plugin.DeleteAISettings(context.Background(), &emptypb.Empty{})
+			_, err := plugin.DeleteAISettings(context.Background(), &admin.DeleteOptions{})
 			Expect(err).To(HaveOccurred())
 		})
 		Specify("check upgrade should error", func() {
@@ -105,7 +105,7 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					Expect(resp).To(Equal(request))
 				})
 				Specify("delete should succeed", func() {
-					_, err := plugin.DeleteAISettings(context.Background(), &emptypb.Empty{})
+					_, err := plugin.DeleteAISettings(context.Background(), &admin.DeleteOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					Eventually(func() bool {
 						err := k8sClient.Get(context.Background(), types.NamespacedName{
@@ -160,7 +160,7 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					Expect(resp).To(Equal(request))
 				})
 				Specify("delete should succeed", func() {
-					_, err := plugin.DeleteAISettings(context.Background(), &emptypb.Empty{})
+					_, err := plugin.DeleteAISettings(context.Background(), &admin.DeleteOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					Eventually(func() bool {
 						err := k8sClient.Get(context.Background(), types.NamespacedName{
@@ -230,7 +230,7 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					Expect(resp).To(Equal(request))
 				})
 				Specify("delete should succeed", func() {
-					_, err := plugin.DeleteAISettings(context.Background(), &emptypb.Empty{})
+					_, err := plugin.DeleteAISettings(context.Background(), &admin.DeleteOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					Eventually(func() bool {
 						err := k8sClient.Get(context.Background(), types.NamespacedName{
@@ -293,7 +293,7 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					Expect(resp).To(Equal(request))
 				})
 				Specify("delete should succeed", func() {
-					_, err := plugin.DeleteAISettings(context.Background(), &emptypb.Empty{})
+					_, err := plugin.DeleteAISettings(context.Background(), &admin.DeleteOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					Eventually(func() bool {
 						err := k8sClient.Get(context.Background(), types.NamespacedName{
@@ -363,7 +363,7 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					Expect(resp).To(Equal(request))
 				})
 				Specify("delete should succeed", func() {
-					_, err := plugin.DeleteAISettings(context.Background(), &emptypb.Empty{})
+					_, err := plugin.DeleteAISettings(context.Background(), &admin.DeleteOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					Eventually(func() bool {
 						err := k8sClient.Get(context.Background(), types.NamespacedName{
@@ -426,7 +426,7 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					Expect(resp).To(Equal(request))
 				})
 				Specify("delete should succeed", func() {
-					_, err := plugin.DeleteAISettings(context.Background(), &emptypb.Empty{})
+					_, err := plugin.DeleteAISettings(context.Background(), &admin.DeleteOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					Eventually(func() bool {
 						err := k8sClient.Get(context.Background(), types.NamespacedName{
@@ -476,7 +476,7 @@ var _ = Describe("AI Admin", Ordered, Label("integration"), func() {
 					Expect(resp).To(Equal(request))
 				})
 				Specify("delete should succeed", func() {
-					_, err := plugin.DeleteAISettings(context.Background(), &emptypb.Empty{})
+					_, err := plugin.DeleteAISettings(context.Background(), &admin.DeleteOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					Eventually(func() bool {
 						err := k8sClient.Get(context.Background(), types.NamespacedName{

@@ -75,18 +75,21 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			return
 		}
 		opensearch = nil
+		repository = nil
 	}
 
-	if err := r.client.Get(
-		r.ctx,
-		repository.Spec.OpensearchClusterRef.ObjectKeyFromRef(),
-		opensearch,
-	); err != nil {
-		retErr = err
-		if !k8serrors.IsNotFound(retErr) {
-			return
+	if repository != nil {
+		if err := r.client.Get(
+			r.ctx,
+			repository.Spec.OpensearchClusterRef.ObjectKeyFromRef(),
+			opensearch,
+		); err != nil {
+			retErr = err
+			if !k8serrors.IsNotFound(retErr) {
+				return
+			}
+			opensearch = nil
 		}
-		opensearch = nil
 	}
 
 	// Handle finalizer

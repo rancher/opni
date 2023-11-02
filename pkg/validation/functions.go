@@ -14,24 +14,7 @@ var functions = []cel.EnvOption{
 	cel.Function("isValidImageRef",
 		cel.MemberOverload("str_valid_oci_image",
 			[]*cel.Type{cel.StringType},
-			cel.BoolType,
-			cel.UnaryBinding(func(value ref.Val) ref.Val {
-				str, ok := value.Value().(string)
-				if !ok {
-					return types.UnsupportedRefValConversionErr(value)
-				}
-				_, err := reference.Parse(str)
-				if err != nil {
-					return types.WrapErr(err)
-				}
-				return types.True
-			}),
-		),
-	),
-	cel.Function("isValidNamedImageRef",
-		cel.MemberOverload("str_valid_oci_image_named",
-			[]*cel.Type{cel.StringType},
-			cel.BoolType,
+			cel.StringType,
 			cel.UnaryBinding(func(value ref.Val) ref.Val {
 				str, ok := value.Value().(string)
 				if !ok {
@@ -39,9 +22,9 @@ var functions = []cel.EnvOption{
 				}
 				_, err := reference.ParseNormalizedNamed(str)
 				if err != nil {
-					return types.WrapErr(err)
+					return types.String(err.Error())
 				}
-				return types.True
+				return types.String("")
 			}),
 		),
 	),

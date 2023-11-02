@@ -151,13 +151,13 @@ message MetricsCapabilityConfig {
   PrometheusSpec prometheus = 2 [
     (buf.validate.field).ignore_if = {
       id:         "prometheus"
-      expression: "this.driver != Prometheus"
+      expression: "this.driver != 1"
     }
   ];
   OTELSpec otel = 3 [
     (buf.validate.field).ignore_if = {
       id:         "otel"
-      expression: "this.driver != OpenTelemetry"
+      expression: "this.driver != 2"
     }
   ];
 }
@@ -167,8 +167,7 @@ message PrometheusSpec {
     (cli.flag).default       = "quay.io/prometheus/prometheus:latest",
     (buf.validate.field).cel = {
       id:         "prometheus_image"
-      message:    "invalid prometheus image"
-      expression: "this.isValidImage()"
+      expression: "this.isValidImageRef()"
     }
   ];
   reserved 2;

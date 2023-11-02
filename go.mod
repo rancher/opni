@@ -58,7 +58,7 @@ require (
 	github.com/klauspost/compress v1.16.7
 	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
 	github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c
-	github.com/kralicky/protols v0.0.0-20231031175015-9c7a7b5aea8e
+	github.com/kralicky/protols v0.0.0-20231102164430-669d20c5e11a
 	github.com/kralicky/ragu v1.0.11-0.20231031175336-0612d4bec2a0
 	github.com/kralicky/totem v1.2.2-0.20231014025935-6e4657314606
 	github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d

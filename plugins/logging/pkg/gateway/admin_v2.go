@@ -87,7 +87,8 @@ func (m *LoggingManagerV2) DeleteOpensearchCluster(ctx context.Context, _ *empty
 
 	// Remove the state tracking the initial admin
 	err := m.opensearchManager.DeleteInitialAdminState()
-	if err != nil {
+	st, _ := grpcstatus.FromError(err)
+	if err != nil && st.Code() != codes.NotFound {
 		return nil, err
 	}
 

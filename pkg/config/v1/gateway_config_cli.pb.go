@@ -38,6 +38,10 @@ func (contextInjector_GatewayConfig_type) NewClient(cc grpc.ClientConnInterface)
 	return NewGatewayConfigClient(cc)
 }
 
+func (contextInjector_GatewayConfig_type) UnderlyingConn(client GatewayConfigClient) grpc.ClientConnInterface {
+	return client.(*gatewayConfigClient).cc
+}
+
 func (contextInjector_GatewayConfig_type) ContextWithClient(ctx context.Context, client GatewayConfigClient) context.Context {
 	return context.WithValue(ctx, contextKey_GatewayConfig, client)
 }
@@ -520,7 +524,7 @@ func (in *StorageSpec) UnredactSecrets(unredacted *StorageSpec) error {
 func (in *EtcdSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("EtcdSpec", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.StringPtrValue(nil, &in.Endpoint), strings.Join(append(prefix, "endpoint"), "."), "")
+	fs.StringSliceVar(&in.Endpoints, strings.Join(append(prefix, "endpoints"), "."), nil, "")
 	if in.Certs == nil {
 		in.Certs = &MTLSSpec{}
 	}
@@ -728,7 +732,7 @@ func (in *CacheSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("CacheSpec", pflag.ExitOnError)
 	fs.SortFlags = true
 	fs.Var(flagutil.EnumPtrValue(flagutil.Ptr(PatchEngine_Zstd), &in.PatchEngine), strings.Join(append(prefix, "patch-engine"), "."), "")
-	fs.Var(flagutil.EnumPtrValue(nil, &in.Backend), strings.Join(append(prefix, "backend"), "."), "")
+	fs.Var(flagutil.EnumPtrValue(flagutil.Ptr(CacheBackend_Filesystem), &in.Backend), strings.Join(append(prefix, "backend"), "."), "")
 	if in.Filesystem == nil {
 		in.Filesystem = &FilesystemCacheSpec{}
 	}

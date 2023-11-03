@@ -207,7 +207,7 @@ message SwiftConfig {
       {
         id:         "username_xor_credentials_auth"
         message:    "username/user_id are mutually exclusive with application_credential_name/application_credential_id"
-        expression: "(has(this.username) || has(this.user_id)) && (has(this.application_credential_name) || has(this.application_credential_id))"
+        expression: "!((has(this.username) || has(this.user_id)) && (has(this.application_credential_name) || has(this.application_credential_id)))"
       },
       {
         id:         "require_any_credentials"
@@ -222,7 +222,7 @@ message SwiftConfig {
       {
         id:         "require_application_credential_secret"
         message:    "application_credential_secret is required when application_credential_id or application_credential_name is set"
-        expression: "(has(this.application_credential_name) || has(this.application_credential_id)) ? has(this.application_credential_secret) : true"
+        expression: "(has(this.application_credential_name) || has(this.application_credential_id)) == has(this.application_credential_secret)"
       },
       {
         id:         "autodetect_auth_version_url"

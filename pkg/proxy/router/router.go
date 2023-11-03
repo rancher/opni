@@ -12,8 +12,8 @@ import (
 	"github.com/gin-gonic/gin"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	proxyv1 "github.com/rancher/opni/pkg/apis/proxy/v1"
+	"github.com/rancher/opni/pkg/proxy"
 	"github.com/rancher/opni/pkg/proxy/backend"
-	"github.com/rancher/opni/pkg/rbac"
 	"github.com/rancher/opni/pkg/storage"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -62,10 +62,16 @@ type implRouter struct {
 }
 
 func (r *implRouter) handle(c *gin.Context) {
-	userID, ok := rbac.AuthorizedUserID(c)
+	subject, ok := c.Get(proxy.SubjectKey)
 	var roleList *corev1.ReferenceList
 	var err error
 	if ok {
+		userID, ok := subject.(string)
+		if !ok {
+			r.logger.With("error", err).Error("failed to get user")
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
 		roleList, err = r.fetchRoles(userID)
 		if err != nil {
 			r.logger.With("error", err).Error("failed to fetch roles")
@@ -89,6 +95,13 @@ func (r *implRouter) handle(c *gin.Context) {
 }
 
 func (r *implRouter) fetchRoles(userID string) (*corev1.ReferenceList, error) {
+	if userID == "OPNI_admin" {
+		return &corev1.ReferenceList{
+			Items: []*corev1.Reference{
+				{Id: "OPNI_admin"},
+			},
+		}, nil
+	}
 	bindings, err := r.store.ListRoleBindings(context.Background())
 	if err != nil {
 		return nil, err

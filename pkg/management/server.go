@@ -19,6 +19,7 @@ import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/auth/local"
 	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config"
@@ -31,10 +32,13 @@ import (
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
+	"github.com/rancher/opni/pkg/proxy/middleware"
+	proxyrouter "github.com/rancher/opni/pkg/proxy/router"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	channelzservice "google.golang.org/grpc/channelz/service"
 	"google.golang.org/grpc/codes"
@@ -92,7 +96,7 @@ type managementServerOptions struct {
 	lifecycler             config.Lifecycler
 	capabilitiesDataSource CapabilitiesDataSource
 	healthStatusDataSource HealthStatusDataSource
-	rolebindingDataStore   storage.RoleBindingStore
+	store                  storage.Backend
 }
 
 type ManagementServerOption func(*managementServerOptions)
@@ -121,9 +125,9 @@ func WithHealthStatusDataSource(src HealthStatusDataSource) ManagementServerOpti
 	}
 }
 
-func WithRoleBindingDataStore(store storage.RoleBindingStore) ManagementServerOption {
+func WithRoleBindingDataStore(store storage.Backend) ManagementServerOption {
 	return func(o *managementServerOptions) {
-		o.rolebindingDataStore = store
+		o.store = store
 	}
 }
 
@@ -203,6 +207,34 @@ func NewServer(
 				"capability", info.Name,
 			).Info("added capability rbac backend")
 		}
+	}))
+	localAuth := local.NewLocalAuthenticator(m.store.KeyValueStore("auth"))
+	middleware := middleware.OIDCMiddleware{
+		Logger:             lg.WithGroup("auth_middleware"),
+		Config:             oauth2.Config{}, // TODO: load this from config
+		SubjectField:       "user",          //TODO: load this from config
+		UseOIDC:            false,           //TODO: load this from config
+		LocalAuthenticator: localAuth,
+	}
+
+	proxy := m.router.Group("/proxy")
+	proxy.Use(middleware.Handler())
+	// Add middleware here to extract username from claims
+	// proxy.Use(middleware)
+	pluginLoader.Hook(hooks.OnLoad(func(p types.ProxyPlugin) {
+		log := lg.WithGroup("proxy")
+		pluginRouter, err := proxyrouter.NewRouter(proxyrouter.RouterConfig{
+			Store:  m.store,
+			Logger: log,
+			Client: p,
+		})
+		if err != nil {
+			log.With(
+				logger.Err(err),
+			).Error("failed to create plugin router")
+			return
+		}
+		pluginRouter.SetRoutes(proxy)
 	}))
 
 	return m

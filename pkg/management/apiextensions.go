@@ -219,7 +219,7 @@ func (m *Server) configureHttpApiExtensions() {
 		checker := accessChecker{
 			client: ext.client,
 			logger: m.logger.WithGroup("access-checker"),
-			store:  m.rolebindingDataStore,
+			store:  m.store,
 		}
 		// TODO add config here from gateway
 		endpoints := oauth2.Endpoint{}

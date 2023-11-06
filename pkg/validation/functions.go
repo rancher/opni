@@ -3,6 +3,10 @@ package validation
 import (
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
+	"net"
+	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/bufbuild/protovalidate-go"
@@ -11,6 +15,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/prometheus/common/model"
+	"golang.org/x/mod/module"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -32,6 +37,45 @@ func lib(env *cel.Env) []cel.EnvOption {
 					_, err := reference.ParseNormalizedNamed(str)
 					if err != nil {
 						return types.WrapErr(err)
+					}
+					return types.True
+				}),
+			),
+		),
+		cel.Function("isValidListenAddress",
+			cel.MemberOverload("str_valid_listen_address_bool",
+				[]*cel.Type{cel.StringType},
+				types.BoolType,
+				cel.UnaryBinding(func(value ref.Val) ref.Val {
+					str, ok := value.Value().(string)
+					if !ok {
+						return types.UnsupportedRefValConversionErr(value)
+					}
+					host, port, err := net.SplitHostPort(str)
+					if err != nil {
+						return types.WrapErr(err)
+					}
+					if host == "" && port == "" {
+						return types.NewErr("address cannot be empty")
+					}
+					if host != "" {
+						if url, err := url.Parse(str); err == nil && url.IsAbs() {
+							if url.Scheme == "unix" {
+								return types.True
+							}
+						}
+						if ip := net.ParseIP(host); ip == nil {
+							if addrs, err := net.LookupHost(host); err != nil || len(addrs) == 0 {
+								return types.WrapErr(errors.New("invalid IP address"))
+							}
+						}
+					}
+					if port != "" {
+						if portNumber, err := strconv.Atoi(port); err != nil {
+							return types.WrapErr(err)
+						} else if portNumber < 0 || portNumber > 65535 {
+							return types.WrapErr(errors.New("port number out of range"))
+						}
 					}
 					return types.True
 				}),
@@ -233,6 +277,23 @@ func lib(env *cel.Env) []cel.EnvOption {
 						return types.WrapErr(err)
 					}
 
+					return types.True
+				}),
+			),
+		),
+		cel.Function("isValidModulePath",
+			cel.MemberOverload("str_valid_module_path",
+				[]*cel.Type{cel.StringType},
+				types.BoolType,
+				cel.UnaryBinding(func(value ref.Val) ref.Val {
+					path, ok := value.Value().(string)
+					if !ok {
+						return types.UnsupportedRefValConversionErr(value)
+					}
+
+					if err := module.CheckPath(path); err != nil {
+						return types.WrapErr(err)
+					}
 					return types.True
 				}),
 			),

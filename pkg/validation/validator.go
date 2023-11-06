@@ -3,6 +3,7 @@ package validation
 import (
 	"github.com/bufbuild/protovalidate-go"
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/ext"
 )
 
 func NewValidator(options ...protovalidate.ValidatorOption) (*protovalidate.Validator, error) {
@@ -12,7 +13,13 @@ func NewValidator(options ...protovalidate.ValidatorOption) (*protovalidate.Vali
 	// available to all validators.
 	v, err := protovalidate.New(append(options,
 		protovalidate.WithExtendFunc(func(e *cel.Env) []cel.EnvOption {
-			return lib(e)
+			return append(lib(e),
+				ext.Math(),
+				ext.Encoders(),
+				ext.Lists(),
+				ext.Bindings(),
+				ext.Sets(),
+			)
 		}),
 	)...)
 	if err != nil {

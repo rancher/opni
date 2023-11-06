@@ -64,6 +64,23 @@ service GatewayConfig {
 }
 
 message GatewayConfigSpec {
+  option (buf.validate.message) = {
+    cel: {
+      id:         "check_conflicting_addresses"
+      message:    "gateway listen addresses must not conflict"
+      expression: 
+        "["
+        "  this.server.httpListenAddress,"
+        "  this.server.grpcListenAddress,"
+        "  this.management.httpListenAddress,"
+        "  this.management.grpcListenAddress,"
+        "  this.relay.grpcListenAddress,"
+        "  this.health.httpListenAddress,"
+        "  this.dashboard.httpListenAddress"
+        "].filter(a, !a.endsWith(':0')).unique()"
+    }
+  };
+
   core.Revision        revision      = 1;
   ServerSpec           server        = 2;
   ManagementServerSpec management    = 3;
@@ -81,47 +98,86 @@ message GatewayConfigSpec {
 message ServerSpec {
   // Address and port to serve the gateway's internal http server on.
   optional string httpListenAddress = 1 [
-    (cli.flag).default                  = "0.0.0.0:8080",
-    (buf.validate.field).string.uri_ref = true
+    (cli.flag).default       = "0.0.0.0:8080",
+    (buf.validate.field).cel = {
+      id:         "server_http_listen_address"
+      expression: "this.isValidListenAddress()"
+    }
   ];
   // Address and port to serve the gateway's external grpc server on.
   optional string grpcListenAddress = 2 [
-    (cli.flag).default                  = "0.0.0.0:9090",
-    (buf.validate.field).string.uri_ref = true
+    (cli.flag).default       = "0.0.0.0:9090",
+    (buf.validate.field).cel = {
+      id:         "server_grpc_listen_address"
+      expression: "this.isValidListenAddress()"
+    }
   ];
 }
 
 message ManagementServerSpec {
   // Address and port to serve the management http server on.
   optional string httpListenAddress = 1 [
-    (cli.flag).default                  = "0.0.0.0:11080",
-    (buf.validate.field).string.uri_ref = true
+    (cli.flag).default       = "0.0.0.0:11080",
+    (buf.validate.field).cel = {
+      id:         "mgmt_http_listen_address"
+      expression: "this.isValidListenAddress()"
+    }
   ];
   // Address and port to serve the management grpc server on.
   optional string grpcListenAddress = 2 [
-    (cli.flag).default                  = "0.0.0.0:11090",
-    (buf.validate.field).string.uri_ref = true
+    (cli.flag).default       = "0.0.0.0:11090",
+    (buf.validate.field).cel = {
+      id:         "mgmt_grpc_listen_address"
+      expression: "this.isValidListenAddress()"
+    }
   ];
   // The advertise address for the management server. This is the address at
   // which other gateway instances will be able to reach this management server.
   optional string advertiseAddress = 3 [
-    (cli.flag).skip                     = true,
-    (buf.validate.field).string.uri_ref = true
+    (cli.flag).skip      = true,
+    (buf.validate.field) = {
+      cel: [
+        {
+          id:         "mgmt_grpc_advertise_address"
+          expression: "this.isValidListenAddress()"
+        },
+        {
+          id:         "mgmt_grpc_advertise_address_port"
+          message:    "advertise address must have a non-zero port"
+          expression: "!this.endsWith(':0') && !this.endsWith(':')"
+        }
+      ]
+    }
   ];
 }
 
 message RelayServerSpec {
   // Address and port to serve the relay grpc server on.
   optional string grpcListenAddress = 4 [
-    (cli.flag).default                  = "0.0.0.0:11190",
-    (buf.validate.field).string.uri_ref = true
+    (cli.flag).default       = "0.0.0.0:11190",
+    (buf.validate.field).cel = {
+      id:         "relay_grpc_listen_address"
+      expression: "this.isValidListenAddress()"
+    }
   ];
   // The advertise address for the relay server. This is the address at which
   // other gateway instances will be able to reach this relay server.
   // Configured automatically by the manager if not set.
   optional string advertiseAddress = 5 [
-    (cli.flag).skip                     = true,
-    (buf.validate.field).string.uri_ref = true
+    (cli.flag).skip      = true,
+    (buf.validate.field) = {
+      cel: [
+        {
+          id:         "relay_grpc_advertise_address"
+          expression: "this.isValidListenAddress()"
+        },
+        {
+          id:         "relay_grpc_advertise_address_port"
+          message:    "advertise address must have a non-zero port"
+          expression: "!this.endsWith(':0') && !this.endsWith(':')"
+        }
+      ]
+    }
   ];
 }
 
@@ -129,27 +185,58 @@ message HealthServerSpec {
   // Address and port to serve the gateway's internal health/metrics/profiling
   // http server on.
   optional string httpListenAddress = 1 [
-    (cli.flag).default                  = "0.0.0.0:8086",
-    (buf.validate.field).string.uri_ref = true
+    (cli.flag).default       = "0.0.0.0:8086",
+    (buf.validate.field).cel = {
+      id:         "health_http_listen_address"
+      expression: "this.isValidListenAddress()"
+    }
   ];
 }
 
 message DashboardServerSpec {
   // Address and port to serve the web dashboard on.
   optional string httpListenAddress = 1 [
-    (cli.flag).default                  = "0.0.0.0:12080",
-    (buf.validate.field).string.uri_ref = true
+    (cli.flag).default       = "0.0.0.0:12080",
+    (buf.validate.field).cel = {
+      id:         "dashboard_http_listen_address"
+      expression: "this.isValidListenAddress()"
+    }
   ];
   // The advertise address for the dashboard server.
   optional string advertiseAddress = 2 [
-    (cli.flag).skip                     = true,
-    (buf.validate.field).string.uri_ref = true
+    (cli.flag).skip      = true,
+    (buf.validate.field) = {
+      cel: [
+        {
+          id:         "dashboard_http_advertise_address"
+          expression: "this.isValidListenAddress()"
+        },
+        {
+          id:         "dashboard_http_advertise_address_port"
+          message:    "advertise address must have a non-zero port"
+          expression: "!this.endsWith(':0') && !this.endsWith(':')"
+        }
+      ]
+    }
   ];
   // The hostname at which the dashboard is expected to be reachable. This is
   // required when using OpenID Connect authentication.
-  optional string hostname = 3;
+  optional string hostname = 3 [
+    // https://datatracker.ietf.org/doc/html/rfc1034#section-3.5
+    (buf.validate.field).string.hostname = true
+  ];
   // List of trusted proxies for the dashboard's http server.
-  repeated string trustedProxies = 4;
+  repeated string trustedProxies = 4 [
+    (buf.validate.field).repeated = {
+      items: {
+        cel: {
+          id:         "ip_or_cidr"
+          message:    "must be a valid IP address or CIDR"
+          expression: "this.isIp() || this.isIpPrefix()"
+        }
+      }
+    }
+  ];
 }
 
 enum StorageType {
@@ -182,10 +269,10 @@ message StorageSpec {
 message EtcdSpec {
   repeated string endpoints = 1 [
     (buf.validate.field) = {
-      required: true
       repeated: {
-        unique: true
-        items:  {string: {uri_ref: true}}
+        min_items: 1
+        unique:    true
+        items:     {string: {uri_ref: true}}
       }
     }
   ];
@@ -269,8 +356,17 @@ message MTLSSpec {
 }
 
 message JetStreamSpec {
-  optional string endpoint     = 1;
-  optional string nkeySeedPath = 2;
+  optional string endpoint = 1 [
+    (buf.validate.field) = {
+      required: true
+      string:   {uri_ref: true}
+    }
+  ];
+  optional string nkeySeedPath = 2 [
+    (buf.validate.field) = {
+      required: true
+    }
+  ];
 }
 
 message CertsSpec {
@@ -305,11 +401,11 @@ message CertsSpec {
   optional string caCert = 1;
   // PEM encoded CA certificate data. Mutually exclusive with caCert.
   optional string caCertData = 2 [
-    (cli.flag).secret        = true,
     (buf.validate.field).cel = {
       id:         "x509_ca_cert_data"
       expression: "this.x509IsValid()"
-    }
+    },
+    (cli.flag).secret = true
   ];
   // Path to a PEM encoded server certificate file. Mutually exclusive with servingCertData.
   optional string servingCert = 3;
@@ -337,7 +433,7 @@ message PluginsSpec {
   option (buf.validate.message) = {
     cel: [
       {
-        id:         "plugin_cache_dirs"
+        id:         "plugin_dirs_unique"
         message:    "plugin search dir and filesystem cache dir cannot be the same"
         expression: "this.cache.backend == 0 ? this.cache.filesystem.dir != this.dir : true"
       }
@@ -350,7 +446,9 @@ message PluginsSpec {
     (buf.validate.field).required = true
   ];
 
-  CacheSpec cache = 2;
+  PluginFilters filters = 2;
+
+  CacheSpec cache = 4;
 }
 
 enum PatchEngine {
@@ -362,11 +460,31 @@ enum CacheBackend {
   Filesystem = 0;
 }
 
-message CacheSpec {
-  optional PatchEngine patchEngine = 1 [(cli.flag).default = "Zstd"];
+message PluginFilters {
+  repeated string exclude = 1 [
+    (buf.validate.field).repeated = {
+      items: {
+        cel: {
+          id:         "go_module_path"
+          message:    "must be a valid go module path"
+          expression: "this.isValidModulePath()"
+        }
+      }
+    }
+  ];
+}
 
-  optional CacheBackend backend    = 2 [(cli.flag).default = "Filesystem"];
-  FilesystemCacheSpec   filesystem = 3 [(buf.validate.field).ignore_if = {
+message CacheSpec {
+  optional PatchEngine patchEngine = 1 [
+    (cli.flag).default                     = "Zstd",
+    (buf.validate.field).enum.defined_only = true
+  ];
+
+  optional CacheBackend backend = 2 [
+    (cli.flag).default                     = "Filesystem",
+    (buf.validate.field).enum.defined_only = true
+  ];
+  FilesystemCacheSpec filesystem = 3 [(buf.validate.field).ignore_if = {
     id:         "filesystem"
     expression: "this.backend != 0"
   }];
@@ -407,8 +525,12 @@ message KubernetesAgentUpgradeSpec {
 }
 
 message RateLimitingSpec {
-  optional double rate  = 1;
-  optional int32  burst = 2;
+  optional double rate = 1 [
+    (cli.flag).default = "10.0"
+  ];
+  optional int32 burst = 2 [
+    (cli.flag).default = "50"
+  ];
 }
 
 message SetRequest {

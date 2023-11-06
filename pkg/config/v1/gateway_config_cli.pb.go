@@ -721,10 +721,21 @@ func (in *PluginsSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("PluginsSpec", pflag.ExitOnError)
 	fs.SortFlags = true
 	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("/var/lib/opni/plugins"), &in.Dir), strings.Join(append(prefix, "dir"), "."), "Directory to search for plugin binaries.")
+	if in.Filters == nil {
+		in.Filters = &PluginFilters{}
+	}
+	fs.AddFlagSet(in.Filters.FlagSet(append(prefix, "filters")...))
 	if in.Cache == nil {
 		in.Cache = &CacheSpec{}
 	}
 	fs.AddFlagSet(in.Cache.FlagSet(append(prefix, "cache")...))
+	return fs
+}
+
+func (in *PluginFilters) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("PluginFilters", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringSliceVar(&in.Exclude, strings.Join(append(prefix, "exclude"), "."), nil, "")
 	return fs
 }
 
@@ -774,8 +785,8 @@ func (in *KubernetesAgentUpgradeSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *RateLimitingSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("RateLimitingSpec", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.FloatPtrValue(nil, &in.Rate), strings.Join(append(prefix, "rate"), "."), "")
-	fs.Var(flagutil.IntPtrValue(nil, &in.Burst), strings.Join(append(prefix, "burst"), "."), "")
+	fs.Var(flagutil.FloatPtrValue(flagutil.Ptr[float64](10.0), &in.Rate), strings.Join(append(prefix, "rate"), "."), "")
+	fs.Var(flagutil.IntPtrValue(flagutil.Ptr[int32](50), &in.Burst), strings.Join(append(prefix, "burst"), "."), "")
 	return fs
 }
 

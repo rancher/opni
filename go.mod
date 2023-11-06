@@ -590,7 +590,7 @@ replace github.com/openshift/api => github.com/openshift/api v0.0.0-202102162110
 replace (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go => github.com/kralicky/protovalidate/tools/internal/gen v0.0.0-20231101175952-8d70fb095d71
 	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be
-	github.com/bufbuild/protovalidate-go => github.com/kralicky/protovalidate-go v0.0.0-20231103010429-376df1a7f6ab
+	github.com/bufbuild/protovalidate-go => github.com/kralicky/protovalidate-go v0.0.0-20231106200703-fe7a5fae5705
 	github.com/cortexproject/cortex => github.com/kralicky/cortex v1.16.0-opni.9
 	github.com/grafana-operator/grafana-operator/v4 => github.com/kralicky/grafana-operator/v4 v4.2.1-0.20230714191401-f7b79b2f8d98
 	// https://github.com/hashicorp/go-plugin/pull/251

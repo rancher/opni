@@ -1817,8 +1817,8 @@ github.com/kralicky/protocompile v0.0.0-20231030041518-0ad723357927 h1:D7r9vPx77
 github.com/kralicky/protocompile v0.0.0-20231030041518-0ad723357927/go.mod h1:PKTb5dlH+6m/g0i7rXfTH7a+jzVTzz9xE6Y+0y+2LJc=
 github.com/kralicky/protols v0.0.0-20231102164430-669d20c5e11a h1:MRBPwzLTg6JfJW/9A1Y3G7ExQvBONvpuC2VvIvvz7Bw=
 github.com/kralicky/protols v0.0.0-20231102164430-669d20c5e11a/go.mod h1:tm2x0Yf9dgjFyY1OiEqH/mskmv1tZKtbRB6HmREMbq8=
-github.com/kralicky/protovalidate-go v0.0.0-20231103010429-376df1a7f6ab h1:hRedYN8vPRl1TLhUimE6dY9+3M0kW5YrlY9RDWXAn30=
-github.com/kralicky/protovalidate-go v0.0.0-20231103010429-376df1a7f6ab/go.mod h1:LDS5v+E/2cx5aybVOAJcxiEwwYgmoIa3E3wyA+osWV0=
+github.com/kralicky/protovalidate-go v0.0.0-20231106200703-fe7a5fae5705 h1:wHyUPMvbRbVkvrkARtVsE9/IlPflL98y3xu1IDxW2ks=
+github.com/kralicky/protovalidate-go v0.0.0-20231106200703-fe7a5fae5705/go.mod h1:G3q0rYHaYz4KNQ4AAdNphDMo5/kcX62vxzu7KzehQpk=
 github.com/kralicky/protovalidate/tools/internal/gen v0.0.0-20231101175952-8d70fb095d71 h1:dLwSPb8ASUs4kuE13yKsaxywOOeBvE7tf+I2FqU4fYI=
 github.com/kralicky/protovalidate/tools/internal/gen v0.0.0-20231101175952-8d70fb095d71/go.mod h1:xafc+XIsTxTy76GJQ1TKgvJWsSugFBqMaN27WhUblew=
 github.com/kralicky/ragu v1.0.11-0.20231031175336-0612d4bec2a0 h1:HHYlIEcgHJL8n98nPQOwADGE44yQgRfuRDzAjBePshg=

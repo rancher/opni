@@ -39,7 +39,7 @@ func InitPluginWriter(agentId string) io.Writer {
 	writer := f.(io.Writer)
 	PluginFileWriter.file = &fileWriter{
 		file: writer,
-		mu:   &sync.Mutex{},
+		mu:   PluginFileWriter.mu,
 	}
 	PluginFileWriter.logForwarder = New(WithWriter(pluginOutputWriter), WithDisableCaller())
 	return PluginFileWriter.file

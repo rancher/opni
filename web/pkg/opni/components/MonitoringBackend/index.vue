@@ -2,7 +2,7 @@
 import LabeledSelect from '@shell/components/form/LabeledSelect';
 import Tab from '@shell/components/Tabbed/Tab';
 import Tabbed from '@shell/components/Tabbed';
-import { cloneDeep, merge } from 'lodash';
+import { cloneDeep } from 'lodash';
 import { CortexOps, DriverUtil } from '@pkg/opni/api/opni';
 import { getClusterStats } from '@pkg/opni/utils/requests';
 import { Duration } from '@bufbuild/protobuf';
@@ -21,6 +21,32 @@ export async function isEnabled() {
   } catch (ex) {
     return false;
   }
+}
+
+export function mergeConfig(target, ...sources) {
+  function isObject(item) {
+    return (item && typeof item === 'object' && !Array.isArray(item));
+  }
+
+  if (!sources.length) {
+    return target;
+  }
+  const source = sources.shift();
+
+  if (isObject(target) && isObject(source)) {
+    for (const key in source) {
+      if (isObject(source[key])) {
+        if (!target[key]) {
+          Object.assign(target, { [key]: {} });
+        }
+        mergeConfig(target[key], source[key]);
+      } else {
+        Object.assign(target, { [key]: source[key] });
+      }
+    }
+  }
+
+  return mergeConfig(target, ...sources);
 }
 
 export default {
@@ -266,7 +292,7 @@ export default {
     setPresetAsConfig(index) {
       const presetConfig = cloneDeep(this.presets[index].spec);
       const currentConfig = cloneDeep(this.config);
-      const mergedConfig = merge(currentConfig, presetConfig);
+      const mergedConfig = mergeConfig({}, currentConfig, presetConfig);
 
       this.$set(this, 'config', mergedConfig);
       this.prepareConfigFieldsForUI();

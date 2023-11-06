@@ -101,20 +101,6 @@ func FieldIndexByName[T proto.Message](name string) int {
 	return -1
 }
 
-type Collection[T any] interface {
-	Len() int
-	Get(i int) T
-}
-
-func Collect[T any, C Collection[T]](c C) []T {
-	l := c.Len()
-	out := make([]T, 0, l)
-	for i := 0; i < l; i++ {
-		out = append(out, c.Get(i))
-	}
-	return out
-}
-
 func ReplaceFirstOccurrence[S ~[]T, T comparable](items S, old T, new T) S {
 	index := slices.Index(items, old)
 	if index < 0 {

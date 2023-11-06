@@ -38,10 +38,11 @@ var (
 	logFs             afero.Fs
 	DefaultTimeFormat = "2006 Jan 02 15:04:05"
 	logSampler        = &sampler{}
-	PluginFileWriter  = &remoteFileWriter{
+	PluginFileWriter  = &remotePluginWriter{
 		mu: &sync.Mutex{},
 	}
-	levelString = []string{"DEBUG", "INFO", "WARN", "ERROR"}
+	pluginOutputWriter = os.Stderr
+	levelString        = []string{"DEBUG", "INFO", "WARN", "ERROR"}
 )
 
 func init() {
@@ -224,7 +225,13 @@ func NewNop() *slog.Logger {
 }
 
 func NewPluginLogger(opts ...LoggerOption) *slog.Logger {
-	return New(opts...).WithGroup(pluginGroupPrefix)
+	options := &LoggerOptions{
+		Level:     DefaultLogLevel,
+		AddSource: true,
+	}
+	options.apply(opts...)
+
+	return slog.New(newProtoHandler(pluginOutputWriter, ConfigureProtoOptions(options))).WithGroup(pluginGroupPrefix)
 }
 
 type sampler struct {

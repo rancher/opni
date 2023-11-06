@@ -2,7 +2,7 @@ package plugins
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"os/exec"
 
 	"github.com/hashicorp/go-hclog"
@@ -52,8 +52,8 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, opts ...ClientOption) 
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 		Managed:          true,
 		Logger: hclog.New(&hclog.LoggerOptions{
-			Level:  hclog.Debug,
-			Output: logger.PluginFileWriter,
+			Level:  hclog.Error,
+			Output: io.Discard,
 		}),
 		GRPCDialOptions: []grpc.DialOption{
 			grpc.WithChainUnaryInterceptor(
@@ -63,7 +63,7 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, opts ...ClientOption) 
 			grpc.WithPerRPCCredentials(cluster.ClusterIDKey),
 			grpc.WithPerRPCCredentials(session.AttributesKey),
 		},
-		Stderr: os.Stderr,
+		Stderr: logger.PluginFileWriter,
 	}
 
 	if options.reattach != nil {

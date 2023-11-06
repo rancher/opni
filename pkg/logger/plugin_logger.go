@@ -3,25 +3,27 @@ package logger
 import (
 	"io"
 	"log/slog"
-	"regexp"
-	"strings"
 	"sync"
+
+	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
+	"google.golang.org/protobuf/proto"
 )
 
-const (
-	numGoPluginSegments = 4 // hclog timestamp + hclog level + go-plugin name + log message
-	logDelimiter        = " "
-)
+type fileWriter struct {
+	file io.Writer
+	mu   *sync.Mutex
+}
 
-var (
-	logLevelPattern   = `\(` + strings.Join(levelString, "|") + `\)`
-	pluginNamePattern = pluginGroupPrefix + `\.\w+`
-)
+func (f fileWriter) Write(b []byte) (int, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.file.Write(b)
+}
 
-// forwards plugin logs to their hosts. Retrieve these logs with the "debug" cli
-type remoteFileWriter struct {
+// forwards plugin logs to their host process, where they are logged with a logger in the host process
+type remotePluginWriter struct {
 	logForwarder *slog.Logger
-	w            io.Writer
+	file         *fileWriter
 	mu           *sync.Mutex
 }
 
@@ -29,68 +31,81 @@ func InitPluginWriter(agentId string) io.Writer {
 	PluginFileWriter.mu.Lock()
 	defer PluginFileWriter.mu.Unlock()
 
-	if PluginFileWriter.w != nil {
-		return PluginFileWriter.w
+	if PluginFileWriter.file != nil {
+		return PluginFileWriter.file
 	}
 
 	f := WriteOnlyFile(agentId)
 	writer := f.(io.Writer)
-	PluginFileWriter.w = writer
-	PluginFileWriter.logForwarder = newPluginLogForwarder(writer).WithGroup("forwarded")
-	return writer
+	PluginFileWriter.file = &fileWriter{
+		file: writer,
+		mu:   &sync.Mutex{},
+	}
+	PluginFileWriter.logForwarder = New(WithWriter(pluginOutputWriter), WithDisableCaller())
+	return PluginFileWriter.file
 }
 
-func (f remoteFileWriter) Write(b []byte) (int, error) {
-	if f.w == nil || f.logForwarder == nil {
+func (w remotePluginWriter) Write(b []byte) (int, error) {
+	if w.file == nil || w.logForwarder == nil {
 		return 0, nil
 	}
 
-	// workaround to remove hclog's default DEBUG prefix on all non-hclog logs
-	prefixes := strings.SplitN(string(b), logDelimiter, numGoPluginSegments)
-	if len(prefixes) != numGoPluginSegments {
-		f.logForwarder.Info(string(b))
-		return len(b), nil
+	n, err := w.logProtoMessage(b)
+	if err != nil {
+		// not a proto message. log as is
+		w.logForwarder.Info(string(b))
+		return n, nil
 	}
 
-	forwardedLog := prefixes[numGoPluginSegments-1]
+	n, err = w.file.Write(b)
 
-	levelPattern := regexp.MustCompile(logLevelPattern)
-	level := levelPattern.FindString(forwardedLog)
-
-	namePattern := regexp.MustCompile(pluginNamePattern)
-	loggerName := namePattern.FindString(forwardedLog)
-
-	namedLogger := f.logForwarder.WithGroup(loggerName)
-
-	switch level {
-	case levelString[0]:
-		namedLogger.Debug(forwardedLog)
-	case levelString[1]:
-		namedLogger.Info(forwardedLog)
-	case levelString[2]:
-		namedLogger.Warn(forwardedLog)
-	case levelString[3]:
-		namedLogger.Error(forwardedLog)
-	default:
-		namedLogger.Debug(forwardedLog)
-	}
-
-	return len(b), nil
+	return n, err
 }
 
-func newPluginLogForwarder(w io.Writer) *slog.Logger {
-	dropForwardedPrefixes := func(groups []string, a slog.Attr) slog.Attr {
-		if a.Key == slog.SourceKey {
-			return slog.Attr{}
-		}
-		return a
+func (w remotePluginWriter) logProtoMessage(b []byte) (int, error) {
+	n := len(b)
+	if n < 5 {
+		return 0, io.ErrUnexpectedEOF
+	}
+	record := &controlv1.StructuredLogRecord{}
+
+	size := uint32(b[0]) |
+		uint32(b[1])<<8 |
+		uint32(b[2])<<16 |
+		uint32(b[3])<<24
+
+	invalidHeader := size > 65536
+	if invalidHeader {
+		return 0, io.ErrUnexpectedEOF
 	}
 
-	options := &slog.HandlerOptions{
-		AddSource:   true,
-		Level:       slog.LevelDebug,
-		ReplaceAttr: dropForwardedPrefixes,
+	if err := proto.Unmarshal(b[4:size+4], record); err != nil {
+		w.logForwarder.Error("malformed plugin log", "log", b)
+		return 0, err
 	}
 
-	return slog.New(newProtoHandler(w, options))
+	lg := w.logForwarder.WithGroup(record.GetName())
+
+	attrs := []any{slog.SourceKey, record.GetSource()}
+	for _, attr := range record.GetAttributes() {
+		attrs = append(attrs, attr.Key, attr.Value)
+	}
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	switch record.GetLevel() {
+	case levelString[0]:
+		lg.Debug(record.Message, attrs...)
+	case levelString[1]:
+		lg.Info(record.Message, attrs...)
+	case levelString[2]:
+		lg.Warn(record.Message, attrs...)
+	case levelString[3]:
+		lg.Error(record.Message, attrs...)
+	default:
+		lg.Debug(record.Message, attrs...)
+	}
+
+	return n, nil
 }

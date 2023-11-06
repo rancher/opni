@@ -133,6 +133,7 @@ func (a *AlertingClusterManager) InstallCluster(ctx context.Context, _ *emptypb.
 		lg.Error(fmt.Sprintf("%s", retryErr))
 		return nil, retryErr
 	}
+	a.notify(1)
 	return &emptypb.Empty{}, nil
 }
 
@@ -343,6 +344,7 @@ func (a *AlertingClusterManager) notify(replicas int) {
 		alertingClient.WithQuerierAddress(
 			fmt.Sprintf("%s:3000", shared.AlertmanagerService),
 		),
+		alertingClient.WithTLSConfig(a.TlsConfig),
 	)
 	if err != nil {
 		panic(err)
@@ -366,8 +368,8 @@ func listPeers(replicas int) []alertingClient.AlertingPeer {
 	peers := []alertingClient.AlertingPeer{}
 	for i := 0; i < replicas; i++ {
 		peers = append(peers, alertingClient.AlertingPeer{
-			ApiAddress:      fmt.Sprintf("http://%s-%d.%s:9093", shared.AlertmanagerService, i, shared.AlertmanagerService),
-			EmbeddedAddress: fmt.Sprintf("http://%s-%d.%s:3000", shared.AlertmanagerService, i, shared.AlertmanagerService),
+			ApiAddress:      fmt.Sprintf("%s-%d.%s:9093", shared.AlertmanagerService, i, shared.AlertmanagerService),
+			EmbeddedAddress: fmt.Sprintf("%s-%d.%s:3000", shared.AlertmanagerService, i, shared.AlertmanagerService),
 		})
 	}
 	return peers

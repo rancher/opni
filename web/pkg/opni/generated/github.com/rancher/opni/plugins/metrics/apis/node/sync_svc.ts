@@ -13,8 +13,7 @@ export async function Sync(input: SyncRequest): Promise<SyncResponse> {
       console.info('Here is the input for a request to NodeMetricsCapability-Sync:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => SyncResponse.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -25,8 +24,9 @@ export async function Sync(input: SyncRequest): Promise<SyncResponse> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = SyncResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to NodeMetricsCapability-Sync:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));

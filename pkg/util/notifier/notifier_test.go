@@ -100,7 +100,7 @@ var _ = Describe("Update Notifier", Label("unit"), func() {
 
 		groups := atomic.Value[[]rules.RuleGroup]{}
 		groups.Store(testGroups1)
-		un := notifier.NewUpdateNotifier(mock_rules.NewTestFinder(ctrl, func() []rules.RuleGroup {
+		updateNotifier := notifier.NewUpdateNotifier(mock_rules.NewTestFinder(ctrl, func() []rules.RuleGroup {
 			return notifier.CloneList(groups.Load())
 		}))
 
@@ -120,22 +120,21 @@ var _ = Describe("Update Notifier", Label("unit"), func() {
 
 		channels := make([]<-chan []rules.RuleGroup, count)
 		for i := 0; i < count; i++ {
-			channels[i] = un.NotifyC(contexts[i].ctx)
+			channels[i] = updateNotifier.NotifyC(contexts[i].ctx)
 		}
 
-		go un.Refresh(context.Background())
+		go updateNotifier.Refresh(context.Background())
 
 		for i := 0; i < count; i++ {
 			Eventually(channels[i]).Should(Receive(Equal(testGroups1)))
 		}
 
-		groups.Store(testGroups2)
-
+		groups.Store(testGroups2) // cancel the channels
 		for i := 0; i < count; i++ {
 			contexts[i].ca()
 		}
 
-		go un.Refresh(context.Background())
+		go updateNotifier.Refresh(context.Background())
 
 		for i := 0; i < count; i++ {
 			Expect(channels[i]).NotTo(Receive())

@@ -39,7 +39,6 @@ import (
 )
 
 var cortexTargets = []string{
-	"alertmanager",
 	"compactor",
 	"distributor",
 	"ingester",
@@ -86,7 +85,13 @@ type StandardOverridesShape = struct {
 type ImplementationSpecificOverridesShape = struct {
 	QueryFrontendAddress string
 	MemberlistJoinAddrs  []string
-	AlertmanagerURL      string
+	AlertManager         AlertmanagerOverrideShape
+}
+
+type AlertmanagerOverrideShape struct {
+	AlertmanagerURL string
+	EnableV2        bool
+	ClientTLS       TLSClientConfigShape
 }
 
 type cortexConfigOverriderFunc[T any] func(cfg *T) bool
@@ -355,7 +360,6 @@ func NewHostOverrides(impl StandardOverridesShape) []CortexConfigOverrider {
 			return true
 		}),
 		NewOverrider(func(t *rulestore.Config) bool {
-			t.Backend = "filesystem"
 			t.Filesystem.Directory = filepath.Join(impl.StorageDir, "rules")
 			return true
 		}),
@@ -386,7 +390,9 @@ func NewImplementationSpecificOverrides(impl ImplementationSpecificOverridesShap
 			return true
 		}),
 		NewOverrider(func(t *ruler.Config) bool {
-			t.AlertmanagerURL = impl.AlertmanagerURL
+			t.AlertmanagerURL = impl.AlertManager.AlertmanagerURL
+			t.AlertmanangerEnableV2API = impl.AlertManager.EnableV2
+			// t.Notifier.TLS = cortextls.ClientConfig(impl.AlertManager.ClientTLS)
 			return true
 		}),
 	}

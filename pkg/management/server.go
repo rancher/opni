@@ -34,7 +34,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	channelzservice "google.golang.org/grpc/channelz/service"
 	"google.golang.org/grpc/codes"
@@ -177,7 +176,7 @@ func NewServer(
 			info, err := p.Info(ctx, &corev1.Reference{Id: cap.GetName()})
 			if err != nil {
 				lg.With(
-					zap.String("plugin", md.Module),
+					"plugin", md.Module,
 				).Error("failed to get capability info")
 				return
 			}

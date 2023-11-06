@@ -32,6 +32,8 @@ type updateNotifier[T Clonable[T]] struct {
 	channelsMu     *sync.Mutex
 	startCond      *sync.Cond
 
+	gcQueue chan chan []T
+
 	latest   []T
 	latestMu sync.Mutex
 }
@@ -46,6 +48,7 @@ func NewUpdateNotifier[T Clonable[T]](finder Finder[T]) UpdateNotifier[T] {
 		channelsMu:     mu,
 		startCond:      sync.NewCond(mu),
 		latest:         []T{},
+		gcQueue:        make(chan chan []T, 128),
 	}
 }
 
@@ -61,17 +64,24 @@ func (u *updateNotifier[T]) NotifyC(ctx context.Context) <-chan []T {
 	}
 	go func() {
 		<-ctx.Done()
-		u.channelsMu.Lock()
-		defer u.channelsMu.Unlock()
-		// Remove the channel from the list
-		for i, c := range u.updateChannels {
-			if c == updateC {
-				u.updateChannels = slices.Delete(u.updateChannels, i, i+1)
-				break
-			}
-		}
+		u.gcQueue <- updateC
 	}()
 	return updateC
+}
+
+func (u *updateNotifier[T]) gc() {
+	u.channelsMu.Lock()
+	defer u.channelsMu.Unlock()
+	for {
+		select {
+		case toDelete := <-u.gcQueue:
+			u.updateChannels = slices.DeleteFunc(u.updateChannels, func(uc chan []T) bool {
+				return toDelete == uc
+			})
+		default:
+			return
+		}
+	}
 }
 
 func (u *updateNotifier[T]) Refresh(ctx context.Context) {
@@ -104,6 +114,8 @@ func (u *updateNotifier[T]) Refresh(ctx context.Context) {
 		return
 	}
 	u.latest = groups
+
+	u.gc()
 	u.channelsMu.Lock()
 	cloned := CloneList(u.latest)
 	for _, c := range u.updateChannels {

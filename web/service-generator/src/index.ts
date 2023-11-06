@@ -46,7 +46,7 @@ function printMethod(f: GeneratedFile, method: DescMethod, service: DescService)
   // const inputType = input.name === 'Empty' ? '' : input.name;
   // const returnType = output.name === 'Empty' ? 'void' : output.name;
   // const transformRequest = inputIsEmpty ? '' : `\n    transformRequest: req => req.toJsonString(),`;
-  const transformResponse = outputIsEmpty ? '' : [`\n    transformResponse: resp => `, output, `.fromBinary(new Uint8Array(resp)),`];
+  // const transformResponse = outputIsEmpty ? '' : [`\n    transformResponse: resp => `, output, `.fromBinary(new Uint8Array(resp)),`];
   const data = inputIsEmpty ? '' : `,\n    data: input?.toBinary() as ArrayBuffer`;
   const urlPath = (m?.pattern.value as any || '').replaceAll('{', '${input.');
   const potentialModelPath = output ? path.join('./web/pkg/opni/models', service.name, `${ output.name }.ts`) : '';
@@ -59,7 +59,8 @@ function printMethod(f: GeneratedFile, method: DescMethod, service: DescService)
     }
   `;
 
-  const returnText = modelImport ? [`return new `, modelImport, `(response)`] : [`return response`];
+  const responseTranform = outputIsEmpty ? [`rawResponse;`] : [output, `.fromBinary(new Uint8Array(rawResponse));`];
+  const returnValue = modelImport ? [`return new `, modelImport, `(response);`] : [`return response;`];
 
   switch (method.methodKind) {
   case MethodKind.Unary:
@@ -67,7 +68,7 @@ function printMethod(f: GeneratedFile, method: DescMethod, service: DescService)
 export async function ${ method.name }(`, ...(inputIsEmpty ? [] : ['input: ', input]), `): Promise<`, outputIsEmpty ? 'void' : modelImport || output, `> {
   try {
     ${ inputLogMessage }
-    const response = (await `, _axios, `.request({`, ...transformResponse, `
+    const rawResponse = (await `, _axios, `.request({
       method: '${ m?.pattern.case || 'get' }',
       responseType: 'arraybuffer',
       headers: {
@@ -77,8 +78,9 @@ export async function ${ method.name }(`, ...(inputIsEmpty ? [] : ['input: ', in
       url: \`/opni-api/${ method.parent.name }${ urlPath }\`${ data }
     })).data;
 
+    const response = `, ...responseTranform, `
     console.info('Here is the response for a request to ${ service.name }-${ method.name }:', response);
-    `, ...returnText, `
+    `, ...returnValue, `
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));

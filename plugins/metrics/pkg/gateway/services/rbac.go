@@ -9,6 +9,7 @@ import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
@@ -20,7 +21,6 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/constants"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 	"github.com/rancher/opni/plugins/metrics/pkg/types"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -183,7 +183,7 @@ func (r *RBACProvider) AccessHeader(ctx context.Context, roles *corev1.Reference
 		role, err := rolesStore.Get(ctx, role.GetId())
 		if err != nil {
 			r.context.Logger().With(
-				zap.Error(err),
+				logger.Err(err),
 				"role", role.GetId(),
 			).Warn("error looking up role")
 			continue

@@ -34,7 +34,7 @@ const (
 type AIAdminClient interface {
 	GetAISettings(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AISettings, error)
 	PutAISettings(ctx context.Context, in *AISettings, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	DeleteAISettings(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DeleteAISettings(ctx context.Context, in *DeleteOptions, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	UpgradeAvailable(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UpgradeAvailableResponse, error)
 	DoUpgrade(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetRuntimeClasses(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*RuntimeClassResponse, error)
@@ -66,7 +66,7 @@ func (c *aIAdminClient) PutAISettings(ctx context.Context, in *AISettings, opts 
 	return out, nil
 }
 
-func (c *aIAdminClient) DeleteAISettings(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *aIAdminClient) DeleteAISettings(ctx context.Context, in *DeleteOptions, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, AIAdmin_DeleteAISettings_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -108,7 +108,7 @@ func (c *aIAdminClient) GetRuntimeClasses(ctx context.Context, in *emptypb.Empty
 type AIAdminServer interface {
 	GetAISettings(context.Context, *emptypb.Empty) (*AISettings, error)
 	PutAISettings(context.Context, *AISettings) (*emptypb.Empty, error)
-	DeleteAISettings(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	DeleteAISettings(context.Context, *DeleteOptions) (*emptypb.Empty, error)
 	UpgradeAvailable(context.Context, *emptypb.Empty) (*UpgradeAvailableResponse, error)
 	DoUpgrade(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	GetRuntimeClasses(context.Context, *emptypb.Empty) (*RuntimeClassResponse, error)
@@ -124,7 +124,7 @@ func (UnimplementedAIAdminServer) GetAISettings(context.Context, *emptypb.Empty)
 func (UnimplementedAIAdminServer) PutAISettings(context.Context, *AISettings) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PutAISettings not implemented")
 }
-func (UnimplementedAIAdminServer) DeleteAISettings(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (UnimplementedAIAdminServer) DeleteAISettings(context.Context, *DeleteOptions) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAISettings not implemented")
 }
 func (UnimplementedAIAdminServer) UpgradeAvailable(context.Context, *emptypb.Empty) (*UpgradeAvailableResponse, error) {
@@ -185,7 +185,7 @@ func _AIAdmin_PutAISettings_Handler(srv interface{}, ctx context.Context, dec fu
 }
 
 func _AIAdmin_DeleteAISettings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(DeleteOptions)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -197,7 +197,7 @@ func _AIAdmin_DeleteAISettings_Handler(srv interface{}, ctx context.Context, dec
 		FullMethod: AIAdmin_DeleteAISettings_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AIAdminServer).DeleteAISettings(ctx, req.(*emptypb.Empty))
+		return srv.(AIAdminServer).DeleteAISettings(ctx, req.(*DeleteOptions))
 	}
 	return interceptor(ctx, in, info, handler)
 }

@@ -69,7 +69,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 
 	BeforeEach(func() {
 		namespace = "test-logging-v2"
-		version = "0.11.2"
+		version = "0.12.0"
 		opensearchVersion = "2.8.0"
 
 		security = &opsterv1.Security{
@@ -85,7 +85,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 		}
 		dashboards = opsterv1.DashboardsConfig{
 			ImageSpec: &opsterv1.ImageSpec{
-				Image: lo.ToPtr("docker.io/rancher/opensearch-dashboards:v0.11.2-2.8.0"),
+				Image: lo.ToPtr("docker.io/rancher/opensearch-dashboards:v0.12.0-2.8.0"),
 			},
 			Replicas: 1,
 			Enable:   true,
@@ -1157,7 +1157,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 					})
 				}, timeout, interval).Should(BeTrue())
 				Expect(object.Spec.Security).To(Equal(security))
-				Expect(object.Spec.Version).To(Equal("0.11.2"))
+				Expect(object.Spec.Version).To(Equal("0.12.0"))
 				Expect(len(object.Spec.NodePools)).To(Equal(2))
 			})
 			When("upgrade is available", func() {
@@ -1168,7 +1168,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 					}, object)
 					Expect(err).NotTo(HaveOccurred())
 					object.Status.OpensearchVersion = lo.ToPtr("2.8.0")
-					object.Status.Version = lo.ToPtr("0.11.2")
+					object.Status.Version = lo.ToPtr("0.12.0")
 					Expect(k8sClient.Status().Update(context.Background(), object)).To(Succeed())
 				})
 				Specify("check upgrade available should return true", func() {

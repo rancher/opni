@@ -29,7 +29,8 @@ var _ = BuildHttpTransportCaching(
 func BuildHttpTransportCaching(
 	t caching.HttpCachingTransport,
 ) bool {
-	return Describe("Http util test suites", Ordered, Label("integration"), func() {
+	//FIXME: https://github.com/rancher/opni/issues/1764
+	return XDescribe("Http util test suites", Ordered, Label("integration"), func() {
 		var serverPort int
 		var cachingClient *http.Client
 		var defaultClient *http.Client

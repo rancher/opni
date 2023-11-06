@@ -9,18 +9,19 @@ import (
 type EvaluatorContext struct {
 	Ctx     context.Context
 	Cancel  context.CancelFunc
-	running atomic.Bool
+	running *atomic.Bool
 }
 
 type Runner struct {
 	// conditionId -> subsriber pull context cancel func
 	systemConditionUpdateListeners map[string]*EvaluatorContext
-	systemConditionMu              sync.Mutex
+	systemConditionMu              *sync.Mutex
 }
 
 func NewRunner() *Runner {
 	return &Runner{
 		systemConditionUpdateListeners: make(map[string]*EvaluatorContext),
+		systemConditionMu:              &sync.Mutex{},
 	}
 }
 

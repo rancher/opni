@@ -4,9 +4,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"path/filepath"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/logger"
 
 	"emperror.dev/errors"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
@@ -25,6 +27,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
+
+	promcommon "github.com/prometheus/common/config"
+	yamlv3 "gopkg.in/yaml.v3"
 )
 
 func (r *Reconciler) configMap() (resources.Resource, string, error) {
@@ -68,6 +73,12 @@ func (r *Reconciler) configMap() (resources.Resource, string, error) {
 				Type: r.gw.Spec.StorageType,
 			},
 			Alerting: cfgv1beta1.AlertingSpec{
+				Certs: cfgv1beta1.MTLSSpec{
+					ServerCA:   "/run/alerting/certs/server/ca.crt",
+					ClientCA:   "/run/alerting/certs/client/ca.crt",
+					ClientCert: "/run/alerting/certs/client/tls.crt",
+					ClientKey:  "/run/alerting/certs/client/tls.key",
+				},
 				Namespace:             r.gw.Namespace,
 				WorkerNodeService:     shared.AlertmanagerService,
 				WorkerPort:            r.gw.Spec.Alerting.WebPort,
@@ -218,4 +229,49 @@ func (r *Reconciler) configMap() (resources.Resource, string, error) {
 
 	ctrl.SetControllerReference(r.gw, cm, r.client.Scheme())
 	return resources.Present(cm), hex.EncodeToString(digest[:]), nil
+}
+
+func (r *Reconciler) amtoolConfigMap() resources.Resource {
+	mgmtHost := "127.0.0.1:8080"
+	alertmanagerURL := url.URL{
+		Scheme: "https",
+		Host:   mgmtHost,
+		Path:   "/plugin_alerting/alertmanager",
+	}
+
+	amToolConfig := map[string]string{
+		"alertmanager.url": alertmanagerURL.String(),
+		"http.config.file": "/etc/amtool/http.yml",
+	}
+
+	amToolConfigBytes, err := yamlv3.Marshal(amToolConfig)
+	if err != nil {
+		r.lg.Error("failed to marshal amtool config", logger.Err(err))
+		amToolConfigBytes = []byte{}
+	}
+
+	httpConfig := promcommon.HTTPClientConfig{
+		TLSConfig: promcommon.TLSConfig{
+			CAFile:   "/run/opni/certs/ca.crt",
+			CertFile: "/run/opni/certs/tls.crt",
+			KeyFile:  "/run/opni/certs/tls.key",
+		},
+		FollowRedirects: true,
+	}
+	httpBytes, err := yamlv3.Marshal(httpConfig)
+	if err != nil {
+		r.lg.Error("failed to marshal http config", logger.Err(err))
+		httpBytes = []byte{}
+	}
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "amtool-config",
+			Namespace: r.gw.Namespace,
+		},
+		Data: map[string]string{
+			"config.yml": string(amToolConfigBytes),
+			"http.yml":   string(httpBytes),
+		},
+	}
+	return resources.Present(cm)
 }

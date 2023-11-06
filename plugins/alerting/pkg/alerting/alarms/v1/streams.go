@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
@@ -112,18 +113,18 @@ func (p *AlarmServerComponent) onSystemConditionCreate(conditionId, conditionNam
 		},
 		&internalConditionState{},
 		&internalConditionHooks[*corev1.ClusterHealthStatus]{
-			healthOnMessage: func(h *corev1.ClusterHealthStatus) (health bool, ts *timestamppb.Timestamp) {
+			healthOnMessage: func(h *corev1.ClusterHealthStatus) (healthy bool, md map[string]string, ts *timestamppb.Timestamp) {
 				if h == nil {
-					return false, fallbackInterval(disconnect.GetTimeout().AsDuration())
+					return false, map[string]string{}, fallbackInterval(disconnect.GetTimeout().AsDuration())
 				}
 				if h.HealthStatus == nil {
-					return false, fallbackInterval(disconnect.GetTimeout().AsDuration())
+					return false, map[string]string{}, fallbackInterval(disconnect.GetTimeout().AsDuration())
 				}
 				if h.HealthStatus.Status == nil {
-					return false, fallbackInterval(disconnect.GetTimeout().AsDuration())
+					return false, map[string]string{}, fallbackInterval(disconnect.GetTimeout().AsDuration())
 				}
 				lg.Debug(fmt.Sprintf("received agent health update connected %v : %s", h.HealthStatus.Status.Connected, h.HealthStatus.Status.Timestamp.String()))
-				return h.HealthStatus.Status.Connected, h.HealthStatus.Status.Timestamp
+				return h.HealthStatus.Status.Connected, map[string]string{}, h.HealthStatus.Status.Timestamp
 			},
 			triggerHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
 				p.notifications.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
@@ -157,8 +158,9 @@ func (p *AlarmServerComponent) onSystemConditionCreate(conditionId, conditionNam
 		evaluator.EvaluateLoop()
 	}()
 	p.runner.AddSystemConfigListener(conditionId, &EvaluatorContext{
-		Ctx:    evaluator.evaluationCtx,
-		Cancel: evaluator.cancelEvaluation,
+		Ctx:     evaluator.evaluationCtx,
+		Cancel:  evaluator.cancelEvaluation,
+		running: &atomic.Bool{},
 	})
 	return nil
 }
@@ -195,27 +197,33 @@ func (p *AlarmServerComponent) onDownstreamCapabilityConditionCreate(conditionId
 		},
 		&internalConditionState{},
 		&internalConditionHooks[*corev1.ClusterHealthStatus]{
-			healthOnMessage: func(h *corev1.ClusterHealthStatus) (healthy bool, ts *timestamppb.Timestamp) {
+			healthOnMessage: func(h *corev1.ClusterHealthStatus) (healthy bool, md map[string]string, ts *timestamppb.Timestamp) {
 				healthy = true
 				if h == nil {
-					return false, fallbackInterval(capability.GetFor().AsDuration())
+					return false, map[string]string{}, fallbackInterval(capability.GetFor().AsDuration())
 				}
 				if h.HealthStatus == nil {
-					return false, fallbackInterval(capability.GetFor().AsDuration())
+					return false, map[string]string{}, fallbackInterval(capability.GetFor().AsDuration())
 				}
 				if h.HealthStatus.Health == nil {
-					return false, fallbackInterval(capability.GetFor().AsDuration())
+					return false, map[string]string{}, fallbackInterval(capability.GetFor().AsDuration())
 				}
 				lg.Debug(fmt.Sprintf("found health conditions %v", h.HealthStatus.Health.Conditions))
+				md = map[string]string{}
 				for _, s := range h.HealthStatus.Health.Conditions {
 					for _, badState := range capability.GetCapabilityState() {
 						if strings.Contains(s, badState) {
 							healthy = false
-							break
+							strArr := strings.Split(s, " ")
+							if len(strArr) == 1 {
+								md[strArr[0]] = "evaluate health details unavailable"
+							} else {
+								md[strArr[0]] = strings.Join(strArr[1:], ",")
+							}
 						}
 					}
 				}
-				return healthy, h.HealthStatus.GetStatus().GetTimestamp()
+				return healthy, md, h.HealthStatus.GetStatus().GetTimestamp()
 			},
 			triggerHook: func(ctx context.Context, conditionId string, labels, annotations map[string]string) {
 				_, _ = p.notifications.TriggerAlerts(ctx, &alertingv1.TriggerAlertsRequest{
@@ -249,15 +257,16 @@ func (p *AlarmServerComponent) onDownstreamCapabilityConditionCreate(conditionId
 		evaluator.EvaluateLoop()
 	}()
 	p.runner.AddSystemConfigListener(conditionId, &EvaluatorContext{
-		Ctx:    evaluator.evaluationCtx,
-		Cancel: evaluator.cancelEvaluation,
+		Ctx:     evaluator.evaluationCtx,
+		Cancel:  evaluator.cancelEvaluation,
+		running: &atomic.Bool{},
 	})
 	return nil
 }
 
-func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.CortexStatus) (healthy bool, ts *timestamppb.Timestamp) {
+func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.CortexStatus) (healthy bool, md map[string]string, ts *timestamppb.Timestamp) {
 	if cStatus == nil {
-		return false, timestamppb.Now()
+		return false, map[string]string{}, timestamppb.Now()
 	}
 	ts = cStatus.GetTimestamp()
 	// helps track status errors to particular components, like having 3 expected replicas, but only 1-2 are running
@@ -266,26 +275,32 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 		switch cmp {
 		case shared.CortexDistributor:
 			if cStatus.Distributor == nil {
-				return false, ts
+				return false, map[string]string{
+					shared.CortexDistributor: "status unavailable",
+				}, ts
 			}
 			services := cStatus.GetDistributor().GetServices().GetServices()
 			if len(services) == 0 {
-				return false, ts
+				return false, map[string]string{
+					shared.CortexDistributor: "no services",
+				}, ts
 			}
 			for _, svc := range services {
 				memberReports[svc.GetName()] = true
-				if svc.GetStatus() != "Running" {
-					return false, ts
+				if strings.Contains(svc.GetName(), shared.CortexDistributor) && svc.GetStatus() != "Running" {
+					return false, map[string]string{
+						shared.CortexDistributor: fmt.Sprintf("%s not running", svc.GetName()),
+					}, ts
 				}
 			}
 		case shared.CortexIngester:
 			if cStatus.Ingester == nil {
-				return false, ts
+				return false,
+					map[string]string{
+						shared.CortexIngester: "status unavailable",
+					}, ts
 			}
 			members := cStatus.GetIngester().GetMemberlist().GetMembers().GetItems()
-			if len(members) == 0 {
-				return false, ts
-			}
 			for _, member := range members {
 				if _, ok := memberReports[member.Name]; !ok {
 					memberReports[member.Name] = true
@@ -293,22 +308,28 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 			}
 			services := cStatus.GetIngester().GetServices().GetServices()
 			if len(services) == 0 {
-				return false, ts
+				return false,
+					map[string]string{
+						shared.CortexIngester: "no services",
+					}, ts
 			}
 			for _, svc := range services {
 				memberReports[svc.GetName()] = true
-				if svc.GetStatus() != "Running" {
-					return false, ts
+				if strings.Contains(svc.GetName(), shared.CortexIngester) && svc.GetStatus() != "Running" {
+					return false,
+						map[string]string{
+							shared.CortexIngester: fmt.Sprintf("%s not running", svc.GetName()),
+						}, ts
 				}
 			}
 		case shared.CortexRuler:
 			if cStatus.Ruler == nil {
-				return false, ts
+				return false,
+					map[string]string{
+						shared.CortexRuler: "status unavailable",
+					}, ts
 			}
 			members := cStatus.GetRuler().GetMemberlist().GetMembers().GetItems()
-			if len(members) == 0 {
-				return false, ts
-			}
 			for _, member := range members {
 				if _, ok := memberReports[member.Name]; !ok {
 					memberReports[member.Name] = true
@@ -316,36 +337,51 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 			}
 			services := cStatus.GetRuler().GetServices().GetServices()
 			if len(services) == 0 {
-				return false, ts
+				return false,
+					map[string]string{
+						shared.CortexRuler: "no services",
+					}, ts
 			}
 			for _, svc := range services {
 				memberReports[svc.GetName()] = true
-				if svc.GetStatus() != "Running" {
-					return false, ts
+				if strings.Contains(svc.GetName(), shared.CortexRuler) && svc.GetStatus() != "Running" {
+					return false,
+						map[string]string{
+							shared.CortexRuler: fmt.Sprintf("%s not running", svc.GetName()),
+						}, ts
 				}
 			}
 		case shared.CortexPurger:
 			if cStatus.Purger == nil {
-				return false, ts
+				return false,
+					map[string]string{
+						shared.CortexPurger: "status unavailable",
+					}, ts
 			}
 			services := cStatus.GetPurger().GetServices().GetServices()
 			if len(services) == 0 {
-				return false, ts
+				return false,
+					map[string]string{
+						shared.CortexPurger: "no services",
+					}, ts
 			}
 			for _, svc := range services {
 				memberReports[svc.GetName()] = true
-				if svc.GetStatus() != "Running" {
-					return false, ts
+				if strings.Contains(svc.GetName(), shared.CortexPurger) && svc.GetStatus() != "Running" {
+					return false,
+						map[string]string{
+							shared.CortexPurger: fmt.Sprintf("%s not running", svc.GetName()),
+						}, ts
 				}
 			}
 		case shared.CortexCompactor:
 			if cStatus.Compactor == nil {
-				return false, ts
+				return false,
+					map[string]string{
+						shared.CortexCompactor: "status unavailable",
+					}, ts
 			}
 			members := cStatus.GetCompactor().GetMemberlist().GetMembers().GetItems()
-			if len(members) == 0 {
-				return false, ts
-			}
 			for _, member := range members {
 				if _, ok := memberReports[member.Name]; !ok {
 					memberReports[member.Name] = true
@@ -353,54 +389,87 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 			}
 			services := cStatus.GetCompactor().GetServices().GetServices()
 			if len(services) == 0 {
-				return false, ts
+				return false,
+					map[string]string{
+						shared.CortexCompactor: "no services",
+					}, ts
 			}
 			for _, svc := range services {
 				memberReports[svc.GetName()] = true
-				if svc.GetStatus() != "Running" {
-					return false, ts
+				if strings.Contains(svc.GetName(), shared.CortexCompactor) && svc.GetStatus() != "Running" {
+					return false,
+						map[string]string{
+							shared.CortexCompactor: fmt.Sprintf("%s not running", svc.GetName()),
+						}, ts
 				}
 			}
 		case shared.CortexStoreGateway:
 			if cStatus.StoreGateway == nil {
-				return false, ts
+				return false,
+					map[string]string{
+						shared.CortexStoreGateway: "status unavailable",
+					}, ts
 			}
 			services := cStatus.GetStoreGateway().GetServices().GetServices()
 			if len(services) == 0 {
-				return false, ts
+				return false,
+					map[string]string{
+						shared.CortexStoreGateway: "no services",
+					}, ts
 			}
 			for _, svc := range services {
 				memberReports[svc.GetName()] = true
-				if svc.GetStatus() != "Running" {
-					return false, ts
+				if strings.Contains(svc.GetName(), shared.CortexStoreGateway) && svc.GetStatus() != "Running" {
+					return false,
+						map[string]string{
+							shared.CortexStoreGateway: fmt.Sprintf("%s not running", svc.GetName()),
+						}, ts
 				}
 			}
 		case shared.CortexQueryFrontend:
 			if cStatus.QueryFrontend == nil {
-				return false, ts
+				return false,
+					map[string]string{
+						shared.CortexQueryFrontend: "status unavailable",
+					}, ts
 			}
 			services := cStatus.GetQueryFrontend().GetServices().GetServices()
 			if len(services) == 0 {
-				return false, ts
+				return false,
+					map[string]string{
+						shared.CortexQueryFrontend: "no services",
+					}, ts
 			}
 			for _, svc := range services {
 				memberReports[svc.GetName()] = true
-				if svc.GetStatus() != "Running" {
-					return false, ts
+				if strings.Contains(svc.GetName(), shared.CortexQueryFrontend) && svc.GetStatus() != "Running" {
+					return false,
+						map[string]string{
+							shared.CortexQueryFrontend: fmt.Sprintf("%s not running", svc.GetName()),
+						}, ts
 				}
 			}
 		case shared.CortexQuerier:
 			if cStatus.Querier == nil {
-				return false, ts
+				return false,
+					map[string]string{
+						shared.CortexQuerier: "status unavailable",
+					}, ts
 			}
 			services := cStatus.GetQuerier().GetServices().GetServices()
 			if len(services) == 0 {
-				return false, ts
+				return false,
+					map[string]string{
+						shared.CortexQuerier: "no services",
+					}, ts
 			}
 			for _, svc := range services {
 				memberReports[svc.GetName()] = true
-				if svc.GetStatus() != "Running" {
-					return false, ts
+				if strings.Contains(svc.GetName(), shared.CortexQuerier) && svc.GetStatus() != "Running" {
+					return false,
+						map[string]string{
+							shared.CortexQuerier: fmt.Sprintf("%s not running", svc.GetName()),
+						}, ts
 				}
 			}
 		}
@@ -409,11 +478,13 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 	for _, component := range componentsToTrack {
 		for member, reportedOn := range memberReports {
 			if strings.Contains(member, component) && !reportedOn {
-				return false, ts
+				return false, map[string]string{
+					component: fmt.Sprintf("Component %s's status was never reported", component),
+				}, ts
 			}
 		}
 	}
-	return true, ts
+	return true, map[string]string{}, ts
 }
 
 func (p *AlarmServerComponent) onCortexClusterStatusCreate(conditionId, conditionName, namespace string, condition *alertingv1.AlertCondition) error {
@@ -448,9 +519,9 @@ func (p *AlarmServerComponent) onCortexClusterStatusCreate(conditionId, conditio
 		},
 		&internalConditionState{},
 		&internalConditionHooks[*cortexadmin.CortexStatus]{
-			healthOnMessage: func(h *cortexadmin.CortexStatus) (healthy bool, ts *timestamppb.Timestamp) {
+			healthOnMessage: func(h *cortexadmin.CortexStatus) (healthy bool, md map[string]string, ts *timestamppb.Timestamp) {
 				if h == nil {
-					return false, fallbackInterval(cortex.GetFor().AsDuration())
+					return false, map[string]string{}, fallbackInterval(cortex.GetFor().AsDuration())
 				}
 				return reduceCortexAdminStates(cortex.GetBackendComponents(), h)
 			},
@@ -487,8 +558,9 @@ func (p *AlarmServerComponent) onCortexClusterStatusCreate(conditionId, conditio
 		evaluator.EvaluateLoop()
 	}()
 	p.runner.AddSystemConfigListener(conditionId, &EvaluatorContext{
-		Ctx:    evaluator.evaluationCtx,
-		Cancel: evaluator.cancelEvaluation,
+		Ctx:     evaluator.evaluationCtx,
+		Cancel:  evaluator.cancelEvaluation,
+		running: &atomic.Bool{},
 	})
 	return nil
 }
@@ -526,7 +598,7 @@ type internalConditionState struct {
 }
 
 type internalConditionHooks[T proto.Message] struct {
-	healthOnMessage func(h T) (healthy bool, ts *timestamppb.Timestamp)
+	healthOnMessage func(h T) (healthy bool, md map[string]string, ts *timestamppb.Timestamp)
 	triggerHook     func(ctx context.Context, conditionId string, labels, annotations map[string]string)
 	resolveHook     func(ctx context.Context, conditionId string, labels, annotations map[string]string)
 }
@@ -597,11 +669,12 @@ func (c *InternalConditionEvaluator[T]) SubscriberLoop() {
 			if err != nil {
 				c.lg.Error("error", logger.Err(err))
 			}
-			healthy, ts := c.healthOnMessage(status)
+			healthy, md, ts := c.healthOnMessage(status)
 			incomingState := alertingv1.CachedState{
 				Healthy:   healthy,
 				Firing:    c.IsFiring(),
 				Timestamp: ts,
+				Metadata:  md,
 			}
 			c.UpdateState(c.evaluationCtx, &incomingState)
 			msg.Ack()
@@ -639,6 +712,7 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 							Healthy:   lastKnownState.Healthy,
 							Firing:    c.IsFiring(),
 							Timestamp: timestamppb.Now(),
+							Metadata:  lastKnownState.Metadata,
 						})
 						if err != nil {
 							c.lg.Error("error", logger.Err(err))
@@ -648,12 +722,21 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 							c.lg.Error("error", logger.Err(err))
 						}
 					}
+					alertLabels := map[string]string{
+						message.NotificationPropertyFingerprint: string(c.fingerprint),
+					}
+					alertAnnotations := lo.Assign(
+						alertLabels,
+					)
+					if lastKnownState.Metadata != nil {
+						alertAnnotations = lo.Assign(
+							alertAnnotations,
+							lastKnownState.Metadata,
+						)
+					}
+
 					c.lg.Debug(fmt.Sprintf("triggering alert for condition %s", c.conditionName))
-					c.triggerHook(c.evaluationCtx, c.conditionId, map[string]string{
-						message.NotificationPropertyFingerprint: string(c.fingerprint),
-					}, map[string]string{
-						message.NotificationPropertyFingerprint: string(c.fingerprint),
-					})
+					c.triggerHook(c.evaluationCtx, c.conditionId, alertLabels, alertAnnotations)
 				}
 			} else if lastKnownState.Healthy && c.IsFiring() &&
 				// avoid potential noise from api streams & replays

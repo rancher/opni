@@ -6,6 +6,7 @@ import { cloneDeep, merge } from 'lodash';
 import { CortexOps, DriverUtil } from '@pkg/opni/api/opni';
 import { getClusterStats } from '@pkg/opni/utils/requests';
 import { Duration } from '@bufbuild/protobuf';
+import { Banner } from '@components/Banner';
 import Backend from '../Backend';
 import CapabilityTable from '../CapabilityTable';
 import { SetRequest } from '../../generated/github.com/rancher/opni/plugins/metrics/apis/cortexops/cortexops_pb';
@@ -25,6 +26,7 @@ export async function isEnabled() {
 export default {
   components: {
     Backend,
+    Banner,
     LabeledSelect,
     Grafana,
     CapabilityTable,
@@ -37,7 +39,7 @@ export default {
     return {
       presets:           [],
       presetOptions:     [],
-      presetIndex:       0,
+      presetIndex:       -1,
       config:            null,
       configFromBackend: null
     };
@@ -211,24 +213,32 @@ export default {
       }
 
       this.$set(this, 'presets', presets);
-      this.$set(this, 'presetOptions', presets.map((p, i) => ({
+      const presetOptions = presets.map((p, i) => ({
         label: p.metadata.displayName,
         value: i
-      })));
+      }));
+
+      this.$set(this, 'presetOptions', [{ label: 'Select A Preset', value: -1 }, ...presetOptions]);
 
       this.$set(this, 'configFromBackend', await CortexOps.service.GetConfiguration(new DriverUtil.types.GetRequest()));
       this.$set(this, 'config', this.configFromBackend);
 
-      if (this.configFromBackend.revision.revision === 0n) {
-        this.applyPreset();
+      if (!this.config.revision) {
+        this.$set(this.config, 'revision', { revision: 0n });
       }
 
-      this.prepareConfig();
+      if (this.configFromBackend?.revision?.revision === 0n) {
+        this.applyPreset();
+        this.$set(this.config.grafana, 'enabled', true);
+        this.$set(this.config.cortexConfig.storage, 'backend', 'filesystem');
+      }
+
+      this.prepareConfigFieldsForUI();
 
       return this.config;
     },
 
-    prepareConfig() {
+    prepareConfigFieldsForUI() {
       const configFromBackend = cloneDeep(this.configFromBackend);
       const clone = cloneDeep(this.config || {});
 
@@ -246,14 +256,6 @@ export default {
       this.$set(this.config, 'grafana', this.config.grafana || { enabled: true, hostname: '' });
       this.$set(this.config.cortexConfig, 'limits', this.config.cortexConfig.limits || { compactorBlocksRetentionPeriod: new Duration({ seconds: BigInt(2592000) }) });
 
-      if (!this.config.revision) {
-        this.$set(this.config, 'revision', { revision: 0n });
-      }
-
-      if (this.config.revision?.revision === 0n) {
-        this.$set(this.config.grafana, 'enabled', true);
-        this.$set(this.config.cortexConfig.storage, 'backend', 'filesystem');
-      }
       this.$set(this.config.cortexConfig.storage, 's3', this.config.cortexConfig.storage.s3 || { });
       this.$set(this.config.cortexConfig.storage.s3, 'http', this.config.cortexConfig.storage.s3.http || {});
       this.$set(this.config.cortexConfig.storage.s3, 'sse', this.config.cortexConfig.storage.s3.sse || {});
@@ -267,10 +269,11 @@ export default {
       const mergedConfig = merge(currentConfig, presetConfig);
 
       this.$set(this, 'config', mergedConfig);
+      this.prepareConfigFieldsForUI();
     },
 
     applyPreset() {
-      this.setPresetAsConfig(this.presetIndex);
+      this.setPresetAsConfig(this.presetIndex === -1 ? 0 : this.presetIndex);
     }
   }
 };
@@ -286,22 +289,27 @@ export default {
     :save="save"
   >
     <template #editing>
-      <div class="row mb-20">
-        <div class="col span-11">
-          <LabeledSelect v-model="presetIndex" :options="presetOptions" label="Preset" />
-        </div>
-        <div class="col span-12 middle">
-          <button class="btn role-secondary" @click="applyPreset">
-            Apply
-          </button>
-        </div>
-      </div>
       <Tabbed :side-tabs="true">
         <Tab :weight="4" name="storage" label="Storage">
           <StorageComponent v-model="config" :v-if="!!config" />
         </Tab>
         <Tab :weight="3" name="grafana" label="Grafana">
           <Grafana v-model="config.grafana" />
+        </Tab>
+        <Tab :weight="2" name="preset" label="Presets">
+          <Banner color="info" class="mt-0">
+            Presets are snippets of configuration. Multiple presets can be merged with the current configuration at one time.
+          </Banner>
+          <div class="row mt-10">
+            <div class="col span-10">
+              <LabeledSelect v-model="presetIndex" :options="presetOptions" label="Preset" />
+            </div>
+            <div class="col span-2 middle center">
+              <button class="btn role-secondary" :disabled="presetIndex === -1" @click="applyPreset">
+                Apply
+              </button>
+            </div>
+          </div>
         </Tab>
       </Tabbed>
     </template>

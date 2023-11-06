@@ -10,8 +10,7 @@ import { SnapshotStatusList } from "@pkg/opni/models/LoggingAdminV2/SnapshotStat
 export async function GetOpensearchCluster(): Promise<OpensearchClusterV2> {
   try {
     
-    const response = (await axios.request({
-    transformResponse: resp => OpensearchClusterV2.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -21,8 +20,9 @@ export async function GetOpensearchCluster(): Promise<OpensearchClusterV2> {
       url: `/opni-api/LoggingAdminV2/logging/cluster`
     })).data;
 
+    const response = OpensearchClusterV2.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to LoggingAdminV2-GetOpensearchCluster:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -36,7 +36,7 @@ export async function GetOpensearchCluster(): Promise<OpensearchClusterV2> {
 export async function DeleteOpensearchCluster(): Promise<void> {
   try {
     
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'delete',
       responseType: 'arraybuffer',
       headers: {
@@ -46,8 +46,9 @@ export async function DeleteOpensearchCluster(): Promise<void> {
       url: `/opni-api/LoggingAdminV2/logging/cluster`
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to LoggingAdminV2-DeleteOpensearchCluster:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -65,7 +66,7 @@ export async function CreateOrUpdateOpensearchCluster(input: OpensearchClusterV2
       console.info('Here is the input for a request to LoggingAdminV2-CreateOrUpdateOpensearchCluster:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'put',
       responseType: 'arraybuffer',
       headers: {
@@ -76,8 +77,9 @@ export async function CreateOrUpdateOpensearchCluster(input: OpensearchClusterV2
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to LoggingAdminV2-CreateOrUpdateOpensearchCluster:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -91,8 +93,7 @@ export async function CreateOrUpdateOpensearchCluster(input: OpensearchClusterV2
 export async function UpgradeAvailable(): Promise<UpgradeAvailableResponse> {
   try {
     
-    const response = (await axios.request({
-    transformResponse: resp => UpgradeAvailableResponse.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -102,8 +103,9 @@ export async function UpgradeAvailable(): Promise<UpgradeAvailableResponse> {
       url: `/opni-api/LoggingAdminV2/logging/upgrade/available`
     })).data;
 
+    const response = UpgradeAvailableResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to LoggingAdminV2-UpgradeAvailable:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -121,7 +123,7 @@ export async function DoUpgrade(input: UpgradeOptions): Promise<void> {
       console.info('Here is the input for a request to LoggingAdminV2-DoUpgrade:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'post',
       responseType: 'arraybuffer',
       headers: {
@@ -132,8 +134,9 @@ export async function DoUpgrade(input: UpgradeOptions): Promise<void> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to LoggingAdminV2-DoUpgrade:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -147,8 +150,7 @@ export async function DoUpgrade(input: UpgradeOptions): Promise<void> {
 export async function GetStorageClasses(): Promise<StorageClassResponse> {
   try {
     
-    const response = (await axios.request({
-    transformResponse: resp => StorageClassResponse.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -158,8 +160,9 @@ export async function GetStorageClasses(): Promise<StorageClassResponse> {
       url: `/opni-api/LoggingAdminV2/logging/storageclasses`
     })).data;
 
+    const response = StorageClassResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to LoggingAdminV2-GetStorageClasses:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -173,8 +176,7 @@ export async function GetStorageClasses(): Promise<StorageClassResponse> {
 export async function GetOpensearchStatus(): Promise<StatusResponse> {
   try {
     
-    const response = (await axios.request({
-    transformResponse: resp => StatusResponse.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -184,8 +186,9 @@ export async function GetOpensearchStatus(): Promise<StatusResponse> {
       url: `/opni-api/LoggingAdminV2/logging/status`
     })).data;
 
+    const response = StatusResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to LoggingAdminV2-GetOpensearchStatus:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -203,7 +206,7 @@ export async function CreateOrUpdateSnapshotSchedule(input: SnapshotSchedule): P
       console.info('Here is the input for a request to LoggingAdminV2-CreateOrUpdateSnapshotSchedule:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'put',
       responseType: 'arraybuffer',
       headers: {
@@ -214,8 +217,9 @@ export async function CreateOrUpdateSnapshotSchedule(input: SnapshotSchedule): P
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to LoggingAdminV2-CreateOrUpdateSnapshotSchedule:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -233,8 +237,7 @@ export async function GetSnapshotSchedule(input: SnapshotReference): Promise<Sna
       console.info('Here is the input for a request to LoggingAdminV2-GetSnapshotSchedule:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => SnapshotSchedule.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -245,8 +248,9 @@ export async function GetSnapshotSchedule(input: SnapshotReference): Promise<Sna
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = SnapshotSchedule.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to LoggingAdminV2-GetSnapshotSchedule:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -264,7 +268,7 @@ export async function DeleteSnapshotSchedule(input: SnapshotReference): Promise<
       console.info('Here is the input for a request to LoggingAdminV2-DeleteSnapshotSchedule:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'delete',
       responseType: 'arraybuffer',
       headers: {
@@ -275,8 +279,9 @@ export async function DeleteSnapshotSchedule(input: SnapshotReference): Promise<
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to LoggingAdminV2-DeleteSnapshotSchedule:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -290,8 +295,7 @@ export async function DeleteSnapshotSchedule(input: SnapshotReference): Promise<
 export async function ListSnapshotSchedules(): Promise<SnapshotStatusList> {
   try {
     
-    const response = (await axios.request({
-    transformResponse: resp => SnapshotStatusList$1.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -301,8 +305,9 @@ export async function ListSnapshotSchedules(): Promise<SnapshotStatusList> {
       url: `/opni-api/LoggingAdminV2/logging/snapshot`
     })).data;
 
+    const response = SnapshotStatusList$1.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to LoggingAdminV2-ListSnapshotSchedules:', response);
-    return new SnapshotStatusList(response)
+    return new SnapshotStatusList(response);
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));

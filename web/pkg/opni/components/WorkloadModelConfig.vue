@@ -92,7 +92,7 @@ export default {
 
         this.$set(this, 'hasGpu', await hasGpu());
 
-        this.$set(this, 'cluster', this.clusters[0].value);
+        this.$set(this, 'cluster', this.clusters[0].id);
         await Promise.all([this.loadDeployments(), this.loadStatus()]);
         await this.loadSelection();
         this.selectQueue();
@@ -184,7 +184,7 @@ export default {
     },
 
     getClusterName(clusterId) {
-      const cluster = this.clusters.find(c => c.value === clusterId);
+      const cluster = this.clusterOptions.find(c => c.value === clusterId);
 
       return cluster.label;
     },
@@ -245,7 +245,7 @@ export default {
     },
 
     clusterIds() {
-      return this.clusters.map(c => c.value);
+      return this.clusterOptions.map(c => c.value);
     },
 
     selectionCount() {
@@ -383,7 +383,7 @@ export default {
       >
         <template #header-right>
           <div :style="{width: '350px'}">
-            <LabeledSelect v-model="cluster" label="Cluster" :options="clusters" />
+            <LabeledSelect v-model="cluster" label="Cluster" :options="clusterOptions" />
           </div>
         </template>
       </SortableTable>

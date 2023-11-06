@@ -14,8 +14,7 @@ export async function Info(input: Reference): Promise<Details> {
       console.info('Here is the input for a request to Backend-Info:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => Details.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -26,8 +25,9 @@ export async function Info(input: Reference): Promise<Details> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = Details.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Backend-Info:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -41,8 +41,7 @@ export async function Info(input: Reference): Promise<Details> {
 export async function List(): Promise<DetailsList> {
   try {
     
-    const response = (await axios.request({
-    transformResponse: resp => DetailsList.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -52,8 +51,9 @@ export async function List(): Promise<DetailsList> {
       url: `/opni-api/Backend`
     })).data;
 
+    const response = DetailsList.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Backend-List:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -71,8 +71,7 @@ export async function Install(input: InstallRequest): Promise<InstallResponse> {
       console.info('Here is the input for a request to Backend-Install:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => InstallResponse.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -83,8 +82,9 @@ export async function Install(input: InstallRequest): Promise<InstallResponse> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = InstallResponse.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Backend-Install:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -102,8 +102,7 @@ export async function Status(input: StatusRequest): Promise<NodeCapabilityStatus
       console.info('Here is the input for a request to Backend-Status:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => NodeCapabilityStatus.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -114,8 +113,9 @@ export async function Status(input: StatusRequest): Promise<NodeCapabilityStatus
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = NodeCapabilityStatus.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Backend-Status:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -133,7 +133,7 @@ export async function Uninstall(input: UninstallRequest): Promise<void> {
       console.info('Here is the input for a request to Backend-Uninstall:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -144,8 +144,9 @@ export async function Uninstall(input: UninstallRequest): Promise<void> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to Backend-Uninstall:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -163,8 +164,7 @@ export async function UninstallStatus(input: UninstallStatusRequest): Promise<Ta
       console.info('Here is the input for a request to Backend-UninstallStatus:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => TaskStatus.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -175,8 +175,9 @@ export async function UninstallStatus(input: UninstallStatusRequest): Promise<Ta
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = TaskStatus.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to Backend-UninstallStatus:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -194,7 +195,7 @@ export async function CancelUninstall(input: CancelUninstallRequest): Promise<vo
       console.info('Here is the input for a request to Backend-CancelUninstall:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -205,8 +206,9 @@ export async function CancelUninstall(input: CancelUninstallRequest): Promise<vo
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to Backend-CancelUninstall:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -224,7 +226,7 @@ export async function SyncNow(input: Filter): Promise<void> {
       console.info('Here is the input for a request to Node-SyncNow:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -235,8 +237,9 @@ export async function SyncNow(input: Filter): Promise<void> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to Node-SyncNow:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -254,8 +257,7 @@ export async function Info(input: Reference): Promise<Details> {
       console.info('Here is the input for a request to RBACManager-Info:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => Details.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -266,8 +268,9 @@ export async function Info(input: Reference): Promise<Details> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = Details.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to RBACManager-Info:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -281,8 +284,7 @@ export async function Info(input: Reference): Promise<Details> {
 export async function List(): Promise<DetailsList> {
   try {
     
-    const response = (await axios.request({
-    transformResponse: resp => DetailsList.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -292,8 +294,9 @@ export async function List(): Promise<DetailsList> {
       url: `/opni-api/RBACManager`
     })).data;
 
+    const response = DetailsList.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to RBACManager-List:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -307,8 +310,7 @@ export async function List(): Promise<DetailsList> {
 export async function GetAvailablePermissions(): Promise<AvailablePermissions> {
   try {
     
-    const response = (await axios.request({
-    transformResponse: resp => AvailablePermissions.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -318,8 +320,9 @@ export async function GetAvailablePermissions(): Promise<AvailablePermissions> {
       url: `/opni-api/RBACManager`
     })).data;
 
+    const response = AvailablePermissions.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to RBACManager-GetAvailablePermissions:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -337,8 +340,7 @@ export async function GetRole(input: Reference): Promise<Role> {
       console.info('Here is the input for a request to RBACManager-GetRole:', input);
     }
   
-    const response = (await axios.request({
-    transformResponse: resp => Role.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -349,8 +351,9 @@ export async function GetRole(input: Reference): Promise<Role> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = Role.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to RBACManager-GetRole:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -368,7 +371,7 @@ export async function CreateRole(input: Role): Promise<void> {
       console.info('Here is the input for a request to RBACManager-CreateRole:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -379,8 +382,9 @@ export async function CreateRole(input: Role): Promise<void> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to RBACManager-CreateRole:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -398,7 +402,7 @@ export async function UpdateRole(input: Role): Promise<void> {
       console.info('Here is the input for a request to RBACManager-UpdateRole:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -409,8 +413,9 @@ export async function UpdateRole(input: Role): Promise<void> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to RBACManager-UpdateRole:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -428,7 +433,7 @@ export async function DeleteRole(input: Reference): Promise<void> {
       console.info('Here is the input for a request to RBACManager-DeleteRole:', input);
     }
   
-    const response = (await axios.request({
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -439,8 +444,9 @@ export async function DeleteRole(input: Reference): Promise<void> {
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
+    const response = rawResponse;
     console.info('Here is the response for a request to RBACManager-DeleteRole:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
@@ -454,8 +460,7 @@ export async function DeleteRole(input: Reference): Promise<void> {
 export async function ListRoles(): Promise<RoleList> {
   try {
     
-    const response = (await axios.request({
-    transformResponse: resp => RoleList.fromBinary(new Uint8Array(resp)),
+    const rawResponse = (await axios.request({
       method: 'get',
       responseType: 'arraybuffer',
       headers: {
@@ -465,8 +470,9 @@ export async function ListRoles(): Promise<RoleList> {
       url: `/opni-api/RBACManager`
     })).data;
 
+    const response = RoleList.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to RBACManager-ListRoles:', response);
-    return response
+    return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
       const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));

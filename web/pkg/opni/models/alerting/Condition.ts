@@ -494,7 +494,7 @@ export class Condition extends Resource {
   }
 
   async remove() {
-    await deleteAlertCondition(this.id);
+    await deleteAlertCondition(this.id, this.groupId);
     super.remove();
   }
 

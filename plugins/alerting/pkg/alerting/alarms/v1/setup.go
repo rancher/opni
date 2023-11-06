@@ -14,12 +14,14 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
+	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
 )
 
 const (
 	metadataLastAppliedHashKey = "opni.io/alarm-hash"
-	metadataInactiveAlarm      = "opni.io/alarm-inactive"
+	// this metadata key indicates this has yet to be activated in a remote backend
+	metadataInactiveAlarm = "opni.io/alarm-inactive"
 )
 
 func (p *AlarmServerComponent) shouldDelete(
@@ -106,6 +108,8 @@ func (p *AlarmServerComponent) activateCondition(
 	cond *alertingv1.AlertCondition,
 	conditionId string,
 ) (ref *corev1.Reference, retErr error) {
+	lg := p.logger.With("condition", cond.GetName(), "id", cond.GetId(), "cond-group", cond.GroupId)
+	lg.Info("activating alarm")
 	conditionStorage, err := p.conditionStorage.GetContext(ctx)
 	if err != nil {
 		return nil, err
@@ -128,6 +132,8 @@ func (p *AlarmServerComponent) activateCondition(
 			delete(md, metadataInactiveAlarm)
 			cond.Metadata = md
 			retErr = conditionStorage.Group(cond.GroupId).Put(ctx, conditionId, cond)
+		} else {
+			lg.Error("failed to activate alarm")
 		}
 	}()
 
@@ -215,7 +221,7 @@ func (p *AlarmServerComponent) handleKubeAlertCreation(ctx context.Context, cond
 	if err != nil {
 		return err
 	}
-	kubeRuleContent, err := cortex.NewPrometheusAlertingRule(newId, alertName,
+	kubeRuleContent, md, err := cortex.NewPrometheusAlertingRule(newId, alertName,
 		cond.GetRoutingLabels(),
 		cond.GetRoutingAnnotations(),
 		k, nil, baseKubeRule,
@@ -223,6 +229,8 @@ func (p *AlarmServerComponent) handleKubeAlertCreation(ctx context.Context, cond
 	if err != nil {
 		return err
 	}
+
+	cond.Metadata = lo.Assign(cond.Metadata, md)
 	out, err := yaml.Marshal(kubeRuleContent)
 	if err != nil {
 		return err
@@ -260,13 +268,14 @@ func (p *AlarmServerComponent) handleCpuSaturationAlertCreation(
 	if err != nil {
 		return err
 	}
-	cpuRuleContent, err := cortex.NewPrometheusAlertingRule(conditionId, alertName,
+	cpuRuleContent, md, err := cortex.NewPrometheusAlertingRule(conditionId, alertName,
 		cond.GetRoutingLabels(),
 		cond.GetRoutingAnnotations(),
 		c, nil, baseCpuRule)
 	if err != nil {
 		return err
 	}
+	cond.Metadata = lo.Assign(cond.Metadata, md)
 	out, err := yaml.Marshal(cpuRuleContent)
 	if err != nil {
 		return err
@@ -297,7 +306,7 @@ func (p *AlarmServerComponent) handleMemorySaturationAlertCreation(ctx context.C
 	if err != nil {
 		return err
 	}
-	memRuleContent, err := cortex.NewPrometheusAlertingRule(conditionId, alertName,
+	memRuleContent, md, err := cortex.NewPrometheusAlertingRule(conditionId, alertName,
 		cond.GetRoutingLabels(),
 		cond.GetRoutingAnnotations(),
 		m,
@@ -307,6 +316,7 @@ func (p *AlarmServerComponent) handleMemorySaturationAlertCreation(ctx context.C
 	if err != nil {
 		return err
 	}
+	cond.Metadata = lo.Assign(cond.Metadata, md)
 
 	out, err := yaml.Marshal(memRuleContent)
 	if err != nil {
@@ -336,7 +346,7 @@ func (p *AlarmServerComponent) handleFsSaturationAlertCreation(ctx context.Conte
 	if err != nil {
 		return err
 	}
-	fsRuleContent, err := cortex.NewPrometheusAlertingRule(
+	fsRuleContent, md, err := cortex.NewPrometheusAlertingRule(
 		conditionId,
 		alertName,
 		cond.GetRoutingLabels(),
@@ -348,7 +358,7 @@ func (p *AlarmServerComponent) handleFsSaturationAlertCreation(ctx context.Conte
 	if err != nil {
 		return err
 	}
-
+	cond.Metadata = lo.Assign(cond.Metadata, md)
 	out, err := yaml.Marshal(fsRuleContent)
 	if err != nil {
 		return err
@@ -376,13 +386,14 @@ func (p *AlarmServerComponent) handlePrometheusQueryAlertCreation(ctx context.Co
 		Annotations: map[string]string{},
 	}
 
-	baseRuleContent, err := cortex.NewPrometheusAlertingRule(conditionId, alertName,
+	baseRuleContent, md, err := cortex.NewPrometheusAlertingRule(conditionId, alertName,
 		cond.GetRoutingLabels(),
 		cond.GetRoutingAnnotations(),
 		q, nil, baseRule)
 	if err != nil {
 		return err
 	}
+	cond.Metadata = lo.Assign(cond.Metadata, md)
 	var out bytes.Buffer
 	encoder := yaml.NewEncoder(&out)
 	err = encoder.Encode(baseRuleContent)

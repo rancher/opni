@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"log/slog"
+
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/pkg/versions"
 	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
@@ -22,10 +24,9 @@ import (
 	grpcstatus "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	corev1 "k8s.io/api/core/v1"
-	"log/slog"
 )
 
-const defaultOpniVersion = "0.11.2"
+const defaultOpniVersion = "0.12.0"
 
 type ClusterStatus int
 
@@ -86,7 +87,8 @@ func (m *LoggingManagerV2) DeleteOpensearchCluster(ctx context.Context, _ *empty
 
 	// Remove the state tracking the initial admin
 	err := m.opensearchManager.DeleteInitialAdminState()
-	if err != nil {
+	st, _ := grpcstatus.FromError(err)
+	if err != nil && st.Code() != codes.NotFound {
 		return nil, err
 	}
 
@@ -102,6 +104,9 @@ func (m *LoggingManagerV2) DeleteOpensearchCluster(ctx context.Context, _ *empty
 }
 
 func (m *LoggingManagerV2) CreateOrUpdateOpensearchCluster(ctx context.Context, cluster *loggingadmin.OpensearchClusterV2) (*emptypb.Empty, error) {
+	if err := cluster.Validate(); err != nil {
+		return nil, err
+	}
 	// Validate retention string
 	if !m.validDurationString(lo.FromPtrOr(cluster.DataRetention, "7d")) {
 		return &emptypb.Empty{}, loggingerrors.ErrInvalidDuration

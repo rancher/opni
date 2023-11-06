@@ -125,10 +125,16 @@ export default {
     },
 
     async loadStatus() {
-      if (this.enabled || this.editing) {
-        await this.getStatus().then((status) => {
-          this.$set(this, 'status', status);
-        });
+      if ((this.enabled || this.editing) && this.getStatus) {
+        try {
+          const status = await this.getStatus();
+
+          if (status) {
+            this.$set(this, 'status', status);
+          }
+        } catch (ex) {
+          console.error(ex);
+        }
       }
     },
 

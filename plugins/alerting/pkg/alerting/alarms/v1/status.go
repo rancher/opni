@@ -2,13 +2,13 @@ package alarms
 
 import (
 	"context"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/prometheus/alertmanager/api/v2/models"
 	"github.com/prometheus/alertmanager/pkg/labels"
 	promClient "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/rancher/opni/pkg/alerting/drivers/cortex"
 	"github.com/rancher/opni/pkg/alerting/drivers/routing"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
@@ -83,7 +83,7 @@ func (a *AlarmServerComponent) checkMetricsClusterStatus(
 			Reason: "cluster does not have metrics capabilities installed",
 		}
 	}
-	if status := evaluatePrometheusRuleHealth(metricsInfo.cortexRules, cond.GetId()); status != nil {
+	if status := a.evaluatePrometheusRuleHealth(cond, metricsInfo.cortexRules); status != nil {
 		return status
 	}
 	return &alertingv1.AlertStatusResponse{
@@ -372,41 +372,84 @@ func statusFromAlertGroup(
 	return defaultState
 }
 
-func evaluatePrometheusRuleHealth(ruleList *cortexadmin.RuleGroups, id string) *alertingv1.AlertStatusResponse {
+func (a *AlarmServerComponent) evaluatePrometheusRuleHealth(cond *alertingv1.AlertCondition, ruleList *cortexadmin.RuleGroups) *alertingv1.AlertStatusResponse {
 	if ruleList == nil {
 		return &alertingv1.AlertStatusResponse{
 			State:  alertingv1.AlertConditionState_Pending,
 			Reason: "waiting for monitoring rule state(s) to be available from metrics backend",
 		}
 	}
+	insufficientMetadata := &alertingv1.AlertStatusResponse{
+		State:  alertingv1.AlertConditionState_Pending,
+		Reason: "insufficient metadata required to reference remote rule",
+	}
+	md := cond.GetMetadata()
+	if md == nil {
+		return insufficientMetadata
+	}
+	groupName, ok := md[cortex.MetadataCortexGroup]
+	if !ok {
+		return insufficientMetadata
+	}
+
+	ruleName, ok := md[cortex.MetadataCortexRuleName]
+	if !ok {
+		return insufficientMetadata
+	}
 
 	for _, group := range ruleList.GetGroups() {
-		if strings.Contains(group.GetName(), id) {
-			if len(group.GetRules()) == 0 {
-				return &alertingv1.AlertStatusResponse{
-					State:  alertingv1.AlertConditionState_Pending,
-					Reason: "waiting for monitoring rule state(s) to be available from metrics backend",
-				}
-			}
-			healthList := lo.Map(group.GetRules(), func(rule *cortexadmin.Rule, _ int) string {
-				return rule.GetHealth()
-			})
-			health := lo.Associate(healthList, func(health string) (string, struct{}) {
-				return health, struct{}{}
-			})
-			if _, ok := health[promClient.RuleHealthBad]; ok {
-				return &alertingv1.AlertStatusResponse{
-					State:  alertingv1.AlertConditionState_Invalidated,
-					Reason: "one or more metric dependencies are unable to be evaluated",
-				}
-			}
-			if _, ok := health[promClient.RuleHealthUnknown]; ok {
-				return &alertingv1.AlertStatusResponse{
-					State:  alertingv1.AlertConditionState_Pending,
-					Reason: "waiting for monitoring rule state(s) to be available from metrics backend",
-				}
+		if group.GetName() != groupName {
+			continue
+		}
+		if len(group.GetRules()) == 0 {
+			return &alertingv1.AlertStatusResponse{
+				State:  alertingv1.AlertConditionState_Pending,
+				Reason: "waiting for monitoring rule state(s) to be available from metrics backend",
 			}
 		}
+		found := false
+		for _, rule := range group.GetRules() {
+			if rule.GetName() == ruleName {
+				found = true
+			}
+		}
+		if !found {
+			return &alertingv1.AlertStatusResponse{
+				State:  alertingv1.AlertConditionState_Pending,
+				Reason: "prometheus alerting rule is not found in metrics backend",
+			}
+		}
+
+		healthList := lo.Map(group.GetRules(), func(rule *cortexadmin.Rule, _ int) string {
+			return rule.GetHealth()
+		})
+		health := lo.Associate(healthList, func(health string) (string, struct{}) {
+			return health, struct{}{}
+		})
+		if _, ok := health[promClient.RuleHealthBad]; ok {
+			return &alertingv1.AlertStatusResponse{
+				State:  alertingv1.AlertConditionState_Invalidated,
+				Reason: "one or more prometheus rules in this group are unable to be evaluated",
+			}
+		}
+		if _, ok := health[promClient.RuleHealthUnknown]; ok {
+			return &alertingv1.AlertStatusResponse{
+				State:  alertingv1.AlertConditionState_Pending,
+				Reason: "waiting for all prometheus rule state(s) to be available from metrics backend",
+			}
+		}
+		return &alertingv1.AlertStatusResponse{
+			State: alertingv1.AlertConditionState_Ok,
+		}
 	}
-	return nil
+	if _, ok := md[metadataInactiveAlarm]; ok {
+		return &alertingv1.AlertStatusResponse{
+			State:  alertingv1.AlertConditionState_Pending,
+			Reason: "prometheus rule group has not been created yet",
+		}
+	}
+	return &alertingv1.AlertStatusResponse{
+		State:  alertingv1.AlertConditionState_Invalidated,
+		Reason: "prometheus rule group could not be found in metrics backend",
+	}
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/rancher/opni/pkg/alerting/message"
 	"github.com/rancher/opni/pkg/alerting/metrics"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
@@ -18,6 +19,12 @@ import (
 Contains the struct/function adapters required for opni alerting to
 communicate with cortex.
 */
+
+const (
+	MetadataCortexNamespace = "opni.io/cortex-rule-namespace"
+	MetadataCortexGroup     = "opni.io/cortex-rule-group"
+	MetadataCortexRuleName  = "opni.io/cortex-rule-name"
+)
 
 const alertingSuffix = "-opni-alerting"
 
@@ -58,11 +65,11 @@ func NewPrometheusAlertingRule(
 	info alertingv1.IndexableMetric,
 	interval *time.Duration,
 	rule metrics.AlertRuleBuilder,
-) (*rulefmt.RuleGroup, error) {
+) (ruleGroup *rulefmt.RuleGroup, metadata map[string]string, err error) {
 	idLabels := ConstructIdLabelsForRecordingRule(alertId)
 	alertingRule, err := rule.Build(alertId)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	recordingRuleFmt := &rulefmt.RuleNode{
 		Record: yaml.Node{
@@ -88,9 +95,15 @@ func NewPrometheusAlertingRule(
 		promInterval = prommodel.Duration(*interval)
 	}
 
-	return &rulefmt.RuleGroup{
+	rg := &rulefmt.RuleGroup{
 		Name:     RuleIdFromUuid(alertId),
 		Interval: promInterval,
 		Rules:    []rulefmt.RuleNode{*alertingRule, *recordingRuleFmt},
+	}
+
+	return rg, map[string]string{
+		MetadataCortexNamespace: shared.OpniAlertingCortexNamespace,
+		MetadataCortexGroup:     rg.Name,
+		MetadataCortexRuleName:  alertingRule.Alert.Value,
 	}, nil
 }

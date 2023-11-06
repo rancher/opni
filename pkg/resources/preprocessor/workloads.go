@@ -70,8 +70,13 @@ processors:
     log_statements:
     - context: log
       statements:
-      - set(attributes["COMM"], attributes["_COMM"])
-      - delete_matching_keys(attributes, "^_.*")
+      - merge_maps(cache, body, "upsert") where not IsString(body) and attributes["filename"] == nil
+      - set(attributes["COMM"], cache["_COMM"])
+      - set(attributes["MESSAGE"], cache["MESSAGE"])
+      - set(attributes["PRIORITY"], cache["PRIORITY"])
+      - set(attributes["SYSLOG_FACILITY"], cache["SYSLOG_FACILITY"])
+      - set(attributes["SYSLOG_IDENTIFIER"], cache["SYSLOG_IDENTIFIER"])
+      - limit(body, 0, []) where not IsString(body) and attributes["filename"] == nil
     - context: resource
       statements:
       - set(attributes["log_type"], "controlplane") where attributes["k8s.pod.labels.tier"] == "control-plane"

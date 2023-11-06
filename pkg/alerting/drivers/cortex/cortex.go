@@ -2,6 +2,7 @@ package cortex
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -66,6 +67,7 @@ func NewPrometheusAlertingRule(
 	interval *time.Duration,
 	rule metrics.AlertRuleBuilder,
 ) (ruleGroup *rulefmt.RuleGroup, metadata map[string]string, err error) {
+	alertId = url.PathEscape(alertId) // prevents cortex from silently failing with BadKey
 	idLabels := ConstructIdLabelsForRecordingRule(alertId)
 	alertingRule, err := rule.Build(alertId)
 	if err != nil {

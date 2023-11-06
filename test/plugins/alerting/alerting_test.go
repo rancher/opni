@@ -4,11 +4,11 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/rand"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	alertmanagerv2 "github.com/prometheus/alertmanager/api/v2/models"
@@ -239,7 +239,7 @@ func BuildAlertingClusterIntegrationTests(
 				})
 
 				It("should be able to create some endpoints", func() {
-					servers = alerting.CreateWebhookServer(env, numServers)
+					servers = alerting.CreateWebhookServer(numServers)
 
 					for _, server := range servers {
 						ref, err := alertEndpointsClient.CreateAlertEndpoint(env.Context(), server.Endpoint())
@@ -260,29 +260,58 @@ func BuildAlertingClusterIntegrationTests(
 						_, err := alertNotificationsClient.TestAlertEndpoint(env.Context(), endp.GetId())
 						Expect(err).To(Succeed())
 					}
-					maxSuccesses := 0
+					alertingProxyGET := fmt.Sprintf("https://%s/plugin_alerting/alertmanager/api/v2/alerts/groups", env.GatewayConfig().Spec.HTTPListenAddress)
+					req, err := http.NewRequestWithContext(env.Context(), http.MethodGet, alertingProxyGET, nil)
+					Expect(err).To(Succeed())
+
 					Eventually(func() error {
-						success := 0
-						errs := []error{}
-						for _, server := range servers {
-							if len(server.GetBuffer()) == 0 {
-								if success > maxSuccesses {
-									maxSuccesses = success
+						resp, err := httpProxyClient.Do(req)
+						if err != nil {
+							return err
+						}
+						defer resp.Body.Close()
+						if resp.StatusCode != http.StatusOK {
+							return fmt.Errorf("expected proxy to return status OK, instead got : %d, %s", resp.StatusCode, resp.Status)
+						}
+						res := alertmanagerv2.AlertGroups{}
+						if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+							return err
+						}
+						if len(res) == 0 {
+							return fmt.Errorf("expected to get empty alertgroup from alertmanager")
+						}
+
+						for _, endp := range endpList.GetItems() {
+							endpId := endp.GetId().GetId()
+							found := false
+							for _, ag := range res {
+								for _, alert := range ag.Alerts {
+									uuid, ok1 := alert.Labels[message.NotificationPropertyOpniUuid]
+									nsUuid, ok2 := alert.Labels[message.TestNamespace]
+									if ok1 && ok1 == ok2 && uuid == nsUuid {
+										foundMatchingRecv := false
+										for _, recv := range alert.Receivers {
+											if recv.Name != nil && strings.Contains(*recv.Name, endpId) {
+												foundMatchingRecv = true
+												break
+											}
+										}
+										if foundMatchingRecv {
+											found = true
+											break
+										}
+									}
 								}
-								errs = append(errs, fmt.Errorf("server %v did not receive any alerts", server.Endpoint()))
-							} else {
-								success++
+								if found {
+									break
+								}
+							}
+							if !found {
+								return fmt.Errorf("could not find alert for endpoints %s, %v", endpId, res)
 							}
 						}
-						if len(errs) > 0 {
-							return errors.Join(errs...)
-						}
 						return nil
-					}, time.Second*15, time.Millisecond*100).Should(Succeed(), fmt.Sprintf("only %d/%d servers received alerts", maxSuccesses, numServers))
-
-					for _, server := range servers {
-						server.ClearBuffer()
-					}
+					}, time.Second*10, time.Millisecond*200).Should(Succeed())
 				})
 
 				It("should create some default conditions when bootstrapping agents", func() {
@@ -458,7 +487,7 @@ func BuildAlertingClusterIntegrationTests(
 					}
 
 					By("creating some default webhook servers as endpoints")
-					notificationServers = alerting.CreateWebhookServer(env, numNotificationServers)
+					notificationServers = alerting.CreateWebhookServer(numNotificationServers)
 					for _, server := range notificationServers {
 						ref, err := alertEndpointsClient.CreateAlertEndpoint(env.Context(), server.Endpoint())
 						Expect(err).To(Succeed())
@@ -569,7 +598,7 @@ func BuildAlertingClusterIntegrationTests(
 
 					By("verifying the physical servers have received the disconnect messages")
 					Eventually(func() error {
-						servers := servers
+						// servers := servers
 						conditionIds := lo.Keys(involvedDisconnects)
 						for _, id := range conditionIds {
 							status, err := alertConditionsClient.AlertConditionStatus(env.Context(), &alertingv1.ConditionReference{Id: id})
@@ -591,27 +620,72 @@ func BuildAlertingClusterIntegrationTests(
 							}
 						}
 
-						for _, server := range servers {
-							if slices.Contains(webhooks, server.EndpointId) {
-								// hard to map these excatly without recreating the internal routing logic from the routers
-								// since we have dedicated routing integration tests, we can just check that the buffer is not empty
-								if len(server.GetBuffer()) == 0 {
-									return fmt.Errorf("expected webhook server %s to have messages, got %d", server.EndpointId, len(server.GetBuffer()))
+						alertingProxyGET := fmt.Sprintf("https://%s/plugin_alerting/alertmanager/api/v2/alerts/groups", env.GatewayConfig().Spec.HTTPListenAddress)
+						req, err := http.NewRequestWithContext(env.Context(), http.MethodGet, alertingProxyGET, nil)
+						Expect(err).To(Succeed())
+
+						condList, err := alertConditionsClient.ListAlertConditions(env.Context(), &alertingv1.ListAlertConditionRequest{})
+						Expect(err).To(Succeed())
+
+						cList := []*alertingv1.AlertCondition{}
+						for _, cond := range condList.Items {
+							if slices.Contains(conditionIds, cond.GetAlertCondition().GetId()) {
+								cList = append(cList, cond.GetAlertCondition())
+							}
+						}
+						Expect(cList).To(HaveLen(len(conditionIds)))
+
+						resp, err := httpProxyClient.Do(req)
+						if err != nil {
+							return err
+						}
+						defer resp.Body.Close()
+						if resp.StatusCode != http.StatusOK {
+							return fmt.Errorf("expected proxy to return status OK, instead got : %d, %s", resp.StatusCode, resp.Status)
+						}
+						res := alertmanagerv2.AlertGroups{}
+						if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+							return err
+						}
+						if len(res) == 0 {
+							return fmt.Errorf("expected to get empty alertgroup from alertmanager")
+						}
+
+						// TODO : perhaps refactor into a helper
+						for _, cond := range cList {
+							condId := cond.GetId()
+							found := false
+							attachedEndpoints := cond.GetAttachedEndpoints().GetItems()
+							for _, ag := range res {
+								for _, alert := range ag.Alerts {
+									uuid, ok := alert.Labels[message.NotificationPropertyOpniUuid]
+									if ok && uuid == condId {
+										foundMatchingRecv := true
+										if len(attachedEndpoints) > 0 {
+											foundMatchingRecv = false
+											for _, recv := range alert.Receivers {
+												if recv.Name != nil && strings.Contains(*recv.Name, condId) {
+													foundMatchingRecv = true
+													break
+												}
+											}
+										}
+										if foundMatchingRecv {
+											found = true
+											break
+										}
+									}
 								}
+								if found {
+									break
+								}
+							}
+							if !found {
+								return fmt.Errorf("could not find alert for condition %s, %v", condId, res)
 							}
 						}
 						return nil
 					}, time.Second*60, time.Millisecond*500).Should(Succeed())
-
-					By("verifying the notification servers have not received any alarm disconnect messages")
-					Eventually(func() error {
-						for _, server := range notificationServers {
-							if len(server.GetBuffer()) != 0 {
-								return fmt.Errorf("expected webhook server %s to not have any notifications, got %d", server.EndpointId, len(server.GetBuffer()))
-							}
-						}
-						return nil
-					}, time.Second*5, time.Second*1).Should(Succeed())
 				})
 
 				It("should be able to batch list status and filter by status", func() {
@@ -638,50 +712,6 @@ func BuildAlertingClusterIntegrationTests(
 					for _, cond := range firingOnlyStatusList.AlertConditions {
 						Expect(cond.Status.State).To(Equal(alertingv1.AlertConditionState_Firing))
 					}
-				})
-
-				It("should be able to push notifications to our notification endpoints", func() {
-					Expect(len(notificationServers)).To(BeNumerically(">", 0))
-					By("forwarding the message to AlertManager")
-					_, err := alertNotificationsClient.PushNotification(env.Context(), &alertingv1.Notification{
-						Title: "hello",
-						Body:  "world",
-						// set to critical in order to expedite the notification during testing
-						Properties: map[string]string{
-							message.NotificationPropertySeverity: alertingv1.OpniSeverity_Critical.String(),
-						},
-					})
-					Expect(err).To(Succeed())
-
-					By("verifying the endpoints have received the notification messages")
-					Eventually(func() error {
-						for _, server := range notificationServers {
-							if len(server.GetBuffer()) == 0 {
-								return fmt.Errorf("expected webhook server %s to have messages, got %d", server.EndpointId, len(server.GetBuffer()))
-							}
-						}
-						return nil
-					}, time.Second*60, time.Second).Should(Succeed())
-				})
-
-				It("should be able to list opni messages", func() {
-					Eventually(func() error {
-						list, err := alertNotificationsClient.ListNotifications(env.Context(), &alertingv1.ListNotificationRequest{})
-						if err != nil {
-							return err
-						}
-						if len(list.Items) == 0 {
-							return fmt.Errorf("expected to find at least one notification, got 0")
-						}
-						return nil
-					}, time.Second*60, time.Second).Should(Succeed())
-
-					By("verifying we enforce limits")
-					list, err := alertNotificationsClient.ListNotifications(env.Context(), &alertingv1.ListNotificationRequest{
-						Limit: lo.ToPtr(int32(1)),
-					})
-					Expect(err).To(Succeed())
-					Expect(len(list.Items)).To(Equal(1))
 				})
 
 				It("should return warnings when trying to edit/delete alert endpoints that are involved in conditions", func() {

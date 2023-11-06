@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
@@ -156,9 +157,10 @@ func (p *AlarmServerComponent) onSystemConditionCreate(conditionId, conditionNam
 		defer cancel() // cancel parent context, if we return (non-recoverable)
 		evaluator.EvaluateLoop()
 	}()
-	p.runner.AddSystemConfigListener(conditionId, EvaluatorContext{
-		Ctx:    evaluator.evaluationCtx,
-		Cancel: evaluator.cancelEvaluation,
+	p.runner.AddSystemConfigListener(conditionId, &EvaluatorContext{
+		Ctx:     evaluator.evaluationCtx,
+		Cancel:  evaluator.cancelEvaluation,
+		running: &atomic.Bool{},
 	})
 	return nil
 }
@@ -254,9 +256,10 @@ func (p *AlarmServerComponent) onDownstreamCapabilityConditionCreate(conditionId
 		defer cancel() // cancel parent context, if we return (non-recoverable)
 		evaluator.EvaluateLoop()
 	}()
-	p.runner.AddSystemConfigListener(conditionId, EvaluatorContext{
-		Ctx:    evaluator.evaluationCtx,
-		Cancel: evaluator.cancelEvaluation,
+	p.runner.AddSystemConfigListener(conditionId, &EvaluatorContext{
+		Ctx:     evaluator.evaluationCtx,
+		Cancel:  evaluator.cancelEvaluation,
+		running: &atomic.Bool{},
 	})
 	return nil
 }
@@ -554,9 +557,10 @@ func (p *AlarmServerComponent) onCortexClusterStatusCreate(conditionId, conditio
 		defer cancel() // cancel parent context, if we return (non-recoverable)
 		evaluator.EvaluateLoop()
 	}()
-	p.runner.AddSystemConfigListener(conditionId, EvaluatorContext{
-		Ctx:    evaluator.evaluationCtx,
-		Cancel: evaluator.cancelEvaluation,
+	p.runner.AddSystemConfigListener(conditionId, &EvaluatorContext{
+		Ctx:     evaluator.evaluationCtx,
+		Cancel:  evaluator.cancelEvaluation,
+		running: &atomic.Bool{},
 	})
 	return nil
 }

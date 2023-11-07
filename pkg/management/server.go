@@ -13,6 +13,7 @@ import (
 
 	"log/slog"
 
+	"github.com/coreos/go-oidc"
 	"github.com/gin-gonic/gin"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/jhump/protoreflect/desc"
@@ -20,6 +21,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth/local"
+	"github.com/rancher/opni/pkg/auth/middleware"
 	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config"
@@ -32,7 +34,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
-	"github.com/rancher/opni/pkg/proxy/middleware"
 	proxyrouter "github.com/rancher/opni/pkg/proxy/router"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
@@ -85,6 +86,8 @@ type Server struct {
 	grpcServer        *grpc.Server
 	dashboardSettings *DashboardSettingsManager
 	router            *gin.Engine
+	middleware        *middleware.MultiMiddleware
+	oauthConfig       *oauth2.Config
 
 	apiExtMu      sync.RWMutex
 	apiExtensions []apiExtension
@@ -208,19 +211,48 @@ func NewServer(
 			).Info("added capability rbac backend")
 		}
 	}))
+
+	authGroup := m.router.Group("/auth")
+
+	issuer := ""             // TODO: Load this from config
+	clientID := ""           // TODO: Load this from config
+	clientSecret := ""       //TODO: Load this from config
+	scopes := []string{}     //TODO: Load this from config
+	localServerAddress := "" // TODO: Load this from config
+	var useOIDC bool         //TODO: Load this from config
+
+	if useOIDC {
+		provider, err := oidc.NewProvider(ctx, issuer)
+		if err != nil {
+			panic(err)
+		}
+		m.oauthConfig = &oauth2.Config{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			Endpoint:     provider.Endpoint(),
+			Scopes:       scopes,
+			RedirectURL:  fmt.Sprintf("%s/auth/oidc/callback", localServerAddress),
+		}
+		handler := oidcHandler{
+			logger:   m.logger.WithGroup("oidc_auth"),
+			config:   m.oauthConfig,
+			provider: provider,
+		}
+		authGroup.Any("/oidc/redirect", handler.handleRedirect)
+		authGroup.Any("/oidc/callback", handler.handleCallback)
+	}
+
 	localAuth := local.NewLocalAuthenticator(m.store.KeyValueStore("auth"))
-	middleware := middleware.OIDCMiddleware{
+	m.middleware = &middleware.MultiMiddleware{
 		Logger:             lg.WithGroup("auth_middleware"),
-		Config:             oauth2.Config{}, // TODO: load this from config
-		SubjectField:       "user",          //TODO: load this from config
-		UseOIDC:            false,           //TODO: load this from config
+		Config:             m.oauthConfig,
+		IdentifyingClaim:   "user", //TODO: load this from config
+		UseOIDC:            useOIDC,
 		LocalAuthenticator: localAuth,
 	}
 
 	proxy := m.router.Group("/proxy")
-	proxy.Use(middleware.Handler())
-	// Add middleware here to extract username from claims
-	// proxy.Use(middleware)
+	proxy.Use(m.middleware.Handler())
 	pluginLoader.Hook(hooks.OnLoad(func(p types.ProxyPlugin) {
 		log := lg.WithGroup("proxy")
 		pluginRouter, err := proxyrouter.NewRouter(proxyrouter.RouterConfig{
@@ -236,6 +268,8 @@ func NewServer(
 		}
 		pluginRouter.SetRoutes(proxy)
 	}))
+
+	authGroup.GET("/type", m.middleware.GetAuthType)
 
 	return m
 }
@@ -299,7 +333,6 @@ func (m *Server) listenAndServeHttp(ctx context.Context) error {
 	lg.With(
 		"address", m.config.HTTPListenAddress,
 	).Info("management HTTP server starting")
-	mux := http.NewServeMux()
 	gwmux := runtime.NewServeMux(
 		runtime.WithMarshalerOption("application/json", &LegacyJsonMarshaler{}),
 		runtime.WithMarshalerOption("application/octet-stream", &DynamicV1Marshaler{}),
@@ -307,11 +340,12 @@ func (m *Server) listenAndServeHttp(ctx context.Context) error {
 	)
 
 	m.configureManagementHttpApi(ctx, gwmux)
+	mgmtGroup := m.router.Group("/mgmt")
+	mgmtGroup.Any("/*any", gin.WrapF(gwmux.ServeHTTP))
+
 	m.configureHttpApiExtensions()
-	mux.Handle("/", gwmux)
 	server := &http.Server{
-		Addr:    m.config.HTTPListenAddress,
-		Handler: mux,
+		Addr: m.config.HTTPListenAddress,
 		BaseContext: func(net.Listener) context.Context {
 			return ctx
 		},

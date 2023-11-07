@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/render"
+	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/auth/local"
 	"github.com/rancher/opni/pkg/proxy"
 	"github.com/rancher/opni/pkg/util/oidc"
@@ -22,16 +24,16 @@ const (
 	authenticateHeader = "WWW-Authenticate"
 )
 
-type OIDCMiddleware struct {
+type MultiMiddleware struct {
 	Logger             *slog.Logger
-	Config             oauth2.Config
-	SubjectField       string
+	Config             *oauth2.Config
+	IdentifyingClaim   string
 	UseOIDC            bool
 	LocalAuthenticator local.LocalAuthenticator
 }
 
-func (m *OIDCMiddleware) setUser(tc *ginoauth2.TokenContainer, ctx *gin.Context) bool {
-	userID := oidc.SubjectFromClaims(m.Logger, tc.Token, m.SubjectField)
+func (m *MultiMiddleware) setUser(tc *ginoauth2.TokenContainer, ctx *gin.Context) bool {
+	userID := oidc.SubjectFromClaims(m.Logger, tc.Token, m.IdentifyingClaim)
 	if userID == nil {
 		m.Logger.Warn("no user info in jwt")
 		return false
@@ -40,7 +42,7 @@ func (m *OIDCMiddleware) setUser(tc *ginoauth2.TokenContainer, ctx *gin.Context)
 	return true
 }
 
-func (m *OIDCMiddleware) basicAuthPassword(value string) []byte {
+func (m *MultiMiddleware) basicAuthPassword(value string) []byte {
 	basicPrefix := "Basic "
 	if !strings.HasPrefix(value, basicPrefix) {
 		return []byte{}
@@ -62,9 +64,11 @@ func (m *OIDCMiddleware) basicAuthPassword(value string) []byte {
 	return split[1]
 }
 
-func (m *OIDCMiddleware) Handler() gin.HandlerFunc {
+func (m *MultiMiddleware) Handler(authCheck ...ginoauth2.AccessCheckFunction) gin.HandlerFunc {
 	if m.UseOIDC {
-		return ginoauth2.Auth(m.setUser, m.Config.Endpoint)
+		authChain := []ginoauth2.AccessCheckFunction{m.setUser}
+		authChain = append(authChain, authCheck...)
+		return ginoauth2.AuthChain(m.Config.Endpoint, authChain...)
 	}
 	return func(c *gin.Context) {
 		authHeader := c.Request.Header.Get("Authorization")
@@ -89,4 +93,25 @@ func (m *OIDCMiddleware) Handler() gin.HandlerFunc {
 		m.Logger.With("error", err.Error()).Error("password verification failed")
 		c.AbortWithStatus(http.StatusInternalServerError)
 	}
+}
+
+type AuthTypeResponse struct {
+	AuthType auth.AuthType `json:"type"`
+}
+
+func (m *MultiMiddleware) GetAuthType(ctx *gin.Context) {
+	if m.UseOIDC {
+		ctx.Render(http.StatusOK, render.JSON{
+			Data: AuthTypeResponse{
+				AuthType: auth.AuthTypeOIDC,
+			},
+		})
+		return
+	}
+
+	ctx.Render(http.StatusOK, render.JSON{
+		Data: AuthTypeResponse{
+			AuthType: auth.AuthTypeBasic,
+		},
+	})
 }

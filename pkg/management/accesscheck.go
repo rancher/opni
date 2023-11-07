@@ -8,8 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
+	"github.com/rancher/opni/pkg/proxy"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/util/oidc"
 	ginoauth2 "github.com/zalando/gin-oauth2"
 )
 
@@ -20,34 +20,37 @@ type accessChecker struct {
 }
 
 func (c *accessChecker) CheckAccessForExtension(tc *ginoauth2.TokenContainer, ctx *gin.Context) bool {
-	// TODO set this from oauth config
-	subjectField := "user"
-	userID := oidc.SubjectFromClaims(c.logger, tc.Token, subjectField)
-	if userID == nil {
-		c.logger.Warn("no user info in jwt")
+	uid, ok := ctx.Get(proxy.SubjectKey)
+	if !ok {
+		c.logger.Warn("no user in gin context")
 		return false
 	}
-	roleList, err := c.fetchRoles(ctx, *userID)
-	if err != nil {
-		c.logger.With(
-			"error", err.Error(),
-		).Error("failed to fetch role list")
-		return false
+
+	if userID, ok := uid.(string); ok {
+		roleList, err := c.fetchRoles(ctx, userID)
+		if err != nil {
+			c.logger.With(
+				"error", err.Error(),
+			).Error("failed to fetch role list")
+			return false
+		}
+		check, err := c.client.Authorized(ctx, &apiextensions.AuthzRequest{
+			RoleList: roleList,
+			Details: &apiextensions.RequestDetails{
+				Path: ctx.FullPath(),
+				Verb: ctx.Request.Method,
+			},
+		})
+		if err != nil {
+			c.logger.With(
+				"error", err.Error(),
+			).Error("failed to check authorization")
+			return false
+		}
+		return check.GetAuthorized()
 	}
-	check, err := c.client.Authorized(ctx, &apiextensions.AuthzRequest{
-		RoleList: roleList,
-		Details: &apiextensions.RequestDetails{
-			Path: ctx.FullPath(),
-			Verb: ctx.Request.Method,
-		},
-	})
-	if err != nil {
-		c.logger.With(
-			"error", err.Error(),
-		).Error("failed to check authorization")
-		return false
-	}
-	return check.GetAuthorized()
+	c.logger.Warn("user is not string")
+	return false
 }
 
 func (c *accessChecker) fetchRoles(ctx context.Context, userID string) (*corev1.ReferenceList, error) {

@@ -549,8 +549,8 @@ require (
 	go4.org/intern v0.0.0-20230525184215-6c62f75575cb // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 // indirect
 	golang.org/x/arch v0.3.0 // indirect
-	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
-	golang.org/x/oauth2 v0.11.0
+	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
+	golang.org/x/oauth2 v0.13.0
 	golang.org/x/sys v0.13.0
 	golang.org/x/telemetry v0.0.0-20231030194904-36630a2c67a1 // indirect
 	golang.org/x/text v0.13.0 // indirect
@@ -582,7 +582,12 @@ require (
 	sourcegraph.com/sourcegraph/appdash v0.0.0-20211028080628-e2786a622600 // indirect
 )
 
-require github.com/zalando/gin-oauth2 v1.5.5
+require (
+	github.com/coreos/go-oidc v2.1.0+incompatible
+	github.com/zalando/gin-oauth2 v1.5.5
+)
+
+require github.com/pquerna/cachecontrol v0.1.0 // indirect
 
 replace github.com/openshift/api => github.com/openshift/api v0.0.0-20210216211028-bb81baaf35cd
 

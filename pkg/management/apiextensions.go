@@ -31,8 +31,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
 	"github.com/rancher/opni/pkg/util"
-	ginoauth2 "github.com/zalando/gin-oauth2"
-	"golang.org/x/oauth2"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/grpc"
@@ -221,9 +219,7 @@ func (m *Server) configureHttpApiExtensions() {
 			logger: m.logger.WithGroup("access-checker"),
 			store:  m.store,
 		}
-		// TODO add config here from gateway
-		endpoints := oauth2.Endpoint{}
-		ext.group.Use(ginoauth2.Auth(checker.CheckAccessForExtension, endpoints))
+		ext.group.Use(m.middleware.Handler(checker.CheckAccessForExtension))
 		m.configureServiceStubHandlers(ext.mux, stub, svcDesc, httpRules, ext.status)
 		ext.group.Any("/*any", gin.WrapF(ext.mux.ServeHTTP))
 	}

@@ -53,3 +53,10 @@ var (
 	ErrNilMiddleware           = errors.New("auth middleware is nil")
 	ErrMiddlewareNotFound      = errors.New("auth middleware not found")
 )
+
+type AuthType string
+
+const (
+	AuthTypeBasic AuthType = "basic"
+	AuthTypeOIDC  AuthType = "oidc"
+)

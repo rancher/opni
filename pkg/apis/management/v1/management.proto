@@ -17,6 +17,17 @@ option (cli.generator) = {
   generate:          true
 };
 
+service LocalPassword {
+  option (cli.command_group) = {
+    use: "auth"
+  };
+  rpc CreateLocalPassword(google.protobuf.Empty) returns (LocalPasswordResponse) {
+    option (cli.command) = {
+      use: "auth create-local-password"
+    };
+  };
+}
+
 service Management {
   rpc CreateBootstrapToken(CreateBootstrapTokenRequest) returns (core.BootstrapToken) {
     option (google.api.http) = {
@@ -309,4 +320,8 @@ message DashboardGlobalSettings {
   string                   defaultImageRepository = 1;
   google.protobuf.Duration defaultTokenTtl        = 2;
   map<string, string>      defaultTokenLabels     = 3;
+}
+
+message LocalPasswordResponse {
+  string password = 1;
 }

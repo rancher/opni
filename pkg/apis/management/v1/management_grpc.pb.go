@@ -22,6 +22,94 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
+	LocalPassword_CreateLocalPassword_FullMethodName = "/management.LocalPassword/CreateLocalPassword"
+)
+
+// LocalPasswordClient is the client API for LocalPassword service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type LocalPasswordClient interface {
+	CreateLocalPassword(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*LocalPasswordResponse, error)
+}
+
+type localPasswordClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewLocalPasswordClient(cc grpc.ClientConnInterface) LocalPasswordClient {
+	return &localPasswordClient{cc}
+}
+
+func (c *localPasswordClient) CreateLocalPassword(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*LocalPasswordResponse, error) {
+	out := new(LocalPasswordResponse)
+	err := c.cc.Invoke(ctx, LocalPassword_CreateLocalPassword_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// LocalPasswordServer is the server API for LocalPassword service.
+// All implementations should embed UnimplementedLocalPasswordServer
+// for forward compatibility
+type LocalPasswordServer interface {
+	CreateLocalPassword(context.Context, *emptypb.Empty) (*LocalPasswordResponse, error)
+}
+
+// UnimplementedLocalPasswordServer should be embedded to have forward compatible implementations.
+type UnimplementedLocalPasswordServer struct {
+}
+
+func (UnimplementedLocalPasswordServer) CreateLocalPassword(context.Context, *emptypb.Empty) (*LocalPasswordResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateLocalPassword not implemented")
+}
+
+// UnsafeLocalPasswordServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to LocalPasswordServer will
+// result in compilation errors.
+type UnsafeLocalPasswordServer interface {
+	mustEmbedUnimplementedLocalPasswordServer()
+}
+
+func RegisterLocalPasswordServer(s grpc.ServiceRegistrar, srv LocalPasswordServer) {
+	s.RegisterService(&LocalPassword_ServiceDesc, srv)
+}
+
+func _LocalPassword_CreateLocalPassword_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LocalPasswordServer).CreateLocalPassword(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LocalPassword_CreateLocalPassword_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LocalPasswordServer).CreateLocalPassword(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// LocalPassword_ServiceDesc is the grpc.ServiceDesc for LocalPassword service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var LocalPassword_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "management.LocalPassword",
+	HandlerType: (*LocalPasswordServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateLocalPassword",
+			Handler:    _LocalPassword_CreateLocalPassword_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.com/rancher/opni/pkg/apis/management/v1/management.proto",
+}
+
+const (
 	Management_CreateBootstrapToken_FullMethodName           = "/management.Management/CreateBootstrapToken"
 	Management_RevokeBootstrapToken_FullMethodName           = "/management.Management/RevokeBootstrapToken"
 	Management_ListBootstrapTokens_FullMethodName            = "/management.Management/ListBootstrapTokens"

@@ -19,6 +19,33 @@ import (
 )
 
 type (
+	contextKey_LocalPassword_type      struct{}
+	contextInjector_LocalPassword_type struct{}
+)
+
+var (
+	contextKey_LocalPassword     contextKey_LocalPassword_type
+	LocalPasswordContextInjector contextInjector_LocalPassword_type
+)
+
+func (contextInjector_LocalPassword_type) NewClient(cc grpc.ClientConnInterface) LocalPasswordClient {
+	return NewLocalPasswordClient(cc)
+}
+
+func (contextInjector_LocalPassword_type) UnderlyingConn(client LocalPasswordClient) grpc.ClientConnInterface {
+	return client.(*localPasswordClient).cc
+}
+
+func (contextInjector_LocalPassword_type) ContextWithClient(ctx context.Context, client LocalPasswordClient) context.Context {
+	return context.WithValue(ctx, contextKey_LocalPassword, client)
+}
+
+func (contextInjector_LocalPassword_type) ClientFromContext(ctx context.Context) (LocalPasswordClient, bool) {
+	client, ok := ctx.Value(contextKey_LocalPassword).(LocalPasswordClient)
+	return client, ok
+}
+
+type (
 	contextKey_Management_type      struct{}
 	contextInjector_Management_type struct{}
 )
@@ -43,6 +70,48 @@ func (contextInjector_Management_type) ContextWithClient(ctx context.Context, cl
 func (contextInjector_Management_type) ClientFromContext(ctx context.Context) (ManagementClient, bool) {
 	client, ok := ctx.Value(contextKey_Management).(ManagementClient)
 	return client, ok
+}
+
+var extraCmds_LocalPassword []*cobra.Command
+
+func addExtraLocalPasswordCmd(custom *cobra.Command) {
+	extraCmds_LocalPassword = append(extraCmds_LocalPassword, custom)
+}
+
+func BuildLocalPasswordCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:               "auth",
+		Short:             ``,
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+	}
+
+	cmd.AddCommand(BuildLocalPasswordCreateLocalPasswordCmd())
+	cli.AddOutputFlag(cmd)
+	return cmd
+}
+
+func BuildLocalPasswordCreateLocalPasswordCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:               "auth create-local-password",
+		Short:             "",
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, ok := LocalPasswordContextInjector.ClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			response, err := client.CreateLocalPassword(cmd.Context(), &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			cli.RenderOutput(cmd, response)
+			return nil
+		},
+	}
+	return cmd
 }
 
 var extraCmds_Management []*cobra.Command

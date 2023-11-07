@@ -22,6 +22,7 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth/local"
 	"github.com/rancher/opni/pkg/auth/middleware"
+	authutil "github.com/rancher/opni/pkg/auth/util"
 	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config"
@@ -78,6 +79,7 @@ type apiExtension struct {
 
 type Server struct {
 	managementv1.UnsafeManagementServer
+	managementv1.UnimplementedLocalPasswordServer
 	managementServerOptions
 	config            *v1beta1.ManagementSpec
 	rbacManagerStore  capabilities.RBACManagerStore
@@ -88,6 +90,7 @@ type Server struct {
 	router            *gin.Engine
 	middleware        *middleware.MultiMiddleware
 	oauthConfig       *oauth2.Config
+	localAuth         local.LocalAuthenticator
 
 	apiExtMu      sync.RWMutex
 	apiExtensions []apiExtension
@@ -168,6 +171,7 @@ func NewServer(
 			otelgrpc.UnaryServerInterceptor()),
 	)
 	managementv1.RegisterManagementServer(m.grpcServer, m)
+	managementv1.RegisterLocalPasswordServer(m.grpcServer, m)
 	channelzservice.RegisterChannelzServiceToServer(m.grpcServer)
 
 	pluginLoader.Hook(hooks.OnLoadM(func(sp types.SystemPlugin, md meta.PluginMeta) {
@@ -242,13 +246,13 @@ func NewServer(
 		authGroup.Any("/oidc/callback", handler.handleCallback)
 	}
 
-	localAuth := local.NewLocalAuthenticator(m.store.KeyValueStore("auth"))
+	m.localAuth = local.NewLocalAuthenticator(m.store.KeyValueStore(authutil.AuthNamespace))
 	m.middleware = &middleware.MultiMiddleware{
 		Logger:             lg.WithGroup("auth_middleware"),
 		Config:             m.oauthConfig,
 		IdentifyingClaim:   "user", //TODO: load this from config
 		UseOIDC:            useOIDC,
-		LocalAuthenticator: localAuth,
+		LocalAuthenticator: m.localAuth,
 	}
 
 	proxy := m.router.Group("/proxy")

@@ -12,6 +12,10 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const (
+	AuthNamespace = "auth"
+)
+
 func CheckUnknownFields(lg *slog.Logger, msg proto.Message) error {
 	if len(msg.ProtoReflect().GetUnknown()) > 0 {
 		err := status.Errorf(codes.InvalidArgument, "expected challenge response, but received incorrect message data (agent possibly incompatible or misconfigured)")

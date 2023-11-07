@@ -266,6 +266,9 @@ func (r *Reconciler) createGrafanaSpecDefaults(grafanaHostname string) *grafanav
 				},
 			},
 		},
+		Preferences: &grafanav1beta1.GrafanaPreferences{
+			HomeDashboardUID: "opni-home",
+		},
 	}
 }
 
@@ -510,7 +513,6 @@ func (r *Reconciler) createGrafanaDashboards(dashboardSelector *metav1.LabelSele
 					MatchLabels: dashboardSelector.MatchLabels,
 				},
 				Datasources: []grafanav1beta1.GrafanaDashboardDatasource{opniPrometheusDatasource},
-				//UseAsHomeDashboard: true,
 			},
 		},
 		{

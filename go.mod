@@ -31,15 +31,14 @@ require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-kit/kit v0.12.0
 	github.com/go-kit/log v0.2.1
-	github.com/go-logr/logr v1.2.5-0.20231009135404-2ea8628b184c
+	github.com/go-logr/logr v1.3.0
 	github.com/go-openapi/strfmt v0.21.7
 	github.com/go-playground/validator/v10 v10.14.1
 	github.com/golang/protobuf v1.5.3
 	github.com/golang/snappy v0.0.4
-	github.com/google/go-cmp v0.5.9
+	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.3.1
 	github.com/goombaio/namegenerator v0.0.0-20181006234301-989e774b106e
-	github.com/grafana-operator/grafana-operator/v4 v4.10.1
 	github.com/grafana-operator/grafana-operator/v5 v5.4.1
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.2
@@ -75,8 +74,8 @@ require (
 	github.com/nsf/jsondiff v0.0.0-20230430225905-43f6cf3098c1
 	github.com/olebedev/when v0.0.0-20221205223600-4d190b02b8d8
 	github.com/onsi/biloba v0.1.5
-	github.com/onsi/ginkgo/v2 v2.12.1
-	github.com/onsi/gomega v1.28.0
+	github.com/onsi/ginkgo/v2 v2.13.0
+	github.com/onsi/gomega v1.29.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza v0.0.0-00010101000000-000000000000
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opensearch-project/opensearch-go v1.1.0
@@ -138,12 +137,12 @@ require (
 	go.uber.org/atomic v1.11.0
 	go.uber.org/mock v0.2.0
 	go.uber.org/multierr v1.11.0
-	golang.org/x/crypto v0.12.0
+	golang.org/x/crypto v0.14.0
 	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1
 	golang.org/x/mod v0.12.0
-	golang.org/x/net v0.14.0
+	golang.org/x/net v0.17.0
 	golang.org/x/sync v0.3.0
-	golang.org/x/term v0.11.0
+	golang.org/x/term v0.13.0
 	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.12.1-0.20230815132531-74c255bcf846
 	gonum.org/v1/gonum v0.14.0
@@ -155,15 +154,15 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.28.2
-	k8s.io/apiextensions-apiserver v0.28.0
-	k8s.io/apimachinery v0.28.2
+	k8s.io/api v0.28.3
+	k8s.io/apiextensions-apiserver v0.28.3
+	k8s.io/apimachinery v0.28.3
 	k8s.io/cli-runtime v0.28.2
-	k8s.io/client-go v0.28.2
-	k8s.io/component-base v0.28.2
+	k8s.io/client-go v0.28.3
+	k8s.io/component-base v0.28.3
 	k8s.io/kubectl v0.28.2
 	opensearch.opster.io v0.0.0-00010101000000-000000000000
-	sigs.k8s.io/controller-runtime v0.16.2
+	sigs.k8s.io/controller-runtime v0.16.3
 	sigs.k8s.io/node-feature-discovery-operator v0.2.1-0.20230131182250-99b8584e2745
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -298,7 +297,7 @@ require (
 	github.com/edsrzf/mmap-go v1.1.0 // indirect
 	github.com/efficientgo/core v1.0.0-rc.2 // indirect
 	github.com/efficientgo/tools/extkingpin v0.0.0-20220817170617-6c25e3b627dd // indirect
-	github.com/emicklei/go-restful/v3 v3.10.2 // indirect
+	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
@@ -556,7 +555,7 @@ require (
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/oauth2 v0.11.0 // indirect
-	golang.org/x/sys v0.12.0
+	golang.org/x/sys v0.13.0
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
@@ -570,7 +569,7 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	helm.sh/helm/v3 v3.12.0 // indirect
-	k8s.io/apiserver v0.28.1 // indirect
+	k8s.io/apiserver v0.28.3 // indirect
 	k8s.io/klog/v2 v2.100.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230717233707-2695361300d9 // indirect
 	k8s.io/utils v0.0.0-20230711102312-30195339c3c7 // indirect
@@ -590,8 +589,8 @@ replace github.com/openshift/api => github.com/openshift/api v0.0.0-202102162110
 replace (
 	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be
 	github.com/cortexproject/cortex => github.com/kralicky/cortex v1.16.0-opni.9
-	github.com/grafana-operator/grafana-operator/v4 => github.com/kralicky/grafana-operator/v4 v4.2.1-0.20230714191401-f7b79b2f8d98
-	github.com/grafana-operator/grafana-operator/v5 => github.com/jaehnri/grafana-operator/v5 v5.0.0-20231020173843-d3cc7760ef53
+	// TODO: Update when https://github.com/grafana-operator/grafana-operator/pull/1301/files is merged
+	github.com/grafana-operator/grafana-operator/v5 => github.com/jaehnri/grafana-operator/v5 v5.0.0-20231107224428-8e66ce068452
 	// https://github.com/hashicorp/go-plugin/pull/251
 	github.com/hashicorp/go-plugin => github.com/alexandreLamarre/go-plugin v0.1.1-0.20230417174342-eab684801be5
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza => github.com/rancher-sandbox/otel-collector-contrib/pkg/stanza v0.0.0-20231108205431-9f8e6699a9d4

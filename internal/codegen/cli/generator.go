@@ -1045,7 +1045,7 @@ var customFieldGenerators = map[string]func(g *buffer, field *protogen.Field, de
 			if field.Desc.IsList() {
 				values = unparseDurationList(defaultValue)
 			} else {
-				values = append(append([]any{_flagutil.Ident("Ptr"), "[time.Duration]("}, unparseDuration(defaultValue)...), ")")
+				values = append(append([]any{_flagutil.Ident("Ptr"), "[", _time.Ident("Duration"), "]("}, unparseDuration(defaultValue)...), ")")
 			}
 		case []any:
 			values = defaultValue

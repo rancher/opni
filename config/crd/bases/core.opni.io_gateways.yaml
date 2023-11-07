@@ -2163,6 +2163,9 @@ spec:
                 additionalProperties:
                   type: string
                 type: object
+              patchEngine:
+                default: bsdiff
+                type: string
               pluginSearchDirs:
                 items:
                   type: string
@@ -2173,6 +2176,9 @@ spec:
                     default: /debug/pprof
                     type: string
                 type: object
+              replicas:
+                format: int32
+                type: integer
               serviceAnnotations:
                 additionalProperties:
                   type: string

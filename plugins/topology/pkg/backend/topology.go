@@ -86,7 +86,6 @@ func (t *TopologyBackend) info() *capabilityv1.Details {
 		Name:             wellknown.CapabilityTopology,
 		Source:           "plugin_topology",
 		AvailableDrivers: drivers,
-		EnabledDriver:    t.ClusterDriver.Name(),
 	}
 }
 

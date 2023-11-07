@@ -127,8 +127,8 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 				}
 			})
 
-			It("should create the gateway deployment", func() {
-				Eventually(Object(&appsv1.Deployment{
+			It("should create the gateway statefulset", func() {
+				Eventually(Object(&appsv1.StatefulSet{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "opni-gateway",
 						Namespace: gw.Namespace,

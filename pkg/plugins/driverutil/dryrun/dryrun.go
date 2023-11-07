@@ -176,7 +176,9 @@ func NewDryRunClient[
 	},
 ](client C) *DryRunClient[T, G, S, R, D, DR, H, HR, C] {
 	return &DryRunClient[T, G, S, R, D, DR, H, HR, C]{
-		client: client,
+		client:         client,
+		installable:    reflect.TypeOf((*T)(nil)).Elem().Implements(reflect.TypeOf((*driverutil.InstallableConfigType[T])(nil)).Elem()),
+		contextKeyable: reflect.TypeOf((*D)(nil)).Elem().Implements(reflect.TypeOf((*driverutil.ContextKeyable)(nil)).Elem()),
 	}
 }
 
@@ -201,7 +203,8 @@ type DryRunClient[
 	request  D
 	response DR
 
-	installable *bool
+	installable    bool
+	contextKeyable bool
 }
 
 func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) AsClientConn(cci driverutil.ClientContextInjector[C]) grpc.ClientConnInterface {
@@ -216,16 +219,6 @@ func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) Response() DR {
 	return dc.response
 }
 
-func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) isInstallableConfigType() bool {
-	if dc.installable != nil {
-		return *dc.installable
-	}
-	var t T
-	installable := reflect.TypeOf(t).Implements(reflect.TypeOf((*driverutil.InstallableConfigType[T])(nil)).Elem())
-	dc.installable = &installable
-	return installable
-}
-
 // ResetConfiguration implements driverutil.GetClient[T, G].
 func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) ResetConfiguration(ctx context.Context, req R, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	dc.request = NewDryRunRequest[T, D]().
@@ -235,6 +228,10 @@ func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) ResetConfiguration(ctx cont
 		Patch(req.GetPatch()).
 		Mask(req.GetMask()).
 		Build()
+
+	if dc.contextKeyable {
+		copyContextKey(dc.request, req)
+	}
 
 	var err error
 	dc.response, err = dc.client.DryRun(ctx, dc.request, opts...)
@@ -261,7 +258,7 @@ func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) ResetDefaultConfiguration(c
 
 // SetConfiguration implements driverutil.SetClient[T, S].
 func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) SetConfiguration(ctx context.Context, in S, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	if in.GetSpec().ProtoReflect().IsValid() && dc.isInstallableConfigType() {
+	if in.GetSpec().ProtoReflect().IsValid() && dc.installable {
 		in.GetSpec().ProtoReflect().Clear(util.FieldByName[T]("enabled"))
 	}
 	dc.request = NewDryRunRequest[T, D]().
@@ -269,6 +266,10 @@ func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) SetConfiguration(ctx contex
 		Set().
 		Spec(in.GetSpec()).
 		Build()
+
+	if dc.contextKeyable {
+		copyContextKey(dc.request, in)
+	}
 
 	var err error
 	dc.response, err = dc.client.DryRun(ctx, dc.request, opts...)
@@ -280,7 +281,7 @@ func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) SetConfiguration(ctx contex
 
 // SetDefaultConfiguration implements driverutil.SetClient[T, S].
 func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) SetDefaultConfiguration(ctx context.Context, in S, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	if in.GetSpec().ProtoReflect().IsValid() && dc.isInstallableConfigType() {
+	if in.GetSpec().ProtoReflect().IsValid() && dc.installable {
 		in.GetSpec().ProtoReflect().Clear(util.FieldByName[T]("enabled"))
 	}
 	dc.request = NewDryRunRequest[T, D]().
@@ -310,7 +311,7 @@ func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) GetDefaultConfiguration(ctx
 // Install implements driverutil.InstallerClient.
 func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) Install(ctx context.Context, _ *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	spec := util.NewMessage[T]()
-	if dc.isInstallableConfigType() {
+	if dc.installable {
 		spec.ProtoReflect().Set(util.FieldByName[T]("enabled"), protoreflect.ValueOfBool(true))
 	}
 	dc.request = NewDryRunRequest[T, D]().
@@ -330,7 +331,7 @@ func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) Install(ctx context.Context
 // Uninstall implements driverutil.InstallerClient.
 func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) Uninstall(ctx context.Context, _ *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	spec := util.NewMessage[T]()
-	if dc.isInstallableConfigType() {
+	if dc.installable {
 		spec.ProtoReflect().Set(util.FieldByName[T]("enabled"), protoreflect.ValueOfBool(false))
 	}
 	dc.request = NewDryRunRequest[T, D]().
@@ -360,6 +361,11 @@ func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) ConfigurationHistory(_ cont
 // Status implements driverutil.InstallerClient.
 func (dc *DryRunClient[T, G, S, R, D, DR, H, HR, C]) Status(_ context.Context, _ *emptypb.Empty, _ ...grpc.CallOption) (*driverutil.InstallStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "[dry-run] method Status not implemented")
+}
+
+func copyContextKey(dst, src proto.Message) {
+	dst.ProtoReflect().Set(dst.(driverutil.ContextKeyable).ContextKey(),
+		src.ProtoReflect().Get(src.(driverutil.ContextKeyable).ContextKey()))
 }
 
 type DryRunClientShim[

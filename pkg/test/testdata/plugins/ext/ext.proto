@@ -7,6 +7,7 @@ import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "github.com/rancher/opni/pkg/plugins/driverutil/types.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
 
 option go_package      = "github.com/rancher/opni/pkg/test/testdata/plugins/ext";
@@ -73,6 +74,50 @@ service Ext {
   rpc ServerStream(FooRequest) returns (stream FooResponse);
   rpc ClientStream(stream FooRequest) returns (FooResponse);
   rpc BidirectionalStream(stream FooRequest) returns (stream FooResponse);
+}
+
+service Config {
+  rpc GetDefaultConfiguration(SampleGetRequest) returns (SampleConfiguration) {
+    option (cli.command) = {
+      use: "get-default"
+    };
+  }
+  rpc SetDefaultConfiguration(SampleSetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use:         "set-default"
+      granularity: EditMessage
+    };
+  }
+  rpc GetConfiguration(SampleGetRequest) returns (SampleConfiguration) {
+    option (cli.command) = {
+      use: "get"
+    };
+  }
+  rpc SetConfiguration(SampleSetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use:         "set"
+      granularity: EditMessage
+    };
+  }
+  rpc ResetDefaultConfiguration(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "reset-default"
+    };
+  }
+  rpc ResetConfiguration(SampleResetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use:         "reset"
+      granularity: EditMessage
+    };
+  }
+  rpc DryRun(SampleDryRunRequest) returns (SampleDryRunResponse) {
+    option (cli.command).skip = true;
+  }
+  rpc ConfigurationHistory(SampleHistoryRequest) returns (SampleConfigurationHistoryResponse) {
+    option (cli.command) = {
+      use: "history"
+    };
+  }
 }
 
 message Reference {
@@ -159,8 +204,9 @@ message SampleDryRunRequest {
 
   SampleConfiguration spec = 3; // Set
 
-  google.protobuf.FieldMask mask  = 4 [(cli.flag).skip = true]; // Reset
-  SampleConfiguration       patch = 5 [(cli.flag).skip = true]; // Reset
+  core.Revision             revision = 4; // Reset
+  google.protobuf.FieldMask mask     = 5 [(cli.flag).skip = true]; // Reset
+  SampleConfiguration       patch    = 6 [(cli.flag).skip = true]; // Reset
 }
 
 message SampleDryRunResponse {

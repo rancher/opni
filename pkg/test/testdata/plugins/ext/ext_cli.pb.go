@@ -20,6 +20,7 @@ import (
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	protoiface "google.golang.org/protobuf/runtime/protoiface"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	strings "strings"
 )
 
@@ -47,6 +48,33 @@ func (contextInjector_Ext_type) ContextWithClient(ctx context.Context, client Ex
 
 func (contextInjector_Ext_type) ClientFromContext(ctx context.Context) (ExtClient, bool) {
 	client, ok := ctx.Value(contextKey_Ext).(ExtClient)
+	return client, ok
+}
+
+type (
+	contextKey_Config_type      struct{}
+	contextInjector_Config_type struct{}
+)
+
+var (
+	contextKey_Config     contextKey_Config_type
+	ConfigContextInjector contextInjector_Config_type
+)
+
+func (contextInjector_Config_type) NewClient(cc grpc.ClientConnInterface) ConfigClient {
+	return NewConfigClient(cc)
+}
+
+func (contextInjector_Config_type) UnderlyingConn(client ConfigClient) grpc.ClientConnInterface {
+	return client.(*configClient).cc
+}
+
+func (contextInjector_Config_type) ContextWithClient(ctx context.Context, client ConfigClient) context.Context {
+	return context.WithValue(ctx, contextKey_Config, client)
+}
+
+func (contextInjector_Config_type) ClientFromContext(ctx context.Context) (ConfigClient, bool) {
+	client, ok := ctx.Value(contextKey_Config).(ConfigClient)
 	return client, ok
 }
 
@@ -240,6 +268,271 @@ HTTP handlers for this method:
 	return cmd
 }
 
+var extraCmds_Config []*cobra.Command
+
+func addExtraConfigCmd(custom *cobra.Command) {
+	extraCmds_Config = append(extraCmds_Config, custom)
+}
+
+func BuildConfigCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:               "config",
+		Short:             ``,
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+	}
+
+	cliutil.AddSubcommands(cmd, append([]*cobra.Command{
+		BuildConfigGetDefaultConfigurationCmd(),
+		BuildConfigSetDefaultConfigurationCmd(),
+		BuildConfigGetConfigurationCmd(),
+		BuildConfigSetConfigurationCmd(),
+		BuildConfigResetDefaultConfigurationCmd(),
+		BuildConfigResetConfigurationCmd(),
+		BuildConfigConfigurationHistoryCmd(),
+	}, extraCmds_Config...)...)
+	cli.AddOutputFlag(cmd)
+	return cmd
+}
+
+func BuildConfigGetDefaultConfigurationCmd() *cobra.Command {
+	in := &SampleGetRequest{}
+	cmd := &cobra.Command{
+		Use:               "get-default",
+		Short:             "",
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, ok := ConfigContextInjector.ClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			if in == nil {
+				return errors.New("no input provided")
+			}
+			response, err := client.GetDefaultConfiguration(cmd.Context(), in)
+			if err != nil {
+				return err
+			}
+			cli.RenderOutput(cmd, response)
+			return nil
+		},
+	}
+	cmd.Flags().AddFlagSet(in.FlagSet())
+	return cmd
+}
+
+func BuildConfigSetDefaultConfigurationCmd() *cobra.Command {
+	in := &SampleSetRequest{}
+	cmd := &cobra.Command{
+		Use:               "set-default",
+		Short:             "",
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, ok := ConfigContextInjector.ClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
+				if curValue, err := client.GetDefaultConfiguration(cmd.Context(), &SampleGetRequest{}); err == nil {
+					in.Spec = curValue
+				}
+				if edited, err := cliutil.EditInteractive(in.Spec); err != nil {
+					return err
+				} else {
+					in.Spec = edited
+				}
+			} else if fileName := cmd.Flags().Lookup("file").Value.String(); fileName != "" {
+				if err := cliutil.LoadFromFile(in, fileName); err != nil {
+					return err
+				}
+			}
+			if in == nil {
+				return errors.New("no input provided")
+			}
+			_, err := client.SetDefaultConfiguration(cmd.Context(), in)
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringP("file", "f", "", "path to a file containing the config, or - to read from stdin")
+	cmd.Flags().BoolP("interactive", "i", false, "edit the config interactively in an editor")
+	cmd.MarkFlagsMutuallyExclusive("file", "interactive")
+	cmd.MarkFlagFilename("file")
+	return cmd
+}
+
+func BuildConfigGetConfigurationCmd() *cobra.Command {
+	in := &SampleGetRequest{}
+	cmd := &cobra.Command{
+		Use:               "get",
+		Short:             "",
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, ok := ConfigContextInjector.ClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			if in == nil {
+				return errors.New("no input provided")
+			}
+			response, err := client.GetConfiguration(cmd.Context(), in)
+			if err != nil {
+				return err
+			}
+			cli.RenderOutput(cmd, response)
+			return nil
+		},
+	}
+	cmd.Flags().AddFlagSet(in.FlagSet())
+	return cmd
+}
+
+func BuildConfigSetConfigurationCmd() *cobra.Command {
+	in := &SampleSetRequest{}
+	cmd := &cobra.Command{
+		Use:               "set",
+		Short:             "",
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, ok := ConfigContextInjector.ClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
+				if curValue, err := client.GetConfiguration(cmd.Context(), &SampleGetRequest{}); err == nil {
+					in.Spec = curValue
+				}
+				if edited, err := cliutil.EditInteractive(in.Spec); err != nil {
+					return err
+				} else {
+					in.Spec = edited
+				}
+			} else if fileName := cmd.Flags().Lookup("file").Value.String(); fileName != "" {
+				if err := cliutil.LoadFromFile(in, fileName); err != nil {
+					return err
+				}
+			}
+			if in == nil {
+				return errors.New("no input provided")
+			}
+			_, err := client.SetConfiguration(cmd.Context(), in)
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringP("file", "f", "", "path to a file containing the config, or - to read from stdin")
+	cmd.Flags().BoolP("interactive", "i", false, "edit the config interactively in an editor")
+	cmd.MarkFlagsMutuallyExclusive("file", "interactive")
+	cmd.MarkFlagFilename("file")
+	return cmd
+}
+
+func BuildConfigResetDefaultConfigurationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:               "reset-default",
+		Short:             "",
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, ok := ConfigContextInjector.ClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			_, err := client.ResetDefaultConfiguration(cmd.Context(), &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+	return cmd
+}
+
+func BuildConfigResetConfigurationCmd() *cobra.Command {
+	in := &SampleResetRequest{}
+	cmd := &cobra.Command{
+		Use:               "reset",
+		Short:             "",
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, ok := ConfigContextInjector.ClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			if cmd.Flags().Lookup("interactive").Value.String() == "true" {
+				if edited, err := cliutil.EditInteractive(in); err != nil {
+					return err
+				} else {
+					in = edited
+				}
+			} else if fileName := cmd.Flags().Lookup("file").Value.String(); fileName != "" {
+				if err := cliutil.LoadFromFile(in, fileName); err != nil {
+					return err
+				}
+			}
+			if in == nil {
+				return errors.New("no input provided")
+			}
+			_, err := client.ResetConfiguration(cmd.Context(), in)
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringP("file", "f", "", "path to a file containing the config, or - to read from stdin")
+	cmd.Flags().BoolP("interactive", "i", false, "edit the config interactively in an editor")
+	cmd.MarkFlagsMutuallyExclusive("file", "interactive")
+	cmd.MarkFlagFilename("file")
+	return cmd
+}
+
+func BuildConfigConfigurationHistoryCmd() *cobra.Command {
+	in := &SampleHistoryRequest{}
+	cmd := &cobra.Command{
+		Use:               "history",
+		Short:             "",
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, ok := ConfigContextInjector.ClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			if in == nil {
+				return errors.New("no input provided")
+			}
+			response, err := client.ConfigurationHistory(cmd.Context(), in)
+			if err != nil {
+				return err
+			}
+			cli.RenderOutput(cmd, response)
+			return nil
+		},
+	}
+	cmd.Flags().AddFlagSet(in.FlagSet())
+	cmd.RegisterFlagCompletionFunc("target", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"ActiveConfiguration", "DefaultConfiguration"}, cobra.ShellCompDirectiveDefault
+	})
+	return cmd
+}
+
 var extraCmds_Ext2 []*cobra.Command
 
 func addExtraExt2Cmd(custom *cobra.Command) {
@@ -346,20 +639,52 @@ func (in *ExampleValue) FlagSet(prefix ...string) *pflag.FlagSet {
 	return fs
 }
 
-func (in *FooResponse) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("FooResponse", pflag.ExitOnError)
+func (in *SampleGetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SampleGetRequest", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.StringVar(&in.Response, strings.Join(append(prefix, "response"), "."), "", "")
+	fs.Var(flagutil.StringPtrValue(nil, &in.Key), strings.Join(append(prefix, "key"), "."), "")
+	if in.Revision == nil {
+		in.Revision = &v1.Revision{}
+	}
+	fs.AddFlagSet(in.Revision.FlagSet(prefix...))
 	return fs
 }
 
-func (in *BarResponse) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("BarResponse", pflag.ExitOnError)
+func (in *SampleSetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SampleSetRequest", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.StringVar(&in.Param1, strings.Join(append(prefix, "param-1"), "."), "", "")
-	fs.StringVar(&in.Param2, strings.Join(append(prefix, "param-2"), "."), "", "")
-	fs.StringVar(&in.Param3, strings.Join(append(prefix, "param-3"), "."), "", "")
+	fs.Var(flagutil.StringPtrValue(nil, &in.Key), strings.Join(append(prefix, "key"), "."), "")
+	if in.Spec == nil {
+		in.Spec = &SampleConfiguration{}
+	}
+	fs.AddFlagSet(in.Spec.FlagSet(append(prefix, "spec")...))
 	return fs
+}
+
+func (in *SampleSetRequest) RedactSecrets() {
+	if in == nil {
+		return
+	}
+	in.Spec.RedactSecrets()
+}
+
+func (in *SampleSetRequest) UnredactSecrets(unredacted *SampleSetRequest) error {
+	if in == nil {
+		return nil
+	}
+	var details []protoiface.MessageV1
+	if err := in.Spec.UnredactSecrets(unredacted.GetSpec()); storage.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "spec." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
+	}
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
 }
 
 func (in *SampleConfiguration) FlagSet(prefix ...string) *pflag.FlagSet {
@@ -531,8 +856,8 @@ func (in *SampleMessage2) FlagSet(prefix ...string) *pflag.FlagSet {
 	return fs
 }
 
-func (in *SampleGetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("SampleGetRequest", pflag.ExitOnError)
+func (in *SampleResetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SampleResetRequest", pflag.ExitOnError)
 	fs.SortFlags = true
 	fs.Var(flagutil.StringPtrValue(nil, &in.Key), strings.Join(append(prefix, "key"), "."), "")
 	if in.Revision == nil {
@@ -542,41 +867,33 @@ func (in *SampleGetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 	return fs
 }
 
-func (in *SampleSetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("SampleSetRequest", pflag.ExitOnError)
+func (in *SampleHistoryRequest) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("SampleHistoryRequest", pflag.ExitOnError)
 	fs.SortFlags = true
 	fs.Var(flagutil.StringPtrValue(nil, &in.Key), strings.Join(append(prefix, "key"), "."), "")
-	if in.Spec == nil {
-		in.Spec = &SampleConfiguration{}
+	fs.Var(flagutil.EnumValue(driverutil.Target_ActiveConfiguration, &in.Target), strings.Join(append(prefix, "target"), "."), "")
+	if in.Revision == nil {
+		in.Revision = &v1.Revision{}
 	}
-	fs.AddFlagSet(in.Spec.FlagSet(append(prefix, "spec")...))
+	fs.AddFlagSet(in.Revision.FlagSet(prefix...))
+	fs.BoolVar(&in.IncludeValues, strings.Join(append(prefix, "include-values"), "."), true, "")
 	return fs
 }
 
-func (in *SampleSetRequest) RedactSecrets() {
-	if in == nil {
-		return
-	}
-	in.Spec.RedactSecrets()
+func (in *FooResponse) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("FooResponse", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringVar(&in.Response, strings.Join(append(prefix, "response"), "."), "", "")
+	return fs
 }
 
-func (in *SampleSetRequest) UnredactSecrets(unredacted *SampleSetRequest) error {
-	if in == nil {
-		return nil
-	}
-	var details []protoiface.MessageV1
-	if err := in.Spec.UnredactSecrets(unredacted.GetSpec()); storage.IsDiscontinuity(err) {
-		for _, sd := range status.Convert(err).Details() {
-			if info, ok := sd.(*errdetails.ErrorInfo); ok {
-				info.Metadata["field"] = "spec." + info.Metadata["field"]
-				details = append(details, info)
-			}
-		}
-	}
-	if len(details) == 0 {
-		return nil
-	}
-	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
+func (in *BarResponse) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("BarResponse", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.StringVar(&in.Param1, strings.Join(append(prefix, "param-1"), "."), "", "")
+	fs.StringVar(&in.Param2, strings.Join(append(prefix, "param-2"), "."), "", "")
+	fs.StringVar(&in.Param3, strings.Join(append(prefix, "param-3"), "."), "", "")
+	return fs
 }
 
 func (in *SampleDryRunRequest) FlagSet(prefix ...string) *pflag.FlagSet {
@@ -589,6 +906,10 @@ func (in *SampleDryRunRequest) FlagSet(prefix ...string) *pflag.FlagSet {
 		in.Spec = &SampleConfiguration{}
 	}
 	fs.AddFlagSet(in.Spec.FlagSet(append(prefix, "spec")...))
+	if in.Revision == nil {
+		in.Revision = &v1.Revision{}
+	}
+	fs.AddFlagSet(in.Revision.FlagSet(append(prefix, "revision")...))
 	return fs
 }
 
@@ -667,32 +988,8 @@ func (in *SampleDryRunResponse) UnredactSecrets(unredacted *SampleDryRunResponse
 	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
 }
 
-func (in *SampleHistoryRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("SampleHistoryRequest", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.Var(flagutil.StringPtrValue(nil, &in.Key), strings.Join(append(prefix, "key"), "."), "")
-	fs.Var(flagutil.EnumValue(driverutil.Target_ActiveConfiguration, &in.Target), strings.Join(append(prefix, "target"), "."), "")
-	if in.Revision == nil {
-		in.Revision = &v1.Revision{}
-	}
-	fs.AddFlagSet(in.Revision.FlagSet(prefix...))
-	fs.BoolVar(&in.IncludeValues, strings.Join(append(prefix, "include-values"), "."), true, "")
-	return fs
-}
-
 func (in *SampleConfigurationHistoryResponse) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("SampleConfigurationHistoryResponse", pflag.ExitOnError)
 	fs.SortFlags = true
-	return fs
-}
-
-func (in *SampleResetRequest) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("SampleResetRequest", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.Var(flagutil.StringPtrValue(nil, &in.Key), strings.Join(append(prefix, "key"), "."), "")
-	if in.Revision == nil {
-		in.Revision = &v1.Revision{}
-	}
-	fs.AddFlagSet(in.Revision.FlagSet(prefix...))
 	return fs
 }

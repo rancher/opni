@@ -29,7 +29,6 @@ import (
 //	rollback.BuildCmd("rollback", NewXClientFromContext)
 func BuildCmd[
 	I driverutil.ClientContextInjector[C],
-
 	T driverutil.ConfigType[T],
 	G driverutil.GetRequestType,
 	S driverutil.SetRequestType[T],

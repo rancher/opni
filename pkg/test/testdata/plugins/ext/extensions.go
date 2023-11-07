@@ -2,6 +2,7 @@ package ext
 
 import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 func (c *SampleConfiguration) WithRevision(rev int64) *SampleConfiguration {
@@ -15,21 +16,26 @@ func (c *SampleConfiguration) WithoutRevision() *SampleConfiguration {
 }
 
 // Implements driverutil.ContextKeyable
-func (g *SampleGetRequest) ContextKey() string {
-	return g.GetKey()
+func (g *SampleGetRequest) ContextKey() protoreflect.FieldDescriptor {
+	return g.ProtoReflect().Descriptor().Fields().ByName("key")
 }
 
 // Implements driverutil.ContextKeyable
-func (g *SampleSetRequest) ContextKey() string {
-	return g.GetKey()
+func (g *SampleSetRequest) ContextKey() protoreflect.FieldDescriptor {
+	return g.ProtoReflect().Descriptor().Fields().ByName("key")
 }
 
 // Implements driverutil.ContextKeyable
-func (g *SampleResetRequest) ContextKey() string {
-	return g.GetKey()
+func (g *SampleResetRequest) ContextKey() protoreflect.FieldDescriptor {
+	return g.ProtoReflect().Descriptor().Fields().ByName("key")
 }
 
 // Implements driverutil.ContextKeyable
-func (g *SampleHistoryRequest) ContextKey() string {
-	return g.GetKey()
+func (g *SampleHistoryRequest) ContextKey() protoreflect.FieldDescriptor {
+	return g.ProtoReflect().Descriptor().Fields().ByName("key")
+}
+
+// Implements driverutil.ContextKeyable
+func (g *SampleDryRunRequest) ContextKey() protoreflect.FieldDescriptor {
+	return g.ProtoReflect().Descriptor().Fields().ByName("key")
 }

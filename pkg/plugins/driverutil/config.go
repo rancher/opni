@@ -12,6 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/util/merge"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
@@ -363,6 +364,9 @@ func (ct *DefaultingConfigTracker[T]) DryRunSetDefaultConfig(ctx context.Context
 	ct.redact(current)
 	ct.redact(newDefault)
 
+	SetRevision(current, rev)
+	CopyRevision(newDefault, current)
+
 	return DryRunResults[T]{
 		Current:  current,
 		Modified: newDefault,
@@ -446,9 +450,22 @@ type contextKeyedValueStore[T ConfigType[T]] struct {
 type contextKeyedValueStore_keyType struct{}
 
 var contextKeyedValueStore_key contextKeyedValueStore_keyType
+var corev1ReferenceType = (&corev1.Reference{}).ProtoReflect().Descriptor()
+var corev1IdField = corev1ReferenceType.Fields().ByName("id")
 
-func contextWithKey(ctx context.Context, key string) context.Context {
-	return context.WithValue(ctx, contextKeyedValueStore_key, key)
+func contextWithKey(ctx context.Context, ck ContextKeyable) context.Context {
+	field := ck.ContextKey()
+	switch field.Kind() {
+	case protoreflect.MessageKind:
+		if field.Message() == corev1ReferenceType {
+			key := ck.ProtoReflect().Get(field).Message().Get(corev1IdField).String()
+			return context.WithValue(ctx, contextKeyedValueStore_key, key)
+		}
+	case protoreflect.StringKind:
+		key := ck.ProtoReflect().Get(field).String()
+		return context.WithValue(ctx, contextKeyedValueStore_key, key)
+	}
+	panic(fmt.Errorf("invalid context key type: %s", field.Message().FullName()))
 }
 
 func keyFromContext(ctx context.Context) string {

@@ -240,36 +240,36 @@ func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) SetDefaultConfiguration(
 }
 
 func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) GetConfiguration(ctx context.Context, in G) (T, error) {
-	return s.base.GetConfiguration(contextWithKey(ctx, in.ContextKey()), in)
+	return s.base.GetConfiguration(contextWithKey(ctx, in), in)
 }
 
 func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) ResetConfiguration(ctx context.Context, in R) (*emptypb.Empty, error) {
-	return s.base.ResetConfiguration(contextWithKey(ctx, in.ContextKey()), in)
+	return s.base.ResetConfiguration(contextWithKey(ctx, in), in)
 }
 
 func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) SetConfiguration(ctx context.Context, in S) (*emptypb.Empty, error) {
-	return s.base.SetConfiguration(contextWithKey(ctx, in.ContextKey()), in)
+	return s.base.SetConfiguration(contextWithKey(ctx, in), in)
 }
 
 func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) ConfigurationHistory(ctx context.Context, in H) (HR, error) {
-	return s.base.ConfigurationHistory(contextWithKey(ctx, in.ContextKey()), in)
+	return s.base.ConfigurationHistory(contextWithKey(ctx, in), in)
 }
 
 func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) Install(ctx context.Context, in ContextKeyable) (*emptypb.Empty, error) {
-	return s.base.Install(contextWithKey(ctx, in.ContextKey()), &emptypb.Empty{})
+	return s.base.Install(contextWithKey(ctx, in), &emptypb.Empty{})
 }
 
 func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) Uninstall(ctx context.Context, in ContextKeyable) (*emptypb.Empty, error) {
-	return s.base.Uninstall(contextWithKey(ctx, in.ContextKey()), &emptypb.Empty{})
+	return s.base.Uninstall(contextWithKey(ctx, in), &emptypb.Empty{})
 }
 
 func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) ServerDryRun(ctx context.Context, req interface {
 	DryRunRequestType[T]
 	ContextKeyable
 }) (DryRunResults[T], error) {
-	return s.base.ServerDryRun(contextWithKey(ctx, req.ContextKey()), req)
+	return s.base.ServerDryRun(contextWithKey(ctx, req), req)
 }
 
 func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) InjectContextKey(ctx context.Context, in ContextKeyable) context.Context {
-	return contextWithKey(ctx, in.ContextKey())
+	return contextWithKey(ctx, in)
 }

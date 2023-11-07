@@ -1325,6 +1325,8 @@ spec:
                   provider:
                     type: string
                 type: object
+              disableLoadBalancer:
+                type: boolean
               extraEnvVars:
                 items:
                   properties:
@@ -2121,6 +2123,8 @@ spec:
                 type: object
               management:
                 properties:
+                  grpcAdvertiseAddress:
+                    type: string
                   grpcListenAddress:
                     default: tcp://0.0.0.0:11090
                     type: string

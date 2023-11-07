@@ -277,7 +277,7 @@ func mergeFileDescriptors(targetpb *descriptorpb.FileDescriptorProto, target, ex
 	if targetpb.Options == nil {
 		targetpb.Options = &descriptorpb.FileOptions{}
 	}
-	mergeUserDefinedOptions(targetpb.Options, target.Options(), existing.Options())
+	mergeUserDefinedOptions(targetpb.Options, existing.Options())
 
 	// keep any custom imports that were added
 	targetImports := make(map[string]struct{})
@@ -317,7 +317,7 @@ func mergeMessageDescriptors(targetpb *descriptorpb.DescriptorProto, target, exi
 			if targetpb.Field[i].Options == nil {
 				targetpb.Field[i].Options = &descriptorpb.FieldOptions{}
 			}
-			mergeUserDefinedOptions(targetpb.Field[i].Options, targetField.Options(), existingField.Options())
+			mergeUserDefinedOptions(targetpb.Field[i].Options, existingField.Options())
 		}
 	}
 
@@ -412,7 +412,7 @@ func mergeMessageDescriptors(targetpb *descriptorpb.DescriptorProto, target, exi
 	if targetpb.Options == nil {
 		targetpb.Options = &descriptorpb.MessageOptions{}
 	}
-	mergeUserDefinedOptions(targetpb.Options, target.Options(), existing.Options())
+	mergeUserDefinedOptions(targetpb.Options, existing.Options())
 
 	for i, l := 0, target.Messages().Len(); i < l; i++ {
 		msg := target.Messages().Get(i)
@@ -423,7 +423,7 @@ func mergeMessageDescriptors(targetpb *descriptorpb.DescriptorProto, target, exi
 	}
 }
 
-func mergeUserDefinedOptions[T protoreflect.ProtoMessage](targetpb proto.Message, targetOpts, existingOpts T) {
+func mergeUserDefinedOptions[T protoreflect.ProtoMessage](targetpb proto.Message, existingOpts T) {
 	// if there are any user-defined options, preserve them
 	proto.RangeExtensions(existingOpts, func(et protoreflect.ExtensionType, v interface{}) bool {
 		if et.TypeDescriptor().IsExtension() {

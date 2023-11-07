@@ -44,7 +44,7 @@ func (s extConfigServer) DryRun(ctx context.Context, req *ext.SampleDryRunReques
 	}, nil
 }
 
-var _ = Describe("DryRunClient", func() {
+var _ = Describe("DryRunClient", Label("unit"), func() {
 	rand := protorand.New[*ext.SampleConfiguration]()
 	rand.ExcludeMask(&fieldmaskpb.FieldMask{
 		Paths: []string{

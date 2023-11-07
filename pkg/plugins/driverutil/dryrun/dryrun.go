@@ -151,6 +151,8 @@ func BuildCmd[
 				break
 			}
 		}
+	}
+	for _, cmd := range dryRunnableCmds {
 		cmd.Use = strings.TrimPrefix(cmd.Use, maybeParentCommand)
 		cmd.Short = fmt.Sprintf("[dry-run] %s", cmd.Short)
 		dryRunCmd.AddCommand(cmd)

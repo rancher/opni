@@ -166,6 +166,7 @@ require (
 	sigs.k8s.io/controller-runtime v0.15.0
 	sigs.k8s.io/node-feature-discovery-operator v0.2.1-0.20230131182250-99b8584e2745
 	sigs.k8s.io/yaml v1.3.0
+	github.com/distribution/reference v0.5.0
 )
 
 require (
@@ -324,7 +325,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/google/btree v1.0.1 // indirect
-	github.com/google/cel-go v0.18.1 // indirect
+	github.com/google/cel-go v0.18.1
 	github.com/google/gnostic v0.6.9 // indirect
 	github.com/google/go-jsonnet v0.20.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect

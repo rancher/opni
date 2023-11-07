@@ -63,5 +63,5 @@ func (h *HistoryResponse) RenderText(out cli.Writer) {
 
 func init() {
 	// Adds the rollback command
-	addExtraConfigCmd(rollback.BuildCmd("rollback", ConfigClientFromContext))
+	addExtraConfigCmd(rollback.BuildCmd("rollback", ConfigContextInjector))
 }

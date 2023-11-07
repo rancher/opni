@@ -26,6 +26,7 @@ const (
 	NodeConfiguration_GetConfiguration_FullMethodName          = "/node.metrics.config.NodeConfiguration/GetConfiguration"
 	NodeConfiguration_SetConfiguration_FullMethodName          = "/node.metrics.config.NodeConfiguration/SetConfiguration"
 	NodeConfiguration_ResetConfiguration_FullMethodName        = "/node.metrics.config.NodeConfiguration/ResetConfiguration"
+	NodeConfiguration_DryRun_FullMethodName                    = "/node.metrics.config.NodeConfiguration/DryRun"
 	NodeConfiguration_ConfigurationHistory_FullMethodName      = "/node.metrics.config.NodeConfiguration/ConfigurationHistory"
 )
 
@@ -143,6 +144,26 @@ type NodeConfigurationClient interface {
 	//	  c: 6,   // not masked, reset to default
 	//	}
 	ResetConfiguration(ctx context.Context, in *ResetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Show what changes would be made to a configuration without saving them.
+	// The request expects an action, target, and spec to be provided. These
+	// correspond roughly to the other APIs in this service.
+	//
+	// Configuring DryRunRequest:
+	//   - Use the Active target for the SetConfiguration API, and the Default target
+	//     for the SetDefaultConfiguration API. Install and Uninstall actions do not
+	//     require a target (if they are available in this service).
+	//   - The Set action requires the spec field to be set.
+	//   - The Reset action ignores the spec field, and will use the optional patch
+	//     and mask fields if provided.
+	//
+	// Notes:
+	//   - When DryRun is used on Install or Uninstall requests, the response will
+	//     contain modifications to the 'enabled' field only. This field is read-only
+	//     in the Set* APIs.
+	//   - To validate the current configuration but keep it unchanged, use the
+	//     Set action with an empty spec.
+	//   - Configurations returned by DryRun will always have an empty revision field.
+	DryRun(ctx context.Context, in *DryRunRequest, opts ...grpc.CallOption) (*DryRunResponse, error)
 	// Get a list of all past revisions of the configuration.
 	//
 	// Will return the history for either the active or default configuration
@@ -209,6 +230,15 @@ func (c *nodeConfigurationClient) SetConfiguration(ctx context.Context, in *SetR
 func (c *nodeConfigurationClient) ResetConfiguration(ctx context.Context, in *ResetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, NodeConfiguration_ResetConfiguration_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeConfigurationClient) DryRun(ctx context.Context, in *DryRunRequest, opts ...grpc.CallOption) (*DryRunResponse, error) {
+	out := new(DryRunResponse)
+	err := c.cc.Invoke(ctx, NodeConfiguration_DryRun_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -338,6 +368,26 @@ type NodeConfigurationServer interface {
 	//	  c: 6,   // not masked, reset to default
 	//	}
 	ResetConfiguration(context.Context, *ResetRequest) (*emptypb.Empty, error)
+	// Show what changes would be made to a configuration without saving them.
+	// The request expects an action, target, and spec to be provided. These
+	// correspond roughly to the other APIs in this service.
+	//
+	// Configuring DryRunRequest:
+	//   - Use the Active target for the SetConfiguration API, and the Default target
+	//     for the SetDefaultConfiguration API. Install and Uninstall actions do not
+	//     require a target (if they are available in this service).
+	//   - The Set action requires the spec field to be set.
+	//   - The Reset action ignores the spec field, and will use the optional patch
+	//     and mask fields if provided.
+	//
+	// Notes:
+	//   - When DryRun is used on Install or Uninstall requests, the response will
+	//     contain modifications to the 'enabled' field only. This field is read-only
+	//     in the Set* APIs.
+	//   - To validate the current configuration but keep it unchanged, use the
+	//     Set action with an empty spec.
+	//   - Configurations returned by DryRun will always have an empty revision field.
+	DryRun(context.Context, *DryRunRequest) (*DryRunResponse, error)
 	// Get a list of all past revisions of the configuration.
 	//
 	// Will return the history for either the active or default configuration
@@ -369,6 +419,9 @@ func (UnimplementedNodeConfigurationServer) SetConfiguration(context.Context, *S
 }
 func (UnimplementedNodeConfigurationServer) ResetConfiguration(context.Context, *ResetRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResetConfiguration not implemented")
+}
+func (UnimplementedNodeConfigurationServer) DryRun(context.Context, *DryRunRequest) (*DryRunResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DryRun not implemented")
 }
 func (UnimplementedNodeConfigurationServer) ConfigurationHistory(context.Context, *ConfigurationHistoryRequest) (*ConfigurationHistoryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ConfigurationHistory not implemented")
@@ -493,6 +546,24 @@ func _NodeConfiguration_ResetConfiguration_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NodeConfiguration_DryRun_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DryRunRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeConfigurationServer).DryRun(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeConfiguration_DryRun_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeConfigurationServer).DryRun(ctx, req.(*DryRunRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _NodeConfiguration_ConfigurationHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ConfigurationHistoryRequest)
 	if err := dec(in); err != nil {
@@ -541,6 +612,10 @@ var NodeConfiguration_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResetConfiguration",
 			Handler:    _NodeConfiguration_ResetConfiguration_Handler,
+		},
+		{
+			MethodName: "DryRun",
+			Handler:    _NodeConfiguration_DryRun_Handler,
 		},
 		{
 			MethodName: "ConfigurationHistory",

@@ -7,6 +7,7 @@ import (
 	flagutil "github.com/rancher/opni/pkg/util/flagutil"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
@@ -17,7 +18,8 @@ type InstallableConfigType[T any] interface {
 }
 
 type ContextKeyable interface {
-	ContextKey() string
+	proto.Message
+	ContextKey() protoreflect.FieldDescriptor
 }
 
 type Revisioner interface {
@@ -73,6 +75,7 @@ type HistoryRequestType interface {
 
 type ResetRequestType[T ConfigType[T]] interface {
 	proto.Message
+	GetRevision() *corev1.Revision
 	GetMask() *fieldmaskpb.FieldMask
 	GetPatch() T
 }
@@ -191,6 +194,10 @@ type DryRunConfigServer[
 ] interface {
 	ConfigServer[T, G, S, R, H, HR]
 	DryRunServer[T, D, DR]
+}
+
+type InstallerRequestType interface {
+	proto.Message
 }
 
 type InstallerServer interface {

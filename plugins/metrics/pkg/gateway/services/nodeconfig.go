@@ -31,7 +31,7 @@ func (s *NodeConfigService) Activate() error {
 	defaultCapabilityStore := kvutil.WithKey(system.NewKVStoreClient[*node.MetricsCapabilityConfig](s.Context.KeyValueStoreClient()), "/config/capability/default")
 	activeCapabilityStore := kvutil.WithPrefix(system.NewKVStoreClient[*node.MetricsCapabilityConfig](s.Context.KeyValueStoreClient()), "/config/capability/nodes/")
 
-	s.ContextKeyableConfigServer = s.ContextKeyableConfigServer.Build(defaultCapabilityStore, activeCapabilityStore, flagutil.LoadDefaults)
+	s.ContextKeyableConfigServer = s.Build(defaultCapabilityStore, activeCapabilityStore, flagutil.LoadDefaults)
 	StartActiveSyncWatcher(s.Context, activeCapabilityStore)
 	StartDefaultSyncWatcher(s.Context, defaultCapabilityStore)
 
@@ -42,6 +42,19 @@ func (s *NodeConfigService) ManagementServices() []util.ServicePackInterface {
 	return []util.ServicePackInterface{
 		util.PackService[node.NodeConfigurationServer](&node.NodeConfiguration_ServiceDesc, s),
 	}
+}
+
+// DryRun implements node.NodeConfigurationServer.
+func (s *NodeConfigService) DryRun(ctx context.Context, req *node.DryRunRequest) (*node.DryRunResponse, error) {
+	res, err := s.ServerDryRun(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &node.DryRunResponse{
+		Current:          res.Current,
+		Modified:         res.Modified,
+		ValidationErrors: []*driverutil.ValidationError{}, // TODO: implement node config validation
+	}, nil
 }
 
 func init() {

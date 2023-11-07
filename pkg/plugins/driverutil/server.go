@@ -163,6 +163,28 @@ func (s *BaseConfigServer[G, S, R, H, HR, T]) Tracker() *DefaultingConfigTracker
 	return s.tracker
 }
 
+// ServerDryRun sends a dry-run request to the tracker and returns the results
+// in a generic wrapper type.
+//
+// Because DryRun is an optional config server API, the request and response
+// types are not part of the collection of required type parameters for this
+// server. The typed request can be passed directly to ServerDryRun using the
+// generic interface DryRunRequestType[T], which it will already implement
+// if the request is well-formed. The corresponding response type can't be
+// known at compile-time, so the caller will need to translate the generic
+// response type DryRunResults[T] into the correct response type for the rpc.
+//
+// This is typically most of the work required to implement a dry-run endpoint,
+// but callers may wish to perform additional validation on the modified config
+// before returning the dry-run response to the client using the typed dry-run
+// response message.
+//
+// If the config type has validation rules defined using protovalidate, they
+// will be run against the modified config and included in this response.
+func (s *BaseConfigServer[G, S, R, H, HR, T]) ServerDryRun(ctx context.Context, req DryRunRequestType[T]) (DryRunResults[T], error) {
+	return s.tracker.DryRun(ctx, req)
+}
+
 type ContextKeyableConfigServer[
 	G interface {
 		GetRequestType
@@ -218,29 +240,36 @@ func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) SetDefaultConfiguration(
 }
 
 func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) GetConfiguration(ctx context.Context, in G) (T, error) {
-	return s.base.GetConfiguration(contextWithKey(ctx, in.ContextKey()), in)
+	return s.base.GetConfiguration(contextWithKey(ctx, in), in)
 }
 
 func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) ResetConfiguration(ctx context.Context, in R) (*emptypb.Empty, error) {
-	return s.base.ResetConfiguration(contextWithKey(ctx, in.ContextKey()), in)
+	return s.base.ResetConfiguration(contextWithKey(ctx, in), in)
 }
 
 func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) SetConfiguration(ctx context.Context, in S) (*emptypb.Empty, error) {
-	return s.base.SetConfiguration(contextWithKey(ctx, in.ContextKey()), in)
+	return s.base.SetConfiguration(contextWithKey(ctx, in), in)
 }
 
 func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) ConfigurationHistory(ctx context.Context, in H) (HR, error) {
-	return s.base.ConfigurationHistory(contextWithKey(ctx, in.ContextKey()), in)
+	return s.base.ConfigurationHistory(contextWithKey(ctx, in), in)
 }
 
 func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) Install(ctx context.Context, in ContextKeyable) (*emptypb.Empty, error) {
-	return s.base.Install(contextWithKey(ctx, in.ContextKey()), &emptypb.Empty{})
+	return s.base.Install(contextWithKey(ctx, in), &emptypb.Empty{})
 }
 
 func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) Uninstall(ctx context.Context, in ContextKeyable) (*emptypb.Empty, error) {
-	return s.base.Uninstall(contextWithKey(ctx, in.ContextKey()), &emptypb.Empty{})
+	return s.base.Uninstall(contextWithKey(ctx, in), &emptypb.Empty{})
 }
 
-func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) Tracker() *DefaultingConfigTracker[T] {
-	return s.base.tracker
+func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) ServerDryRun(ctx context.Context, req interface {
+	DryRunRequestType[T]
+	ContextKeyable
+}) (DryRunResults[T], error) {
+	return s.base.ServerDryRun(contextWithKey(ctx, req), req)
+}
+
+func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) InjectContextKey(ctx context.Context, in ContextKeyable) context.Context {
+	return contextWithKey(ctx, in)
 }

@@ -114,7 +114,11 @@ func RenderClusterList(list *corev1.ClusterList, status []*corev1.HealthStatus) 
 		if renderInstanceInfo {
 			instanceInfo := t.GetMetadata().GetLastKnownConnectionDetails().GetInstanceInfo()
 			if instanceInfo != nil && instanceInfo.GetAcquired() {
-				row = append(row, instanceInfo.GetRelayAddress())
+				instanceName := instanceInfo.GetRelayAddress()
+				if instanceInfo.Annotations != nil && instanceInfo.Annotations["hostname"] != "" {
+					instanceName = instanceInfo.Annotations["hostname"]
+				}
+				row = append(row, instanceName)
 			} else {
 				row = append(row, "")
 			}
@@ -294,8 +298,22 @@ func RenderClusterDetails(cluster *corev1.Cluster) string {
 	w.AppendSeparator()
 	lkcd := cluster.GetMetadata().GetLastKnownConnectionDetails()
 	if lkcd != nil {
-		w.AppendRow(table.Row{"Last Known Connection", "Connection Time", lkcd.GetTime().AsTime().Local().Format(time.RFC3339)})
+		connectionTime := lkcd.GetTime().AsTime().Local()
+		w.AppendRow(table.Row{"Last Known Connection", "Connection Time", fmt.Sprintf("%s: (up %s)", connectionTime.Format(time.RFC3339), time.Since(connectionTime).Round(time.Second))})
 		w.AppendRow(table.Row{"", "Peer Address", lkcd.GetAddress()})
+		if lkcd.InstanceInfo != nil {
+			instanceName := lkcd.InstanceInfo.GetRelayAddress()
+			if lkcd.InstanceInfo.Annotations != nil && lkcd.InstanceInfo.Annotations["hostname"] != "" {
+				instanceName = lkcd.InstanceInfo.Annotations["hostname"]
+			}
+			w.AppendRow(table.Row{"", "Gateway Instance", instanceName})
+			w.AppendSeparator()
+			w.AppendRow(table.Row{"Instance Info", "Relay Address", lkcd.InstanceInfo.GetRelayAddress()})
+			w.AppendRow(table.Row{"", "Management Address", lkcd.InstanceInfo.GetManagementAddress()})
+			for k, v := range lkcd.InstanceInfo.GetAnnotations() {
+				w.AppendRow(table.Row{"", k, v})
+			}
+		}
 		if lkcd.AgentBuildInfo != nil {
 			w.AppendSeparator()
 			w.AppendRow(table.Row{"Build Info", "Go Version", lkcd.AgentBuildInfo.GetGoVersion()})

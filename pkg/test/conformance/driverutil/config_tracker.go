@@ -44,10 +44,6 @@ func DefaultingConfigTrackerTestSuite[
 			driverutil.UnsetRevision(t)
 			return t
 		}
-		// var withoutTimestamp = func(t T) T {
-		// 	driverutil.SetRevision(t, t.GetRevision().GetRevision())
-		// 	return t
-		// }
 
 		var (
 			wctx          context.Context
@@ -399,7 +395,7 @@ func DefaultingConfigTrackerTestSuite[
 
 						results, err := configTracker.DryRunSetDefaultConfig(wctx, newDefault)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(results.Current).To(testutil.ProtoEqual(newDefaultsRedacted()))
+						Expect(withoutRevision(results.Current)).To(testutil.ProtoEqual(newDefaultsRedacted()))
 						conf := results.Modified
 
 						newDefault.RedactSecrets()
@@ -417,7 +413,7 @@ func DefaultingConfigTrackerTestSuite[
 
 						results, err := configTracker.DryRunApplyConfig(wctx, newActive)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(results.Current).To(testutil.ProtoEqual(withoutRevision(newDefaultsRedacted())))
+						Expect(withoutRevision(results.Current)).To(testutil.ProtoEqual(withoutRevision(newDefaultsRedacted())))
 						conf := results.Modified
 
 						newActive.RedactSecrets()
@@ -437,7 +433,7 @@ func DefaultingConfigTrackerTestSuite[
 						results, err := configTracker.DryRunResetDefaultConfig(wctx)
 						Expect(err).NotTo(HaveOccurred())
 
-						Expect(results.Current).To(testutil.ProtoEqual(withoutRevision(conf)))
+						Expect(withoutRevision(results.Current)).To(testutil.ProtoEqual(withoutRevision(conf)))
 						Expect(results.Modified).To(testutil.ProtoEqual(withoutRevision(newDefaultsRedacted())))
 
 						conf, err = configTracker.GetDefaultConfig(wctx)
@@ -455,7 +451,7 @@ func DefaultingConfigTrackerTestSuite[
 							results, err := configTracker.DryRunResetConfig(wctx, nil, lo.Empty[T]())
 							Expect(err).NotTo(HaveOccurred())
 
-							Expect(results.Current).To(testutil.ProtoEqual(withoutRevision(conf)))
+							Expect(withoutRevision(results.Current)).To(testutil.ProtoEqual(withoutRevision(conf)))
 							Expect(results.Modified).To(testutil.ProtoEqual(withoutRevision(newDefaultsRedacted())))
 
 							conf, err = configTracker.GetConfig(wctx)

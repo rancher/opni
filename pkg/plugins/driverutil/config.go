@@ -12,6 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/util/merge"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
@@ -266,56 +267,28 @@ func (ct *DefaultingConfigTracker[T]) ApplyConfig(ctx context.Context, newConfig
 	return ct.activeStore.Put(ctx, existing, storage.WithRevision(rev))
 }
 
-func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, req DryRunRequestType[T]) (*DryRunResults[T], error) {
+func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, req DryRunRequestType[T]) (DryRunResults[T], error) {
 	switch req.GetTarget() {
 	case Target_ActiveConfiguration:
 		switch req.GetAction() {
 		case Action_Set:
-			res, err := ct.DryRunApplyConfig(ctx, req.GetSpec())
-			if err != nil {
-				return nil, err
-			}
-			return &DryRunResults[T]{
-				Current:  res.Current,
-				Modified: res.Modified,
-			}, nil
+			return ct.DryRunApplyConfig(ctx, req.GetSpec())
 		case Action_Reset:
-			res, err := ct.DryRunResetConfig(ctx, req.GetMask(), req.GetPatch(), req.GetRevision())
-			if err != nil {
-				return nil, err
-			}
-			return &DryRunResults[T]{
-				Current:  res.Current,
-				Modified: res.Modified,
-			}, nil
+			return ct.DryRunResetConfig(ctx, req.GetMask(), req.GetPatch(), req.GetRevision())
 		default:
-			return nil, fmt.Errorf("invalid action: %s", req.GetAction())
+			return DryRunResults[T]{}, fmt.Errorf("invalid action: %s", req.GetAction())
 		}
 	case Target_DefaultConfiguration:
 		switch req.GetAction() {
 		case Action_Set:
-			res, err := ct.DryRunSetDefaultConfig(ctx, req.GetSpec())
-			if err != nil {
-				return nil, err
-			}
-			return &DryRunResults[T]{
-				Current:  res.Current,
-				Modified: res.Modified,
-			}, nil
+			return ct.DryRunSetDefaultConfig(ctx, req.GetSpec())
 		case Action_Reset:
-			res, err := ct.DryRunResetDefaultConfig(ctx, req.GetRevision())
-			if err != nil {
-				return nil, err
-			}
-			return &DryRunResults[T]{
-				Current:  res.Current,
-				Modified: res.Modified,
-			}, nil
+			return ct.DryRunResetDefaultConfig(ctx, req.GetRevision())
 		default:
-			return nil, fmt.Errorf("invalid action: %s", req.GetAction())
+			return DryRunResults[T]{}, fmt.Errorf("invalid action: %s", req.GetAction())
 		}
 	default:
-		return nil, fmt.Errorf("invalid target: %s", req.GetTarget())
+		return DryRunResults[T]{}, fmt.Errorf("invalid target: %s", req.GetTarget())
 	}
 }
 
@@ -362,10 +335,11 @@ func (ct *DefaultingConfigTracker[T]) DryRunApplyConfig(ctx context.Context, new
 	ct.redact(current)
 	ct.redact(modified)
 
-	// Unset the revision for the modified config. Revisions are not stored
+	// Preserve the revision for the modified config. Revisions are not stored
 	// in the actual object inside the kv store, so they should not be included
 	// in the diff.
-	UnsetRevision(modified)
+	CopyRevision(modified, current)
+
 	return DryRunResults[T]{
 		Current:  current,
 		Modified: modified,
@@ -389,6 +363,9 @@ func (ct *DefaultingConfigTracker[T]) DryRunSetDefaultConfig(ctx context.Context
 
 	ct.redact(current)
 	ct.redact(newDefault)
+
+	SetRevision(current, rev)
+	CopyRevision(newDefault, current)
 
 	return DryRunResults[T]{
 		Current:  current,
@@ -473,9 +450,22 @@ type contextKeyedValueStore[T ConfigType[T]] struct {
 type contextKeyedValueStore_keyType struct{}
 
 var contextKeyedValueStore_key contextKeyedValueStore_keyType
+var corev1ReferenceType = (&corev1.Reference{}).ProtoReflect().Descriptor()
+var corev1IdField = corev1ReferenceType.Fields().ByName("id")
 
-func contextWithKey(ctx context.Context, key string) context.Context {
-	return context.WithValue(ctx, contextKeyedValueStore_key, key)
+func contextWithKey(ctx context.Context, ck ContextKeyable) context.Context {
+	field := ck.ContextKey()
+	switch field.Kind() {
+	case protoreflect.MessageKind:
+		if field.Message() == corev1ReferenceType {
+			key := ck.ProtoReflect().Get(field).Message().Get(corev1IdField).String()
+			return context.WithValue(ctx, contextKeyedValueStore_key, key)
+		}
+	case protoreflect.StringKind:
+		key := ck.ProtoReflect().Get(field).String()
+		return context.WithValue(ctx, contextKeyedValueStore_key, key)
+	}
+	panic(fmt.Errorf("invalid context key type: %s", field.Message().FullName()))
 }
 
 func keyFromContext(ctx context.Context) string {

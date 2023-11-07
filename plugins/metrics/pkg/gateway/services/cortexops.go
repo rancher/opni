@@ -37,7 +37,7 @@ func (s *CortexOpsService) Activate() error {
 	defaultStore := kvutil.WithKey(system.NewKVStoreClient[*cortexops.CapabilityBackendConfigSpec](s.Context.KeyValueStoreClient()), "/config/cluster/default")
 	activeStore := s.Context.ClusterDriver().ActiveConfigStore()
 
-	s.BaseConfigServer = s.BaseConfigServer.Build(defaultStore, activeStore, flagutil.LoadDefaults)
+	s.BaseConfigServer = s.Build(defaultStore, activeStore, flagutil.LoadDefaults)
 	s.PartialCortexOpsServer = s.Context.ClusterDriver()
 	return nil
 }
@@ -49,7 +49,7 @@ func (s *CortexOpsService) ManagementServices() []util.ServicePackInterface {
 }
 
 func (s *CortexOpsService) DryRun(ctx context.Context, req *cortexops.DryRunRequest) (*cortexops.DryRunResponse, error) {
-	res, err := s.Tracker().DryRun(ctx, req)
+	res, err := s.ServerDryRun(ctx, req)
 	if err != nil {
 		return nil, err
 	}

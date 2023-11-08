@@ -214,12 +214,13 @@ func (m *Server) configureHttpApiExtensions() {
 		stub := grpcdynamic.NewStub(ext.clientConn)
 		svcDesc := ext.serviceDesc
 		httpRules := ext.httpRules
-		checker := accessChecker{
-			client: ext.client,
-			logger: m.logger.WithGroup("access-checker"),
-			store:  m.store,
-		}
-		ext.group.Use(m.middleware.Handler(checker.CheckAccessForExtension))
+		// The following can be use when we devolve api roles to plugins
+		// checker := accessChecker{
+		// 	client: ext.client,
+		// 	logger: m.logger.WithGroup("access-checker"),
+		// 	store:  m.coreDataSource.StorageBackend(),
+		// }
+		ext.group.Use(m.middleware.Handler(m.checkAdminAccess))
 		m.configureServiceStubHandlers(ext.mux, stub, svcDesc, httpRules, ext.status)
 		ext.group.Any("/*any", gin.WrapF(ext.mux.ServeHTTP))
 	}

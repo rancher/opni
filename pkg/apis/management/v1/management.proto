@@ -25,7 +25,7 @@ service LocalPassword {
     option (cli.command) = {
       use: "auth create-local-password"
     };
-  };
+  }
 }
 
 service Management {
@@ -144,6 +144,30 @@ service Management {
     };
     option (google.api.http) = {
       get: "/rbac/backend/{name}/roles"
+    };
+  }
+  rpc AddAdminRoleBinding(core.Reference) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "admin-role add"
+    };
+    option (google.api.http) = {
+      put: "/rbac/mgmt/user/{id}"
+    };
+  }
+  rpc RemoveAdminRoleBinding(core.Reference) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "admin-role remove"
+    };
+    option (google.api.http) = {
+      delete: "/rbac/mgmt/user/{id}"
+    };
+  }
+  rpc ListAdminRoleBinding(google.protobuf.Empty) returns (core.ReferenceList) {
+    option (cli.command) = {
+      use: "admin-role list"
+    };
+    option (google.api.http) = {
+      get: "/rbac/mgmt/user"
     };
   }
   rpc CreateRoleBinding(core.RoleBinding) returns (google.protobuf.Empty) {

@@ -146,6 +146,9 @@ func BuildManagementCmd() *cobra.Command {
 		BuildManagementDeleteBackendRoleCmd(),
 		BuildManagementGetBackendRoleCmd(),
 		BuildManagementListBackendRolesCmd(),
+		BuildManagementAddAdminRoleBindingCmd(),
+		BuildManagementRemoveAdminRoleBindingCmd(),
+		BuildManagementListAdminRoleBindingCmd(),
 		BuildManagementCreateRoleBindingCmd(),
 		BuildManagementUpdateRoleBindingCmd(),
 		BuildManagementDeleteRoleBindingCmd(),
@@ -719,6 +722,95 @@ HTTP handlers for this method:
 		},
 	}
 	cmd.Flags().AddFlagSet(in.FlagSet())
+	return cmd
+}
+
+func BuildManagementAddAdminRoleBindingCmd() *cobra.Command {
+	in := &v1.Reference{}
+	cmd := &cobra.Command{
+		Use:   "admin-role add",
+		Short: "",
+		Long: `
+HTTP handlers for this method:
+- PUT /rbac/mgmt/user/{id}
+`[1:],
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, ok := ManagementClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			if in == nil {
+				return errors.New("no input provided")
+			}
+			_, err := client.AddAdminRoleBinding(cmd.Context(), in)
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+	cmd.Flags().AddFlagSet(in.FlagSet())
+	return cmd
+}
+
+func BuildManagementRemoveAdminRoleBindingCmd() *cobra.Command {
+	in := &v1.Reference{}
+	cmd := &cobra.Command{
+		Use:   "admin-role remove",
+		Short: "",
+		Long: `
+HTTP handlers for this method:
+- DELETE /rbac/mgmt/user/{id}
+`[1:],
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, ok := ManagementClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			if in == nil {
+				return errors.New("no input provided")
+			}
+			_, err := client.RemoveAdminRoleBinding(cmd.Context(), in)
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+	cmd.Flags().AddFlagSet(in.FlagSet())
+	return cmd
+}
+
+func BuildManagementListAdminRoleBindingCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "admin-role list",
+		Short: "",
+		Long: `
+HTTP handlers for this method:
+- GET /rbac/mgmt/user
+`[1:],
+		Args:              cobra.NoArgs,
+		ValidArgsFunction: cobra.NoFileCompletions,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, ok := ManagementClientFromContext(cmd.Context())
+			if !ok {
+				cmd.PrintErrln("failed to get client from context")
+				return nil
+			}
+			response, err := client.ListAdminRoleBinding(cmd.Context(), &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			cli.RenderOutput(cmd, response)
+			return nil
+		},
+	}
 	return cmd
 }
 

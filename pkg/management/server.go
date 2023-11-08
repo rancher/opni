@@ -102,7 +102,6 @@ type managementServerOptions struct {
 	lifecycler             config.Lifecycler
 	capabilitiesDataSource CapabilitiesDataSource
 	healthStatusDataSource HealthStatusDataSource
-	store                  storage.Backend
 }
 
 type ManagementServerOption func(*managementServerOptions)
@@ -128,12 +127,6 @@ func WithCapabilitiesDataSource(src CapabilitiesDataSource) ManagementServerOpti
 func WithHealthStatusDataSource(src HealthStatusDataSource) ManagementServerOption {
 	return func(o *managementServerOptions) {
 		o.healthStatusDataSource = src
-	}
-}
-
-func WithRoleBindingDataStore(store storage.Backend) ManagementServerOption {
-	return func(o *managementServerOptions) {
-		o.store = store
 	}
 }
 
@@ -246,7 +239,7 @@ func NewServer(
 		authGroup.Any("/oidc/callback", handler.handleCallback)
 	}
 
-	m.localAuth = local.NewLocalAuthenticator(m.store.KeyValueStore(authutil.AuthNamespace))
+	m.localAuth = local.NewLocalAuthenticator(m.coreDataSource.StorageBackend().KeyValueStore(authutil.AuthNamespace))
 	m.middleware = &middleware.MultiMiddleware{
 		Logger:             lg.WithGroup("auth_middleware"),
 		Config:             m.oauthConfig,
@@ -260,7 +253,7 @@ func NewServer(
 	pluginLoader.Hook(hooks.OnLoad(func(p types.ProxyPlugin) {
 		log := lg.WithGroup("proxy")
 		pluginRouter, err := proxyrouter.NewRouter(proxyrouter.RouterConfig{
-			Store:  m.store,
+			Store:  m.coreDataSource.StorageBackend(),
 			Logger: log,
 			Client: p,
 		})
@@ -345,6 +338,7 @@ func (m *Server) listenAndServeHttp(ctx context.Context) error {
 
 	m.configureManagementHttpApi(ctx, gwmux)
 	mgmtGroup := m.router.Group("/mgmt")
+	mgmtGroup.Use(m.middleware.Handler(m.checkAdminAccess))
 	mgmtGroup.Any("/*any", gin.WrapF(gwmux.ServeHTTP))
 
 	m.configureHttpApiExtensions()

@@ -156,8 +156,17 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 									"enabled": "true",
 								},
 							},
-							"enabled":  true,
-							"hostname": "x",
+							"dashboardContentCacheDuration": "0s",
+							"enabled":                       true,
+							"hostname":                      "x",
+							"deployment": map[string]any{
+								"env": []map[string]string{
+									{
+										"name":  "GF_SOME_VAR",
+										"value": "true",
+									},
+								},
+							},
 						},
 					},
 				},
@@ -219,6 +228,33 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 				}
 		}
 
+		grafanaV1 := grafanav1beta1.GrafanaSpec{
+			Config: map[string]map[string]string{
+				"auth.generic_oauth": {
+					"enabled": "true",
+				},
+			},
+			Deployment: &grafanav1beta1.DeploymentV1{
+				Spec: grafanav1beta1.DeploymentV1Spec{
+					Template: &grafanav1beta1.DeploymentV1PodTemplateSpec{
+						Spec: &grafanav1beta1.DeploymentV1PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "grafana",
+									Env: []corev1.EnvVar{
+										{
+											Name:  "GF_SOME_VAR",
+											Value: "true",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
 		It("should upgrade the monitoring cluster from revision 0 to 1", func() {
 			mcv0 := newmcv0()
 			mcv1config, mcv1workloads := newmcv1()
@@ -239,13 +275,7 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 				Enabled:  lo.ToPtr(true),
 				Hostname: lo.ToPtr("x"),
 			}))
-			Expect(target.Spec.Grafana.GrafanaSpec).To(Equal(grafanav1beta1.GrafanaSpec{
-				Config: map[string]map[string]string{
-					"auth.generic_oauth": {
-						"enabled": "true",
-					},
-				},
-			}))
+			Expect(target.Spec.Grafana.GrafanaSpec).To(Equal(grafanaV1))
 			Expect(k8sClient.Delete(context.Background(), target)).To(Succeed())
 			Eventually(Object(target)).ShouldNot(Exist())
 		})

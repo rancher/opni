@@ -355,14 +355,6 @@ func (r *Reconciler) createOpniAlertManagerDatasource(dashboardSelector *metav1.
 				JSONData:       opniAlertManagerDatasourceJSONCfg,
 				SecureJSONData: opniDatasourceSecureJSONCfg,
 			},
-			Plugins: []grafanav1beta1.GrafanaPlugin{
-				{
-					Name: "grafana-polystat-panel",
-				},
-				{
-					Name: "marcusolsson-treemap-panel",
-				},
-			},
 		},
 	}, nil
 }

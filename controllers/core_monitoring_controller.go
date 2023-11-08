@@ -242,7 +242,12 @@ var conversions = map[int64]unstructuredConverter{
 	//   gateway:
 	//		 [same as v1]
 	//   grafana:
-	//     [same as v1]
+	//     config: {}
+	//     dashboardContentCacheDuration: 0s
+	//     deployment:
+	//       env:
+	//         - name: GF_VAR
+	//           value: 'true'
 	//
 	// v1:
 	// spec:
@@ -254,6 +259,16 @@ var conversions = map[int64]unstructuredConverter{
 	//         compactor_blocks_retention_period:
 	//					 seconds: int64 [move from v0 storage.retentionPeriod]
 	//     cortexWorkloads:
+	//   grafana:
+	//     deployment:
+	//       spec:
+	//         template:
+	//           spec:
+	//             containers:
+	//               - env:
+	//                   - name: GF_VAR
+	//                     value: 'true'
+	//                 name: grafana
 	0: func(src *unstructured.Unstructured) error {
 		content := src.UnstructuredContent()
 
@@ -262,6 +277,30 @@ var conversions = map[int64]unstructuredConverter{
 		v0RetentionPeriod, hasV0RetentionPeriod, _ := unstructured.NestedMap(content, "spec", "cortex", "storage", "retentionPeriod")
 		v0Workloads, hasV0Workloads, _ := unstructured.NestedMap(content, "spec", "cortex", "workloads")
 		v0Storage, hasV0Storage, _ := unstructured.NestedMap(content, "spec", "cortex", "storage")
+		v0GrafanaDeployment, hasV0GrafanaDeployment, _ := unstructured.NestedMap(content, "spec", "grafana", "deployment")
+
+		if hasV0GrafanaDeployment {
+			v0GrafanaEnvvars, hasV0GrafanaEnvvars, _ := unstructured.NestedSlice(v0GrafanaDeployment, "env")
+			if hasV0GrafanaEnvvars {
+				v1GrafanaContainer := map[string]any{
+					"name": "grafana",
+				}
+
+				v1GrafanaDeployment := map[string]any{
+					"deployment": map[string]any{
+						"spec": map[string]any{
+							"template": map[string]any{
+								"spec": map[string]any{},
+							},
+						},
+					},
+				}
+
+				unstructured.SetNestedMap(content, v1GrafanaDeployment, "spec", "grafana", "deployment")
+				unstructured.SetNestedSlice(v1GrafanaContainer, v0GrafanaEnvvars, "env")
+				unstructured.SetNestedSlice(content, []any{v1GrafanaContainer}, "spec", "grafana", "deployment", "spec", "template", "spec", "containers")
+			}
+		}
 
 		if !hasV0DeploymentMode && !hasV0RetentionPeriod && !hasV0Workloads && !hasV0Storage {
 			// not a v0 object
@@ -357,6 +396,7 @@ var conversions = map[int64]unstructuredConverter{
 		unstructured.RemoveNestedField(content, "spec", "cortex", "deploymentMode")
 		unstructured.RemoveNestedField(content, "spec", "cortex", "storage")
 		unstructured.RemoveNestedField(content, "spec", "cortex", "workloads")
+		unstructured.RemoveNestedField(content, "spec", "grafana", "dashboardContentCacheDuration")
 		unstructured.SetNestedMap(content, v1CortexConfig, "spec", "cortex", "cortexConfig")
 		unstructured.SetNestedMap(content, v1CortexWorkloads, "spec", "cortex", "cortexWorkloads")
 

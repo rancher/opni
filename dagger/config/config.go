@@ -214,8 +214,7 @@ func mergeStrict(src, dest map[string]any) error {
 				// Handle the special case where empty slices are decoded as []any causing
 				// a type mismatch when merging with a slice of a specific type.
 				if reflect.TypeOf(dest[key]).Kind() == reflect.Slice &&
-					reflect.TypeOf(val) == reflect.TypeOf(([]any)(nil)) &&
-					reflect.ValueOf(dest[key]).Len() == 0 {
+					reflect.TypeOf(val) == reflect.TypeOf(([]any)(nil)) {
 					dest[key] = reflect.MakeSlice(reflect.TypeOf(dest[key]), 0, 0).Interface()
 					for _, v := range val.([]any) {
 						dest[key] = reflect.Append(reflect.ValueOf(dest[key]), reflect.ValueOf(v)).Interface()

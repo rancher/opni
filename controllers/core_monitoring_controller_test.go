@@ -3,11 +3,11 @@ package controllers_test
 import (
 	"context"
 	"fmt"
-	grafanav1beta1 "github.com/grafana-operator/grafana-operator/v5/api/v1beta1"
 	"os"
 	"time"
 
 	"github.com/cortexproject/cortex/pkg/cortex"
+	grafanav1beta1 "github.com/grafana-operator/grafana-operator/v5/api/v1beta1"
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -347,7 +347,7 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 						Grafana: corev1beta1.GrafanaSpec{
 							GrafanaConfig: &cortexops.GrafanaConfig{
 								Enabled: lo.ToPtr(true),
-								Version: lo.ToPtr("10.0.0"),
+								Version: lo.ToPtr("10.1.5"),
 							},
 						},
 					},
@@ -387,14 +387,14 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 				// grafana should be deployed
 				Eventually(Object(&appsv1.Deployment{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "grafana",
+						Name:      "grafana-deployment",
 						Namespace: aio.Namespace,
 					},
 				})).Should(ExistAnd(
 					HaveReplicaCount(1),
 					HaveMatchingContainer(And(
 						HaveName("grafana"),
-						HaveImage("grafana/grafana:10.0.0"),
+						HaveImage("grafana/grafana:10.1.5"),
 					)),
 				))
 
@@ -502,14 +502,14 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 				// grafana should be deployed
 				Eventually(Object(&appsv1.Deployment{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "grafana",
+						Name:      "grafana-deployment",
 						Namespace: aio.Namespace,
 					},
 				})).Should(ExistAnd(
 					HaveReplicaCount(1),
 					HaveMatchingContainer(And(
 						HaveName("grafana"),
-						HaveImage("grafana/grafana:10.1.1"),
+						HaveImage("grafana/grafana:10.1.5"),
 					)),
 				))
 			})

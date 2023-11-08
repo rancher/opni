@@ -2,14 +2,13 @@ package rbac
 
 import (
 	"context"
-	"net/http"
-
 	"log/slog"
+	"net/http"
+	"slices"
 
 	"github.com/gin-gonic/gin"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
-	"golang.org/x/exp/slices"
 )
 
 type middleware struct {

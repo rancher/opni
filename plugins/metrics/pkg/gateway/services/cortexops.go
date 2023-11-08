@@ -3,6 +3,8 @@ package services
 import (
 	"context"
 
+	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
+	"github.com/bufbuild/protovalidate-go"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
@@ -53,10 +55,24 @@ func (s *CortexOpsService) DryRun(ctx context.Context, req *cortexops.DryRunRequ
 	if err != nil {
 		return nil, err
 	}
+
+	upstreamErrs := configutil.CollectValidationErrorLogs(res.Modified.CortexConfig)
+	if len(upstreamErrs) > 0 {
+		if res.ValidationErrors == nil {
+			res.ValidationErrors = &protovalidate.ValidationError{}
+		}
+		for _, err := range upstreamErrs {
+			res.ValidationErrors.Violations = append(res.ValidationErrors.Violations, &validate.Violation{
+				ConstraintId: "cortex",
+				Message:      err.Error(),
+			})
+		}
+	}
+
 	return &cortexops.DryRunResponse{
 		Current:          res.Current,
 		Modified:         res.Modified,
-		ValidationErrors: configutil.ValidateConfiguration(res.Modified),
+		ValidationErrors: res.ValidationErrors.ToProto(),
 	}, nil
 }
 

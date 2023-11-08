@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"path"
 	"runtime/debug"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -258,11 +257,11 @@ func (d *TestEnvMetricsClusterDriver) onActiveConfigChanged(old, new *cortexops.
 			},
 		)
 
-		errs := configutil.ValidateConfiguration(new, overriders...)
+		errs := configutil.CollectValidationErrorLogs(new.CortexConfig, overriders...)
 		if len(errs) > 0 {
 			currentStatus.Use(func(s *driverutil.InstallStatus) {
 				for _, err := range errs {
-					s.Warnings = append(s.Warnings, fmt.Sprintf("%s: %s", strings.ToLower(err.Severity.String()), err.Message))
+					s.Warnings = append(s.Warnings, err.Error())
 				}
 			})
 		}

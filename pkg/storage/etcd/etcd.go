@@ -71,7 +71,7 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 	var tlsConfig *tls.Config
 	if conf.Certs != nil {
 		var err error
-		tlsConfig, err = util.LoadClientMTLSConfig(conf.Certs)
+		tlsConfig, err = util.LoadClientMTLSConfig(*conf.Certs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load client TLS config: %w", err)
 		}

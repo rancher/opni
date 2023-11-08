@@ -939,55 +939,6 @@ func (in *SampleDryRunRequest) UnredactSecrets(unredacted *SampleDryRunRequest) 
 	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
 }
 
-func (in *SampleDryRunResponse) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("SampleDryRunResponse", pflag.ExitOnError)
-	fs.SortFlags = true
-	if in.Current == nil {
-		in.Current = &SampleConfiguration{}
-	}
-	fs.AddFlagSet(in.Current.FlagSet(append(prefix, "current")...))
-	if in.Modified == nil {
-		in.Modified = &SampleConfiguration{}
-	}
-	fs.AddFlagSet(in.Modified.FlagSet(append(prefix, "modified")...))
-	return fs
-}
-
-func (in *SampleDryRunResponse) RedactSecrets() {
-	if in == nil {
-		return
-	}
-	in.Current.RedactSecrets()
-	in.Modified.RedactSecrets()
-}
-
-func (in *SampleDryRunResponse) UnredactSecrets(unredacted *SampleDryRunResponse) error {
-	if in == nil {
-		return nil
-	}
-	var details []protoiface.MessageV1
-	if err := in.Current.UnredactSecrets(unredacted.GetCurrent()); storage.IsDiscontinuity(err) {
-		for _, sd := range status.Convert(err).Details() {
-			if info, ok := sd.(*errdetails.ErrorInfo); ok {
-				info.Metadata["field"] = "current." + info.Metadata["field"]
-				details = append(details, info)
-			}
-		}
-	}
-	if err := in.Modified.UnredactSecrets(unredacted.GetModified()); storage.IsDiscontinuity(err) {
-		for _, sd := range status.Convert(err).Details() {
-			if info, ok := sd.(*errdetails.ErrorInfo); ok {
-				info.Metadata["field"] = "modified." + info.Metadata["field"]
-				details = append(details, info)
-			}
-		}
-	}
-	if len(details) == 0 {
-		return nil
-	}
-	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
-}
-
 func (in *SampleConfigurationHistoryResponse) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("SampleConfigurationHistoryResponse", pflag.ExitOnError)
 	fs.SortFlags = true

@@ -5,13 +5,14 @@ package example;
 import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "github.com/rancher/opni/pkg/plugins/driverutil/types.proto";
+import "github.com/rancher/opni/pkg/validation/validate.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
 
 option go_package = "github.com/rancher/opni/plugins/example/pkg/example";
 option (cli.generator) = {
-  generate: true;
+  generate: true
 };
 
 service ExampleAPIExtension {
@@ -44,8 +45,8 @@ service Config {
   }
   rpc SetDefaultConfiguration(SetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
-      use: "set-default"
-      granularity: EditMessage;
+      use:         "set-default"
+      granularity: EditMessage
     };
   }
   rpc GetConfiguration(driverutil.GetRequest) returns (ConfigSpec) {
@@ -55,8 +56,8 @@ service Config {
   }
   rpc SetConfiguration(SetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
-      use: "set"
-      granularity: EditMessage;
+      use:         "set"
+      granularity: EditMessage
     };
   }
   rpc ResetDefaultConfiguration(google.protobuf.Empty) returns (google.protobuf.Empty) {
@@ -66,8 +67,8 @@ service Config {
   }
   rpc ResetConfiguration(ResetRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
-      use: "reset"
-      granularity: EditMessage;
+      use:         "reset"
+      granularity: EditMessage
     };
   }
   rpc DryRun(DryRunRequest) returns (DryRunResponse) {
@@ -108,9 +109,9 @@ message DryRunRequest {
 }
 
 message DryRunResponse {
-  ConfigSpec                          current          = 1;
-  ConfigSpec                          modified         = 2;
-  repeated driverutil.ValidationError validationErrors = 3;
+  ConfigSpec              current          = 1;
+  ConfigSpec              modified         = 2;
+  buf.validate.Violations validationErrors = 3;
 }
 
 message HistoryResponse {

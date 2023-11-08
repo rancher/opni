@@ -3,6 +3,7 @@ package cortexops
 import (
 	"os"
 
+	"github.com/bufbuild/protovalidate-go"
 	"github.com/rancher/opni/internal/codegen/cli"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
 	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
@@ -72,8 +73,8 @@ func init() {
 							}
 							modified := drr.GetModified()
 							comments := []string{}
-							for _, err := range drr.GetValidationErrors() {
-								comments = append(comments, err.GetMessage())
+							if errs := (*protovalidate.ValidationError)(drr.GetValidationErrors()); errs != nil {
+								comments = append(comments, errs.Error())
 							}
 							if modified, err = cliutil.EditInteractive(modified, comments...); err != nil {
 								return err

@@ -7,6 +7,7 @@ import (
 	"reflect"
 	strings "strings"
 
+	"github.com/bufbuild/protovalidate-go"
 	"github.com/nsf/jsondiff"
 	cliutil "github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
@@ -102,17 +103,8 @@ func BuildCmd[
 			dryRunClient := NewDryRunClient(client).FromClientConn(cci.UnderlyingConn(client))
 
 			response := dryRunClient.Response()
-			if errs := response.GetValidationErrors(); len(errs) > 0 {
-				cmd.Println(fmt.Sprintf("validation errors occurred (%d):", len(errs)))
-				for _, e := range errs {
-					switch e.GetSeverity() {
-					case driverutil.ValidationError_Warning:
-						cmd.Print("[" + chalk.Yellow.Color("WARN") + "] ")
-					case driverutil.ValidationError_Error:
-						cmd.Print("[" + chalk.Red.Color("ERROR") + "] ")
-					}
-					cmd.Println(e.GetMessage())
-				}
+			if errs := (*protovalidate.ValidationError)(response.GetValidationErrors()); errs != nil {
+				cmd.Println(chalk.Yellow.Color(errs.Error()))
 			}
 
 			var opts jsondiff.Options

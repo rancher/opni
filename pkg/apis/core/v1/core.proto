@@ -3,6 +3,7 @@ syntax = "proto3";
 package core;
 
 import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
+import "github.com/rancher/opni/pkg/validation/validate.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
@@ -212,7 +213,13 @@ message CertInfo {
 }
 
 message Reference {
-  string id = 1;
+  string id = 1 [(buf.validate.field) = {
+    ignore_empty: true
+    string: {
+      max_bytes: 128
+      pattern:   "^[a-zA-Z0-9-_.\\(\\)]+$"
+    }
+  }];
 }
 
 message ReferenceList {

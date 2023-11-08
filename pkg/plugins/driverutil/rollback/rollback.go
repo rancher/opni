@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/bufbuild/protovalidate-go"
 	"github.com/nsf/jsondiff"
 	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
@@ -228,21 +229,13 @@ the secret values will not change from the current configuration.
 				yes := "Yes"
 
 				comments := []string{}
-				if len(dryRunResp.GetValidationErrors()) > 0 {
+				if errs := (*protovalidate.ValidationError)(dryRunResp.GetValidationErrors()); errs != nil {
 					yes += " (bypass validation checks)"
-					comments = append(comments, "Validation warnings:")
+					errStr := errs.Error()
+					comments = append(comments, errStr)
+					cmd.Println(chalk.Yellow.Color(errStr))
 				}
-				for _, e := range dryRunResp.GetValidationErrors() {
-					switch e.Severity {
-					case driverutil.ValidationError_Error:
-						comments = append(comments, fmt.Sprintf(" - %s: %s", e.GetSeverity(), e.GetMessage()))
-					case driverutil.ValidationError_Warning:
-						comments = append(comments, fmt.Sprintf(" - %s: %s", e.GetSeverity(), e.GetMessage()))
-					}
-				}
-				for _, comment := range comments {
-					cmd.Println(chalk.Yellow.Color(comment))
-				}
+
 				var confirm string
 				if err := survey.AskOne(&survey.Select{
 					Message: message,
@@ -266,7 +259,7 @@ the secret values will not change from the current configuration.
 						continue
 					}
 				case yes:
-					if len(dryRunResp.GetValidationErrors()) > 0 {
+					if dryRunResp.GetValidationErrors() != nil {
 						var confirm bool
 						if err := survey.AskOne(&survey.Confirm{
 							Message: "This will bypass validation checks. The configuration may not function correctly. Are you sure?",

@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -162,15 +162,11 @@ func (e *mgmtExtensionServerImpl) WatchHealth(req *healthpb.HealthCheckRequest, 
 func (e *mgmtExtensionServerImpl) Descriptors(_ context.Context, _ *emptypb.Empty) (*apiextensions.ServiceDescriptorProtoList, error) {
 	list := &apiextensions.ServiceDescriptorProtoList{}
 	for _, s := range e.services {
-		rawDesc, _ := s.Unpack()
-		desc, err := grpcreflect.LoadServiceDescriptor(rawDesc)
+		_, sdp, err := driverutil.LoadServiceDescriptor(s)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
-		fqn := desc.GetFullyQualifiedName()
-		sd := util.ProtoClone(desc.AsServiceDescriptorProto())
-		sd.Name = &fqn
-		list.Items = append(list.Items, sd)
+		list.Items = append(list.Items, sdp)
 	}
 
 	return list, nil

@@ -26,8 +26,8 @@ type Fetcher interface {
 }
 
 type Image struct {
-	Registry   string
-	Repository string
+	Registry   string // Domain
+	Repository string // Path
 	Tag        string
 	Digest     digest.Digest
 }

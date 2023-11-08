@@ -86,6 +86,7 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.L
 			svcDesc, err := reflectClient.ResolveService(sd.GetName())
 			if err != nil {
 				m.logger.With(
+					"service", sd.GetName(),
 					logger.Err(err),
 				).Error("failed to resolve extension service")
 				return

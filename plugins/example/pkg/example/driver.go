@@ -47,7 +47,7 @@ func (d *ExampleDriver) DryRun(ctx context.Context, req *DryRunRequest) (*DryRun
 	return &DryRunResponse{
 		Current:          results.Current,
 		Modified:         results.Modified,
-		ValidationErrors: nil, // This is left as an implementation detail.
+		ValidationErrors: results.ValidationErrors.ToProto(),
 	}, nil
 }
 

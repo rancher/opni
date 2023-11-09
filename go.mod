@@ -559,7 +559,7 @@ require (
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.3.0 // indirect
 	google.golang.org/api v0.132.0 // indirect
-	google.golang.org/appengine v1.6.7 // indirect
+	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20231030173426-d783a09b4405 // indirect
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.28 // indirect
@@ -583,11 +583,11 @@ require (
 )
 
 require (
-	github.com/coreos/go-oidc v2.1.0+incompatible
+	github.com/coreos/go-oidc/v3 v3.7.0
 	github.com/zalando/gin-oauth2 v1.5.5
 )
 
-require github.com/pquerna/cachecontrol v0.1.0 // indirect
+require github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 
 replace github.com/openshift/api => github.com/openshift/api v0.0.0-20210216211028-bb81baaf35cd
 

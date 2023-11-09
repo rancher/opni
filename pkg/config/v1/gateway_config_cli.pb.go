@@ -403,6 +403,10 @@ func (in *GatewayConfigSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 		in.RateLimiting = &RateLimitingSpec{}
 	}
 	fs.AddFlagSet(in.RateLimiting.FlagSet(append(prefix, "rate-limiting")...))
+	if in.Auth == nil {
+		in.Auth = &AuthSpec{}
+	}
+	fs.AddFlagSet(in.Auth.FlagSet(append(prefix, "auth")...))
 	return fs
 }
 
@@ -412,6 +416,7 @@ func (in *GatewayConfigSpec) RedactSecrets() {
 	}
 	in.Storage.RedactSecrets()
 	in.Certs.RedactSecrets()
+	in.Auth.RedactSecrets()
 }
 
 func (in *GatewayConfigSpec) UnredactSecrets(unredacted *GatewayConfigSpec) error {
@@ -431,6 +436,14 @@ func (in *GatewayConfigSpec) UnredactSecrets(unredacted *GatewayConfigSpec) erro
 		for _, sd := range status.Convert(err).Details() {
 			if info, ok := sd.(*errdetails.ErrorInfo); ok {
 				info.Metadata["field"] = "certs." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
+	}
+	if err := in.Auth.UnredactSecrets(unredacted.GetAuth()); storage.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "auth." + info.Metadata["field"]
 				details = append(details, info)
 			}
 		}
@@ -788,6 +801,85 @@ func (in *RateLimitingSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.Var(flagutil.FloatPtrValue(flagutil.Ptr[float64](10.0), &in.Rate), strings.Join(append(prefix, "rate"), "."), "")
 	fs.Var(flagutil.IntPtrValue(flagutil.Ptr[int32](50), &in.Burst), strings.Join(append(prefix, "burst"), "."), "")
 	return fs
+}
+
+func (in *AuthSpec) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("AuthSpec", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Var(flagutil.EnumValue(AuthSpec_Basic, &in.Kind), strings.Join(append(prefix, "kind"), "."), "")
+	if in.Openid == nil {
+		in.Openid = &OpenIDAuthSpec{}
+	}
+	fs.AddFlagSet(in.Openid.FlagSet(append(prefix, "openid")...))
+	return fs
+}
+
+func (in *AuthSpec) RedactSecrets() {
+	if in == nil {
+		return
+	}
+	in.Openid.RedactSecrets()
+}
+
+func (in *AuthSpec) UnredactSecrets(unredacted *AuthSpec) error {
+	if in == nil {
+		return nil
+	}
+	var details []protoiface.MessageV1
+	if err := in.Openid.UnredactSecrets(unredacted.GetOpenid()); storage.IsDiscontinuity(err) {
+		for _, sd := range status.Convert(err).Details() {
+			if info, ok := sd.(*errdetails.ErrorInfo); ok {
+				info.Metadata["field"] = "openid." + info.Metadata["field"]
+				details = append(details, info)
+			}
+		}
+	}
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
+}
+
+func (in *OpenIDAuthSpec) FlagSet(prefix ...string) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("OpenIDAuthSpec", pflag.ExitOnError)
+	fs.SortFlags = true
+	fs.Var(flagutil.StringPtrValue(nil, &in.Issuer), strings.Join(append(prefix, "issuer"), "."), "The OP's Issuer identifier. This must exactly match the issuer URL")
+	fs.Var(flagutil.StringPtrValue(nil, &in.CaCertData), strings.Join(append(prefix, "ca-cert-data"), "."), "Optional PEM-encoded CA certificate data for the issuer.")
+	fs.Var(flagutil.StringPtrValue(nil, &in.ClientId), strings.Join(append(prefix, "client-id"), "."), "")
+	fs.Var(flagutil.StringPtrValue(nil, &in.ClientSecret), strings.Join(append(prefix, "client-secret"), "."), "\x1b[31m[secret]\x1b[0m ")
+	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("sub"), &in.IdentifyingClaim), strings.Join(append(prefix, "identifying-claim"), "."), "IdentifyingClaim is the claim that will be used to identify the user")
+	fs.StringSliceVar(&in.Scopes, strings.Join(append(prefix, "scopes"), "."), nil, "Scope specifies optional requested permissions.")
+	return fs
+}
+
+func (in *OpenIDAuthSpec) RedactSecrets() {
+	if in == nil {
+		return
+	}
+	if in.GetClientSecret() != "" {
+		in.ClientSecret = flagutil.Ptr("***")
+	}
+}
+
+func (in *OpenIDAuthSpec) UnredactSecrets(unredacted *OpenIDAuthSpec) error {
+	if in == nil {
+		return nil
+	}
+	var details []protoiface.MessageV1
+	if in.GetClientSecret() == "***" {
+		if unredacted.GetClientSecret() == "" {
+			details = append(details, &errdetails.ErrorInfo{
+				Reason:   "DISCONTINUITY",
+				Metadata: map[string]string{"field": "clientSecret"},
+			})
+		} else {
+			*in.ClientSecret = *unredacted.ClientSecret
+		}
+	}
+	if len(details) == 0 {
+		return nil
+	}
+	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
 }
 
 func (in *ResetRequest) FlagSet(prefix ...string) *pflag.FlagSet {

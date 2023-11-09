@@ -93,6 +93,7 @@ message GatewayConfigSpec {
   KeyringSpec          keyring       = 10;
   AgentUpgradesSpec    agentUpgrades = 11;
   RateLimitingSpec     rateLimiting  = 12;
+  AuthSpec             auth          = 13;
 }
 
 message ServerSpec {
@@ -563,3 +564,84 @@ message DryRunResponse {
 message HistoryResponse {
   repeated GatewayConfigSpec entries = 1;
 }
+
+message AuthSpec {
+  enum Kind {
+    Basic  = 0;
+    OpenID = 1;
+  }
+
+  Kind kind = 1 [
+    (cli.flag).default                     = "Basic",
+    (buf.validate.field).enum.defined_only = true
+  ];
+
+  BasicAuthSpec basic = 3 [(buf.validate.field).ignore_if = {
+    id:         "basic"
+    expression: "this.kind != 0"
+  }];
+
+  OpenIDAuthSpec openid = 2 [(buf.validate.field).ignore_if = {
+    id:         "openid"
+    expression: "this.kind != 1"
+  }];
+}
+
+message OpenIDAuthSpec {
+  // The OP's Issuer identifier. This must exactly match the issuer URL
+  // obtained from the discovery endpoint, and will match the `iss' claim
+  // in the ID Tokens issued by the OP.
+  // The discovery endpoint consists of this URL concatenated with the
+  // exact string `/.well-known/openid-configuration'.
+  optional string issuer = 1 [
+    (buf.validate.field) = {
+      required: true
+      string: {
+        uri_ref: true
+        prefix:  "https://"
+      }
+    }
+  ];
+
+  // Optional PEM-encoded CA certificate data for the issuer.
+  optional string caCertData = 2 [
+    (buf.validate.field).cel = {
+      id:         "openid_issuer_ca_cert_data"
+      expression: "this.x509IsValid()"
+    }
+  ];
+
+  optional string clientId = 3 [
+    (buf.validate.field).required = true
+  ];
+  optional string clientSecret = 4 [
+    (cli.flag).secret             = true,
+    (buf.validate.field).required = true
+  ];
+
+  // IdentifyingClaim is the claim that will be used to identify the user
+  // (e.g. "sub", "email", etc). Defaults to "sub".
+  optional string identifyingClaim = 5 [
+    (cli.flag).default            = "sub",
+    (buf.validate.field).required = true
+  ];
+
+  // Scope specifies optional requested permissions.
+  repeated string scopes = 6 [
+    (buf.validate.field) = {
+      required: true
+      repeated: {
+        unique: true
+      }
+      cel: [
+        {
+          id:         "require_openid_scope"
+          message:    "'openid' scope is required"
+          expression: "this.contains('openid')"
+        }
+      ]
+    }
+  ];
+}
+
+message BasicAuthSpec {}

@@ -2,6 +2,7 @@ package otel
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -31,7 +32,7 @@ type TraceForwarder struct {
 func NewTraceForwarder(opts ...ForwarderOption) *TraceForwarder {
 	options := forwarderOptions{
 		collectorAddressOverride: defaultAddress,
-		lg:                       logger.NewPluginLogger().Named("default-otel"),
+		lg:                       logger.NewPluginLogger().WithGroup("default-otel"),
 	}
 	options.apply(opts...)
 	return &TraceForwarder{
@@ -70,7 +71,7 @@ func (f *TraceForwarder) InitializeTraceForwarder() coltracepb.TraceServiceClien
 					f.dialOptions...,
 				)
 				if err != nil {
-					f.lg.Errorf("failed dial grpc: %v", err)
+					f.lg.Error("failed dial grpc: %v", err)
 					continue
 				}
 				return coltracepb.NewTraceServiceClient(conn)
@@ -106,7 +107,7 @@ func (f *TraceForwarder) Export(
 	}
 
 	if len(values)%2 != 0 {
-		f.lg.Warnf("invalid number of attribute values: %d", len(values))
+		f.lg.Warn(fmt.Sprintf("invalid number of attribute values: %d", len(values)))
 		return f.forwardTrace(ctx, request)
 	}
 

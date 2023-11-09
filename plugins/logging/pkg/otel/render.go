@@ -100,7 +100,7 @@ func (f *LogsForwarder) renderProtoJSON(c *gin.Context) {
 func (f *TraceForwarder) renderProto(c *gin.Context) {
 	body, err := readBody(c)
 	if err != nil {
-		f.lg.Errorf("failed to read body: %v", err)
+		f.lg.Error("failed to read body: %v", err)
 		c.Status(http.StatusBadRequest)
 		return
 	}
@@ -108,8 +108,8 @@ func (f *TraceForwarder) renderProto(c *gin.Context) {
 	req := &coltracepb.ExportTraceServiceRequest{}
 	err = proto.Unmarshal(body, req)
 	if err != nil {
-		f.lg.Errorf("failed to unmarshal body: %v", err)
-		f.lg.Debugf("body: %x", body)
+		f.lg.Error("failed to unmarshal body: %v", err)
+		f.lg.Debug(fmt.Sprintf("body: %x", body))
 		c.Status(http.StatusBadRequest)
 		return
 	}
@@ -127,7 +127,7 @@ func (f *TraceForwarder) renderProto(c *gin.Context) {
 func (f *TraceForwarder) renderProtoJSON(c *gin.Context) {
 	body, err := readBody(c)
 	if err != nil {
-		f.lg.Errorf("failed to read body: %v", err)
+		f.lg.Error("failed to read body: %v", err)
 		c.Status(http.StatusBadRequest)
 		return
 	}
@@ -135,7 +135,7 @@ func (f *TraceForwarder) renderProtoJSON(c *gin.Context) {
 	req := &coltracepb.ExportTraceServiceRequest{}
 	err = protojson.Unmarshal(body, req)
 	if err != nil {
-		f.lg.Errorf("failed to unmarshal body: %v", err)
+		f.lg.Error("failed to unmarshal body: %v", err)
 		c.Status(http.StatusBadRequest)
 		return
 	}

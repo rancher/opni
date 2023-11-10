@@ -471,6 +471,11 @@ func (in *CollectorSpec) DeepCopyInto(out *CollectorSpec) {
 		*out = new(v1.LocalObjectReference)
 		**out = **in
 	}
+	if in.TracesConfig != nil {
+		in, out := &in.TracesConfig, &out.TracesConfig
+		*out = new(v1.LocalObjectReference)
+		**out = **in
+	}
 	if in.MetricsConfig != nil {
 		in, out := &in.MetricsConfig, &out.MetricsConfig
 		*out = new(v1.LocalObjectReference)

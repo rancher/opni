@@ -4,9 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-
 	"log/slog"
+	"os"
 
 	"github.com/dbason/featureflags"
 	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
@@ -42,6 +41,7 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/opensearchdata"
 	"github.com/rancher/opni/plugins/logging/pkg/otel"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
+	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 )
 
 const (
@@ -64,7 +64,7 @@ type Plugin struct {
 	alertingServer      *alerting.AlertingManagementServer
 	opensearchManager   *opensearchdata.Manager
 	logging             backend.LoggingBackend
-	otelForwarder       *otel.OTELForwarder
+	otelForwarder       *otel.Forwarder
 	backendDriver       backenddriver.ClusterDriver
 	managementDriver    managementdriver.ClusterDriver
 }
@@ -145,15 +145,27 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 			kv,
 		),
 		delegate: future.New[streamext.StreamDelegate[agent.ClientSet]](),
-		otelForwarder: otel.NewOTELForwarder(
-			otel.WithLogger(lg.WithGroup("otel-forwarder")),
-			otel.WithAddress(fmt.Sprintf(
-				"%s:%d",
-				preprocessor.PreprocessorServiceName(opniopensearch.OpniPreprocessingInstanceName),
-				OpniPreprocessingPort,
+		otelForwarder: otel.NewForwarder(
+			otel.NewLogsForwarder(
+				otel.WithLogger(lg.WithGroup("otel-logs-forwarder")),
+				otel.WithAddress(fmt.Sprintf(
+					"%s:%d",
+					preprocessor.PreprocessorServiceName(opniopensearch.OpniPreprocessingInstanceName),
+					OpniPreprocessingPort,
+				)),
+				otel.WithDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
+				otel.WithPrivileged(true),
+			),
+			otel.NewTraceForwarder(
+				otel.WithLogger(lg.WithGroup("otel-trace-forwarder")),
+				otel.WithAddress(fmt.Sprintf(
+					"%s:%d",
+					preprocessor.PreprocessorServiceName(opniopensearch.OpniPreprocessingInstanceName),
+					OpniPreprocessingPort,
+				)),
+				otel.WithDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
+				otel.WithPrivileged(true),
 			)),
-			otel.WithDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
-		),
 	}
 
 	future.Wait4(p.storageBackend, p.mgmtApi, p.uninstallController, p.delegate,
@@ -180,7 +192,8 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 
 var (
 	_ loggingadmin.LoggingAdminV2Server = (*LoggingManagerV2)(nil)
-	_ collogspb.LogsServiceServer       = (*otel.OTELForwarder)(nil)
+	_ collogspb.LogsServiceServer       = (*otel.LogsForwarder)(nil)
+	_ coltracepb.TraceServiceServer     = (*otel.TraceForwarder)(nil)
 )
 
 func Scheme(ctx context.Context) meta.Scheme {

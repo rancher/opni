@@ -1,0 +1,24 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: ":{{ .PreprocessorPort }}"
+exporters:
+  otlphttp:
+    endpoint: "{{ .SinkAddress }}"
+    compression: none
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+service:
+  telemetry:
+    logs:
+      level: info
+      initial_fields:
+        service: preprocessor
+    metrics:
+      level: none
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [otlphttp]

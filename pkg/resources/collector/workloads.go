@@ -66,6 +66,9 @@ func (r *Reconciler) getDaemonConfig(loggingReceivers []string) otel.NodeConfig 
 			Enabled:   r.collector.Spec.LoggingConfig != nil,
 			Receivers: loggingReceivers,
 		},
+		Traces: otel.TraceConfig{
+			Enabled: r.collector.Spec.TracesConfig != nil,
+		},
 		Metrics:       lo.FromPtr(r.getMetricsConfig()),
 		Containerized: true,
 		LogLevel:      r.collector.Spec.LogLevel,
@@ -107,6 +110,7 @@ func (r *Reconciler) getAggregatorConfig(
 ) otel.AggregatorConfig {
 	return otel.AggregatorConfig{
 		LogsEnabled:   r.collector.Spec.LoggingConfig != nil,
+		TracesEnabled: r.collector.Spec.TracesConfig != nil,
 		Metrics:       metricsCfg,
 		AgentEndpoint: r.collector.Spec.AgentEndpoint,
 		Containerized: true,

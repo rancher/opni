@@ -169,7 +169,7 @@ require (
 
 require (
 	github.com/go-logr/zapr v1.2.4 // indirect
-	go.uber.org/zap v1.25.0 // indirect
+	go.uber.org/zap v1.25.0
 )
 
 require (
@@ -538,7 +538,7 @@ require (
 	go.opentelemetry.io/collector/featuregate v1.0.0-rcv0014 // indirect
 	go.opentelemetry.io/collector/processor v0.84.0 // indirect
 	go.opentelemetry.io/collector/receiver v0.84.0 // indirect
-	go.opentelemetry.io/collector/semconv v0.84.0 // indirect
+	go.opentelemetry.io/collector/semconv v0.84.0
 	go.opentelemetry.io/contrib/propagators/aws v1.17.0 // indirect
 	go.opentelemetry.io/contrib/propagators/b3 v1.17.0 // indirect
 	go.opentelemetry.io/contrib/propagators/jaeger v1.17.0 // indirect

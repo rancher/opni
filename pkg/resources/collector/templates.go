@@ -308,6 +308,11 @@ service:
       processors: ["transform", "memory_limiter", "batch"]
       exporters: ["otlphttp"]
   {{- end }}
+  {{- if .TracesEnabled }}
+    traces:
+      receivers: ["otlp"]
+      exporters: ["otlphttp"]
+  {{- end }}
   {{ template "metrics-remotewrite-pipeline" .}}
 `
 )

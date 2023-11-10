@@ -543,6 +543,12 @@ func BuildDebugAgentLogStreamGetCmd() *cobra.Command {
 	cmd.Flags().StringVar(&level, "level", "info", "Minimum log level severity (debug, info, warn, error)")
 	cmd.Flags().StringVar(&output, "output", "text", "Output format")
 	cmd.Flags().BoolVar(&follow, "follow", false, "Follow logs")
+	cmd.RegisterFlagCompletionFunc("level", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"debug", "info", "warn", "error"}, cobra.ShellCompDirectiveDefault
+	})
+	cmd.RegisterFlagCompletionFunc("output", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"text", "json"}, cobra.ShellCompDirectiveDefault
+	})
 	return cmd
 }
 

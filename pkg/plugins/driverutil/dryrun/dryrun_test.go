@@ -38,9 +38,9 @@ func (s extConfigServer) DryRun(ctx context.Context, req *ext.SampleDryRunReques
 		return nil, err
 	}
 	return &ext.SampleDryRunResponse{
-		Current:  res.Current,
-		Modified: res.Modified,
-		//  ValidationErrors: TODO: when the validation branch is merged, add this field
+		Current:          res.Current,
+		Modified:         res.Modified,
+		ValidationErrors: res.ValidationErrors.ToProto(),
 	}, nil
 }
 

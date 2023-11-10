@@ -25,9 +25,9 @@ import (
 )
 
 // Builds a rollback command given a use string and a function that returns a
-// new typed client from a context (this function is usually generated).
+// new typed client from a (generated) service context injector.
 //
-//	rollback.BuildCmd("rollback", NewXClientFromContext)
+//	rollback.BuildCmd("rollback", XContextInjector)
 func BuildCmd[
 	I driverutil.ClientContextInjector[C],
 	T driverutil.ConfigType[T],

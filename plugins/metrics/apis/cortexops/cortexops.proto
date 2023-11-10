@@ -228,12 +228,12 @@ message CortexWorkloadSpec {
           {
             id:         "check_invalid_flags"
             message:    "flags not allowed: -target, -config, -modules, -help"
-            expression: "this.contains('-target')|| this.contains('-config') || this.contains('-modules') || this.contains('-help')"
+            expression: "['-target', '-config', '-modules', '-help'].all(s, !this.contains(s))"
           },
           {
             id:         "check_non_flag_args"
             message:    "non-flag arguments not allowed (try '--flag=value' instead of '--flag value')"
-            expression: "!this.startsWith('-')"
+            expression: "this.startsWith('-')"
           }
         ]
       }

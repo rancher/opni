@@ -749,6 +749,9 @@ func (cg *Generator) generateFlagSet(g *protogen.GeneratedFile, message *protoge
 					case protoreflect.StringKind:
 						g.P(`fs.Var(`, _flagutil.Ident("StringPtrValue"), `(`, def, `, &in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
 						continue
+					case protoreflect.BytesKind:
+						g.P(`fs.Var(`, _flagutil.Ident("BytesPtrValue"), `(`, def, `, &in.`, field.GoName, `), `, _strings.Ident("Join"), `(append(prefix, "`, kebabName, `"), "."),`, fmt.Sprintf("%q", comment), `)`)
+						continue
 					default:
 						panic("unimplemented: *" + field.Desc.Kind().String())
 					}
@@ -956,13 +959,21 @@ func (cg *Generator) genSecretMethods(g *buffer, fs *flagSet) {
 	g.P(" return")
 	g.P("}")
 	for _, field := range fs.secretFields {
-		g.P("if in.Get", field.GoName, "() != \"\" {")
-		if field.Desc.HasPresence() {
-			g.P(" in.", field.GoName, " = ", _flagutil.Ident("Ptr"), "(\"***\")")
-		} else {
-			g.P(" in.", field.GoName, " = \"***\"")
+		switch field.Desc.Kind() {
+		case protoreflect.StringKind:
+			g.P("if in.Get", field.GoName, "() != \"\" {")
+			if field.Desc.HasPresence() {
+				g.P(" in.", field.GoName, " = ", _flagutil.Ident("Ptr"), "(\"***\")")
+			} else {
+				g.P(" in.", field.GoName, " = \"***\"")
+			}
+			g.P("}")
+		case protoreflect.BytesKind:
+			g.P("if in.Get", field.GoName, "() != nil {")
+			g.P(" clear(in.", field.GoName, ")")
+			g.P(" in.", field.GoName, " = []byte(\"***\")")
+			g.P("}")
 		}
-		g.P("}")
 	}
 	for _, dep := range fs.depsWithSecretFields {
 		g.P("in.", dep.GoName, ".RedactSecrets()")
@@ -977,17 +988,29 @@ func (cg *Generator) genSecretMethods(g *buffer, fs *flagSet) {
 
 	g.P("var details []", _protoiface.Ident("MessageV1"))
 	for _, field := range fs.secretFields {
-		g.P("if in.Get", field.GoName, "() == \"***\" {")
-		g.P(" if unredacted.Get", field.GoName, "() == \"\" {")
+		switch field.Desc.Kind() {
+		case protoreflect.StringKind:
+			g.P("if in.Get", field.GoName, "() == \"***\" {")
+			g.P(" if unredacted.Get", field.GoName, "() == \"\" {")
+		case protoreflect.BytesKind:
+			g.P("if in.Get", field.GoName, "() == nil {")
+			g.P(" if unredacted.Get", field.GoName, "() == nil {")
+		}
 		g.P(`  details = append(details, &`, _errdetails.Ident("ErrorInfo"), "{")
 		g.P(`   Reason: "DISCONTINUITY",`)
 		g.P(`   Metadata: map[string]string{"field": "`, field.Desc.Name(), `"},`)
 		g.P(`  })`)
 		g.P(" } else {")
-		if field.Desc.HasPresence() {
-			g.P(" *in.", field.GoName, " = *unredacted.", field.GoName)
-		} else {
-			g.P(" in.", field.GoName, " = unredacted.", field.GoName)
+
+		switch field.Desc.Kind() {
+		case protoreflect.StringKind:
+			if field.Desc.HasPresence() {
+				g.P(" *in.", field.GoName, " = *unredacted.", field.GoName)
+			} else {
+				g.P(" in.", field.GoName, " = unredacted.", field.GoName)
+			}
+		case protoreflect.BytesKind:
+			g.P(" in.", field.GoName, " = append([]byte(nil), unredacted.", field.GoName, "...)")
 		}
 		g.P(" }")
 		g.P("}")

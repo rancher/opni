@@ -159,3 +159,28 @@ func (s *stringPtrValue) String() string {
 	}
 	return **s.p
 }
+
+type bytesPtrValue struct {
+	p *[]byte
+}
+
+func BytesPtrValue(val []byte, p *[]byte) pflag.Value {
+	*p = val
+	return &bytesPtrValue{p}
+}
+
+func (s *bytesPtrValue) Set(v string) error {
+	*s.p = []byte(v)
+	return nil
+}
+
+func (s *bytesPtrValue) Type() string {
+	return "string"
+}
+
+func (s *bytesPtrValue) String() string {
+	if s.p == nil {
+		return "nil"
+	}
+	return string(*s.p)
+}

@@ -10,7 +10,9 @@ import (
 	validate "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -127,6 +129,12 @@ type StringRules_UriRef = validate.StringRules_UriRef
 type StringRules_Address = validate.StringRules_Address
 type StringRules_Uuid = validate.StringRules_Uuid
 type StringRules_WellKnownRegex = validate.StringRules_WellKnownRegex
+type StringRules_IpWithPrefixlen = validate.StringRules_IpWithPrefixlen
+type StringRules_Ipv4WithPrefixlen = validate.StringRules_Ipv4WithPrefixlen
+type StringRules_Ipv6WithPrefixlen = validate.StringRules_Ipv6WithPrefixlen
+type StringRules_IpPrefix = validate.StringRules_IpPrefix
+type StringRules_Ipv4Prefix = validate.StringRules_Ipv4Prefix
+type StringRules_Ipv6Prefix = validate.StringRules_Ipv6Prefix
 type BytesRules = validate.BytesRules
 type BytesRules_Ip = validate.BytesRules_Ip
 type BytesRules_Ipv4 = validate.BytesRules_Ipv4
@@ -158,6 +166,164 @@ type Constraint = validate.Constraint
 type Violations = validate.Violations
 type Violation = validate.Violation
 
+type PEMBlock struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Type    string            `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	Headers map[string]string `protobuf:"bytes,2,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Bytes   []byte            `protobuf:"bytes,3,opt,name=bytes,proto3" json:"bytes,omitempty"`
+}
+
+func (x *PEMBlock) Reset() {
+	*x = PEMBlock{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_rancher_opni_pkg_validation_validate_proto_msgTypes[0]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PEMBlock) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PEMBlock) ProtoMessage() {}
+
+func (x *PEMBlock) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_rancher_opni_pkg_validation_validate_proto_msgTypes[0]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PEMBlock.ProtoReflect.Descriptor instead.
+func (*PEMBlock) Descriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_pkg_validation_validate_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *PEMBlock) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *PEMBlock) GetHeaders() map[string]string {
+	if x != nil {
+		return x.Headers
+	}
+	return nil
+}
+
+func (x *PEMBlock) GetBytes() []byte {
+	if x != nil {
+		return x.Bytes
+	}
+	return nil
+}
+
+type X509Certificate struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Raw       []byte                 `protobuf:"bytes,1,opt,name=raw,proto3" json:"raw,omitempty"`
+	IsCA      bool                   `protobuf:"varint,2,opt,name=isCA,proto3" json:"isCA,omitempty"`
+	Issuer    string                 `protobuf:"bytes,3,opt,name=issuer,proto3" json:"issuer,omitempty"`
+	Subject   string                 `protobuf:"bytes,4,opt,name=subject,proto3" json:"subject,omitempty"`
+	NotBefore *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=notBefore,proto3" json:"notBefore,omitempty"`
+	NotAfter  *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=notAfter,proto3" json:"notAfter,omitempty"`
+	Alg       string                 `protobuf:"bytes,7,opt,name=alg,proto3" json:"alg,omitempty"`
+}
+
+func (x *X509Certificate) Reset() {
+	*x = X509Certificate{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_rancher_opni_pkg_validation_validate_proto_msgTypes[1]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *X509Certificate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*X509Certificate) ProtoMessage() {}
+
+func (x *X509Certificate) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_rancher_opni_pkg_validation_validate_proto_msgTypes[1]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use X509Certificate.ProtoReflect.Descriptor instead.
+func (*X509Certificate) Descriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_pkg_validation_validate_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *X509Certificate) GetRaw() []byte {
+	if x != nil {
+		return x.Raw
+	}
+	return nil
+}
+
+func (x *X509Certificate) GetIsCA() bool {
+	if x != nil {
+		return x.IsCA
+	}
+	return false
+}
+
+func (x *X509Certificate) GetIssuer() string {
+	if x != nil {
+		return x.Issuer
+	}
+	return ""
+}
+
+func (x *X509Certificate) GetSubject() string {
+	if x != nil {
+		return x.Subject
+	}
+	return ""
+}
+
+func (x *X509Certificate) GetNotBefore() *timestamppb.Timestamp {
+	if x != nil {
+		return x.NotBefore
+	}
+	return nil
+}
+
+func (x *X509Certificate) GetNotAfter() *timestamppb.Timestamp {
+	if x != nil {
+		return x.NotAfter
+	}
+	return nil
+}
+
+func (x *X509Certificate) GetAlg() string {
+	if x != nil {
+		return x.Alg
+	}
+	return ""
+}
+
 var File_github_com_rancher_opni_pkg_validation_validate_proto protoreflect.FileDescriptor
 
 var file_github_com_rancher_opni_pkg_validation_validate_proto_rawDesc = []byte{
@@ -168,20 +334,69 @@ var file_github_com_rancher_opni_pkg_validation_validate_proto_rawDesc = []byte{
 	0x65, 0x1a, 0x1b, 0x62, 0x75, 0x66, 0x2f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x65, 0x2f,
 	0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x1d,
 	0x62, 0x75, 0x66, 0x2f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x65, 0x2f, 0x65, 0x78, 0x70,
-	0x72, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x42, 0x28, 0x5a,
-	0x26, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x61, 0x6e, 0x63,
-	0x68, 0x65, 0x72, 0x2f, 0x6f, 0x70, 0x6e, 0x69, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x76, 0x61, 0x6c,
-	0x69, 0x64, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x50, 0x00, 0x50, 0x01, 0x62, 0x06, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x33,
+	0x72, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x1f, 0x67,
+	0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2f, 0x74,
+	0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0xab,
+	0x01, 0x0a, 0x08, 0x50, 0x45, 0x4d, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x12, 0x12, 0x0a, 0x04, 0x74,
+	0x79, 0x70, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x74, 0x79, 0x70, 0x65, 0x12,
+	0x39, 0x0a, 0x07, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b,
+	0x32, 0x1f, 0x2e, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x65, 0x2e, 0x50, 0x45, 0x4d, 0x42,
+	0x6c, 0x6f, 0x63, 0x6b, 0x2e, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72, 0x73, 0x45, 0x6e, 0x74, 0x72,
+	0x79, 0x52, 0x07, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x73, 0x12, 0x14, 0x0a, 0x05, 0x62, 0x79,
+	0x74, 0x65, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x62, 0x79, 0x74, 0x65, 0x73,
+	0x1a, 0x3a, 0x0a, 0x0c, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79,
+	0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b,
+	0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x22, 0xed, 0x01, 0x0a,
+	0x0f, 0x58, 0x35, 0x30, 0x39, 0x43, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65,
+	0x12, 0x10, 0x0a, 0x03, 0x72, 0x61, 0x77, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x03, 0x72,
+	0x61, 0x77, 0x12, 0x12, 0x0a, 0x04, 0x69, 0x73, 0x43, 0x41, 0x18, 0x02, 0x20, 0x01, 0x28, 0x08,
+	0x52, 0x04, 0x69, 0x73, 0x43, 0x41, 0x12, 0x16, 0x0a, 0x06, 0x69, 0x73, 0x73, 0x75, 0x65, 0x72,
+	0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x69, 0x73, 0x73, 0x75, 0x65, 0x72, 0x12, 0x18,
+	0x0a, 0x07, 0x73, 0x75, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x07, 0x73, 0x75, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x12, 0x38, 0x0a, 0x09, 0x6e, 0x6f, 0x74, 0x42,
+	0x65, 0x66, 0x6f, 0x72, 0x65, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f,
+	0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69,
+	0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x09, 0x6e, 0x6f, 0x74, 0x42, 0x65, 0x66, 0x6f,
+	0x72, 0x65, 0x12, 0x36, 0x0a, 0x08, 0x6e, 0x6f, 0x74, 0x41, 0x66, 0x74, 0x65, 0x72, 0x18, 0x06,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70,
+	0x52, 0x08, 0x6e, 0x6f, 0x74, 0x41, 0x66, 0x74, 0x65, 0x72, 0x12, 0x10, 0x0a, 0x03, 0x61, 0x6c,
+	0x67, 0x18, 0x07, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x61, 0x6c, 0x67, 0x42, 0x28, 0x5a, 0x26,
+	0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x61, 0x6e, 0x63, 0x68,
+	0x65, 0x72, 0x2f, 0x6f, 0x70, 0x6e, 0x69, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x76, 0x61, 0x6c, 0x69,
+	0x64, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x50, 0x00, 0x50, 0x01, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x33,
 }
 
-var file_github_com_rancher_opni_pkg_validation_validate_proto_goTypes = []interface{}{}
+var (
+	file_github_com_rancher_opni_pkg_validation_validate_proto_rawDescOnce sync.Once
+	file_github_com_rancher_opni_pkg_validation_validate_proto_rawDescData = file_github_com_rancher_opni_pkg_validation_validate_proto_rawDesc
+)
+
+func file_github_com_rancher_opni_pkg_validation_validate_proto_rawDescGZIP() []byte {
+	file_github_com_rancher_opni_pkg_validation_validate_proto_rawDescOnce.Do(func() {
+		file_github_com_rancher_opni_pkg_validation_validate_proto_rawDescData = protoimpl.X.CompressGZIP(file_github_com_rancher_opni_pkg_validation_validate_proto_rawDescData)
+	})
+	return file_github_com_rancher_opni_pkg_validation_validate_proto_rawDescData
+}
+
+var file_github_com_rancher_opni_pkg_validation_validate_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_github_com_rancher_opni_pkg_validation_validate_proto_goTypes = []interface{}{
+	(*PEMBlock)(nil),              // 0: validate.PEMBlock
+	(*X509Certificate)(nil),       // 1: validate.X509Certificate
+	nil,                           // 2: validate.PEMBlock.HeadersEntry
+	(*timestamppb.Timestamp)(nil), // 3: google.protobuf.Timestamp
+}
 var file_github_com_rancher_opni_pkg_validation_validate_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	2, // 0: validate.PEMBlock.headers:type_name -> validate.PEMBlock.HeadersEntry
+	3, // 1: validate.X509Certificate.notBefore:type_name -> google.protobuf.Timestamp
+	3, // 2: validate.X509Certificate.notAfter:type_name -> google.protobuf.Timestamp
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_github_com_rancher_opni_pkg_validation_validate_proto_init() }
@@ -189,18 +404,45 @@ func file_github_com_rancher_opni_pkg_validation_validate_proto_init() {
 	if File_github_com_rancher_opni_pkg_validation_validate_proto != nil {
 		return
 	}
+	if !protoimpl.UnsafeEnabled {
+		file_github_com_rancher_opni_pkg_validation_validate_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PEMBlock); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_github_com_rancher_opni_pkg_validation_validate_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*X509Certificate); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_github_com_rancher_opni_pkg_validation_validate_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   0,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_github_com_rancher_opni_pkg_validation_validate_proto_goTypes,
 		DependencyIndexes: file_github_com_rancher_opni_pkg_validation_validate_proto_depIdxs,
+		MessageInfos:      file_github_com_rancher_opni_pkg_validation_validate_proto_msgTypes,
 	}.Build()
 	File_github_com_rancher_opni_pkg_validation_validate_proto = out.File
 	file_github_com_rancher_opni_pkg_validation_validate_proto_rawDesc = nil

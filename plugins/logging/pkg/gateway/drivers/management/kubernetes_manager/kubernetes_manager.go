@@ -42,7 +42,7 @@ const (
 	LabelOpniNodeGroup  = "opni.io/node-group"
 	TopologyKeyK8sHost  = "kubernetes.io/hostname"
 
-	opensearchVersion   = "2.8.0"
+	opensearchVersion   = "2.11.0"
 	defaultRepo         = "docker.io/rancher"
 	s3CredentialsSecret = "opni-opensearch-s3"
 )

@@ -164,7 +164,10 @@ HTTP handlers for this method:
 					in.Spec = edited
 				}
 			} else if fileName := cmd.Flags().Lookup("file").Value.String(); fileName != "" {
-				if err := cliutil.LoadFromFile(in, fileName); err != nil {
+				if in.Spec == nil {
+					cliutil.InitializeField(&in.Spec)
+				}
+				if err := cliutil.LoadFromFile(in.Spec, fileName); err != nil {
 					return err
 				}
 			}
@@ -332,7 +335,10 @@ HTTP handlers for this method:
 					in.Spec = edited
 				}
 			} else if fileName := cmd.Flags().Lookup("file").Value.String(); fileName != "" {
-				if err := cliutil.LoadFromFile(in, fileName); err != nil {
+				if in.Spec == nil {
+					cliutil.InitializeField(&in.Spec)
+				}
+				if err := cliutil.LoadFromFile(in.Spec, fileName); err != nil {
 					return err
 				}
 			}

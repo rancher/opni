@@ -69,7 +69,6 @@ type UnknownStreamMetadata struct {
 type StreamDirector func(ctx context.Context, fullMethodName string) (context.Context, *UnknownStreamMetadata, error)
 
 func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.LoaderInterface, router *gin.Engine) StreamDirector {
-	extensionPathPrefix := "/ext"
 	lg := m.logger
 	methodTable := gsync.Map[string, *UnknownStreamMetadata]{}
 	pl.Hook(hooks.OnLoadMC(func(p types.ManagementAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
@@ -144,12 +143,6 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.L
 				).Info("service has no http rules")
 			}
 
-			mux := runtime.NewServeMux(
-				runtime.WithMarshalerOption("application/json", &LegacyJsonMarshaler{}),
-				runtime.WithMarshalerOption("application/octet-stream", &DynamicV1Marshaler{}),
-				runtime.WithMarshalerOption(runtime.MIMEWildcard, &DynamicV1Marshaler{}),
-			)
-
 			m.apiExtMu.Lock()
 			m.apiExtensions = append(m.apiExtensions, apiExtension{
 				client:      client,
@@ -157,8 +150,6 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.L
 				status:      servingStatus,
 				serviceDesc: svcDesc,
 				httpRules:   httpRules,
-				group:       router.Group(fmt.Sprintf("%s/%s", extensionPathPrefix, md.BinaryPath)),
-				mux:         mux,
 			})
 			m.apiExtMu.Unlock()
 		}
@@ -207,22 +198,14 @@ func (m *Server) configureManagementHttpApi(ctx context.Context, mux *runtime.Se
 	return nil
 }
 
-func (m *Server) configureHttpApiExtensions() {
+func (m *Server) configureHttpApiExtensions(mux *runtime.ServeMux) {
 	m.apiExtMu.RLock()
 	defer m.apiExtMu.RUnlock()
 	for _, ext := range m.apiExtensions {
 		stub := grpcdynamic.NewStub(ext.clientConn)
 		svcDesc := ext.serviceDesc
 		httpRules := ext.httpRules
-		// The following can be use when we devolve api roles to plugins
-		// checker := accessChecker{
-		// 	client: ext.client,
-		// 	logger: m.logger.WithGroup("access-checker"),
-		// 	store:  m.coreDataSource.StorageBackend(),
-		// }
-		ext.group.Use(m.middleware.Handler(m.checkAdminAccess))
-		m.configureServiceStubHandlers(ext.mux, stub, svcDesc, httpRules, ext.status)
-		ext.group.Any("/*any", gin.WrapF(ext.mux.ServeHTTP))
+		m.configureServiceStubHandlers(mux, stub, svcDesc, httpRules, ext.status)
 	}
 }
 

@@ -1,4 +1,4 @@
-package management
+package dashboard
 
 import (
 	"log/slog"
@@ -6,8 +6,15 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
+	"github.com/rancher/opni/pkg/storage"
 	"golang.org/x/oauth2"
 )
+
+// AuthDataSource provides a way to obtain data which the auth
+// middleware and proxies need.
+type AuthDataSource interface {
+	StorageBackend() storage.Backend
+}
 
 type oidcHandler struct {
 	logger   *slog.Logger

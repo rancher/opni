@@ -13,7 +13,6 @@ import (
 
 	"log/slog"
 
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/jhump/protoreflect/desc"
@@ -21,7 +20,6 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth/local"
-	"github.com/rancher/opni/pkg/auth/middleware"
 	authutil "github.com/rancher/opni/pkg/auth/util"
 	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/capabilities"
@@ -35,12 +33,12 @@ import (
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
-	proxyrouter "github.com/rancher/opni/pkg/proxy/router"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"golang.org/x/oauth2"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	channelzservice "google.golang.org/grpc/channelz/service"
 	"google.golang.org/grpc/codes"
@@ -73,8 +71,6 @@ type apiExtension struct {
 	status      *health.ServingStatus
 	serviceDesc *desc.ServiceDescriptor
 	httpRules   []*managementv1.HTTPRuleDescriptor
-	group       *gin.RouterGroup
-	mux         *runtime.ServeMux
 }
 
 type Server struct {
@@ -88,8 +84,6 @@ type Server struct {
 	grpcServer        *grpc.Server
 	dashboardSettings *DashboardSettingsManager
 	router            *gin.Engine
-	middleware        *middleware.MultiMiddleware
-	oauthConfig       *oauth2.Config
 	localAuth         local.LocalAuthenticator
 
 	apiExtMu      sync.RWMutex
@@ -209,64 +203,7 @@ func NewServer(
 		}
 	}))
 
-	authGroup := m.router.Group("/auth")
-
-	issuer := ""             // TODO: Load this from config
-	clientID := ""           // TODO: Load this from config
-	clientSecret := ""       //TODO: Load this from config
-	scopes := []string{}     //TODO: Load this from config
-	localServerAddress := "" // TODO: Load this from config
-	var useOIDC bool         //TODO: Load this from config
-
-	if useOIDC {
-		provider, err := oidc.NewProvider(ctx, issuer)
-		if err != nil {
-			panic(err)
-		}
-		m.oauthConfig = &oauth2.Config{
-			ClientID:     clientID,
-			ClientSecret: clientSecret,
-			Endpoint:     provider.Endpoint(),
-			Scopes:       scopes,
-			RedirectURL:  fmt.Sprintf("%s/auth/oidc/callback", localServerAddress),
-		}
-		handler := oidcHandler{
-			logger:   m.logger.WithGroup("oidc_auth"),
-			config:   m.oauthConfig,
-			provider: provider,
-		}
-		authGroup.Any("/oidc/redirect", handler.handleRedirect)
-		authGroup.Any("/oidc/callback", handler.handleCallback)
-	}
-
 	m.localAuth = local.NewLocalAuthenticator(m.coreDataSource.StorageBackend().KeyValueStore(authutil.AuthNamespace))
-	m.middleware = &middleware.MultiMiddleware{
-		Logger:             lg.WithGroup("auth_middleware"),
-		Config:             m.oauthConfig,
-		IdentifyingClaim:   "user", //TODO: load this from config
-		UseOIDC:            useOIDC,
-		LocalAuthenticator: m.localAuth,
-	}
-
-	proxy := m.router.Group("/proxy")
-	proxy.Use(m.middleware.Handler())
-	pluginLoader.Hook(hooks.OnLoad(func(p types.ProxyPlugin) {
-		log := lg.WithGroup("proxy")
-		pluginRouter, err := proxyrouter.NewRouter(proxyrouter.RouterConfig{
-			Store:  m.coreDataSource.StorageBackend(),
-			Logger: log,
-			Client: p,
-		})
-		if err != nil {
-			log.With(
-				logger.Err(err),
-			).Error("failed to create plugin router")
-			return
-		}
-		pluginRouter.SetRoutes(proxy)
-	}))
-
-	authGroup.GET("/type", m.middleware.GetAuthType)
 
 	return m
 }
@@ -337,16 +274,14 @@ func (m *Server) listenAndServeHttp(ctx context.Context) error {
 	)
 
 	m.configureManagementHttpApi(ctx, gwmux)
-	mgmtGroup := m.router.Group("/mgmt")
-	mgmtGroup.Use(m.middleware.Handler(m.checkAdminAccess))
-	mgmtGroup.Any("/*any", gin.WrapF(gwmux.ServeHTTP))
-
-	m.configureHttpApiExtensions()
+	m.configureHttpApiExtensions(gwmux)
+	m.router.Any("/*any", gin.WrapF(gwmux.ServeHTTP))
 	server := &http.Server{
 		Addr: m.config.HTTPListenAddress,
 		BaseContext: func(net.Listener) context.Context {
 			return ctx
 		},
+		Handler: m.router.Handler(),
 	}
 	errC := lo.Async(func() error {
 		return server.ListenAndServe()
@@ -408,7 +343,7 @@ func (m *Server) ListCapabilities(ctx context.Context, in *emptypb.Empty) (*mana
 	for _, details := range list.GetItems() {
 		items = append(items, &managementv1.CapabilityInfo{
 			Details:   details,
-			NodeCount: counts[details.GetName()],
+s			NodeCount: counts[details.GetName()],
 		})
 	}
 

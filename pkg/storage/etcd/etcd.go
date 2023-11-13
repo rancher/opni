@@ -13,10 +13,10 @@ import (
 	"go.uber.org/zap"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	configv1 "github.com/rancher/opni/pkg/config/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/util"
 )
 
 var (
@@ -64,14 +64,14 @@ func WithPrefix(prefix string) EtcdStoreOption {
 	}
 }
 
-func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...EtcdStoreOption) (*EtcdStore, error) {
+func NewEtcdStore(ctx context.Context, conf *configv1.EtcdSpec, opts ...EtcdStoreOption) (*EtcdStore, error) {
 	options := EtcdStoreOptions{}
 	options.apply(opts...)
 	lg := logger.New(logger.WithLogLevel(slog.LevelWarn)).WithGroup("etcd")
 	var tlsConfig *tls.Config
 	if conf.Certs != nil {
 		var err error
-		tlsConfig, err = util.LoadClientMTLSConfig(*conf.Certs)
+		tlsConfig, err = conf.Certs.AsTlsConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to load client TLS config: %w", err)
 		}
@@ -137,7 +137,22 @@ func (e *EtcdStore) LockManager(prefix string) storage.LockManager {
 func init() {
 	storage.RegisterStoreBuilder(v1beta1.StorageTypeEtcd, func(args ...any) (any, error) {
 		ctx := args[0].(context.Context)
-		conf := args[1].(*v1beta1.EtcdStorageSpec)
+
+		var conf *configv1.EtcdSpec
+		switch spec := args[1].(type) {
+		case *v1beta1.EtcdStorageSpec:
+			conf = &configv1.EtcdSpec{
+				Endpoints: spec.Endpoints,
+				Certs: &configv1.MTLSSpec{
+					ServerCA:   &spec.Certs.ServerCA,
+					ClientCA:   &spec.Certs.ClientCA,
+					ClientCert: &spec.Certs.ClientCert,
+					ClientKey:  &spec.Certs.ClientKey,
+				},
+			}
+		case *configv1.EtcdSpec:
+			conf = spec
+		}
 
 		var opts []EtcdStoreOption
 		for _, arg := range args[2:] {

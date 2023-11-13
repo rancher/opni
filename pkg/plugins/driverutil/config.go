@@ -62,6 +62,10 @@ func (ct *DefaultingConfigTracker[T]) newDefaultSpec() (t T) {
 	return t
 }
 
+func (ct *DefaultingConfigTracker[T]) ActiveStore() storage.ValueStoreT[T] {
+	return ct.activeStore
+}
+
 // Gets the default config if one has been set, otherwise returns a new default
 // config as defined by the type.
 func (ct *DefaultingConfigTracker[T]) GetDefaultConfig(ctx context.Context, atRevision ...*corev1.Revision) (T, error) {

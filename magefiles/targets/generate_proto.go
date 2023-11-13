@@ -15,8 +15,10 @@ import (
 	"github.com/magefile/mage/mg"
 	"github.com/rancher/opni/internal/codegen"
 	"github.com/rancher/opni/internal/codegen/cli"
+	"github.com/rancher/opni/internal/codegen/pathbuilder"
 	"github.com/rancher/opni/internal/codegen/templating"
 	_ "go.opentelemetry.io/proto/otlp/metrics/v1"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 // Generates Go protobuf code
@@ -26,7 +28,18 @@ func (Generate) ProtobufGo(ctx context.Context) error {
 	defer tr.End()
 
 	grpc.SetRequireUnimplemented(false)
-	generators := []ragu.Generator{templating.CommentRenderer{}, golang.Generator, grpc.Generator, cli.NewGenerator()}
+	generators := []ragu.Generator{
+		templating.CommentRenderer{},
+		golang.Generator,
+		grpc.Generator,
+		cli.NewGenerator(),
+		pathbuilder.PathBuilderGenerator{
+			Roots: []protoreflect.FullName{
+				protoreflect.FullName("config.v1.GatewayConfigSpec"),
+				protoreflect.FullName("ext.SampleConfiguration"),
+			},
+		},
+	}
 
 	out, err := ragu.GenerateCode(
 		generators,

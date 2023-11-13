@@ -1225,7 +1225,7 @@ func formatComments(comments protogen.CommentSet) ([]string, error) {
 }
 
 // Note that the final closing brace is not written.
-func (cg *Generator) generateInteractiveEdit(service *protogen.Service, method *protogen.Method, g *protogen.GeneratedFile) {
+func (cg *Generator) generateInteractiveEdit(service *protogen.Service, method *protogen.Method, g *protogen.GeneratedFile) string {
 	g.P(`if cmd.Flags().Lookup("interactive").Value.String() == "true" {`)
 	// try to find a matching "getter" method. If found, use it to obtain the current
 	// value of `in` and pass it to the setter method.
@@ -1260,6 +1260,8 @@ func (cg *Generator) generateInteractiveEdit(service *protogen.Service, method *
 	g.P(` } else {`)
 	g.P(`  `, editVar, ` = edited`)
 	g.P(` }`)
+
+	return editVar
 }
 
 func (cg *Generator) generateRun(service *protogen.Service, method *protogen.Method, g *protogen.GeneratedFile, writers serviceGenWriters) {
@@ -1272,8 +1274,17 @@ func (cg *Generator) generateRun(service *protogen.Service, method *protogen.Met
 
 	genEditInteractive := opts.Granularity == EditScope_EditMessage && !requestIsEmpty
 
+	editVar := "in"
+	maybeInitializeEditVar := func() {}
 	if genEditInteractive {
-		cg.generateInteractiveEdit(service, method, g)
+		editVar = cg.generateInteractiveEdit(service, method, g)
+		if editVar != "in" {
+			maybeInitializeEditVar = func() {
+				g.P("if ", editVar, " == nil {")
+				g.P(_cliutil.Ident("InitializeField"), "(&", editVar, ")")
+				g.P("}")
+			}
+		}
 	}
 
 	responseVarName := "_"
@@ -1296,7 +1307,8 @@ func (cg *Generator) generateRun(service *protogen.Service, method *protogen.Met
 
 			}
 			g.P(ifOrElseIf, " fileName := cmd.Flags().Lookup(\"file\").Value.String(); fileName != \"\" {")
-			g.P(" if err := ", _cliutil.Ident("LoadFromFile"), "(in, fileName); err != nil {")
+			maybeInitializeEditVar()
+			g.P(" if err := ", _cliutil.Ident("LoadFromFile"), "(", editVar, ", fileName); err != nil {")
 			g.P("  return err")
 			g.P(" }")
 			g.P("}")

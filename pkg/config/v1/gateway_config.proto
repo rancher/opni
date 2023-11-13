@@ -6,10 +6,12 @@ import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "github.com/rancher/opni/pkg/plugins/driverutil/types.proto";
 import "github.com/rancher/opni/pkg/validation/validate.proto";
+import "google/protobuf/any.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
 
-option go_package      = "github.com/rancher/opni/pkg/config/v1";
+option go_package      = "github.com/rancher/opni/pkg/config/v1;configv1";
 option (cli.generator) = {
   generate: true
 };
@@ -61,6 +63,33 @@ service GatewayConfig {
       use: "history"
     };
   }
+  rpc WatchReactive(ReactiveWatchRequest) returns (stream ReactiveEvents) {
+    option (cli.command) = {
+      use: "watch"
+    };
+  }
+}
+
+message ReactiveWatchRequest {
+  // If true, uses [reactive.Bind] to watch all paths at once. If false,
+  // each path recieves updates separately.
+  bool bind = 1;
+
+  // List of paths to watch.
+  repeated string paths = 2;
+}
+
+message ReactiveEvents {
+  // In bind mode, this will contain one item for each path in the request,
+  // in order. Otherwise, this will only contain a single item.
+  repeated ReactiveEvent items = 1;
+}
+
+message ReactiveEvent {
+  // The path that triggered this event, as an index into the request path list.
+  int32 index = 1;
+
+  core.Value value = 2;
 }
 
 message GatewayConfigSpec {
@@ -80,20 +109,19 @@ message GatewayConfigSpec {
         "].filter(a, !a.endsWith(':0')).unique()"
     }
   };
-
-  core.Revision        revision      = 1  [(cli.flag).skip = true];
-  ServerSpec           server        = 2;
-  ManagementServerSpec management    = 3;
-  RelayServerSpec      relay         = 4;
-  HealthServerSpec     health        = 5;
-  DashboardServerSpec  dashboard     = 6;
-  StorageSpec          storage       = 7;
-  CertsSpec            certs         = 8;
-  PluginsSpec          plugins       = 9;
-  KeyringSpec          keyring       = 10;
-  AgentUpgradesSpec    agentUpgrades = 11;
-  RateLimitingSpec     rateLimiting  = 12;
-  AuthSpec             auth          = 13 [(cli.flag).skip = true];
+  core.Revision        revision     = 1  [(cli.flag).skip = true];
+  ServerSpec           server       = 2;
+  ManagementServerSpec management   = 3;
+  RelayServerSpec      relay        = 4;
+  HealthServerSpec     health       = 5;
+  DashboardServerSpec  dashboard    = 6;
+  StorageSpec          storage      = 7;
+  CertsSpec            certs        = 8;
+  PluginsSpec          plugins      = 9;
+  KeyringSpec          keyring      = 10;
+  UpgradesSpec         upgrades     = 11;
+  RateLimitingSpec     rateLimiting = 12;
+  AuthSpec             auth         = 13 [(cli.flag).skip = true];
 }
 
 message ServerSpec {
@@ -111,6 +139,24 @@ message ServerSpec {
     (buf.validate.field).cel = {
       id:         "server_grpc_listen_address"
       expression: "this.isValidListenAddress()"
+    }
+  ];
+
+  // The advertise address for the server.
+  optional string advertiseAddress = 3 [
+    (cli.flag).skip      = true,
+    (buf.validate.field) = {
+      cel: [
+        {
+          id:         "server_grpc_advertise_address"
+          expression: "this.isValidListenAddress()"
+        },
+        {
+          id:         "server_grpc_advertise_address_port"
+          message:    "advertise address must have a non-zero port"
+          expression: "!this.endsWith(':0') && !this.endsWith(':')"
+        }
+      ]
     }
   ];
 }
@@ -488,12 +534,6 @@ message PluginFilters {
 }
 
 message CacheSpec {
-  // Patch engine to use for calculating plugin patches.
-  optional PatchEngine patchEngine = 1 [
-    (cli.flag).default                     = "Zstd",
-    (buf.validate.field).enum.defined_only = true
-  ];
-
   // Cache backend to use for storing plugin binaries and patches.
   optional CacheBackend backend = 2 [
     (cli.flag).default                     = "Filesystem",
@@ -526,22 +566,66 @@ message KeyringSpec {
   ];
 }
 
+message UpgradesSpec {
+  optional AgentUpgradesSpec  agents  = 1;
+  optional PluginUpgradesSpec plugins = 2;
+}
+
 message AgentUpgradesSpec {
-  // Kubernetes agent upgrade configuration.
-  KubernetesAgentUpgradeSpec kubernetes = 1;
-}
+  enum Driver {
+    Noop       = 0;
+    Kubernetes = 1;
+  }
 
-enum ImageResolverType {
-  Noop       = 0;
-  Kubernetes = 1;
-}
-
-message KubernetesAgentUpgradeSpec {
-  // Agent image resolver backend to use.
-  optional ImageResolverType imageResolver = 1 [
+  // Agent upgrade driver to use.
+  optional Driver driver = 1 [
     (cli.flag).default                     = "Kubernetes",
     (buf.validate.field).enum.defined_only = true
   ];
+
+  // Kubernetes agent upgrade configuration.
+  KubernetesAgentUpgradeSpec kubernetes = 2;
+}
+
+message PluginUpgradesSpec {
+  enum Driver {
+    Noop   = 0;
+    Binary = 1;
+  }
+
+  // Plugin upgrade driver to use.
+  optional Driver driver = 1 [
+    (cli.flag).default                     = "Binary",
+    (buf.validate.field).enum.defined_only = true
+  ];
+
+  // Binary plugin upgrade configuration.
+  BinaryPluginUpgradeSpec binary = 2;
+}
+
+message BinaryPluginUpgradeSpec {
+  // Patch engine to use for calculating plugin patches.
+  optional PatchEngine patchEngine = 1 [
+    (cli.flag).default                     = "Zstd",
+    (buf.validate.field).enum.defined_only = true
+  ];
+}
+
+message KubernetesAgentUpgradeSpec {
+  enum ImageResolver {
+    Noop       = 0;
+    Kubernetes = 1;
+  }
+
+  // Agent image resolver to use.
+  optional ImageResolver imageResolver = 1 [
+    (cli.flag).default                     = "Kubernetes",
+    (buf.validate.field).enum.defined_only = true
+  ];
+
+  optional string namespace = 2;
+
+  optional string repoOverride = 3;
 }
 
 message RateLimitingSpec {

@@ -1,4 +1,4 @@
-package v1
+package configv1
 
 import (
 	"crypto/tls"
@@ -28,8 +28,15 @@ func (h *HistoryResponse) RenderText(out cli.Writer) {
 
 func init() {
 	addExtraGatewayConfigCmd(rollback.BuildCmd("rollback", GatewayConfigContextInjector))
-	addExtraGatewayConfigCmd(dryrun.BuildCmd("dry-run", GatewayConfigContextInjector))
+	addExtraGatewayConfigCmd(dryrun.BuildCmd("dry-run", GatewayConfigContextInjector,
+		BuildGatewayConfigSetConfigurationCmd(),
+		BuildGatewayConfigSetDefaultConfigurationCmd(),
+		BuildGatewayConfigResetConfigurationCmd(),
+		BuildGatewayConfigResetDefaultConfigurationCmd(),
+	))
 }
+
+var ErrInsecure = errors.New("insecure")
 
 func (m *MTLSSpec) AsTlsConfig() (*tls.Config, error) {
 	var serverCaData, clientCaData, clientCertData, clientKeyData []byte
@@ -53,7 +60,7 @@ func (m *MTLSSpec) AsTlsConfig() (*tls.Config, error) {
 	case m.ServerCAData != nil:
 		serverCaData = []byte(m.GetServerCAData())
 	default:
-		return nil, errors.New("no server CA configured")
+		return nil, fmt.Errorf("%w: no server CA configured", ErrInsecure)
 	}
 
 	switch {
@@ -65,7 +72,7 @@ func (m *MTLSSpec) AsTlsConfig() (*tls.Config, error) {
 	case m.ClientCertData != nil:
 		clientCertData = []byte(m.GetClientCertData())
 	default:
-		return nil, errors.New("no client cert configured")
+		return nil, fmt.Errorf("%w: no client cert configured", ErrInsecure)
 	}
 
 	switch {
@@ -77,7 +84,7 @@ func (m *MTLSSpec) AsTlsConfig() (*tls.Config, error) {
 	case m.ClientKeyData != nil:
 		clientKeyData = []byte(m.GetClientKeyData())
 	default:
-		return nil, errors.New("no client key configured")
+		return nil, fmt.Errorf("%w: no client key configured", ErrInsecure)
 	}
 
 	clientCert, err := tls.X509KeyPair(clientCertData, clientKeyData)
@@ -114,7 +121,7 @@ func (c *CertsSpec) AsTlsConfig(clientAuth tls.ClientAuthType) (*tls.Config, err
 	case c.CaCertData != nil:
 		caCertData = []byte(c.GetCaCertData())
 	default:
-		return nil, errors.New("no CA cert configured")
+		return nil, fmt.Errorf("%w: no CA cert configured", ErrInsecure)
 	}
 	switch {
 	case c.ServingCert != nil:
@@ -126,7 +133,7 @@ func (c *CertsSpec) AsTlsConfig(clientAuth tls.ClientAuthType) (*tls.Config, err
 	case c.ServingCertData != nil:
 		servingCertData = []byte(c.GetServingCertData())
 	default:
-		return nil, errors.New("no serving cert configured")
+		return nil, fmt.Errorf("%w: no serving cert configured", ErrInsecure)
 	}
 	switch {
 	case c.ServingKey != nil:
@@ -138,7 +145,7 @@ func (c *CertsSpec) AsTlsConfig(clientAuth tls.ClientAuthType) (*tls.Config, err
 	case c.ServingKeyData != nil:
 		servingKeyData = []byte(c.GetServingKeyData())
 	default:
-		return nil, errors.New("no serving key configured")
+		return nil, fmt.Errorf("%w: no serving key configured", ErrInsecure)
 	}
 
 	var block *pem.Block

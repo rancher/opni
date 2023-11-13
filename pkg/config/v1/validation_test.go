@@ -1,4 +1,4 @@
-package v1_test
+package configv1_test
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	lo "github.com/samber/lo"
 	"github.com/ttacon/chalk"
 
-	v1 "github.com/rancher/opni/pkg/config/v1"
+	configv1 "github.com/rancher/opni/pkg/config/v1"
 	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/pkg/util/flagutil"
 	"github.com/rancher/opni/pkg/validation"
@@ -64,47 +64,47 @@ var _ = Describe("Gateway Config", Ordered, func() {
 		},
 
 		// Listen Addresses
-		Entry("Listen Addresses (Server/Server)", withDefaults(func(cfg *v1.GatewayConfigSpec) {
-			cfg.Storage.Etcd = &v1.EtcdSpec{Endpoints: []string{"localhost:2379"}}
+		Entry("Listen Addresses (Server/Server)", withDefaults(func(cfg *configv1.GatewayConfigSpec) {
+			cfg.Storage.Etcd = &configv1.EtcdSpec{Endpoints: []string{"localhost:2379"}}
 			*cfg.Server.HttpListenAddress = *cfg.Server.GrpcListenAddress
 		}), "[check_conflicting_addresses]"),
-		Entry("Listen Addresses (Management/Management)", withDefaults(func(cfg *v1.GatewayConfigSpec) {
-			cfg.Storage.Etcd = &v1.EtcdSpec{Endpoints: []string{"localhost:2379"}}
+		Entry("Listen Addresses (Management/Management)", withDefaults(func(cfg *configv1.GatewayConfigSpec) {
+			cfg.Storage.Etcd = &configv1.EtcdSpec{Endpoints: []string{"localhost:2379"}}
 			*cfg.Management.HttpListenAddress = *cfg.Management.GrpcListenAddress
 		}), "[check_conflicting_addresses]"),
-		Entry("Listen Addresses (Relay/Server)", withDefaults(func(cfg *v1.GatewayConfigSpec) {
-			cfg.Storage.Etcd = &v1.EtcdSpec{Endpoints: []string{"localhost:2379"}}
+		Entry("Listen Addresses (Relay/Server)", withDefaults(func(cfg *configv1.GatewayConfigSpec) {
+			cfg.Storage.Etcd = &configv1.EtcdSpec{Endpoints: []string{"localhost:2379"}}
 			*cfg.Relay.GrpcListenAddress = *cfg.Server.GrpcListenAddress
 		}), "[check_conflicting_addresses]"),
-		Entry("Listen Addresses (Relay/Management)", withDefaults(func(cfg *v1.GatewayConfigSpec) {
-			cfg.Storage.Etcd = &v1.EtcdSpec{Endpoints: []string{"localhost:2379"}}
+		Entry("Listen Addresses (Relay/Management)", withDefaults(func(cfg *configv1.GatewayConfigSpec) {
+			cfg.Storage.Etcd = &configv1.EtcdSpec{Endpoints: []string{"localhost:2379"}}
 			*cfg.Relay.GrpcListenAddress = *cfg.Management.GrpcListenAddress
 		}), "[check_conflicting_addresses]"),
-		Entry("Listen Addresses (Server/Management)", withDefaults(func(cfg *v1.GatewayConfigSpec) {
-			cfg.Storage.Etcd = &v1.EtcdSpec{Endpoints: []string{"localhost:2379"}}
+		Entry("Listen Addresses (Server/Management)", withDefaults(func(cfg *configv1.GatewayConfigSpec) {
+			cfg.Storage.Etcd = &configv1.EtcdSpec{Endpoints: []string{"localhost:2379"}}
 			*cfg.Server.GrpcListenAddress = *cfg.Management.GrpcListenAddress
 		}), "[check_conflicting_addresses]"),
-		Entry("Listen Addresses (Server/Relay)", withDefaults(func(cfg *v1.GatewayConfigSpec) {
-			cfg.Storage.Etcd = &v1.EtcdSpec{Endpoints: []string{"localhost:2379"}}
+		Entry("Listen Addresses (Server/Relay)", withDefaults(func(cfg *configv1.GatewayConfigSpec) {
+			cfg.Storage.Etcd = &configv1.EtcdSpec{Endpoints: []string{"localhost:2379"}}
 			*cfg.Server.GrpcListenAddress = *cfg.Relay.GrpcListenAddress
 		}), "[check_conflicting_addresses]"),
-		Entry("Listen Addresses (Management/Relay)", withDefaults(func(cfg *v1.GatewayConfigSpec) {
-			cfg.Storage.Etcd = &v1.EtcdSpec{Endpoints: []string{"localhost:2379"}}
+		Entry("Listen Addresses (Management/Relay)", withDefaults(func(cfg *configv1.GatewayConfigSpec) {
+			cfg.Storage.Etcd = &configv1.EtcdSpec{Endpoints: []string{"localhost:2379"}}
 			*cfg.Management.GrpcListenAddress = *cfg.Relay.GrpcListenAddress
 		}), "[check_conflicting_addresses]"),
-		Entry("Server Addresses", &v1.ServerSpec{
+		Entry("Server Addresses", &configv1.ServerSpec{
 			HttpListenAddress: lo.ToPtr("0.0.0.0.0:65537"),
 			GrpcListenAddress: lo.ToPtr("unix://127.0.0.1:9090"),
 		}, "httpListenAddress: invalid IP address", "grpcListenAddress: address unix://127.0.0.1:9090: too many colons in address"),
-		Entry("Server Addresses", &v1.ServerSpec{
+		Entry("Server Addresses", &configv1.ServerSpec{
 			HttpListenAddress: lo.ToPtr("http://localhost:8080"),
 			GrpcListenAddress: lo.ToPtr("0.0.0.0:65537"),
 		}, "httpListenAddress: address http://localhost:8080: too many colons in address", "grpcListenAddress: port number out of range"),
-		Entry("Server Addresses", &v1.ServerSpec{
+		Entry("Server Addresses", &configv1.ServerSpec{
 			HttpListenAddress: lo.ToPtr("localhost:8080"),
 			GrpcListenAddress: lo.ToPtr("unix:///tmp/sock"),
 		}),
-		Entry("Management Addresses", &v1.ManagementServerSpec{
+		Entry("Management Addresses", &configv1.ManagementServerSpec{
 			HttpListenAddress: lo.ToPtr("0.0.0.0.0:65537"),
 			GrpcListenAddress: lo.ToPtr("unix://127.0.0.1:9090"),
 			AdvertiseAddress:  lo.ToPtr("0.0.0.0:0"),
@@ -113,210 +113,210 @@ var _ = Describe("Gateway Config", Ordered, func() {
 			"grpcListenAddress: address unix://127.0.0.1:9090: too many colons in address",
 			"[mgmt_grpc_advertise_address_port]",
 		),
-		Entry("Management Addresses", &v1.ManagementServerSpec{
+		Entry("Management Addresses", &configv1.ManagementServerSpec{
 			HttpListenAddress: lo.ToPtr("127.0.0.1:12345"),
 			GrpcListenAddress: lo.ToPtr("127.0.0.1:12346"),
 			AdvertiseAddress:  lo.ToPtr("127.0.0.1:12347"),
 		}),
-		Entry("Relay Addresses", &v1.RelayServerSpec{
+		Entry("Relay Addresses", &configv1.RelayServerSpec{
 			GrpcListenAddress: lo.ToPtr("unix://127.0.0.1:9090"),
 			AdvertiseAddress:  lo.ToPtr("0.0.0.0:0"),
 		},
 			"grpcListenAddress: address unix://127.0.0.1:9090: too many colons in address",
 			"[relay_grpc_advertise_address_port]",
 		),
-		Entry("Relay Addresses", &v1.RelayServerSpec{
+		Entry("Relay Addresses", &configv1.RelayServerSpec{
 			GrpcListenAddress: lo.ToPtr("127.0.0.1:12345"),
 			AdvertiseAddress:  lo.ToPtr("127.0.0.1:12346"),
 		}),
-		Entry("Health Server Addresses", &v1.HealthServerSpec{
+		Entry("Health Server Addresses", &configv1.HealthServerSpec{
 			HttpListenAddress: lo.ToPtr("z"),
 		}, "httpListenAddress: address z: missing port in address"),
-		Entry("Health Server Addresses", &v1.HealthServerSpec{
+		Entry("Health Server Addresses", &configv1.HealthServerSpec{
 			HttpListenAddress: lo.ToPtr("z:"),
 		}, "httpListenAddress: invalid IP address"),
-		Entry("Health Server Addresses", &v1.HealthServerSpec{
+		Entry("Health Server Addresses", &configv1.HealthServerSpec{
 			HttpListenAddress: lo.ToPtr("localhost:"),
 		}),
-		Entry("Health Server Addresses", &v1.HealthServerSpec{
+		Entry("Health Server Addresses", &configv1.HealthServerSpec{
 			HttpListenAddress: lo.ToPtr("localhost:0"),
 		}),
-		Entry("Dashboard Server Addresses", &v1.DashboardServerSpec{
+		Entry("Dashboard Server Addresses", &configv1.DashboardServerSpec{
 			HttpListenAddress: lo.ToPtr("0.0.0.0.0:65537"),
 			AdvertiseAddress:  lo.ToPtr(":0"),
 		}, "httpListenAddress: invalid IP address", "[dashboard_http_advertise_address_port]"),
-		Entry("Dashboard Server Hostname", &v1.DashboardServerSpec{
+		Entry("Dashboard Server Hostname", &configv1.DashboardServerSpec{
 			Hostname: lo.ToPtr("localhost"),
 		}),
-		Entry("Dashboard Server Hostname", &v1.DashboardServerSpec{
+		Entry("Dashboard Server Hostname", &configv1.DashboardServerSpec{
 			Hostname: lo.ToPtr("localhost:8080"),
 		}, "hostname: value must be a valid hostname"),
-		Entry("Dashboard Server Hostname", &v1.DashboardServerSpec{
+		Entry("Dashboard Server Hostname", &configv1.DashboardServerSpec{
 			Hostname: lo.ToPtr("localhost:"),
 		}, "hostname: value must be a valid hostname"),
-		Entry("Dashboard Server Hostname", &v1.DashboardServerSpec{
+		Entry("Dashboard Server Hostname", &configv1.DashboardServerSpec{
 			Hostname: lo.ToPtr(""),
 		}, "hostname: value must be a valid hostname"),
-		Entry("Dashboard Server Trusted Proxies", &v1.DashboardServerSpec{
+		Entry("Dashboard Server Trusted Proxies", &configv1.DashboardServerSpec{
 			TrustedProxies: []string{"localhost"},
 		}, "must be a valid IP address or CIDR"),
-		Entry("Dashboard Server Trusted Proxies", &v1.DashboardServerSpec{
+		Entry("Dashboard Server Trusted Proxies", &configv1.DashboardServerSpec{
 			TrustedProxies: []string{"192.168.1.1/33"},
 		}, "must be a valid IP address or CIDR"),
-		Entry("Dashboard Server Trusted Proxies", &v1.DashboardServerSpec{
+		Entry("Dashboard Server Trusted Proxies", &configv1.DashboardServerSpec{
 			TrustedProxies: []string{"10.0.0.0/8", "192.168.1.0/24"},
 		}),
 
 		// Storage
-		Entry("Storage: Etcd", &v1.StorageSpec{
-			Backend: lo.ToPtr(v1.StorageBackend_Etcd),
-			Etcd:    &v1.EtcdSpec{},
+		Entry("Storage: Etcd", &configv1.StorageSpec{
+			Backend: lo.ToPtr(configv1.StorageBackend_Etcd),
+			Etcd:    &configv1.EtcdSpec{},
 		}, "etcd.endpoints: value must contain at least 1 item(s)"),
-		Entry("Storage: Etcd", &v1.StorageSpec{
-			Backend: lo.ToPtr(v1.StorageBackend_JetStream),
-			Etcd:    &v1.EtcdSpec{},
+		Entry("Storage: Etcd", &configv1.StorageSpec{
+			Backend: lo.ToPtr(configv1.StorageBackend_JetStream),
+			Etcd:    &configv1.EtcdSpec{},
 		}, "selected storage backend must have matching configuration set"),
-		Entry("Storage: Etcd", &v1.EtcdSpec{
+		Entry("Storage: Etcd", &configv1.EtcdSpec{
 			Endpoints: []string{"localhost:2379"},
-			Certs: &v1.MTLSSpec{
+			Certs: &configv1.MTLSSpec{
 				ServerCAData:   &caCertData,
 				ClientCertData: &leafCertData,
 				ClientKeyData:  &leafKeyData,
 			},
 		}),
-		Entry("Storage: Etcd", &v1.EtcdSpec{
+		Entry("Storage: Etcd", &configv1.EtcdSpec{
 			Endpoints: []string{"localhost:2379", "http://localhost:2380", "aaaa", "aaaa"},
 		}, "endpoints: repeated value must contain unique items"),
-		Entry("Storage: Etcd", &v1.EtcdSpec{
+		Entry("Storage: Etcd", &configv1.EtcdSpec{
 			Endpoints: []string{"localhost:2379", "http://localhost:2380", "aaaa", "http://\x7f"},
 		}, "endpoints[3]: value must be a valid URI"),
-		Entry("Storage: Jetstream", &v1.StorageSpec{
-			Backend:   lo.ToPtr(v1.StorageBackend_JetStream),
-			JetStream: &v1.JetStreamSpec{},
+		Entry("Storage: Jetstream", &configv1.StorageSpec{
+			Backend:   lo.ToPtr(configv1.StorageBackend_JetStream),
+			JetStream: &configv1.JetStreamSpec{},
 		}, "jetStream.endpoint: value is required", "jetStream.nkeySeedPath: value is required"),
-		Entry("Storage: Jetstream", &v1.StorageSpec{
-			Backend:   lo.ToPtr(v1.StorageBackend_Etcd),
-			JetStream: &v1.JetStreamSpec{},
+		Entry("Storage: Jetstream", &configv1.StorageSpec{
+			Backend:   lo.ToPtr(configv1.StorageBackend_Etcd),
+			JetStream: &configv1.JetStreamSpec{},
 		}, "selected storage backend must have matching configuration set"),
 
 		// MTLS
-		Entry("MTLS", &v1.MTLSSpec{
+		Entry("MTLS", &configv1.MTLSSpec{
 			ServerCA:     lo.ToPtr("/path/to/crt"),
 			ServerCAData: &caCertData,
 		}, "[fields_mutually_exclusive_serverca]"),
-		Entry("MTLS", &v1.MTLSSpec{
+		Entry("MTLS", &configv1.MTLSSpec{
 			ClientCA:     lo.ToPtr("/path/to/crt"),
 			ClientCAData: &caCertData,
 		}, "[fields_mutually_exclusive_clientca]"),
-		Entry("MTLS", &v1.MTLSSpec{
+		Entry("MTLS", &configv1.MTLSSpec{
 			ClientCert:     lo.ToPtr("/path/to/crt"),
 			ClientCertData: &leafCertData,
 		}, "[fields_mutually_exclusive_clientcert]"),
-		Entry("MTLS", &v1.MTLSSpec{
+		Entry("MTLS", &configv1.MTLSSpec{
 			ClientKey:     lo.ToPtr("/path/to/key"),
 			ClientKeyData: &leafKeyData,
 		}, "[fields_mutually_exclusive_clientkey]"),
 
-		Entry("MTLS", &v1.MTLSSpec{
+		Entry("MTLS", &configv1.MTLSSpec{
 			ServerCAData: lo.ToPtr("invalid x509 data"),
 		}, "[x509_server_ca_data]"),
-		Entry("MTLS", &v1.MTLSSpec{
+		Entry("MTLS", &configv1.MTLSSpec{
 			ClientCAData: lo.ToPtr("invalid x509 data"),
 		}, "[x509_client_ca_data]"),
-		Entry("MTLS", &v1.MTLSSpec{
+		Entry("MTLS", &configv1.MTLSSpec{
 			ClientCertData: lo.ToPtr("invalid x509 data"),
 		}, "[x509_client_cert_data]"),
-		Entry("MTLS", &v1.MTLSSpec{
+		Entry("MTLS", &configv1.MTLSSpec{
 			ClientKeyData: lo.ToPtr("invalid pem data"),
 		}, "[pem_client_key_data]"),
 
-		Entry("MTLS", &v1.MTLSSpec{
+		Entry("MTLS", &configv1.MTLSSpec{
 			ServerCAData:   &caCertData,
 			ClientCertData: &leafCertData,
 			ClientKeyData:  &leafKeyData,
 		}),
-		Entry("MTLS", &v1.MTLSSpec{
+		Entry("MTLS", &configv1.MTLSSpec{
 			ServerCAData:   &leafCertData,
 			ClientCertData: &caCertData,
 			ClientKeyData:  &leafKeyData,
 		}, "x509: invalid signature: parent certificate cannot sign this kind of certificate"),
-		Entry("MTLS", &v1.MTLSSpec{
+		Entry("MTLS", &configv1.MTLSSpec{
 			ServerCAData:   &leafKeyData,
 			ClientCertData: &caCertData,
 			ClientKeyData:  &leafCertData,
 		}, "x509: malformed tbs certificate", "serverCAData: x509: malformed tbs certificate"),
 
 		// Jetstream
-		Entry("Jetstream", &v1.JetStreamSpec{
+		Entry("Jetstream", &configv1.JetStreamSpec{
 			Endpoint: lo.ToPtr("localhost:4222"),
 		}, "nkeySeedPath: value is required"),
-		Entry("Jetstream", &v1.JetStreamSpec{
+		Entry("Jetstream", &configv1.JetStreamSpec{
 			Endpoint:     lo.ToPtr("localhost:4222"),
 			NkeySeedPath: lo.ToPtr("/path/to/nkey/seed"),
 		}),
-		Entry("Jetstream", &v1.JetStreamSpec{
+		Entry("Jetstream", &configv1.JetStreamSpec{
 			Endpoint:     lo.ToPtr("localhost:\x7f"),
 			NkeySeedPath: lo.ToPtr("/path/to/nkey/seed"),
 		}, "endpoint: value must be a valid URI"),
 
 		// Certs
-		Entry("Certs", &v1.CertsSpec{
+		Entry("Certs", &configv1.CertsSpec{
 			CaCert:     lo.ToPtr("/path/to/crt"),
 			CaCertData: &caCertData,
 		}, "[fields_mutually_exclusive_ca]"),
-		Entry("Certs", &v1.CertsSpec{
+		Entry("Certs", &configv1.CertsSpec{
 			ServingCert:     lo.ToPtr("/path/to/crt"),
 			ServingCertData: &leafCertData,
 		}, "[fields_mutually_exclusive_servingcert]"),
-		Entry("Certs", &v1.CertsSpec{
+		Entry("Certs", &configv1.CertsSpec{
 			ServingKey:     lo.ToPtr("/path/to/key"),
 			ServingKeyData: &leafKeyData,
 		}, "[fields_mutually_exclusive_servingkey]"),
 
-		Entry("Certs", &v1.CertsSpec{
+		Entry("Certs", &configv1.CertsSpec{
 			CaCertData: lo.ToPtr("invalid x509 data"),
 		}, "[x509_ca_cert_data]"),
-		Entry("Certs", &v1.CertsSpec{
+		Entry("Certs", &configv1.CertsSpec{
 			ServingCertData: lo.ToPtr("invalid x509 data"),
 		}, "[x509_serving_cert_data]"),
-		Entry("Certs", &v1.CertsSpec{
+		Entry("Certs", &configv1.CertsSpec{
 			ServingKeyData: lo.ToPtr("invalid pem data"),
 		}, "[pem_serving_key_data]"),
 
-		Entry("Certs", &v1.CertsSpec{
+		Entry("Certs", &configv1.CertsSpec{
 			CaCertData:      &caCertData,
 			ServingCertData: &leafCertData,
 			ServingKeyData:  &leafKeyData,
 		}),
-		Entry("Certs", &v1.CertsSpec{
+		Entry("Certs", &configv1.CertsSpec{
 			CaCertData:      &leafCertData,
 			ServingCertData: &caCertData,
 			ServingKeyData:  &leafKeyData,
 		}, "x509: invalid signature: parent certificate cannot sign this kind of certificate"),
-		Entry("Certs", &v1.CertsSpec{
+		Entry("Certs", &configv1.CertsSpec{
 			CaCertData:      &leafKeyData,
 			ServingCertData: &caCertData,
 			ServingKeyData:  &leafCertData,
 		}, "x509: malformed tbs certificate", "caCertData: x509: malformed tbs certificate"),
 
 		// Plugins
-		Entry("Plugins", &v1.PluginsSpec{
+		Entry("Plugins", &configv1.PluginsSpec{
 			Dir: lo.ToPtr("/foo/bar/baz"),
-			Cache: &v1.CacheSpec{
-				Filesystem: &v1.FilesystemCacheSpec{
+			Cache: &configv1.CacheSpec{
+				Filesystem: &configv1.FilesystemCacheSpec{
 					Dir: lo.ToPtr("/foo/bar/baz"),
 				},
 			},
 		}, "[plugin_dirs_unique]"),
-		Entry("Plugins", &v1.PluginsSpec{
+		Entry("Plugins", &configv1.PluginsSpec{
 			Dir: lo.ToPtr("/foo/bar/baz"),
-			Cache: &v1.CacheSpec{
-				Filesystem: &v1.FilesystemCacheSpec{
+			Cache: &configv1.CacheSpec{
+				Filesystem: &configv1.FilesystemCacheSpec{
 					Dir: lo.ToPtr("/foo/bar/cache"),
 				},
 			},
 		}),
-		Entry("Plugins", &v1.PluginFilters{
+		Entry("Plugins", &configv1.PluginFilters{
 			Exclude: []string{
 				"github.com/foo/bar",
 				"foo/bar",
@@ -328,14 +328,13 @@ var _ = Describe("Gateway Config", Ordered, func() {
 		),
 
 		// Plugin Cache
-		Entry("Plugin Cache", &v1.CacheSpec{
-			PatchEngine: lo.ToPtr(v1.PatchEngine_Bsdiff),
-			Backend:     lo.ToPtr(v1.CacheBackend_Filesystem),
-			Filesystem:  &v1.FilesystemCacheSpec{},
+		Entry("Plugin Cache", &configv1.CacheSpec{
+			Backend:    lo.ToPtr(configv1.CacheBackend_Filesystem),
+			Filesystem: &configv1.FilesystemCacheSpec{},
 		}, "dir: value is required"),
 
 		// Keyring
-		Entry("Keyring", &v1.KeyringSpec{
+		Entry("Keyring", &configv1.KeyringSpec{
 			RuntimeKeyDirs: []string{"/foo/bar/baz", "/foo/bar/baz"},
 		}, "runtimeKeyDirs: repeated value must contain unique items"),
 	)

@@ -130,6 +130,10 @@ func (ct *DefaultingConfigTracker[T]) getDefaultConfigLocked(ctx context.Context
 	return def, revision, nil
 }
 
+func (ct *DefaultingConfigTracker[T]) ActiveStore() storage.ValueStoreT[T] {
+	return ct.activeStore
+}
+
 // Returns the active config if it has been set, otherwise returns a "not found" error.
 // An optional revision can be provided to get the config at a specific revision.
 func (ct *DefaultingConfigTracker[T]) GetConfig(ctx context.Context, atRevision ...*corev1.Revision) (T, error) {

@@ -4,7 +4,7 @@
 // - ragu               v1.0.0
 // source: github.com/rancher/opni/pkg/config/v1/gateway_config.proto
 
-package v1
+package configv1
 
 import (
 	context "context"
@@ -29,6 +29,7 @@ const (
 	GatewayConfig_ResetConfiguration_FullMethodName        = "/config.v1.GatewayConfig/ResetConfiguration"
 	GatewayConfig_DryRun_FullMethodName                    = "/config.v1.GatewayConfig/DryRun"
 	GatewayConfig_ConfigurationHistory_FullMethodName      = "/config.v1.GatewayConfig/ConfigurationHistory"
+	GatewayConfig_WatchReactive_FullMethodName             = "/config.v1.GatewayConfig/WatchReactive"
 )
 
 // GatewayConfigClient is the client API for GatewayConfig service.
@@ -43,6 +44,7 @@ type GatewayConfigClient interface {
 	ResetConfiguration(ctx context.Context, in *ResetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DryRun(ctx context.Context, in *DryRunRequest, opts ...grpc.CallOption) (*DryRunResponse, error)
 	ConfigurationHistory(ctx context.Context, in *driverutil.ConfigurationHistoryRequest, opts ...grpc.CallOption) (*HistoryResponse, error)
+	WatchReactive(ctx context.Context, in *ReactiveWatchRequest, opts ...grpc.CallOption) (GatewayConfig_WatchReactiveClient, error)
 }
 
 type gatewayConfigClient struct {
@@ -125,6 +127,38 @@ func (c *gatewayConfigClient) ConfigurationHistory(ctx context.Context, in *driv
 	return out, nil
 }
 
+func (c *gatewayConfigClient) WatchReactive(ctx context.Context, in *ReactiveWatchRequest, opts ...grpc.CallOption) (GatewayConfig_WatchReactiveClient, error) {
+	stream, err := c.cc.NewStream(ctx, &GatewayConfig_ServiceDesc.Streams[0], GatewayConfig_WatchReactive_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &gatewayConfigWatchReactiveClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type GatewayConfig_WatchReactiveClient interface {
+	Recv() (*ReactiveEvents, error)
+	grpc.ClientStream
+}
+
+type gatewayConfigWatchReactiveClient struct {
+	grpc.ClientStream
+}
+
+func (x *gatewayConfigWatchReactiveClient) Recv() (*ReactiveEvents, error) {
+	m := new(ReactiveEvents)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // GatewayConfigServer is the server API for GatewayConfig service.
 // All implementations should embed UnimplementedGatewayConfigServer
 // for forward compatibility
@@ -137,6 +171,7 @@ type GatewayConfigServer interface {
 	ResetConfiguration(context.Context, *ResetRequest) (*emptypb.Empty, error)
 	DryRun(context.Context, *DryRunRequest) (*DryRunResponse, error)
 	ConfigurationHistory(context.Context, *driverutil.ConfigurationHistoryRequest) (*HistoryResponse, error)
+	WatchReactive(*ReactiveWatchRequest, GatewayConfig_WatchReactiveServer) error
 }
 
 // UnimplementedGatewayConfigServer should be embedded to have forward compatible implementations.
@@ -166,6 +201,9 @@ func (UnimplementedGatewayConfigServer) DryRun(context.Context, *DryRunRequest) 
 }
 func (UnimplementedGatewayConfigServer) ConfigurationHistory(context.Context, *driverutil.ConfigurationHistoryRequest) (*HistoryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ConfigurationHistory not implemented")
+}
+func (UnimplementedGatewayConfigServer) WatchReactive(*ReactiveWatchRequest, GatewayConfig_WatchReactiveServer) error {
+	return status.Errorf(codes.Unimplemented, "method WatchReactive not implemented")
 }
 
 // UnsafeGatewayConfigServer may be embedded to opt out of forward compatibility for this service.
@@ -323,6 +361,27 @@ func _GatewayConfig_ConfigurationHistory_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GatewayConfig_WatchReactive_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ReactiveWatchRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(GatewayConfigServer).WatchReactive(m, &gatewayConfigWatchReactiveServer{stream})
+}
+
+type GatewayConfig_WatchReactiveServer interface {
+	Send(*ReactiveEvents) error
+	grpc.ServerStream
+}
+
+type gatewayConfigWatchReactiveServer struct {
+	grpc.ServerStream
+}
+
+func (x *gatewayConfigWatchReactiveServer) Send(m *ReactiveEvents) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // GatewayConfig_ServiceDesc is the grpc.ServiceDesc for GatewayConfig service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -363,6 +422,12 @@ var GatewayConfig_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _GatewayConfig_ConfigurationHistory_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "WatchReactive",
+			Handler:       _GatewayConfig_WatchReactive_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "github.com/rancher/opni/pkg/config/v1/gateway_config.proto",
 }

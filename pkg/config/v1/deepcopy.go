@@ -1,4 +1,4 @@
-package v1
+package configv1
 
 import "google.golang.org/protobuf/proto"
 

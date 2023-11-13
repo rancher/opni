@@ -1,4 +1,4 @@
-package configv1_test
+package reactive_test
 
 import (
 	"testing"
@@ -8,7 +8,7 @@ import (
 	_ "github.com/rancher/opni/pkg/test/setup"
 )
 
-func TestConfigV1(t *testing.T) {
+func TestReactive(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Config V1 Suite")
+	RunSpecs(t, "Reactive Suite")
 }

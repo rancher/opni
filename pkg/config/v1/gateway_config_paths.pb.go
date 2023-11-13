@@ -85,7 +85,7 @@ func (p revisionPathBuilder) Timestamp() timestampPathBuilder {
 func (p storageSpecPathBuilder) Etcd() etcdSpecPathBuilder {
 	return etcdSpecPathBuilder(append(p, protopath.FieldAccess(((*StorageSpec)(nil)).ProtoReflect().Descriptor().Fields().ByNumber(2))))
 }
-func (p storageSpecPathBuilder) Jetstream() jetStreamSpecPathBuilder {
+func (p storageSpecPathBuilder) JetStream() jetStreamSpecPathBuilder {
 	return jetStreamSpecPathBuilder(append(p, protopath.FieldAccess(((*StorageSpec)(nil)).ProtoReflect().Descriptor().Fields().ByNumber(3))))
 }
 func (p etcdSpecPathBuilder) Certs() mTLSSpecPathBuilder {
@@ -155,7 +155,7 @@ func (p dashboardServerSpecPathBuilder) Hostname() protopath.Path {
 func (p dashboardServerSpecPathBuilder) TrustedProxies() protopath.Path {
 	return protopath.Path(append(p, protopath.FieldAccess(((*DashboardServerSpec)(nil)).ProtoReflect().Descriptor().Fields().ByNumber(4))))
 }
-func (p storageSpecPathBuilder) Type() protopath.Path {
+func (p storageSpecPathBuilder) Backend() protopath.Path {
 	return protopath.Path(append(p, protopath.FieldAccess(((*StorageSpec)(nil)).ProtoReflect().Descriptor().Fields().ByNumber(1))))
 }
 func (p etcdSpecPathBuilder) Endpoints() protopath.Path {
@@ -236,7 +236,7 @@ func (p rateLimitingSpecPathBuilder) Rate() protopath.Path {
 func (p rateLimitingSpecPathBuilder) Burst() protopath.Path {
 	return protopath.Path(append(p, protopath.FieldAccess(((*RateLimitingSpec)(nil)).ProtoReflect().Descriptor().Fields().ByNumber(2))))
 }
-func (p authSpecPathBuilder) Kind() protopath.Path {
+func (p authSpecPathBuilder) Backend() protopath.Path {
 	return protopath.Path(append(p, protopath.FieldAccess(((*AuthSpec)(nil)).ProtoReflect().Descriptor().Fields().ByNumber(1))))
 }
 func (p openIDAuthSpecPathBuilder) Issuer() protopath.Path {

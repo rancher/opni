@@ -169,13 +169,13 @@ var _ = Describe("Gateway Config", Ordered, func() {
 
 		// Storage
 		Entry("Storage: Etcd", &v1.StorageSpec{
-			Type: lo.ToPtr(v1.StorageType_Etcd),
-			Etcd: &v1.EtcdSpec{},
+			Backend: lo.ToPtr(v1.StorageBackend_Etcd),
+			Etcd:    &v1.EtcdSpec{},
 		}, "etcd.endpoints: value must contain at least 1 item(s)"),
 		Entry("Storage: Etcd", &v1.StorageSpec{
-			Type: lo.ToPtr(v1.StorageType_JetStream),
-			Etcd: &v1.EtcdSpec{},
-		}, "selected storage type must have matching configuration set"),
+			Backend: lo.ToPtr(v1.StorageBackend_JetStream),
+			Etcd:    &v1.EtcdSpec{},
+		}, "selected storage backend must have matching configuration set"),
 		Entry("Storage: Etcd", &v1.EtcdSpec{
 			Endpoints: []string{"localhost:2379"},
 			Certs: &v1.MTLSSpec{
@@ -191,13 +191,13 @@ var _ = Describe("Gateway Config", Ordered, func() {
 			Endpoints: []string{"localhost:2379", "http://localhost:2380", "aaaa", "http://\x7f"},
 		}, "endpoints[3]: value must be a valid URI"),
 		Entry("Storage: Jetstream", &v1.StorageSpec{
-			Type:      lo.ToPtr(v1.StorageType_JetStream),
-			Jetstream: &v1.JetStreamSpec{},
-		}, "jetstream.endpoint: value is required", "jetstream.nkeySeedPath: value is required"),
+			Backend:   lo.ToPtr(v1.StorageBackend_JetStream),
+			JetStream: &v1.JetStreamSpec{},
+		}, "jetStream.endpoint: value is required", "jetStream.nkeySeedPath: value is required"),
 		Entry("Storage: Jetstream", &v1.StorageSpec{
-			Type:      lo.ToPtr(v1.StorageType_Etcd),
-			Jetstream: &v1.JetStreamSpec{},
-		}, "selected storage type must have matching configuration set"),
+			Backend:   lo.ToPtr(v1.StorageBackend_Etcd),
+			JetStream: &v1.JetStreamSpec{},
+		}, "selected storage backend must have matching configuration set"),
 
 		// MTLS
 		Entry("MTLS", &v1.MTLSSpec{

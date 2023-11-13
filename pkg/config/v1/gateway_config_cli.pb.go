@@ -355,10 +355,6 @@ func (in *SetRequest) UnredactSecrets(unredacted *SetRequest) error {
 func (in *GatewayConfigSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("GatewayConfigSpec", pflag.ExitOnError)
 	fs.SortFlags = true
-	if in.Revision == nil {
-		in.Revision = &v1.Revision{}
-	}
-	fs.AddFlagSet(in.Revision.FlagSet(append(prefix, "revision")...))
 	if in.Server == nil {
 		in.Server = &ServerSpec{}
 	}
@@ -403,10 +399,6 @@ func (in *GatewayConfigSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 		in.RateLimiting = &RateLimitingSpec{}
 	}
 	fs.AddFlagSet(in.RateLimiting.FlagSet(append(prefix, "rate-limiting")...))
-	if in.Auth == nil {
-		in.Auth = &AuthSpec{}
-	}
-	fs.AddFlagSet(in.Auth.FlagSet(append(prefix, "auth")...))
 	return fs
 }
 
@@ -416,7 +408,6 @@ func (in *GatewayConfigSpec) RedactSecrets() {
 	}
 	in.Storage.RedactSecrets()
 	in.Certs.RedactSecrets()
-	in.Auth.RedactSecrets()
 }
 
 func (in *GatewayConfigSpec) UnredactSecrets(unredacted *GatewayConfigSpec) error {
@@ -436,14 +427,6 @@ func (in *GatewayConfigSpec) UnredactSecrets(unredacted *GatewayConfigSpec) erro
 		for _, sd := range status.Convert(err).Details() {
 			if info, ok := sd.(*errdetails.ErrorInfo); ok {
 				info.Metadata["field"] = "certs." + info.Metadata["field"]
-				details = append(details, info)
-			}
-		}
-	}
-	if err := in.Auth.UnredactSecrets(unredacted.GetAuth()); storage.IsDiscontinuity(err) {
-		for _, sd := range status.Convert(err).Details() {
-			if info, ok := sd.(*errdetails.ErrorInfo); ok {
-				info.Metadata["field"] = "auth." + info.Metadata["field"]
 				details = append(details, info)
 			}
 		}
@@ -480,7 +463,7 @@ func (in *RelayServerSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *HealthServerSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("HealthServerSpec", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("0.0.0.0:8086"), &in.HttpListenAddress), strings.Join(append(prefix, "http-listen-address"), "."), "Address and port to serve the gateway's internal health/metrics/profiling")
+	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("0.0.0.0:8086"), &in.HttpListenAddress), strings.Join(append(prefix, "http-listen-address"), "."), "Address and port to serve the gateway's internal health/metrics/profiling http server on.")
 	return fs
 }
 
@@ -488,7 +471,7 @@ func (in *DashboardServerSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("DashboardServerSpec", pflag.ExitOnError)
 	fs.SortFlags = true
 	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("0.0.0.0:12080"), &in.HttpListenAddress), strings.Join(append(prefix, "http-listen-address"), "."), "Address and port to serve the web dashboard on.")
-	fs.Var(flagutil.StringPtrValue(nil, &in.Hostname), strings.Join(append(prefix, "hostname"), "."), "The hostname at which the dashboard is expected to be reachable. This is")
+	fs.Var(flagutil.StringPtrValue(nil, &in.Hostname), strings.Join(append(prefix, "hostname"), "."), "The hostname at which the dashboard is expected to be reachable.")
 	fs.StringSliceVar(&in.TrustedProxies, strings.Join(append(prefix, "trusted-proxies"), "."), nil, "List of trusted proxies for the dashboard's http server.")
 	return fs
 }
@@ -496,15 +479,15 @@ func (in *DashboardServerSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *StorageSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("StorageSpec", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.EnumPtrValue(flagutil.Ptr(StorageType_Etcd), &in.Type), strings.Join(append(prefix, "type"), "."), "")
+	fs.Var(flagutil.EnumPtrValue(flagutil.Ptr(StorageBackend_Etcd), &in.Backend), strings.Join(append(prefix, "backend"), "."), "Key-value storage backend.")
 	if in.Etcd == nil {
 		in.Etcd = &EtcdSpec{}
 	}
 	fs.AddFlagSet(in.Etcd.FlagSet(append(prefix, "etcd")...))
-	if in.Jetstream == nil {
-		in.Jetstream = &JetStreamSpec{}
+	if in.JetStream == nil {
+		in.JetStream = &JetStreamSpec{}
 	}
-	fs.AddFlagSet(in.Jetstream.FlagSet(append(prefix, "jetstream")...))
+	fs.AddFlagSet(in.JetStream.FlagSet(append(prefix, "jet-stream")...))
 	return fs
 }
 
@@ -537,7 +520,7 @@ func (in *StorageSpec) UnredactSecrets(unredacted *StorageSpec) error {
 func (in *EtcdSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("EtcdSpec", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.StringSliceVar(&in.Endpoints, strings.Join(append(prefix, "endpoints"), "."), nil, "")
+	fs.StringSliceVar(&in.Endpoints, strings.Join(append(prefix, "endpoints"), "."), nil, "Etcd server endpoints.")
 	if in.Certs == nil {
 		in.Certs = &MTLSSpec{}
 	}
@@ -657,8 +640,8 @@ func (in *MTLSSpec) UnredactSecrets(unredacted *MTLSSpec) error {
 func (in *JetStreamSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("JetStreamSpec", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.StringPtrValue(nil, &in.Endpoint), strings.Join(append(prefix, "endpoint"), "."), "")
-	fs.Var(flagutil.StringPtrValue(nil, &in.NkeySeedPath), strings.Join(append(prefix, "nkey-seed-path"), "."), "")
+	fs.Var(flagutil.StringPtrValue(nil, &in.Endpoint), strings.Join(append(prefix, "endpoint"), "."), "Jetstream server endpoint.")
+	fs.Var(flagutil.StringPtrValue(nil, &in.NkeySeedPath), strings.Join(append(prefix, "nkey-seed-path"), "."), "Path to the Jetstream nkey seed.")
 	return fs
 }
 
@@ -748,15 +731,15 @@ func (in *PluginsSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *PluginFilters) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("PluginFilters", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.StringSliceVar(&in.Exclude, strings.Join(append(prefix, "exclude"), "."), nil, "")
+	fs.StringSliceVar(&in.Exclude, strings.Join(append(prefix, "exclude"), "."), nil, "List of plugin go module paths not to load.")
 	return fs
 }
 
 func (in *CacheSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("CacheSpec", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.EnumPtrValue(flagutil.Ptr(PatchEngine_Zstd), &in.PatchEngine), strings.Join(append(prefix, "patch-engine"), "."), "")
-	fs.Var(flagutil.EnumPtrValue(flagutil.Ptr(CacheBackend_Filesystem), &in.Backend), strings.Join(append(prefix, "backend"), "."), "")
+	fs.Var(flagutil.EnumPtrValue(flagutil.Ptr(PatchEngine_Zstd), &in.PatchEngine), strings.Join(append(prefix, "patch-engine"), "."), "Patch engine to use for calculating plugin patches.")
+	fs.Var(flagutil.EnumPtrValue(flagutil.Ptr(CacheBackend_Filesystem), &in.Backend), strings.Join(append(prefix, "backend"), "."), "Cache backend to use for storing plugin binaries and patches.")
 	if in.Filesystem == nil {
 		in.Filesystem = &FilesystemCacheSpec{}
 	}
@@ -767,7 +750,7 @@ func (in *CacheSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *FilesystemCacheSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("FilesystemCacheSpec", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("/var/lib/opni/plugin-cache"), &in.Dir), strings.Join(append(prefix, "dir"), "."), "")
+	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("/var/lib/opni/plugin-cache"), &in.Dir), strings.Join(append(prefix, "dir"), "."), "Directory to store plugin binaries and patches in.")
 	return fs
 }
 
@@ -791,95 +774,16 @@ func (in *AgentUpgradesSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 func (in *KubernetesAgentUpgradeSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("KubernetesAgentUpgradeSpec", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.EnumPtrValue(flagutil.Ptr(ImageResolverType_Kubernetes), &in.ImageResolver), strings.Join(append(prefix, "image-resolver"), "."), "")
+	fs.Var(flagutil.EnumPtrValue(flagutil.Ptr(ImageResolverType_Kubernetes), &in.ImageResolver), strings.Join(append(prefix, "image-resolver"), "."), "Agent image resolver backend to use.")
 	return fs
 }
 
 func (in *RateLimitingSpec) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("RateLimitingSpec", pflag.ExitOnError)
 	fs.SortFlags = true
-	fs.Var(flagutil.FloatPtrValue(flagutil.Ptr[float64](10.0), &in.Rate), strings.Join(append(prefix, "rate"), "."), "")
-	fs.Var(flagutil.IntPtrValue(flagutil.Ptr[int32](50), &in.Burst), strings.Join(append(prefix, "burst"), "."), "")
+	fs.Var(flagutil.FloatPtrValue(flagutil.Ptr[float64](10.0), &in.Rate), strings.Join(append(prefix, "rate"), "."), "Base event rate used for rate limiting agent connection attempts.")
+	fs.Var(flagutil.IntPtrValue(flagutil.Ptr[int32](50), &in.Burst), strings.Join(append(prefix, "burst"), "."), "Burst event rate.")
 	return fs
-}
-
-func (in *AuthSpec) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("AuthSpec", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.Var(flagutil.EnumValue(AuthSpec_Basic, &in.Kind), strings.Join(append(prefix, "kind"), "."), "")
-	if in.Openid == nil {
-		in.Openid = &OpenIDAuthSpec{}
-	}
-	fs.AddFlagSet(in.Openid.FlagSet(append(prefix, "openid")...))
-	return fs
-}
-
-func (in *AuthSpec) RedactSecrets() {
-	if in == nil {
-		return
-	}
-	in.Openid.RedactSecrets()
-}
-
-func (in *AuthSpec) UnredactSecrets(unredacted *AuthSpec) error {
-	if in == nil {
-		return nil
-	}
-	var details []protoiface.MessageV1
-	if err := in.Openid.UnredactSecrets(unredacted.GetOpenid()); storage.IsDiscontinuity(err) {
-		for _, sd := range status.Convert(err).Details() {
-			if info, ok := sd.(*errdetails.ErrorInfo); ok {
-				info.Metadata["field"] = "openid." + info.Metadata["field"]
-				details = append(details, info)
-			}
-		}
-	}
-	if len(details) == 0 {
-		return nil
-	}
-	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
-}
-
-func (in *OpenIDAuthSpec) FlagSet(prefix ...string) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("OpenIDAuthSpec", pflag.ExitOnError)
-	fs.SortFlags = true
-	fs.Var(flagutil.StringPtrValue(nil, &in.Issuer), strings.Join(append(prefix, "issuer"), "."), "The OP's Issuer identifier. This must exactly match the issuer URL")
-	fs.Var(flagutil.StringPtrValue(nil, &in.CaCertData), strings.Join(append(prefix, "ca-cert-data"), "."), "Optional PEM-encoded CA certificate data for the issuer.")
-	fs.Var(flagutil.StringPtrValue(nil, &in.ClientId), strings.Join(append(prefix, "client-id"), "."), "")
-	fs.Var(flagutil.StringPtrValue(nil, &in.ClientSecret), strings.Join(append(prefix, "client-secret"), "."), "\x1b[31m[secret]\x1b[0m ")
-	fs.Var(flagutil.StringPtrValue(flagutil.Ptr("sub"), &in.IdentifyingClaim), strings.Join(append(prefix, "identifying-claim"), "."), "IdentifyingClaim is the claim that will be used to identify the user")
-	fs.StringSliceVar(&in.Scopes, strings.Join(append(prefix, "scopes"), "."), nil, "Scope specifies optional requested permissions.")
-	return fs
-}
-
-func (in *OpenIDAuthSpec) RedactSecrets() {
-	if in == nil {
-		return
-	}
-	if in.GetClientSecret() != "" {
-		in.ClientSecret = flagutil.Ptr("***")
-	}
-}
-
-func (in *OpenIDAuthSpec) UnredactSecrets(unredacted *OpenIDAuthSpec) error {
-	if in == nil {
-		return nil
-	}
-	var details []protoiface.MessageV1
-	if in.GetClientSecret() == "***" {
-		if unredacted.GetClientSecret() == "" {
-			details = append(details, &errdetails.ErrorInfo{
-				Reason:   "DISCONTINUITY",
-				Metadata: map[string]string{"field": "clientSecret"},
-			})
-		} else {
-			*in.ClientSecret = *unredacted.ClientSecret
-		}
-	}
-	if len(details) == 0 {
-		return nil
-	}
-	return lo.Must(status.New(codes.InvalidArgument, "cannot unredact: missing values for secret fields").WithDetails(details...)).Err()
 }
 
 func (in *ResetRequest) FlagSet(prefix ...string) *pflag.FlagSet {

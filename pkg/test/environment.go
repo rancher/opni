@@ -54,6 +54,7 @@ import (
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/dashboard"
 	"github.com/rancher/opni/pkg/gateway"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring/ephemeral"
@@ -185,15 +186,17 @@ type Environment struct {
 }
 
 type EnvironmentOptions struct {
-	enableEtcd             bool
-	remoteEtcdPort         int
-	enableJetstream        bool
-	enableGateway          bool
-	defaultAgentOpts       []StartAgentOption
-	defaultAgentVersion    string
-	enableDisconnectServer bool
-	enableNodeExporter     bool
-	storageBackend         v1beta1.StorageType
+	enableEtcd                   bool
+	remoteEtcdPort               int
+	enableJetstream              bool
+	enableGateway                bool
+	defaultAgentOpts             []StartAgentOption
+	defaultAgentVersion          string
+	enableDisconnectServer       bool
+	enableNodeExporter           bool
+	storageBackend               v1beta1.StorageType
+	enableDashboard              bool
+	noDashboardEmbeddedWebAssets bool
 }
 
 type EnvironmentOption func(*EnvironmentOptions)
@@ -249,6 +252,18 @@ func WithStorageBackend(backend v1beta1.StorageType) EnvironmentOption {
 func WithRemoteEtcdPort(port int) EnvironmentOption {
 	return func(o *EnvironmentOptions) {
 		o.remoteEtcdPort = port
+	}
+}
+
+func WithEnableDashboard(enable bool) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.enableDashboard = enable
+	}
+}
+
+func WithNoEmbeddedWebAssets(enable bool) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.noDashboardEmbeddedWebAssets = enable
 	}
 }
 
@@ -309,14 +324,16 @@ WALK:
 func (e *Environment) Start(opts ...EnvironmentOption) error {
 	// TODO : bootstrap with otelcollector
 	options := EnvironmentOptions{
-		enableEtcd:             false,
-		remoteEtcdPort:         0,
-		enableJetstream:        true,
-		enableNodeExporter:     false,
-		enableGateway:          true,
-		enableDisconnectServer: false,
-		defaultAgentVersion:    defaultAgentVersion(),
-		storageBackend:         defaultStorageBackend(),
+		enableEtcd:                   false,
+		remoteEtcdPort:               0,
+		enableJetstream:              true,
+		enableNodeExporter:           false,
+		enableGateway:                true,
+		enableDashboard:              true,
+		noDashboardEmbeddedWebAssets: false,
+		enableDisconnectServer:       false,
+		defaultAgentVersion:          defaultAgentVersion(),
+		storageBackend:               defaultStorageBackend(),
 	}
 	options.apply(opts...)
 
@@ -1794,6 +1811,10 @@ func (e *Environment) PrometheusAPIEndpoint() string {
 	return fmt.Sprintf("https://localhost:%d/prometheus/api/v1", e.ports.GatewayHTTP)
 }
 
+func (e *Environment) loadPlugins() {
+
+}
+
 func (e *Environment) startGateway() {
 	if !e.enableGateway {
 		panic("gateway disabled")
@@ -1825,6 +1846,11 @@ func (e *Environment) startGateway() {
 		management.WithHealthStatusDataSource(g),
 		management.WithLifecycler(lifecycler),
 	)
+
+	if e.enableDashboard {
+		e.startDashboard(pluginLoader, g)
+	}
+
 	g.MustRegisterCollector(m)
 
 	doneLoadingPlugins := make(chan struct{})
@@ -1884,6 +1910,32 @@ func (e *Environment) startGateway() {
 	}
 
 	lg.Info("Gateway started")
+}
+
+func (e *Environment) startDashboard(pl *plugins.PluginLoader, dataSource dashboard.AuthDataSource) {
+	opts := []dashboard.ServerOption{}
+	if e.noDashboardEmbeddedWebAssets {
+		absPath, err := filepath.Abs("web/")
+		if err != nil {
+			testlog.Log.Error("error", logger.Err(err))
+			return
+		}
+		fs := os.DirFS(absPath)
+		opts = append(opts, dashboard.WithAssetsFS(fs))
+	}
+	dashboardSrv, err := dashboard.NewServer(
+		&e.gatewayConfig.Spec.Management,
+		pl,
+		dataSource,
+		opts...,
+	)
+	if err != nil {
+		testlog.Log.Error("error", logger.Err(err))
+		return
+	}
+	go func() {
+		dashboardSrv.ListenAndServe(e.ctx)
+	}()
 }
 
 type StartAgentOptions struct {

@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	authRealm          = "Authorization Required"
+	authRealm          = "Basic realm=Authorization Required"
 	authenticateHeader = "WWW-Authenticate"
 )
 
@@ -47,7 +47,7 @@ func (m *MultiMiddleware) basicAuthPassword(value string) []byte {
 	if !strings.HasPrefix(value, basicPrefix) {
 		return []byte{}
 	}
-	payload, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(value, basicPrefix))
+	payload, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(value, basicPrefix))
 	if err != nil {
 		m.Logger.With("err", err.Error).Error("failed to decode auth header")
 		return []byte{}
@@ -75,11 +75,13 @@ func (m *MultiMiddleware) Handler(authCheck ...ginoauth2.AccessCheckFunction) gi
 		if authHeader == "" {
 			c.Header(authenticateHeader, authRealm)
 			c.AbortWithStatus(http.StatusUnauthorized)
+			return
 		}
 		password := m.basicAuthPassword(authHeader)
 		if len(password) < 1 {
 			c.Header(authenticateHeader, authRealm)
 			c.AbortWithStatus(http.StatusUnauthorized)
+			return
 		}
 		err := m.LocalAuthenticator.ComparePassword(c, password)
 		if err == nil {
@@ -89,6 +91,8 @@ func (m *MultiMiddleware) Handler(authCheck ...ginoauth2.AccessCheckFunction) gi
 		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 			c.Header(authenticateHeader, authRealm)
 			c.AbortWithStatus(http.StatusUnauthorized)
+			m.Logger.Warn("auth failed for admin")
+			return
 		}
 		m.Logger.With("error", err.Error()).Error("password verification failed")
 		c.AbortWithStatus(http.StatusInternalServerError)

@@ -93,7 +93,7 @@ func BuildLocalPasswordCmd() *cobra.Command {
 
 func BuildLocalPasswordCreateLocalPasswordCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:               "auth create-local-password",
+		Use:               "create-local-password",
 		Short:             "",
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,

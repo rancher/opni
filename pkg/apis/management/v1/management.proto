@@ -23,7 +23,7 @@ service LocalPassword {
   };
   rpc CreateLocalPassword(google.protobuf.Empty) returns (LocalPasswordResponse) {
     option (cli.command) = {
-      use: "auth create-local-password"
+      use: "create-local-password"
     };
   }
 }

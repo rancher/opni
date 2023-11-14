@@ -58,7 +58,7 @@ import (
 // 		},
 // 		body:   nil,
 // 		values: nil,
-// 		logger: logger.NewPluginLogger().Named("alerting"),
+// 		logger: logger.New().Named("alerting"),
 // 	}
 // }
 

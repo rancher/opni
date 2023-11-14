@@ -64,7 +64,7 @@ func NewAlertingSyncerV1(
 	init.Store(false)
 	server := &AlertManagerSyncerV1{
 		serverConfig: serverConfig,
-		lg:           logger.NewPluginLogger().WithGroup("alerting-syncer"),
+		lg:           logger.New().WithGroup("alerting-syncer"),
 		tlsConfig:    tlsConfig,
 	}
 	go func() {

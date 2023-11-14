@@ -11,12 +11,13 @@ import (
 	"errors"
 	"net/http"
 
+	"log/slog"
+
 	"github.com/rancher/opni/pkg/alerting/cache"
 	"github.com/rancher/opni/pkg/alerting/extensions/destination"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/logger"
-	"log/slog"
 
 	// add profiles
 	_ "net/http/pprof"
@@ -64,7 +65,7 @@ func StartOpniEmbeddedServer(
 	opniAddr string,
 	sendK8s bool,
 ) *http.Server {
-	lg := logger.NewPluginLogger().WithGroup("opni.alerting")
+	lg := logger.New().WithGroup("opni.alerting")
 	es := NewEmbeddedServer(lg, 125, sendK8s)
 	mux := http.NewServeMux()
 

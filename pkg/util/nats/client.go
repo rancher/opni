@@ -94,7 +94,7 @@ func AcquireNATSConnection(
 	opts ...NatsAcquireOption,
 ) (*nats.Conn, error) {
 	options := &natsAcquireOptions{
-		lg: logger.NewPluginLogger().WithGroup("nats-conn"),
+		lg: logger.New().WithGroup("nats-conn"),
 		retrier: backoffv2.Exponential(
 			backoffv2.WithMaxRetries(0),
 			backoffv2.WithMinInterval(5*time.Second),

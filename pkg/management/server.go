@@ -37,8 +37,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"golang.org/x/oauth2"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	channelzservice "google.golang.org/grpc/channelz/service"
 	"google.golang.org/grpc/codes"
@@ -343,7 +341,7 @@ func (m *Server) ListCapabilities(ctx context.Context, in *emptypb.Empty) (*mana
 	for _, details := range list.GetItems() {
 		items = append(items, &managementv1.CapabilityInfo{
 			Details:   details,
-s			NodeCount: counts[details.GetName()],
+			NodeCount: counts[details.GetName()],
 		})
 	}
 

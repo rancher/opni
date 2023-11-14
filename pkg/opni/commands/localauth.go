@@ -28,7 +28,7 @@ func ConfigureAuthCommand(cmd *cobra.Command) {
 
 func authPreRunE(cmd *cobra.Command, _ []string) error {
 	authClient := managementv1.NewLocalPasswordClient(managementv1.UnderlyingConn(mgmtClient))
-	cmd.SetContext(managementv1.ContextWithLocalPasswordClient(cmd.Context(), authClient))
+	cmd.SetContext(managementv1.LocalPasswordContextInjector.ContextWithClient(cmd.Context(), authClient))
 	return nil
 }
 

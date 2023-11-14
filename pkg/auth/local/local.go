@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	difficulty     = 10
+	difficulty     = 12
 	passwordLength = 20
 	storageKey     = "local_admin"
 )

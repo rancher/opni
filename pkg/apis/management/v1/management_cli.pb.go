@@ -737,7 +737,7 @@ HTTP handlers for this method:
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, ok := ManagementClientFromContext(cmd.Context())
+			client, ok := ManagementContextInjector.ClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
 				return nil
@@ -768,7 +768,7 @@ HTTP handlers for this method:
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, ok := ManagementClientFromContext(cmd.Context())
+			client, ok := ManagementContextInjector.ClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
 				return nil
@@ -798,7 +798,7 @@ HTTP handlers for this method:
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, ok := ManagementClientFromContext(cmd.Context())
+			client, ok := ManagementContextInjector.ClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
 				return nil

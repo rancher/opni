@@ -19,7 +19,7 @@ type accessChecker struct {
 	store  storage.RoleBindingStore
 }
 
-func (c *accessChecker) CheckAccessForExtension(tc *ginoauth2.TokenContainer, ctx *gin.Context) bool {
+func (c *accessChecker) CheckAccessForExtension(_ *ginoauth2.TokenContainer, ctx *gin.Context) bool {
 	uid, ok := ctx.Get(proxy.SubjectKey)
 	if !ok {
 		c.logger.Warn("no user in gin context")

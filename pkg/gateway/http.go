@@ -26,7 +26,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
-	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/fwd"
 	"github.com/samber/lo"
@@ -55,7 +54,6 @@ type GatewayHTTPServer struct {
 	tlsConfig         *tls.Config
 	metricsRouter     *gin.Engine
 	metricsRegisterer prometheus.Registerer
-	rb                storage.RoleBindingStore
 
 	routesMu             sync.Mutex
 	reservedPrefixRoutes []string
@@ -66,7 +64,6 @@ func NewHTTPServer(
 	cfg *v1beta1.GatewayConfigSpec,
 	lg *slog.Logger,
 	pl plugins.LoaderInterface,
-	store storage.Backend,
 ) *GatewayHTTPServer {
 	lg = lg.WithGroup("http")
 

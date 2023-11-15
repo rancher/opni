@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	dpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/gorilla/websocket"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -68,7 +67,7 @@ type UnknownStreamMetadata struct {
 
 type StreamDirector func(ctx context.Context, fullMethodName string) (context.Context, *UnknownStreamMetadata, error)
 
-func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.LoaderInterface, router *gin.Engine) StreamDirector {
+func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.LoaderInterface) StreamDirector {
 	lg := m.logger
 	methodTable := gsync.Map[string, *UnknownStreamMetadata]{}
 	pl.Hook(hooks.OnLoadMC(func(p types.ManagementAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {

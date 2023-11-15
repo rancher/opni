@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -24,9 +25,11 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/dashboard"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
+	"github.com/rancher/opni/pkg/test/localauth"
 	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/tracing"
@@ -96,8 +99,6 @@ func main() {
 		test.WithEnableNodeExporter(enableNodeExporter),
 		test.WithEnableJetstream(enableJetstream),
 		test.WithDefaultAgentOpts(defaultAgentOpts...),
-		test.WithEnableDashboard(true),
-		test.WithNoEmbeddedWebAssets(noEmbeddedWebAssets),
 	}
 
 	var agentCancelMu sync.Mutex
@@ -238,6 +239,39 @@ func main() {
 		}
 	}
 
+	startDashboardOnce := sync.Once{}
+	startDashboard := func() {
+		startDashboardOnce.Do(func() {
+			if !enableGateway {
+				return
+			}
+			opts := []dashboard.ServerOption{
+				dashboard.WithLocaalAuthenticator(&localauth.TestLocalAuthenticator{}),
+			}
+			if noEmbeddedWebAssets {
+				absPath, err := filepath.Abs("web/")
+				if err != nil {
+					testlog.Log.Error("error", logger.Err(err))
+					return
+				}
+				fs := os.DirFS(absPath)
+				opts = append(opts, dashboard.WithAssetsFS(fs))
+			}
+			dashboardSrv, err := dashboard.NewServer(
+				&environment.GatewayConfig().Spec.Management,
+				environment.PluginLoader(),
+				environment.GatewayObject(),
+				opts...)
+			if err != nil {
+				testlog.Log.Error("error", logger.Err(err))
+				return
+			}
+			go func() {
+				dashboardSrv.ListenAndServe(environment.Context())
+			}()
+		})
+	}
+
 	consistentAgents := make([]lo.Tuple2[context.Context, context.CancelFunc], 10)
 
 	var capabilityMu sync.Mutex
@@ -295,6 +329,7 @@ func main() {
 
 		switch rn {
 		case ' ':
+			startDashboard()
 			if !headlessDashboard {
 				go browser.OpenURL(fmt.Sprintf("http://localhost:%d", environment.GetPorts().ManagementWeb))
 			}
@@ -331,7 +366,7 @@ func main() {
 					return
 				}
 				if resp.StatusCode != http.StatusOK {
-					testlog.Log.Error(fmt.Sprintf("%s", resp.Status))
+					testlog.Log.Error(resp.Status)
 					return
 				}
 			}()

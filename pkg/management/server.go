@@ -146,7 +146,7 @@ func NewServer(
 		router: gin.New(),
 	}
 
-	director := m.configureApiExtensionDirector(ctx, pluginLoader, m.router)
+	director := m.configureApiExtensionDirector(ctx, pluginLoader)
 	m.grpcServer = grpc.NewServer(
 		grpc.Creds(insecure.NewCredentials()),
 		grpc.UnknownServiceHandler(unknownServiceHandler(director)),

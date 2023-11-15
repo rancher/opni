@@ -50,6 +50,7 @@ type extraHandler struct {
 type ServerOptions struct {
 	extraHandlers []extraHandler
 	assetsFS      fs.FS
+	authenticator local.LocalAuthenticator
 }
 
 type ServerOption func(*ServerOptions)
@@ -76,6 +77,12 @@ func WithAssetsFS(fs fs.FS) ServerOption {
 	}
 }
 
+func WithLocaalAuthenticator(authenticator local.LocalAuthenticator) ServerOption {
+	return func(o *ServerOptions) {
+		o.authenticator = authenticator
+	}
+}
+
 func NewServer(
 	config *v1beta1.ManagementSpec,
 	pl plugins.LoaderInterface,
@@ -83,7 +90,8 @@ func NewServer(
 	opts ...ServerOption,
 ) (*Server, error) {
 	options := ServerOptions{
-		assetsFS: web.DistFS,
+		assetsFS:      web.DistFS,
+		authenticator: local.NewLocalAuthenticator(ds.StorageBackend().KeyValueStore(authutil.AuthNamespace)),
 	}
 	options.apply(opts...)
 
@@ -229,13 +237,12 @@ func (ws *Server) configureAuth(ctx context.Context, router *gin.Engine) *middle
 		router.Any("/auth/oidc/callback", handler.handleCallback)
 	}
 
-	localAuth := local.NewLocalAuthenticator(ws.ds.StorageBackend().KeyValueStore(authutil.AuthNamespace))
 	middleware := &middleware.MultiMiddleware{
 		Logger:             ws.logger.WithGroup("auth_middleware"),
 		Config:             ws.oauthConfig,
 		IdentifyingClaim:   "user", //TODO: load this from config
 		UseOIDC:            useOIDC,
-		LocalAuthenticator: localAuth,
+		LocalAuthenticator: ws.authenticator,
 	}
 	router.GET("/auth/type", middleware.GetAuthType)
 	return middleware

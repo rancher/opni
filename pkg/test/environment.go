@@ -54,7 +54,6 @@ import (
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/dashboard"
 	"github.com/rancher/opni/pkg/gateway"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring/ephemeral"
@@ -182,21 +181,22 @@ type Environment struct {
 	nodeConfigOverridesMu sync.Mutex
 	nodeConfigOverrides   map[string]*OverridePrometheusConfig
 
+	pluginLoader *plugins.PluginLoader
+	gw           *gateway.Gateway
+
 	shutdownHooks []func()
 }
 
 type EnvironmentOptions struct {
-	enableEtcd                   bool
-	remoteEtcdPort               int
-	enableJetstream              bool
-	enableGateway                bool
-	defaultAgentOpts             []StartAgentOption
-	defaultAgentVersion          string
-	enableDisconnectServer       bool
-	enableNodeExporter           bool
-	storageBackend               v1beta1.StorageType
-	enableDashboard              bool
-	noDashboardEmbeddedWebAssets bool
+	enableEtcd             bool
+	remoteEtcdPort         int
+	enableJetstream        bool
+	enableGateway          bool
+	defaultAgentOpts       []StartAgentOption
+	defaultAgentVersion    string
+	enableDisconnectServer bool
+	enableNodeExporter     bool
+	storageBackend         v1beta1.StorageType
 }
 
 type EnvironmentOption func(*EnvironmentOptions)
@@ -252,18 +252,6 @@ func WithStorageBackend(backend v1beta1.StorageType) EnvironmentOption {
 func WithRemoteEtcdPort(port int) EnvironmentOption {
 	return func(o *EnvironmentOptions) {
 		o.remoteEtcdPort = port
-	}
-}
-
-func WithEnableDashboard(enable bool) EnvironmentOption {
-	return func(o *EnvironmentOptions) {
-		o.enableDashboard = enable
-	}
-}
-
-func WithNoEmbeddedWebAssets(enable bool) EnvironmentOption {
-	return func(o *EnvironmentOptions) {
-		o.noDashboardEmbeddedWebAssets = enable
 	}
 }
 
@@ -324,16 +312,14 @@ WALK:
 func (e *Environment) Start(opts ...EnvironmentOption) error {
 	// TODO : bootstrap with otelcollector
 	options := EnvironmentOptions{
-		enableEtcd:                   false,
-		remoteEtcdPort:               0,
-		enableJetstream:              true,
-		enableNodeExporter:           false,
-		enableGateway:                true,
-		enableDashboard:              true,
-		noDashboardEmbeddedWebAssets: false,
-		enableDisconnectServer:       false,
-		defaultAgentVersion:          defaultAgentVersion(),
-		storageBackend:               defaultStorageBackend(),
+		enableEtcd:             false,
+		remoteEtcdPort:         0,
+		enableJetstream:        true,
+		enableNodeExporter:     false,
+		enableGateway:          true,
+		enableDisconnectServer: false,
+		defaultAgentVersion:    defaultAgentVersion(),
+		storageBackend:         defaultStorageBackend(),
 	}
 	options.apply(opts...)
 
@@ -1747,6 +1733,14 @@ func (e *Environment) NewStreamConnection(pins []string) (grpc.ClientConnInterfa
 	return ts.Serve()
 }
 
+func (e *Environment) PluginLoader() *plugins.PluginLoader {
+	return e.pluginLoader
+}
+
+func (e *Environment) GatewayObject() *gateway.Gateway {
+	return e.gw
+}
+
 func (e *Environment) NewManagementClient(opts ...EnvClientOption) managementv1.ManagementClient {
 	options := EnvClientOptions{
 		dialOptions: []grpc.DialOption{},
@@ -1821,7 +1815,7 @@ func (e *Environment) startGateway() {
 	}
 	lg := e.Logger
 	e.gatewayConfig = e.NewGatewayConfig()
-	pluginLoader := plugins.NewPluginLoader()
+	e.pluginLoader = plugins.NewPluginLoader()
 
 	lifecycler := config.NewLifecycler(meta.ObjectList{e.gatewayConfig, &v1beta1.AuthProvider{
 		TypeMeta: meta.TypeMeta{
@@ -1835,31 +1829,27 @@ func (e *Environment) startGateway() {
 			Type: "test",
 		},
 	}})
-	g := gateway.NewGateway(e.ctx, e.gatewayConfig, pluginLoader,
+	e.gw = gateway.NewGateway(e.ctx, e.gatewayConfig, e.pluginLoader,
 		gateway.WithLogger(lg.WithGroup("gateway")),
 		gateway.WithLifecycler(lifecycler),
 		gateway.WithExtraUpdateHandlers(noop.NewSyncServer()),
 	)
 
-	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g, pluginLoader,
-		management.WithCapabilitiesDataSource(g.CapabilitiesDataSource()),
-		management.WithHealthStatusDataSource(g),
+	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, e.gw, e.pluginLoader,
+		management.WithCapabilitiesDataSource(e.gw.CapabilitiesDataSource()),
+		management.WithHealthStatusDataSource(e.gw),
 		management.WithLifecycler(lifecycler),
 	)
 
-	if e.enableDashboard {
-		e.startDashboard(pluginLoader, g)
-	}
-
-	g.MustRegisterCollector(m)
+	e.gw.MustRegisterCollector(m)
 
 	doneLoadingPlugins := make(chan struct{})
-	pluginLoader.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
+	e.pluginLoader.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
 		lg.Info(fmt.Sprintf("loaded %d plugins", numLoaded))
 		close(doneLoadingPlugins)
 	}))
 	lg.Info("Loading gateway plugins...")
-	globalTestPlugins.LoadPlugins(e.ctx, pluginLoader, pluginmeta.ModeGateway)
+	globalTestPlugins.LoadPlugins(e.ctx, e.pluginLoader, pluginmeta.ModeGateway)
 
 	select {
 	case <-doneLoadingPlugins:
@@ -1871,7 +1861,7 @@ func (e *Environment) startGateway() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := g.ListenAndServe(e.ctx)
+		err := e.gw.ListenAndServe(e.ctx)
 		if errors.Is(err, context.Canceled) {
 			lg.Info("gateway server stopped")
 		} else if err != nil {
@@ -1910,32 +1900,6 @@ func (e *Environment) startGateway() {
 	}
 
 	lg.Info("Gateway started")
-}
-
-func (e *Environment) startDashboard(pl *plugins.PluginLoader, dataSource dashboard.AuthDataSource) {
-	opts := []dashboard.ServerOption{}
-	if e.noDashboardEmbeddedWebAssets {
-		absPath, err := filepath.Abs("web/")
-		if err != nil {
-			testlog.Log.Error("error", logger.Err(err))
-			return
-		}
-		fs := os.DirFS(absPath)
-		opts = append(opts, dashboard.WithAssetsFS(fs))
-	}
-	dashboardSrv, err := dashboard.NewServer(
-		&e.gatewayConfig.Spec.Management,
-		pl,
-		dataSource,
-		opts...,
-	)
-	if err != nil {
-		testlog.Log.Error("error", logger.Err(err))
-		return
-	}
-	go func() {
-		dashboardSrv.ListenAndServe(e.ctx)
-	}()
 }
 
 type StartAgentOptions struct {

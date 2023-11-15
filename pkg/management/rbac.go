@@ -218,7 +218,7 @@ func (s *Server) ListRoleBindings(ctx context.Context, _ *emptypb.Empty) (*corev
 	return rbl, nil
 }
 
-func (s *Server) checkAdminAccess(tc *ginoauth2.TokenContainer, ctx *gin.Context) bool {
+func (s *Server) checkAdminAccess(_ *ginoauth2.TokenContainer, ctx *gin.Context) bool {
 	lg := s.logger.WithGroup("auth")
 	user, ok := ctx.Get(proxy.SubjectKey)
 	if !ok {

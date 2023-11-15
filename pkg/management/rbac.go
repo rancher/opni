@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/proxy"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/validation"
@@ -239,7 +240,7 @@ func (s *Server) checkAdminAccess(_ *ginoauth2.TokenContainer, ctx *gin.Context)
 		Id: adminRoleBindingName,
 	})
 	if err != nil {
-		lg.With("error", err).Error("failed to fetch admin user list")
+		lg.With(logger.Err(err)).Error("failed to fetch admin user list")
 	}
 
 	for _, subject := range rb.Subjects {

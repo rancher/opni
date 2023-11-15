@@ -114,7 +114,7 @@ func AcquireNATSConnection(
 		if err == nil {
 			break
 		}
-		options.lg.With("error", err).Warn("failed to connect to nats server, retrying")
+		options.lg.With(logger.Err(err)).Warn("failed to connect to nats server, retrying")
 	}
 	mgr, err := nc.JetStream()
 	if err == nil {

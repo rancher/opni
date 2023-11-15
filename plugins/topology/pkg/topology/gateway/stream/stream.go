@@ -13,15 +13,17 @@ import (
 	"fmt"
 	"os"
 
+	"log/slog"
+
 	"github.com/nats-io/nats.go"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/topology/store"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/topology/apis/stream"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"log/slog"
 )
 
 type TopologyStreamWriteConfig struct {
@@ -44,7 +46,7 @@ func (t *TopologyStreamWriter) Initialize(conf TopologyStreamWriteConfig) {
 	t.InitOnce(func() {
 		objStore, err := store.NewTopologyObjectStore(conf.Nc)
 		if err != nil {
-			conf.Logger.With("error", err).Error("failed to initialize topology object store")
+			conf.Logger.With(logger.Err(err)).Error("failed to initialize topology object store")
 			os.Exit(1)
 		}
 		t.topologyObjectStore = objStore

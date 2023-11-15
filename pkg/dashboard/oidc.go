@@ -6,6 +6,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"golang.org/x/oauth2"
 )
@@ -39,7 +40,7 @@ func (h *oidcHandler) handleCallback(ctx *gin.Context) {
 	}
 	oauth2Token, err := h.config.Exchange(ctx, ctx.Request.URL.Query().Get("code"))
 	if err != nil {
-		h.logger.With("error", err).Error("failed to exchange token")
+		h.logger.With(logger.Err(err)).Error("failed to exchange token")
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 	}
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
@@ -53,7 +54,7 @@ func (h *oidcHandler) handleCallback(ctx *gin.Context) {
 	})
 	_, err = verifier.Verify(ctx, rawIDToken)
 	if err != nil {
-		h.logger.With("error", err).Error("failed to verify id token")
+		h.logger.With(logger.Err(err)).Error("failed to verify id token")
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 	}
 }

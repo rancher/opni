@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin/render"
 	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/auth/local"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/proxy"
 	"github.com/rancher/opni/pkg/util/oidc"
 	ginoauth2 "github.com/zalando/gin-oauth2"
@@ -49,7 +50,7 @@ func (m *MultiMiddleware) basicAuthPassword(value string) []byte {
 	}
 	payload, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(value, basicPrefix))
 	if err != nil {
-		m.Logger.With("err", err.Error).Error("failed to decode auth header")
+		m.Logger.With(logger.Err(err)).Error("failed to decode auth header")
 		return []byte{}
 	}
 
@@ -94,7 +95,7 @@ func (m *MultiMiddleware) Handler(authCheck ...ginoauth2.AccessCheckFunction) gi
 			m.Logger.Warn("auth failed for admin")
 			return
 		}
-		m.Logger.With("error", err.Error()).Error("password verification failed")
+		m.Logger.With(logger.Err(err)).Error("password verification failed")
 		c.AbortWithStatus(http.StatusInternalServerError)
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	proxyv1 "github.com/rancher/opni/pkg/apis/proxy/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/proxy"
 	"github.com/rancher/opni/pkg/proxy/backend"
 	"github.com/rancher/opni/pkg/storage"
@@ -68,13 +69,13 @@ func (r *implRouter) handle(c *gin.Context) {
 	if ok {
 		userID, ok := subject.(string)
 		if !ok {
-			r.logger.With("error", err).Error("failed to get user")
+			r.logger.With(logger.Err(err)).Error("failed to get user")
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 		roleList, err = r.fetchRoles(userID)
 		if err != nil {
-			r.logger.With("error", err).Error("failed to fetch roles")
+			r.logger.With(logger.Err(err)).Error("failed to fetch roles")
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
@@ -85,7 +86,7 @@ func (r *implRouter) handle(c *gin.Context) {
 	}
 	rewrite, err := r.backend.RewriteProxyRequest(path, roleList)
 	if err != nil {
-		r.logger.With("error", err).Error("failed to get rewrite function")
+		r.logger.With(logger.Err(err)).Error("failed to get rewrite function")
 		c.AbortWithStatus(http.StatusInternalServerError)
 	}
 	proxy := httputil.ReverseProxy{

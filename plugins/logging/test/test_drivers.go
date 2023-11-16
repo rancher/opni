@@ -242,7 +242,7 @@ func (d *MockBackendDriver) SetSyncTime() {
 
 func init() {
 	stateStore := &loggingutil.MockInstallState{}
-	backenddriver.Drivers.Register("mock-driver", func(_ context.Context, _ ...driverutil.Option) (backenddriver.ClusterDriver, error) {
+	backenddriver.ClusterDrivers.Register("mock-driver", func(_ context.Context, _ ...driverutil.Option) (backenddriver.ClusterDriver, error) {
 		return NewMockBackendDriver(stateStore), nil
 	})
 	managementdriver.Drivers.Register("mock-driver", func(_ context.Context, _ ...driverutil.Option) (managementdriver.ClusterDriver, error) {

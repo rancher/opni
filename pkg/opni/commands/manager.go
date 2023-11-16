@@ -171,6 +171,15 @@ func BuildManagerCmd() *cobra.Command {
 			return err
 		}
 
+		if err = (&opensearchcontrollers.OpensearchRoleReconciler{
+			Client:   mgr.GetClient(),
+			Scheme:   mgr.GetScheme(),
+			Recorder: mgr.GetEventRecorderFor("role-controller"),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "OpensearchRole")
+			os.Exit(1)
+		}
+
 		// +kubebuilder:scaffold:builder
 
 		if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {

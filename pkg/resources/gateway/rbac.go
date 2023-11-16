@@ -87,6 +87,23 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 			},
 			{
 				APIGroups: []string{
+					"opensearch.opster.io",
+				},
+				Resources: []string{
+					"opensearchroles",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+					"create",
+					"update",
+					"patch",
+					"delete",
+				},
+			},
+			{
+				APIGroups: []string{
 					"",
 				},
 				Resources: []string{

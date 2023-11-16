@@ -124,3 +124,9 @@ func (o *OpensearchClusterRef) ObjectKeyFromRef() types.NamespacedName {
 		Namespace: o.Namespace,
 	}
 }
+
+func (o *OpensearchClusterRef) LocalObjectReference() corev1.LocalObjectReference {
+	return corev1.LocalObjectReference{
+		Name: o.Name,
+	}
+}

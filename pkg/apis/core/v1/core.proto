@@ -171,6 +171,7 @@ message PermissionVerb {
 message PermissionDescription {
   string                  type  = 1;
   repeated PermissionVerb verbs = 2;
+  bool                    enableLabelMatch = 3;
 }
 
 message AvailablePermissions {

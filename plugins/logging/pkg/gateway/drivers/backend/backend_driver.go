@@ -29,4 +29,15 @@ type ClusterDriver interface {
 	SetSyncTime()
 }
 
-var Drivers = driverutil.NewCache[ClusterDriver]()
+type RBACDriver interface {
+	GetRole(context.Context, *corev1.Reference) (*corev1.Role, error)
+	CreateRole(context.Context, *corev1.Role) error
+	UpdateRole(context.Context, *corev1.Role) error
+	DeleteRole(context.Context, *corev1.Reference) error
+	ListRoles(context.Context) (*corev1.RoleList, error)
+}
+
+var (
+	ClusterDrivers = driverutil.NewCache[ClusterDriver]()
+	RBACDrivers    = driverutil.NewCache[RBACDriver]()
+)

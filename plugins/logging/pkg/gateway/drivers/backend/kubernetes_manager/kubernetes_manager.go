@@ -7,24 +7,28 @@ import (
 	"os"
 	"time"
 
+	"log/slog"
+
 	"github.com/rancher/opni/apis"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/resources"
+	utilerrors "github.com/rancher/opni/pkg/util/errors"
 	k8sutilerrors "github.com/rancher/opni/pkg/util/errors/k8sutil"
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	loggingerrors "github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
-	"log/slog"
 	opsterv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -113,6 +117,14 @@ func (d *KubernetesManagerDriver) StoreCluster(ctx context.Context, req *corev1.
 			FriendlyName:         friendlyName,
 		},
 	}
+
+	opensearch, err := d.fetchOpensearch(ctx)
+	if err != nil {
+		d.Logger.With(logger.Err(err)).Error("failed to fetch opensearch cluster")
+		return utilerrors.New(codes.Aborted, err)
+	}
+
+	controllerutil.SetOwnerReference(opensearch, loggingCluster, d.K8sClient.Scheme())
 
 	if err := d.K8sClient.Create(ctx, loggingCluster); err != nil {
 		d.Logger.Error(fmt.Sprintf("failed to store cluster: %v", err))
@@ -317,8 +329,137 @@ func (d *KubernetesManagerDriver) StoreClusterReadUser(ctx context.Context, user
 	return nil
 }
 
+func (d *KubernetesManagerDriver) GetRole(ctx context.Context, in *corev1.Reference) (*corev1.Role, error) {
+	role := &opsterv1.OpensearchRole{}
+	err := d.K8sClient.Get(ctx, types.NamespacedName{
+		Name:      in.GetId(),
+		Namespace: d.Namespace,
+	}, role)
+	if err != nil {
+		return nil, k8sutilerrors.GRPCFromK8s(err)
+	}
+	out := opensearchToRole(role)
+	if out != nil {
+		return out, nil
+	}
+
+	return nil, utilerrors.New(codes.FailedPrecondition, errors.New("invalid data in k8s role"))
+}
+
+func (d *KubernetesManagerDriver) CreateRole(ctx context.Context, in *corev1.Role) error {
+	opensearchRole := roleToOpensearch(d.Namespace, in)
+	opensearchRole.Spec.OpensearchRef = d.OpensearchCluster.LocalObjectReference()
+
+	opensearch, err := d.fetchOpensearch(ctx)
+	if err != nil {
+		d.Logger.With(logger.Err(err)).Error("failed to fetch opensearch cluster")
+		return utilerrors.New(codes.Aborted, err)
+	}
+
+	controllerutil.SetOwnerReference(opensearch, opensearchRole, d.K8sClient.Scheme())
+
+	err = d.K8sClient.Create(ctx, opensearchRole)
+	if err != nil {
+		return k8sutilerrors.GRPCFromK8s(err)
+	}
+	return nil
+}
+
+func (d *KubernetesManagerDriver) UpdateRole(ctx context.Context, in *corev1.Role) error {
+	role := &opsterv1.OpensearchRole{}
+	err := d.K8sClient.Get(ctx, types.NamespacedName{
+		Name:      in.GetId(),
+		Namespace: d.Namespace,
+	}, role)
+	if err != nil {
+		return k8sutilerrors.GRPCFromK8s(err)
+	}
+
+	updated := roleToOpensearch(d.Namespace, in)
+	for k, v := range updated.ObjectMeta.Annotations {
+		role.ObjectMeta.Annotations[k] = v
+	}
+	for k, v := range updated.ObjectMeta.Labels {
+		role.ObjectMeta.Labels[k] = v
+	}
+	role.Spec = updated.Spec
+	err = d.K8sClient.Update(ctx, role)
+	if err != nil {
+		return k8sutilerrors.GRPCFromK8s(err)
+	}
+	return nil
+}
+
+func (d *KubernetesManagerDriver) DeleteRole(ctx context.Context, in *corev1.Reference) error {
+	role := &opsterv1.OpensearchRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      in.GetId(),
+			Namespace: d.Namespace,
+		},
+	}
+
+	err := d.K8sClient.Get(ctx, client.ObjectKeyFromObject(role), role)
+	if err != nil {
+		return k8sutilerrors.GRPCFromK8s(err)
+	}
+
+	if _, ok := role.Labels[opniLabelKey]; !ok {
+		return utilerrors.New(codes.NotFound, errors.New("role exists but is not managed by opni"))
+	}
+
+	err = d.K8sClient.Delete(ctx, role)
+	if err != nil {
+		return k8sutilerrors.GRPCFromK8s(err)
+	}
+	return nil
+}
+
+func (d *KubernetesManagerDriver) ListRoles(ctx context.Context) (*corev1.RoleList, error) {
+	roleList := &opsterv1.OpensearchRoleList{}
+	err := d.K8sClient.List(ctx, roleList,
+		client.InNamespace(d.Namespace),
+		client.MatchingLabels{opniLabelKey: "true"},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	retList := &corev1.RoleList{
+		Items: make([]*corev1.Reference, len(roleList.Items)),
+	}
+	for i, role := range roleList.Items {
+		retList.Items[i] = &corev1.Reference{
+			Id: role.Name,
+		}
+	}
+	return retList, nil
+}
+
+func (d *KubernetesManagerDriver) fetchOpensearch(ctx context.Context) (*opsterv1.OpenSearchCluster, error) {
+	cluster := &opsterv1.OpenSearchCluster{}
+	err := d.K8sClient.Get(ctx, d.OpensearchCluster.ObjectKeyFromRef(), cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	return cluster, nil
+}
+
 func init() {
-	backend.Drivers.Register("kubernetes-manager", func(_ context.Context, opts ...driverutil.Option) (backend.ClusterDriver, error) {
+	backend.ClusterDrivers.Register("kubernetes-manager", func(_ context.Context, opts ...driverutil.Option) (backend.ClusterDriver, error) {
+		options := KubernetesManagerDriverOptions{
+			OpensearchCluster: &opnimeta.OpensearchClusterRef{
+				Name:      "opni",
+				Namespace: os.Getenv("POD_NAMESPACE"),
+			},
+			Namespace: os.Getenv("POD_NAMESPACE"),
+		}
+		if err := driverutil.ApplyOptions(&options, opts...); err != nil {
+			return nil, err
+		}
+		return NewKubernetesManagerDriver(options)
+	})
+	backend.RBACDrivers.Register("kubernetes-manager", func(_ context.Context, opts ...driverutil.Option) (backend.RBACDriver, error) {
 		options := KubernetesManagerDriverOptions{
 			OpensearchCluster: &opnimeta.OpensearchClusterRef{
 				Name:      "opni",

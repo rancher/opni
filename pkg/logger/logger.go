@@ -18,9 +18,10 @@ import (
 )
 
 const (
-	pluginGroupPrefix = "plugin"
-	NoRepeatInterval  = 3600 * time.Hour // arbitrarily long time to denote one-time sampling
-	errKey            = "err"
+	pluginGroupPrefix     = "plugin"
+	forwardedPluginPrefix = "plugin."
+	NoRepeatInterval      = 3600 * time.Hour // arbitrarily long time to denote one-time sampling
+	errKey                = "err"
 )
 
 var (

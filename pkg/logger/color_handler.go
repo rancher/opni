@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"unicode"
@@ -224,7 +225,7 @@ func (h *colorHandler) writeGroups(buf *buffer) {
 	last := len(h.groups) - 1
 	for i, group := range h.groups {
 		if i == 0 {
-			if group == pluginGroupPrefix {
+			if strings.HasPrefix(group, forwardedPluginPrefix) || group == pluginGroupPrefix {
 				buf.WriteStringIf(h.colorEnabled, ansiBrightCyan)
 			} else {
 				buf.WriteStringIf(h.colorEnabled, ansiBrightGreen)

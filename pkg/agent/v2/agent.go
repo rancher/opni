@@ -137,8 +137,9 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	if conf.Spec.LogLevel != "" {
 		level = logger.ParseLevel(conf.Spec.LogLevel)
 	}
-	fileWriter := logger.InitPluginWriter(id)
-	lg := logger.New(logger.WithLogLevel(level), logger.WithFileWriter(fileWriter)).WithGroup("agent")
+	ctx = logger.WithPluginLoggerWriter(ctx, id)
+	writer := logger.PluginWriterFromContext(ctx)
+	lg := logger.New(logger.WithLogLevel(level), logger.WithFileWriter(writer)).WithGroup("agent")
 	lg.Debug(fmt.Sprintf("using log level: %s", level.String()))
 
 	var pl *plugins.PluginLoader

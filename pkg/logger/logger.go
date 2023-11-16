@@ -6,22 +6,34 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/slogr"
 	gpkgsync "github.com/kralicky/gpkg/sync"
+	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
+	"github.com/rancher/opni/pkg/test/testruntime"
 	slogmulti "github.com/samber/slog-multi"
 	slogsampling "github.com/samber/slog-sampling"
 	"github.com/spf13/afero"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
-	pluginGroupPrefix     = "plugin"
-	forwardedPluginPrefix = "plugin."
-	NoRepeatInterval      = 3600 * time.Hour // arbitrarily long time to denote one-time sampling
-	errKey                = "err"
+	pluginGroupPrefix                                         = "plugin"
+	forwardedPluginPrefix                                     = "plugin."
+	pluginLoggerKey            pluginLoggerKeyType            = "plugin_logger"
+	pluginWriterKey            pluginWriterKeyType            = "plugin_writer"
+	testPluginLoggerEnabledKey testPluginLoggerEnabledKeyType = "is_test_plugin_logger"
+	NoRepeatInterval                                          = 3600 * time.Hour // arbitrarily long time to denote one-time sampling
+	errKey                                                    = "err"
+)
+
+type (
+	pluginLoggerKeyType            string
+	pluginWriterKeyType            string
+	testPluginLoggerEnabledKeyType string
 )
 
 var (
@@ -33,21 +45,21 @@ var (
     /_/
  Observability + AIOps for Kubernetes
 `
-	DefaultLogLevel   = slog.LevelDebug
-	DefaultWriter     io.Writer
-	DefaultAddSource  = true
-	logFs             afero.Fs
-	DefaultTimeFormat = "2006 Jan 02 15:04:05"
-	logSampler        = &sampler{}
-	PluginFileWriter  = &remotePluginWriter{
-		mu: &sync.Mutex{},
-	}
-	pluginOutputWriter = os.Stderr
-	levelString        = []string{"DEBUG", "INFO", "WARN", "ERROR"}
+	DefaultLogLevel          = slog.LevelDebug
+	DefaultWriter            io.Writer
+	DefaultAddSource         = true
+	logFs                    afero.Fs
+	DefaultTimeFormat        = "2006 Jan 02 15:04:05"
+	logSampler               = &sampler{}
+	levelString              = []string{"DEBUG", "INFO", "WARN", "ERROR"}
+	sameProcessPluginLoggers = false
 )
 
 func init() {
 	logFs = afero.NewMemMapFs()
+	if testruntime.IsTesting {
+		EnableInProcessPluginLoggers()
+	}
 }
 
 func AsciiLogo() string {
@@ -225,14 +237,65 @@ func NewNop() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{}))
 }
 
-func NewPluginLogger(opts ...LoggerOption) *slog.Logger {
+func NewPluginLogger(ctx context.Context, opts ...LoggerOption) *slog.Logger {
 	options := &LoggerOptions{
 		Level:     DefaultLogLevel,
 		AddSource: true,
 	}
 	options.apply(opts...)
 
-	return slog.New(newProtoHandler(pluginOutputWriter, ConfigureProtoOptions(options))).WithGroup(pluginGroupPrefix)
+	if options.Writer == nil {
+		options.Writer = PluginWriterFromContext(ctx)
+	}
+
+	return slog.New(newProtoHandler(options.Writer, ConfigureProtoOptions(options))).WithGroup(pluginGroupPrefix)
+}
+
+func WithPluginLogger(ctx context.Context, lg *slog.Logger) context.Context {
+	return context.WithValue(ctx, pluginLoggerKey, lg)
+}
+
+func EnableInProcessPluginLoggers() {
+	sameProcessPluginLoggers = true
+}
+
+func WithPluginLoggerWriter(ctx context.Context, agentId string) context.Context {
+	writer := PluginWriterFromContext(ctx)
+
+	writer.fileWriter.file = WriteOnlyFile("temp") //agentId)
+
+	ctx = context.WithValue(ctx, pluginWriterKey, writer)
+	return ctx
+}
+
+func PluginLoggerFromContext(ctx context.Context) *slog.Logger {
+	logger := ctx.Value(pluginLoggerKey)
+	if logger == nil {
+		return NewPluginLogger(ctx)
+	}
+	return logger.(*slog.Logger)
+}
+
+func PluginWriterFromContext(ctx context.Context) *remotePluginWriter {
+	writer := ctx.Value(pluginWriterKey)
+	if writer == nil {
+		return NewPluginWriter("temp")
+	}
+	return writer.(*remotePluginWriter)
+}
+
+func InitPluginLoggers(ctx context.Context, cc grpc.ClientConnInterface) context.Context {
+	identityClient := controlv1.NewIdentityClient(cc)
+	id, err := identityClient.Whoami(ctx, &emptypb.Empty{})
+	if err != nil {
+		// todo error handling
+		return ctx
+	}
+	agentId := id.GetId()
+	ctx = WithPluginLoggerWriter(ctx, agentId)
+	withUpdatedWriter := NewPluginLogger(ctx)
+
+	return WithPluginLogger(ctx, withUpdatedWriter)
 }
 
 type sampler struct {

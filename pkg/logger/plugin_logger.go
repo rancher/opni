@@ -3,14 +3,16 @@ package logger
 import (
 	"io"
 	"log/slog"
+	"os"
 	"sync"
 
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
+	"github.com/spf13/afero"
 	"google.golang.org/protobuf/proto"
 )
 
 type fileWriter struct {
-	file io.Writer
+	file afero.File
 	mu   *sync.Mutex
 }
 
@@ -23,30 +25,33 @@ func (f fileWriter) Write(b []byte) (int, error) {
 // forwards plugin logs to their host process, where they are logged with a logger in the host process
 type remotePluginWriter struct {
 	logForwarder *slog.Logger
-	file         *fileWriter
+	fileWriter   *fileWriter
 	mu           *sync.Mutex
+	stderr       io.Writer
 }
 
-func InitPluginWriter(agentId string) io.Writer {
-	PluginFileWriter.mu.Lock()
-	defer PluginFileWriter.mu.Unlock()
+func NewPluginWriter(agentId string) *remotePluginWriter {
+	mu := &sync.Mutex{}
+	// textStderr := io.Discard
+	// protoStderr := io.Writer(os.Stderr)
+	// if sameProcessPluginLoggers {
+	textStderr := os.Stderr
+	protoStderr := io.Discard
+	// }
 
-	if PluginFileWriter.file != nil {
-		return PluginFileWriter.file
+	return &remotePluginWriter{
+		logForwarder: New(WithWriter(textStderr), WithDisableCaller()),
+		fileWriter: &fileWriter{
+			file: WriteOnlyFile("temp"), //agentId),
+			mu:   mu,
+		},
+		stderr: protoStderr,
+		mu:     mu,
 	}
-
-	f := WriteOnlyFile(agentId)
-	writer := f.(io.Writer)
-	PluginFileWriter.file = &fileWriter{
-		file: writer,
-		mu:   PluginFileWriter.mu,
-	}
-	PluginFileWriter.logForwarder = New(WithWriter(pluginOutputWriter), WithDisableCaller())
-	return PluginFileWriter.file
 }
 
 func (w remotePluginWriter) Write(b []byte) (int, error) {
-	if w.file == nil || w.logForwarder == nil {
+	if w.fileWriter == nil || w.logForwarder == nil {
 		return 0, nil
 	}
 
@@ -57,9 +62,14 @@ func (w remotePluginWriter) Write(b []byte) (int, error) {
 		return n, nil
 	}
 
-	n, err = w.file.Write(b)
+	n, err = w.fileWriter.Write(b)
+	w.stderr.Write(b)
 
 	return n, err
+}
+
+func (w remotePluginWriter) Close() { // TODO where to close file?
+	w.fileWriter.file.Close()
 }
 
 func (w remotePluginWriter) logProtoMessage(b []byte) (int, error) {

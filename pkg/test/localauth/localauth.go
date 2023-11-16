@@ -2,7 +2,8 @@ package localauth
 
 import (
 	"context"
-	"errors"
+
+	"github.com/rancher/opni/pkg/auth/local"
 )
 
 const testPassword = "test"
@@ -15,7 +16,7 @@ func (a *TestLocalAuthenticator) GenerateAdminPassword(_ context.Context) (strin
 
 func (a *TestLocalAuthenticator) ComparePassword(_ context.Context, pw []byte) error {
 	if string(pw) != testPassword {
-		return errors.New("mismatched password")
+		return local.ErrInvalidPassword
 	}
 	return nil
 }

@@ -16,7 +16,6 @@ import (
 	"github.com/rancher/opni/pkg/proxy"
 	"github.com/rancher/opni/pkg/util/oidc"
 	ginoauth2 "github.com/zalando/gin-oauth2"
-	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 )
 
@@ -89,7 +88,7 @@ func (m *MultiMiddleware) Handler(authCheck ...ginoauth2.AccessCheckFunction) gi
 			c.Set(proxy.SubjectKey, "OPNI_admin")
 			return
 		}
-		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+		if errors.Is(err, local.ErrInvalidPassword) {
 			c.Header(authenticateHeader, authRealm)
 			c.AbortWithStatus(http.StatusUnauthorized)
 			m.Logger.Warn("auth failed for admin")

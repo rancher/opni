@@ -2,6 +2,7 @@ package local
 
 import (
 	"context"
+	"errors"
 
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/kvutil"
@@ -13,6 +14,10 @@ const (
 	difficulty     = 12
 	passwordLength = 20
 	storageKey     = "local_admin"
+)
+
+var (
+	ErrInvalidPassword = errors.New("mismatched password")
 )
 
 type LocalAuthenticator interface {
@@ -46,7 +51,14 @@ func (a *implLocalAuthenticator) GenerateAdminPassword(ctx context.Context) (str
 func (a *implLocalAuthenticator) ComparePassword(ctx context.Context, pw []byte) error {
 	hash, err := a.store.Get(ctx)
 	if err != nil {
+		// if we are unable to fetch the local password for comparison
+		// fail the auth process
 		return err
 	}
-	return bcrypt.CompareHashAndPassword(hash, pw)
+
+	err = bcrypt.CompareHashAndPassword(hash, pw)
+	if err != nil && errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+		return ErrInvalidPassword
+	}
+	return err
 }

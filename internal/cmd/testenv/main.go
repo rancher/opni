@@ -246,7 +246,7 @@ func main() {
 				return
 			}
 			opts := []dashboard.ServerOption{
-				dashboard.WithLocaalAuthenticator(&localauth.TestLocalAuthenticator{}),
+				dashboard.WithLocalAuthenticator(&localauth.TestLocalAuthenticator{}),
 			}
 			if noEmbeddedWebAssets {
 				absPath, err := filepath.Abs("web/")

@@ -77,7 +77,7 @@ func WithAssetsFS(fs fs.FS) ServerOption {
 	}
 }
 
-func WithLocaalAuthenticator(authenticator local.LocalAuthenticator) ServerOption {
+func WithLocalAuthenticator(authenticator local.LocalAuthenticator) ServerOption {
 	return func(o *ServerOptions) {
 		o.authenticator = authenticator
 	}

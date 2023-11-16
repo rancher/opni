@@ -1,12 +1,12 @@
 package oidc
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"log/slog"
-	"strings"
 
+	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/lestrrat-go/jwx/jwt/openid"
+	"github.com/rancher/opni/pkg/logger"
 	"golang.org/x/oauth2"
 )
 
@@ -16,24 +16,16 @@ func SubjectFromClaims(lg *slog.Logger, token *oauth2.Token, claimName string) *
 		lg.Error("id token missing from oauth2 token")
 		return nil
 	}
-	jwtParts := strings.Split(rawToken, ".")
-	if len(jwtParts) < 2 {
-		lg.Error(fmt.Sprintf("malformed jwt, only got %d parts", len(jwtParts)))
-		return nil
-	}
-	payload, err := base64.RawURLEncoding.DecodeString(jwtParts[1])
+
+	j, err := jwt.ParseString(rawToken,
+		jwt.WithToken(openid.New()),
+		jwt.WithValidate(true),
+	)
 	if err != nil {
-		lg.With(
-			"error", err.Error(),
-		).Error("failed to decode jwt claims")
+		lg.With(logger.Err(err)).Error("failed to validate jwt")
 	}
-	claims := map[string]interface{}{}
-	err = json.Unmarshal(payload, &claims)
-	if err != nil {
-		lg.With(
-			"error", err.Error(),
-		).Error("failed to unmarshal claims")
-	}
+
+	claims := j.PrivateClaims()
 
 	claimValue, ok := claims[claimName]
 	if !ok {

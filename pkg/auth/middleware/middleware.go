@@ -85,7 +85,7 @@ func (m *MultiMiddleware) Handler(authCheck ...ginoauth2.AccessCheckFunction) gi
 		}
 		err := m.LocalAuthenticator.ComparePassword(c, password)
 		if err == nil {
-			c.Set(proxy.SubjectKey, "OPNI_admin")
+			c.Set(proxy.SubjectKey, "opni.io_admin")
 			return
 		}
 		if errors.Is(err, local.ErrInvalidPassword) {

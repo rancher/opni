@@ -96,10 +96,10 @@ func (r *implRouter) handle(c *gin.Context) {
 }
 
 func (r *implRouter) fetchRoles(userID string) (*corev1.ReferenceList, error) {
-	if userID == "OPNI_admin" {
+	if userID == "opni.io_admin" {
 		return &corev1.ReferenceList{
 			Items: []*corev1.Reference{
-				{Id: "OPNI_admin"},
+				{Id: "opni.io_admin"},
 			},
 		}, nil
 	}

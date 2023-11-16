@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -13,12 +14,15 @@ import (
 	"github.com/rancher/opni/pkg/validation"
 	"github.com/samber/lo"
 	ginoauth2 "github.com/zalando/gin-oauth2"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
-	adminRoleBindingName = "OPNI_admin"
+	adminRoleBindingName = "opni.io_admin"
 	managmentCapability  = "mgmt"
+	reservedPrefix       = "opni.io_"
 )
 
 func (s *Server) ListRBACBackends(_ context.Context, _ *emptypb.Empty) (*corev1.CapabilityTypeList, error) {
@@ -39,6 +43,10 @@ func (s *Server) GetAvailableBackendPermissions(ctx context.Context, in *corev1.
 func (s *Server) CreateBackendRole(ctx context.Context, in *corev1.BackendRole) (*emptypb.Empty, error) {
 	if err := validation.Validate(in.GetRole()); err != nil {
 		return nil, err
+	}
+
+	if strings.HasPrefix(in.GetRole().GetId(), reservedPrefix) {
+		return nil, status.Error(codes.InvalidArgument, "role name is reserved")
 	}
 
 	client, err := s.rbacManagerStore.Get(in.GetCapability().GetName())
@@ -108,7 +116,7 @@ func (s *Server) AddAdminRoleBinding(ctx context.Context, in *corev1.Reference) 
 	if errors.Is(err, storage.ErrNotFound) {
 		err := s.coreDataSource.StorageBackend().CreateRoleBinding(ctx, &corev1.RoleBinding{
 			Id:       adminRoleBindingName,
-			RoleId:   "admin",
+			RoleId:   adminRoleBindingName,
 			Subjects: []string{in.GetId()},
 			Metadata: &corev1.RoleBindingMetadata{
 				Capability: lo.ToPtr(managmentCapability),
@@ -158,6 +166,11 @@ func (s *Server) CreateRoleBinding(ctx context.Context, in *corev1.RoleBinding) 
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
+
+	if strings.HasPrefix(in.GetId(), reservedPrefix) {
+		return nil, status.Error(codes.InvalidArgument, "role binding name is reserved")
+	}
+
 	if len(in.Taints) > 0 {
 		return nil, validation.ErrReadOnlyField
 	}
@@ -232,7 +245,7 @@ func (s *Server) checkAdminAccess(_ *ginoauth2.TokenContainer, ctx *gin.Context)
 		return false
 	}
 
-	if userID == "OPNI_admin" {
+	if userID == "opni.io_admin" {
 		return true
 	}
 

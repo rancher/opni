@@ -6,23 +6,19 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/proxy"
+	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/validation"
 	"github.com/samber/lo"
-	ginoauth2 "github.com/zalando/gin-oauth2"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
-	adminRoleBindingName = "opni.io_admin"
-	managmentCapability  = "mgmt"
-	reservedPrefix       = "opni.io_"
+	managmentCapability = "mgmt"
+	reservedPrefix      = "opni.io_"
 )
 
 func (s *Server) ListRBACBackends(_ context.Context, _ *emptypb.Empty) (*corev1.CapabilityTypeList, error) {
@@ -102,7 +98,7 @@ func (s *Server) ListBackendRoles(ctx context.Context, in *corev1.CapabilityType
 
 func (s *Server) AddAdminRoleBinding(ctx context.Context, in *corev1.Reference) (*emptypb.Empty, error) {
 	rbRef := &corev1.Reference{
-		Id: adminRoleBindingName,
+		Id: auth.AdminRoleBindingName,
 	}
 	_, err := s.coreDataSource.StorageBackend().GetRoleBinding(ctx, rbRef)
 
@@ -115,8 +111,8 @@ func (s *Server) AddAdminRoleBinding(ctx context.Context, in *corev1.Reference) 
 
 	if errors.Is(err, storage.ErrNotFound) {
 		err := s.coreDataSource.StorageBackend().CreateRoleBinding(ctx, &corev1.RoleBinding{
-			Id:       adminRoleBindingName,
-			RoleId:   adminRoleBindingName,
+			Id:       auth.AdminRoleBindingName,
+			RoleId:   auth.AdminRoleBindingName,
 			Subjects: []string{in.GetId()},
 			Metadata: &corev1.RoleBindingMetadata{
 				Capability: lo.ToPtr(managmentCapability),
@@ -130,7 +126,7 @@ func (s *Server) AddAdminRoleBinding(ctx context.Context, in *corev1.Reference) 
 
 func (s *Server) RemoveAdminRoleBinding(ctx context.Context, in *corev1.Reference) (*emptypb.Empty, error) {
 	_, err := s.coreDataSource.StorageBackend().UpdateRoleBinding(ctx, &corev1.Reference{
-		Id: adminRoleBindingName,
+		Id: auth.AdminRoleBindingName,
 	}, func(rb *corev1.RoleBinding) {
 		var index int
 		for i, subject := range rb.GetSubjects() {
@@ -146,7 +142,7 @@ func (s *Server) RemoveAdminRoleBinding(ctx context.Context, in *corev1.Referenc
 
 func (s *Server) ListAdminRoleBinding(ctx context.Context, _ *emptypb.Empty) (*corev1.ReferenceList, error) {
 	rb, err := s.coreDataSource.StorageBackend().GetRoleBinding(ctx, &corev1.Reference{
-		Id: adminRoleBindingName,
+		Id: auth.AdminRoleBindingName,
 	})
 	if err != nil {
 		return nil, err
@@ -230,36 +226,4 @@ func (s *Server) ListRoleBindings(ctx context.Context, _ *emptypb.Empty) (*corev
 	}
 	rbl.Items = items
 	return rbl, nil
-}
-
-func (s *Server) checkAdminAccess(_ *ginoauth2.TokenContainer, ctx *gin.Context) bool {
-	lg := s.logger.WithGroup("auth")
-	user, ok := ctx.Get(proxy.SubjectKey)
-	if !ok {
-		lg.Warn("no user in context")
-		return false
-	}
-	userID, ok := user.(string)
-	if !ok {
-		lg.Warn("could not find user string in context")
-		return false
-	}
-
-	if userID == "opni.io_admin" {
-		return true
-	}
-
-	rb, err := s.coreDataSource.StorageBackend().GetRoleBinding(ctx, &corev1.Reference{
-		Id: adminRoleBindingName,
-	})
-	if err != nil {
-		lg.With(logger.Err(err)).Error("failed to fetch admin user list")
-	}
-
-	for _, subject := range rb.Subjects {
-		if userID == subject {
-			return true
-		}
-	}
-	return false
 }

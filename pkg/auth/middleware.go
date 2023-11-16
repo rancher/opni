@@ -8,7 +8,8 @@ import (
 )
 
 const (
-	AuthorizationKey = "authorization"
+	AuthorizationKey     = "authorization"
+	AdminRoleBindingName = "opni.io_admin"
 )
 
 type Protocol uint32

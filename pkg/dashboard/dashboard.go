@@ -16,6 +16,8 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/auth/local"
 	"github.com/rancher/opni/pkg/auth/middleware"
 	authutil "github.com/rancher/opni/pkg/auth/util"
@@ -24,9 +26,11 @@ import (
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/types"
+	"github.com/rancher/opni/pkg/proxy"
 	proxyrouter "github.com/rancher/opni/pkg/proxy/router"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/web"
+	ginoauth2 "github.com/zalando/gin-oauth2"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel"
 	"golang.org/x/oauth2"
@@ -180,7 +184,7 @@ func (ws *Server) ListenAndServe(ctx context.Context) error {
 		panic("failed to parse management API URL")
 	}
 	apiGroup := router.Group("/opni-api")
-	apiGroup.Use(middleware.Handler())
+	apiGroup.Use(middleware.Handler(ws.checkAdminAccess))
 	apiGroup.Any("/*any", gin.WrapH(http.StripPrefix("/opni-api", httputil.NewSingleHostReverseProxy(mgmtUrl))))
 
 	proxy := router.Group("/proxy")
@@ -246,4 +250,36 @@ func (ws *Server) configureAuth(ctx context.Context, router *gin.Engine) *middle
 	}
 	router.GET("/auth/type", middleware.GetAuthType)
 	return middleware
+}
+
+func (ws *Server) checkAdminAccess(_ *ginoauth2.TokenContainer, ctx *gin.Context) bool {
+	lg := ws.logger.WithGroup("auth")
+	user, ok := ctx.Get(proxy.SubjectKey)
+	if !ok {
+		lg.Warn("no user in context")
+		return false
+	}
+	userID, ok := user.(string)
+	if !ok {
+		lg.Warn("could not find user string in context")
+		return false
+	}
+
+	if userID == "opni.io_admin" {
+		return true
+	}
+
+	rb, err := ws.ds.StorageBackend().GetRoleBinding(ctx, &corev1.Reference{
+		Id: auth.AdminRoleBindingName,
+	})
+	if err != nil {
+		lg.With(logger.Err(err)).Error("failed to fetch admin user list")
+	}
+
+	for _, subject := range rb.Subjects {
+		if userID == subject {
+			return true
+		}
+	}
+	return false
 }

@@ -65,6 +65,7 @@ var (
 type Agent struct {
 	AgentOptions
 
+	ctx          context.Context
 	config       v1beta1.AgentConfigSpec
 	router       *gin.Engine
 	logger       *slog.Logger
@@ -137,9 +138,8 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	if conf.Spec.LogLevel != "" {
 		level = logger.ParseLevel(conf.Spec.LogLevel)
 	}
-	ctx = logger.WithPluginLoggerWriter(ctx, id)
-	writer := logger.PluginWriterFromContext(ctx)
-	lg := logger.New(logger.WithLogLevel(level), logger.WithFileWriter(writer)).WithGroup("agent")
+
+	lg := logger.New(logger.WithLogLevel(level), logger.WithFileWriter(logger.WriteOnlyFile(logger.GetLogFileName()))).WithGroup("agent")
 	lg.Debug(fmt.Sprintf("using log level: %s", level.String()))
 
 	var pl *plugins.PluginLoader
@@ -326,6 +326,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 
 	return &Agent{
 		AgentOptions: options,
+		ctx:          ctx,
 		config:       conf.Spec,
 		router:       router,
 		logger:       lg,
@@ -460,6 +461,10 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 
 func (a *Agent) ListenAddress() string {
 	return a.config.ListenAddress
+}
+
+func (a *Agent) Context() context.Context {
+	return a.ctx
 }
 
 func setupPluginRoutes(

@@ -66,6 +66,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeAgent))
+
 	p := NewPlugin(ctx)
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewAgentPlugin(p.node))
 	scheme.Add(health.HealthPluginID, health.NewPlugin(p.node))

@@ -545,8 +545,8 @@ github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d/go.mod h1:rBZYJk5
 github.com/alecthomas/units v0.0.0-20210208195552-ff826a37aa15/go.mod h1:OMCwj8VM1Kc9e19TLln2VL61YJF0x1XFtfdL4JdbSyE=
 github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 h1:s6gZFSlWYmbqAuRjVTiNNhvNRfY2Wxp9nhfyel4rklc=
 github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137/go.mod h1:OMCwj8VM1Kc9e19TLln2VL61YJF0x1XFtfdL4JdbSyE=
-github.com/alexandreLamarre/go-plugin v0.1.1-0.20230417174342-eab684801be5 h1:VByWr0MtaW/iS+MncS+5E8lCi2Hgc3JHVnMD6bCCwEk=
-github.com/alexandreLamarre/go-plugin v0.1.1-0.20230417174342-eab684801be5/go.mod h1:6/1TEzT0eQznvI/gV2CM29DLSkAK/e58mUWKVsPaph0=
+github.com/alexandreLamarre/go-plugin v0.0.0-20231106165427-ede0fcce2acc h1:b7BMoL6UF6kRTW3apg0XJmIG039TExK9arOKSOIY7hA=
+github.com/alexandreLamarre/go-plugin v0.0.0-20231106165427-ede0fcce2acc/go.mod h1:1BphuLk8r4UASxJBCggGswD3Wn84QLOBANVCAdNoeoY=
 github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302 h1:uvdUDbHQHO85qeSydJtItA4T55Pw6BtAejd0APRJOCE=
 github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302/go.mod h1:SGnFV6hVsYE877CKEZ6tDNTjaSXYUk6QqoIK6PrAtcc=
 github.com/alicebob/miniredis/v2 v2.30.4 h1:8S4/o1/KoUArAGbGwPxcwf0krlzceva2XVOSchFS7Eo=

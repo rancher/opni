@@ -6,18 +6,16 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/slogr"
 	gpkgsync "github.com/kralicky/gpkg/sync"
-	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
-	"github.com/rancher/opni/pkg/test/testruntime"
+	"github.com/rancher/opni/pkg/plugins/meta"
 	slogmulti "github.com/samber/slog-multi"
 	slogsampling "github.com/samber/slog-sampling"
 	"github.com/spf13/afero"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
@@ -45,21 +43,18 @@ var (
     /_/
  Observability + AIOps for Kubernetes
 `
-	DefaultLogLevel          = slog.LevelDebug
-	DefaultWriter            io.Writer
-	DefaultAddSource         = true
-	logFs                    afero.Fs
-	DefaultTimeFormat        = "2006 Jan 02 15:04:05"
-	logSampler               = &sampler{}
-	levelString              = []string{"DEBUG", "INFO", "WARN", "ERROR"}
-	sameProcessPluginLoggers = false
+	DefaultLogLevel   = slog.LevelDebug
+	DefaultWriter     io.Writer
+	DefaultAddSource  = true
+	logFs             afero.Fs
+	DefaultTimeFormat = "2006 Jan 02 15:04:05"
+	logSampler        = &sampler{}
+	levelString       = []string{"DEBUG", "INFO", "WARN", "ERROR"}
+	fileDesc          gpkgsync.Map[string, afero.File]
 )
 
 func init() {
 	logFs = afero.NewMemMapFs()
-	if testruntime.IsTesting {
-		EnableInProcessPluginLoggers()
-	}
 }
 
 func AsciiLogo() string {
@@ -237,67 +232,6 @@ func NewNop() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{}))
 }
 
-func NewPluginLogger(ctx context.Context, opts ...LoggerOption) *slog.Logger {
-	options := &LoggerOptions{
-		Level:     DefaultLogLevel,
-		AddSource: true,
-	}
-	options.apply(opts...)
-
-	if options.Writer == nil {
-		options.Writer = PluginWriterFromContext(ctx)
-	}
-
-	return slog.New(newProtoHandler(options.Writer, ConfigureProtoOptions(options))).WithGroup(pluginGroupPrefix)
-}
-
-func WithPluginLogger(ctx context.Context, lg *slog.Logger) context.Context {
-	return context.WithValue(ctx, pluginLoggerKey, lg)
-}
-
-func EnableInProcessPluginLoggers() {
-	sameProcessPluginLoggers = true
-}
-
-func WithPluginLoggerWriter(ctx context.Context, agentId string) context.Context {
-	writer := PluginWriterFromContext(ctx)
-
-	writer.fileWriter.file = WriteOnlyFile("temp") //agentId)
-
-	ctx = context.WithValue(ctx, pluginWriterKey, writer)
-	return ctx
-}
-
-func PluginLoggerFromContext(ctx context.Context) *slog.Logger {
-	logger := ctx.Value(pluginLoggerKey)
-	if logger == nil {
-		return NewPluginLogger(ctx)
-	}
-	return logger.(*slog.Logger)
-}
-
-func PluginWriterFromContext(ctx context.Context) *remotePluginWriter {
-	writer := ctx.Value(pluginWriterKey)
-	if writer == nil {
-		return NewPluginWriter("temp")
-	}
-	return writer.(*remotePluginWriter)
-}
-
-func InitPluginLoggers(ctx context.Context, cc grpc.ClientConnInterface) context.Context {
-	identityClient := controlv1.NewIdentityClient(cc)
-	id, err := identityClient.Whoami(ctx, &emptypb.Empty{})
-	if err != nil {
-		// todo error handling
-		return ctx
-	}
-	agentId := id.GetId()
-	ctx = WithPluginLoggerWriter(ctx, agentId)
-	withUpdatedWriter := NewPluginLogger(ctx)
-
-	return WithPluginLogger(ctx, withUpdatedWriter)
-}
-
 type sampler struct {
 	dropped gpkgsync.Map[string, uint64]
 }
@@ -308,18 +242,36 @@ func (s *sampler) onDroppedHook(_ context.Context, r slog.Record) {
 	s.dropped.Store(key, count+1)
 }
 
-func ReadOnlyFile(clusterID string) afero.File {
-	f, err := logFs.OpenFile(clusterID, os.O_RDONLY|os.O_CREATE, 0666)
+func ReadOnlyFile(filename string) afero.File {
+	f, err := logFs.OpenFile(filename, os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
 		panic(err)
 	}
 	return f
 }
 
-func WriteOnlyFile(clusterID string) afero.File {
-	f, err := logFs.OpenFile(clusterID, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+func WriteOnlyFile(filename string) afero.File {
+	newFile, err := logFs.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		panic(err)
 	}
-	return f
+
+	fd, loaded := fileDesc.LoadOrStore(filename, newFile)
+	if loaded {
+		newFile.Close()
+	}
+
+	return fd
+}
+
+func GetLogFileName() string {
+	moduleBasename := getModuleBasename()
+	// FIXME assuming we only want to stream agent plugin logs, not gateway plugin logs? ie mode = ModeAgent?
+	mode := meta.ModeAgent
+	return fmt.Sprintf("plugin_%s_%s", mode, moduleBasename)
+}
+
+func getModuleBasename() string {
+	md := meta.ReadMetadata()
+	return path.Base(md.Module)
 }

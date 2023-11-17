@@ -122,6 +122,7 @@ type ConfigStorageAPIs struct {
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeGateway))
+
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,

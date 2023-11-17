@@ -61,13 +61,14 @@ func (ls *LogServer) StreamLogs(req *controlv1.LogStreamRequest, server controlv
 	nameFilters := req.Filters.NamePattern
 	follow := req.Follow
 
-	f := logger.ReadOnlyFile("temp") //cluster.StreamAuthorizedID(server.Context()))
+	f := logger.ReadOnlyFile(logger.GetLogFileName())
+
 	defer f.Close()
 
 	for {
 		msg, err := ls.getLogMessage(f)
 
-		done := err == io.EOF || err == io.ErrUnexpectedEOF || msg == nil
+		done := err == io.EOF || err == io.ErrUnexpectedEOF
 		keepFollowing := done && follow
 		if keepFollowing {
 			time.Sleep(time.Second)

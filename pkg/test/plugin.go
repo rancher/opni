@@ -11,7 +11,6 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
@@ -132,7 +131,7 @@ func (tp TestPluginSet) LoadPlugins(ctx context.Context, loader *plugins.PluginL
 			return tlsConfig, nil
 		}
 		go plugin.Serve(sc)
-		cc := plugins.ClientConfig(p.Metadata, scheme, plugins.WithReattachConfig(<-ch), plugins.WithPluginLoggerOutput(logger.PluginWriterFromContext(ctx)))
+		cc := plugins.ClientConfig(p.Metadata, scheme, plugins.WithReattachConfig(<-ch))
 		cc.TLSConfig = tlsConfig
 		wg.Add(1)
 		go func() {

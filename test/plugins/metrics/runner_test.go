@@ -81,7 +81,7 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 
 	BeforeEach(func() {
 		ctx := context.Background()
-		lg := logger.NewPluginLogger(context.TODO()).WithGroup("test-runner")
+		lg := logger.NewPluginLogger(ctx).WithGroup("test-runner")
 		ctx = logger.WithPluginLogger(ctx, lg)
 
 		writerClient = &mockRemoteWriteClient{}

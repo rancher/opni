@@ -51,6 +51,7 @@ var _ slo.SLOServer = (*Plugin)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
+
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,

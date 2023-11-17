@@ -90,6 +90,7 @@ func (p *Plugin) onConfigUpdated(cfg *node.TopologyCapabilityConfig) {
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeAgent))
+
 	p := NewPlugin(ctx)
 	scheme.Add(health.HealthPluginID, health.NewPlugin(p.node))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewAgentPlugin(p.node))

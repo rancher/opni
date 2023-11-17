@@ -297,7 +297,6 @@ func (p *PluginLoader) LoadPlugins(ctx context.Context, pluginDir string, scheme
 				continue
 			}
 		}
-		clientOpts = append(clientOpts, WithPluginLoggerOutput(logger.PluginWriterFromContext(ctx)))
 		cc := ClientConfig(md, scheme, clientOpts...)
 
 		wg.Add(1)

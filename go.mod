@@ -592,7 +592,7 @@ replace (
 	// TODO: Update when https://github.com/grafana-operator/grafana-operator/pull/1301/files is merged
 	github.com/grafana-operator/grafana-operator/v5 => github.com/jaehnri/grafana-operator/v5 v5.0.0-20231107224428-8e66ce068452
 	// https://github.com/hashicorp/go-plugin/pull/251
-	github.com/hashicorp/go-plugin => github.com/alexandreLamarre/go-plugin v0.1.1-0.20230417174342-eab684801be5
+	github.com/hashicorp/go-plugin => github.com/alexandreLamarre/go-plugin v0.0.0-20231106165427-ede0fcce2acc
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/stanza => github.com/rancher-sandbox/otel-collector-contrib/pkg/stanza v0.0.0-20231108205431-9f8e6699a9d4
 	github.com/opensearch-project/opensearch-go/v2 => github.com/dbason/opensearch-go/v2 v2.0.0-20221202021211-6aec8f80bc41
 	github.com/rancher/charts-build-scripts => github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116

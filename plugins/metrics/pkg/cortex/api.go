@@ -58,7 +58,7 @@ func (p *HttpApiServer) Initialize(config HttpApiServerConfig) {
 var _ httpext.HTTPAPIExtension = (*HttpApiServer)(nil)
 
 func (p *HttpApiServer) ConfigureRoutes(router *gin.Engine) {
-	lg := logger.NewPluginLogger(context.TODO())
+	lg := logger.NewPluginLogger(p.PluginContext)
 	p.WaitForInit()
 
 	lg.Info("configuring http api server")
@@ -96,7 +96,7 @@ func (p *HttpApiServer) ConfigureRoutes(router *gin.Engine) {
 }
 
 func (p *HttpApiServer) configureAlertmanager(router *gin.Engine, f *forwarders, m *middlewares) {
-	lg := logger.NewPluginLogger(context.TODO())
+	lg := logger.NewPluginLogger(p.PluginContext)
 
 	orgIdLimiter := func(c *gin.Context) {
 		ids := rbac.AuthorizedClusterIDs(c)

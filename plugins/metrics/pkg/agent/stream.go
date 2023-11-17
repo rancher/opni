@@ -38,5 +38,4 @@ func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
 		identityClient,
 		healthListenerClient,
 	)
-
 }

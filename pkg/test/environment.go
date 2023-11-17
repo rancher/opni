@@ -327,7 +327,6 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	}
 
 	e.Logger = testlog.Log.WithGroup("env")
-	logger.EnableInProcessPluginLoggers()
 	e.nodeConfigOverrides = make(map[string]*OverridePrometheusConfig)
 
 	e.EnvironmentOptions = options

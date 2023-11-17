@@ -1,83 +1,100 @@
 package logger
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"os"
 	"sync"
 
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
+	"github.com/rancher/opni/pkg/test/testruntime"
 	"github.com/spf13/afero"
 	"google.golang.org/protobuf/proto"
 )
 
-type fileWriter struct {
-	file afero.File
-	mu   *sync.Mutex
+func NewPluginLogger(ctx context.Context, opts ...LoggerOption) *slog.Logger {
+	options := &LoggerOptions{
+		Level:     DefaultLogLevel,
+		AddSource: true,
+	}
+	options.apply(opts...)
+
+	if options.Writer == nil {
+		options.Writer = NewPluginWriter()
+	}
+
+	return slog.New(newProtoHandler(options.Writer, ConfigureProtoOptions(options))).WithGroup(pluginGroupPrefix)
 }
 
-func (f fileWriter) Write(b []byte) (int, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.file.Write(b)
+func WithPluginLogger(ctx context.Context, lg *slog.Logger) context.Context {
+	return context.WithValue(ctx, pluginLoggerKey, lg)
 }
 
-// forwards plugin logs to their host process, where they are logged with a logger in the host process
+func PluginLoggerFromContext(ctx context.Context) *slog.Logger {
+	logger := ctx.Value(pluginLoggerKey)
+	if logger == nil {
+		return NewPluginLogger(ctx)
+	}
+	return logger.(*slog.Logger)
+}
+
+// writer used for agent loggers and plugin loggers
 type remotePluginWriter struct {
-	logForwarder *slog.Logger
-	fileWriter   *fileWriter
-	mu           *sync.Mutex
-	stderr       io.Writer
+	textWriter  *slog.Logger
+	fileWriter  *fileWriter
+	protoWriter io.Writer
 }
 
-func NewPluginWriter(agentId string) *remotePluginWriter {
-	mu := &sync.Mutex{}
-	// textStderr := io.Discard
-	// protoStderr := io.Writer(os.Stderr)
-	// if sameProcessPluginLoggers {
-	textStderr := os.Stderr
-	protoStderr := io.Discard
-	// }
+func NewPluginWriter() *remotePluginWriter {
+	if pluginsRunningInProcess() {
+		return NewPluginFileWriter()
+	}
 
 	return &remotePluginWriter{
-		logForwarder: New(WithWriter(textStderr), WithDisableCaller()),
-		fileWriter: &fileWriter{
-			file: WriteOnlyFile("temp"), //agentId),
-			mu:   mu,
-		},
-		stderr: protoStderr,
-		mu:     mu,
+		textWriter:  New(WithWriter(io.Discard), WithDisableCaller()),
+		fileWriter:  NewFileWriter(nil),
+		protoWriter: os.Stderr,
 	}
 }
 
-func (w remotePluginWriter) Write(b []byte) (int, error) {
-	if w.fileWriter == nil || w.logForwarder == nil {
+func NewPluginFileWriter() *remotePluginWriter {
+	return &remotePluginWriter{
+		textWriter:  New(WithWriter(os.Stderr), WithDisableCaller()),
+		fileWriter:  NewLogFileWriter(),
+		protoWriter: io.Discard,
+	}
+}
+
+func (w *remotePluginWriter) Write(b []byte) (int, error) {
+	if w.fileWriter == nil || w.textWriter == nil {
 		return 0, nil
 	}
 
-	n, err := w.logProtoMessage(b)
+	n, err := w.writeProtoToText(b)
 	if err != nil {
 		// not a proto message. log as is
-		w.logForwarder.Info(string(b))
+		w.textWriter.Info(string(b))
 		return n, nil
 	}
 
 	n, err = w.fileWriter.Write(b)
-	w.stderr.Write(b)
+	w.protoWriter.Write(b)
 
 	return n, err
 }
 
-func (w remotePluginWriter) Close() { // TODO where to close file?
+func (w *remotePluginWriter) Close() { // TODO where to close file?
 	w.fileWriter.file.Close()
 }
 
-func (w remotePluginWriter) logProtoMessage(b []byte) (int, error) {
+func (w *remotePluginWriter) writeProtoToText(b []byte) (int, error) {
 	n := len(b)
-	if n < 5 {
+	record := &controlv1.StructuredLogRecord{}
+
+	if n < 4 {
 		return 0, io.ErrUnexpectedEOF
 	}
-	record := &controlv1.StructuredLogRecord{}
 
 	size := uint32(b[0]) |
 		uint32(b[1])<<8 |
@@ -90,19 +107,16 @@ func (w remotePluginWriter) logProtoMessage(b []byte) (int, error) {
 	}
 
 	if err := proto.Unmarshal(b[4:size+4], record); err != nil {
-		w.logForwarder.Error("malformed plugin log", "log", b)
+		w.textWriter.Error("malformed plugin log", "log", b)
 		return 0, err
 	}
 
-	lg := w.logForwarder.WithGroup(record.GetName())
+	lg := w.textWriter.WithGroup(record.GetName())
 
 	attrs := []any{slog.SourceKey, record.GetSource()}
 	for _, attr := range record.GetAttributes() {
 		attrs = append(attrs, attr.Key, attr.Value)
 	}
-
-	w.mu.Lock()
-	defer w.mu.Unlock()
 
 	switch record.GetLevel() {
 	case levelString[0]:
@@ -118,4 +132,34 @@ func (w remotePluginWriter) logProtoMessage(b []byte) (int, error) {
 	}
 
 	return n, nil
+}
+
+// stores agent and agent plugin logs, retrieved with debug cli
+type fileWriter struct {
+	file afero.File
+	mu   *sync.RWMutex
+}
+
+func NewLogFileWriter() *fileWriter {
+	return NewFileWriter(WriteOnlyFile(GetLogFileName()))
+}
+
+func NewFileWriter(f afero.File) *fileWriter {
+	return &fileWriter{
+		file: f,
+		mu:   &sync.RWMutex{},
+	}
+}
+
+func (f fileWriter) Write(b []byte) (int, error) {
+	if f.file == nil {
+		return 0, nil
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.file.Write(b)
+}
+
+func pluginsRunningInProcess() bool {
+	return testruntime.IsTesting || getModuleBasename() == "testenv"
 }

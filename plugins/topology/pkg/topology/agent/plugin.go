@@ -3,8 +3,6 @@ package agent
 import (
 	"context"
 
-	"log/slog"
-
 	healthpkg "github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
@@ -18,8 +16,7 @@ import (
 )
 
 type Plugin struct {
-	ctx    context.Context
-	logger *slog.Logger
+	ctx context.Context
 
 	node             *TopologyNode
 	topologyStreamer *TopologyStreamer
@@ -30,13 +27,13 @@ type Plugin struct {
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
-	lg := logger.NewPluginLogger().WithGroup("topology")
+	lg := logger.NewPluginLogger(ctx).WithGroup("topology")
+	ctx = logger.WithPluginLogger(ctx, lg)
 	ct := healthpkg.NewDefaultConditionTracker(lg)
 	p := &Plugin{
 		ctx:              ctx,
-		logger:           lg,
-		node:             NewTopologyNode(ct, lg),
-		topologyStreamer: NewTopologyStreamer(ct, lg),
+		node:             NewTopologyNode(ctx, ct),
+		topologyStreamer: NewTopologyStreamer(ctx, ct),
 		k8sClient:        future.New[client.Client](),
 	}
 
@@ -61,7 +58,8 @@ func NewPlugin(ctx context.Context) *Plugin {
 }
 
 func (p *Plugin) onConfigUpdated(cfg *node.TopologyCapabilityConfig) {
-	p.logger.Debug("topology capability config updated")
+	lg := logger.PluginLoggerFromContext(p.ctx)
+	lg.Debug("topology capability config updated")
 
 	// at this point we know the config has been updated
 	currentlyRunning := (p.stopStreaming != nil)
@@ -75,18 +73,18 @@ func (p *Plugin) onConfigUpdated(cfg *node.TopologyCapabilityConfig) {
 
 	switch {
 	case currentlyRunning && shouldRun:
-		p.logger.Debug("reconfiguring topology stream")
+		lg.Debug("reconfiguring topology stream")
 		p.stopStreaming()
 		startTopologyStream()
 	case currentlyRunning && !shouldRun:
-		p.logger.Debug("stopping topology stream")
+		lg.Debug("stopping topology stream")
 		p.stopStreaming()
 		p.stopStreaming = nil
 	case !currentlyRunning && shouldRun:
-		p.logger.Debug("starting topology stream")
+		lg.Debug("starting topology stream")
 		startTopologyStream()
 	case !currentlyRunning && !shouldRun:
-		p.logger.Debug("topology streaming is disabled")
+		lg.Debug("topology streaming is disabled")
 	}
 }
 
@@ -95,6 +93,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 	p := NewPlugin(ctx)
 	scheme.Add(health.HealthPluginID, health.NewPlugin(p.node))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewAgentPlugin(p.node))
-	scheme.Add(stream.StreamAPIExtensionPluginID, stream.NewAgentPlugin(p))
+	scheme.Add(stream.StreamAPIExtensionPluginID, stream.NewAgentPlugin(ctx, p))
 	return scheme
 }

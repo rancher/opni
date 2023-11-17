@@ -13,20 +13,19 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/health"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/topology/apis/node"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"log/slog"
 )
 
 type TopologyNode struct {
 	capabilityv1.UnsafeNodeServer
 	controlv1.UnsafeHealthServer
 
-	logger *slog.Logger
-
+	ctx      context.Context
 	clientMu sync.RWMutex
 	client   node.NodeTopologyCapabilityClient
 
@@ -40,9 +39,9 @@ type TopologyNode struct {
 var _ capabilityv1.NodeServer = &TopologyNode{}
 var _ controlv1.HealthServer = &TopologyNode{}
 
-func NewTopologyNode(ct health.ConditionTracker, lg *slog.Logger) *TopologyNode {
+func NewTopologyNode(ctx context.Context, ct health.ConditionTracker) *TopologyNode {
 	return &TopologyNode{
-		logger:     lg,
+		ctx:        ctx,
 		conditions: ct,
 		config: &node.TopologyCapabilityConfig{
 			Enabled: false,
@@ -63,7 +62,8 @@ func (t *TopologyNode) AddConfigListener(ch chan<- *node.TopologyCapabilityConfi
 }
 
 func (t *TopologyNode) doSync(ctx context.Context) {
-	t.logger.Debug("syncing topology node")
+	lg := logger.PluginLoggerFromContext(t.ctx)
+	lg.Debug("syncing topology node")
 	t.clientMu.RLock()
 	defer t.clientMu.RUnlock()
 
@@ -86,9 +86,9 @@ func (t *TopologyNode) doSync(ctx context.Context) {
 
 	switch syncResp.ConfigStatus {
 	case node.ConfigStatus_UpToDate:
-		t.logger.Info("topology node is up to date")
+		lg.Info("topology node is up to date")
 	case node.ConfigStatus_NeedsUpdate:
-		t.logger.Info("topology node needs update")
+		lg.Info("topology node needs update")
 		t.updateConfig(syncResp.UpdatedConfig)
 	}
 
@@ -97,13 +97,15 @@ func (t *TopologyNode) doSync(ctx context.Context) {
 
 // Implements capabilityv1.NodeServer
 func (t *TopologyNode) SyncNow(_ context.Context, req *capabilityv1.Filter) (*emptypb.Empty, error) {
+	lg := logger.PluginLoggerFromContext(t.ctx)
+
 	if len(req.GetCapabilityNames()) > 0 {
 		if !slices.Contains(req.CapabilityNames, wellknown.CapabilityTopology) {
-			t.logger.Debug("ignoring sync request due to capability filter")
+			lg.Debug("ignoring sync request due to capability filter")
 			return &emptypb.Empty{}, nil
 		}
 	}
-	t.logger.Debug("received sync request")
+	lg.Debug("received sync request")
 	t.clientMu.RLock()
 	defer t.clientMu.RUnlock()
 
@@ -137,6 +139,8 @@ func (t *TopologyNode) GetHealth(_ context.Context, _ *emptypb.Empty) (*corev1.H
 }
 
 func (t *TopologyNode) updateConfig(config *node.TopologyCapabilityConfig) {
+	lg := logger.PluginLoggerFromContext(t.ctx)
+
 	t.configMu.Lock()
 	defer t.configMu.Unlock()
 
@@ -147,7 +151,7 @@ func (t *TopologyNode) updateConfig(config *node.TopologyCapabilityConfig) {
 		select {
 		case ch <- clone:
 		default:
-			t.logger.Warn("slow config update listener detected")
+			lg.Warn("slow config update listener detected")
 			ch <- clone
 		}
 	}

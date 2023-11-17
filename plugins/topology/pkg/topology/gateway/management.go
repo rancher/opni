@@ -6,6 +6,7 @@ import (
 )
 
 func (p *Plugin) configureTopologyManagement() {
+	lg := logger.PluginLoggerFromContext(p.ctx)
 	drivers.ResetClusterDrivers()
 
 	if kcd, err := drivers.NewTopologyManagerClusterDriver(); err == nil {
@@ -16,7 +17,7 @@ func (p *Plugin) configureTopologyManagement() {
 	name := "topology-manager"
 	driver, err := drivers.GetClusterDriver(name)
 	if err != nil {
-		p.logger.With(
+		lg.With(
 			"driver", name,
 			logger.Err(err),
 		).Error("failed to load cluster driver, using fallback no-op driver")

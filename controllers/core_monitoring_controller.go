@@ -277,9 +277,9 @@ var conversions = map[int64]unstructuredConverter{
 		v0RetentionPeriod, hasV0RetentionPeriod, _ := unstructured.NestedMap(content, "spec", "cortex", "storage", "retentionPeriod")
 		v0Workloads, hasV0Workloads, _ := unstructured.NestedMap(content, "spec", "cortex", "workloads")
 		v0Storage, hasV0Storage, _ := unstructured.NestedMap(content, "spec", "cortex", "storage")
-		v0GrafanaDeployment, hasV0GrafanaDeployment, _ := unstructured.NestedMap(content, "spec", "grafana", "deployment")
+		v0GrafanaEnvvars, hasV0GrafanaEnvvars, _ := unstructured.NestedSlice(content, "spec", "grafana", "deployment", "env")
 
-		if !hasV0DeploymentMode && !hasV0RetentionPeriod && !hasV0Workloads && !hasV0Storage && !hasV0GrafanaDeployment {
+		if !hasV0DeploymentMode && !hasV0RetentionPeriod && !hasV0Workloads && !hasV0Storage && !hasV0GrafanaEnvvars {
 			// not a v0 object
 			return ErrAlreadyUpgraded
 		}
@@ -371,25 +371,22 @@ var conversions = map[int64]unstructuredConverter{
 			}
 		}
 
-		if hasV0GrafanaDeployment {
-			v0GrafanaEnvvars, hasV0GrafanaEnvvars, _ := unstructured.NestedSlice(v0GrafanaDeployment, "env")
-			if hasV0GrafanaEnvvars {
-				v1GrafanaContainer := map[string]any{
-					"name": "grafana",
-				}
-
-				v1GrafanaDeployment := map[string]any{
-					"spec": map[string]any{
-						"template": map[string]any{
-							"spec": map[string]any{},
-						},
-					},
-				}
-
-				unstructured.SetNestedMap(content, v1GrafanaDeployment, "spec", "grafana", "deployment")
-				unstructured.SetNestedSlice(v1GrafanaContainer, v0GrafanaEnvvars, "env")
-				unstructured.SetNestedSlice(content, []any{v1GrafanaContainer}, "spec", "grafana", "deployment", "spec", "template", "spec", "containers")
+		if hasV0GrafanaEnvvars {
+			v1GrafanaContainer := map[string]any{
+				"name": "grafana",
+				"env":  v0GrafanaEnvvars,
 			}
+
+			v1GrafanaDeployment := map[string]any{
+				"spec": map[string]any{
+					"template": map[string]any{
+						"spec": map[string]any{},
+					},
+				},
+			}
+
+			unstructured.SetNestedMap(content, v1GrafanaDeployment, "spec", "grafana", "deployment")
+			unstructured.SetNestedSlice(content, []any{v1GrafanaContainer}, "spec", "grafana", "deployment", "spec", "template", "spec", "containers")
 		}
 
 		unstructured.RemoveNestedField(content, "spec", "cortex", "deploymentMode")

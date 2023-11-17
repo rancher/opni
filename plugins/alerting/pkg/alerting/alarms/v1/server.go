@@ -15,6 +15,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/caching"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/metrics/compat"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
@@ -110,7 +111,7 @@ func (a *AlarmServerComponent) UpdateAlertCondition(ctx context.Context, req *al
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	lg := a.logger.With("handler", "UpdateAlertCondition")
+	lg := logger.PluginLoggerFromContext(a.ctx).With("handler", "UpdateAlertCondition")
 	lg.Debug(fmt.Sprintf("Updating alert condition %s", req.Id))
 	conditionStorage := a.conditionStorage.Get()
 	conditionId := req.Id.Id
@@ -169,7 +170,7 @@ func (a *AlarmServerComponent) AlertConditionStatus(ctx context.Context, ref *al
 	if !a.Initialized() {
 		return nil, status.Error(codes.Unavailable, "Alarm server is not yet available")
 	}
-	lg := a.logger.With("handler", "AlertConditionStatus")
+	lg := logger.PluginLoggerFromContext(a.ctx).With("handler", "AlertConditionStatus")
 
 	// required info
 	cond, err := a.conditionStorage.Get().Group(ref.GroupId).Get(ctx, ref.Id)
@@ -341,7 +342,7 @@ func (a *AlarmServerComponent) ListAlertConditionsWithStatus(ctx context.Context
 }
 
 func (a *AlarmServerComponent) CloneTo(ctx context.Context, req *alertingv1.CloneToRequest) (*emptypb.Empty, error) {
-	lg := a.logger.With("handler", "CloneTo")
+	lg := logger.PluginLoggerFromContext(a.ctx).With("handler", "CloneTo")
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -450,7 +451,7 @@ func (a *AlarmServerComponent) Timeline(ctx context.Context, req *alertingv1.Tim
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	lg := a.logger.With("handler", "Timeline")
+	lg := logger.PluginLoggerFromContext(a.ctx).With("handler", "Timeline")
 	conditions := []*alertingv1.AlertCondition{}
 	var groupIds []string
 	if req.Filters == nil || len(req.Filters.GroupIds) == 0 {
@@ -491,7 +492,7 @@ func (a *AlarmServerComponent) Timeline(ctx context.Context, req *alertingv1.Tim
 				if alertingv1.IsInternalCondition(cond) {
 					activeWindows, err := a.incidentStorage.Get().GetActiveWindowsFromIncidentTracker(ctx, cond.Id, start, end)
 					if err != nil {
-						a.logger.Error(fmt.Sprintf("failed to get active windows from agent incident tracker : %s", err))
+						lg.Error(fmt.Sprintf("failed to get active windows from agent incident tracker : %s", err))
 						return
 					}
 					for _, w := range activeWindows {

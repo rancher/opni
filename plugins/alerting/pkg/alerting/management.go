@@ -26,13 +26,14 @@ import (
 )
 
 func (p *Plugin) configureDriver(ctx context.Context, opts ...driverutil.Option) {
+	lg := logger.PluginLoggerFromContext(p.ctx)
 	priorityOrder := []string{"alerting-manager", "gateway-manager", "local-alerting", "test-environment", "noop"}
 	for _, name := range priorityOrder {
 		if builder, ok := drivers.Drivers.Get(name); ok {
-			p.logger.With("driver", name).Info("using cluster driver")
+			lg.With("driver", name).Info("using cluster driver")
 			driver, err := builder(ctx, opts...)
 			if err != nil {
-				p.logger.With(
+				lg.With(
 					"driver", name,
 					logger.Err(err),
 				).Error("failed to initialize cluster driver")
@@ -46,7 +47,7 @@ func (p *Plugin) configureDriver(ctx context.Context, opts ...driverutil.Option)
 
 // blocking
 func (p *Plugin) watchCortexClusterStatus() {
-	lg := p.logger.With("watcher", "cortex-cluster-status")
+	lg := logger.PluginLoggerFromContext(p.ctx).With("watcher", "cortex-cluster-status")
 	err := natsutil.NewPersistentStream(p.js.Get(), alarms.NewCortexStatusStream())
 	if err != nil {
 		panic(err)
@@ -96,11 +97,11 @@ func (p *Plugin) watchCortexClusterStatus() {
 			go func() {
 				cortexStatusData, err := json.Marshal(ccStatus)
 				if err != nil {
-					p.logger.Error(fmt.Sprintf("failed to marshal cortex cluster status: %s", err))
+					lg.Error(fmt.Sprintf("failed to marshal cortex cluster status: %s", err))
 				}
 				_, err = p.js.Get().PublishAsync(alarms.NewCortexStatusSubject(), cortexStatusData)
 				if err != nil {
-					p.logger.Error(fmt.Sprintf("failed to publish cortex cluster status : %s", err))
+					lg.Error(fmt.Sprintf("failed to publish cortex cluster status : %s", err))
 				}
 			}()
 		}
@@ -112,9 +113,10 @@ func (p *Plugin) watchGlobalCluster(
 	client managementv1.ManagementClient,
 	watcher *management.ManagementWatcherHooks[*managementv1.WatchEvent],
 ) {
+	lg := logger.PluginLoggerFromContext(p.ctx)
 	clusterClient, err := client.WatchClusters(p.ctx, &managementv1.WatchClustersRequest{})
 	if err != nil {
-		p.logger.Error("failed to watch clusters, exiting...")
+		lg.Error("failed to watch clusters, exiting...")
 		os.Exit(1)
 	}
 	for {
@@ -124,7 +126,7 @@ func (p *Plugin) watchGlobalCluster(
 		default:
 			event, err := clusterClient.Recv()
 			if err != nil {
-				p.logger.Error(fmt.Sprintf("failed to receive cluster event : %s", err))
+				lg.Error(fmt.Sprintf("failed to receive cluster event : %s", err))
 				continue
 			}
 			watcher.HandleEvent(event)
@@ -137,6 +139,7 @@ func (p *Plugin) publishInitialStatus(
 	cl *corev1.Cluster,
 	ingressStream *nats.StreamConfig,
 ) {
+	lg := logger.PluginLoggerFromContext(p.ctx)
 	retries := 10
 	for i := retries; i > 0; i-- {
 		select {
@@ -145,7 +148,7 @@ func (p *Plugin) publishInitialStatus(
 			if err == nil {
 				clusterStatusData, err := json.Marshal(clusterStatus)
 				if err != nil {
-					p.logger.Error(fmt.Sprintf("failed to marshal cluster health status: %s", err))
+					lg.Error(fmt.Sprintf("failed to marshal cluster health status: %s", err))
 					continue
 				}
 
@@ -154,14 +157,14 @@ func (p *Plugin) publishInitialStatus(
 					return
 				}
 				if err != nil {
-					p.logger.Error(fmt.Sprintf("failed to publish cluster health status : %s", err))
+					lg.Error(fmt.Sprintf("failed to publish cluster health status : %s", err))
 				}
 			} else {
-				p.logger.Warn(fmt.Sprintf("failed to read cluster health status on startup for cluster %s : %s, retrying...", cl.GetId(), err.Error()))
+				lg.Warn(fmt.Sprintf("failed to read cluster health status on startup for cluster %s : %s, retrying...", cl.GetId(), err.Error()))
 			}
 		}
 	}
-	p.logger.Info(fmt.Sprintf("manually setting %s cluster's status to disconnected", cl.GetId()))
+	lg.Info(fmt.Sprintf("manually setting %s cluster's status to disconnected", cl.GetId()))
 	msg := &corev1.ClusterHealthStatus{
 		Cluster: &corev1.Reference{
 			Id: cl.GetId(),
@@ -183,7 +186,7 @@ func (p *Plugin) publishInitialStatus(
 
 	data, err := json.Marshal(msg)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("failed to marshal default message %s", err))
+		lg.Error(fmt.Sprintf("failed to marshal default message %s", err))
 		return
 	}
 	p.js.Get().PublishAsync(alarms.NewAgentStreamSubject(cl.GetId()), data)
@@ -191,19 +194,20 @@ func (p *Plugin) publishInitialStatus(
 
 // blocking
 func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementClient, ingressStream *nats.StreamConfig) {
+	lg := logger.PluginLoggerFromContext(p.ctx)
 	err := natsutil.NewPersistentStream(p.js.Get(), ingressStream)
 	if err != nil {
 		panic(err)
 	}
 	clusterStatusClient, err := client.WatchClusterHealthStatus(p.ctx, &emptypb.Empty{})
 	if err != nil {
-		p.logger.Error("failed to watch cluster health status, exiting...")
+		lg.Error("failed to watch cluster health status, exiting...")
 		os.Exit(1)
 	}
 	// on startup always send a manual read in case the gateway was down when the agent status changed
 	cls, err := client.ListClusters(p.ctx, &managementv1.ListClustersRequest{})
 	if err != nil {
-		p.logger.Error("failed to list clusters, exiting...")
+		lg.Error("failed to list clusters, exiting...")
 		os.Exit(1)
 	}
 	for _, cl := range cls.Items {
@@ -228,17 +232,17 @@ func (p *Plugin) watchGlobalClusterHealthStatus(client managementv1.ManagementCl
 		default:
 			clusterStatus, err := clusterStatusClient.Recv()
 			if err != nil {
-				p.logger.Warn("failed to receive cluster health status from grpc stream, retrying...")
+				lg.Warn("failed to receive cluster health status from grpc stream, retrying...")
 				continue
 			}
 			clusterStatusData, err := json.Marshal(clusterStatus)
 			if err != nil {
-				p.logger.Error(fmt.Sprintf("failed to marshal cluster health status: %s", err))
+				lg.Error(fmt.Sprintf("failed to marshal cluster health status: %s", err))
 				continue
 			}
 			_, err = p.js.Get().PublishAsync(alarms.NewAgentStreamSubject(clusterStatus.Cluster.Id), clusterStatusData)
 			if err != nil {
-				p.logger.Error(fmt.Sprintf("failed to publish cluster health status : %s", err))
+				lg.Error(fmt.Sprintf("failed to publish cluster health status : %s", err))
 			}
 		}
 	}

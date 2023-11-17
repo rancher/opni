@@ -10,18 +10,16 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
-	"log/slog"
 )
 
 type NotificationServerComponent struct {
 	alertingv1.UnsafeAlertNotificationsServer
 
+	ctx context.Context
 	util.Initializer
 
 	mu sync.Mutex
 	server.Config
-
-	logger *slog.Logger
 
 	conditionStorage future.Future[spec.ConditionStorage]
 	endpointStorage  future.Future[spec.EndpointStorage]
@@ -30,10 +28,10 @@ type NotificationServerComponent struct {
 var _ server.ServerComponent = (*NotificationServerComponent)(nil)
 
 func NewNotificationServerComponent(
-	logger *slog.Logger,
+	ctx context.Context,
 ) *NotificationServerComponent {
 	return &NotificationServerComponent{
-		logger:           logger,
+		ctx:              ctx,
 		conditionStorage: future.New[spec.ConditionStorage](),
 		endpointStorage:  future.New[spec.EndpointStorage](),
 	}

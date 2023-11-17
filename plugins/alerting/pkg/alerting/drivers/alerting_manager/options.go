@@ -1,8 +1,8 @@
 package alerting_manager
 
 import (
+	"context"
 	"crypto/tls"
-	"log/slog"
 
 	alertingClient "github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -11,7 +11,7 @@ import (
 )
 
 type AlertingDriverOptions struct {
-	Logger             *slog.Logger                         `option:"logger"`
+	Context            context.Context                      `option:"context"`
 	K8sClient          client.Client                        `option:"k8sClient"`
 	GatewayRef         types.NamespacedName                 `option:"gatewayRef"`
 	ConfigKey          string                               `option:"configKey"`

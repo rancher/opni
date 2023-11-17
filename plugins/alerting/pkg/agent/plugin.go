@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"log/slog"
-
 	healthpkg "github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
@@ -16,7 +14,6 @@ import (
 )
 
 type Plugin struct {
-	lg  *slog.Logger
 	ctx context.Context
 
 	ruleStreamer *RuleStreamer
@@ -25,17 +22,18 @@ type Plugin struct {
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
-	lg := logger.NewPluginLogger().WithGroup("alerting")
+	lg := logger.NewPluginLogger(ctx).WithGroup("alerting")
+	healthConfSyncLg := lg.With("component", "health-cfg-sync")
+	ruleStreamerLg := lg.With("component", "rule-streamer")
+	ctx = logger.WithPluginLogger(ctx, lg)
 
 	ct := healthpkg.NewDefaultConditionTracker(lg)
 	p := &Plugin{
 		ctx: ctx,
-		lg:  lg,
 	}
 
 	p.node = NewAlertingNode(
-		ctx,
-		p.lg.With("component", "health-cfg-sync"),
+		logger.WithPluginLogger(ctx, healthConfSyncLg),
 		ct,
 	)
 
@@ -58,8 +56,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		panic("no driver set")
 	}
 	p.ruleStreamer = NewRuleStreamer(
-		ctx,
-		lg.With("component", "rule-streamer"),
+		logger.WithPluginLogger(ctx, ruleStreamerLg),
 		ct,
 		p.driver,
 	)
@@ -72,6 +69,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 	p := NewPlugin(ctx)
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewAgentPlugin(p.node))
 	scheme.Add(health.HealthPluginID, health.NewPlugin(p.node))
-	scheme.Add(stream.StreamAPIExtensionPluginID, stream.NewAgentPlugin(p))
+	scheme.Add(stream.StreamAPIExtensionPluginID, stream.NewAgentPlugin(ctx, p))
 	return scheme
 }

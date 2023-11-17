@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"sync"
 
-	"log/slog"
-
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/server"
 	alertingSync "github.com/rancher/opni/pkg/alerting/server/sync"
 	"github.com/rancher/opni/pkg/alerting/storage/spec"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/metrics"
@@ -30,13 +29,11 @@ type AlarmServerComponent struct {
 	alertingv1.UnsafeAlertConditionsServer
 	rules.UnsafeRuleSyncServer
 
-	util.Initializer
 	ctx context.Context
+	util.Initializer
 
 	mu sync.RWMutex
 	server.Config
-
-	logger *slog.Logger
 
 	runner        *Runner
 	notifications *notifications.NotificationServerComponent
@@ -58,12 +55,11 @@ type AlarmServerComponent struct {
 
 func NewAlarmServerComponent(
 	ctx context.Context,
-	logger *slog.Logger,
 	notifications *notifications.NotificationServerComponent,
 ) *AlarmServerComponent {
+
 	comp := &AlarmServerComponent{
 		ctx:              ctx,
-		logger:           logger,
 		runner:           NewRunner(),
 		notifications:    notifications,
 		conditionStorage: future.New[spec.ConditionStorage](),
@@ -117,6 +113,7 @@ func (a *AlarmServerComponent) SetConfig(conf server.Config) {
 }
 
 func (a *AlarmServerComponent) Sync(ctx context.Context, syncInfo alertingSync.SyncInfo) error {
+	lg := logger.PluginLoggerFromContext(a.ctx)
 	conditionStorage, err := a.conditionStorage.GetContext(a.ctx)
 	if err != nil {
 		return err
@@ -134,7 +131,7 @@ func (a *AlarmServerComponent) Sync(ctx context.Context, syncInfo alertingSync.S
 		conds = append(conds, groupConds...)
 	}
 	eg := &util.MultiErrGroup{}
-	a.logger.Debug(fmt.Sprintf("syncing (%v) %d conditions", syncInfo.ShouldSync, len(conds)))
+	lg.Debug(fmt.Sprintf("syncing (%v) %d conditions", syncInfo.ShouldSync, len(conds)))
 	for _, cond := range conds {
 		cond := cond
 		if syncInfo.ShouldSync {
@@ -182,7 +179,7 @@ func (a *AlarmServerComponent) Sync(ctx context.Context, syncInfo alertingSync.S
 	}
 	eg.Wait()
 	if len(eg.Errors()) > 0 {
-		a.logger.Error(fmt.Sprintf("successfully synced (%d/%d) conditions", len(conds)-len(eg.Errors()), len(conds)))
+		lg.Error(fmt.Sprintf("successfully synced (%d/%d) conditions", len(conds)-len(eg.Errors()), len(conds)))
 	}
 	if err := eg.Error(); err != nil {
 		return err

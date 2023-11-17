@@ -6,8 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"log/slog"
-
 	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	healthpkg "github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"
@@ -24,7 +22,6 @@ const (
 
 type RuleStreamer struct {
 	parentCtx context.Context
-	lg        *slog.Logger
 
 	stopRuleStream context.CancelFunc
 
@@ -39,13 +36,11 @@ var _ drivers.ConfigPropagator = (*RuleStreamer)(nil)
 
 func NewRuleStreamer(
 	ctx context.Context,
-	lg *slog.Logger,
 	ct healthpkg.ConditionTracker,
 	nodeDriver drivers.NodeDriver,
 ) *RuleStreamer {
 	return &RuleStreamer{
 		parentCtx:      ctx,
-		lg:             lg,
 		conditions:     ct,
 		nodeDriver:     nodeDriver,
 		ruleSyncClient: nil,
@@ -71,7 +66,7 @@ func (r *RuleStreamer) ConfigureNode(nodeId string, cfg *node.AlertingCapability
 }
 
 func (r *RuleStreamer) configureRuleStreamer(nodeId string, cfg *node.AlertingCapabilityConfig) error {
-	lg := r.lg.With("nodeId", nodeId)
+	lg := logger.PluginLoggerFromContext(r.parentCtx).With("nodeId", nodeId)
 	lg.Debug("alerting capability updated")
 
 	currentlyRunning := r.stopRuleStream != nil
@@ -101,6 +96,8 @@ func (r *RuleStreamer) configureRuleStreamer(nodeId string, cfg *node.AlertingCa
 }
 
 func (r *RuleStreamer) sync(ctx context.Context) {
+	lg := logger.PluginLoggerFromContext(r.parentCtx)
+
 	r.conditions.Set(CondRuleSync, healthpkg.StatusPending, "")
 
 	retrier := backoffv2.Exponential(
@@ -113,12 +110,12 @@ func (r *RuleStreamer) sync(ctx context.Context) {
 	for backoffv2.Continue(b) {
 		if !r.isSet() {
 			r.conditions.Set(CondRuleSync, healthpkg.StatusFailure, "Rule sync client not set")
-			r.lg.Warn("rule sync client not yet set")
+			lg.Warn("rule sync client not yet set")
 			continue
 		}
 		ruleManifest, err := r.nodeDriver.DiscoverRules(ctx)
 		if err != nil {
-			r.lg.Warn("failed to discover rules", logger.Err(err))
+			lg.Warn("failed to discover rules", logger.Err(err))
 			r.conditions.Set(CondRuleSync, healthpkg.StatusFailure, fmt.Sprintf("Failed to discover rules : %s", err))
 			continue
 		}
@@ -128,16 +125,18 @@ func (r *RuleStreamer) sync(ctx context.Context) {
 		r.clientMu.RUnlock()
 		if err == nil {
 			r.conditions.Clear(CondRuleSync)
-			r.lg.Info(fmt.Sprintf("successfully synced (%d) rules with gateway", len(ruleManifest.GetRules())))
+			lg.Info(fmt.Sprintf("successfully synced (%d) rules with gateway", len(ruleManifest.GetRules())))
 			break
 		}
-		r.lg.Warn("failed to sync rules with gateway", logger.Err(err))
+		lg.Warn("failed to sync rules with gateway", logger.Err(err))
 		r.conditions.Set(CondRuleSync, healthpkg.StatusFailure, fmt.Sprintf("Failed to sync rules : %s", err))
 	}
 }
 
 func (r *RuleStreamer) run(ctx context.Context) {
-	r.lg.Info("starting initial sync...")
+	lg := logger.PluginLoggerFromContext(r.parentCtx)
+
+	lg.Info("starting initial sync...")
 	r.sync(ctx)
 	t := time.NewTicker(RuleSyncInterval)
 	defer t.Stop()
@@ -146,7 +145,7 @@ func (r *RuleStreamer) run(ctx context.Context) {
 		case <-t.C:
 			r.sync(ctx)
 		case <-ctx.Done():
-			r.lg.Info("Exiting rule sync loop")
+			lg.Info("Exiting rule sync loop")
 			return
 		}
 	}

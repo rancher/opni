@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"log/slog"
-
 	"github.com/google/uuid"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/storage/spec"
@@ -45,7 +43,7 @@ type RemoteInfo struct {
 }
 
 type SyncController struct {
-	lg *slog.Logger
+	ctx context.Context
 
 	hashMu          sync.Mutex
 	syncMu          sync.RWMutex
@@ -95,6 +93,7 @@ func (s *SyncController) ListRemoteInfo() map[string]RemoteInfo {
 }
 
 func (s *SyncController) PushSyncReq(payload *syncPayload) {
+	lg := logger.PluginLoggerFromContext(s.ctx)
 	for id, syncer := range s.syncPushers {
 		id := id
 		syncer := syncer
@@ -110,12 +109,14 @@ func (s *SyncController) PushSyncReq(payload *syncPayload) {
 			},
 		}:
 		default:
-			s.lg.With("syncer-id", id).Error("failed to push sync request : buffer already full")
+			lg.With("syncer-id", id).Error("failed to push sync request : buffer already full")
 		}
 	}
 }
 
 func (s *SyncController) PushOne(lifecycleId string, payload *syncPayload) {
+	lg := logger.PluginLoggerFromContext(s.ctx)
+
 	if _, ok := s.syncPushers[lifecycleId]; ok {
 		select {
 		case s.syncPushers[lifecycleId] <- &alertops.SyncRequest{
@@ -129,14 +130,14 @@ func (s *SyncController) PushOne(lifecycleId string, payload *syncPayload) {
 			},
 		}:
 		default:
-			s.lg.With("syncer-id", lifecycleId).Error("failed to push sync request : buffer already full")
+			lg.With("syncer-id", lifecycleId).Error("failed to push sync request : buffer already full")
 		}
 	}
 }
 
-func NewSyncController(lg *slog.Logger) SyncController {
+func NewSyncController(ctx context.Context) SyncController {
 	return SyncController{
-		lg:              lg,
+		ctx:             ctx,
 		syncPushers:     map[string]chan *alertops.SyncRequest{},
 		remoteInfo:      map[string]RemoteInfo{},
 		syncMu:          sync.RWMutex{},
@@ -209,6 +210,7 @@ func (p *Plugin) InstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb
 
 func (p *Plugin) UninstallCluster(ctx context.Context, request *alertops.UninstallRequest) (*emptypb.Empty, error) {
 	ctxTimeout, cancel := context.WithTimeout(ctx, 1*time.Second)
+	lg := logger.PluginLoggerFromContext(ctxTimeout)
 	defer cancel()
 	driver, err := p.clusterDriver.GetContext(ctxTimeout)
 	if err != nil {
@@ -218,7 +220,7 @@ func (p *Plugin) UninstallCluster(ctx context.Context, request *alertops.Uninsta
 		go func() {
 			err := p.storageClientSet.Get().Purge(context.Background())
 			if err != nil {
-				p.logger.Warn(fmt.Sprintf("failed to purge data %s", err))
+				lg.Warn(fmt.Sprintf("failed to purge data %s", err))
 			}
 		}()
 	}
@@ -274,7 +276,8 @@ func (p *Plugin) constructManualSync() (*syncPayload, error) {
 
 func (p *Plugin) SyncConfig(server alertops.ConfigReconciler_SyncConfigServer) error {
 	assignedLifecycleUuid := uuid.New().String()
-	lg := p.logger.With("method", "SyncConfig", "assignedId", assignedLifecycleUuid)
+	lg := logger.PluginLoggerFromContext(p.ctx).With("method", "SyncConfig", "assignedId", assignedLifecycleUuid)
+
 	lg.Info(" remote syncer connected, performing initial sync...")
 	syncChan := make(chan *alertops.SyncRequest, 16)
 	defer close(syncChan)
@@ -354,7 +357,7 @@ func (p *Plugin) constructPartialSyncRequest(
 	p.syncController.hashMu.Lock()
 	defer p.syncController.hashMu.Unlock()
 
-	lg := p.logger.With("method", "constructSyncRequest")
+	lg := logger.PluginLoggerFromContext(p.ctx).With("method", "constructSyncRequest")
 	hash, err := hashRing.GetHash(ctx, shared.SingleConfigId)
 	if err != nil {
 		lg.Error(fmt.Sprintf("failed to get hash for %s: %s", shared.SingleConfigId, err))
@@ -392,7 +395,7 @@ func (p *Plugin) doConfigSync(ctx context.Context, syncInfo alertingSync.SyncInf
 	if !syncInfo.ShouldSync {
 		return nil
 	}
-	lg := p.logger.With("method", "doSync")
+	lg := logger.PluginLoggerFromContext(p.ctx).With("method", "doSync")
 	p.syncController.syncMu.Lock()
 	defer p.syncController.syncMu.Unlock()
 
@@ -448,7 +451,7 @@ func (p *Plugin) doConfigForceSync(ctx context.Context, syncInfo alertingSync.Sy
 	if !syncInfo.ShouldSync {
 		return nil
 	}
-	lg := p.logger.With("method", "doForceSync")
+	lg := logger.PluginLoggerFromContext(p.ctx).With("method", "doForceSync")
 	p.syncController.syncMu.Lock()
 	defer p.syncController.syncMu.Unlock()
 	ctxTimeout, ca := context.WithTimeout(ctx, 5*time.Second)
@@ -502,7 +505,7 @@ func (p *Plugin) getSyncInfo(ctx context.Context) (alertingSync.SyncInfo, error)
 }
 
 func (p *Plugin) runSyncTasks(tasks []alertingSync.SyncTask) (retErr error) {
-	lg := p.logger.With("action", "runSyncTasks")
+	lg := logger.PluginLoggerFromContext(p.ctx).With("action", "runSyncTasks")
 	ctx, ca := context.WithTimeout(p.ctx, 10*time.Second)
 	defer ca()
 	start := time.Now()
@@ -547,6 +550,7 @@ func (p *Plugin) runSyncTasks(tasks []alertingSync.SyncTask) (retErr error) {
 }
 
 func (p *Plugin) runSync() {
+	lg := logger.PluginLoggerFromContext(p.ctx)
 	ticker := p.syncController.heartbeatTicker
 	longTicker := p.syncController.forceSyncTicker
 	defer ticker.Stop()
@@ -560,15 +564,15 @@ func (p *Plugin) runSync() {
 	for {
 		select {
 		case <-p.ctx.Done():
-			p.logger.Info("exiting main sync loop")
+			lg.Info("exiting main sync loop")
 			return
 		case <-ticker.C:
 			if err := p.runSyncTasks(syncTasks); err != nil {
-				p.logger.Error(fmt.Sprintf("failed to successfully run all alerting sync tasks : %s", err))
+				lg.Error(fmt.Sprintf("failed to successfully run all alerting sync tasks : %s", err))
 			}
 		case <-longTicker.C:
 			if err := p.runSyncTasks(forceSyncTasks); err != nil {
-				p.logger.Error(fmt.Sprintf("failed to successfully run all alerting force sync tasks : %s", err))
+				lg.Error(fmt.Sprintf("failed to successfully run all alerting force sync tasks : %s", err))
 			}
 		}
 	}

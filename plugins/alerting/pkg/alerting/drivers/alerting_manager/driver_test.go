@@ -1,6 +1,7 @@
 package alerting_manager_test
 
 import (
+	"context"
 	"crypto/tls"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,10 +21,13 @@ var _ = Describe("", Label("unit"), func() {
 				driverutil.NewOption("tlsConfig", tlsConfig),
 			}
 
+			ctx := context.Background()
+			lg := logger.NewPluginLogger(ctx).WithGroup("alerting").WithGroup("alerting-manager")
+
 			options := alerting_manager.AlertingDriverOptions{
 				ConfigKey:          shared.AlertManagerConfigKey,
 				InternalRoutingKey: shared.InternalRoutingConfigKey,
-				Logger:             logger.NewPluginLogger().WithGroup("alerting").WithGroup("alerting-manager"),
+				Context:            logger.WithPluginLogger(ctx, lg),
 			}
 			driverutil.ApplyOptions(&options, opts...)
 			Expect(options.TlsConfig).NotTo(BeNil())
@@ -35,11 +39,13 @@ var _ = Describe("", Label("unit"), func() {
 			opts := []driverutil.Option{
 				driverutil.NewOption("subscribers", []chan client.AlertingClient{subscriberA, subscriberB}),
 			}
+			ctx := context.Background()
+			lg := logger.NewPluginLogger(ctx).WithGroup("alerting").WithGroup("alerting-manager")
 
 			options := alerting_manager.AlertingDriverOptions{
 				ConfigKey:          shared.AlertManagerConfigKey,
 				InternalRoutingKey: shared.InternalRoutingConfigKey,
-				Logger:             logger.NewPluginLogger().WithGroup("alerting").WithGroup("alerting-manager"),
+				Context:            logger.WithPluginLogger(ctx, lg),
 			}
 			driverutil.ApplyOptions(&options, opts...)
 			Expect(options.Subscribers).To(HaveLen(2))

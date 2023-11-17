@@ -85,7 +85,7 @@ func (a *AlertingClusterManager) newAlertingClusterCrd() *corev1beta1.AlertingCl
 }
 
 func (a *AlertingClusterManager) InstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	lg := a.Logger.With("action", "install-cluster")
+	lg := logger.PluginLoggerFromContext(a.Context).With("action", "install-cluster")
 	mutator := func(cl *corev1beta1.AlertingCluster) {
 		cl.Spec.Alertmanager.Enable = true
 		cl.Spec.Alertmanager.ApplicationSpec.ExtraArgs = []string{
@@ -177,7 +177,7 @@ func (a *AlertingClusterManager) ConfigureCluster(ctx context.Context, conf *ale
 	if err := conf.Validate(); err != nil {
 		return nil, err
 	}
-	lg := a.Logger.With("action", "configure-cluster")
+	lg := logger.PluginLoggerFromContext(a.Context).With("action", "configure-cluster")
 	cpuLimit, err := resource.ParseQuantity(conf.ResourceLimits.Cpu)
 	if err != nil {
 		return nil, err
@@ -376,7 +376,9 @@ func listPeers(replicas int) []alertingClient.AlertingPeer {
 }
 
 func init() {
-	drivers.Drivers.Register("alerting-manager", func(_ context.Context, opts ...driverutil.Option) (drivers.ClusterDriver, error) {
+	drivers.Drivers.Register("alerting-manager", func(ctx context.Context, opts ...driverutil.Option) (drivers.ClusterDriver, error) {
+		lg := logger.NewPluginLogger(ctx).WithGroup("alerting").WithGroup("alerting-manager")
+
 		options := AlertingDriverOptions{
 			GatewayRef: types.NamespacedName{
 				Namespace: os.Getenv("POD_NAMESPACE"),
@@ -384,7 +386,7 @@ func init() {
 			},
 			ConfigKey:          shared.AlertManagerConfigKey,
 			InternalRoutingKey: shared.InternalRoutingConfigKey,
-			Logger:             logger.NewPluginLogger().WithGroup("alerting").WithGroup("alerting-manager"),
+			Context:            logger.WithPluginLogger(ctx, lg),
 		}
 		driverutil.ApplyOptions(&options, opts...)
 		return NewAlertingClusterManager(options)

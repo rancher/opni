@@ -39,19 +39,21 @@ import (
 )
 
 func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
+	lg := logger.PluginLoggerFromContext(p.ctx)
+
 	opt := &shared.AlertingClusterOptions{}
 	p.mgmtClient.Set(client)
 	cfg, err := client.GetConfig(context.Background(),
 		&emptypb.Empty{}, grpc.WaitForReady(true))
 	if err != nil {
-		p.logger.With(
+		lg.With(
 			"err", err,
 		).Error("Failed to get mgmnt config")
 		os.Exit(1)
 	}
 	objectList, err := machinery.LoadDocuments(cfg.Documents)
 	if err != nil {
-		p.logger.With(
+		lg.With(
 			"err", err,
 		).Error("failed to load config")
 		os.Exit(1)
@@ -60,7 +62,7 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		p.gatewayConfig.Set(config)
 		backend, err := machinery.ConfigureStorageBackend(p.ctx, &config.Spec.Storage)
 		if err != nil {
-			p.logger.With(logger.Err(err)).Error("failed to configure storage backend")
+			lg.With(logger.Err(err)).Error("failed to configure storage backend")
 			os.Exit(1)
 		}
 		p.storageBackend.Set(backend)
@@ -81,7 +83,7 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 	p.configureDriver(
 		p.ctx,
 		driverutil.NewOption("alertingOptions", opt),
-		driverutil.NewOption("logger", p.logger.WithGroup("alerting-manager")),
+		driverutil.NewOption("logger", lg.WithGroup("alerting-manager")),
 		driverutil.NewOption("subscribers", []chan alertingClient.AlertingClient{p.clusterNotifier}),
 		driverutil.NewOption("tlsConfig", tlsConfig),
 	)
@@ -94,6 +96,8 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 
 // UseKeyValueStore Alerting Condition & Alert Endpoints are stored in K,V stores
 func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
+	lg := logger.PluginLoggerFromContext(p.ctx)
+
 	p.capabilitySpecStore.Set(node_backend.CapabilitySpecKV{
 		DefaultCapabilitySpec: kvutil.WithKey(system.NewKVStoreClient[*node.AlertingCapabilitySpec](client), "/alerting/config/capability/default"),
 		NodeCapabilitySpecs:   kvutil.WithPrefix(system.NewKVStoreClient[*node.AlertingCapabilitySpec](client), "/alerting/config/capability/nodes"),
@@ -119,19 +123,19 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	nc, err = natsutil.AcquireNATSConnection(
 		p.ctx,
 		cfg,
-		natsutil.WithLogger(p.logger),
+		natsutil.WithLogger(lg),
 		natsutil.WithNatsOptions([]nats.Option{
 			nats.ErrorHandler(func(nc *nats.Conn, s *nats.Subscription, err error) {
 				if s != nil {
-					p.logger.Error("nats : async error in %q/%q: %v", s.Subject, s.Queue, err)
+					lg.Error("nats : async error in %q/%q: %v", s.Subject, s.Queue, err)
 				} else {
-					p.logger.Warn("nats : async error outside subscription")
+					lg.Warn("nats : async error outside subscription")
 				}
 			}),
 		}),
 	)
 	if err != nil {
-		p.logger.With(logger.Err(err)).Error("fatal error connecting to NATs")
+		lg.With(logger.Err(err)).Error("fatal error connecting to NATs")
 	}
 	p.natsConn.Set(nc)
 	mgr, err := p.natsConn.Get().JetStream()
@@ -149,13 +153,13 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		}
 		clStatus, err := p.GetClusterStatus(p.ctx, &emptypb.Empty{})
 		if err != nil {
-			p.logger.With(logger.Err(err)).Error("failed to get cluster status")
+			lg.With(logger.Err(err)).Error("failed to get cluster status")
 			return
 		}
 		if clStatus.State == alertops.InstallState_Installed || clStatus.State == alertops.InstallState_InstallUpdating {
 			syncInfo, err := p.getSyncInfo(p.ctx)
 			if err != nil {
-				p.logger.With(logger.Err(err)).Error("failed to get sync info")
+				lg.With(logger.Err(err)).Error("failed to get sync info")
 			} else {
 				for _, comp := range p.Components() {
 					comp.Sync(p.ctx, syncInfo)
@@ -163,16 +167,16 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 			}
 			conf, err := p.GetClusterConfiguration(p.ctx, &emptypb.Empty{})
 			if err != nil {
-				p.logger.With(logger.Err(err)).Error("failed to get cluster configuration")
+				lg.With(logger.Err(err)).Error("failed to get cluster configuration")
 				return
 			}
 			peers := listPeers(int(conf.GetNumReplicas()))
-			p.logger.Info(fmt.Sprintf("reindexing known alerting peers to : %v", peers))
+			lg.Info(fmt.Sprintf("reindexing known alerting peers to : %v", peers))
 			ctxca, ca := context.WithTimeout(context.Background(), 5*time.Second)
 			defer ca()
 			alertingClient, err := p.alertingClient.GetContext(ctxca)
 			if err != nil {
-				p.logger.Error(err.Error())
+				lg.Error(err.Error())
 				return
 			}
 
@@ -192,10 +196,12 @@ func UseCachingProvider(c caching.CachingProvider[proto.Message]) {
 }
 
 func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
+	lg := logger.PluginLoggerFromContext(p.ctx)
+
 	services := []string{"CortexAdmin", "CortexOps"}
 	cc, err := intf.GetClientConn(p.ctx, services...)
 	if err != nil {
-		p.logger.With(logger.Err(err)).Error(fmt.Sprintf("failed to get required clients for alerting : %s", strings.Join(services, ",")))
+		lg.With(logger.Err(err)).Error(fmt.Sprintf("failed to get required clients for alerting : %s", strings.Join(services, ",")))
 		if p.ctx.Err() != nil {
 			// Plugin is shutting down, don't exit
 			return
@@ -207,13 +213,15 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 }
 
 func (p *Plugin) handleDriverNotifications() {
+	lg := logger.PluginLoggerFromContext(p.ctx)
+
 	for {
 		select {
 		case <-p.ctx.Done():
-			p.logger.Info("shutting down cluster driver update handler")
+			lg.Info("shutting down cluster driver update handler")
 			return
 		case client := <-p.clusterNotifier:
-			p.logger.Info("updating alerting client based on cluster status")
+			lg.Info("updating alerting client based on cluster status")
 			serverCfg := server.Config{
 				Client: client.Clone(),
 			}

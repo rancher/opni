@@ -157,7 +157,7 @@ func (p *AlarmServerComponent) fetchDownstreamCapabilityInfo(ctx context.Context
 }
 
 func (p *AlarmServerComponent) fetchKubeStateInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
-	lg := p.logger.With("handler", "fetchKubeStateInfo")
+	lg := logger.PluginLoggerFromContext(p.ctx).With("handler", "fetchKubeStateInfo")
 	resKubeState := &alertingv1.ListAlertConditionKubeState{
 		Clusters: map[string]*alertingv1.KubeObjectGroups{},
 		States:   shared.KubeStates,
@@ -268,7 +268,7 @@ type clusterCpuSaturation struct {
 }
 
 func (p *AlarmServerComponent) fetchCPUSaturationInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
-	lg := p.logger.With("handler", "fetchCPUSaturationInfo")
+	lg := logger.PluginLoggerFromContext(p.ctx).With("handler", "fetchCPUSaturationInfo")
 	clusters, err := p.mgmtClient.Get().ListClusters(
 		caching.WithGrpcClientCaching(ctx, 1*time.Minute),
 		&managementv1.ListClustersRequest{},
@@ -390,7 +390,7 @@ type clusterMemorySaturation struct {
 }
 
 func (p *AlarmServerComponent) fetchMemorySaturationInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
-	lg := p.logger.With("handler", "fetchMemorySaturationInfo")
+	lg := logger.PluginLoggerFromContext(p.ctx).With("handler", "fetchMemorySaturationInfo")
 	clusters, err := p.mgmtClient.Get().ListClusters(
 		caching.WithGrpcClientCaching(ctx, 1*time.Minute),
 		&managementv1.ListClustersRequest{})
@@ -516,7 +516,7 @@ type clusterFilesystemSaturation struct {
 }
 
 func (p *AlarmServerComponent) fetchFsSaturationInfo(ctx context.Context) (*alertingv1.ListAlertTypeDetails, error) {
-	lg := p.logger.With("handler", "fetchMemorySaturationInfo")
+	lg := logger.PluginLoggerFromContext(p.ctx).With("handler", "fetchMemorySaturationInfo")
 	clusters, err := p.mgmtClient.Get().ListClusters(
 		caching.WithGrpcClientCaching(ctx, 1*time.Minute),
 		&managementv1.ListClustersRequest{},

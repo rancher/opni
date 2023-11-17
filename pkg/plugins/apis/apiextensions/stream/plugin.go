@@ -76,6 +76,6 @@ func (p *streamApiExtensionPlugin[T]) GRPCClient(
 }
 
 func init() {
-	plugins.GatewayScheme.Add(StreamAPIExtensionPluginID, NewGatewayPlugin(nil))
-	plugins.AgentScheme.Add(StreamAPIExtensionPluginID, NewAgentPlugin(nil))
+	plugins.GatewayScheme.Add(StreamAPIExtensionPluginID, NewGatewayPlugin(context.TODO(), nil))
+	plugins.AgentScheme.Add(StreamAPIExtensionPluginID, NewAgentPlugin(context.TODO(), nil))
 }

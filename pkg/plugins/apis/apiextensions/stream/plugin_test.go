@@ -41,12 +41,12 @@ var _ = Describe("Stream API Extensions Plugin", Ordered, Label("unit"), func() 
 		pluginImpl = mock_stream.NewMockStreamAPIExtensionWithHandlers(ctrl)
 		agentMode = func(ctx context.Context) meta.Scheme {
 			agentScheme := meta.NewScheme(meta.WithMode(meta.ModeAgent))
-			agentScheme.Add(stream.StreamAPIExtensionPluginID, stream.NewAgentPlugin(pluginImpl))
+			agentScheme.Add(stream.StreamAPIExtensionPluginID, stream.NewAgentPlugin(ctx, pluginImpl))
 			return agentScheme
 		}
 		gatewayMode = func(ctx context.Context) meta.Scheme {
 			gatewayScheme := meta.NewScheme(meta.WithMode(meta.ModeGateway))
-			gatewayScheme.Add(stream.StreamAPIExtensionPluginID, stream.NewGatewayPlugin(pluginImpl))
+			gatewayScheme.Add(stream.StreamAPIExtensionPluginID, stream.NewGatewayPlugin(ctx, pluginImpl))
 			return gatewayScheme
 		}
 

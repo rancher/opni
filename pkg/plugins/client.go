@@ -3,6 +3,7 @@ package plugins
 import (
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 
 	"github.com/hashicorp/go-hclog"
@@ -10,7 +11,6 @@ import (
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/auth/session"
 	"github.com/rancher/opni/pkg/caching"
-	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util/streams"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -18,8 +18,9 @@ import (
 )
 
 type ClientOptions struct {
-	reattach     *plugin.ReattachConfig
-	secureConfig *plugin.SecureConfig
+	reattach           *plugin.ReattachConfig
+	secureConfig       *plugin.SecureConfig
+	pluginLoggerOutput io.Writer
 }
 
 type ClientOption func(*ClientOptions)
@@ -42,8 +43,16 @@ func WithSecureConfig(sc *plugin.SecureConfig) ClientOption {
 	}
 }
 
+func WithPluginLoggerOutput(writer io.Writer) ClientOption {
+	return func(o *ClientOptions) {
+		o.pluginLoggerOutput = writer
+	}
+}
+
 func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, opts ...ClientOption) *plugin.ClientConfig {
-	options := &ClientOptions{}
+	options := &ClientOptions{
+		pluginLoggerOutput: os.Stderr,
+	}
 	options.apply(opts...)
 
 	cc := &plugin.ClientConfig{
@@ -63,7 +72,7 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, opts ...ClientOption) 
 			grpc.WithPerRPCCredentials(cluster.ClusterIDKey),
 			grpc.WithPerRPCCredentials(session.AttributesKey),
 		},
-		Stderr: logger.PluginFileWriter,
+		Stderr: options.pluginLoggerOutput,
 	}
 
 	if options.reattach != nil {

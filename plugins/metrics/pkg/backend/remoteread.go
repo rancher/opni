@@ -32,6 +32,7 @@ func getIdFromTargetMeta(meta *remoteread.TargetMeta) string {
 }
 
 func (m *MetricsBackend) AddTarget(_ context.Context, request *remoteread.TargetAddRequest) (*emptypb.Empty, error) {
+	lg := logger.PluginLoggerFromContext(m.Context)
 	m.WaitForInit()
 
 	m.remoteReadTargetMu.Lock()
@@ -53,7 +54,7 @@ func (m *MetricsBackend) AddTarget(_ context.Context, request *remoteread.Target
 
 	m.remoteReadTargets[targetId] = request.Target
 
-	m.Logger.With(
+	lg.With(
 		"cluster", request.Target.Meta.ClusterId,
 		"target", request.Target.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
@@ -63,6 +64,7 @@ func (m *MetricsBackend) AddTarget(_ context.Context, request *remoteread.Target
 }
 
 func (m *MetricsBackend) EditTarget(ctx context.Context, request *remoteread.TargetEditRequest) (*emptypb.Empty, error) {
+	lg := logger.PluginLoggerFromContext(m.Context)
 	m.WaitForInit()
 
 	status, err := m.GetTargetStatus(ctx, &remoteread.TargetStatusRequest{
@@ -104,7 +106,7 @@ func (m *MetricsBackend) EditTarget(ctx context.Context, request *remoteread.Tar
 		target.Spec.Endpoint = diff.Endpoint
 	}
 
-	m.Logger.With(
+	lg.With(
 		"cluster", request.Meta.ClusterId,
 		"target", request.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
@@ -114,6 +116,7 @@ func (m *MetricsBackend) EditTarget(ctx context.Context, request *remoteread.Tar
 }
 
 func (m *MetricsBackend) RemoveTarget(ctx context.Context, request *remoteread.TargetRemoveRequest) (*emptypb.Empty, error) {
+	lg := logger.PluginLoggerFromContext(m.Context)
 	m.WaitForInit()
 
 	status, err := m.GetTargetStatus(ctx, &remoteread.TargetStatusRequest{
@@ -139,7 +142,7 @@ func (m *MetricsBackend) RemoveTarget(ctx context.Context, request *remoteread.T
 
 	delete(m.remoteReadTargets, targetId)
 
-	m.Logger.With(
+	lg.With(
 		"cluster", request.Meta.ClusterId,
 		"target", request.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
@@ -149,6 +152,7 @@ func (m *MetricsBackend) RemoveTarget(ctx context.Context, request *remoteread.T
 }
 
 func (m *MetricsBackend) ListTargets(ctx context.Context, request *remoteread.TargetListRequest) (*remoteread.TargetList, error) {
+	lg := logger.PluginLoggerFromContext(m.Context)
 	m.WaitForInit()
 
 	m.remoteReadTargetMu.RLock()
@@ -164,7 +168,7 @@ func (m *MetricsBackend) ListTargets(ctx context.Context, request *remoteread.Ta
 			eg.Go(func() error {
 				newStatus, err := m.GetTargetStatus(ctx, &remoteread.TargetStatusRequest{Meta: target.Meta})
 				if err != nil {
-					m.Logger.Info(fmt.Sprintf("could not get newStatus for target '%s/%s': %s", target.Meta.ClusterId, target.Meta.Name, err))
+					lg.Info(fmt.Sprintf("could not get newStatus for target '%s/%s': %s", target.Meta.ClusterId, target.Meta.Name, err))
 					newStatus.State = remoteread.TargetState_Unknown
 				}
 
@@ -180,7 +184,7 @@ func (m *MetricsBackend) ListTargets(ctx context.Context, request *remoteread.Ta
 	}
 
 	if err := eg.Wait(); err != nil {
-		m.Logger.Error(fmt.Sprintf("error waiting for status to update: %s", err))
+		lg.Error(fmt.Sprintf("error waiting for status to update: %s", err))
 	}
 
 	list := &remoteread.TargetList{Targets: inner}
@@ -189,6 +193,7 @@ func (m *MetricsBackend) ListTargets(ctx context.Context, request *remoteread.Ta
 }
 
 func (m *MetricsBackend) GetTargetStatus(ctx context.Context, request *remoteread.TargetStatusRequest) (*remoteread.TargetStatus, error) {
+	lg := logger.PluginLoggerFromContext(m.Context)
 	m.WaitForInit()
 
 	targetId := getIdFromTargetMeta(request.Meta)
@@ -208,7 +213,7 @@ func (m *MetricsBackend) GetTargetStatus(ctx context.Context, request *remoterea
 			}, nil
 		}
 
-		m.Logger.With(
+		lg.With(
 			"cluster", request.Meta.ClusterId,
 			"capability", wellknown.CapabilityMetrics,
 			"target", request.Meta.Name,
@@ -222,6 +227,7 @@ func (m *MetricsBackend) GetTargetStatus(ctx context.Context, request *remoterea
 }
 
 func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartReadRequest) (*emptypb.Empty, error) {
+	lg := logger.PluginLoggerFromContext(m.Context)
 	m.WaitForInit()
 
 	if m.Delegate == nil {
@@ -245,7 +251,7 @@ func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartRea
 	_, err := m.Delegate.WithTarget(&corev1.Reference{Id: request.Target.Meta.ClusterId}).Start(ctx, request)
 
 	if err != nil {
-		m.Logger.With(
+		lg.With(
 			"cluster", request.Target.Meta.ClusterId,
 			"capability", wellknown.CapabilityMetrics,
 			"target", request.Target.Meta.Name,
@@ -255,7 +261,7 @@ func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartRea
 		return nil, err
 	}
 
-	m.Logger.With(
+	lg.With(
 		"cluster", request.Target.Meta.ClusterId,
 		"capability", wellknown.CapabilityMetrics,
 		"target", request.Target.Meta.Name,
@@ -265,6 +271,7 @@ func (m *MetricsBackend) Start(ctx context.Context, request *remoteread.StartRea
 }
 
 func (m *MetricsBackend) Stop(ctx context.Context, request *remoteread.StopReadRequest) (*emptypb.Empty, error) {
+	lg := logger.PluginLoggerFromContext(m.Context)
 	m.WaitForInit()
 
 	if m.Delegate == nil {
@@ -274,7 +281,7 @@ func (m *MetricsBackend) Stop(ctx context.Context, request *remoteread.StopReadR
 	_, err := m.Delegate.WithTarget(&corev1.Reference{Id: request.Meta.ClusterId}).Stop(ctx, request)
 
 	if err != nil {
-		m.Logger.With(
+		lg.With(
 			"cluster", request.Meta.ClusterId,
 			"capability", wellknown.CapabilityMetrics,
 			"target", request.Meta.Name,
@@ -284,7 +291,7 @@ func (m *MetricsBackend) Stop(ctx context.Context, request *remoteread.StopReadR
 		return nil, err
 	}
 
-	m.Logger.With(
+	lg.With(
 		"cluster", request.Meta.Name,
 		"capability", wellknown.CapabilityMetrics,
 		"target", request.Meta.Name,
@@ -294,6 +301,7 @@ func (m *MetricsBackend) Stop(ctx context.Context, request *remoteread.StopReadR
 }
 
 func (m *MetricsBackend) Discover(ctx context.Context, request *remoteread.DiscoveryRequest) (*remoteread.DiscoveryResponse, error) {
+	lg := logger.PluginLoggerFromContext(m.Context)
 	m.WaitForInit()
 	response, err := m.Delegate.WithBroadcastSelector(&corev1.ClusterSelector{
 		ClusterIDs: request.ClusterIds,
@@ -305,7 +313,7 @@ func (m *MetricsBackend) Discover(ctx context.Context, request *remoteread.Disco
 			discoverResponse := &remoteread.DiscoveryResponse{}
 
 			if err := proto.Unmarshal(response.Reply.GetResponse().Response, discoverResponse); err != nil {
-				m.Logger.Error(fmt.Sprintf("failed to unmarshal for aggregated DiscoveryResponse: %s", err))
+				lg.Error(fmt.Sprintf("failed to unmarshal for aggregated DiscoveryResponse: %s", err))
 			}
 
 			// inject the cluster id gateway-side
@@ -321,7 +329,7 @@ func (m *MetricsBackend) Discover(ctx context.Context, request *remoteread.Disco
 	}).Discover(ctx, request)
 
 	if err != nil {
-		m.Logger.With(
+		lg.With(
 			"capability", wellknown.CapabilityMetrics,
 			logger.Err(err),
 		).Error("failed to run import discovery")

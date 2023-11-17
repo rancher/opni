@@ -5,10 +5,8 @@ import (
 	"errors"
 	"sync"
 
-	"log/slog"
-
 	"github.com/cisco-open/k8s-objectmatcher/patch"
-	opnilogger "github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -54,11 +52,11 @@ func (r *ReconcilerState) SetBackoffCtx(ctx context.Context, cancel context.Canc
 // (obj, shouldExist))
 type ReconcileItem lo.Tuple2[client.Object, bool]
 
-func ReconcileObject(logger *slog.Logger, k8sClient client.Client, namespace string, item ReconcileItem) error {
+func ReconcileObject(ctx context.Context, k8sClient client.Client, namespace string, item ReconcileItem) error {
 	desired, shouldExist := item.A, item.B
 	// get the object
 	key := client.ObjectKeyFromObject(desired)
-	lg := logger.With("object", key)
+	lg := logger.PluginLoggerFromContext(ctx).With("object", key)
 	lg.Info("reconciling object")
 
 	// get the agent statefulset
@@ -103,21 +101,21 @@ func ReconcileObject(logger *slog.Logger, k8sClient client.Client, namespace str
 	// update the object
 	patchResult, err := patch.DefaultPatchMaker.Calculate(current, desired, patch.IgnoreStatusFields())
 	if err != nil {
-		logger.With(
-			opnilogger.Err(err),
+		lg.With(
+			logger.Err(err),
 		).Warn("could not match objects")
 
 		return err
 	}
 	if patchResult.IsEmpty() {
-		logger.Info("resource is in sync")
+		lg.Info("resource is in sync")
 		return nil
 	}
-	logger.Info("resource diff")
+	lg.Info("resource diff")
 
 	if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(desired); err != nil {
-		logger.With(
-			opnilogger.Err(err),
+		lg.With(
+			logger.Err(err),
 		).Error("failed to set last applied annotation")
 	}
 
@@ -131,7 +129,7 @@ func ReconcileObject(logger *slog.Logger, k8sClient client.Client, namespace str
 		return err
 	}
 
-	logger.Info("updating resource")
+	lg.Info("updating resource")
 
 	return k8sClient.Update(context.TODO(), desired)
 }

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"log/slog"
-
 	"github.com/lestrrat-go/backoff/v2"
 	monitoringcoreosv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	monitoringcoreosv1alpha1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1alpha1"
@@ -35,9 +33,9 @@ type ExternalPromOperatorDriver struct {
 }
 
 type ExternalPromOperatorDriverOptions struct {
-	K8sClient client.Client `option:"k8sClient"`
-	Logger    *slog.Logger  `option:"logger"`
-	Namespace string        `option:"namespace"`
+	K8sClient client.Client   `option:"k8sClient"`
+	Context   context.Context `option:"context"`
+	Namespace string          `option:"namespace"`
 }
 
 func NewExternalPromOperatorDriver(options ExternalPromOperatorDriverOptions) (*ExternalPromOperatorDriver, error) {
@@ -60,7 +58,7 @@ func NewExternalPromOperatorDriver(options ExternalPromOperatorDriverOptions) (*
 }
 
 func (d *ExternalPromOperatorDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) error {
-	lg := d.Logger.With("nodeId", nodeId)
+	lg := logger.PluginLoggerFromContext(d.Context).With("nodeId", nodeId)
 	if d.state.GetRunning() {
 		d.state.Cancel()
 	}
@@ -104,7 +102,7 @@ BACKOFF:
 	for backoff.Continue(b) {
 		for _, obj := range objList {
 			lg.Debug(fmt.Sprintf("object : %s, should exist : %t", client.ObjectKeyFromObject(obj.A).String(), obj.B))
-			if err := reconcilerutil.ReconcileObject(lg, d.K8sClient, d.Namespace, obj); err != nil {
+			if err := reconcilerutil.ReconcileObject(d.Context, d.K8sClient, d.Namespace, obj); err != nil {
 				lg.With(
 					"object", client.ObjectKeyFromObject(obj.A).String(),
 					logger.Err(err),
@@ -214,6 +212,8 @@ func (d *ExternalPromOperatorDriver) buildAdditionalScrapeConfigsSecret() *corev
 }
 
 func (d *ExternalPromOperatorDriver) serviceName() string {
+	lg := logger.PluginLoggerFromContext(d.Context)
+
 	list := &corev1.ServiceList{}
 	err := d.K8sClient.List(context.TODO(), list,
 		client.InNamespace(d.Namespace),
@@ -222,11 +222,11 @@ func (d *ExternalPromOperatorDriver) serviceName() string {
 		},
 	)
 	if err != nil {
-		d.Logger.Error("unable to list services, defaulting to opni-agent")
+		lg.Error("unable to list services, defaulting to opni-agent")
 		return "opni-agent"
 	}
 	if len(list.Items) != 1 {
-		d.Logger.Error("unable to fetch service name, defaulting to opni-agent")
+		lg.Error("unable to fetch service name, defaulting to opni-agent")
 		return "opni-agent"
 	}
 	return list.Items[0].Name
@@ -308,8 +308,10 @@ func (d *ExternalPromOperatorDriver) DiscoverPrometheuses(ctx context.Context, n
 }
 
 func (d *ExternalPromOperatorDriver) ConfigureRuleGroupFinder(config *v1beta1.RulesSpec) notifier.Finder[rules.RuleGroup] {
+	lg := logger.PluginLoggerFromContext(d.Context)
+
 	if config.Discovery.PrometheusRules != nil {
-		opts := []prometheusrule.PrometheusRuleFinderOption{prometheusrule.WithLogger(d.Logger)}
+		opts := []prometheusrule.PrometheusRuleFinderOption{prometheusrule.WithLogger(lg)}
 		if len(config.Discovery.PrometheusRules.SearchNamespaces) > 0 {
 			opts = append(opts, prometheusrule.WithNamespaces(config.Discovery.PrometheusRules.SearchNamespaces...))
 		}
@@ -319,10 +321,12 @@ func (d *ExternalPromOperatorDriver) ConfigureRuleGroupFinder(config *v1beta1.Ru
 }
 
 func init() {
-	drivers.NodeDrivers.Register("prometheus-operator", func(_ context.Context, opts ...driverutil.Option) (drivers.MetricsNodeDriver, error) {
+	drivers.NodeDrivers.Register("prometheus-operator", func(ctx context.Context, opts ...driverutil.Option) (drivers.MetricsNodeDriver, error) {
+		lg := logger.PluginLoggerFromContext(ctx).WithGroup("metrics").WithGroup("prometheus-operator")
+
 		options := ExternalPromOperatorDriverOptions{
 			Namespace: os.Getenv("POD_NAMESPACE"),
-			Logger:    logger.NewPluginLogger().WithGroup("metrics").WithGroup("prometheus-operator"),
+			Context:   logger.WithPluginLogger(ctx, lg),
 		}
 		if err := driverutil.ApplyOptions(&options, opts...); err != nil {
 			return nil, err

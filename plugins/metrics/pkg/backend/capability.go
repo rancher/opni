@@ -106,6 +106,7 @@ func (m *MetricsBackend) Status(_ context.Context, req *corev1.Reference) (*v1.N
 }
 
 func (m *MetricsBackend) Uninstall(ctx context.Context, req *v1.UninstallRequest) (*emptypb.Empty, error) {
+	lg := logger.PluginLoggerFromContext(m.Context)
 	m.WaitForInit()
 
 	cluster, err := m.MgmtClient.GetCluster(ctx, req.Cluster)
@@ -166,7 +167,7 @@ func (m *MetricsBackend) Uninstall(ctx context.Context, req *v1.UninstallRequest
 		return nil, fmt.Errorf("failed to update cluster metadata: %v", err)
 	}
 	if err := m.requestNodeSync(ctx, req.Cluster); err != nil {
-		m.Logger.With(
+		lg.With(
 			logger.Err(err),
 			"agent", req.Cluster,
 		).Warn("sync request failed; agent may not be updated immediately")

@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"log/slog"
-
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"
@@ -21,15 +19,15 @@ import (
 )
 
 type RuleStreamer struct {
-	logger              *slog.Logger
+	ctx                 context.Context
 	remoteWriteClientMu sync.Mutex
 	remoteWriteClient   remotewrite.RemoteWriteClient
 	conditions          health.ConditionTracker
 }
 
-func NewRuleStreamer(ct health.ConditionTracker, lg *slog.Logger) *RuleStreamer {
+func NewRuleStreamer(ctx context.Context, ct health.ConditionTracker) *RuleStreamer {
 	return &RuleStreamer{
-		logger:     lg,
+		ctx:        ctx,
 		conditions: ct,
 	}
 }
@@ -44,7 +42,7 @@ func (s *RuleStreamer) Run(ctx context.Context, config *v1beta1.RulesSpec, finde
 	s.conditions.Set(node.CondRuleSync, health.StatusPending, "")
 	defer s.conditions.Clear(node.CondRuleSync)
 
-	lg := s.logger
+	lg := logger.PluginLoggerFromContext(s.ctx)
 	updateC, err := s.streamRuleGroupUpdates(ctx, config, finder)
 	if err != nil {
 		return err
@@ -124,8 +122,9 @@ func (s *RuleStreamer) streamRuleGroupUpdates(
 	config *v1beta1.RulesSpec,
 	finder notifier.Finder[rules.RuleGroup],
 ) (<-chan [][]byte, error) {
-	s.logger.Debug("configuring rule discovery")
-	s.logger.Debug("rule discovery configured")
+	lg := logger.PluginLoggerFromContext(s.ctx)
+	lg.Debug("configuring rule discovery")
+	lg.Debug("rule discovery configured")
 	searchInterval := time.Minute * 15
 	if interval := config.GetDiscovery().GetInterval(); interval != "" {
 		duration, err := time.ParseDuration(interval)
@@ -135,22 +134,22 @@ func (s *RuleStreamer) streamRuleGroupUpdates(
 		searchInterval = duration
 	}
 	notifier := notifier.NewPeriodicUpdateNotifier(ctx, finder, searchInterval)
-	s.logger.With(
+	lg.With(
 		"interval", searchInterval.String(),
 	).Debug("rule discovery notifier configured")
 
 	notifierC := notifier.NotifyC(ctx)
-	s.logger.Debug("starting rule group update notifier")
+	lg.Debug("starting rule group update notifier")
 	groupYamlDocs := make(chan [][]byte, cap(notifierC))
 	go func() {
 		defer close(groupYamlDocs)
 		for {
 			ruleGroups, ok := <-notifierC
 			if !ok {
-				s.logger.Debug("rule discovery channel closed")
+				lg.Debug("rule discovery channel closed")
 				return
 			}
-			s.logger.Debug("received updated rule groups from discovery")
+			lg.Debug("received updated rule groups from discovery")
 			go func() {
 				groupYamlDocs <- s.marshalRuleGroups(ruleGroups)
 			}()
@@ -160,11 +159,12 @@ func (s *RuleStreamer) streamRuleGroupUpdates(
 }
 
 func (s *RuleStreamer) marshalRuleGroups(ruleGroups []rules.RuleGroup) [][]byte {
+	lg := logger.PluginLoggerFromContext(s.ctx)
 	yamlDocs := make([][]byte, 0, len(ruleGroups))
 	for _, ruleGroup := range ruleGroups {
 		doc, err := yaml.Marshal(ruleGroup)
 		if err != nil {
-			s.logger.With(
+			lg.With(
 				logger.Err(err),
 				"group", ruleGroup.Name,
 			).Error("failed to marshal rule group")

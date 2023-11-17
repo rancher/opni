@@ -61,7 +61,7 @@ func RunSetup() {
 					Build: OpensearchBuildConfig{
 						DashboardsVersion: "2.8.0",
 						OpensearchVersion: "2.8.0",
-						PluginVersion:     "0.12.1-rc1",
+						PluginVersion:     "0.12.1",
 					},
 				},
 			},

@@ -379,11 +379,9 @@ var conversions = map[int64]unstructuredConverter{
 				}
 
 				v1GrafanaDeployment := map[string]any{
-					"deployment": map[string]any{
-						"spec": map[string]any{
-							"template": map[string]any{
-								"spec": map[string]any{},
-							},
+					"spec": map[string]any{
+						"template": map[string]any{
+							"spec": map[string]any{},
 						},
 					},
 				}

@@ -5,6 +5,7 @@ import (
 
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
@@ -26,9 +27,10 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 }
 
 func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
+	lg := logger.PluginLoggerFromContext(p.ctx)
 	cc, err := intf.GetClientConn(p.ctx, "CortexAdmin", "AlertEndpoints")
 	if err != nil {
-		p.logger.Error("failed to get cortex admin client", "error", err)
+		lg.Error("failed to get cortex admin client", "error", err)
 		if p.ctx.Err() != nil {
 			// Plugin is shutting down, don't exit
 			return
@@ -42,7 +44,7 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	p.alertEndpointClient.Set(alertingEndpointClient)
 	RegisterDatasource(
 		shared.MonitoringDatasource,
-		NewSLOMonitoringStore(p, p.logger),
-		NewMonitoringServiceBackend(p, p.logger),
+		NewSLOMonitoringStore(p),
+		NewMonitoringServiceBackend(p),
 	)
 }

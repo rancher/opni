@@ -5,7 +5,6 @@ import (
 
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/slo/apis/slo"
-	"log/slog"
 
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -22,8 +21,7 @@ type Plugin struct {
 	slo.UnsafeSLOServer
 	system.UnimplementedSystemPluginClient
 
-	ctx    context.Context
-	logger *slog.Logger
+	ctx context.Context
 
 	storage             future.Future[StorageAPIs]
 	mgmtClient          future.Future[managementv1.ManagementClient]
@@ -38,9 +36,10 @@ type StorageAPIs struct {
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
+	lg := logger.NewPluginLogger(ctx).WithGroup("slo")
+	ctx = logger.WithPluginLogger(ctx, lg)
 	return &Plugin{
 		ctx:                 ctx,
-		logger:              logger.NewPluginLogger().WithGroup("slo"),
 		storage:             future.New[StorageAPIs](),
 		mgmtClient:          future.New[managementv1.ManagementClient](),
 		adminClient:         future.New[cortexadmin.CortexAdminClient](),

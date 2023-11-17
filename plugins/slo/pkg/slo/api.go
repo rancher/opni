@@ -9,6 +9,7 @@ import (
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/validation"
@@ -127,7 +128,7 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.E
 }
 
 func (p *Plugin) DeleteSLO(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
-	lg := p.logger
+	lg := logger.PluginLoggerFromContext(p.ctx)
 	existing, err := p.storage.Get().SLOs.Get(ctx, path.Join("/slos", req.Id))
 	if err != nil {
 		lg.With("delete slo", req.Id).Error("failed to get slo to delete in K,V store")

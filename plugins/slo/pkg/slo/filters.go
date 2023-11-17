@@ -1,17 +1,19 @@
 package slo
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"io/fs"
 	"path/filepath"
 	"regexp"
 
+	"log/slog"
+
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/apis/slo"
 	"gopkg.in/yaml.v3"
-	"log/slog"
 )
 
 //go:embed metricgroups/*.yaml
@@ -22,7 +24,7 @@ var ServiceGroups embed.FS
 
 // map of directory names to their embed.FS
 var EnabledFilters = map[string]embed.FS{"metricgroups": MetricGroups, "servicegroups": ServiceGroups}
-var filters = constructFilters(logger.NewPluginLogger().WithGroup("slo"))
+var filters = constructFilters(logger.NewPluginLogger(context.TODO()).WithGroup("slo"))
 
 // Regexp adds unmarshalling from json for regexp.Regexp
 type Regexp struct {

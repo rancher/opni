@@ -6,7 +6,6 @@ import (
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	sloapi "github.com/rancher/opni/plugins/slo/apis/slo"
-	"log/slog"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -54,7 +53,6 @@ type RequestBase struct {
 	req proto.Message
 	p   *Plugin
 	ctx context.Context
-	lg  *slog.Logger
 }
 
 type SLOMonitoring struct {
@@ -69,24 +67,22 @@ type MonitoringServiceBackend struct {
 	RequestBase
 }
 
-func NewSLOMonitoringStore(p *Plugin, lg *slog.Logger) SLOStore {
+func NewSLOMonitoringStore(p *Plugin) SLOStore {
 	return &SLOMonitoring{
 		RequestBase{
 			req: nil,
 			p:   p,
 			ctx: context.Background(),
-			lg:  lg,
 		},
 	}
 }
 
-func NewMonitoringServiceBackend(p *Plugin, lg *slog.Logger) ServiceBackend {
+func NewMonitoringServiceBackend(p *Plugin) ServiceBackend {
 	return &MonitoringServiceBackend{
 		RequestBase{
 			req: nil,
 			p:   p,
-			ctx: context.TODO(),
-			lg:  lg,
+			ctx: p.ctx,
 		},
 	}
 }

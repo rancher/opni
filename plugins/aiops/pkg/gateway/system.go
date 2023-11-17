@@ -11,6 +11,7 @@ import (
 	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	"github.com/nats-io/nats.go"
 	opensearch "github.com/opensearch-project/opensearch-go"
+	"github.com/rancher/opni/pkg/logger"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	opsterv1 "opensearch.opster.io/api/v1"
@@ -43,6 +44,7 @@ func newNatsConnection() (*nats.Conn, error) {
 }
 
 func (s *AIOpsPlugin) setOpensearchConnection() {
+	lg := logger.PluginLoggerFromContext(s.ctx)
 	esEndpoint := fmt.Sprintf("https://opni-opensearch-svc.%s.svc:9200", s.storageNamespace)
 	retrier := backoffv2.Exponential(
 		backoffv2.WithMaxRetries(0),
@@ -56,7 +58,7 @@ FETCH:
 	for {
 		select {
 		case <-b.Done():
-			s.Logger.Warn("plugin context cancelled before Opensearch object created")
+			lg.Warn("plugin context cancelled before Opensearch object created")
 		case <-b.Next():
 			err := s.k8sClient.Get(s.ctx, types.NamespacedName{
 				Name:      "opni",
@@ -66,7 +68,7 @@ FETCH:
 				if k8serrors.IsNotFound(err) {
 					continue
 				}
-				s.Logger.Error(fmt.Sprintf("failed to check k8s object: %v", err))
+				lg.Error(fmt.Sprintf("failed to check k8s object: %v", err))
 				continue
 			}
 			break FETCH

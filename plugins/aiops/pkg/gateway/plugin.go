@@ -4,8 +4,6 @@ import (
 	"context"
 	"os"
 
-	"log/slog"
-
 	"github.com/nats-io/nats.go"
 	"github.com/opensearch-project/opensearch-go"
 	"github.com/rancher/opni/apis"
@@ -30,7 +28,6 @@ type AIOpsPlugin struct {
 	admin.UnsafeAIAdminServer
 	system.UnimplementedSystemPluginClient
 	ctx             context.Context
-	Logger          *slog.Logger
 	k8sClient       client.Client
 	osClient        future.Future[*opensearch.Client]
 	natsConnection  future.Future[*nats.Conn]
@@ -109,9 +106,10 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 		panic(err)
 	}
 
+	lg := logger.NewPluginLogger(ctx).WithGroup("modeltraining")
+	ctx = logger.WithPluginLogger(ctx, lg)
 	return &AIOpsPlugin{
 		PluginOptions:   options,
-		Logger:          logger.NewPluginLogger().WithGroup("modeltraining"),
 		ctx:             ctx,
 		natsConnection:  future.New[*nats.Conn](),
 		aggregationKv:   future.New[nats.KeyValue](),
@@ -123,7 +121,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *AIOpsPlugin {
 }
 
 func (p *AIOpsPlugin) UseManagementAPI(_ managementv1.ManagementClient) {
-	lg := p.Logger
+	lg := logger.PluginLoggerFromContext(p.ctx)
 	nc, err := newNatsConnection()
 	if err != nil {
 		lg.Error("fatal", logger.Err(err))

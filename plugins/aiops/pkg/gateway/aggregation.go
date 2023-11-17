@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/rancher/opni/pkg/logger"
 )
 
 type Key struct {
@@ -73,6 +75,7 @@ func (a *Aggregations) Add(bucket Bucket) {
 }
 
 func (p *AIOpsPlugin) aggregateWorkloadLogs() {
+	lg := logger.PluginLoggerFromContext(p.ctx)
 	request := map[string]any{
 		"size": 0,
 		"query": map[string]any{
@@ -131,7 +134,7 @@ func (p *AIOpsPlugin) aggregateWorkloadLogs() {
 	for {
 		var buf bytes.Buffer
 		if err := json.NewEncoder(&buf).Encode(request); err != nil {
-			p.Logger.Error(fmt.Sprintf("Error: Unable to encode request: %s", err))
+			lg.Error(fmt.Sprintf("Error: Unable to encode request: %s", err))
 			return
 		}
 		res, err := p.osClient.Get().Search(
@@ -142,17 +145,17 @@ func (p *AIOpsPlugin) aggregateWorkloadLogs() {
 			p.osClient.Get().Search.WithPretty(),
 		)
 		if err != nil {
-			p.Logger.Error(fmt.Sprintf("Unable to connect to Opensearch %s", err))
+			lg.Error(fmt.Sprintf("Unable to connect to Opensearch %s", err))
 			return
 		}
 		defer res.Body.Close()
 		if res.IsError() {
-			p.Logger.Error(fmt.Sprintf("Error: %s", res.String()))
+			lg.Error(fmt.Sprintf("Error: %s", res.String()))
 			return
 		}
 		var result SearchResponse
 		if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
-			p.Logger.Error(fmt.Sprintf("Error parsing the response body: %s", err))
+			lg.Error(fmt.Sprintf("Error parsing the response body: %s", err))
 			return
 		}
 		for _, b := range result.Aggregations.Bucket.Buckets {
@@ -167,12 +170,12 @@ func (p *AIOpsPlugin) aggregateWorkloadLogs() {
 	}
 	aggregatedResults, err := json.Marshal(resultAgg)
 	if err != nil {
-		p.Logger.Error(fmt.Sprintf("Error: %s", err))
+		lg.Error(fmt.Sprintf("Error: %s", err))
 		return
 	}
 	bytesAggregation := []byte(aggregatedResults)
 	p.aggregationKv.Get().Put("aggregation", bytesAggregation)
-	p.Logger.Info("Updated aggregation of deployments to Jetstream.")
+	lg.Info("Updated aggregation of deployments to Jetstream.")
 }
 
 func (p *AIOpsPlugin) runAggregation() {

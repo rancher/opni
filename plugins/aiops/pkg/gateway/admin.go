@@ -153,6 +153,7 @@ func (s *AIOpsPlugin) putPretrainedModel(
 }
 
 func (s *AIOpsPlugin) GetAISettings(ctx context.Context, _ *emptypb.Empty) (*admin.AISettings, error) {
+	lg := logger.PluginLoggerFromContext(s.ctx)
 	opni := &aiv1beta1.OpniCluster{}
 	err := s.k8sClient.Get(ctx, types.NamespacedName{
 		Name:      OpniServicesName,
@@ -188,7 +189,7 @@ func (s *AIOpsPlugin) GetAISettings(ctx context.Context, _ *emptypb.Empty) (*adm
 			Namespace: opni.Spec.S3.External.Credentials.Namespace,
 		}, secret)
 		if err != nil {
-			s.Logger.Error("failed to get s3 secret", logger.Err(err))
+			lg.Error("failed to get s3 secret", logger.Err(err))
 		}
 		s3Settings = &admin.S3Settings{
 			Endpoint:    opni.Spec.S3.External.Endpoint,
@@ -325,7 +326,8 @@ func (s *AIOpsPlugin) PutAISettings(ctx context.Context, settings *admin.AISetti
 }
 
 func (s *AIOpsPlugin) deleteAIOpsResources(ctx context.Context) error {
-	s.Logger.Info("deleting aiops resources...")
+	lg := logger.PluginLoggerFromContext(s.ctx)
+	lg.Info("deleting aiops resources...")
 	err := s.k8sClient.Delete(ctx, &aiv1beta1.OpniCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      OpniServicesName,
@@ -354,16 +356,17 @@ func (s *AIOpsPlugin) deleteAIOpsResources(ctx context.Context) error {
 }
 
 func (s *AIOpsPlugin) DeleteAISettings(ctx context.Context, options *admin.DeleteOptions) (*emptypb.Empty, error) {
+	lg := logger.PluginLoggerFromContext(s.ctx)
 	if lo.FromPtrOr(options.PurgeModelTrainingData, false) {
 		ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
 		defer ca()
 		if err := s.deleteTrainingJobInfo(ctxca); err != nil {
-			s.Logger.Error(fmt.Sprintf("failed to purge %s", err))
+			lg.Error(fmt.Sprintf("failed to purge %s", err))
 			return nil, err
 		}
 	}
 	if err := s.deleteAIOpsResources(ctx); err != nil {
-		s.Logger.Error(fmt.Sprintf("failed to delete AiOps resources : %s", err))
+		lg.Error(fmt.Sprintf("failed to delete AiOps resources : %s", err))
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil

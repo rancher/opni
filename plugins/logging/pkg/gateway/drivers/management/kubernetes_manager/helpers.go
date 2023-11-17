@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/util"
 	k8sutilerrors "github.com/rancher/opni/pkg/util/errors/k8sutil"
 	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
@@ -380,6 +381,7 @@ func convertProtobufToDashboards(
 }
 
 func (d *KubernetesManagerDriver) storeS3Credentials(ctx context.Context, credentials *loggingadmin.S3Credentials) error {
+	lg := logger.PluginLoggerFromContext(d.Context)
 	if credentials == nil {
 		return nil
 	}
@@ -400,12 +402,12 @@ func (d *KubernetesManagerDriver) storeS3Credentials(ctx context.Context, creden
 			}
 			err = d.K8sClient.Create(ctx, secret)
 			if err != nil {
-				d.Logger.Error(fmt.Sprintf("failed to create s3 credentials secret: %v", err))
+				lg.Error(fmt.Sprintf("failed to create s3 credentials secret: %v", err))
 				return k8sutilerrors.GRPCFromK8s(err)
 			}
 			return nil
 		}
-		d.Logger.Error(fmt.Sprintf("failed to get existing s3 credentials: %v", err))
+		lg.Error(fmt.Sprintf("failed to get existing s3 credentials: %v", err))
 		return k8sutilerrors.GRPCFromK8s(err)
 	}
 
@@ -422,13 +424,14 @@ func (d *KubernetesManagerDriver) storeS3Credentials(ctx context.Context, creden
 		return d.K8sClient.Update(ctx, secret)
 	})
 	if err != nil {
-		d.Logger.Error(fmt.Sprintf("failed to update s3 credentials: %v", err))
+		lg.Error(fmt.Sprintf("failed to update s3 credentials: %v", err))
 		return k8sutilerrors.GRPCFromK8s(err)
 	}
 	return nil
 }
 
 func (d *KubernetesManagerDriver) getS3Credentials(ctx context.Context) (*loggingadmin.S3Credentials, error) {
+	lg := logger.PluginLoggerFromContext(d.Context)
 	secret := &corev1.Secret{}
 	err := d.K8sClient.Get(ctx, types.NamespacedName{
 		Name:      s3CredentialsSecret,
@@ -438,7 +441,7 @@ func (d *KubernetesManagerDriver) getS3Credentials(ctx context.Context) (*loggin
 		if k8serrors.IsNotFound(err) {
 			return nil, nil
 		}
-		d.Logger.Error(fmt.Sprintf("failed to get s3 credentials: %v", err))
+		lg.Error(fmt.Sprintf("failed to get s3 credentials: %v", err))
 		return nil, k8sutilerrors.GRPCFromK8s(err)
 	}
 	return &loggingadmin.S3Credentials{
@@ -486,6 +489,7 @@ func (d *KubernetesManagerDriver) createOrUpdateRecurringSnapshot(
 	defaultIndices []string,
 	owner metav1.Object,
 ) error {
+	lg := logger.PluginLoggerFromContext(d.Context)
 	k8sSnapshot := &loggingv1beta1.RecurringSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      snapshot.GetRef().GetName(),
@@ -496,14 +500,14 @@ func (d *KubernetesManagerDriver) createOrUpdateRecurringSnapshot(
 	err := d.K8sClient.Get(ctx, client.ObjectKeyFromObject(k8sSnapshot), k8sSnapshot)
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
-			d.Logger.Error(fmt.Sprintf("failed to check if snapshot exists: %v", err))
+			lg.Error(fmt.Sprintf("failed to check if snapshot exists: %v", err))
 			return k8sutilerrors.GRPCFromK8s(err)
 		}
 		controllerutil.SetOwnerReference(owner, k8sSnapshot, d.K8sClient.Scheme())
 		d.updateRecurringSnapshot(k8sSnapshot, snapshot, defaultIndices)
 		err = d.K8sClient.Create(ctx, k8sSnapshot)
 		if err != nil {
-			d.Logger.Error(fmt.Sprintf("failed to create snapshot: %v", err))
+			lg.Error(fmt.Sprintf("failed to create snapshot: %v", err))
 			return k8sutilerrors.GRPCFromK8s(err)
 		}
 	}
@@ -518,7 +522,7 @@ func (d *KubernetesManagerDriver) createOrUpdateRecurringSnapshot(
 	})
 
 	if err != nil {
-		d.Logger.Error(fmt.Sprintf("failed to update snapshot: %v", err))
+		lg.Error(fmt.Sprintf("failed to update snapshot: %v", err))
 		return k8sutilerrors.GRPCFromK8s(err)
 	}
 	return nil
@@ -553,10 +557,11 @@ func (d *KubernetesManagerDriver) updateRecurringSnapshot(
 }
 
 func (d *KubernetesManagerDriver) listRecurringSnapshots(ctx context.Context) (retSlice []*loggingadmin.SnapshotStatus, retErr error) {
+	lg := logger.PluginLoggerFromContext(d.Context)
 	list := &loggingv1beta1.RecurringSnapshotList{}
 	retErr = d.K8sClient.List(ctx, list, client.InNamespace(d.OpensearchCluster.Namespace))
 	if retErr != nil {
-		d.Logger.Error(fmt.Sprintf("failed to list recurring snapshots: %v", retErr))
+		lg.Error(fmt.Sprintf("failed to list recurring snapshots: %v", retErr))
 		retErr = k8sutilerrors.GRPCFromK8s(retErr)
 		return
 	}

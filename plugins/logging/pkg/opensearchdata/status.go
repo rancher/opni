@@ -10,6 +10,7 @@ import (
 )
 
 func (m *Manager) GetClusterStatus() ClusterStatus {
+	lg := logger.PluginLoggerFromContext(m.ctx)
 	if !m.IsInitialized() {
 		return ClusterStatusNoClient
 	}
@@ -19,13 +20,13 @@ func (m *Manager) GetClusterStatus() ClusterStatus {
 
 	resp, err := m.Client.Cluster.GetClusterHealth(context.TODO())
 	if err != nil {
-		m.logger.With(logger.Err(err)).Error("failed to fetch opensearch cluster status")
+		lg.With(logger.Err(err)).Error("failed to fetch opensearch cluster status")
 		return ClusterStatusError
 	}
 	defer resp.Body.Close()
 
 	if resp.IsError() {
-		m.logger.With("resp", resp.String).Error("failure response from cluster status")
+		lg.With("resp", resp.String).Error("failure response from cluster status")
 		return ClusterStatusError
 	}
 
@@ -39,7 +40,7 @@ func (m *Manager) GetClusterStatus() ClusterStatus {
 	case "red":
 		return ClusterStatusRed
 	default:
-		m.logger.Error(fmt.Sprintf("unknown status: %s", status))
+		lg.Error(fmt.Sprintf("unknown status: %s", status))
 		return ClusterStatusError
 	}
 }

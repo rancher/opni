@@ -1,10 +1,11 @@
 package otel
 
 import (
+	"context"
+
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
-	"log/slog"
 )
 
 type Forwarder struct {
@@ -22,7 +23,7 @@ func NewForwarder(logsForwarder *LogsForwarder, traceForwarder *TraceForwarder) 
 type forwarderOptions struct {
 	collectorAddressOverride string
 	cc                       grpc.ClientConnInterface
-	lg                       *slog.Logger
+	ctx                      context.Context
 	dialOptions              []grpc.DialOption
 
 	// privileged marks if the agent has a stream authorized clusterID available in
@@ -50,9 +51,9 @@ func WithClientConn(cc grpc.ClientConnInterface) ForwarderOption {
 	}
 }
 
-func WithLogger(lg *slog.Logger) ForwarderOption {
+func WithContext(ctx context.Context) ForwarderOption {
 	return func(o *forwarderOptions) {
-		o.lg = lg
+		o.ctx = ctx
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"sync"
 
@@ -61,9 +60,9 @@ type reconcilerState struct {
 }
 
 type KubernetesManagerDriverOptions struct {
-	Namespace  string       `option:"namespace"`
-	RestConfig *rest.Config `option:"restConfig"`
-	Logger     *slog.Logger `option:"logger"`
+	Namespace  string          `option:"namespace"`
+	RestConfig *rest.Config    `option:"restConfig"`
+	Context    context.Context `option:"context"`
 }
 
 func NewKubernetesManagerDriver(options KubernetesManagerDriverOptions) (*KubernetesManagerDriver, error) {
@@ -105,6 +104,7 @@ func NewKubernetesManagerDriver(options KubernetesManagerDriverOptions) (*Kubern
 var _ drivers.LoggingNodeDriver = (*KubernetesManagerDriver)(nil)
 
 func (m *KubernetesManagerDriver) ConfigureNode(config *node.LoggingCapabilityConfig) {
+	lg := logger.PluginLoggerFromContext(m.Context)
 	m.state.Lock()
 	if m.state.running {
 		m.state.backoffCancel()
@@ -122,7 +122,7 @@ BACKOFF:
 	for backoff.Continue(b) {
 		logCollectorConf := m.buildLoggingCollectorConfig()
 		if err := m.reconcileObject(logCollectorConf, config.Enabled); err != nil {
-			m.Logger.With(
+			lg.With(
 				"object", client.ObjectKeyFromObject(logCollectorConf).String(),
 				logger.Err(err),
 			).Error("error reconciling object")
@@ -130,7 +130,7 @@ BACKOFF:
 		}
 
 		if err := m.reconcileCollector(config.Enabled); err != nil {
-			m.Logger.With(
+			lg.With(
 				"object", "opni collector",
 				logger.Err(err),
 			).Error("error reconciling object")
@@ -141,9 +141,9 @@ BACKOFF:
 	}
 
 	if !success {
-		m.Logger.Error("timed out reconciling objects")
+		lg.Error("timed out reconciling objects")
 	} else {
-		m.Logger.Info("objects reconciled successfully")
+		lg.Info("objects reconciled successfully")
 	}
 }
 
@@ -166,7 +166,7 @@ func (m *KubernetesManagerDriver) buildLoggingCollectorConfig() *opniloggingv1be
 func (m *KubernetesManagerDriver) reconcileObject(desired client.Object, shouldExist bool) error {
 	// get the object
 	key := client.ObjectKeyFromObject(desired)
-	lg := m.Logger.With("object", key)
+	lg := logger.PluginLoggerFromContext(m.Context).With("object", key)
 	lg.Info("reconciling object")
 
 	// get the agent statefulset
@@ -282,22 +282,24 @@ func (m *KubernetesManagerDriver) getAgentService() (*corev1.Service, error) {
 }
 
 func (m *KubernetesManagerDriver) patchObject(current client.Object, desired client.Object) error {
+	lg := logger.PluginLoggerFromContext(m.Context)
+
 	// update the object
 	patchResult, err := patch.DefaultPatchMaker.Calculate(current, desired, patch.IgnoreStatusFields())
 	if err != nil {
-		m.Logger.With(
+		lg.With(
 			logger.Err(err),
 		).Warn("could not match objects")
 		return err
 	}
 	if patchResult.IsEmpty() {
-		m.Logger.Info("resource is in sync")
+		lg.Info("resource is in sync")
 		return nil
 	}
-	m.Logger.Info("resource diff")
+	lg.Info("resource diff")
 
 	if err := patch.DefaultAnnotator.SetLastAppliedAnnotation(desired); err != nil {
-		m.Logger.With(
+		lg.With(
 			logger.Err(err),
 		).Error("failed to set last applied annotation")
 	}
@@ -312,7 +314,7 @@ func (m *KubernetesManagerDriver) patchObject(current client.Object, desired cli
 		return err
 	}
 
-	m.Logger.Info("updating resource")
+	lg.Info("updating resource")
 
 	return m.k8sClient.Update(context.TODO(), desired)
 }
@@ -340,10 +342,12 @@ func (m *KubernetesManagerDriver) buildEmptyCollector() *opnicorev1beta1.Collect
 }
 
 func init() {
-	drivers.NodeDrivers.Register("kubernetes-manager", func(_ context.Context, opts ...driverutil.Option) (drivers.LoggingNodeDriver, error) {
+	drivers.NodeDrivers.Register("kubernetes-manager", func(ctx context.Context, opts ...driverutil.Option) (drivers.LoggingNodeDriver, error) {
+		lg := logger.NewPluginLogger(ctx).WithGroup("logging").WithGroup("kubernetes-manager")
+
 		options := KubernetesManagerDriverOptions{
 			Namespace: os.Getenv("POD_NAMESPACE"),
-			Logger:    logger.NewPluginLogger().WithGroup("logging").WithGroup("kubernetes-manager"),
+			Context:   logger.WithPluginLogger(ctx, lg),
 		}
 		driverutil.ApplyOptions(&options, opts...)
 		return NewKubernetesManagerDriver(options)

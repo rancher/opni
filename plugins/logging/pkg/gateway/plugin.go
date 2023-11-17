@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 
 	"github.com/dbason/featureflags"
@@ -55,7 +54,6 @@ type Plugin struct {
 	opensearch.UnsafeOpensearchServer
 	system.UnimplementedSystemPluginClient
 	ctx                 context.Context
-	logger              *slog.Logger
 	storageBackend      future.Future[storage.Backend]
 	kv                  future.Future[system.KeyValueStoreClient]
 	mgmtApi             future.Future[managementv1.ManagementClient]
@@ -127,27 +125,31 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		}
 	}
 
-	lg := logger.NewPluginLogger().WithGroup("logging")
+	lg := logger.NewPluginLogger(ctx).WithGroup("logging")
+	ctx = logger.WithPluginLogger(ctx, lg)
+	logForwarderLg := lg.WithGroup("otel-logs-forwarder")
+	traceForwarderLg := lg.WithGroup("otel-trace-forwarder")
+	backendLg := lg.WithGroup("logging-backend")
+	opensearchMgrLg := lg.WithGroup("opensearch-manager")
 
 	kv := future.New[system.KeyValueStoreClient]()
 
 	p := &Plugin{
 		PluginOptions:       options,
 		ctx:                 ctx,
-		logger:              lg,
 		storageBackend:      future.New[storage.Backend](),
 		mgmtApi:             future.New[managementv1.ManagementClient](),
 		uninstallController: future.New[*task.Controller](),
 		kv:                  kv,
 		alertingServer:      alerting.NewAlertingManagementServer(),
 		opensearchManager: opensearchdata.NewManager(
-			lg.WithGroup("opensearch-manager"),
+			logger.WithPluginLogger(ctx, opensearchMgrLg),
 			kv,
 		),
 		delegate: future.New[streamext.StreamDelegate[agent.ClientSet]](),
 		otelForwarder: otel.NewForwarder(
 			otel.NewLogsForwarder(
-				otel.WithLogger(lg.WithGroup("otel-logs-forwarder")),
+				logger.WithPluginLogger(ctx, logForwarderLg),
 				otel.WithAddress(fmt.Sprintf(
 					"%s:%d",
 					preprocessor.PreprocessorServiceName(opniopensearch.OpniPreprocessingInstanceName),
@@ -157,7 +159,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 				otel.WithPrivileged(true),
 			),
 			otel.NewTraceForwarder(
-				otel.WithLogger(lg.WithGroup("otel-trace-forwarder")),
+				logger.WithPluginLogger(ctx, traceForwarderLg),
 				otel.WithAddress(fmt.Sprintf(
 					"%s:%d",
 					preprocessor.PreprocessorServiceName(opniopensearch.OpniPreprocessingInstanceName),
@@ -176,7 +178,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 			delegate streamext.StreamDelegate[agent.ClientSet],
 		) {
 			p.logging.Initialize(backend.LoggingBackendConfig{
-				Logger:              p.logger.WithGroup("logging-backend"),
+				Context:             logger.WithPluginLogger(p.ctx, backendLg), // context nil, causes panic
 				StorageBackend:      storageBackend,
 				UninstallController: uninstallController,
 				MgmtClient:          mgmtClient,
@@ -200,12 +202,13 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeGateway))
 
 	p := NewPlugin(ctx)
-	p.logger.Info("logging plugin enabled")
+	lg := logger.PluginLoggerFromContext(p.ctx)
+	lg.Info("logging plugin enabled")
 
 	restconfig, err := rest.InClusterConfig()
 	if err != nil {
 		if !errors.Is(err, rest.ErrNotInCluster) {
-			p.logger.Error(fmt.Sprintf("failed to create config: %s", err))
+			lg.Error(fmt.Sprintf("failed to create config: %s", err))
 			os.Exit(1)
 		}
 	}
@@ -226,12 +229,12 @@ func Scheme(ctx context.Context) meta.Scheme {
 	var ok bool
 	backendDriverBuilder, ok := backenddriver.Drivers.Get(driverName)
 	if !ok {
-		p.logger.Error(fmt.Sprintf("could not find backend driver %q", driverName))
+		lg.Error(fmt.Sprintf("could not find backend driver %q", driverName))
 		os.Exit(1)
 	}
 	managementDriverBuilder, ok := managementdriver.Drivers.Get(driverName)
 	if !ok {
-		p.logger.Error(fmt.Sprintf("could not find management driver %q", driverName))
+		lg.Error(fmt.Sprintf("could not find management driver %q", driverName))
 		os.Exit(1)
 	}
 
@@ -239,17 +242,17 @@ func Scheme(ctx context.Context) meta.Scheme {
 		driverutil.NewOption("restConfig", p.restconfig),
 		driverutil.NewOption("namespace", p.storageNamespace),
 		driverutil.NewOption("opensearchCluster", p.opensearchCluster),
-		driverutil.NewOption("logger", p.logger),
+		driverutil.NewOption("logger", lg),
 	}
 	p.backendDriver, err = backendDriverBuilder(ctx, driverOptions...)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("failed to create backend driver: %v", err))
+		lg.Error(fmt.Sprintf("failed to create backend driver: %v", err))
 		os.Exit(1)
 	}
 
 	p.managementDriver, err = managementDriverBuilder(ctx, driverOptions...)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("failed to create management driver: %v", err))
+		lg.Error(fmt.Sprintf("failed to create management driver: %v", err))
 		os.Exit(1)
 	}
 
@@ -260,14 +263,14 @@ func Scheme(ctx context.Context) meta.Scheme {
 		go p.alertingServer.SetClient(loggingManager.managementDriver.NewOpensearchClientForCluster)
 		err = loggingManager.createInitialAdmin()
 		if err != nil {
-			p.logger.Warn(fmt.Sprintf("failed to create initial admin: %v", err))
+			lg.Warn(fmt.Sprintf("failed to create initial admin: %v", err))
 		}
 		p.otelForwarder.BackgroundInitClient()
 	}
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.logging))
-	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(p))
+	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(ctx, p))
 	scheme.Add(
 		managementext.ManagementAPIExtensionPluginID,
 		managementext.NewPlugin(
@@ -282,10 +285,11 @@ func Scheme(ctx context.Context) meta.Scheme {
 }
 
 func (p *Plugin) NewLoggingManagerForPlugin() *LoggingManagerV2 {
+	lg := logger.PluginLoggerFromContext(p.ctx).WithGroup("opensearch-manager")
 	return &LoggingManagerV2{
+		ctx:               logger.WithPluginLogger(p.ctx, lg),
 		managementDriver:  p.managementDriver,
 		backendDriver:     p.backendDriver,
-		logger:            p.logger.WithGroup("opensearch-manager"),
 		alertingServer:    p.alertingServer,
 		opensearchManager: p.opensearchManager,
 		storageNamespace:  p.storageNamespace,

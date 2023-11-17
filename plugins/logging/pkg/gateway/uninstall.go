@@ -21,11 +21,11 @@ import (
 
 type UninstallTaskRunner struct {
 	uninstall.DefaultPendingHandler
+	ctx               context.Context
 	storageNamespace  string
 	opensearchManager *opensearchdata.Manager
 	backendDriver     backenddriver.ClusterDriver
 	storageBackend    future.Future[storage.Backend]
-	logger            *slog.Logger
 }
 
 func (a *UninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveTask) error {

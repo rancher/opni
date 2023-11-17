@@ -14,6 +14,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/health"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/logging/apis/node"
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers"
@@ -21,14 +22,13 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"log/slog"
 )
 
 type LoggingNode struct {
 	capabilityv1.UnsafeNodeServer
 	controlv1.UnsafeHealthServer
 
-	logger *slog.Logger
+	ctx context.Context
 
 	clientMu sync.RWMutex
 	client   node.NodeLoggingCapabilityClient
@@ -40,9 +40,9 @@ type LoggingNode struct {
 	conditions health.ConditionTracker
 }
 
-func NewLoggingNode(ct health.ConditionTracker, lg *slog.Logger) *LoggingNode {
+func NewLoggingNode(ctx context.Context, ct health.ConditionTracker) *LoggingNode {
 	return &LoggingNode{
-		logger:     lg,
+		ctx:        ctx,
 		conditions: ct,
 	}
 }
@@ -70,13 +70,14 @@ func (l *LoggingNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.D
 
 // Implements capabilityv1.NodeServer
 func (l *LoggingNode) SyncNow(_ context.Context, req *capabilityv1.Filter) (*emptypb.Empty, error) {
+	lg := logger.PluginLoggerFromContext(l.ctx)
 	if len(req.CapabilityNames) > 0 {
 		if !slices.Contains(req.CapabilityNames, wellknown.CapabilityLogs) {
-			l.logger.Debug("ignoring sync request due to capability filter")
+			lg.Debug("ignoring sync request due to capability filter")
 			return &emptypb.Empty{}, nil
 		}
 	}
-	l.logger.Debug("received sync request")
+	lg.Debug("received sync request")
 
 	l.clientMu.RLock()
 	defer l.clientMu.RUnlock()
@@ -114,7 +115,9 @@ func (l *LoggingNode) GetHealth(_ context.Context, _ *emptypb.Empty) (*corev1.He
 }
 
 func (l *LoggingNode) doSync(ctx context.Context) {
-	l.logger.Debug("syncing logging node")
+	lg := logger.PluginLoggerFromContext(l.ctx)
+
+	lg.Debug("syncing logging node")
 	l.clientMu.RLock()
 	defer l.clientMu.RUnlock()
 
@@ -137,9 +140,9 @@ func (l *LoggingNode) doSync(ctx context.Context) {
 
 	switch syncResp.ConfigStatus {
 	case node.ConfigStatus_UpToDate:
-		l.logger.Info("logging node config is up to date")
+		lg.Info("logging node config is up to date")
 	case node.ConfigStatus_NeedsUpdate:
-		l.logger.Info("updating logging node config")
+		lg.Info("updating logging node config")
 		l.updateConfig(syncResp.GetUpdatedConfig())
 	}
 
@@ -147,6 +150,8 @@ func (l *LoggingNode) doSync(ctx context.Context) {
 }
 
 func (l *LoggingNode) updateConfig(config *node.LoggingCapabilityConfig) {
+	lg := logger.PluginLoggerFromContext(l.ctx)
+
 	l.configMu.Lock()
 	defer l.configMu.Unlock()
 
@@ -163,7 +168,7 @@ func (l *LoggingNode) updateConfig(config *node.LoggingCapabilityConfig) {
 		select {
 		case ch <- clone:
 		default:
-			l.logger.Warn("slow config update listener detected")
+			lg.Warn("slow config update listener detected")
 			ch <- clone
 		}
 	}

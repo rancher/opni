@@ -8,7 +8,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/util/future"
 	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
-	"log/slog"
 )
 
 const (
@@ -44,16 +43,16 @@ type Manager struct {
 	*loggingutil.AsyncOpensearchClient
 
 	systemKV future.Future[system.KeyValueStoreClient]
-	logger   *slog.Logger
+	ctx      context.Context
 
 	adminInitStateRW sync.RWMutex
 }
 
-func NewManager(logger *slog.Logger, kv future.Future[system.KeyValueStoreClient]) *Manager {
+func NewManager(ctx context.Context, kv future.Future[system.KeyValueStoreClient]) *Manager {
 	return &Manager{
 		AsyncOpensearchClient: loggingutil.NewAsyncOpensearchClient(),
 		systemKV:              kv,
-		logger:                logger,
+		ctx:                   ctx,
 	}
 }
 

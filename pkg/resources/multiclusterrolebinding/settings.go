@@ -17,8 +17,8 @@ const (
 	LogIndexTemplateName = "logs_rollover_mapping"
 
 	TracePolicyName       = "tracing-policy"
-	SpanIndexPrefix       = "ss4o_traces-kubernetes-opni-v0.5.4"
-	SpanIndexAlias        = "ss4o_traces-kubernetes-opni"
+	SpanIndexPrefix       = "otel-v1-apm-span"
+	SpanIndexAlias        = "otel-v1-apm-span"
 	SpanIndexTemplateName = "traces_rollover_mapping"
 
 	serviceMapIndexName         = "otel-v1-apm-service-map"
@@ -52,6 +52,7 @@ var (
 				IndexPatterns: []string{
 					"logs*",
 					"ss4o_traces-kubernetes-opni*",
+					"otel-v1-apm-span*",
 					serviceMapIndexName,
 				},
 				AllowedActions: []string{
@@ -119,6 +120,23 @@ var (
 					"name": {
 						IgnoreAbove: 1024,
 						Type:        "keyword",
+					},
+					"traceGroup": {
+						IgnoreAbove: 1024,
+						Type:        "keyword",
+					},
+					"traceGroupFields": {
+						Properties: map[string]opensearchtypes.PropertySettings{
+							"endTime": {
+								Type: "date_nanos",
+							},
+							"durationInNanos": {
+								Type: "long",
+							},
+							"statusCode": {
+								Type: "integer",
+							},
+						},
 					},
 					"kind": {
 						IgnoreAbove: 128,

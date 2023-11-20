@@ -21,8 +21,8 @@ import (
 
 const (
 	configKey             = "config.yaml"
-	preprocessorVersion   = "v0.1.5-rc1-0.85.0"
-	preprocessorImageRepo = "ghcr.io/rancher-sandbox"
+	preprocessorVersion   = "trace-index"
+	preprocessorImageRepo = "docker.io/jaehnri"
 	preprocessorImage     = "opni-otel-collector"
 	otlpGRPCPort          = 4317
 )
@@ -91,6 +91,7 @@ exporters:
         cert_file: /etc/otel/certs/tls.crt
         key_file: /etc/otel/certs/tls.key
     logs_index: {{ .WriteIndex }}
+	trace_index: otel-v1-apm-span
     dataset: kubernetes
     namespace: opni
     mapping:

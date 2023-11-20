@@ -18,6 +18,14 @@ We use `mage` as a build tool. for more information and download instructions vi
 
 For CI, we use a tool called Dagger, which is a programmable CI system that lets you develop your pipelines as code. Dagger is used for all CI tasks, including building/deploying container images, helm charts, and more. For more information and download instructions visit https://docs.dagger.io.
 
+### Install protols (vscode)
+
+It is highly recommended, though not required, to install [protols](https://github.com/kralicky/protols) and the associated vscode extension. Protols is a language server and toolchain for protobuf files. It is used in Opni to build and generate code, and makes working with protobuf APIs significantly easier.
+
+To install it, follow the instructions in the protols README. You should then be able to open any protobuf file in the Opni codebase and interact with the code as you would with any other lsp-enabled language.
+
+See also: https://github.com/rancher/opni/wiki/Protols-Tips
+
 ## 2. Building Opni Locally
 
 ### Using Mage

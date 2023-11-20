@@ -91,7 +91,7 @@ exporters:
         cert_file: /etc/otel/certs/tls.crt
         key_file: /etc/otel/certs/tls.key
     logs_index: {{ .WriteIndex }}
-	trace_index: otel-v1-apm-span
+    trace_index: otel-v1-apm-span
     dataset: kubernetes
     namespace: opni
     mapping:

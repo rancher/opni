@@ -1448,6 +1448,86 @@ func (e *Environment) StartNodeExporter() {
 	})
 }
 
+func (e *Environment) StartEmbeddedOTELCollector(parentCtx context.Context, config []byte, configPath string) {
+	otelCollectorBin := path.Join(e.TestBin, "otelcol-custom")
+	dir := e.GenerateNewTempDirectory("otel-config")
+	err := os.MkdirAll(path.Dir(configPath), 0755)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(configPath, config, 0644)
+	if err != nil {
+		panic(err)
+	}
+	defaultArgs := []string{
+		fmt.Sprintf("--config=%s", configPath),
+	}
+	cmd := exec.CommandContext(parentCtx, otelCollectorBin, defaultArgs...)
+	cmd.Cancel = func() error {
+		return cmd.Process.Signal(syscall.SIGINT)
+	}
+	session, err := testutil.StartCmd(cmd)
+	if err != nil {
+		if !errors.Is(parentCtx.Err(), context.Canceled) {
+			panic(err)
+		} else {
+			return
+		}
+	}
+	go func() {
+		<-parentCtx.Done()
+		os.RemoveAll(dir)
+		session.Wait()
+	}()
+}
+
+type SinkMutator struct {
+	m  *sync.Mutex
+	fn func(input bytes.Buffer)
+}
+
+func NewSinkMutator(testFn func(bytes.Buffer)) *SinkMutator {
+	return &SinkMutator{
+		m:  &sync.Mutex{},
+		fn: testFn,
+	}
+}
+
+func (sm *SinkMutator) SetFn(newFn func(bytes.Buffer)) {
+	sm.m.Lock()
+	defer sm.m.Unlock()
+	sm.fn = newFn
+}
+
+func StartSinkHTTPServer(ctx context.Context, path string, mut *SinkMutator) (address string) {
+	mux := http.NewServeMux()
+	mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+
+		var buf bytes.Buffer
+		if _, err := buf.ReadFrom(r.Body); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		mut.m.Lock()
+		mut.fn(buf)
+		defer mut.m.Unlock()
+	})
+	addr := fmt.Sprintf(":%d", freeport.GetFreePort())
+	server := &http.Server{Addr: addr, Handler: mux}
+	go func() {
+		go func() {
+			err := server.ListenAndServe()
+			if !errors.Is(err, http.ErrServerClosed) {
+				panic(err)
+			}
+		}()
+		defer server.Shutdown(context.Background())
+		<-ctx.Done()
+	}()
+	return "http://localhost" + addr
+}
+
 func (e *Environment) SimulateKubeObject(kPort int) {
 	// sample a random phase
 	namespaces := []string{"kube-system", "default", "opni"}

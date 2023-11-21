@@ -47,7 +47,7 @@ func (r *Reconciler) buildOpensearchCluster(
 	// Set default image version
 	version := r.instance.Spec.Version
 	if version == "unversioned" {
-		version = "0.12.0"
+		version = "0.12.1"
 	}
 
 	image := calculateImage(r.instance.Spec.ImageRepo, version, r.instance.Spec.OpensearchVersion)

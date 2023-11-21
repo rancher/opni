@@ -21,7 +21,7 @@ import (
 
 const (
 	configKey             = "config.yaml"
-	preprocessorVersion   = "v0.1.4-rc1-0.85.0"
+	preprocessorVersion   = "v0.1.5-rc1-0.85.0"
 	preprocessorImageRepo = "ghcr.io/rancher-sandbox"
 	preprocessorImage     = "opni-otel-collector"
 	otlpGRPCPort          = 4317
@@ -81,23 +81,32 @@ processors:
       statements:
       - set(attributes["log_type"], "controlplane") where attributes["k8s.pod.labels.tier"] == "control-plane"
       - set(attributes["kubernetes_component"], attributes["k8s.pod.labels.component"]) where attributes["k8s.pod.labels.tier"] == "control-plane"
+
 exporters:
   opensearch:
-    endpoints: [ "{{ .Endpoint }}" ]
-    index: {{ .WriteIndex }}
+    http:
+      endpoint: {{ .Endpoint }}
+      tls:
+        ca_file: /etc/otel/chain.crt
+        cert_file: /etc/otel/certs/tls.crt
+        key_file: /etc/otel/certs/tls.key
+    logs_index: {{ .WriteIndex }}
+    dataset: kubernetes
+    namespace: opni
     mapping:
       mode: flatten_attributes
       timestamp_field: time
       unix_timestamp: true
-    tls:
-      ca_file: /etc/otel/chain.crt
-      cert_file: /etc/otel/certs/tls.crt
-      key_file: /etc/otel/certs/tls.key
+      dedup: true
+      dedot: false
 service:
   pipelines:
     logs:
       receivers: ["otlp"]
       processors: ["resource", "attributes", "transform"]
+      exporters: ["opensearch"]
+    traces:
+      receivers: ["otlp"]
       exporters: ["opensearch"]
 `))
 )

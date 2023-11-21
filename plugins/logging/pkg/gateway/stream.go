@@ -6,13 +6,15 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/logging/apis/node"
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
+	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 	"google.golang.org/grpc"
 )
 
 func (p *Plugin) StreamServers() []util.ServicePackInterface {
 	return []util.ServicePackInterface{
 		util.PackService[node.NodeLoggingCapabilityServer](&node.NodeLoggingCapability_ServiceDesc, &p.logging),
-		util.PackService[collogspb.LogsServiceServer](&collogspb.LogsService_ServiceDesc, p.otelForwarder),
+		util.PackService[collogspb.LogsServiceServer](&collogspb.LogsService_ServiceDesc, p.otelForwarder.LogsForwarder),
+		util.PackService[coltracepb.TraceServiceServer](&coltracepb.TraceService_ServiceDesc, p.otelForwarder.TraceForwarder),
 	}
 }
 

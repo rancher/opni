@@ -358,6 +358,97 @@ var _ = Describe("Core Collector Controller", Ordered, Label("controller", "slow
 			))
 		})
 	})
+
+	When("creating a collector resource for traces", func() {
+		var (
+			ns                string
+			traceConfig       *opniloggingv1beta1.CollectorConfig
+			traceCollectorObj *opnicorev1beta1.Collector
+		)
+		It("should succeed in creating the objects", func() {
+			ns = makeTestNamespace()
+			traceConfig = &opniloggingv1beta1.CollectorConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-trace-config",
+				},
+				Spec: opniloggingv1beta1.CollectorConfigSpec{
+					Provider: opniloggingv1beta1.LogProviderGeneric,
+				},
+			}
+			traceCollectorObj = &opnicorev1beta1.Collector{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-trace",
+				},
+				Spec: opnicorev1beta1.CollectorSpec{
+					SystemNamespace: ns,
+					AgentEndpoint:   "http://test-endpoint",
+					TracesConfig: &corev1.LocalObjectReference{
+						Name: traceConfig.Name,
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), traceConfig)).To(Succeed())
+			Expect(k8sClient.Create(context.Background(), traceCollectorObj)).To(Succeed())
+		})
+
+		It("should create aggregator with trace capabilities", func() {
+			By("checking agent configmap")
+			Eventually(Object(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-agent-config", traceCollectorObj.Name),
+					Namespace: ns,
+				},
+			})).Should(ExistAnd(
+				HaveData("receivers.yaml", nil, "config.yaml", nil),
+				HaveOwner(traceCollectorObj),
+			))
+			By("checking aggregator configmap")
+			Eventually(Object(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-aggregator-config", traceCollectorObj.Name),
+					Namespace: ns,
+				},
+			})).Should(ExistAnd(
+				HaveData("aggregator.yaml", nil),
+				HaveOwner(traceCollectorObj),
+			))
+			By("checking deployment")
+			Eventually(Object(&appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-collector-aggregator", traceCollectorObj.Name),
+					Namespace: ns,
+				},
+			})).Should(ExistAnd(
+				HaveMatchingContainer(And(
+					HaveName("otel-collector"),
+					HaveVolumeMounts("collector-config"),
+				)),
+				HaveMatchingVolume(And(
+					HaveVolumeSource("ConfigMap"),
+					HaveName("collector-config"),
+				)),
+				HaveOwner(traceCollectorObj),
+			))
+		})
+
+		It("should not create collector agents", func() {
+			By("checking daemonset")
+			Eventually(Object(&appsv1.DaemonSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-collector-agent", traceCollectorObj.Name),
+					Namespace: ns,
+				},
+			})).Should(Not(ExistAnd(
+				HaveMatchingContainer(And(
+					HaveName("otel-collector"),
+				)),
+				HaveMatchingVolume(And(
+					HaveVolumeSource("ConfigMap"),
+					HaveName("collector-config"),
+				)),
+			)))
+		})
+	})
 })
 
 func promDiscoveryObejcts(ns string) []client.Object {

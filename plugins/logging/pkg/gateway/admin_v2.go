@@ -26,7 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const defaultOpniVersion = "0.12.0"
+const defaultOpniVersion = "0.12.1"
 
 type ClusterStatus int
 
@@ -57,6 +57,7 @@ func ClusterStatusDescription(s ClusterStatus, extraInfo ...string) string {
 
 var defaultIndices = []string{
 	"logs*",
+	"ss4o_traces-kubernetes-opni*",
 	"opni-cluster-metadata",
 }
 
@@ -67,7 +68,7 @@ type LoggingManagerV2 struct {
 	logger            *slog.Logger
 	alertingServer    *alerting.AlertingManagementServer
 	opensearchManager *opensearchdata.Manager
-	otelForwarder     *otel.OTELForwarder
+	otelForwarder     *otel.Forwarder
 	storageNamespace  string
 	natsRef           *corev1.LocalObjectReference
 	k8sObjectsName    string

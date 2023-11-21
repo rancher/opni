@@ -4,10 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"sync"
-
-	"log/slog"
 
 	"github.com/cisco-open/k8s-objectmatcher/patch"
 	"github.com/lestrrat-go/backoff/v2"
@@ -43,6 +42,7 @@ const (
 	clusterOutputName  = "opni-output"
 	clusterFlowName    = "opni-flow"
 	loggingConfigName  = "opni-logging"
+	traceConfigName    = "opni-tracing"
 )
 
 type KubernetesManagerDriver struct {
@@ -120,14 +120,15 @@ func (m *KubernetesManagerDriver) ConfigureNode(config *node.LoggingCapabilityCo
 	var success bool
 BACKOFF:
 	for backoff.Continue(b) {
-		collectorConf := m.buildLoggingCollectorConfig()
-		if err := m.reconcileObject(collectorConf, config.Enabled); err != nil {
+		logCollectorConf := m.buildLoggingCollectorConfig()
+		if err := m.reconcileObject(logCollectorConf, config.Enabled); err != nil {
 			m.Logger.With(
-				"object", client.ObjectKeyFromObject(collectorConf).String(),
+				"object", client.ObjectKeyFromObject(logCollectorConf).String(),
 				logger.Err(err),
 			).Error("error reconciling object")
 			continue BACKOFF
 		}
+
 		if err := m.reconcileCollector(config.Enabled); err != nil {
 			m.Logger.With(
 				"object", "opni collector",
@@ -217,6 +218,10 @@ func (m *KubernetesManagerDriver) reconcileCollector(shouldExist bool) error {
 		coll.Spec.LoggingConfig = &corev1.LocalObjectReference{
 			Name: loggingConfigName,
 		}
+		coll.Spec.TracesConfig = &corev1.LocalObjectReference{
+			Name: traceConfigName,
+		}
+
 		return m.k8sClient.Create(context.TODO(), coll)
 	}
 
@@ -229,8 +234,12 @@ func (m *KubernetesManagerDriver) reconcileCollector(shouldExist bool) error {
 			coll.Spec.LoggingConfig = &corev1.LocalObjectReference{
 				Name: loggingConfigName,
 			}
+			coll.Spec.TracesConfig = &corev1.LocalObjectReference{
+				Name: traceConfigName,
+			}
 		} else {
 			coll.Spec.LoggingConfig = nil
+			coll.Spec.TracesConfig = nil
 		}
 
 		return m.k8sClient.Update(context.TODO(), coll)

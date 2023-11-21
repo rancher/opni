@@ -579,6 +579,15 @@ func (in *InstanceInfo) DeepCopy() *InstanceInfo {
 	return proto.Clone(in).(*InstanceInfo)
 }
 
+func (in *Value) DeepCopyInto(out *Value) {
+	out.Reset()
+	proto.Merge(out, in)
+}
+
+func (in *Value) DeepCopy() *Value {
+	return proto.Clone(in).(*Value)
+}
+
 func (in *Reference) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("Reference", pflag.ExitOnError)
 	fs.SortFlags = true

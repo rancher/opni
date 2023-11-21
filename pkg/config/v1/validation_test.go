@@ -16,7 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var _ = Describe("Gateway Config", Ordered, func() {
+var _ = Describe("Gateway Config", Label("unit"), Ordered, func() {
 	leafCertData := string(testdata.TestData("localhost.crt"))
 	leafKeyData := string(testdata.TestData("localhost.key"))
 	caCertData := string(testdata.TestData("root_ca.crt"))

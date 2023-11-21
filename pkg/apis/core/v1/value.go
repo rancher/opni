@@ -10,9 +10,8 @@ import (
 
 func NewValue(in protoreflect.Value) *Value {
 	v := &Value{}
-	vi := in.Interface()
-	if vi == nil {
-		return &Value{}
+	if !in.IsValid() {
+		return v
 	}
 	switch iv := in.Interface().(type) {
 	case bool:
@@ -52,7 +51,7 @@ func NewValue(in protoreflect.Value) *Value {
 			},
 		}
 	case protoreflect.Map:
-		entries := make([]*Value_MapEntry, 0, iv.Len())
+		var entries []*Value_MapEntry
 		iv.Range(func(k protoreflect.MapKey, v protoreflect.Value) bool {
 			var key *Value_MapKey
 			switch k := k.Interface().(type) {

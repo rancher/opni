@@ -4,6 +4,8 @@ package core;
 
 import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 import "github.com/rancher/opni/pkg/validation/validate.proto";
+import "google/protobuf/any.proto";
+import "google/protobuf/descriptor.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
@@ -376,4 +378,47 @@ message InstanceInfo {
   Health              health            = 6;
   Status              status            = 7;
   map<string, string> annotations       = 8;
+}
+
+// Value represents a protoreflect.Value
+message Value {
+  oneof data {
+    bool                bool_value    = 1;
+    int32               int32_value   = 2;
+    int64               int64_value   = 3;
+    uint32              uint32_value  = 4;
+    uint64              uint64_value  = 5;
+    float               float32_value = 6;
+    double              float64_value = 7;
+    string              string_value  = 8;
+    bytes               bytes_value   = 9;
+    int32               enum          = 10;
+    google.protobuf.Any message       = 11;
+    ListValue           list          = 12;
+    MapValue            map           = 13;
+  }
+
+  message ListValue {
+    repeated Value values = 2;
+  }
+
+  message MapKey {
+    oneof data {
+      bool   bool_value   = 1;
+      int32  int32_value  = 2;
+      int64  int64_value  = 3;
+      uint32 uint32_value = 4;
+      uint64 uint64_value = 5;
+      string string_value = 6;
+    }
+  }
+
+  message MapEntry {
+    MapKey key   = 1;
+    Value  value = 2;
+  }
+
+  message MapValue {
+    repeated MapEntry entries = 2;
+  }
 }

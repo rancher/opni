@@ -6,7 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/cisco-open/operator-tools/pkg/reconciler"
-	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	apicorev1 "github.com/rancher/opni/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util/k8sutil"
@@ -21,14 +21,14 @@ type Reconciler struct {
 	reconciler.ResourceReconciler
 	ctx    context.Context
 	client client.Client
-	gw     *corev1beta1.Gateway
+	gw     *apicorev1.Gateway
 	lg     *slog.Logger
 }
 
 func NewReconciler(
 	ctx context.Context,
 	client client.Client,
-	instance *corev1beta1.Gateway,
+	instance *apicorev1.Gateway,
 ) *Reconciler {
 	return &Reconciler{
 		ResourceReconciler: reconciler.NewReconcilerWith(client,

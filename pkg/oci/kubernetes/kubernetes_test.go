@@ -7,7 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	apicorev1 "github.com/rancher/opni/apis/core/v1"
 	"github.com/rancher/opni/pkg/oci"
 	"github.com/rancher/opni/pkg/oci/kubernetes"
 	"github.com/rancher/opni/pkg/versions"
@@ -21,16 +21,16 @@ const (
 
 var _ = Describe("Kubernetes OCI handler", Ordered, Label("unit", "slow"), func() {
 	var (
-		gateway *corev1beta1.Gateway
+		gateway *apicorev1.Gateway
 		k8sOCI  oci.Fetcher
 	)
 	BeforeAll(func() {
-		gateway = &corev1beta1.Gateway{
+		gateway = &apicorev1.Gateway{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "opni-gateway",
 				Namespace: namespace,
 			},
-			Spec: corev1beta1.GatewaySpec{},
+			Spec: apicorev1.GatewaySpec{},
 		}
 		Expect(k8sClient.Create(context.Background(), gateway)).To(Succeed())
 
@@ -71,7 +71,7 @@ var _ = Describe("Kubernetes OCI handler", Ordered, Label("unit", "slow"), func(
 
 	When("gateway status is set", Ordered, func() {
 		BeforeEach(func() {
-			gateway.Status = corev1beta1.GatewayStatus{
+			gateway.Status = apicorev1.GatewayStatus{
 				Image: fmt.Sprintf("rancher/opni-test@%s", imageDigest),
 			}
 			Expect(k8sClient.Status().Update(context.Background(), gateway)).To(Succeed())

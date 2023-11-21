@@ -51,7 +51,7 @@ import (
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/clients"
-	"github.com/rancher/opni/pkg/config"
+	"github.com/rancher/opni/pkg/config/adapt"
 	"github.com/rancher/opni/pkg/config/meta"
 	configv1 "github.com/rancher/opni/pkg/config/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -59,6 +59,7 @@ import (
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring/ephemeral"
 	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/otel"
 	"github.com/rancher/opni/pkg/pkp"
@@ -74,6 +75,7 @@ import (
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/flagutil"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex/configutil"
 	"github.com/samber/lo"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -88,7 +90,9 @@ import (
 
 	_ "github.com/rancher/opni/pkg/oci/noop"
 	_ "github.com/rancher/opni/pkg/storage/etcd"
+	"github.com/rancher/opni/pkg/storage/inmemory"
 	_ "github.com/rancher/opni/pkg/storage/jetstream"
+	"github.com/rancher/opni/pkg/storage/kvutil"
 	"github.com/rancher/opni/pkg/update/noop"
 )
 
@@ -1803,28 +1807,31 @@ func (e *Environment) startGateway() {
 	e.gatewayConfig = e.NewGatewayConfig()
 	pluginLoader := plugins.NewPluginLoader()
 
-	lifecycler := config.NewLifecycler(meta.ObjectList{e.gatewayConfig, &v1beta1.AuthProvider{
-		TypeMeta: meta.TypeMeta{
-			APIVersion: "v1beta1",
-			Kind:       "AuthProvider",
-		},
-		ObjectMeta: meta.ObjectMeta{
-			Name: "test",
-		},
-		Spec: v1beta1.AuthProviderSpec{
-			Type: "test",
-		},
-	}})
-	g := gateway.NewGateway(e.ctx, e.gatewayConfig, pluginLoader,
+	cfgv1 := adapt.V1GatewayConfigOf(e.gatewayConfig)
+
+	storageBackend, err := machinery.ConfigureStorageBackendV1(e.ctx, cfgv1.GetStorage())
+	if err != nil {
+		panic(err)
+	}
+
+	activeStore := kvutil.WithMessageCodec[*configv1.GatewayConfigSpec](
+		kvutil.WithKey(storageBackend.KeyValueStore("gateway"), "config"))
+
+	defaultStore := inmemory.NewValueStore[*configv1.GatewayConfigSpec](util.ProtoClone)
+
+	mgr := configv1.NewGatewayConfigManager(defaultStore, activeStore, flagutil.LoadDefaults)
+	if err := mgr.Start(e.ctx); err != nil {
+		panic(fmt.Errorf("failed to start config manager: %w", err))
+	}
+
+	g := gateway.NewGateway(e.ctx, mgr, storageBackend, pluginLoader,
 		gateway.WithLogger(lg.WithGroup("gateway")),
-		gateway.WithLifecycler(lifecycler),
 		gateway.WithExtraUpdateHandlers(noop.NewSyncServer()),
 	)
 
-	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g, pluginLoader,
+	m := management.NewServer(e.ctx, g, mgr, pluginLoader,
 		management.WithCapabilitiesDataSource(g.CapabilitiesDataSource()),
 		management.WithHealthStatusDataSource(g),
-		management.WithLifecycler(lifecycler),
 	)
 	g.MustRegisterCollector(m)
 
@@ -1869,7 +1876,7 @@ func (e *Environment) startGateway() {
 	started := false
 	for i := 0; i < 100; i++ {
 		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s/healthz",
-			e.gatewayConfig.Spec.MetricsListenAddress), nil)
+			cfgv1.Health.GetHttpListenAddress()), nil)
 		resp, err := http.DefaultClient.Do(req)
 		if err == nil {
 			resp.Body.Close()
@@ -2185,28 +2192,6 @@ func (e *Environment) GetAgent(id string) RunningAgent {
 	e.runningAgentsMu.Lock()
 	defer e.runningAgentsMu.Unlock()
 	return e.runningAgents[id]
-}
-
-func (e *Environment) GatewayTLSConfig() *tls.Config {
-	pool := x509.NewCertPool()
-	switch {
-	case e.gatewayConfig.Spec.Certs.CACert != nil:
-		data, err := os.ReadFile(*e.gatewayConfig.Spec.Certs.CACert)
-		if err != nil {
-			panic("gateway panic")
-		}
-		if !pool.AppendCertsFromPEM(data) {
-			panic("failed to load gateway CA cert")
-		}
-	case e.gatewayConfig.Spec.Certs.CACertData != nil:
-		if !pool.AppendCertsFromPEM(e.gatewayConfig.Spec.Certs.CACertData) {
-			panic("failed to load gateway CA cert")
-		}
-	}
-	return &tls.Config{
-		MinVersion: tls.VersionTLS12,
-		RootCAs:    pool,
-	}
 }
 
 func (e *Environment) GatewayClientTLSConfig() *tls.Config {

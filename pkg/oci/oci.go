@@ -3,6 +3,7 @@ package oci
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/opencontainers/go-digest"
@@ -128,11 +129,11 @@ var (
 func RegisterFetcherBuilder[T ~string](name T, builder func(...any) (Fetcher, error)) {
 	fetcherCacheMutex.Lock()
 	defer fetcherCacheMutex.Unlock()
-	fetcherBuilderCache[string(name)] = builder
+	fetcherBuilderCache[strings.ToLower(string(name))] = builder
 }
 
 func GetFetcherBuilder[T ~string](name T) func(...any) (Fetcher, error) {
 	fetcherCacheMutex.Lock()
 	defer fetcherCacheMutex.Unlock()
-	return fetcherBuilderCache[string(name)]
+	return fetcherBuilderCache[strings.ToLower(string(name))]
 }

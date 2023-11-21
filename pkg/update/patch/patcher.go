@@ -2,11 +2,18 @@ package patch
 
 import (
 	"bytes"
+	"context"
+	"fmt"
 	"io"
+	"log/slog"
+	"sync"
 
 	"github.com/gabstv/go-bsdiff/pkg/bsdiff"
 	"github.com/gabstv/go-bsdiff/pkg/bspatch"
 	"github.com/klauspost/compress/zstd"
+	"github.com/rancher/opni/pkg/config/reactive"
+	configv1 "github.com/rancher/opni/pkg/config/v1"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 const (
@@ -110,4 +117,61 @@ func (ZstdPatcher) CheckFormat(reader io.ReaderAt) bool {
 		return bytes.Equal(buf, []byte(header))
 	}
 	return false
+}
+
+func NewReactivePatchEngine(ctx context.Context, lg *slog.Logger, config reactive.Value) BinaryPatcher {
+	r := &reactivePatcher{}
+	var waitOnce sync.Once
+	wait := make(chan struct{})
+	config.WatchFunc(ctx, func(v protoreflect.Value) {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		switch v.Enum() {
+		case configv1.PatchEngine_Bsdiff.Number():
+			r.patcher = BsdiffPatcher{}
+			lg.With("engine", "bsdiff").Info("patch engine configured")
+		case configv1.PatchEngine_Zstd.Number():
+			r.patcher = ZstdPatcher{}
+			lg.With("engine", "zstd").Info("patch engine configured")
+		default:
+			lg.With("engine", v.String()).Warn("unknown patch engine")
+		}
+		waitOnce.Do(func() {
+			close(wait)
+		})
+	})
+	<-wait
+	return r
+}
+
+type reactivePatcher struct {
+	mu      sync.Mutex
+	patcher BinaryPatcher
+}
+
+func (r *reactivePatcher) GeneratePatch(old io.Reader, new io.Reader, patchOut io.Writer) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.patcher == nil {
+		return fmt.Errorf("no patch engine configured")
+	}
+	return r.patcher.GeneratePatch(old, new, patchOut)
+}
+
+func (r *reactivePatcher) ApplyPatch(old io.Reader, patch io.Reader, newOut io.Writer) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.patcher == nil {
+		return fmt.Errorf("no patch engine configured")
+	}
+	return r.patcher.ApplyPatch(old, patch, newOut)
+}
+
+func (r *reactivePatcher) CheckFormat(reader io.ReaderAt) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.patcher == nil {
+		return false
+	}
+	return r.patcher.CheckFormat(reader)
 }

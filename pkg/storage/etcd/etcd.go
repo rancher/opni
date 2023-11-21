@@ -73,7 +73,11 @@ func NewEtcdStore(ctx context.Context, conf *configv1.EtcdSpec, opts ...EtcdStor
 		var err error
 		tlsConfig, err = conf.Certs.AsTlsConfig()
 		if err != nil {
-			return nil, fmt.Errorf("failed to load client TLS config: %w", err)
+			if errors.Is(err, configv1.ErrInsecure) {
+				lg.Warn(err.Error())
+			} else {
+				return nil, fmt.Errorf("failed to load client TLS config: %w", err)
+			}
 		}
 	}
 	clientConfig := clientv3.Config{
@@ -135,7 +139,7 @@ func (e *EtcdStore) LockManager(prefix string) storage.LockManager {
 }
 
 func init() {
-	storage.RegisterStoreBuilder(v1beta1.StorageTypeEtcd, func(args ...any) (any, error) {
+	storage.RegisterStoreBuilder(configv1.StorageBackend_Etcd.String(), func(args ...any) (any, error) {
 		ctx := args[0].(context.Context)
 
 		var conf *configv1.EtcdSpec

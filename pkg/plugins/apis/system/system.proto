@@ -9,9 +9,9 @@ import "google/protobuf/timestamp.proto";
 option go_package = "github.com/rancher/opni/pkg/plugins/apis/system";
 
 service System {
+  rpc UseConfigAPI(BrokerID) returns (google.protobuf.Empty);
   rpc UseManagementAPI(BrokerID) returns (google.protobuf.Empty);
   rpc UseKeyValueStore(BrokerID) returns (google.protobuf.Empty);
-  rpc UseAPIExtensions(DialAddress) returns (google.protobuf.Empty);
   rpc UseCachingProvider(google.protobuf.Empty) returns (google.protobuf.Empty);
 }
 

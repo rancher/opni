@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"math"
+	"net"
 	"sync"
 	"time"
 
@@ -15,7 +16,8 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
-	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/config/reactive"
+	configv1 "github.com/rancher/opni/pkg/config/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
@@ -31,7 +33,7 @@ import (
 type DelegateServer struct {
 	DelegateServerOptions
 	uuid             string
-	config           v1beta1.GatewayConfigSpec
+	mgr              *configv1.GatewayConfigManager
 	mu               *sync.RWMutex
 	rcond            *sync.Cond
 	localAgents      map[string]grpc.ClientConnInterface
@@ -59,14 +61,19 @@ func WithConnectionTracker(connectionTracker *ConnectionTracker) DelegateServerO
 	}
 }
 
-func NewDelegateServer(config v1beta1.GatewayConfigSpec, clusterStore storage.ClusterStore, lg *slog.Logger, opts ...DelegateServerOption) *DelegateServer {
+func NewDelegateServer(
+	mgr *configv1.GatewayConfigManager,
+	clusterStore storage.ClusterStore,
+	lg *slog.Logger,
+	opts ...DelegateServerOption,
+) *DelegateServer {
 	options := DelegateServerOptions{}
 	options.apply(opts...)
 	mu := &sync.RWMutex{}
 	return &DelegateServer{
 		DelegateServerOptions: options,
 		uuid:                  uuid.NewString(),
-		config:                config,
+		mgr:                   mgr,
 		mu:                    mu,
 		rcond:                 sync.NewCond(mu.RLocker()),
 		localAgents:           make(map[string]grpc.ClientConnInterface),
@@ -238,7 +245,8 @@ func (d *DelegateServer) NewRelayServer() *RelayServer {
 	}
 	return &RelayServer{
 		delegateSrv:       d,
-		listenAddress:     d.config.Management.RelayListenAddress,
+		mgr:               d.mgr,
+		listenAddress:     reactive.Scalar[string](d.mgr.Reactive(configv1.ProtoPath().Relay().GrpcListenAddress())),
 		connectionTracker: d.ct,
 		logger:            d.logger.WithGroup("relay"),
 	}
@@ -246,17 +254,43 @@ func (d *DelegateServer) NewRelayServer() *RelayServer {
 
 type RelayServer struct {
 	connectionTracker *ConnectionTracker
-	listenAddress     string
+	mgr               *configv1.GatewayConfigManager
+	listenAddress     reactive.Reactive[string]
 	delegateSrv       *DelegateServer
 	logger            *slog.Logger
 }
 
-func (rs *RelayServer) ListenAndServe(ctx context.Context) error {
-	listener, err := util.NewProtocolListener(rs.listenAddress)
-	if err != nil {
-		return err
-	}
+func (rs *RelayServer) ListenAndServe(ctx context.Context) (err error) {
+	var cancel context.CancelFunc
+	var done chan struct{}
+	rs.listenAddress.WatchFunc(ctx, func(listenAddress string) {
+		if cancel != nil {
+			cancel()
+			<-done
+		}
+		ctx, cancel = context.WithCancel(ctx)
+		done = make(chan struct{})
 
+		var listener net.Listener
+		listener, err = util.NewProtocolListener(listenAddress)
+		if err != nil {
+			return
+		}
+		go func() {
+			defer close(done)
+			err := rs.serve(ctx, listener)
+			if err != nil {
+				rs.logger.With(
+					logger.Err(err),
+				).Error("relay server exited with error")
+			}
+		}()
+	})
+	<-ctx.Done()
+	return // last error
+}
+
+func (rs *RelayServer) serve(ctx context.Context, listener net.Listener) error {
 	creds := insecure.NewCredentials() // todo?
 
 	server := grpc.NewServer(

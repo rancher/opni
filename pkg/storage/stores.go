@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -297,9 +298,9 @@ var (
 )
 
 func RegisterStoreBuilder[T ~string](name T, builder func(...any) (any, error)) {
-	storeBuilderCache[string(name)] = builder
+	storeBuilderCache[strings.ToLower(string(name))] = builder
 }
 
 func GetStoreBuilder[T ~string](name T) func(...any) (any, error) {
-	return storeBuilderCache[string(name)]
+	return storeBuilderCache[strings.ToLower(string(name))]
 }

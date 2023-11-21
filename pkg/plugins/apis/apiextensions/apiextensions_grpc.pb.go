@@ -9,6 +9,7 @@ package apiextensions
 import (
 	context "context"
 	totem "github.com/kralicky/totem"
+	v1 "github.com/rancher/opni/pkg/config/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	grpc_health_v1 "google.golang.org/grpc/health/grpc_health_v1"
@@ -257,7 +258,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type HTTPAPIExtensionClient interface {
-	Configure(ctx context.Context, in *CertConfig, opts ...grpc.CallOption) (*HTTPAPIExtensionConfig, error)
+	Configure(ctx context.Context, in *v1.CertsSpec, opts ...grpc.CallOption) (*HTTPAPIExtensionConfig, error)
 }
 
 type hTTPAPIExtensionClient struct {
@@ -268,7 +269,7 @@ func NewHTTPAPIExtensionClient(cc grpc.ClientConnInterface) HTTPAPIExtensionClie
 	return &hTTPAPIExtensionClient{cc}
 }
 
-func (c *hTTPAPIExtensionClient) Configure(ctx context.Context, in *CertConfig, opts ...grpc.CallOption) (*HTTPAPIExtensionConfig, error) {
+func (c *hTTPAPIExtensionClient) Configure(ctx context.Context, in *v1.CertsSpec, opts ...grpc.CallOption) (*HTTPAPIExtensionConfig, error) {
 	out := new(HTTPAPIExtensionConfig)
 	err := c.cc.Invoke(ctx, HTTPAPIExtension_Configure_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -281,14 +282,14 @@ func (c *hTTPAPIExtensionClient) Configure(ctx context.Context, in *CertConfig, 
 // All implementations should embed UnimplementedHTTPAPIExtensionServer
 // for forward compatibility
 type HTTPAPIExtensionServer interface {
-	Configure(context.Context, *CertConfig) (*HTTPAPIExtensionConfig, error)
+	Configure(context.Context, *v1.CertsSpec) (*HTTPAPIExtensionConfig, error)
 }
 
 // UnimplementedHTTPAPIExtensionServer should be embedded to have forward compatible implementations.
 type UnimplementedHTTPAPIExtensionServer struct {
 }
 
-func (UnimplementedHTTPAPIExtensionServer) Configure(context.Context, *CertConfig) (*HTTPAPIExtensionConfig, error) {
+func (UnimplementedHTTPAPIExtensionServer) Configure(context.Context, *v1.CertsSpec) (*HTTPAPIExtensionConfig, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Configure not implemented")
 }
 
@@ -304,7 +305,7 @@ func RegisterHTTPAPIExtensionServer(s grpc.ServiceRegistrar, srv HTTPAPIExtensio
 }
 
 func _HTTPAPIExtension_Configure_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CertConfig)
+	in := new(v1.CertsSpec)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -316,7 +317,7 @@ func _HTTPAPIExtension_Configure_Handler(srv interface{}, ctx context.Context, d
 		FullMethod: HTTPAPIExtension_Configure_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(HTTPAPIExtensionServer).Configure(ctx, req.(*CertConfig))
+		return srv.(HTTPAPIExtensionServer).Configure(ctx, req.(*v1.CertsSpec))
 	}
 	return interceptor(ctx, in, info, handler)
 }

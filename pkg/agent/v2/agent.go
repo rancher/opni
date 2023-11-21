@@ -17,6 +17,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/clients"
+	configv1 "github.com/rancher/opni/pkg/config/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/health/annotations"
@@ -170,7 +171,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	pl.Hook(hooks.OnLoadM(func(p types.HTTPAPIExtensionPlugin, md meta.PluginMeta) {
 		ctx, ca := context.WithTimeout(ctx, 10*time.Second)
 		defer ca()
-		cfg, err := p.Configure(ctx, apiextensions.NewInsecureCertConfig())
+		cfg, err := p.Configure(ctx, &configv1.CertsSpec{})
 		if err != nil {
 			lg.With(
 				"plugin", md.Module,
@@ -181,8 +182,17 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		setupPluginRoutes(lg, routerMutex, router, cfg, md, []string{"/healthz", "/metrics"})
 	}))
 
+	var driver *configv1.PluginUpgradesSpec_Driver
+	switch conf.Spec.PluginUpgrade.Type {
+	case v1beta1.PluginUpgradeBinary:
+		driver = configv1.PluginUpgradesSpec_Binary.Enum()
+	case v1beta1.PluginUpgradeNoop:
+		driver = configv1.PluginUpgradesSpec_Noop.Enum()
+	}
 	pluginUpgrader, err := machinery.ConfigurePluginUpgrader(
-		conf.Spec.PluginUpgrade,
+		&configv1.PluginUpgradesSpec{
+			Driver: driver,
+		},
 		conf.Spec.PluginDir,
 		lg.WithGroup("plugin-upgrader"),
 	)
@@ -190,8 +200,17 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		return nil, fmt.Errorf("failed to configure plugin syncer: %w", err)
 	}
 
+	var agentUpgradeDriver *configv1.AgentUpgradesSpec_Driver
+	switch conf.Spec.Upgrade.Type {
+	case v1beta1.AgentUpgradeKubernetes:
+		agentUpgradeDriver = configv1.AgentUpgradesSpec_Kubernetes.Enum()
+	case v1beta1.AgentUpgradeNoop:
+		agentUpgradeDriver = configv1.AgentUpgradesSpec_Noop.Enum()
+	}
 	upgrader, err := machinery.ConfigureAgentUpgrader(
-		&conf.Spec.Upgrade,
+		&configv1.AgentUpgradesSpec{
+			Driver: agentUpgradeDriver,
+		},
 		lg.WithGroup("agent-upgrader"),
 	)
 	if err != nil {
@@ -443,7 +462,8 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 		return a.runGatewayClient(ctx)
 	})
 
-	return util.WaitAll(ctx, ca, e1, e2)
+	util.WaitAll(ctx, ca, e1, e2)
+	return context.Cause(ctx)
 }
 
 func (a *Agent) ListenAddress() string {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	opnicorev1 "github.com/rancher/opni/apis/core/v1"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
@@ -39,8 +40,8 @@ func (k OpniManagerClusterDriverOptions) newMonitoringCluster() *opnicorev1beta1
 	}
 }
 
-func (k OpniManagerClusterDriverOptions) newGateway() *opnicorev1beta1.Gateway {
-	return &opnicorev1beta1.Gateway{
+func (k OpniManagerClusterDriverOptions) newGateway() *opnicorev1.Gateway {
+	return &opnicorev1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k.GatewayRef.Name,
 			Namespace: k.GatewayRef.Namespace,

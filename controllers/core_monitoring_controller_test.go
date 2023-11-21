@@ -11,11 +11,10 @@ import (
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apicorev1 "github.com/rancher/opni/apis/core/v1"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/internal/cortex/config/storage"
 	"github.com/rancher/opni/internal/cortex/config/validation"
-	cfgv1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/noauth"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util/flagutil"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
@@ -55,17 +54,12 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 				},
 			},
 		}
-		gw := &corev1beta1.Gateway{
+		gw := &apicorev1.Gateway{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test",
 				Namespace: ns,
 			},
-			Spec: corev1beta1.GatewaySpec{
-				Auth: corev1beta1.AuthSpec{
-					Provider: cfgv1beta1.AuthProviderNoAuth,
-					Noauth:   &noauth.ServerConfig{},
-				},
-				StorageType: cfgv1beta1.StorageTypeEtcd,
+			Spec: apicorev1.GatewaySpec{
 				NatsRef: corev1.LocalObjectReference{
 					Name: "test",
 				},

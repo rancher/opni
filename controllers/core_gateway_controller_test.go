@@ -7,10 +7,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	apicorev1 "github.com/rancher/opni/apis/core/v1"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
-	"github.com/rancher/opni/pkg/auth/openid"
-	cfgv1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/noauth"
+	configv1 "github.com/rancher/opni/pkg/config/v1"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
@@ -28,19 +27,19 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 		{
 			name: "etcd storage backend",
 			objects: []client.Object{
-				&corev1beta1.Gateway{
+				&apicorev1.Gateway{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test",
 					},
-					Spec: corev1beta1.GatewaySpec{
+					Spec: apicorev1.GatewaySpec{
 						Image: &opnimeta.ImageSpec{
 							Image: lo.ToPtr("rancher/opni:latest"),
 						},
-						Auth: corev1beta1.AuthSpec{
-							Provider: cfgv1beta1.AuthProviderNoAuth,
-							Noauth:   &noauth.ServerConfig{},
+						Config: &configv1.GatewayConfigSpec{
+							Storage: &configv1.StorageSpec{
+								Backend: configv1.StorageBackend_Etcd.Enum(),
+							},
 						},
-						StorageType: cfgv1beta1.StorageTypeEtcd,
 					},
 				},
 			},
@@ -59,21 +58,22 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 						},
 					},
 				},
-				&corev1beta1.Gateway{
+				&apicorev1.Gateway{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test",
 					},
-					Spec: corev1beta1.GatewaySpec{
+					Spec: apicorev1.GatewaySpec{
 						Image: &opnimeta.ImageSpec{
 							Image: lo.ToPtr("rancher/opni:latest"),
 						},
-						Auth: corev1beta1.AuthSpec{
-							Provider: cfgv1beta1.AuthProviderNoAuth,
-							Noauth:   &noauth.ServerConfig{},
-						},
-						StorageType: cfgv1beta1.StorageTypeJetStream,
 						NatsRef: corev1.LocalObjectReference{
 							Name: "test",
+						},
+						Config: &configv1.GatewayConfigSpec{
+							Storage: &configv1.StorageSpec{
+								Backend:   configv1.StorageBackend_JetStream.Enum(),
+								JetStream: &configv1.JetStreamSpec{},
+							},
 						},
 					},
 				},
@@ -82,29 +82,29 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 		{
 			name: "openid auth",
 			objects: []client.Object{
-				&corev1beta1.Gateway{
+				&apicorev1.Gateway{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test",
 					},
-					Spec: corev1beta1.GatewaySpec{
+					Spec: apicorev1.GatewaySpec{
 						Image: &opnimeta.ImageSpec{
 							Image: lo.ToPtr("rancher/opni:latest"),
 						},
-						Auth: corev1beta1.AuthSpec{
-							Provider: cfgv1beta1.AuthProviderOpenID,
-							Openid: &corev1beta1.OpenIDConfigSpec{
-								ClientID:          "test-client-id",
-								ClientSecret:      "test-client-secret",
-								Scopes:            []string{"openid", "profile", "email"},
-								RoleAttributePath: "test-role-attribute-path",
-								OpenidConfig: openid.OpenidConfig{
-									Discovery: &openid.DiscoverySpec{
-										Issuer: "https://test-issuer/",
-									},
+						Config: &configv1.GatewayConfigSpec{
+							Auth: &configv1.AuthSpec{
+								Backend: configv1.AuthSpec_OpenID,
+								Openid: &configv1.OpenIDAuthSpec{
+									Issuer:       lo.ToPtr("https://test-issuer/"),
+									ClientId:     lo.ToPtr("test-client-id"),
+									ClientSecret: lo.ToPtr("test-client-secret"),
+									Scopes:       []string{"openid", "profile", "email"},
 								},
 							},
+							Storage: &configv1.StorageSpec{
+								Backend: configv1.StorageBackend_Etcd.Enum(),
+								Etcd:    &configv1.EtcdSpec{},
+							},
 						},
-						StorageType: cfgv1beta1.StorageTypeEtcd,
 					},
 				},
 			},
@@ -114,11 +114,11 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 	for _, tc := range testCases {
 		tc := tc
 		Context(tc.name, func() {
-			var gw *corev1beta1.Gateway
+			var gw *apicorev1.Gateway
 			Specify("creating resources", func() {
 				ns := makeTestNamespace()
 				for _, obj := range tc.objects {
-					if g, ok := obj.(*corev1beta1.Gateway); ok {
+					if g, ok := obj.(*apicorev1.Gateway); ok {
 						gw = g
 					}
 					obj.SetNamespace(ns)

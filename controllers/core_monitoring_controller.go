@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/huandu/xstrings"
+	apicorev1 "github.com/rancher/opni/apis/core/v1"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/resources/monitoring"
 	"github.com/rancher/opni/pkg/util/k8sutil"
@@ -108,7 +109,7 @@ func (r *CoreMonitoringReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Secret{}).
 		Owns(&corev1.Service{}).
 		Watches(
-			&corev1beta1.Gateway{},
+			&apicorev1.Gateway{},
 			handler.EnqueueRequestsFromMapFunc(r.findMonitoringClusters),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).

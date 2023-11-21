@@ -8,7 +8,7 @@ import (
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	apicorev1 "github.com/rancher/opni/apis/core/v1"
 	"github.com/rancher/opni/pkg/resources/gateway"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -41,7 +41,7 @@ type CoreGatewayReconciler struct {
 
 func (r *CoreGatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := r.logger
-	mc := &corev1beta1.Gateway{}
+	mc := &apicorev1.Gateway{}
 	err := r.Get(ctx, req.NamespacedName, mc)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -66,7 +66,7 @@ func (r *CoreGatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&corev1beta1.Gateway{}).
+		For(&apicorev1.Gateway{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&corev1.ConfigMap{}).

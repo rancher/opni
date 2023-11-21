@@ -103,7 +103,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": false,
           "expr": "sum by(__tenant_id__) (rate(opni_gateway_remote_write_cluster_ingest_bytes_total[5m])) * on(__tenant_id__) group_left(friendly_name) (opni_cluster_info @ end())",
@@ -188,7 +188,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": false,
           "expr": "round(rate(opni_gateway_http_requests_total[5m]))",
@@ -285,7 +285,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "(sum(irate(container_network_receive_bytes_total{namespace=\"opni\"}[$__rate_interval])\n* on (pod)\ngroup_left(workload) namespace_workload_pod:kube_pod_owner:relabel{namespace=\"opni\"}) by (workload))\n",
@@ -382,7 +382,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "(sum(irate(container_network_transmit_bytes_total{namespace=\"opni\"}[$__rate_interval])\n* on (namespace,pod)\ngroup_left(workload) namespace_workload_pod:kube_pod_owner:relabel{namespace=\"opni\"}) by (workload))\n",
@@ -560,7 +560,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "sum(\n  node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{namespace=\"opni\"}\n* on(namespace,pod)\n  group_left(workload) namespace_workload_pod:kube_pod_owner:relabel{namespace=\"opni\"}\n) by (workload)\n",
@@ -738,7 +738,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "exemplar": true,
           "expr": "sum(\n    container_memory_working_set_bytes{namespace=\"opni\", container!=\"\", image!=\"\"}\n  * on(pod)\n    group_left(workload) namespace_workload_pod:kube_pod_owner:relabel{namespace=\"opni\"}\n) by (workload)\n",

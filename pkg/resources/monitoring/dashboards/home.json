@@ -22,7 +22,7 @@
       {
         "datasource": {
           "type": "prometheus",
-          "uid": "P0BEE70D62F42845E"
+          "uid": "${DS_PROMETHEUS}"
         },
         "enable": true,
         "expr": "increase(kube_deployment_metadata_generation{deployment=\"opni-gateway\"}[$__rate_interval])",
@@ -35,7 +35,7 @@
       {
         "datasource": {
           "type": "prometheus",
-          "uid": "P0BEE70D62F42845E"
+          "uid": "${DS_PROMETHEUS}"
         },
         "enable": true,
         "expr": "(node_boot_time_seconds * 1000) * on(__tenant_id__) group_left(friendly_name) group by(__tenant_id__, friendly_name) (opni_cluster_info @ end())",
@@ -59,7 +59,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -434,7 +434,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -448,7 +448,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -463,7 +463,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -478,7 +478,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -493,7 +493,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -508,7 +508,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -523,7 +523,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -538,7 +538,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -553,7 +553,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -637,7 +637,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -687,7 +687,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -706,7 +706,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -798,7 +798,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "cluster:node_cpu:ratio * on(__tenant_id__) group_left(friendly_name) group by(__tenant_id__, friendly_name) (opni_cluster_info @ end())",
@@ -816,7 +816,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -911,7 +911,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum by(__tenant_id__) (irate(container_network_receive_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) group by(__tenant_id__, friendly_name) (opni_cluster_info @ end())",
@@ -923,7 +923,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum by(__tenant_id__) (-irate(container_network_transmit_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) group by(__tenant_id__, friendly_name) (opni_cluster_info @ end())",
@@ -941,7 +941,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -993,7 +993,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -1012,7 +1012,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1098,7 +1098,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "1 - (:node_memory_MemAvailable_bytes:sum / on(__tenant_id__) sum by(__tenant_id__) (node_memory_MemTotal_bytes)) * on(__tenant_id__) group_left(friendly_name) group by(__tenant_id__, friendly_name) (opni_cluster_info @ end())",
@@ -1116,7 +1116,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1225,7 +1225,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -1325,7 +1325,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -1365,7 +1365,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1443,7 +1443,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum by (__tenant_id__) (rate(node_disk_read_bytes_total[$__rate_interval])+rate(node_disk_written_bytes_total[$__rate_interval])) * on(__tenant_id__) group_left(friendly_name) group by(__tenant_id__, friendly_name) (opni_cluster_info @ end())",
@@ -1461,7 +1461,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1545,7 +1545,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -1600,7 +1600,7 @@
   },
   "timezone": "",
   "title": "Infrastructure Overview",
-  "uid": "1e83e204be502391f69d3a826675d3df",
+  "uid": "opni-home",
   "version": 20,
   "weekStart": ""
 }

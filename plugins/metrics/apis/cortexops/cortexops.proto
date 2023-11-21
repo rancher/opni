@@ -290,7 +290,7 @@ message GrafanaConfig {
   optional bool enabled = 1 [(cli.flag).default = "false"];
 
   // The version of Grafana to deploy.
-  optional string version = 2 [(cli.flag).default = "latest"];
+  optional string version = 2;
 
   optional string hostname = 3;
 }

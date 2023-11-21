@@ -3,7 +3,7 @@ package v1beta1
 import (
 	"strconv"
 
-	grafanav1alpha1 "github.com/grafana-operator/grafana-operator/v4/api/integreatly/v1alpha1"
+	grafanav1beta1 "github.com/grafana-operator/grafana-operator/v5/api/v1beta1"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	corev1 "k8s.io/api/core/v1"
@@ -53,7 +53,7 @@ type GrafanaSpec struct {
 	*cortexops.GrafanaConfig `json:",inline,omitempty"`
 	// Contains any additional configuration or overrides for the Grafana
 	// installation spec.
-	grafanav1alpha1.GrafanaSpec `json:",inline,omitempty"`
+	grafanav1beta1.GrafanaSpec `json:",inline,omitempty"`
 }
 
 type MonitoringClusterSpec struct {
@@ -83,7 +83,7 @@ type WorkloadStatus struct {
 const (
 	InternalRevisionAnnotation      string = "internal.opni.io/revision"
 	InternalSchemalessAnnotation    string = "internal.opni.io/schemaless"
-	MonitoringClusterTargetRevision int64  = 1
+	MonitoringClusterTargetRevision int64  = 2
 )
 
 func MonitoringClusterTargetRevisionString() string {

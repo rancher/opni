@@ -14,15 +14,15 @@ import (
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 func StartManager(ctx context.Context, restConfig *rest.Config, scheme *k8sruntime.Scheme, reconcilers ...Reconciler) ctrl.Manager {
 	ports := freeport.GetFreePorts(2)
 
 	manager := util.Must(ctrl.NewManager(restConfig, ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     fmt.Sprintf(":%d", ports[0]),
-		HealthProbeBindAddress: fmt.Sprintf(":%d", ports[1]),
+		Scheme:  scheme,
+		Metrics: server.Options{BindAddress: fmt.Sprintf(":%d", ports[0])}, HealthProbeBindAddress: fmt.Sprintf(":%d", ports[1]),
 	}))
 	for _, reconciler := range reconcilers {
 		util.Must(reconciler.SetupWithManager(manager))

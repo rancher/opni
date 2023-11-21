@@ -18,6 +18,7 @@ import (
 
 	"github.com/rancher/opni/pkg/agent"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/logger"
@@ -79,6 +80,11 @@ func (p *Plugin) ManagementServices(_ managementext.ServiceController) []util.Se
 		util.PackService[alertingapi.NotificationManagementServer](&alertingapi.NotificationManagement_ServiceDesc, p.alertingServer),
 		util.PackService[alertingapi.AlertManagementServer](&alertingapi.AlertManagement_ServiceDesc, p.alertingServer),
 	}
+}
+
+// Authorized checks whether a given set of roles is allowed to access a given request
+func (p *Plugin) CheckAuthz(_ context.Context, _ *opnicorev1.ReferenceList, _, _ string) bool {
+	return true
 }
 
 type PluginOptions struct {

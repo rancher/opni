@@ -29,6 +29,7 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
+	"github.com/rancher/opni/pkg/test/localauth"
 	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/tracing"
@@ -244,7 +245,9 @@ func main() {
 			if !enableGateway {
 				return
 			}
-			opts := []dashboard.ServerOption{}
+			opts := []dashboard.ServerOption{
+				dashboard.WithLocalAuthenticator(&localauth.TestLocalAuthenticator{}),
+			}
 			if noEmbeddedWebAssets {
 				absPath, err := filepath.Abs("web/")
 				if err != nil {
@@ -254,7 +257,11 @@ func main() {
 				fs := os.DirFS(absPath)
 				opts = append(opts, dashboard.WithAssetsFS(fs))
 			}
-			dashboardSrv, err := dashboard.NewServer(&environment.GatewayConfig().Spec.Management, opts...)
+			dashboardSrv, err := dashboard.NewServer(
+				&environment.GatewayConfig().Spec.Management,
+				environment.PluginLoader(),
+				environment.GatewayObject(),
+				opts...)
 			if err != nil {
 				testlog.Log.Error("error", logger.Err(err))
 				return
@@ -359,7 +366,7 @@ func main() {
 					return
 				}
 				if resp.StatusCode != http.StatusOK {
-					testlog.Log.Error(fmt.Sprintf("%s", resp.Status))
+					testlog.Log.Error(resp.Status)
 					return
 				}
 			}()

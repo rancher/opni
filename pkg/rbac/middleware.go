@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 )
 
@@ -23,13 +24,13 @@ func (m *middleware) Handle(c *gin.Context) {
 	}
 	roleList, err := m.fetchRoles(userID)
 	if err != nil {
-		m.Logger.With("error", err).Error("failed to fetch roles")
+		m.Logger.With(logger.Err(err)).Error("failed to fetch roles")
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 	headers, err := m.Provider.AccessHeader(context.Background(), roleList)
 	if err != nil {
-		m.Logger.With("error", err).Error("failed to get list of headers")
+		m.Logger.With(logger.Err(err)).Error("failed to get list of headers")
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}

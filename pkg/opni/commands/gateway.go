@@ -137,7 +137,7 @@ func BuildGatewayCmd() *cobra.Command {
 			return err
 		})
 
-		d, err := dashboard.NewServer(&gatewayConfig.Spec.Management)
+		d, err := dashboard.NewServer(&gatewayConfig.Spec.Management, pluginLoader, g)
 		if err != nil {
 			lg.With(logger.Err(err)).Error("failed to start dashboard server")
 		} else {

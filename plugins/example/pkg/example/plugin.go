@@ -65,6 +65,11 @@ func (p *ExamplePlugin) ManagementServices(ctrl managementext.ServiceController)
 	}
 }
 
+// Authorized checks whether a given set of roles is allowed to access a given request
+func (p *ExamplePlugin) CheckAuthz(_ context.Context, _ *corev1.ReferenceList, _, _ string) bool {
+	return true
+}
+
 var _ ExampleAPIExtensionServer = (*ExamplePlugin)(nil)
 var _ ExampleUnaryExtensionServer = (*ExamplePlugin)(nil)
 

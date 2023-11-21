@@ -41,6 +41,26 @@ func (m *MockManagementAPIExtensionClient) EXPECT() *MockManagementAPIExtensionC
 	return m.recorder
 }
 
+// Authorized mocks base method.
+func (m *MockManagementAPIExtensionClient) Authorized(ctx context.Context, in *apiextensions.AuthzRequest, opts ...grpc.CallOption) (*apiextensions.AuthzResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Authorized", varargs...)
+	ret0, _ := ret[0].(*apiextensions.AuthzResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Authorized indicates an expected call of Authorized.
+func (mr *MockManagementAPIExtensionClientMockRecorder) Authorized(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Authorized", reflect.TypeOf((*MockManagementAPIExtensionClient)(nil).Authorized), varargs...)
+}
+
 // CheckHealth mocks base method.
 func (m *MockManagementAPIExtensionClient) CheckHealth(ctx context.Context, in *grpc_health_v1.HealthCheckRequest, opts ...grpc.CallOption) (*grpc_health_v1.HealthCheckResponse, error) {
 	m.ctrl.T.Helper()
@@ -245,6 +265,21 @@ func NewMockManagementAPIExtensionServer(ctrl *gomock.Controller) *MockManagemen
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockManagementAPIExtensionServer) EXPECT() *MockManagementAPIExtensionServerMockRecorder {
 	return m.recorder
+}
+
+// Authorized mocks base method.
+func (m *MockManagementAPIExtensionServer) Authorized(arg0 context.Context, arg1 *apiextensions.AuthzRequest) (*apiextensions.AuthzResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Authorized", arg0, arg1)
+	ret0, _ := ret[0].(*apiextensions.AuthzResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Authorized indicates an expected call of Authorized.
+func (mr *MockManagementAPIExtensionServerMockRecorder) Authorized(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Authorized", reflect.TypeOf((*MockManagementAPIExtensionServer)(nil).Authorized), arg0, arg1)
 }
 
 // CheckHealth mocks base method.

@@ -13,11 +13,14 @@ import (
 
 	"log/slog"
 
+	"github.com/gin-gonic/gin"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/jhump/protoreflect/desc"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/auth/local"
+	authutil "github.com/rancher/opni/pkg/auth/util"
 	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config"
@@ -70,6 +73,7 @@ type apiExtension struct {
 
 type Server struct {
 	managementv1.UnsafeManagementServer
+	managementv1.UnimplementedLocalPasswordServer
 	managementServerOptions
 	config            *v1beta1.ManagementSpec
 	rbacManagerStore  capabilities.RBACManagerStore
@@ -77,6 +81,8 @@ type Server struct {
 	coreDataSource    CoreDataSource
 	grpcServer        *grpc.Server
 	dashboardSettings *DashboardSettingsManager
+	router            *gin.Engine
+	localAuth         local.LocalAuthenticator
 
 	apiExtMu      sync.RWMutex
 	apiExtensions []apiExtension
@@ -137,6 +143,7 @@ func NewServer(
 			kv:     cds.StorageBackend().KeyValueStore("dashboard"),
 			logger: lg,
 		},
+		router: gin.New(),
 	}
 
 	director := m.configureApiExtensionDirector(ctx, pluginLoader)
@@ -149,6 +156,7 @@ func NewServer(
 			otelgrpc.UnaryServerInterceptor()),
 	)
 	managementv1.RegisterManagementServer(m.grpcServer, m)
+	managementv1.RegisterLocalPasswordServer(m.grpcServer, m)
 	channelzservice.RegisterChannelzServiceToServer(m.grpcServer)
 
 	pluginLoader.Hook(hooks.OnLoadM(func(sp types.SystemPlugin, md meta.PluginMeta) {
@@ -192,6 +200,8 @@ func NewServer(
 			).Info("added capability rbac backend")
 		}
 	}))
+
+	m.localAuth = local.NewLocalAuthenticator(m.coreDataSource.StorageBackend().KeyValueStore(authutil.AuthNamespace))
 
 	return m
 }
@@ -255,7 +265,6 @@ func (m *Server) listenAndServeHttp(ctx context.Context) error {
 	lg.With(
 		"address", m.config.HTTPListenAddress,
 	).Info("management HTTP server starting")
-	mux := http.NewServeMux()
 	gwmux := runtime.NewServeMux(
 		runtime.WithMarshalerOption("application/json", &LegacyJsonMarshaler{}),
 		runtime.WithMarshalerOption("application/octet-stream", &DynamicV1Marshaler{}),
@@ -264,13 +273,13 @@ func (m *Server) listenAndServeHttp(ctx context.Context) error {
 
 	m.configureManagementHttpApi(ctx, gwmux)
 	m.configureHttpApiExtensions(gwmux)
-	mux.Handle("/", gwmux)
+	m.router.Any("/*any", gin.WrapF(gwmux.ServeHTTP))
 	server := &http.Server{
-		Addr:    m.config.HTTPListenAddress,
-		Handler: mux,
+		Addr: m.config.HTTPListenAddress,
 		BaseContext: func(net.Listener) context.Context {
 			return ctx
 		},
+		Handler: m.router.Handler(),
 	}
 	errC := lo.Async(func() error {
 		return server.ListenAndServe()

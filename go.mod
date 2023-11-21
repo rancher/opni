@@ -26,6 +26,7 @@ require (
 	github.com/cisco-open/operator-tools v0.30.0
 	github.com/cortexproject/cortex v0.0.0-00010101000000-000000000000
 	github.com/dbason/featureflags v0.0.0-20220803034705-b6242a8d72b2
+	github.com/distribution/reference v0.5.0
 	github.com/dterei/gotsc v0.0.0-20160722215413-e78f872945c6
 	github.com/gabstv/go-bsdiff v1.0.5
 	github.com/gin-contrib/pprof v1.4.0
@@ -166,7 +167,6 @@ require (
 	sigs.k8s.io/controller-runtime v0.15.0
 	sigs.k8s.io/node-feature-discovery-operator v0.2.1-0.20230131182250-99b8584e2745
 	sigs.k8s.io/yaml v1.3.0
-	github.com/distribution/reference v0.5.0
 )
 
 require (
@@ -549,8 +549,8 @@ require (
 	go4.org/intern v0.0.0-20230525184215-6c62f75575cb // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 // indirect
 	golang.org/x/arch v0.3.0 // indirect
-	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
-	golang.org/x/oauth2 v0.11.0 // indirect
+	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
+	golang.org/x/oauth2 v0.13.0
 	golang.org/x/sys v0.13.0
 	golang.org/x/telemetry v0.0.0-20231030194904-36630a2c67a1 // indirect
 	golang.org/x/text v0.13.0 // indirect
@@ -559,7 +559,7 @@ require (
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.3.0 // indirect
 	google.golang.org/api v0.132.0 // indirect
-	google.golang.org/appengine v1.6.7 // indirect
+	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20231030173426-d783a09b4405 // indirect
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.28 // indirect
@@ -582,7 +582,12 @@ require (
 	sourcegraph.com/sourcegraph/appdash v0.0.0-20211028080628-e2786a622600 // indirect
 )
 
-require github.com/distribution/reference v0.5.0
+require (
+	github.com/coreos/go-oidc/v3 v3.7.0
+	github.com/zalando/gin-oauth2 v1.5.5
+)
+
+require github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 
 replace github.com/openshift/api => github.com/openshift/api v0.0.0-20210216211028-bb81baaf35cd
 

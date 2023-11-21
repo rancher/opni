@@ -181,6 +181,9 @@ type Environment struct {
 	nodeConfigOverridesMu sync.Mutex
 	nodeConfigOverrides   map[string]*OverridePrometheusConfig
 
+	pluginLoader *plugins.PluginLoader
+	gw           *gateway.Gateway
+
 	shutdownHooks []func()
 }
 
@@ -1730,6 +1733,14 @@ func (e *Environment) NewStreamConnection(pins []string) (grpc.ClientConnInterfa
 	return ts.Serve()
 }
 
+func (e *Environment) PluginLoader() *plugins.PluginLoader {
+	return e.pluginLoader
+}
+
+func (e *Environment) GatewayObject() *gateway.Gateway {
+	return e.gw
+}
+
 func (e *Environment) NewManagementClient(opts ...EnvClientOption) managementv1.ManagementClient {
 	options := EnvClientOptions{
 		dialOptions: []grpc.DialOption{},
@@ -1794,13 +1805,17 @@ func (e *Environment) PrometheusAPIEndpoint() string {
 	return fmt.Sprintf("https://localhost:%d/prometheus/api/v1", e.ports.GatewayHTTP)
 }
 
+func (e *Environment) loadPlugins() {
+
+}
+
 func (e *Environment) startGateway() {
 	if !e.enableGateway {
 		panic("gateway disabled")
 	}
 	lg := e.Logger
 	e.gatewayConfig = e.NewGatewayConfig()
-	pluginLoader := plugins.NewPluginLoader()
+	e.pluginLoader = plugins.NewPluginLoader()
 
 	lifecycler := config.NewLifecycler(meta.ObjectList{e.gatewayConfig, &v1beta1.AuthProvider{
 		TypeMeta: meta.TypeMeta{
@@ -1814,26 +1829,27 @@ func (e *Environment) startGateway() {
 			Type: "test",
 		},
 	}})
-	g := gateway.NewGateway(e.ctx, e.gatewayConfig, pluginLoader,
+	e.gw = gateway.NewGateway(e.ctx, e.gatewayConfig, e.pluginLoader,
 		gateway.WithLogger(lg.WithGroup("gateway")),
 		gateway.WithLifecycler(lifecycler),
 		gateway.WithExtraUpdateHandlers(noop.NewSyncServer()),
 	)
 
-	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g, pluginLoader,
-		management.WithCapabilitiesDataSource(g.CapabilitiesDataSource()),
-		management.WithHealthStatusDataSource(g),
+	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, e.gw, e.pluginLoader,
+		management.WithCapabilitiesDataSource(e.gw.CapabilitiesDataSource()),
+		management.WithHealthStatusDataSource(e.gw),
 		management.WithLifecycler(lifecycler),
 	)
-	g.MustRegisterCollector(m)
+
+	e.gw.MustRegisterCollector(m)
 
 	doneLoadingPlugins := make(chan struct{})
-	pluginLoader.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
+	e.pluginLoader.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
 		lg.Info(fmt.Sprintf("loaded %d plugins", numLoaded))
 		close(doneLoadingPlugins)
 	}))
 	lg.Info("Loading gateway plugins...")
-	globalTestPlugins.LoadPlugins(e.ctx, pluginLoader, pluginmeta.ModeGateway)
+	globalTestPlugins.LoadPlugins(e.ctx, e.pluginLoader, pluginmeta.ModeGateway)
 
 	select {
 	case <-doneLoadingPlugins:
@@ -1845,7 +1861,7 @@ func (e *Environment) startGateway() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := g.ListenAndServe(e.ctx)
+		err := e.gw.ListenAndServe(e.ctx)
 		if errors.Is(err, context.Canceled) {
 			lg.Info("gateway server stopped")
 		} else if err != nil {

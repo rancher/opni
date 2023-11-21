@@ -17,6 +17,8 @@ import (
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
 	metricsdk "go.opentelemetry.io/otel/sdk/metric"
 
+	"log/slog"
+
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/server"
@@ -28,8 +30,8 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/endpoints/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/node_backend"
-	"log/slog"
 
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
@@ -123,6 +125,11 @@ func (p *Plugin) ManagementServices(_ managementext.ServiceController) []util.Se
 			&p.node,
 		),
 	}
+}
+
+// Authorized checks whether a given set of roles is allowed to access a given request
+func (p *Plugin) CheckAuthz(_ context.Context, _ *corev1.ReferenceList, _, _ string) bool {
+	return true
 }
 
 var (

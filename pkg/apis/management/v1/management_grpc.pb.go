@@ -22,6 +22,94 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
+	LocalPassword_CreateLocalPassword_FullMethodName = "/management.LocalPassword/CreateLocalPassword"
+)
+
+// LocalPasswordClient is the client API for LocalPassword service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type LocalPasswordClient interface {
+	CreateLocalPassword(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*LocalPasswordResponse, error)
+}
+
+type localPasswordClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewLocalPasswordClient(cc grpc.ClientConnInterface) LocalPasswordClient {
+	return &localPasswordClient{cc}
+}
+
+func (c *localPasswordClient) CreateLocalPassword(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*LocalPasswordResponse, error) {
+	out := new(LocalPasswordResponse)
+	err := c.cc.Invoke(ctx, LocalPassword_CreateLocalPassword_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// LocalPasswordServer is the server API for LocalPassword service.
+// All implementations should embed UnimplementedLocalPasswordServer
+// for forward compatibility
+type LocalPasswordServer interface {
+	CreateLocalPassword(context.Context, *emptypb.Empty) (*LocalPasswordResponse, error)
+}
+
+// UnimplementedLocalPasswordServer should be embedded to have forward compatible implementations.
+type UnimplementedLocalPasswordServer struct {
+}
+
+func (UnimplementedLocalPasswordServer) CreateLocalPassword(context.Context, *emptypb.Empty) (*LocalPasswordResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateLocalPassword not implemented")
+}
+
+// UnsafeLocalPasswordServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to LocalPasswordServer will
+// result in compilation errors.
+type UnsafeLocalPasswordServer interface {
+	mustEmbedUnimplementedLocalPasswordServer()
+}
+
+func RegisterLocalPasswordServer(s grpc.ServiceRegistrar, srv LocalPasswordServer) {
+	s.RegisterService(&LocalPassword_ServiceDesc, srv)
+}
+
+func _LocalPassword_CreateLocalPassword_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LocalPasswordServer).CreateLocalPassword(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LocalPassword_CreateLocalPassword_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LocalPasswordServer).CreateLocalPassword(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// LocalPassword_ServiceDesc is the grpc.ServiceDesc for LocalPassword service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var LocalPassword_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "management.LocalPassword",
+	HandlerType: (*LocalPasswordServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateLocalPassword",
+			Handler:    _LocalPassword_CreateLocalPassword_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.com/rancher/opni/pkg/apis/management/v1/management.proto",
+}
+
+const (
 	Management_CreateBootstrapToken_FullMethodName           = "/management.Management/CreateBootstrapToken"
 	Management_RevokeBootstrapToken_FullMethodName           = "/management.Management/RevokeBootstrapToken"
 	Management_ListBootstrapTokens_FullMethodName            = "/management.Management/ListBootstrapTokens"
@@ -41,6 +129,9 @@ const (
 	Management_DeleteBackendRole_FullMethodName              = "/management.Management/DeleteBackendRole"
 	Management_GetBackendRole_FullMethodName                 = "/management.Management/GetBackendRole"
 	Management_ListBackendRoles_FullMethodName               = "/management.Management/ListBackendRoles"
+	Management_AddAdminRoleBinding_FullMethodName            = "/management.Management/AddAdminRoleBinding"
+	Management_RemoveAdminRoleBinding_FullMethodName         = "/management.Management/RemoveAdminRoleBinding"
+	Management_ListAdminRoleBinding_FullMethodName           = "/management.Management/ListAdminRoleBinding"
 	Management_CreateRoleBinding_FullMethodName              = "/management.Management/CreateRoleBinding"
 	Management_UpdateRoleBinding_FullMethodName              = "/management.Management/UpdateRoleBinding"
 	Management_DeleteRoleBinding_FullMethodName              = "/management.Management/DeleteRoleBinding"
@@ -82,6 +173,9 @@ type ManagementClient interface {
 	DeleteBackendRole(ctx context.Context, in *v1.BackendRoleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetBackendRole(ctx context.Context, in *v1.BackendRoleRequest, opts ...grpc.CallOption) (*v1.Role, error)
 	ListBackendRoles(ctx context.Context, in *v1.CapabilityType, opts ...grpc.CallOption) (*v1.RoleList, error)
+	AddAdminRoleBinding(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	RemoveAdminRoleBinding(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListAdminRoleBinding(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.ReferenceList, error)
 	CreateRoleBinding(ctx context.Context, in *v1.RoleBinding, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	UpdateRoleBinding(ctx context.Context, in *v1.RoleBinding, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteRoleBinding(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -325,6 +419,33 @@ func (c *managementClient) ListBackendRoles(ctx context.Context, in *v1.Capabili
 	return out, nil
 }
 
+func (c *managementClient) AddAdminRoleBinding(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Management_AddAdminRoleBinding_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) RemoveAdminRoleBinding(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Management_RemoveAdminRoleBinding_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) ListAdminRoleBinding(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.ReferenceList, error) {
+	out := new(v1.ReferenceList)
+	err := c.cc.Invoke(ctx, Management_ListAdminRoleBinding_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *managementClient) CreateRoleBinding(ctx context.Context, in *v1.RoleBinding, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, Management_CreateRoleBinding_FullMethodName, in, out, opts...)
@@ -492,6 +613,9 @@ type ManagementServer interface {
 	DeleteBackendRole(context.Context, *v1.BackendRoleRequest) (*emptypb.Empty, error)
 	GetBackendRole(context.Context, *v1.BackendRoleRequest) (*v1.Role, error)
 	ListBackendRoles(context.Context, *v1.CapabilityType) (*v1.RoleList, error)
+	AddAdminRoleBinding(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	RemoveAdminRoleBinding(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	ListAdminRoleBinding(context.Context, *emptypb.Empty) (*v1.ReferenceList, error)
 	CreateRoleBinding(context.Context, *v1.RoleBinding) (*emptypb.Empty, error)
 	UpdateRoleBinding(context.Context, *v1.RoleBinding) (*emptypb.Empty, error)
 	DeleteRoleBinding(context.Context, *v1.Reference) (*emptypb.Empty, error)
@@ -570,6 +694,15 @@ func (UnimplementedManagementServer) GetBackendRole(context.Context, *v1.Backend
 }
 func (UnimplementedManagementServer) ListBackendRoles(context.Context, *v1.CapabilityType) (*v1.RoleList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListBackendRoles not implemented")
+}
+func (UnimplementedManagementServer) AddAdminRoleBinding(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddAdminRoleBinding not implemented")
+}
+func (UnimplementedManagementServer) RemoveAdminRoleBinding(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveAdminRoleBinding not implemented")
+}
+func (UnimplementedManagementServer) ListAdminRoleBinding(context.Context, *emptypb.Empty) (*v1.ReferenceList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAdminRoleBinding not implemented")
 }
 func (UnimplementedManagementServer) CreateRoleBinding(context.Context, *v1.RoleBinding) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateRoleBinding not implemented")
@@ -979,6 +1112,60 @@ func _Management_ListBackendRoles_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Management_AddAdminRoleBinding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Reference)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).AddAdminRoleBinding(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Management_AddAdminRoleBinding_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).AddAdminRoleBinding(ctx, req.(*v1.Reference))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_RemoveAdminRoleBinding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Reference)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).RemoveAdminRoleBinding(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Management_RemoveAdminRoleBinding_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).RemoveAdminRoleBinding(ctx, req.(*v1.Reference))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_ListAdminRoleBinding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).ListAdminRoleBinding(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Management_ListAdminRoleBinding_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).ListAdminRoleBinding(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Management_CreateRoleBinding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(v1.RoleBinding)
 	if err := dec(in); err != nil {
@@ -1341,6 +1528,18 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListBackendRoles",
 			Handler:    _Management_ListBackendRoles_Handler,
+		},
+		{
+			MethodName: "AddAdminRoleBinding",
+			Handler:    _Management_AddAdminRoleBinding_Handler,
+		},
+		{
+			MethodName: "RemoveAdminRoleBinding",
+			Handler:    _Management_RemoveAdminRoleBinding_Handler,
+		},
+		{
+			MethodName: "ListAdminRoleBinding",
+			Handler:    _Management_ListAdminRoleBinding_Handler,
 		},
 		{
 			MethodName: "CreateRoleBinding",

@@ -17,6 +17,17 @@ option (cli.generator) = {
   generate:          true
 };
 
+service LocalPassword {
+  option (cli.command_group) = {
+    use: "auth"
+  };
+  rpc CreateLocalPassword(google.protobuf.Empty) returns (LocalPasswordResponse) {
+    option (cli.command) = {
+      use: "create-local-password"
+    };
+  }
+}
+
 service Management {
   rpc CreateBootstrapToken(CreateBootstrapTokenRequest) returns (core.BootstrapToken) {
     option (google.api.http) = {
@@ -133,6 +144,30 @@ service Management {
     };
     option (google.api.http) = {
       get: "/rbac/backend/{name}/roles"
+    };
+  }
+  rpc AddAdminRoleBinding(core.Reference) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "admin-role add"
+    };
+    option (google.api.http) = {
+      put: "/rbac/mgmt/user/{id}"
+    };
+  }
+  rpc RemoveAdminRoleBinding(core.Reference) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "admin-role remove"
+    };
+    option (google.api.http) = {
+      delete: "/rbac/mgmt/user/{id}"
+    };
+  }
+  rpc ListAdminRoleBinding(google.protobuf.Empty) returns (core.ReferenceList) {
+    option (cli.command) = {
+      use: "admin-role list"
+    };
+    option (google.api.http) = {
+      get: "/rbac/mgmt/user"
     };
   }
   rpc CreateRoleBinding(core.RoleBinding) returns (google.protobuf.Empty) {
@@ -309,4 +344,8 @@ message DashboardGlobalSettings {
   string                   defaultImageRepository = 1;
   google.protobuf.Duration defaultTokenTtl        = 2;
   map<string, string>      defaultTokenLabels     = 3;
+}
+
+message LocalPasswordResponse {
+  string password = 1;
 }

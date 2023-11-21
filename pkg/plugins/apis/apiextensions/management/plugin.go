@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/hashicorp/go-plugin"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
@@ -85,6 +86,7 @@ type ManagementAPIExtension interface {
 	// services being enabled by default (however, it is still recommended to set
 	// them explicitly).
 	ManagementServices(s ServiceController) []util.ServicePackInterface
+	CheckAuthz(ctx context.Context, roleList *corev1.ReferenceList, path, verb string) bool
 }
 
 type managementApiExtensionPlugin struct {
@@ -170,6 +172,13 @@ func (e *mgmtExtensionServerImpl) Descriptors(_ context.Context, _ *emptypb.Empt
 	}
 
 	return list, nil
+}
+
+func (e *mgmtExtensionServerImpl) Authorized(ctx context.Context, req *apiextensions.AuthzRequest) (*apiextensions.AuthzResponse, error) {
+	authorized := e.ManagementAPIExtension.CheckAuthz(ctx, req.GetRoleList(), req.GetDetails().GetPath(), req.Details.GetVerb())
+	return &apiextensions.AuthzResponse{
+		Authorized: authorized,
+	}, nil
 }
 
 var _ apiextensions.ManagementAPIExtensionServer = (*mgmtExtensionServerImpl)(nil)

@@ -83,7 +83,7 @@ type WorkloadStatus struct {
 const (
 	InternalRevisionAnnotation      string = "internal.opni.io/revision"
 	InternalSchemalessAnnotation    string = "internal.opni.io/schemaless"
-	MonitoringClusterTargetRevision int64  = 1
+	MonitoringClusterTargetRevision int64  = 2
 )
 
 func MonitoringClusterTargetRevisionString() string {

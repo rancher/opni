@@ -202,7 +202,7 @@ var ErrAlreadyUpgraded = fmt.Errorf("already upgraded")
 // Contains a set of functions that can be used to convert between incompatible
 // revisions of the MonitoringCluster CRD.
 // Each function knows how to convert from a specific version V to version
-// V+1. The conversion function should modify the unsturctured object in-place.
+// V+1. The conversion function should modify the unstructured object in-place.
 var conversions = map[int64]unstructuredConverter{
 	// 0->1: upgrade to the first revision of the schemaless CRD with generated
 	// cortex config apis.
@@ -240,14 +240,9 @@ var conversions = map[int64]unstructuredConverter{
 	//         seconds: int64
 	//       [rest of the fields are the same as v1]
 	//   gateway:
-	//		 [same as v1]
+	//	   [same as v1]
 	//   grafana:
-	//     config: {}
-	//     dashboardContentCacheDuration: 0s
-	//     deployment:
-	//       env:
-	//         - name: GF_VAR
-	//           value: 'true'
+	//     [same as v1]
 	//
 	// v1:
 	// spec:
@@ -259,16 +254,6 @@ var conversions = map[int64]unstructuredConverter{
 	//         compactor_blocks_retention_period:
 	//					 seconds: int64 [move from v0 storage.retentionPeriod]
 	//     cortexWorkloads:
-	//   grafana:
-	//     deployment:
-	//       spec:
-	//         template:
-	//           spec:
-	//             containers:
-	//               - env:
-	//                   - name: GF_VAR
-	//                     value: 'true'
-	//                 name: grafana
 	0: func(src *unstructured.Unstructured) error {
 		content := src.UnstructuredContent()
 
@@ -277,9 +262,8 @@ var conversions = map[int64]unstructuredConverter{
 		v0RetentionPeriod, hasV0RetentionPeriod, _ := unstructured.NestedMap(content, "spec", "cortex", "storage", "retentionPeriod")
 		v0Workloads, hasV0Workloads, _ := unstructured.NestedMap(content, "spec", "cortex", "workloads")
 		v0Storage, hasV0Storage, _ := unstructured.NestedMap(content, "spec", "cortex", "storage")
-		v0GrafanaEnvvars, hasV0GrafanaEnvvars, _ := unstructured.NestedSlice(content, "spec", "grafana", "deployment", "env")
 
-		if !hasV0DeploymentMode && !hasV0RetentionPeriod && !hasV0Workloads && !hasV0Storage && !hasV0GrafanaEnvvars {
+		if !hasV0DeploymentMode && !hasV0RetentionPeriod && !hasV0Workloads && !hasV0Storage {
 			// not a v0 object
 			return ErrAlreadyUpgraded
 		}
@@ -371,30 +355,65 @@ var conversions = map[int64]unstructuredConverter{
 			}
 		}
 
-		if hasV0GrafanaEnvvars {
-			v1GrafanaContainer := map[string]any{
-				"name": "grafana",
-				"env":  v0GrafanaEnvvars,
-			}
-
-			v1GrafanaDeployment := map[string]any{
-				"spec": map[string]any{
-					"template": map[string]any{
-						"spec": map[string]any{},
-					},
-				},
-			}
-
-			unstructured.SetNestedMap(content, v1GrafanaDeployment, "spec", "grafana", "deployment")
-			unstructured.SetNestedSlice(content, []any{v1GrafanaContainer}, "spec", "grafana", "deployment", "spec", "template", "spec", "containers")
-		}
-
 		unstructured.RemoveNestedField(content, "spec", "cortex", "deploymentMode")
 		unstructured.RemoveNestedField(content, "spec", "cortex", "storage")
 		unstructured.RemoveNestedField(content, "spec", "cortex", "workloads")
-		unstructured.RemoveNestedField(content, "spec", "grafana", "dashboardContentCacheDuration")
 		unstructured.SetNestedMap(content, v1CortexConfig, "spec", "cortex", "cortexConfig")
 		unstructured.SetNestedMap(content, v1CortexWorkloads, "spec", "cortex", "cortexWorkloads")
+
+		src.SetUnstructuredContent(content)
+		return nil
+	},
+
+	// From v1 to v2, the grafana-operator updated Grafana types to v1beta1.
+	// The charts began using the corev1 types instead of custom ones.
+	//
+	// v1:
+	// spec:
+	//   grafana:
+	//     config: {}
+	//     dashboardContentCacheDuration: 0s
+	//     deployment:
+	//       env:
+	//         - name: GF_VAR
+	//           value: 'true'
+	//
+	// v2:
+	// spec:
+	//   grafana:
+	//     deployment:
+	//       spec:
+	//         template:
+	//           spec:
+	//             containers:
+	//               - env:
+	//                   - name: GF_VAR
+	//                     value: 'true'
+	//                 name: grafana
+	1: func(src *unstructured.Unstructured) error {
+		content := src.UnstructuredContent()
+		v1GrafanaEnvvars, hasV1GrafanaEnvvars, _ := unstructured.NestedSlice(content, "spec", "grafana", "deployment", "env")
+
+		if !hasV1GrafanaEnvvars {
+			return ErrAlreadyUpgraded
+		}
+
+		v2GrafanaContainer := map[string]any{
+			"name": "grafana",
+			"env":  v1GrafanaEnvvars,
+		}
+
+		v2GrafanaDeployment := map[string]any{
+			"spec": map[string]any{
+				"template": map[string]any{
+					"spec": map[string]any{},
+				},
+			},
+		}
+
+		unstructured.SetNestedMap(content, v2GrafanaDeployment, "spec", "grafana", "deployment")
+		unstructured.SetNestedSlice(content, []any{v2GrafanaContainer}, "spec", "grafana", "deployment", "spec", "template", "spec", "containers")
+		unstructured.RemoveNestedField(content, "spec", "grafana", "dashboardContentCacheDuration")
 
 		src.SetUnstructuredContent(content)
 		return nil

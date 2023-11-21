@@ -176,6 +176,7 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 				},
 			}
 		}
+
 		newmcv1 := func() (*cortexops.CortexApplicationConfig, *cortexops.CortexWorkloadsConfig) {
 			return &cortexops.CortexApplicationConfig{
 					Limits: &validation.Limits{
@@ -232,7 +233,47 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 				}
 		}
 
-		grafanaV1 := grafanav1beta1.GrafanaSpec{
+		unstructuredV1 := func() *unstructured.Unstructured {
+			return &unstructured.Unstructured{
+				Object: map[string]any{
+					"apiVersion": "core.opni.io/v1beta1",
+					"kind":       "MonitoringCluster",
+					"metadata": map[string]any{
+						"name":      "samplev1",
+						"namespace": gateway.Namespace,
+					},
+					"spec": map[string]any{
+						"gateway": map[string]any{
+							"name": gateway.Name,
+						},
+						"grafana": map[string]any{
+							"config": map[string]any{
+								"auth.generic_oauth": map[string]any{
+									"enabled": "true",
+								},
+							},
+							"dashboardContentCacheDuration": "0s",
+							"enabled":                       true,
+							"hostname":                      "x",
+							"deployment": map[string]any{
+								"env": []map[string]string{
+									{
+										"name":  "GF_SOME_VAR",
+										"value": "true",
+									},
+									{
+										"name":  "GF_ANOTHER_VAR",
+										"value": "false",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+		}
+
+		grafanaV2 := grafanav1beta1.GrafanaSpec{
 			Config: map[string]map[string]string{
 				"auth.generic_oauth": {
 					"enabled": "true",
@@ -283,7 +324,25 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 				Enabled:  lo.ToPtr(true),
 				Hostname: lo.ToPtr("x"),
 			}))
-			Expect(target.Spec.Grafana.GrafanaSpec).To(Equal(grafanaV1))
+			Expect(k8sClient.Delete(context.Background(), target)).To(Succeed())
+			Eventually(Object(target)).ShouldNot(Exist())
+		})
+		It("should upgrade the monitoring cluster from revision 1 to 2", func() {
+			mcv1 := unstructuredV1()
+			Expect(k8sClient.Create(context.Background(), mcv1)).To(Succeed())
+			target := &corev1beta1.MonitoringCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "samplev1",
+					Namespace: gateway.Namespace,
+				},
+			}
+			Eventually(Object(target)).Should(WithTransform(corev1beta1.GetMonitoringClusterRevision, BeEquivalentTo(2)))
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(target), target)).To(Succeed())
+			Expect(target.Spec.Grafana.GrafanaConfig).To(testutil.ProtoEqual(&cortexops.GrafanaConfig{
+				Enabled:  lo.ToPtr(true),
+				Hostname: lo.ToPtr("x"),
+			}))
+			Expect(target.Spec.Grafana.GrafanaSpec).To(Equal(grafanaV2))
 			Expect(k8sClient.Delete(context.Background(), target)).To(Succeed())
 			Eventually(Object(target)).ShouldNot(Exist())
 		})

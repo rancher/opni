@@ -304,7 +304,7 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 			},
 		}
 
-		It("should upgrade the monitoring cluster from revision 0 to 1", func() {
+		It("should upgrade the monitoring cluster from revision 0 to 2", func() {
 			mcv0 := newmcv0()
 			mcv1config, mcv1workloads := newmcv1()
 			Expect(k8sClient.Create(context.Background(), mcv0)).To(Succeed())
@@ -314,7 +314,7 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 					Namespace: gateway.Namespace,
 				},
 			}
-			Eventually(Object(target)).Should(WithTransform(corev1beta1.GetMonitoringClusterRevision, BeEquivalentTo(1)))
+			Eventually(Object(target)).Should(WithTransform(corev1beta1.GetMonitoringClusterRevision, BeEquivalentTo(2)))
 			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(target), target)).To(Succeed())
 
 			Expect(*target.Spec.Cortex.Enabled).To(BeFalse())
@@ -324,6 +324,7 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 				Enabled:  lo.ToPtr(true),
 				Hostname: lo.ToPtr("x"),
 			}))
+			Expect(target.Spec.Grafana.GrafanaSpec).To(Equal(grafanaV2))
 			Expect(k8sClient.Delete(context.Background(), target)).To(Succeed())
 			Eventually(Object(target)).ShouldNot(Exist())
 		})
@@ -377,7 +378,7 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 				Expect(k8sClient.Update(context.Background(), crd)).To(Succeed())
 
 				By("ensuring the object is upgraded")
-				Eventually(Object(target)).Should(WithTransform(corev1beta1.GetMonitoringClusterRevision, BeEquivalentTo(1)))
+				Eventually(Object(target)).Should(WithTransform(corev1beta1.GetMonitoringClusterRevision, BeEquivalentTo(2)))
 			})
 		})
 		It("should apply a missing revision annotation to an existing v1 object", func() {
@@ -405,7 +406,7 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 			originalMc := mc.DeepCopy()
 
 			Expect(k8sClient.Create(context.Background(), mc)).To(Succeed())
-			Eventually(Object(mc)).Should(WithTransform(corev1beta1.GetMonitoringClusterRevision, BeEquivalentTo(1)))
+			Eventually(Object(mc)).Should(WithTransform(corev1beta1.GetMonitoringClusterRevision, BeEquivalentTo(2)))
 			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(mc), mc)).To(Succeed())
 
 			Expect(mc.Spec.Cortex.CortexConfig).To(testutil.ProtoEqual(originalMc.Spec.Cortex.CortexConfig))

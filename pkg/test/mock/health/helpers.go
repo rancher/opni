@@ -3,9 +3,9 @@ package mock_health
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 
-	"github.com/kralicky/gpkg/sync/atomic"
-	"github.com/rancher/opni/pkg/apis/core/v1"
+	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/util"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -13,7 +13,7 @@ import (
 )
 
 type HealthStore struct {
-	health              atomic.Value[*v1.Health]
+	health              atomic.Pointer[v1.Health]
 	GetHealthShouldFail bool
 }
 

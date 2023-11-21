@@ -57,7 +57,7 @@ require (
 	github.com/karlseguin/ccache/v3 v3.0.3
 	github.com/kazegusuri/channelzcli v0.0.0-20230307031351-17bac34c51ca
 	github.com/klauspost/compress v1.16.7
-	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
+	github.com/kralicky/gpkg v0.0.0-20231114180450-2f4bff8c5588
 	github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c
 	github.com/kralicky/protols v0.0.0-20231102164430-669d20c5e11a
 	github.com/kralicky/ragu v1.0.11-0.20231031175336-0612d4bec2a0

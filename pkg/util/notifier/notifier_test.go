@@ -3,9 +3,9 @@ package notifier_test
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"github.com/kralicky/gpkg/sync/atomic"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/prometheus/model/rulefmt"
@@ -98,10 +98,10 @@ var _ = Describe("Update Notifier", Label("unit"), func() {
 	})
 	It("should handle deleting receivers", func() {
 
-		groups := atomic.Value[[]rules.RuleGroup]{}
+		groups := atomic.Value{}
 		groups.Store(testGroups1)
 		updateNotifier := notifier.NewUpdateNotifier(mock_rules.NewTestFinder(ctrl, func() []rules.RuleGroup {
-			return notifier.CloneList(groups.Load())
+			return notifier.CloneList(groups.Load().([]rules.RuleGroup))
 		}))
 
 		count := 100
@@ -142,10 +142,10 @@ var _ = Describe("Update Notifier", Label("unit"), func() {
 	})
 	It("should handle rule updates", func() {
 
-		groups := atomic.Value[[]rules.RuleGroup]{}
+		groups := atomic.Value{}
 		groups.Store(testGroups1)
 		un := notifier.NewUpdateNotifier(mock_rules.NewTestFinder(ctrl, func() []rules.RuleGroup {
-			return notifier.CloneList(groups.Load())
+			return notifier.CloneList(groups.Load().([]rules.RuleGroup))
 		}))
 
 		count := 100

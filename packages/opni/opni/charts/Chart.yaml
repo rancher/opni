@@ -2,8 +2,8 @@ annotations:
   catalog.cattle.io/auto-install: opni-crd=match
   catalog.cattle.io/display-name: Opni
   catalog.cattle.io/os: linux
-  catalog.rancher.io/namespace: opni-cluster-system
-  catalog.rancher.io/release-name: opni
+  catalog.cattle.io/namespace: opni
+  catalog.cattle.io/release-name: opni
 apiVersion: v2
 appVersion: 0.12.1
 dependencies:

@@ -1,3 +1,8 @@
+annotations:
+  catalog.cattle.io/hidden: "true"
+  catalog.cattle.io/release-name: opni-crd
+  catalog.cattle.io/namespace: opni
+  catalog.cattle.io/display-name: Opni CRDs
 apiVersion: v1
 version: 0.5.4
 description: Installs the CRDs for Opni.
@@ -8,7 +13,3 @@ maintainers:
   name: Joe Kralicky
 - email: dan.bason@suse.com
   name: Dan Bason
-annotations:
-  catalog.cattle.io/hidden: "true"
-  catalog.cattle.io/release-name: opni-crd
-  catalog.cattle.io/namespace: opni-cluster-system

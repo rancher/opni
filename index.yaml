@@ -44,7 +44,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.12.1-rc1
     created: "2023-11-10T18:54:58.914050982Z"
@@ -82,7 +82,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.12.0
     created: "2023-11-03T21:49:13.556171963Z"
@@ -120,7 +120,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.12.0-rc2
     created: "2023-11-02T22:32:46.146519674Z"
@@ -158,7 +158,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.12.0-rc1
     created: "2023-10-31T01:04:29.274448931Z"
@@ -196,7 +196,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.11.2
     created: "2023-09-15T01:55:05.534202214Z"
@@ -234,7 +234,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.11.2-rc2
     created: "2023-09-14T00:10:38.906774879Z"
@@ -272,7 +272,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.11.1
     created: "2023-08-16T23:31:51.103680717Z"
@@ -310,7 +310,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.11.1-rc1
     created: "2023-08-15T21:55:33.997285519Z"
@@ -348,7 +348,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.11.0
     created: "2023-08-09T21:06:45.528066935Z"
@@ -386,7 +386,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.11.0-rc4
     created: "2023-08-09T02:34:37.550363852Z"
@@ -424,7 +424,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.11.0-rc3
     created: "2023-08-07T21:59:13.613455249Z"
@@ -462,7 +462,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.11.0-rc2
     created: "2023-08-03T22:59:27.42934821Z"
@@ -500,7 +500,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.10.0
     created: "2023-06-07T04:27:56.755035933Z"
@@ -538,7 +538,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.10.0-rc8
     created: "2023-06-07T01:23:14.178475084Z"
@@ -576,7 +576,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.10.0-rc7
     created: "2023-06-06T21:29:08.88852913Z"
@@ -614,7 +614,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.10.0-rc6
     created: "2023-06-02T22:49:29.112105263Z"
@@ -652,7 +652,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.10.0-rc5
     created: "2023-06-02T01:52:08.715179786Z"
@@ -690,7 +690,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.10.0-rc4
     created: "2023-05-31T22:33:32.275414054Z"
@@ -728,7 +728,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.10.0-rc3
     created: "2023-05-28T23:50:08.0381257Z"
@@ -766,7 +766,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.10.0-rc2
     created: "2023-05-25T18:13:28.844384872Z"
@@ -804,7 +804,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.10.0-rc1
     created: "2023-05-15T22:52:57.277888883Z"
@@ -842,7 +842,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.9.2
     created: "2023-04-26T21:45:40.586680012Z"
@@ -880,7 +880,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.9.2-rc4
     created: "2023-04-26T18:50:00.510984973Z"
@@ -918,7 +918,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.9.2-rc3
     created: "2023-04-25T21:00:25.500491293Z"
@@ -956,7 +956,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.9.2-rc2
     created: "2023-04-24T20:03:02.56691433Z"
@@ -994,7 +994,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.9.2-rc1
     created: "2023-04-17T21:31:37.609496978Z"
@@ -1032,7 +1032,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.9.1
     created: "2023-04-06T18:30:29.132823697Z"
@@ -1070,7 +1070,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.9.1-rc3
     created: "2023-04-06T04:27:51.781503525Z"
@@ -1108,7 +1108,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.9.1-rc2
     created: "2023-04-03T22:57:38.740646233Z"
@@ -1146,7 +1146,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.9.0
     created: "2023-03-17T01:08:37.236645629Z"
@@ -1184,7 +1184,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.9.0-rc4
     created: "2023-03-16T20:59:10.874917429Z"
@@ -1222,7 +1222,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.9.0-rc3
     created: "2023-03-16T01:15:22.271250521Z"
@@ -1260,7 +1260,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.9.0-rc2
     created: "2023-03-15T03:29:05.105561102Z"
@@ -1298,7 +1298,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.9.0-rc1
     created: "2023-03-10T00:41:35.815798667Z"
@@ -1336,7 +1336,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.8.3
     created: "2023-03-03T02:32:38.166140866Z"
@@ -1374,7 +1374,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.8.3-rc2
     created: "2023-03-02T21:45:26.666836749Z"
@@ -1412,7 +1412,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.8.3-rc1
     created: "2023-03-01T05:46:53.922587569Z"
@@ -1450,7 +1450,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.8.2
     created: "2023-02-16T22:37:11.847339599Z"
@@ -1488,7 +1488,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.8.2-rc3
     created: "2023-02-16T00:56:03.42483972Z"
@@ -1526,7 +1526,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.8.2-rc2
     created: "2023-02-15T03:49:26.777243082Z"
@@ -1564,7 +1564,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.8.2-rc1
     created: "2023-02-14T19:49:28.373978154Z"
@@ -1602,7 +1602,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.8.1
     created: "2022-12-20T13:09:39.612023073+13:00"
@@ -1640,7 +1640,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.8.0
     created: "2022-12-17T03:06:30.997013194Z"
@@ -1678,7 +1678,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.8.0-rc5
     created: "2022-12-16T04:26:07.054580704Z"
@@ -1716,7 +1716,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.8.0-rc4
     created: "2022-12-15T23:44:40.064852619Z"
@@ -1754,7 +1754,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.8.0-rc3
     created: "2022-12-15T21:19:03.097074186Z"
@@ -1792,7 +1792,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.8.0-rc2
     created: "2022-12-15T00:29:30.242663676Z"
@@ -1830,7 +1830,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.8.0-rc1
     created: "2022-12-12T22:29:05.889597173Z"
@@ -1868,7 +1868,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.7.0
     created: "2022-11-23T18:25:24.535101175Z"
@@ -1906,7 +1906,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.7.0-rc1
     created: "2022-11-18T01:18:59.583815346Z"
@@ -1944,7 +1944,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.6.3
     created: "2022-11-17T05:02:09.928930555Z"
@@ -1982,7 +1982,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.6.2
     created: "2022-11-16T16:07:18.844118162+13:00"
@@ -2020,7 +2020,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.6.1
     created: "2022-11-08T14:38:26.388468977+13:00"
@@ -2058,7 +2058,7 @@ entries:
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.6.0
     created: "2022-10-22T11:50:25.924721551+13:00"
@@ -2096,7 +2096,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.12.1
     created: "2023-11-17T21:42:25.282800503Z"
@@ -2115,7 +2115,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.12.1-rc1
     created: "2023-11-10T18:55:00.469032101Z"
@@ -2134,7 +2134,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.12.0
     created: "2023-11-03T21:49:15.059673968Z"
@@ -2153,7 +2153,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.12.0-rc2
     created: "2023-11-02T22:32:47.608599044Z"
@@ -2172,7 +2172,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.12.0-rc1
     created: "2023-10-31T01:04:30.768040515Z"
@@ -2191,7 +2191,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.11.2
     created: "2023-09-15T01:55:07.252127651Z"
@@ -2210,7 +2210,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.11.2-rc2
     created: "2023-09-14T00:10:40.325468197Z"
@@ -2229,7 +2229,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.11.1
     created: "2023-08-16T23:31:52.51845562Z"
@@ -2248,7 +2248,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.11.1-rc1
     created: "2023-08-15T21:55:35.326237813Z"
@@ -2267,7 +2267,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.11.0
     created: "2023-08-09T21:06:47.066629526Z"
@@ -2286,7 +2286,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.11.0-rc4
     created: "2023-08-09T02:34:38.902213501Z"
@@ -2305,7 +2305,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.11.0-rc3
     created: "2023-08-07T21:59:14.941417832Z"
@@ -2324,7 +2324,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.11.0-rc2
     created: "2023-08-03T22:59:28.746470667Z"
@@ -2343,7 +2343,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.10.0
     created: "2023-06-07T04:27:57.997811684Z"
@@ -2362,7 +2362,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.10.0-rc8
     created: "2023-06-07T01:23:15.450256043Z"
@@ -2381,7 +2381,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.10.0-rc7
     created: "2023-06-06T21:29:10.128839275Z"
@@ -2400,7 +2400,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.10.0-rc6
     created: "2023-06-02T22:49:30.297533236Z"
@@ -2419,7 +2419,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.10.0-rc5
     created: "2023-06-02T01:52:09.872790457Z"
@@ -2438,7 +2438,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.10.0-rc4
     created: "2023-05-31T22:33:33.415578216Z"
@@ -2457,7 +2457,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.10.0-rc3
     created: "2023-05-28T23:50:09.221707586Z"
@@ -2476,7 +2476,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.10.0-rc2
     created: "2023-05-25T18:13:30.070908798Z"
@@ -2495,7 +2495,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.10.0-rc1
     created: "2023-05-15T22:52:59.781132776Z"
@@ -2515,7 +2515,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.9.2
     created: "2023-04-26T21:45:41.606303817Z"
@@ -2535,7 +2535,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.9.2-rc4
     created: "2023-04-26T18:50:01.231347727Z"
@@ -2555,7 +2555,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.9.2-rc3
     created: "2023-04-25T21:00:26.21592347Z"
@@ -2575,7 +2575,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.9.2-rc2
     created: "2023-04-24T20:03:03.245569977Z"
@@ -2595,7 +2595,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.9.2-rc1
     created: "2023-04-17T21:31:38.334903726Z"
@@ -2615,7 +2615,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.9.1
     created: "2023-04-06T18:30:29.758201383Z"
@@ -2635,7 +2635,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.9.1-rc3
     created: "2023-04-06T04:27:52.408099787Z"
@@ -2655,7 +2655,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.9.1-rc2
     created: "2023-04-03T22:57:39.321850636Z"
@@ -2675,7 +2675,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.9.0
     created: "2023-03-17T01:08:37.975039685Z"
@@ -2695,7 +2695,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.9.0-rc4
     created: "2023-03-16T20:59:11.519191429Z"
@@ -2715,7 +2715,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.9.0-rc3
     created: "2023-03-16T01:15:22.918519087Z"
@@ -2735,7 +2735,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.9.0-rc2
     created: "2023-03-15T03:29:05.775419744Z"
@@ -2755,7 +2755,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.9.0-rc1
     created: "2023-03-10T00:41:36.4288712Z"
@@ -2775,7 +2775,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.8.3
     created: "2023-03-03T02:32:38.743195176Z"
@@ -2795,7 +2795,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.8.3-rc2
     created: "2023-03-02T21:45:27.26152032Z"
@@ -2815,7 +2815,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.8.3-rc1
     created: "2023-03-01T05:46:54.480946605Z"
@@ -2835,7 +2835,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.8.2
     created: "2023-02-16T22:37:12.397933814Z"
@@ -2855,7 +2855,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.8.2-rc3
     created: "2023-02-16T00:56:04.062375653Z"
@@ -2875,7 +2875,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.8.2-rc2
     created: "2023-02-15T03:49:27.263325615Z"
@@ -2895,7 +2895,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.8.2-rc1
     created: "2023-02-14T19:49:29.21724403Z"
@@ -2915,7 +2915,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.8.1
     created: "2022-12-20T11:13:23.074481183+13:00"
@@ -2935,7 +2935,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.8.0
     created: "2022-12-17T03:06:31.677719394Z"
@@ -2955,7 +2955,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.8.0-rc5
     created: "2022-12-16T04:26:07.692605183Z"
@@ -2975,7 +2975,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.8.0-rc4
     created: "2022-12-15T23:44:40.685822722Z"
@@ -2995,7 +2995,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.8.0-rc3
     created: "2022-12-15T21:19:03.644616454Z"
@@ -3015,7 +3015,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.8.0-rc2
     created: "2022-12-15T00:29:30.847758432Z"
@@ -3035,7 +3035,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.8.0-rc1
     created: "2022-12-12T22:29:06.438906925Z"
@@ -3055,7 +3055,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.7.0
     created: "2022-11-23T18:25:24.790836174Z"
@@ -3075,7 +3075,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.7.0-rc1
     created: "2022-11-18T01:18:59.763290681Z"
@@ -3095,7 +3095,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.6.3
     created: "2022-11-17T05:02:10.125272024Z"
@@ -3115,7 +3115,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.6.2
     created: "2022-11-16T16:03:53.45215023+13:00"
@@ -3135,7 +3135,7 @@ entries:
       catalog.cattle.io/display-name: Opni Agent
       catalog.cattle.io/os: linux
       catalog.rancher.io/namespace: opni-system
-      catalog.rancher.io/release-name: opni-agent
+      catalog.cattle.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.6.1
     created: "2022-11-08T14:36:53.56445046+13:00"

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/cortexproject/cortex/pkg/cortex"
-	grafanav1alpha1 "github.com/grafana-operator/grafana-operator/v4/api/integreatly/v1alpha1"
+	grafanav1beta1 "github.com/grafana-operator/grafana-operator/v5/api/v1beta1"
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -153,16 +153,30 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 						"grafana": map[string]any{
 							"config": map[string]any{
 								"auth.generic_oauth": map[string]any{
-									"enabled": true,
+									"enabled": "true",
 								},
 							},
-							"enabled":  true,
-							"hostname": "x",
+							"dashboardContentCacheDuration": "0s",
+							"enabled":                       true,
+							"hostname":                      "x",
+							"deployment": map[string]any{
+								"env": []map[string]string{
+									{
+										"name":  "GF_SOME_VAR",
+										"value": "true",
+									},
+									{
+										"name":  "GF_ANOTHER_VAR",
+										"value": "false",
+									},
+								},
+							},
 						},
 					},
 				},
 			}
 		}
+
 		newmcv1 := func() (*cortexops.CortexApplicationConfig, *cortexops.CortexWorkloadsConfig) {
 			return &cortexops.CortexApplicationConfig{
 					Limits: &validation.Limits{
@@ -219,7 +233,78 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 				}
 		}
 
-		It("should upgrade the monitoring cluster from revision 0 to 1", func() {
+		unstructuredV1 := func() *unstructured.Unstructured {
+			return &unstructured.Unstructured{
+				Object: map[string]any{
+					"apiVersion": "core.opni.io/v1beta1",
+					"kind":       "MonitoringCluster",
+					"metadata": map[string]any{
+						"name":      "samplev1",
+						"namespace": gateway.Namespace,
+					},
+					"spec": map[string]any{
+						"gateway": map[string]any{
+							"name": gateway.Name,
+						},
+						"grafana": map[string]any{
+							"config": map[string]any{
+								"auth.generic_oauth": map[string]any{
+									"enabled": "true",
+								},
+							},
+							"dashboardContentCacheDuration": "0s",
+							"enabled":                       true,
+							"hostname":                      "x",
+							"deployment": map[string]any{
+								"env": []map[string]string{
+									{
+										"name":  "GF_SOME_VAR",
+										"value": "true",
+									},
+									{
+										"name":  "GF_ANOTHER_VAR",
+										"value": "false",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+		}
+
+		grafanaV2 := grafanav1beta1.GrafanaSpec{
+			Config: map[string]map[string]string{
+				"auth.generic_oauth": {
+					"enabled": "true",
+				},
+			},
+			Deployment: &grafanav1beta1.DeploymentV1{
+				Spec: grafanav1beta1.DeploymentV1Spec{
+					Template: &grafanav1beta1.DeploymentV1PodTemplateSpec{
+						Spec: &grafanav1beta1.DeploymentV1PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "grafana",
+									Env: []corev1.EnvVar{
+										{
+											Name:  "GF_SOME_VAR",
+											Value: "true",
+										},
+										{
+											Name:  "GF_ANOTHER_VAR",
+											Value: "false",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		It("should upgrade the monitoring cluster from revision 0 to 2", func() {
 			mcv0 := newmcv0()
 			mcv1config, mcv1workloads := newmcv1()
 			Expect(k8sClient.Create(context.Background(), mcv0)).To(Succeed())
@@ -229,7 +314,7 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 					Namespace: gateway.Namespace,
 				},
 			}
-			Eventually(Object(target)).Should(WithTransform(corev1beta1.GetMonitoringClusterRevision, BeEquivalentTo(1)))
+			Eventually(Object(target)).Should(WithTransform(corev1beta1.GetMonitoringClusterRevision, BeEquivalentTo(2)))
 			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(target), target)).To(Succeed())
 
 			Expect(*target.Spec.Cortex.Enabled).To(BeFalse())
@@ -239,13 +324,26 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 				Enabled:  lo.ToPtr(true),
 				Hostname: lo.ToPtr("x"),
 			}))
-			Expect(target.Spec.Grafana.GrafanaSpec).To(Equal(grafanav1alpha1.GrafanaSpec{
-				Config: grafanav1alpha1.GrafanaConfig{
-					AuthGenericOauth: &grafanav1alpha1.GrafanaConfigAuthGenericOauth{
-						Enabled: lo.ToPtr(true),
-					},
+			Expect(target.Spec.Grafana.GrafanaSpec).To(Equal(grafanaV2))
+			Expect(k8sClient.Delete(context.Background(), target)).To(Succeed())
+			Eventually(Object(target)).ShouldNot(Exist())
+		})
+		It("should upgrade the monitoring cluster from revision 1 to 2", func() {
+			mcv1 := unstructuredV1()
+			Expect(k8sClient.Create(context.Background(), mcv1)).To(Succeed())
+			target := &corev1beta1.MonitoringCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "samplev1",
+					Namespace: gateway.Namespace,
 				},
+			}
+			Eventually(Object(target)).Should(WithTransform(corev1beta1.GetMonitoringClusterRevision, BeEquivalentTo(2)))
+			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(target), target)).To(Succeed())
+			Expect(target.Spec.Grafana.GrafanaConfig).To(testutil.ProtoEqual(&cortexops.GrafanaConfig{
+				Enabled:  lo.ToPtr(true),
+				Hostname: lo.ToPtr("x"),
 			}))
+			Expect(target.Spec.Grafana.GrafanaSpec).To(Equal(grafanaV2))
 			Expect(k8sClient.Delete(context.Background(), target)).To(Succeed())
 			Eventually(Object(target)).ShouldNot(Exist())
 		})
@@ -280,7 +378,7 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 				Expect(k8sClient.Update(context.Background(), crd)).To(Succeed())
 
 				By("ensuring the object is upgraded")
-				Eventually(Object(target)).Should(WithTransform(corev1beta1.GetMonitoringClusterRevision, BeEquivalentTo(1)))
+				Eventually(Object(target)).Should(WithTransform(corev1beta1.GetMonitoringClusterRevision, BeEquivalentTo(2)))
 			})
 		})
 		It("should apply a missing revision annotation to an existing v1 object", func() {
@@ -308,7 +406,7 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 			originalMc := mc.DeepCopy()
 
 			Expect(k8sClient.Create(context.Background(), mc)).To(Succeed())
-			Eventually(Object(mc)).Should(WithTransform(corev1beta1.GetMonitoringClusterRevision, BeEquivalentTo(1)))
+			Eventually(Object(mc)).Should(WithTransform(corev1beta1.GetMonitoringClusterRevision, BeEquivalentTo(2)))
 			Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(mc), mc)).To(Succeed())
 
 			Expect(mc.Spec.Cortex.CortexConfig).To(testutil.ProtoEqual(originalMc.Spec.Cortex.CortexConfig))
@@ -347,7 +445,7 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 						Grafana: corev1beta1.GrafanaSpec{
 							GrafanaConfig: &cortexops.GrafanaConfig{
 								Enabled: lo.ToPtr(true),
-								Version: lo.ToPtr("10.0.0"),
+								Version: lo.ToPtr("10.1.5"),
 							},
 						},
 					},
@@ -387,14 +485,14 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 				// grafana should be deployed
 				Eventually(Object(&appsv1.Deployment{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "grafana",
+						Name:      "grafana-deployment",
 						Namespace: aio.Namespace,
 					},
 				})).Should(ExistAnd(
 					HaveReplicaCount(1),
 					HaveMatchingContainer(And(
 						HaveName("grafana"),
-						HaveImage("grafana/grafana:10.0.0"),
+						HaveImage("grafana/grafana:10.1.5"),
 					)),
 				))
 
@@ -502,14 +600,14 @@ var _ = Describe("Monitoring Controller", Ordered, Label("controller", "slow"), 
 				// grafana should be deployed
 				Eventually(Object(&appsv1.Deployment{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "grafana",
+						Name:      "grafana-deployment",
 						Namespace: aio.Namespace,
 					},
 				})).Should(ExistAnd(
 					HaveReplicaCount(1),
 					HaveMatchingContainer(And(
 						HaveName("grafana"),
-						HaveImage("grafana/grafana:10.1.1"),
+						HaveImage("grafana/grafana:10.1.5"),
 					)),
 				))
 			})

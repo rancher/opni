@@ -5,6 +5,8 @@ package commands
 import (
 	"fmt"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"strings"
 
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
@@ -78,8 +80,8 @@ func BuildClientCmd() *cobra.Command {
 
 			mgr, err := ctrl.NewManager(config, ctrl.Options{
 				Scheme:                 scheme,
-				MetricsBindAddress:     metricsAddr,
-				Port:                   9443,
+				Metrics:                server.Options{BindAddress: metricsAddr},
+				WebhookServer:          webhook.NewServer(webhook.Options{Port: 9443}),
 				HealthProbeBindAddress: probeAddr,
 				LeaderElection:         false,
 			})

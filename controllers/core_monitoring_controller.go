@@ -202,7 +202,7 @@ var ErrAlreadyUpgraded = fmt.Errorf("already upgraded")
 // Contains a set of functions that can be used to convert between incompatible
 // revisions of the MonitoringCluster CRD.
 // Each function knows how to convert from a specific version V to version
-// V+1. The conversion function should modify the unsturctured object in-place.
+// V+1. The conversion function should modify the unstructured object in-place.
 var conversions = map[int64]unstructuredConverter{
 	// 0->1: upgrade to the first revision of the schemaless CRD with generated
 	// cortex config apis.
@@ -240,7 +240,7 @@ var conversions = map[int64]unstructuredConverter{
 	//         seconds: int64
 	//       [rest of the fields are the same as v1]
 	//   gateway:
-	//		 [same as v1]
+	//	   [same as v1]
 	//   grafana:
 	//     [same as v1]
 	//
@@ -354,11 +354,66 @@ var conversions = map[int64]unstructuredConverter{
 				}
 			}
 		}
+
 		unstructured.RemoveNestedField(content, "spec", "cortex", "deploymentMode")
 		unstructured.RemoveNestedField(content, "spec", "cortex", "storage")
 		unstructured.RemoveNestedField(content, "spec", "cortex", "workloads")
 		unstructured.SetNestedMap(content, v1CortexConfig, "spec", "cortex", "cortexConfig")
 		unstructured.SetNestedMap(content, v1CortexWorkloads, "spec", "cortex", "cortexWorkloads")
+
+		src.SetUnstructuredContent(content)
+		return nil
+	},
+
+	// From v1 to v2, the grafana-operator updated Grafana types to v1beta1.
+	// The charts began using the corev1 types instead of custom ones.
+	//
+	// v1:
+	// spec:
+	//   grafana:
+	//     config: {}
+	//     dashboardContentCacheDuration: 0s
+	//     deployment:
+	//       env:
+	//         - name: GF_VAR
+	//           value: 'true'
+	//
+	// v2:
+	// spec:
+	//   grafana:
+	//     deployment:
+	//       spec:
+	//         template:
+	//           spec:
+	//             containers:
+	//               - env:
+	//                   - name: GF_VAR
+	//                     value: 'true'
+	//                 name: grafana
+	1: func(src *unstructured.Unstructured) error {
+		content := src.UnstructuredContent()
+		v1GrafanaEnvvars, hasV1GrafanaEnvvars, _ := unstructured.NestedSlice(content, "spec", "grafana", "deployment", "env")
+
+		if !hasV1GrafanaEnvvars {
+			return ErrAlreadyUpgraded
+		}
+
+		v2GrafanaContainer := map[string]any{
+			"name": "grafana",
+			"env":  v1GrafanaEnvvars,
+		}
+
+		v2GrafanaDeployment := map[string]any{
+			"spec": map[string]any{
+				"template": map[string]any{
+					"spec": map[string]any{},
+				},
+			},
+		}
+
+		unstructured.SetNestedMap(content, v2GrafanaDeployment, "spec", "grafana", "deployment")
+		unstructured.SetNestedSlice(content, []any{v2GrafanaContainer}, "spec", "grafana", "deployment", "spec", "template", "spec", "containers")
+		unstructured.RemoveNestedField(content, "spec", "grafana", "dashboardContentCacheDuration")
 
 		src.SetUnstructuredContent(content)
 		return nil

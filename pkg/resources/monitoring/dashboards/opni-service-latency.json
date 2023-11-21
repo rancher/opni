@@ -38,7 +38,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -107,7 +107,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "(\n  sum by(__tenant_id__, method, service) (opni_gateway_stream_remote_service_latency_sum{__tenant_id__=\"$cluster\"})\n  /\n  sum by(__tenant_id__, method, service) (opni_gateway_stream_remote_service_latency_count{__tenant_id__=\"$cluster\"})\n)\n* on(__tenant_id__) group_left(friendly_name) group by(__tenant_id__, friendly_name) (opni_cluster_info @ end())\n",
@@ -137,7 +137,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "P0BEE70D62F42845E"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -207,7 +207,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0BEE70D62F42845E"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "(\n    sum by(method, service, handler, __tenant_id__) (opni_gateway_stream_local_service_latency_sum{service!~\"^totem.*\", __tenant_id__=\"$cluster\"}) \n    / \n    sum by(method, service, handler, __tenant_id__) (opni_gateway_stream_local_service_latency_count{service!~\"^totem.*\", __tenant_id__=\"$cluster\"})\n) * on(__tenant_id__) group_left(friendly_name) group by(__tenant_id__, friendly_name) (opni_cluster_info @ end())",
@@ -240,7 +240,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "P0BEE70D62F42845E"
+          "uid": "${DS_PROMETHEUS}"
         },
         "definition": "query_result(opni_cluster_info)",
         "hide": 0,

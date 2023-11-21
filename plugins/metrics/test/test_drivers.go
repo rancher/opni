@@ -197,7 +197,10 @@ func (d *TestEnvMetricsClusterDriver) onActiveConfigChanged(old, new *cortexops.
 			d.stopCortexCmdAfter()
 		}
 		d.cortexCancel()
-		<-d.cortexCmdCtx.Done()
+		if d.cortexCmdCtx != nil {
+			// can be nil if the previous cortex command failed to start
+			<-d.cortexCmdCtx.Done()
+		}
 	}
 
 	// NB: apply changes to currentStatus instead of d.status in this function

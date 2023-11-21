@@ -14,12 +14,17 @@ import (
 )
 
 func descriptorString(fqName, help string, constLabels []string, varLabels []prometheus.ConstrainedLabel) string {
+	var vlStrings []string
+	for _, varLabel := range varLabels {
+		vlStrings = append(vlStrings, varLabel.Name)
+	}
+
 	return fmt.Sprintf(
-		"Desc{fqName: %q, help: %q, constLabels: {%s}, variableLabels: %v}",
+		"Desc{fqName: %q, help: %q, constLabels: {%s}, variableLabels: {%s}}",
 		fqName,
 		help,
 		strings.Join(constLabels, ","),
-		varLabels,
+		strings.Join(vlStrings, ","),
 	)
 }
 

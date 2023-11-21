@@ -698,6 +698,7 @@ func (in *SampleConfiguration) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.Var(flagutil.StringPtrValue(nil, &in.SecretField), strings.Join(append(prefix, "secret-field"), "."), "\x1b[31m[secret]\x1b[0m ")
 	fs.StringToStringVar(&in.MapField, strings.Join(append(prefix, "map-field"), "."), nil, "")
 	fs.StringSliceVar(&in.RepeatedField, strings.Join(append(prefix, "repeated-field"), "."), nil, "")
+	fs.Var(flagutil.EnumPtrValue(nil, &in.EnumField), strings.Join(append(prefix, "enum-field"), "."), "")
 	if in.MessageField == nil {
 		in.MessageField = &SampleMessage{}
 	}

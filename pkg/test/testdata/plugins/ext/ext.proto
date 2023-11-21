@@ -183,7 +183,14 @@ message SampleConfiguration {
   optional string     secretField   = 4 [(cli.flag).secret = true];
   map<string, string> mapField      = 5;
   repeated string     repeatedField = 6;
-  SampleMessage       messageField  = 7;
+  optional SampleEnum enumField     = 7;
+  SampleMessage       messageField  = 8;
+}
+
+enum SampleEnum {
+  Unknown = 0;
+  Foo     = 1;
+  Bar     = 2;
 }
 
 message SampleGetRequest {

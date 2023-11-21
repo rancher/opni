@@ -81,7 +81,7 @@ message GatewayConfigSpec {
     }
   };
 
-  core.Revision        revision      = 1;
+  core.Revision        revision      = 1  [(cli.flag).skip = true];
   ServerSpec           server        = 2;
   ManagementServerSpec management    = 3;
   RelayServerSpec      relay         = 4;
@@ -93,7 +93,7 @@ message GatewayConfigSpec {
   KeyringSpec          keyring       = 10;
   AgentUpgradesSpec    agentUpgrades = 11;
   RateLimitingSpec     rateLimiting  = 12;
-  AuthSpec             auth          = 13;
+  AuthSpec             auth          = 13 [(cli.flag).skip = true];
 }
 
 message ServerSpec {
@@ -132,8 +132,9 @@ message ManagementServerSpec {
       expression: "this.isValidListenAddress()"
     }
   ];
-  // The advertise address for the management server. This is the address at
-  // which other gateway instances will be able to reach this management server.
+  // The advertise address for the management server.
+  // This is the address at which other gateway instances will be able to reach
+  // this management server.
   optional string advertiseAddress = 3 [
     (cli.flag).skip      = true,
     (buf.validate.field) = {
@@ -161,9 +162,9 @@ message RelayServerSpec {
       expression: "this.isValidListenAddress()"
     }
   ];
-  // The advertise address for the relay server. This is the address at which
-  // other gateway instances will be able to reach this relay server.
-  // Configured automatically by the manager if not set.
+  // The advertise address for the relay server.
+  // This is the address at which other gateway instances will be able to reach
+  // this relay server. Configured automatically by the manager if not set.
   optional string advertiseAddress = 5 [
     (cli.flag).skip      = true,
     (buf.validate.field) = {
@@ -183,8 +184,7 @@ message RelayServerSpec {
 }
 
 message HealthServerSpec {
-  // Address and port to serve the gateway's internal health/metrics/profiling
-  // http server on.
+  // Address and port to serve the gateway's internal health/metrics/profiling http server on.
   optional string httpListenAddress = 1 [
     (cli.flag).default       = "0.0.0.0:8086",
     (buf.validate.field).cel = {
@@ -220,8 +220,8 @@ message DashboardServerSpec {
       ]
     }
   ];
-  // The hostname at which the dashboard is expected to be reachable. This is
-  // required when using OpenID Connect authentication.
+  // The hostname at which the dashboard is expected to be reachable.
+  // This is required when using OpenID Connect authentication.
   optional string hostname = 3 [
     // https://datatracker.ietf.org/doc/html/rfc1034#section-3.5
     (buf.validate.field).string.hostname = true
@@ -240,7 +240,7 @@ message DashboardServerSpec {
   ];
 }
 
-enum StorageType {
+enum StorageBackend {
   // Use etcd for key-value storage. This is the recommended default.
   Etcd = 0;
   // Use NATS JetStream for key-value storage.
@@ -249,25 +249,28 @@ enum StorageType {
 
 message StorageSpec {
   option (buf.validate.message).cel = {
-    id:         "storage_type_configured"
-    message:    "selected storage type must have matching configuration set"
-    expression: "(this.type == 0 && has(this.etcd)) || (this.type == 1 && has(this.jetstream))"
+    id:         "storage_backend_configured"
+    message:    "selected storage backend must have matching configuration set"
+    expression: "(this.backend == 0 && has(this.etcd)) || (this.backend == 1 && has(this.jetStream))"
   };
-  optional StorageType type = 1 [
+
+  // Key-value storage backend.
+  optional StorageBackend backend = 1 [
     (cli.flag).default                     = "Etcd",
     (buf.validate.field).enum.defined_only = true
   ];
   EtcdSpec etcd = 2 [(buf.validate.field).ignore_if = {
     id:         "etcd"
-    expression: "this.type != 0"
+    expression: "this.backend != 0"
   }];
-  JetStreamSpec jetstream = 3 [(buf.validate.field).ignore_if = {
+  JetStreamSpec jetStream = 3 [(buf.validate.field).ignore_if = {
     id:         "jetstream"
-    expression: "this.type != 1"
+    expression: "this.backend != 1"
   }];
 }
 
 message EtcdSpec {
+  // Etcd server endpoints.
   repeated string endpoints = 1 [
     (buf.validate.field) = {
       repeated: {
@@ -277,6 +280,8 @@ message EtcdSpec {
       }
     }
   ];
+
+  // Etcd client certificate configuration.
   MTLSSpec certs = 2;
 }
 
@@ -357,12 +362,15 @@ message MTLSSpec {
 }
 
 message JetStreamSpec {
+  // Jetstream server endpoint.
   optional string endpoint = 1 [
     (buf.validate.field) = {
       required: true
       string:   {uri_ref: true}
     }
   ];
+
+  // Path to the Jetstream nkey seed.
   optional string nkeySeedPath = 2 [
     (buf.validate.field) = {
       required: true
@@ -447,8 +455,11 @@ message PluginsSpec {
     (buf.validate.field).required = true
   ];
 
+  // Optional set of filters which can be used to prevent specific plugins
+  // from being loaded.
   PluginFilters filters = 2;
 
+  // Plugin cache configuration.
   CacheSpec cache = 4;
 }
 
@@ -462,6 +473,7 @@ enum CacheBackend {
 }
 
 message PluginFilters {
+  // List of plugin go module paths not to load.
   repeated string exclude = 1 [
     (buf.validate.field).repeated = {
       items: {
@@ -476,15 +488,19 @@ message PluginFilters {
 }
 
 message CacheSpec {
+  // Patch engine to use for calculating plugin patches.
   optional PatchEngine patchEngine = 1 [
     (cli.flag).default                     = "Zstd",
     (buf.validate.field).enum.defined_only = true
   ];
 
+  // Cache backend to use for storing plugin binaries and patches.
   optional CacheBackend backend = 2 [
     (cli.flag).default                     = "Filesystem",
     (buf.validate.field).enum.defined_only = true
   ];
+
+  // Filesystem cache configuration. Required if backend is Filesystem.
   FilesystemCacheSpec filesystem = 3 [(buf.validate.field).ignore_if = {
     id:         "filesystem"
     expression: "this.backend != 0"
@@ -492,6 +508,7 @@ message CacheSpec {
 }
 
 message FilesystemCacheSpec {
+  // Directory to store plugin binaries and patches in.
   optional string dir = 1 [
     (cli.flag).default            = "/var/lib/opni/plugin-cache",
     (buf.validate.field).required = true
@@ -510,6 +527,7 @@ message KeyringSpec {
 }
 
 message AgentUpgradesSpec {
+  // Kubernetes agent upgrade configuration.
   KubernetesAgentUpgradeSpec kubernetes = 1;
 }
 
@@ -519,6 +537,7 @@ enum ImageResolverType {
 }
 
 message KubernetesAgentUpgradeSpec {
+  // Agent image resolver backend to use.
   optional ImageResolverType imageResolver = 1 [
     (cli.flag).default                     = "Kubernetes",
     (buf.validate.field).enum.defined_only = true
@@ -526,64 +545,38 @@ message KubernetesAgentUpgradeSpec {
 }
 
 message RateLimitingSpec {
+  // Base event rate used for rate limiting agent connection attempts.
   optional double rate = 1 [
     (cli.flag).default = "10.0"
   ];
+  // Burst event rate.
   optional int32 burst = 2 [
     (cli.flag).default = "50"
   ];
 }
 
-message SetRequest {
-  GatewayConfigSpec spec = 1;
-}
-
-message ResetRequest {
-  core.Revision             revision = 1 [(cli.flag_set).no_prefix = true];
-  google.protobuf.FieldMask mask     = 2 [(cli.flag).skip = true];
-  GatewayConfigSpec         patch    = 3 [(cli.flag).skip = true];
-}
-
-message DryRunRequest {
-  driverutil.Target target = 1;
-  driverutil.Action action = 2;
-
-  GatewayConfigSpec spec = 3; // Set
-
-  core.Revision             revision = 4; // Reset
-  GatewayConfigSpec         patch    = 5; // Reset
-  google.protobuf.FieldMask mask     = 6 [(cli.flag).skip = true]; // Reset
-}
-
-message DryRunResponse {
-  GatewayConfigSpec       current          = 1;
-  GatewayConfigSpec       modified         = 2;
-  buf.validate.Violations validationErrors = 3;
-}
-
-message HistoryResponse {
-  repeated GatewayConfigSpec entries = 1;
-}
-
 message AuthSpec {
-  enum Kind {
+  enum Backend {
     Basic  = 0;
     OpenID = 1;
   }
 
-  Kind kind = 1 [
+  // Auth backend to use.
+  Backend backend = 1 [
     (cli.flag).default                     = "Basic",
     (buf.validate.field).enum.defined_only = true
   ];
 
+  // Basic auth using a username and password.
   BasicAuthSpec basic = 3 [(buf.validate.field).ignore_if = {
     id:         "basic"
-    expression: "this.kind != 0"
+    expression: "this.backend != 0"
   }];
 
+  // OpenID Connect auth.
   OpenIDAuthSpec openid = 2 [(buf.validate.field).ignore_if = {
     id:         "openid"
-    expression: "this.kind != 1"
+    expression: "this.backend != 1"
   }];
 }
 
@@ -611,9 +604,12 @@ message OpenIDAuthSpec {
     }
   ];
 
+  // The RP's client ID.
   optional string clientId = 3 [
     (buf.validate.field).required = true
   ];
+
+  // The RP's client secret.
   optional string clientSecret = 4 [
     (cli.flag).secret             = true,
     (buf.validate.field).required = true
@@ -645,3 +641,34 @@ message OpenIDAuthSpec {
 }
 
 message BasicAuthSpec {}
+
+message SetRequest {
+  GatewayConfigSpec spec = 1;
+}
+
+message ResetRequest {
+  core.Revision             revision = 1 [(cli.flag_set).no_prefix = true];
+  google.protobuf.FieldMask mask     = 2 [(cli.flag).skip = true];
+  GatewayConfigSpec         patch    = 3 [(cli.flag).skip = true];
+}
+
+message DryRunRequest {
+  driverutil.Target target = 1;
+  driverutil.Action action = 2;
+
+  GatewayConfigSpec spec = 3; // Set
+
+  core.Revision             revision = 4; // Reset
+  GatewayConfigSpec         patch    = 5; // Reset
+  google.protobuf.FieldMask mask     = 6 [(cli.flag).skip = true]; // Reset
+}
+
+message DryRunResponse {
+  GatewayConfigSpec       current          = 1;
+  GatewayConfigSpec       modified         = 2;
+  buf.validate.Violations validationErrors = 3;
+}
+
+message HistoryResponse {
+  repeated GatewayConfigSpec entries = 1;
+}

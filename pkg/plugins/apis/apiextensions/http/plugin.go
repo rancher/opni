@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"google.golang.org/grpc"
 
+	configv1 "github.com/rancher/opni/pkg/config/v1"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 )
@@ -46,17 +47,17 @@ func (p *httpApiExtensionPlugin) GRPCServer(
 
 func (p *httpApiExtensionPlugin) Configure(
 	_ context.Context,
-	certCfg *apiextensions.CertConfig,
+	certCfg *configv1.CertsSpec,
 ) (*apiextensions.HTTPAPIExtensionConfig, error) {
 	var listener net.Listener
 	var err error
-	if certCfg.Insecure {
+	if certCfg == nil {
 		listener, err = net.Listen("tcp", "127.0.0.1:0")
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		tlsCfg, err := certCfg.TLSConfig()
+		tlsCfg, err := certCfg.AsTlsConfig(tls.NoClientCert)
 		if err != nil {
 			return nil, err
 		}

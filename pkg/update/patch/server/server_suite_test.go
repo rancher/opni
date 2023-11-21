@@ -11,7 +11,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
-	"github.com/rancher/opni/pkg/config/v1beta1"
 	_ "github.com/rancher/opni/pkg/test/setup"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/update/patch"
@@ -32,6 +31,9 @@ var (
 	test2Path    = "github.com/rancher/opni/pkg/test/testdata/patch/test2"
 	test2Package = "urn:opni:plugin:binary:github.com/rancher/opni/pkg/test/testdata/patch/test2"
 
+	bsdiffPatcher = patch.BsdiffPatcher{}
+	zstdPatcher   = patch.ZstdPatcher{}
+
 	testBinaries = map[string]map[string][]byte{
 		"test1": {},
 		"test2": {},
@@ -42,14 +44,14 @@ var (
 		"test2": {},
 	}
 
-	test1v1tov2Patch = map[v1beta1.PatchEngine]*bytes.Buffer{
-		"bsdiff": new(bytes.Buffer),
-		"zstd":   new(bytes.Buffer),
+	test1v1tov2Patch = map[patch.BinaryPatcher]*bytes.Buffer{
+		bsdiffPatcher: new(bytes.Buffer),
+		zstdPatcher:   new(bytes.Buffer),
 	}
 
-	test2v1tov2Patch = map[v1beta1.PatchEngine]*bytes.Buffer{
-		"bsdiff": new(bytes.Buffer),
-		"zstd":   new(bytes.Buffer),
+	test2v1tov2Patch = map[patch.BinaryPatcher]*bytes.Buffer{
+		bsdiffPatcher: new(bytes.Buffer),
+		zstdPatcher:   new(bytes.Buffer),
 	}
 )
 
@@ -121,19 +123,18 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(eg.Wait()).To(Succeed())
 
-	patchers := map[v1beta1.PatchEngine]patch.BinaryPatcher{
-		v1beta1.PatchEngineBsdiff: patch.BsdiffPatcher{},
-		v1beta1.PatchEngineZstd:   patch.ZstdPatcher{},
-	}
 	eg = errgroup.Group{}
-	for name, patcher := range patchers {
-		name, patcher := name, patcher
+	for _, patcher := range []patch.BinaryPatcher{
+		bsdiffPatcher,
+		zstdPatcher,
+	} {
+		patcher := patcher
 
 		eg.Go(func() error {
 			return patcher.GeneratePatch(
 				bytes.NewReader(testBinaries["test1"]["v1"]),
 				bytes.NewReader(testBinaries["test1"]["v2"]),
-				test1v1tov2Patch[name],
+				test1v1tov2Patch[patcher],
 			)
 		})
 
@@ -141,7 +142,7 @@ var _ = BeforeSuite(func() {
 			return patcher.GeneratePatch(
 				bytes.NewReader(testBinaries["test2"]["v1"]),
 				bytes.NewReader(testBinaries["test2"]["v2"]),
-				test2v1tov2Patch[name],
+				test2v1tov2Patch[patcher],
 			)
 		})
 	}

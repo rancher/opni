@@ -8,11 +8,15 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var ErrUnsupportedProtocolScheme = errors.New("unsupported protocol scheme")
 
 func NewProtocolListener(addr string) (net.Listener, error) {
+	if !strings.Contains(addr, "://") {
+		addr = "tcp://" + addr
+	}
 	u, err := url.Parse(addr)
 	if err != nil {
 		return nil, err
@@ -40,6 +44,9 @@ func NewProtocolListener(addr string) (net.Listener, error) {
 }
 
 func DialProtocol(ctx context.Context, addr string) (net.Conn, error) {
+	if !strings.Contains(addr, "://") {
+		addr = "tcp://" + addr
+	}
 	u, err := url.Parse(addr)
 	if err != nil {
 		return nil, err

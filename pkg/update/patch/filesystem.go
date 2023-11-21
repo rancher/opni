@@ -12,7 +12,7 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
-	"github.com/rancher/opni/pkg/config/v1beta1"
+	configv1 "github.com/rancher/opni/pkg/config/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/spf13/afero"
 	"golang.org/x/crypto/blake2b"
@@ -27,7 +27,7 @@ const (
 
 type FilesystemCache struct {
 	CacheMetricsTracker
-	config     v1beta1.FilesystemCacheSpec
+	config     *configv1.FilesystemCacheSpec
 	fs         afero.Afero
 	logger     *slog.Logger
 	cacheGroup singleflight.Group
@@ -36,16 +36,16 @@ type FilesystemCache struct {
 
 var _ Cache = (*FilesystemCache)(nil)
 
-func NewFilesystemCache(fsys afero.Fs, conf v1beta1.FilesystemCacheSpec, patcher BinaryPatcher, lg *slog.Logger) (Cache, error) {
-	if err := fsys.MkdirAll(conf.Dir, 0777); err != nil {
+func NewFilesystemCache(fsys afero.Fs, conf *configv1.FilesystemCacheSpec, patcher BinaryPatcher, lg *slog.Logger) (Cache, error) {
+	if err := fsys.MkdirAll(conf.GetDir(), 0777); err != nil {
 		lg.Error(fmt.Sprintf("failed to create cache directory: %v", err))
 		return nil, err
 	}
-	if err := fsys.MkdirAll(filepath.Join(conf.Dir, PluginsDir), 0777); err != nil {
+	if err := fsys.MkdirAll(filepath.Join(conf.GetDir(), PluginsDir), 0777); err != nil {
 		lg.Error(fmt.Sprintf("faIled to create plugins directory: %v", err))
 		return nil, err
 	}
-	if err := fsys.MkdirAll(filepath.Join(conf.Dir, PatchesDir), 0777); err != nil {
+	if err := fsys.MkdirAll(filepath.Join(conf.GetDir(), PatchesDir), 0777); err != nil {
 		lg.Error(fmt.Sprintf("failed to create patches directory: %v", err))
 		return nil, err
 	}
@@ -270,7 +270,7 @@ func (p *FilesystemCache) ListDigests() ([]string, error) {
 }
 
 func (p *FilesystemCache) path(parts ...string) string {
-	return filepath.Join(append([]string{p.config.Dir}, parts...)...)
+	return filepath.Join(append([]string{p.config.GetDir()}, parts...)...)
 }
 
 func (p *FilesystemCache) recomputeDiskStats() {

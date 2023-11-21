@@ -1,9 +1,13 @@
 package gateway
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"sync/atomic"
 
+	"github.com/rancher/opni/pkg/config/reactive"
+	configv1 "github.com/rancher/opni/pkg/config/v1"
 	tokenbucket "golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -11,54 +15,30 @@ import (
 )
 
 type RatelimiterInterceptor struct {
-	tokenBucket *tokenbucket.Limiter
+	conf        reactive.Reactive[*configv1.RateLimitingSpec]
+	tokenBucket atomic.Pointer[tokenbucket.Limiter]
 	lg          *slog.Logger
 }
 
-type ratelimiterOptions struct {
-	rate  float64
-	burst int
-}
-
-type RatelimiterOption func(*ratelimiterOptions)
-
-func (o *ratelimiterOptions) apply(opts ...RatelimiterOption) {
-	for _, opt := range opts {
-		opt(o)
+func NewRateLimiterInterceptor(ctx context.Context, lg *slog.Logger, conf reactive.Reactive[*configv1.RateLimitingSpec]) *RatelimiterInterceptor {
+	r := &RatelimiterInterceptor{
+		lg:   lg,
+		conf: conf,
 	}
-}
-
-func WithRate(rate float64) RatelimiterOption {
-	return func(o *ratelimiterOptions) {
-		o.rate = rate
-	}
-}
-
-func WithBurst(burst int) RatelimiterOption {
-	return func(o *ratelimiterOptions) {
-		o.burst = burst
-	}
-}
-
-func NewRateLimiterInterceptor(lg *slog.Logger, opts ...RatelimiterOption) *RatelimiterInterceptor {
-	options := &ratelimiterOptions{
-		rate:  10,
-		burst: 50,
-	}
-	options.apply(opts...)
-
-	return &RatelimiterInterceptor{
-		lg: lg,
-		tokenBucket: tokenbucket.NewLimiter(
-			tokenbucket.Limit(options.rate),
-			options.burst,
-		),
-	}
+	conf.WatchFunc(ctx, func(value *configv1.RateLimitingSpec) {
+		r.lg.With("rate", value.GetRate(), "burst", value.GetBurst()).Info("updating ratelimit parameters")
+		r.tokenBucket.Store(tokenbucket.NewLimiter(tokenbucket.Limit(value.GetRate()), int(value.GetBurst())))
+	})
+	return r
 }
 
 func (r *RatelimiterInterceptor) allow() bool {
-	r.lg.Debug(fmt.Sprintf("ratelimit: %f available", r.tokenBucket.Tokens()))
-	return r.tokenBucket.Allow()
+	bucket := r.tokenBucket.Load()
+	if bucket == nil {
+		return true
+	}
+	r.lg.Debug(fmt.Sprintf("ratelimit: %f available", bucket.Tokens()))
+	return bucket.Allow()
 }
 
 func (r *RatelimiterInterceptor) StreamServerInterceptor() grpc.StreamServerInterceptor {

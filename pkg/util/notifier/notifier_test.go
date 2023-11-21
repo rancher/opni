@@ -3,9 +3,9 @@ package notifier_test
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"github.com/kralicky/gpkg/sync/atomic"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/prometheus/model/rulefmt"
@@ -98,10 +98,10 @@ var _ = Describe("Update Notifier", Label("unit"), func() {
 	})
 	It("should handle deleting receivers", func() {
 
-		groups := atomic.Value[[]rules.RuleGroup]{}
-		groups.Store(testGroups1)
+		groups := &atomic.Pointer[[]rules.RuleGroup]{}
+		groups.Store(&testGroups1)
 		updateNotifier := notifier.NewUpdateNotifier(mock_rules.NewTestFinder(ctrl, func() []rules.RuleGroup {
-			return notifier.CloneList(groups.Load())
+			return notifier.CloneList(*groups.Load())
 		}))
 
 		count := 100
@@ -129,7 +129,7 @@ var _ = Describe("Update Notifier", Label("unit"), func() {
 			Eventually(channels[i]).Should(Receive(Equal(testGroups1)))
 		}
 
-		groups.Store(testGroups2) // cancel the channels
+		groups.Store(&testGroups2) // cancel the channels
 		for i := 0; i < count; i++ {
 			contexts[i].ca()
 		}
@@ -142,10 +142,10 @@ var _ = Describe("Update Notifier", Label("unit"), func() {
 	})
 	It("should handle rule updates", func() {
 
-		groups := atomic.Value[[]rules.RuleGroup]{}
-		groups.Store(testGroups1)
+		groups := &atomic.Pointer[[]rules.RuleGroup]{}
+		groups.Store(&testGroups1)
 		un := notifier.NewUpdateNotifier(mock_rules.NewTestFinder(ctrl, func() []rules.RuleGroup {
-			return notifier.CloneList(groups.Load())
+			return notifier.CloneList(*groups.Load())
 		}))
 
 		count := 100
@@ -160,7 +160,7 @@ var _ = Describe("Update Notifier", Label("unit"), func() {
 			Eventually(channels[i]).Should(Receive(Equal(testGroups1)))
 		}
 
-		groups.Store(testGroups2)
+		groups.Store(&testGroups2)
 
 		go un.Refresh(context.Background())
 
@@ -180,7 +180,7 @@ var _ = Describe("Update Notifier", Label("unit"), func() {
 			testGroups3_rulefmt = append(testGroups3_rulefmt, (rulefmt.RuleGroup)(group3))
 		}
 
-		groups.Store(testGroups3)
+		groups.Store(&testGroups3)
 
 		go un.Refresh(context.Background())
 

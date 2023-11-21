@@ -2,6 +2,7 @@ package update
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -41,25 +42,25 @@ type SyncHandlerBuilder func(...any) (SyncHandler, error)
 func RegisterAgentSyncHandlerBuilder(strategy string, builder SyncHandlerBuilder) {
 	agentSyncMu.Lock()
 	defer agentSyncMu.Unlock()
-	agentSyncHandlerBuilders[strategy] = builder
+	agentSyncHandlerBuilders[strings.ToLower(strategy)] = builder
 }
 
 func RegisterPluginSyncHandlerBuilder(strategy string, builder SyncHandlerBuilder) {
 	pluginSyncMu.Lock()
 	defer pluginSyncMu.Unlock()
-	pluginSyncHandlerBuilders[strategy] = builder
+	pluginSyncHandlerBuilders[strings.ToLower(strategy)] = builder
 }
 
 func GetAgentSyncHandlerBuilder[T ~string](strategy T) SyncHandlerBuilder {
 	agentSyncMu.Lock()
 	defer agentSyncMu.Unlock()
-	return agentSyncHandlerBuilders[string(strategy)]
+	return agentSyncHandlerBuilders[strings.ToLower(string(strategy))]
 }
 
 func GetPluginSyncHandlerBuilder[T ~string](strategy T) SyncHandlerBuilder {
 	pluginSyncMu.Lock()
 	defer pluginSyncMu.Unlock()
-	return pluginSyncHandlerBuilders[string(strategy)]
+	return pluginSyncHandlerBuilders[strings.ToLower(string(strategy))]
 }
 
 type entry interface {

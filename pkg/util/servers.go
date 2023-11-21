@@ -35,7 +35,9 @@ func ServeHandler(ctx context.Context, handler http.Handler, listener net.Listen
 // context should be canceled.
 // 3. If a task exits successfully, the context should not be canceled and
 // other tasks should continue to run.
-func WaitAll(ctx context.Context, ca context.CancelCauseFunc, channels ...<-chan error) error {
+//
+// Once WaitAll returns, the error can be retrieved using context.Cause(ctx).
+func WaitAll(ctx context.Context, ca context.CancelCauseFunc, channels ...<-chan error) {
 	cases := []reflect.SelectCase{
 		{
 			Dir:  reflect.SelectRecv,
@@ -54,7 +56,7 @@ func WaitAll(ctx context.Context, ca context.CancelCauseFunc, channels ...<-chan
 		for _, c := range channels {
 			<-c
 		}
-		return ctx.Err()
+		return
 	}
 	channelIdx := i - 1
 	var err error
@@ -63,7 +65,8 @@ func WaitAll(ctx context.Context, ca context.CancelCauseFunc, channels ...<-chan
 	}
 	if err == nil {
 		// run again, but skip the channel which exited successfully
-		return WaitAll(ctx, ca, append(channels[:channelIdx], channels[channelIdx+1:]...)...)
+		WaitAll(ctx, ca, append(channels[:channelIdx], channels[channelIdx+1:]...)...)
+		return
 	}
 	ca(err)
 	for i, c := range channels {
@@ -72,5 +75,4 @@ func WaitAll(ctx context.Context, ca context.CancelCauseFunc, channels ...<-chan
 		}
 		<-c
 	}
-	return err
 }

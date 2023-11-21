@@ -6,7 +6,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
-	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/config/reactive"
+	"github.com/rancher/opni/pkg/config/reactive/reactivetest"
+	configv1 "github.com/rancher/opni/pkg/config/v1"
 	_ "github.com/rancher/opni/pkg/oci/noop"
 	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/update"
@@ -16,6 +18,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/reflect/protopath"
 )
 
 const (
@@ -29,10 +32,23 @@ var _ = Describe("Kubernetes sync server", Label("unit"), func() {
 	))
 
 	BeforeEach(func() {
+		ctrl, ctx, ca := reactivetest.InMemoryController[*configv1.GatewayConfigSpec](
+			reactivetest.WithExistingActiveConfig(&configv1.GatewayConfigSpec{
+				Upgrades: &configv1.UpgradesSpec{
+					Agents: &configv1.AgentUpgradesSpec{
+						Driver: configv1.AgentUpgradesSpec_Kubernetes.Enum(),
+					},
+				},
+			}),
+		)
+		DeferCleanup(ca)
+
 		var err error
-		k8sServer, err = server.NewKubernetesSyncServer(v1beta1.KubernetesAgentUpgradeSpec{
-			ImageResolver: "noop",
-		}, testlog.Log)
+		k8sServer, err = server.NewKubernetesSyncServer(ctx,
+			reactive.Message[*configv1.KubernetesAgentUpgradeSpec](
+				ctrl.Reactive(protopath.Path(configv1.ProtoPath().Upgrades().Agents().Kubernetes()))),
+			testlog.Log,
+		)
 		Expect(err).NotTo(HaveOccurred())
 	})
 

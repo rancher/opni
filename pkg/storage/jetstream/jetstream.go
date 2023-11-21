@@ -263,7 +263,7 @@ func jetstreamGrpcError(err error) error {
 }
 
 func init() {
-	storage.RegisterStoreBuilder(v1beta1.StorageTypeJetStream, func(args ...any) (any, error) {
+	storage.RegisterStoreBuilder(configv1.StorageBackend_JetStream.String(), func(args ...any) (any, error) {
 		ctx := args[0].(context.Context)
 
 		var conf *configv1.JetStreamSpec

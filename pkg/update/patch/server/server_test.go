@@ -16,7 +16,7 @@ import (
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
-	"github.com/rancher/opni/pkg/config/v1beta1"
+	configv1 "github.com/rancher/opni/pkg/config/v1"
 	"github.com/rancher/opni/pkg/test/memfs"
 	mock_storage "github.com/rancher/opni/pkg/test/mock/storage"
 	"github.com/rancher/opni/pkg/test/testgrpc"
@@ -28,6 +28,7 @@ import (
 	"github.com/rancher/opni/pkg/update/patch/server"
 	"github.com/rancher/opni/pkg/urn"
 	"github.com/rancher/opni/pkg/util/streams"
+	"github.com/samber/lo"
 	"github.com/spf13/afero"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -37,41 +38,29 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
-var bsdiffSuiteSpec = v1beta1.CacheSpec{
-	PatchEngine: v1beta1.PatchEngineBsdiff,
-	Backend:     v1beta1.CacheBackendFilesystem,
-}
+var _ = Describe("Filesystem Sync Server (zstd)", Ordered, Label("unit", "slow"), FilesystemSyncServerTestSuite(zstdPatcher))
+var _ = Describe("Filesystem Sync Server (bsdiff)", Ordered, Label("unit", "slow"), FilesystemSyncServerTestSuite(bsdiffPatcher))
 
-var zstdSuiteSpec = v1beta1.CacheSpec{
-	PatchEngine: v1beta1.PatchEngineZstd,
-	Backend:     v1beta1.CacheBackendFilesystem,
-}
-
-var _ = Describe("Filesystem Sync Server (zstd)", Ordered, Label("unit", "slow"), FilesystemSyncServerTestSuite(zstdSuiteSpec))
-var _ = Describe("Filesystem Sync Server (bsdiff)", Ordered, Label("unit", "slow"), FilesystemSyncServerTestSuite(bsdiffSuiteSpec))
-
-func FilesystemSyncServerTestSuite(spec v1beta1.CacheSpec) func() {
+func FilesystemSyncServerTestSuite(patcher patch.BinaryPatcher) func() {
 	return func() {
 		var srv *server.FilesystemPluginSyncServer
 		var updateSrv *update.UpdateServer
 		fsys := afero.Afero{Fs: memfs.NewModeAwareMemFs()}
 		tmpDir := "/tmp/test"
 		fsys.MkdirAll(tmpDir, 0755)
-		spec.Filesystem = v1beta1.FilesystemCacheSpec{
-			Dir: filepath.Join(tmpDir, "cache"),
-		}
 
 		var agentManifest *controlv1.UpdateManifest
 		var srvManifestV1 *controlv1.UpdateManifest
 		var srvManifestV2 *controlv1.UpdateManifest
 
+		cacheSpec := &configv1.CacheSpec{
+			Backend: configv1.CacheBackend_Filesystem.Enum(),
+			Filesystem: &configv1.FilesystemCacheSpec{
+				Dir: lo.ToPtr(filepath.Join(tmpDir, "cache")),
+			},
+		}
 		newServer := func() (*server.FilesystemPluginSyncServer, error) {
-			return server.NewFilesystemPluginSyncServer(v1beta1.PluginsSpec{
-				Dir: filepath.Join(tmpDir, patch.PluginsDir),
-				Binary: v1beta1.BinaryPluginsSpec{
-					Cache: spec,
-				},
-			}, testlog.Log, server.WithFs(fsys))
+			return server.NewFilesystemPluginSyncServer(context.Background(), cacheSpec, patcher, testlog.Log, server.WithFs(fsys))
 		}
 		newUpdateServer := func(s *server.FilesystemPluginSyncServer) *update.UpdateServer {
 			srv := update.NewUpdateServer(testlog.Log)
@@ -179,14 +168,14 @@ func FilesystemSyncServerTestSuite(spec v1beta1.CacheSpec) func() {
 					Expect(patches.Items[0].OldDigest).To(Equal(srvManifestV1.Items[0].Digest))
 					Expect(patches.Items[0].NewDigest).To(Equal(srvManifestV2.Items[0].Digest))
 					Expect(patches.Items[0].Path).To(Equal(srvManifestV1.Items[0].Path))
-					Expect(patches.Items[0].Data).To(Equal(test1v1tov2Patch[spec.PatchEngine].Bytes()))
+					Expect(patches.Items[0].Data).To(Equal(test1v1tov2Patch[patcher].Bytes()))
 
 					Expect(patches.Items[1].Package).To(Equal(test2Package))
 					Expect(patches.Items[1].Op).To(Equal(controlv1.PatchOp_Update))
 					Expect(patches.Items[1].OldDigest).To(Equal(srvManifestV1.Items[1].Digest))
 					Expect(patches.Items[1].NewDigest).To(Equal(srvManifestV2.Items[1].Digest))
 					Expect(patches.Items[1].Path).To(Equal(srvManifestV1.Items[1].Path))
-					Expect(patches.Items[1].Data).To(Equal(test2v1tov2Patch[spec.PatchEngine].Bytes()))
+					Expect(patches.Items[1].Data).To(Equal(test2v1tov2Patch[patcher].Bytes()))
 
 					initialPatchResponse = patches
 				})
@@ -204,8 +193,8 @@ func FilesystemSyncServerTestSuite(spec v1beta1.CacheSpec) func() {
 					}
 
 					Expect(patches).To(ConsistOf(
-						test1v1tov2Patch[spec.PatchEngine].Bytes(),
-						test2v1tov2Patch[spec.PatchEngine].Bytes(),
+						test1v1tov2Patch[patcher].Bytes(),
+						test2v1tov2Patch[patcher].Bytes(),
 					))
 
 					initialCacheItems = items
@@ -473,47 +462,22 @@ func FilesystemSyncServerTestSuite(spec v1beta1.CacheSpec) func() {
 		})
 		Context("error handling", func() {
 			When("creating a new server", func() {
-				When("an unknown patch engine is specified", func() {
-					It("should return an error", func() {
-						_, err := server.NewFilesystemPluginSyncServer(v1beta1.PluginsSpec{
-							Dir: tmpDir,
-							Binary: v1beta1.BinaryPluginsSpec{
-								Cache: v1beta1.CacheSpec{
-									PatchEngine: "unknown",
-								},
-							},
-						}, testlog.Log)
-						Expect(err).To(MatchError("unknown patch engine: unknown"))
-					})
-				})
 				When("an unknown cache backend is specified", func() {
 					It("should return an error", func() {
-						_, err := server.NewFilesystemPluginSyncServer(v1beta1.PluginsSpec{
-							Dir: tmpDir,
-							Binary: v1beta1.BinaryPluginsSpec{
-								Cache: v1beta1.CacheSpec{
-									PatchEngine: spec.PatchEngine,
-									Backend:     "unknown",
-								},
-							},
-						}, testlog.Log)
+						_, err := server.NewFilesystemPluginSyncServer(context.Background(), &configv1.CacheSpec{
+							Backend: configv1.CacheBackend(2).Enum(),
+						}, patcher, testlog.Log)
 						Expect(err).To(MatchError("unknown cache backend: unknown"))
 					})
 				})
 				When("the filesystem cache cannot be created", func() {
 					It("should return an error", func() {
-						_, err := server.NewFilesystemPluginSyncServer(v1beta1.PluginsSpec{
-							Dir: tmpDir,
-							Binary: v1beta1.BinaryPluginsSpec{
-								Cache: v1beta1.CacheSpec{
-									PatchEngine: spec.PatchEngine,
-									Backend:     v1beta1.CacheBackendFilesystem,
-									Filesystem: v1beta1.FilesystemCacheSpec{
-										Dir: "/dev/null",
-									},
-								},
+						_, err := server.NewFilesystemPluginSyncServer(context.Background(), &configv1.CacheSpec{
+							Backend: configv1.CacheBackend_Filesystem.Enum(),
+							Filesystem: &configv1.FilesystemCacheSpec{
+								Dir: lo.ToPtr("/dev/null"),
 							},
-						}, testlog.Log)
+						}, patcher, testlog.Log)
 						Expect(err).To(HaveOccurred())
 					})
 				})

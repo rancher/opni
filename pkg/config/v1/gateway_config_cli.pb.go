@@ -129,7 +129,10 @@ func BuildGatewayConfigSetDefaultConfigurationCmd() *cobra.Command {
 					in.Spec = edited
 				}
 			} else if fileName := cmd.Flags().Lookup("file").Value.String(); fileName != "" {
-				if err := cliutil.LoadFromFile(in, fileName); err != nil {
+				if in.Spec == nil {
+					cliutil.InitializeField(&in.Spec)
+				}
+				if err := cliutil.LoadFromFile(in.Spec, fileName); err != nil {
 					return err
 				}
 			}
@@ -201,7 +204,10 @@ func BuildGatewayConfigSetConfigurationCmd() *cobra.Command {
 					in.Spec = edited
 				}
 			} else if fileName := cmd.Flags().Lookup("file").Value.String(); fileName != "" {
-				if err := cliutil.LoadFromFile(in, fileName); err != nil {
+				if in.Spec == nil {
+					cliutil.InitializeField(&in.Spec)
+				}
+				if err := cliutil.LoadFromFile(in.Spec, fileName); err != nil {
 					return err
 				}
 			}

@@ -5,11 +5,11 @@ entries:
       catalog.cattle.io/auto-install: opni-crd=match
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
-      catalog.rancher.io/namespace: opni-cluster-system
-      catalog.rancher.io/release-name: opni
+      catalog.cattle.io/namespace: opni
+      catalog.cattle.io/release-name: opni
     apiVersion: v2
     appVersion: 0.12.1
-    created: "2023-11-17T21:42:23.754162201Z"
+    created: "2023-11-21T21:42:23.754162201Z"
     dependencies:
     - condition: opni-agent.kube-prometheus-stack.enabled
       name: kube-prometheus-stack

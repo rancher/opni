@@ -14,12 +14,12 @@ import (
 )
 
 var (
-	colorCache gsync.Map[string, lipgloss.Style]
+	colorCache gsync.Map[string, *lipgloss.Style]
 )
 
 func init() {
-	colorCache.Store("totem", lipgloss.NewStyle().Background(lipgloss.Color("15")).Foreground(lipgloss.Color("0")))
-
+	style := lipgloss.NewStyle().Background(lipgloss.Color("15")).Foreground(lipgloss.Color("0"))
+	colorCache.Store("totem", &style)
 }
 
 func newRandomForegroundStyle() lipgloss.Style {
@@ -58,7 +58,7 @@ func (h *totemNameMiddleware) Handle(ctx context.Context, record slog.Record) er
 	for i, part := range h.groups {
 		if c, ok := colorCache.Load(part); !ok {
 			newStyle := newRandomForegroundStyle()
-			colorCache.Store(part, newStyle)
+			colorCache.Store(part, &newStyle)
 			sb.WriteString(newStyle.Render(part))
 		} else {
 			sb.WriteString(c.Render(part))

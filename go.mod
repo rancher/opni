@@ -26,6 +26,7 @@ require (
 	github.com/cisco-open/operator-tools v0.30.0
 	github.com/cortexproject/cortex v0.0.0-00010101000000-000000000000
 	github.com/dbason/featureflags v0.0.0-20220803034705-b6242a8d72b2
+	github.com/distribution/reference v0.5.0
 	github.com/dterei/gotsc v0.0.0-20160722215413-e78f872945c6
 	github.com/gabstv/go-bsdiff v1.0.5
 	github.com/gin-contrib/pprof v1.4.0
@@ -56,7 +57,7 @@ require (
 	github.com/karlseguin/ccache/v3 v3.0.3
 	github.com/kazegusuri/channelzcli v0.0.0-20230307031351-17bac34c51ca
 	github.com/klauspost/compress v1.16.7
-	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
+	github.com/kralicky/gpkg v0.0.0-20231114180450-2f4bff8c5588
 	github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c
 	github.com/kralicky/protols v0.0.0-20231102164430-669d20c5e11a
 	github.com/kralicky/ragu v1.0.11-0.20231031175336-0612d4bec2a0
@@ -166,7 +167,6 @@ require (
 	sigs.k8s.io/controller-runtime v0.15.0
 	sigs.k8s.io/node-feature-discovery-operator v0.2.1-0.20230131182250-99b8584e2745
 	sigs.k8s.io/yaml v1.3.0
-	github.com/distribution/reference v0.5.0
 )
 
 require (
@@ -581,8 +581,6 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.3.0 // indirect
 	sourcegraph.com/sourcegraph/appdash v0.0.0-20211028080628-e2786a622600 // indirect
 )
-
-require github.com/distribution/reference v0.5.0
 
 replace github.com/openshift/api => github.com/openshift/api v0.0.0-20210216211028-bb81baaf35cd
 

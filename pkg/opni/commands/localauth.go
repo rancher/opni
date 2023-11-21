@@ -1,3 +1,5 @@
+//go:build !minimal
+
 package commands
 
 import (

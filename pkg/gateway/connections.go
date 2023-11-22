@@ -206,9 +206,9 @@ func (ct *ConnectionTracker) lockInstance(ctx context.Context) {
 		WebAddress:        ct.localInstanceInfo.GetWebAddress(),
 	}
 	for ctx.Err() == nil {
-		locker := ct.lm.Locker(instancesKey, lock.WithAcquireContext(ctx),
+		locker := ct.lm.Locker(instancesKey,
 			lock.WithInitialValue(base64.StdEncoding.EncodeToString(util.Must(proto.Marshal(instanceInfo)))))
-		locker.Lock()
+		locker.Lock(ctx)
 	}
 }
 
@@ -225,12 +225,12 @@ func (ct *ConnectionTracker) StreamServerInterceptor() grpc.StreamServerIntercep
 			GatewayAddress:    ct.localInstanceInfo.GetGatewayAddress(),
 			WebAddress:        ct.localInstanceInfo.GetWebAddress(),
 		}
-		locker := ct.lm.Locker(agentId,
-			lock.WithAcquireContext(ss.Context()),
+		locker := ct.lm.Locker(
+			agentId,
 			lock.WithInitialValue(base64.StdEncoding.EncodeToString(util.Must(proto.Marshal(instanceInfo)))),
 		)
 		ct.logger.With("agentId", agentId).Debug("attempting to acquire connection lock")
-		if acquired, err := locker.TryLock(); !acquired {
+		if acquired, _, err := locker.TryLock(ss.Context()); !acquired {
 			ct.logger.With(
 				logger.Err(err),
 				"agentId", agentId,

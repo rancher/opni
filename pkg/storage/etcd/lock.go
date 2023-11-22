@@ -1,149 +1,177 @@
 package etcd
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"path"
-	"strings"
-	"sync"
+	"log/slog"
+	"time"
 
+	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/storage/etcd/concurrencyx"
 	"github.com/rancher/opni/pkg/storage/lock"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
-type EtcdLockManager struct {
-	client    *clientv3.Client
-	prefix    string
-	sessionMu sync.Mutex
-	session   *concurrency.Session
-}
-
-func NewEtcdLockManager(client *clientv3.Client, prefix string) (*EtcdLockManager, error) {
-	lm := &EtcdLockManager{
-		client: client,
-		prefix: prefix,
-	}
-	if err := lm.renewSessionLocked(); err != nil {
-		return nil, fmt.Errorf("failed to create etcd client: %w", err)
-	}
-	return lm, nil
-}
-
-func (lm *EtcdLockManager) Session() *concurrency.Session {
-	lm.sessionMu.Lock()
-	defer lm.sessionMu.Unlock()
-	if lm.session == nil {
-		lm.renewSessionLocked()
-	} else {
-		select {
-		case <-lm.session.Done():
-			lm.renewSessionLocked()
-		default:
-		}
-	}
-	return lm.session
-}
-
-func (lm *EtcdLockManager) renewSessionLocked() error {
-	session, err := concurrency.NewSession(lm.client, concurrency.WithTTL(mutexLeaseTtlSeconds))
-	if err != nil {
-		return fmt.Errorf("failed to create etcd client: %w", err)
-	}
-	lm.session = session
-	return nil
-}
-
-// Locker implements storage.LockManager.
-func (lm *EtcdLockManager) Locker(key string, opts ...lock.LockOption) storage.Lock {
-	options := lock.DefaultLockOptions(lm.client.Ctx())
-	options.Apply(opts...)
-	m := concurrencyx.NewMutex(lm.Session(), path.Join(lm.prefix, key), options.InitialValue)
-	return &EtcdLock{
-		client:  lm.client,
-		mutex:   m,
-		options: options,
-		prefix:  lm.prefix + "/",
-	}
-}
+var (
+	LockValidity   = 60 * time.Second
+	LockRetryDelay = 200 * time.Millisecond
+)
 
 type EtcdLock struct {
+	lg *slog.Logger
+
+	prefix string
+	key    string
+
+	options *lock.LockOptions
+
+	scheduler *lock.LockScheduler
+
 	client *clientv3.Client
-	mutex  *concurrencyx.Mutex
+	mutex  *etcdMutex
+}
 
-	acquired uint32
+func NewEtcdLock(
+	lg *slog.Logger,
+	client *clientv3.Client,
+	prefix, key string,
+	options *lock.LockOptions,
+) *EtcdLock {
+	return &EtcdLock{
+		lg:        lg,
+		client:    client,
+		prefix:    prefix,
+		key:       key,
+		options:   options,
+		scheduler: lock.NewLockScheduler(),
+	}
+}
 
-	prefix      string
-	startLock   lock.LockPrimitive
-	startUnlock lock.LockPrimitive
-	options     *lock.LockOptions
+func (e *EtcdLock) newSession(ctx context.Context) (*concurrency.Session, error) {
+	e.lg.Debug("attempting to create new etcd session...")
+	session, err := concurrency.NewSession(e.client)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create etcd session: %w", err)
+	}
+	return session, nil
 }
 
 var _ storage.Lock = (*EtcdLock)(nil)
 
-func (e *EtcdLock) Lock() error {
-	ctx := e.client.Ctx()
-	if e.options.AcquireContext != nil {
-		ctx = e.options.AcquireContext
+func (e *EtcdLock) acquire(ctx context.Context, retrier backoffv2.Policy) (chan struct{}, error) {
+	session, err := e.newSession(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return e.mutex.Lock(ctx)
-	// return e.startLock.Do(func() error {
-	// 	ctxca, ca := context.WithCancelCause(e.client.Ctx())
-	// 	signalAcquired := make(chan struct{})
-	// 	defer close(signalAcquired)
-	// 	var lockErr error
-	// 	var mu sync.Mutex
-	// 	go func() {
-	// 		select {
-	// 		case <-e.options.AcquireContext.Done():
-	// 			mu.Lock()
-	// 			lockErr = errors.Join(lockErr, lock.ErrAcquireLockCancelled)
-	// 			mu.Unlock()
-	// 			ca(lock.ErrAcquireLockCancelled)
-	// 		case <-time.After(e.options.AcquireTimeout):
-	// 			mu.Lock()
-	// 			lockErr = errors.Join(lockErr, lock.ErrAcquireLockTimeout)
-	// 			mu.Unlock()
-	// 			ca(lock.ErrAcquireLockTimeout)
-	// 		}
-	// 	}()
-	// 	err := e.mutex.Lock(ctxca)
-	// 	mu.Lock()
-	// 	err = errors.Join(lockErr, err)
-	// 	mu.Unlock()
-	// 	if err != nil {
-	// 		e.mutex.Unlock(e.client.Ctx())
-	// 		return err
-	// 	}
-	// 	atomic.StoreUint32(&e.acquired, 1)
-	// 	return nil
-	// })
+
+	acq := retrier.Start(ctx)
+	var curErr error
+
+	mutex := NewEtcdMutex(
+		e.lg,
+		e.prefix,
+		e.key,
+		e.options.InitialValue,
+		session,
+	)
+
+	done, err := mutex.tryLock(ctx)
+	curErr = err
+	if err == nil {
+		e.mutex = &mutex
+		return done, nil
+	}
+
+	for backoffv2.Continue(acq) {
+		done, err := mutex.tryLock(ctx)
+		curErr = err
+		e.lg.Debug("lock attempted")
+		if err == nil {
+			e.lg.Debug("lock acquired")
+			e.mutex = &mutex
+			return done, nil
+		}
+	}
+	return nil, errors.Join(curErr, ctx.Err(), fmt.Errorf("failed to acquire lock"))
 }
 
-func (e *EtcdLock) TryLock() (bool, error) {
-	err := e.mutex.TryLock(e.client.Ctx())
-	if err != nil {
-		if errors.Is(err, concurrency.ErrLocked) {
-			return false, nil
+func (e *EtcdLock) Lock(ctx context.Context) (chan struct{}, error) {
+	e.lg.Debug("trying to acquire blocking lock")
+
+	// https://github.com/lestrrat-go/backoff/issues/31
+	ctxca, ca := context.WithCancel(ctx)
+	defer ca()
+	var closureDone chan struct{}
+	if err := e.scheduler.Schedule(func() error {
+		done, err := e.acquire(ctxca, backoffv2.Constant(
+			backoffv2.WithMaxRetries(0),
+			backoffv2.WithInterval(LockRetryDelay),
+			backoffv2.WithJitterFactor(0.1),
+		))
+		if err != nil {
+			return err
 		}
-		return false, err
+		closureDone = done
+		return nil
+	}); err != nil {
+		return nil, err
 	}
-	return true, nil
+	e.lg.Debug("lock acquired", "chan", closureDone)
+	return closureDone, nil
+}
+
+func (e *EtcdLock) TryLock(ctx context.Context) (acquired bool, done chan struct{}, err error) {
+	e.lg.Debug("trying to acquire non-blocking lock")
+	// https://github.com/lestrrat-go/backoff/issues/31
+	ctxca, ca := context.WithCancel(ctx)
+	defer ca()
+	var closureDone chan struct{}
+	if err := e.scheduler.Schedule(func() error {
+		done, err := e.acquire(ctxca, backoffv2.Constant(
+			backoffv2.WithMaxRetries(1),
+			backoffv2.WithInterval(LockRetryDelay),
+			backoffv2.WithJitterFactor(0.1),
+		))
+		if err != nil {
+			return err
+		}
+		closureDone = done
+		return nil
+	}); err != nil {
+		if errors.Is(err, concurrency.ErrLocked) {
+			return false, nil, nil
+		}
+		return false, nil, err
+	}
+
+	e.lg.Debug("lock acquired", "chan", closureDone)
+	return true, closureDone, nil
 }
 
 func (e *EtcdLock) Unlock() error {
-	return e.mutex.Unlock(e.client.Ctx())
+	e.lg.Debug("starting unlock")
 
-	// return e.startUnlock.Do(func() error {
-	// 	if !atomic.CompareAndSwapUint32(&e.acquired, 1, 0) {
-	// 		return lock.ErrLockNotAcquired
-	// 	}
-	// 	return e.mutex.Unlock(e.client.Ctx())
-	// })
+	if err := e.scheduler.Done(func() error {
+		e.lg.Debug("inside scheduler done")
+		if e.mutex == nil {
+			panic("never acquired")
+		}
+		mutex := *e.mutex
+		go func() {
+			if err := mutex.unlock(); err != nil {
+				e.lg.Error(err.Error())
+			}
+		}()
+		e.mutex = nil
+		return nil
+	}); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (e *EtcdLock) Key() string {
-	return strings.TrimPrefix(e.mutex.Key(), e.prefix)
+	return e.key
 }

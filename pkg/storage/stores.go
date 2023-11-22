@@ -177,20 +177,30 @@ type LockManagerBroker interface {
 
 type WatchEventType string
 
-// Lock is a distributed lock that can be used to coordinate access to a resource.
+// Lock is a distributed lock that can be used to coordinate access to a resource or interest in such
+// such a resource.
+// Locks follow the following liveliness & atomicity guarantees to prevent distributed deadlocks
+// and guarantee atomicity in the critical section.
 //
-// Locks are single use, and return errors when used more than once. Retry mechanisms are built into\
-// the Lock and can be configured with LockOptions.
+// Liveliness A :  A lock is always eventually released when the process holding it crashes or exits unexpectedly.
+// Liveliness B : A lock is always eventually released when its backend store is unavailable.
+// Atomicity A : No two processes or threads can hold the same lock at the same time.
+// Atomicity B : Any call to unlock will always eventually release the lock
 type Lock interface {
-	// Lock acquires a lock on the key. If the lock is already held, it will block until the lock is released.\
-	//
-	// Lock returns an error when acquiring the lock fails.
-	Lock() error
+	// Lock acquires a lock on the key. If the lock is already held, it will block until the lock is acquired or
+	// the context fails.
+	// Lock returns an error if the context expires or an unrecoverable error occurs when trying to acquire the lock.
+	Lock(ctx context.Context) (expired chan struct{}, err error)
 
 	// TryLock tries to acquire the lock on the key and reports whether it succeeded.
-	TryLock() (bool, error)
+	// It blocks until at least one attempt was made to acquired the lock, and returns acquired=false and no error
+	// if the lock is known to be held by someone else
+	TryLock(ctx context.Context) (acquired bool, expired chan struct{}, err error)
 
-	// Unlock releases the lock on the key. If the lock was never held, it will return an error.
+	// Unlock releases the lock on the key in a non-blocking fashion.
+	// It spawns a goroutine that will perform the unlock mecahnism until it succeeds or the the lock is
+	// expired by the server.
+	// It immediately signals to the lock's original expired channel that the lock is released.
 	Unlock() error
 	// Key returns a unique temporary prefix key that exists while the lock is held.
 	// If the lock is not currently held, the return value is undefined.

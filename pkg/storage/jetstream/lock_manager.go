@@ -17,21 +17,17 @@ import (
 type LockManager struct {
 	ctx context.Context
 	js  nats.JetStreamContext
+
+	lg *slog.Logger
 }
 
 // Requires jetstream 2.9+
-func NewJetstreamLockManager(ctx context.Context, conf *v1beta1.JetStreamStorageSpec, opts ...JetStreamStoreOption) (*LockManager, error) {
-	options := JetStreamStoreOptions{
-		BucketPrefix: "gateway",
-	}
-	options.apply(opts...)
-
-	lg := logger.New(logger.WithLogLevel(slog.LevelWarn)).WithGroup("jetstream")
-
+func NewJetStreamLockManager(ctx context.Context, conf *v1beta1.JetStreamStorageSpec, lg *slog.Logger) (*LockManager, error) {
 	nkeyOpt, err := nats.NkeyOptionFromSeed(conf.NkeySeedPath)
 	if err != nil {
 		return nil, err
 	}
+
 	nc, err := nats.Connect(conf.Endpoint,
 		nkeyOpt,
 		nats.MaxReconnects(-1),
@@ -43,7 +39,6 @@ func NewJetstreamLockManager(ctx context.Context, conf *v1beta1.JetStreamStorage
 		}),
 		nats.ReconnectHandler(func(c *nats.Conn) {
 			lg.Info(
-
 				"reconnected to jetstream", "server", c.ConnectedAddr(),
 				"id", c.ConnectedServerId(),
 				"name", c.ConnectedServerName(),
@@ -86,13 +81,14 @@ func NewJetstreamLockManager(ctx context.Context, conf *v1beta1.JetStreamStorage
 	return &LockManager{
 		js:  js,
 		ctx: ctx,
+		lg:  lg,
 	}, nil
 }
 
 var _ storage.LockManager = (*LockManager)(nil)
 
 func (l *LockManager) Locker(key string, opts ...lock.LockOption) storage.Lock {
-	options := lock.DefaultLockOptions(l.ctx)
+	options := lock.DefaultLockOptions()
 	options.Apply(opts...)
-	return NewLock(l.js, key, options)
+	return NewLock(l.js, key, l.lg, options)
 }

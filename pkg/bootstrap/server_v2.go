@@ -108,8 +108,7 @@ func (h *ServerV2) Auth(ctx context.Context, authReq *bootstrapv2.BootstrapAuthR
 	}
 
 	// lock the mutex associated with the cluster ID
-	lock := h.clusterIdLocks.Locker(authReq.ClientId)
-	// TODO : handle me
+	lock := h.clusterIdLocks.NewLock(authReq.ClientId)
 	_, err = lock.Lock(ctx)
 	if err != nil {
 		panic(err)

@@ -7,7 +7,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/rancher/opni/pkg/storage/etcd/concurrencyx"
 	"github.com/samber/lo"
 	"go.etcd.io/etcd/client/v3/concurrency"
 )
@@ -16,42 +15,36 @@ import (
 type etcdMutex struct {
 	lg *slog.Logger
 
-	prefix       string
-	key          string
-	initialValue string
+	prefix string
+	key    string
 
 	session *concurrency.Session
 
-	// mu    sync.Mutex
-	mutex *concurrencyx.Mutex
+	mutex *concurrency.Mutex
 
 	internalDone chan struct{}
 }
 
 func NewEtcdMutex(
 	lg *slog.Logger,
-	prefix, key, value string,
+	prefix, key string,
 	session *concurrency.Session,
 ) etcdMutex {
 	return etcdMutex{
 		lg:      lg,
 		session: session,
 
-		key:          key,
-		prefix:       prefix,
-		initialValue: value,
+		key:    key,
+		prefix: prefix,
 		// mu:           sync.Mutex{},
 		internalDone: make(chan struct{}),
 	}
 }
 
 func (e *etcdMutex) tryLock(ctx context.Context) (chan struct{}, error) {
-	// e.mu.Lock()
-	// defer e.mu.Unlock()
-	mutex := concurrencyx.NewMutex(
+	mutex := concurrency.NewMutex(
 		e.session,
 		path.Join(e.prefix, e.key),
-		e.initialValue,
 	)
 	if err := mutex.TryLock(ctx); err != nil {
 		return nil, err
@@ -87,8 +80,6 @@ func (e *etcdMutex) teardown() {
 // which delegates unlock the key to the KV server-side,
 // giving the guarantee that unlock always actually unlocks when called
 func (e *etcdMutex) unlock() error {
-	// e.mu.Lock()
-	// defer e.mu.Unlock()
 	if e.mutex == nil {
 		return errors.New("mutex not acquired")
 	}

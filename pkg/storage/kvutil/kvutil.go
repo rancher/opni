@@ -200,8 +200,8 @@ type lockManagerPrefixImpl struct {
 	prefix string
 }
 
-func (s *lockManagerPrefixImpl) Locker(key string, opts ...lock.LockOption) storage.Lock {
-	return s.base.Locker(s.prefix+key, opts...)
+func (s *lockManagerPrefixImpl) NewLock(key string, opts ...lock.LockOption) storage.Lock {
+	return s.base.NewLock(s.prefix+key, opts...)
 }
 
 func LockManagerWithPrefix(base storage.LockManager, prefix string) storage.LockManager {

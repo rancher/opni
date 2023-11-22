@@ -168,7 +168,7 @@ func (l *LockServer) Lock(ctx context.Context, req *testgrpc.LockRequest) (*test
 		ctx = ctxca
 	}
 
-	lock := l.lm.Locker(req.Key)
+	lock := l.lm.NewLock(req.Key)
 
 	done, err := lock.Lock(ctx)
 	if err != nil {
@@ -213,7 +213,7 @@ func (l *LockServer) TryLock(ctx context.Context, req *testgrpc.LockRequest) (*t
 		ctx = ctxca
 	}
 
-	lock := l.lm.Locker(req.Key)
+	lock := l.lm.NewLock(req.Key)
 
 	ack, done, err := lock.TryLock(ctx)
 	if err != nil {
@@ -348,14 +348,16 @@ func getLockManager(ctx context.Context, config *LockBackendConfig) (storage.Loc
 		if err != nil {
 			return nil, err
 		}
-		lm, err := etcd.NewEtcdLockManager(client, logger.NewNop(), "test/lock")
-		if err != nil {
-			return nil, err
-		}
+		lm := etcd.NewEtcdLockManager(client, "test/lock", logger.NewNop())
 		return lm, nil
 	}
 	if config.Jetstream != nil {
-		lm, err := jetstream.NewJetStreamLockManager(ctx, config.Jetstream, logger.NewNop())
+		js, err := jetstream.AcquireJetstreamConn(context.Background(), config.Jetstream, logger.New().WithGroup("js"))
+		if err != nil {
+			return nil, err
+		}
+
+		lm := jetstream.NewLockManager(ctx, js, "test/lock", logger.NewNop())
 		if err != nil {
 			return nil, err
 		}

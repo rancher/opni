@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/samber/lo"
 )
 
@@ -30,8 +31,9 @@ var (
 type jetstreamMutex struct {
 	lg *slog.Logger
 
-	key  string
-	uuid string
+	prefix string
+	key    string
+	uuid   string
 
 	js   nats.JetStreamContext
 	msgQ chan *nats.Msg
@@ -44,12 +46,13 @@ type jetstreamMutex struct {
 func newJetstreamMutex(
 	lg *slog.Logger,
 	js nats.JetStreamContext,
-	key string,
+	prefix, key string,
 ) jetstreamMutex {
 	uuid := uuid.New().String()
 	return jetstreamMutex{
 		js:           js,
 		lg:           lg.With("uuid", uuid),
+		prefix:       prefix,
 		key:          key,
 		uuid:         uuid,
 		msgQ:         make(chan *nats.Msg, 16),
@@ -58,9 +61,13 @@ func newJetstreamMutex(
 	}
 }
 
+func (j *jetstreamMutex) Key() string {
+	return j.prefix + "-" + j.key
+}
+
 func (j *jetstreamMutex) tryLock() (chan struct{}, error) {
 	var err error
-	if _, err := j.js.AddStream(newLease(j.key)); err != nil {
+	if _, err := j.js.AddStream(newLease(j.Key())); err != nil {
 		return nil, err
 	}
 	cfg := &nats.ConsumerConfig{
@@ -70,11 +77,11 @@ func (j *jetstreamMutex) tryLock() (chan struct{}, error) {
 		DeliverSubject:    j.uuid,
 		Heartbeat:         max(LockRetryDelay, 100*time.Millisecond),
 	}
-	if _, err := j.js.AddConsumer(j.key, cfg); err != nil {
+	if _, err := j.js.AddConsumer(j.Key(), cfg); err != nil {
 		j.lg.Warn(err.Error())
 		return nil, err
 	}
-	j.sub, err = j.js.ChanSubscribe(j.uuid, j.msgQ, nats.Bind(j.key, j.uuid))
+	j.sub, err = j.js.ChanSubscribe(j.uuid, j.msgQ, nats.Bind(j.Key(), j.uuid))
 	if err != nil {
 		j.lg.Warn(err.Error())
 		return nil, err
@@ -107,21 +114,26 @@ func (j *jetstreamMutex) teardown() {
 }
 
 func (j *jetstreamMutex) isReleased(err error) bool {
-	return errors.Is(err, nats.ErrConsumerNotFound) || errors.Is(err, nats.ErrConsumerNotActive)
+	return err == nil || errors.Is(err, nats.ErrConsumerNotFound)
 }
 
 // !!Important : never treat nats closed connections as successful unlocks, this could lead to inconsistent states
 func (j *jetstreamMutex) tryUnlock() error {
-	if err := j.sub.Drain(); err != nil {
-		j.lg.Error(fmt.Sprintf("failed to unsubscribe : %s", err.Error()))
-		return err
+	unsubErr := j.sub.Unsubscribe()
+	if unsubErr != nil {
+		j.lg.With(logger.Err(unsubErr)).Warn("failed to unsubscribe to consumer")
 	}
-	consumerErr := j.js.DeleteConsumer(j.key, j.uuid)
-	if consumerErr != nil && !j.isReleased(consumerErr) {
-		j.lg.Error(fmt.Sprintf("failed to delete consumer : %s", consumerErr.Error()))
-		return consumerErr
+	drainErr := j.sub.Drain()
+	if drainErr != nil {
+		j.lg.With(logger.Err(drainErr)).Warn("failed to drain subscriber")
 	}
-	return nil
+	consumerErr := j.js.DeleteConsumer(j.Key(), j.uuid)
+	if j.isReleased(consumerErr) {
+		consumerErr = nil
+	} else {
+		j.lg.With(logger.Err(consumerErr)).Warn("failed to delete consumer")
+	}
+	return errors.Join(unsubErr, drainErr, consumerErr)
 }
 
 // best effort unlock until context is done, at which point we

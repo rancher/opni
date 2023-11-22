@@ -37,14 +37,16 @@ var _ = BeforeSuite(func() {
 			cli, err := etcd.NewEtcdClient(context.Background(), env.EtcdConfig())
 			Expect(err).To(Succeed())
 
-			l, err := etcd.NewEtcdLockManager(cli, logger.NewNop(), "test")
+			l := etcd.NewEtcdLockManager(cli, "test", logger.NewNop())
 			Expect(err).NotTo(HaveOccurred())
 			lmsE[i] = l
 		}
 		lmsJ := make([]*jetstream.LockManager, 7)
 		for i := 0; i < 7; i++ {
-			j, err := jetstream.NewJetStreamLockManager(context.Background(), env.JetStreamConfig(), logger.NewNop())
-			Expect(err).NotTo(HaveOccurred())
+			js, err := jetstream.AcquireJetstreamConn(context.Background(), env.JetStreamConfig(), logger.New().WithGroup("js"))
+			Expect(err).To(Succeed())
+
+			j := jetstream.NewLockManager(context.Background(), js, "test", logger.NewNop())
 			lmsJ[i] = j
 		}
 

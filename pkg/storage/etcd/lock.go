@@ -73,7 +73,6 @@ func (e *EtcdLock) acquire(ctx context.Context, retrier backoffv2.Policy) (chan 
 		e.lg,
 		e.prefix,
 		e.key,
-		e.options.InitialValue,
 		session,
 	)
 

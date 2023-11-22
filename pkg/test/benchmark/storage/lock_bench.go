@@ -73,7 +73,7 @@ func LockManagerBenchmark[T storage.LockManager](
 					for _, n := range tcs {
 						locks := make([]storage.Lock, n)
 						for i := 0; i < n; i++ {
-							locks[i] = lm.Locker(uuids[i])
+							locks[i] = lm.NewLock(uuids[i])
 						}
 						experimentName := fmt.Sprintf("unique locks acquired %d", n)
 						experiment.MeasureDuration(experimentName, func() {
@@ -128,7 +128,7 @@ func LockManagerBenchmark[T storage.LockManager](
 						locks := []storage.Lock{}
 						for i := 0; i < tc.n; i++ {
 							repl := i % tc.N
-							locks = append(locks, lms[repl].Locker(uuid.New().String()))
+							locks = append(locks, lms[repl].NewLock(uuid.New().String()))
 						}
 
 						experimentName := fmt.Sprintf("unique locks acquired %d x %d", tc.N, len(locks))
@@ -186,7 +186,7 @@ func LockManagerBenchmark[T storage.LockManager](
 					for _, n := range tcs {
 						lockers := make([]storage.Lock, n)
 						for i := 0; i < n; i++ {
-							lockers[i] = lm.Locker(testKey)
+							lockers[i] = lm.NewLock(testKey)
 						}
 						experimentName := fmt.Sprintf("exclusive transactions %d", n)
 						experiment.MeasureDuration(experimentName, func() {
@@ -245,7 +245,7 @@ func LockManagerBenchmark[T storage.LockManager](
 
 						for i := 0; i < tc.N; i++ {
 							for j := 0; j < tc.n; j++ {
-								lockers[i*tc.n+j] = lms[i].Locker("test")
+								lockers[i*tc.n+j] = lms[i].NewLock("test")
 							}
 						}
 						experiment.MeasureDuration(fmt.Sprintf("distributed exclusive transactions %dX%d", tc.N, tc.n), func() {

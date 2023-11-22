@@ -203,7 +203,7 @@ func (s *kvStoreServer) Lock(in *LockRequest, stream KeyValueStore_LockServer) e
 		return err
 	}
 
-	locker := s.lm.Locker(in.Key)
+	locker := s.lm.NewLock(in.Key)
 	var expiredC chan struct{}
 	if in.TryLock {
 		acquired, expired, err := locker.TryLock(stream.Context())

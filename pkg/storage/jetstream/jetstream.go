@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -196,17 +195,14 @@ func (s *JetStreamStore) KeyringStore(prefix string, ref *corev1.Reference) stor
 }
 
 func (s *JetStreamStore) LockManager(
-	/*prefix*/ string, // FIXME
+	prefix string,
 ) storage.LockManager {
-	return &LockManager{
-		js:  s.js,
-		ctx: s.ctx,
-	}
+	return NewLockManager(s.ctx, s.js, prefix, logger.NewNop())
 }
 
 func (s *JetStreamStore) KeyValueStore(prefix string) storage.KeyValueStore {
 	// sanitize bucket name
-	prefix = strings.ReplaceAll(strings.ReplaceAll(prefix, "/", "-"), ".", "_")
+	prefix = sanitizePrefix(prefix)
 	bucket := s.upsertBucket(fmt.Sprintf("%s-%s", dynamicBucket, prefix))
 	return &jetstreamKeyValueStore{
 		kv: bucket,

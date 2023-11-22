@@ -88,12 +88,7 @@ func (l *LockPrimitive) doSlow(f func() error) error {
 	return nil
 }
 
-type LockOptions struct {
-
-	// An optional initial value set on the mutex key when it is created after
-	// acquiring the lock
-	InitialValue string
-}
+type LockOptions struct{}
 
 func DefaultLockOptions() *LockOptions {
 	return &LockOptions{}
@@ -106,9 +101,3 @@ func (o *LockOptions) Apply(opts ...LockOption) {
 }
 
 type LockOption func(o *LockOptions)
-
-func WithInitialValue(value string) LockOption {
-	return func(o *LockOptions) {
-		o.InitialValue = value
-	}
-}

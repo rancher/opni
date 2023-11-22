@@ -41,20 +41,46 @@ var _ = BeforeSuite(func() {
 		Expect(err).NotTo(HaveOccurred())
 		store.Set(s)
 
-		lm, err := jetstream.NewJetStreamLockManager(
+		js, err := jetstream.AcquireJetstreamConn(
 			context.Background(),
 			env.JetStreamConfig(),
+			logger.NewNop(),
+		)
+
+		lm := jetstream.NewLockManager(
+			context.Background(),
+			js,
+			"test",
 			logger.New().WithGroup("js-lock"),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		lmF.Set(lm)
 
-		x, err := jetstream.NewJetStreamLockManager(context.Background(), env.JetStreamConfig(), logger.NewNop())
+		js1, err := jetstream.AcquireJetstreamConn(
+			context.Background(),
+			env.JetStreamConfig(),
+			logger.NewNop(),
+		)
 		Expect(err).NotTo(HaveOccurred())
-		y, err := jetstream.NewJetStreamLockManager(context.Background(), env.JetStreamConfig(), logger.NewNop())
+
+		js2, err := jetstream.AcquireJetstreamConn(
+			context.Background(),
+			env.JetStreamConfig(),
+			logger.NewNop(),
+		)
 		Expect(err).NotTo(HaveOccurred())
-		z, err := jetstream.NewJetStreamLockManager(context.Background(), env.JetStreamConfig(), logger.NewNop())
+
+		js3, err := jetstream.AcquireJetstreamConn(
+			context.Background(),
+			env.JetStreamConfig(),
+			logger.New(),
+		)
 		Expect(err).NotTo(HaveOccurred())
+
+		x := jetstream.NewLockManager(context.Background(), js1, "test", logger.New())
+		y := jetstream.NewLockManager(context.Background(), js2, "test", logger.New())
+		z := jetstream.NewLockManager(context.Background(), js3, "test", logger.New())
+
 		lmSetF.Set(lo.Tuple3[storage.LockManager, storage.LockManager, storage.LockManager]{
 			A: x, B: y, C: z,
 		})

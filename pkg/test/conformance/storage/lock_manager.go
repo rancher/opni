@@ -42,12 +42,12 @@ func LockManagerTestSuite(
 
 		When("using exclusive distributed locks within the same client conn", func() {
 			It("should lock and unlock locks of the same type", func() {
-				lock1 := lm.Locker("todo")
+				lock1 := lm.NewLock("todo")
 				done1, err := lock1.Lock(ctx)
 				Expect(err).To(Succeed())
 				Expect(lock1.Unlock()).To(Succeed())
 				Eventually(done1).Should(Receive())
-				lock2 := lm.Locker("todo")
+				lock2 := lm.NewLock("todo")
 				done2, err := lock2.Lock(ctx)
 				Expect(err).To(Succeed())
 				Expect(lock2.Unlock()).To(Succeed())
@@ -55,8 +55,8 @@ func LockManagerTestSuite(
 			})
 
 			Specify("try lock should fail quickly if the lock is already held", func() {
-				lock1 := lm.Locker("held")
-				lock2 := lm.Locker("held")
+				lock1 := lm.NewLock("held")
+				lock2 := lm.NewLock("held")
 				done1, err := lock1.Lock(ctx)
 				Expect(err).To(Succeed())
 				ack, done2, err := lock2.TryLock(ctx)
@@ -67,9 +67,22 @@ func LockManagerTestSuite(
 				Eventually(done1).Should(Receive())
 			})
 
+			Specify("locks with different keys should not conflict", func() {
+				lock1 := lm.NewLock("b")
+				lock2 := lm.NewLock("a")
+				expired1, err := lock1.Lock(ctx)
+				Expect(err).To(Succeed())
+				expired2, err := lock2.Lock(ctx)
+				Expect(err).To(Succeed())
+				Expect(lock1.Unlock()).To(Succeed())
+				Expect(lock2.Unlock()).To(Succeed())
+				Eventually(expired1).Should(Receive())
+				Eventually(expired2).Should(Receive())
+			})
+
 			Specify("acquiring blocking locks should be cancellable", func() {
-				lock1 := lm.Locker("block")
-				lock2 := lm.Locker("block")
+				lock1 := lm.NewLock("block")
+				lock2 := lm.NewLock("block")
 
 				done1, err := lock1.Lock(ctx)
 				Expect(err).To(Succeed())
@@ -88,11 +101,10 @@ func LockManagerTestSuite(
 				Eventually(done1).Should(Receive())
 			})
 
-			// TODO : jetstream is slow to release locks (it is having the server time them out)
 			It("should resolve concurrent lock requests", func() {
 				locks := []lockWithTransaction{}
 				for i := 0; i < 3; i++ {
-					lock := lm.Locker("rarrgh")
+					lock := lm.NewLock("rarrgh")
 					locks = append(locks, lockWithTransaction{
 						A: lock,
 						C: make(chan struct{}),
@@ -142,7 +154,7 @@ func LockManagerTestSuite(
 			})
 
 			It("is 'safe' to reuse a lock", func() {
-				lock1 := lm.Locker("todo")
+				lock1 := lm.NewLock("todo")
 				done1, err := lock1.Lock(ctx)
 				Expect(err).To(Succeed())
 				Expect(lock1.Unlock()).To(Succeed())
@@ -154,7 +166,7 @@ func LockManagerTestSuite(
 			})
 
 			It("is 'safe' to discard a lock's expired chan", func() {
-				lock1 := lm.Locker("todo2")
+				lock1 := lm.NewLock("todo2")
 				_, err := lock1.Lock(ctx)
 				Expect(err).To(Succeed())
 				Expect(lock1.Unlock()).To(Succeed())
@@ -164,7 +176,7 @@ func LockManagerTestSuite(
 			})
 
 			It("is concurrently safe to do lock operations", func() {
-				lock := lm.Locker("concurrent")
+				lock := lm.NewLock("concurrent")
 				var eg errgroup.Group
 				num := 0
 
@@ -185,9 +197,9 @@ func LockManagerTestSuite(
 
 			When("using distributed locks across multiple client conns", func() {
 				It("should be able to lock and unlock locks", func() {
-					x := lmSet.A.Locker("todo")
-					y := lmSet.B.Locker("todo")
-					z := lmSet.C.Locker("todo")
+					x := lmSet.A.NewLock("todo")
+					y := lmSet.B.NewLock("todo")
+					z := lmSet.C.NewLock("todo")
 
 					doneX, err := x.Lock(ctx)
 					Expect(err).To(Succeed())
@@ -206,9 +218,9 @@ func LockManagerTestSuite(
 				})
 
 				Specify("acquiring blocking locks should be cancellable", func() {
-					x := lmSet.A.Locker("block")
-					y := lmSet.B.Locker("block")
-					z := lmSet.C.Locker("block")
+					x := lmSet.A.NewLock("block")
+					y := lmSet.B.NewLock("block")
+					z := lmSet.C.NewLock("block")
 
 					doneZ, err := z.Lock(ctx)
 					Expect(err).To(Succeed())
@@ -236,9 +248,9 @@ func LockManagerTestSuite(
 				})
 
 				Specify("try lock should fail quickly is another manager is holding a lock", func() {
-					x := lmSet.A.Locker("qu")
-					y := lmSet.B.Locker("qu")
-					z := lmSet.C.Locker("qu")
+					x := lmSet.A.NewLock("qu")
+					y := lmSet.B.NewLock("qu")
+					z := lmSet.C.NewLock("qu")
 
 					doneY, err := y.Lock(ctx)
 					Expect(err).To(Succeed())
@@ -260,7 +272,7 @@ func LockManagerTestSuite(
 
 			Context("others", func() {
 				Specify("calling 'unlock' on a lock that was never acquired should error", func() {
-					lock := lm.Locker("todo")
+					lock := lm.NewLock("todo")
 					unlockErr := lock.Unlock()
 					Expect(unlockErr).To(HaveOccurred())
 					// Expect(unlockErr).To(MatchError(storage.ErrUnlockUnheldLock))
@@ -278,7 +290,7 @@ func LockManagerTestSuite(
 					experiment.RecordValue("start", float64(start.Alloc/1024))
 
 					num := 200
-					locker := lm.Locker("membench")
+					locker := lm.NewLock("membench")
 					for i := 0; i < num; i++ {
 						_, err := locker.Lock(context.Background())
 						Expect(err).To(Succeed())

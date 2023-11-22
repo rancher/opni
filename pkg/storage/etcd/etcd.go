@@ -136,10 +136,7 @@ func (e *EtcdStore) LockManager(prefix string) storage.LockManager {
 	if e.Prefix != "" {
 		prefix = path.Join(e.Prefix, prefix)
 	}
-	return &EtcdLockManager{
-		client: e.Client,
-		prefix: path.Join(prefix, "kv"),
-	}
+	return NewEtcdLockManager(e.Client, path.Join(prefix, "kv"), logger.NewNop())
 }
 
 func init() {

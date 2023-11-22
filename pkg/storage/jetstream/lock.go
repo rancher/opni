@@ -13,7 +13,8 @@ import (
 )
 
 type Lock struct {
-	key string
+	prefix string
+	key    string
 
 	js nats.JetStreamContext
 	*lock.LockOptions
@@ -26,8 +27,9 @@ type Lock struct {
 
 var _ storage.Lock = (*Lock)(nil)
 
-func NewLock(js nats.JetStreamContext, key string, lg *slog.Logger, options *lock.LockOptions) *Lock {
+func NewLock(js nats.JetStreamContext, prefix, key string, lg *slog.Logger, options *lock.LockOptions) *Lock {
 	return &Lock{
+		prefix:      prefix,
 		key:         key,
 		js:          js,
 		lg:          lg.With("key", key),
@@ -43,7 +45,7 @@ func (l *Lock) Key() string {
 func (l *Lock) acquire(ctx context.Context, retrier backoffv2.Policy) (chan struct{}, error) {
 	acq := retrier.Start(ctx)
 	var curErr error
-	mutex := newJetstreamMutex(l.lg, l.js, l.key)
+	mutex := newJetstreamMutex(l.lg, l.js, l.prefix, l.key)
 	done, err := mutex.tryLock()
 	curErr = err
 	if err == nil {

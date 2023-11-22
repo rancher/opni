@@ -42,7 +42,7 @@ func (lmb *LockManagerBroker) LockManager(name string) storage.LockManager {
 	return lmb.lockManagers[name]
 }
 
-func (lm *LockManager) Locker(key string, _ ...lock.LockOption) storage.Lock {
+func (lm *LockManager) NewLock(key string, _ ...lock.LockOption) storage.Lock {
 	return &Lock{
 		mu: lm.lockMap.Get(key),
 	}

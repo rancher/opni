@@ -46,24 +46,21 @@ var _ = BeforeSuite(func() {
 		cli, err := etcd.NewEtcdClient(context.Background(), env.EtcdConfig())
 		Expect(err).To(Succeed())
 
-		lm, err := etcd.NewEtcdLockManager(cli, logger.NewNop(), "test")
-		Expect(err).To(Succeed())
+		lm := etcd.NewEtcdLockManager(cli, "test", logger.NewNop())
 		lmF.Set(lm)
 
 		x, err := etcd.NewEtcdClient(context.Background(), env.EtcdConfig())
 		Expect(err).To(Succeed())
-		lmX, err := etcd.NewEtcdLockManager(x, logger.NewNop(), "test")
-		Expect(err).To(Succeed())
+		lmX := etcd.NewEtcdLockManager(x, "test", logger.NewNop())
 
 		y, err := etcd.NewEtcdClient(context.Background(), env.EtcdConfig())
 		Expect(err).To(Succeed())
-		lmY, err := etcd.NewEtcdLockManager(y, logger.NewNop(), "test")
+		lmY := etcd.NewEtcdLockManager(y, "test", logger.NewNop())
 		Expect(err).To(Succeed())
 
 		z, err := etcd.NewEtcdClient(context.Background(), env.EtcdConfig())
 		Expect(err).To(Succeed())
-		lmZ, err := etcd.NewEtcdLockManager(z, logger.NewNop(), "test")
-		Expect(err).To(Succeed())
+		lmZ := etcd.NewEtcdLockManager(z, "test", logger.NewNop())
 
 		lmSet.Set(lo.Tuple3[storage.LockManager, storage.LockManager, storage.LockManager]{
 			A: lmX, B: lmY, C: lmZ,

@@ -202,9 +202,6 @@ type Lock interface {
 	// expired by the server.
 	// It immediately signals to the lock's original expired channel that the lock is released.
 	Unlock() error
-	// Key returns a unique temporary prefix key that exists while the lock is held.
-	// If the lock is not currently held, the return value is undefined.
-	Key() string
 }
 
 // LockManager replaces sync.Mutex when a distributed locking mechanism is required.
@@ -246,7 +243,7 @@ type LockManager interface {
 	// Instantiates a new Lock instance for the given key, with the given options.
 	//
 	// Defaults to lock.DefaultOptions if no options are provided.
-	Locker(key string, opts ...lock.LockOption) Lock
+	NewLock(key string, opts ...lock.LockOption) Lock
 }
 
 const (

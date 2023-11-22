@@ -280,7 +280,9 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		}
 		lg := lg.WithGroup("connections")
 		connectionsKv := storageBackend.KeyValueStore("connections")
-		connectionsLm := storageBackendLmBroker.LockManager("connections")
+		trackerKv := storageBackend.KeyValueStore("leader")
+		connectionsLm := storageBackendLmBroker.LockManager("lock/connections")
+		trackerLm := storageBackendLmBroker.LockManager("lock/tracker")
 		relayAdvertiseAddr := conf.Spec.Management.RelayAdvertiseAddress
 		mgmtAdvertiseAddr := conf.Spec.Management.GRPCAdvertiseAddress
 		gatewayAdvertiseAddr := conf.Spec.GRPCAdvertiseAddress
@@ -312,7 +314,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 				"pid":      fmt.Sprint(os.Getpid()),
 				"version":  versions.Version,
 			},
-		}, connectionsKv, connectionsLm, lg)
+		}, connectionsKv, trackerKv, connectionsLm, trackerLm, lg)
 
 		writerManager := NewHealthStatusWriterManager(ctx, connectionsKv, lg)
 		go health.Copy(ctx, writerManager, listener)

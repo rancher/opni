@@ -1,188 +1,131 @@
 package jetstream
 
 import (
+	"context"
 	"errors"
-	"fmt"
-	"sync/atomic"
-	"time"
+	"log/slog"
+	"strings"
 
-	"github.com/google/uuid"
+	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/lock"
 )
 
-func newLease(key string) *nats.StreamConfig {
-	return &nats.StreamConfig{
-		Name:         key,
-		Retention:    nats.InterestPolicy,
-		Subjects:     []string{fmt.Sprintf("%s.lease.*", key)},
-		MaxConsumers: 1,
-	}
-}
-
 type Lock struct {
-	key  string
-	uuid string
+	key string
 
-	acquired uint32
-
-	js   nats.JetStreamContext
-	sub  *nats.Subscription
-	msgQ chan *nats.Msg
+	js nats.JetStreamContext
 	*lock.LockOptions
 
-	startLock   lock.LockPrimitive
-	startUnlock lock.LockPrimitive
+	scheduler *lock.LockScheduler
+	mutex     *jetstreamMutex
+
+	lg *slog.Logger
 }
 
 var _ storage.Lock = (*Lock)(nil)
 
-func NewLock(js nats.JetStreamContext, key string, options *lock.LockOptions) *Lock {
+func NewLock(js nats.JetStreamContext, key string, lg *slog.Logger, options *lock.LockOptions) *Lock {
 	return &Lock{
 		key:         key,
 		js:          js,
-		uuid:        uuid.New().String(),
-		msgQ:        make(chan *nats.Msg, 16),
+		lg:          lg.With("key", key),
 		LockOptions: options,
+		scheduler:   lock.NewLockScheduler(),
 	}
-}
-
-func (l *Lock) Lock() error {
-
-	return l.startLock.Do(func() error {
-		return l.lock()
-	})
-}
-
-func (l *Lock) lock() error {
-	timeout := time.After(l.AcquireTimeout)
-	tTicker := time.NewTicker(l.RetryDelay)
-	defer tTicker.Stop()
-
-	var lockErr error
-	for {
-		select {
-		case <-tTicker.C:
-			err := l.tryLock()
-			if err == nil {
-				return nil
-			}
-			lockErr = err
-		case <-l.AcquireContext.Done():
-			return errors.Join(lock.ErrAcquireLockCancelled, lockErr)
-		case <-timeout:
-			return errors.Join(lockErr, lock.ErrAcquireLockTimeout)
-		}
-	}
-}
-
-func (l *Lock) tryLock() error {
-	var err error
-	if _, err := l.js.AddStream(newLease(l.key)); err != nil {
-		return err
-	}
-	cfg := &nats.ConsumerConfig{
-		Durable:           l.uuid,
-		AckPolicy:         nats.AckExplicitPolicy,
-		InactiveThreshold: l.LockValidity,
-		DeliverSubject:    l.uuid,
-	}
-	if l.Keepalive {
-		// Push-based details, defaults to 5 * time.Second
-		cfg.Heartbeat = max(l.RetryDelay, 100*time.Millisecond)
-	}
-
-	if _, err := l.js.AddConsumer(l.key, cfg); err != nil {
-		return err
-	}
-	l.sub, err = l.js.ChanSubscribe(l.uuid, l.msgQ, nats.Bind(l.key, l.uuid))
-	if err != nil {
-		return err
-	}
-	go l.keepalive()
-	go l.expire()
-	atomic.StoreUint32(&l.acquired, 1)
-	return nil
-}
-
-func (l *Lock) expire() {
-	if l.Keepalive {
-		return
-	}
-	timeout := time.After(l.LockValidity)
-	<-timeout
-	l.unlock()
-}
-
-func (l *Lock) keepalive() {
-	if !l.Keepalive {
-		return
-	}
-	for msg := range l.msgQ {
-		msg.Ack()
-	}
-}
-
-func (l *Lock) Unlock() error {
-	return l.startUnlock.Do(func() error {
-		if atomic.LoadUint32(&l.acquired) == 0 {
-			return lock.ErrLockNotAcquired
-		}
-		return l.unlock()
-	})
-}
-
-func (l *Lock) unlock() error {
-	timeout := time.After(l.AcquireTimeout)
-	tTicker := time.NewTicker(l.RetryDelay)
-	defer tTicker.Stop()
-
-	var unlockErr error
-	for {
-		select {
-		case <-tTicker.C:
-			err := l.tryUnlock()
-			if err == nil {
-				return nil
-			}
-			unlockErr = err
-		case <-l.AcquireContext.Done():
-			return errors.Join(lock.ErrAcquireUnlockCancelled, unlockErr)
-		case <-timeout:
-			return errors.Join(lock.ErrAcquireUnlockTimeout, unlockErr)
-		}
-	}
-}
-
-func (l *Lock) tryUnlock() error {
-	if err := l.sub.Unsubscribe(); err != nil {
-		if errors.Is(err, nats.ErrBadSubscription) || errors.Is(err, nats.ErrConsumerNotActive) { // lock already released
-			return nil
-		}
-		return err
-	}
-	if err := l.js.DeleteConsumer(l.key, l.uuid); err != nil {
-		if errors.Is(err, nats.ErrConsumerNotFound) || errors.Is(err, nats.ErrConsumerNotActive) { // lock already released
-			return nil
-		}
-		return err
-	}
-	return nil
 }
 
 func (l *Lock) Key() string {
 	return l.key
 }
 
-func (l *Lock) TryLock() (bool, error) {
-	// TODO
-	err := l.tryLock()
-	return err == nil, err
+func (l *Lock) acquire(ctx context.Context, retrier backoffv2.Policy) (chan struct{}, error) {
+	acq := retrier.Start(ctx)
+	var curErr error
+	mutex := newJetstreamMutex(l.lg, l.js, l.key)
+	done, err := mutex.tryLock()
+	curErr = err
+	if err == nil {
+		l.mutex = &mutex
+		return done, nil
+	}
+	for backoffv2.Continue(acq) {
+		done, err := mutex.tryLock()
+		curErr = err
+		if err == nil {
+			l.mutex = &mutex
+			return done, nil
+		}
+	}
+	return nil, errors.Join(ctx.Err(), curErr)
 }
 
-func (l *Lock) TryUnlock() (bool, error) {
-	// TODO
-	err := l.tryUnlock()
-	return err == nil, err
+func (l *Lock) Lock(ctx context.Context) (chan struct{}, error) {
+	ctxca, ca := context.WithCancel(ctx)
+	defer ca()
+
+	var closureDone chan struct{}
+	if err := l.scheduler.Schedule(func() error {
+		done, err := l.acquire(ctxca, backoffv2.Constant(
+			backoffv2.WithMaxRetries(0),
+			backoffv2.WithInterval(LockRetryDelay),
+			backoffv2.WithJitterFactor(0.1),
+		))
+		if err != nil {
+			return err
+		}
+		closureDone = done
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return closureDone, nil
+
+}
+
+func (l *Lock) Unlock() error {
+	if err := l.scheduler.Done(func() error {
+		if l.mutex == nil {
+			panic("never acquired")
+		}
+		mutex := *l.mutex
+		go func() {
+			if err := mutex.unlock(); err != nil {
+				l.lg.Error(err.Error())
+			}
+		}()
+		l.mutex = nil
+		return nil
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (l *Lock) TryLock(ctx context.Context) (acquired bool, done chan struct{}, err error) {
+	// https://github.com/lestrrat-go/backoff/issues/31
+	ctxca, ca := context.WithCancel(ctx)
+	defer ca()
+	var closureDone chan struct{}
+	if err := l.scheduler.Schedule(func() error {
+		done, err := l.acquire(ctxca, backoffv2.Constant(
+			backoffv2.WithMaxRetries(1),
+			backoffv2.WithInterval(LockRetryDelay),
+			backoffv2.WithJitterFactor(0.1),
+		))
+		if err != nil {
+			return err
+		}
+		closureDone = done
+		return nil
+	}); err != nil {
+		// hack : jetstream client does not have a stronly typed error for : maxium consumers limit reached
+		if strings.Contains(err.Error(), "maximum consumers limit reached") {
+			// the request has gone through but someone else has the lock
+			return false, nil, nil
+		}
+		return false, nil, err
+	}
+	return true, closureDone, nil
 }

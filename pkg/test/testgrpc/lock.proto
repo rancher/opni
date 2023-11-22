@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package test.lock;
+
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+
+option go_package      = "github.com/rancher/opni/pkg/test/testgrpc";
+option (cli.generator) = {
+  generate: true
+};
+
+message LockRequest {
+  string                   key = 1;
+  google.protobuf.Duration dur = 2;
+}
+
+message UnlockRequest {
+  string key = 1;
+}
+
+message LockResponse {
+  bool   acquired = 1;
+  string status   = 2;
+}
+
+message UnlockResponse {
+  bool   unlocked = 1;
+  string status   = 2;
+}
+
+message ListLocksResponse {
+  repeated string keys = 1;
+}
+
+service TestLocker {
+  rpc Lock(LockRequest) returns (LockResponse);
+  rpc TryLock(LockRequest) returns (LockResponse);
+  rpc ListLocks(google.protobuf.Empty) returns (ListLocksResponse);
+  rpc Unlock(UnlockRequest) returns (UnlockResponse);
+}

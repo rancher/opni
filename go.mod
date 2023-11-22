@@ -73,8 +73,8 @@ require (
 	github.com/mholt/archiver/v4 v4.0.0-alpha.8
 	github.com/mitchellh/mapstructure v1.5.1-0.20220423185008-bf980b35cac4
 	github.com/muesli/termenv v0.15.2
-	github.com/nats-io/nats.go v1.28.0
-	github.com/nats-io/nkeys v0.4.4
+	github.com/nats-io/nats.go v1.31.0
+	github.com/nats-io/nkeys v0.4.5
 	github.com/nsf/jsondiff v0.0.0-20230430225905-43f6cf3098c1
 	github.com/olebedev/when v0.0.0-20221205223600-4d190b02b8d8
 	github.com/onsi/biloba v0.1.5

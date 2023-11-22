@@ -64,10 +64,7 @@ func WithPrefix(prefix string) EtcdStoreOption {
 	}
 }
 
-func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...EtcdStoreOption) (*EtcdStore, error) {
-	options := EtcdStoreOptions{}
-	options.apply(opts...)
-	lg := logger.New(logger.WithLogLevel(slog.LevelWarn)).WithGroup("etcd")
+func NewEtcdClient(ctx context.Context, conf *v1beta1.EtcdStorageSpec) (*clientv3.Client, error) {
 	var tlsConfig *tls.Config
 	if conf.Certs != nil {
 		var err error
@@ -86,8 +83,19 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 	if err != nil {
 		return nil, fmt.Errorf("failed to create etcd client: %w", err)
 	}
+	return cli, err
+}
+
+func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...EtcdStoreOption) (*EtcdStore, error) {
+	options := EtcdStoreOptions{}
+	options.apply(opts...)
+	lg := logger.New(logger.WithLogLevel(slog.LevelWarn)).WithGroup("etcd")
+	cli, err := NewEtcdClient(ctx, conf)
+	if err != nil {
+		return nil, err
+	}
 	lg.With(
-		"endpoints", clientConfig.Endpoints,
+		"endpoints", conf.Endpoints,
 	).Info("connecting to etcd")
 	return &EtcdStore{
 		EtcdStoreOptions: options,

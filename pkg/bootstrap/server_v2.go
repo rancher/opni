@@ -16,7 +16,6 @@ import (
 	"github.com/rancher/opni/pkg/health/annotations"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/storage/lock"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
@@ -109,8 +108,12 @@ func (h *ServerV2) Auth(ctx context.Context, authReq *bootstrapv2.BootstrapAuthR
 	}
 
 	// lock the mutex associated with the cluster ID
-	lock := h.clusterIdLocks.Locker(authReq.ClientId, lock.WithAcquireContext(ctx))
-	lock.Lock()
+	lock := h.clusterIdLocks.Locker(authReq.ClientId)
+	// TODO : handle me
+	_, err = lock.Lock(ctx)
+	if err != nil {
+		panic(err)
+	}
 	defer lock.Unlock()
 
 	existing := &corev1.Reference{

@@ -1,4 +1,4 @@
-package v1
+package configv1
 
 import (
 	"os"
@@ -23,5 +23,10 @@ func (h *HistoryResponse) RenderText(out cli.Writer) {
 
 func init() {
 	addExtraGatewayConfigCmd(rollback.BuildCmd("rollback", GatewayConfigContextInjector))
-	addExtraGatewayConfigCmd(dryrun.BuildCmd("dry-run", GatewayConfigContextInjector))
+	addExtraGatewayConfigCmd(dryrun.BuildCmd("dry-run", GatewayConfigContextInjector,
+		BuildGatewayConfigSetConfigurationCmd(),
+		BuildGatewayConfigSetDefaultConfigurationCmd(),
+		BuildGatewayConfigResetConfigurationCmd(),
+		BuildGatewayConfigResetDefaultConfigurationCmd(),
+	))
 }

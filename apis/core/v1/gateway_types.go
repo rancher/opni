@@ -37,6 +37,7 @@ type GatewayStatus struct {
 	Ready           bool                        `json:"ready,omitempty"`
 }
 
+// +kubebuilder:skipversion
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 type Gateway struct {
@@ -46,6 +47,7 @@ type Gateway struct {
 	Status            GatewayStatus `json:"status,omitempty"`
 }
 
+// +kubebuilder:skipversion
 // +kubebuilder:object:root=true
 type GatewayList struct {
 	metav1.TypeMeta `json:",inline"`

@@ -6,13 +6,11 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"path"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/slogr"
 	gpkgsync "github.com/kralicky/gpkg/sync"
-	"github.com/rancher/opni/pkg/plugins/meta"
 	slogmulti "github.com/samber/slog-multi"
 	slogsampling "github.com/samber/slog-sampling"
 	"github.com/spf13/afero"
@@ -22,6 +20,7 @@ const (
 	pluginGroupPrefix                                         = "plugin"
 	forwardedPluginPrefix                                     = "plugin."
 	pluginLoggerKey            pluginLoggerKeyType            = "plugin_logger"
+	pluginModeKey              pluginModeKeyType              = "plugin_logger_mode"
 	pluginWriterKey            pluginWriterKeyType            = "plugin_writer"
 	testPluginLoggerEnabledKey testPluginLoggerEnabledKeyType = "is_test_plugin_logger"
 	NoRepeatInterval                                          = 3600 * time.Hour // arbitrarily long time to denote one-time sampling
@@ -30,6 +29,7 @@ const (
 
 type (
 	pluginLoggerKeyType            string
+	pluginModeKeyType              string
 	pluginWriterKeyType            string
 	testPluginLoggerEnabledKeyType string
 )
@@ -262,16 +262,4 @@ func WriteOnlyFile(filename string) afero.File {
 	}
 
 	return fd
-}
-
-func GetLogFileName() string {
-	moduleBasename := getModuleBasename()
-	// FIXME assuming we only want to stream agent plugin logs, not gateway plugin logs? ie mode = ModeAgent?
-	mode := meta.ModeAgent
-	return fmt.Sprintf("plugin_%s_%s", mode, moduleBasename)
-}
-
-func getModuleBasename() string {
-	md := meta.ReadMetadata()
-	return path.Base(md.Module)
 }

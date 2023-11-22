@@ -408,6 +408,7 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 			close(done)
 		}))
 
+		ctx = logger.WithMode(ctx, meta.ModeAgent)
 		a.pluginLoader.LoadPlugins(ctx, a.config.PluginDir, plugins.AgentScheme,
 			plugins.WithManifest(pluginManifest),
 		)

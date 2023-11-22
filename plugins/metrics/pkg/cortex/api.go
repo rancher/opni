@@ -58,9 +58,8 @@ func (p *HttpApiServer) Initialize(config HttpApiServerConfig) {
 var _ httpext.HTTPAPIExtension = (*HttpApiServer)(nil)
 
 func (p *HttpApiServer) ConfigureRoutes(router *gin.Engine) {
-	lg := logger.NewPluginLogger(p.PluginContext)
 	p.WaitForInit()
-
+	lg := logger.NewPluginLogger(p.PluginContext)
 	lg.Info("configuring http api server")
 
 	router.Use(logger.GinLogger(lg), gin.Recovery())

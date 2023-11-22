@@ -2,12 +2,15 @@ package logger
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
+	"path"
 	"sync"
 
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
+	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/test/testruntime"
 	"github.com/spf13/afero"
 	"google.golang.org/protobuf/proto"
@@ -21,7 +24,7 @@ func NewPluginLogger(ctx context.Context, opts ...LoggerOption) *slog.Logger {
 	options.apply(opts...)
 
 	if options.Writer == nil {
-		options.Writer = NewPluginWriter()
+		options.Writer = NewPluginWriter(ctx)
 	}
 
 	return slog.New(newProtoHandler(options.Writer, ConfigureProtoOptions(options))).WithGroup(pluginGroupPrefix)
@@ -46,15 +49,16 @@ type remotePluginWriter struct {
 	protoWriter io.Writer
 }
 
-func NewPluginWriter() *remotePluginWriter {
-	if pluginsRunningInProcess() {
-		return NewPluginFileWriter()
-	}
-
-	return &remotePluginWriter{
-		textWriter:  New(WithWriter(io.Discard), WithDisableCaller()),
-		fileWriter:  NewFileWriter(nil),
-		protoWriter: os.Stderr,
+func NewPluginWriter(ctx context.Context) *remotePluginWriter {
+	if isInProcessAgentPlugin(ctx) {
+		mode := getMode(ctx)
+		if mode == meta.ModeAgent {
+			return NewPluginFileWriter()
+		} else {
+			return newTestGatewayPluginWriter()
+		}
+	} else {
+		return newSubprocPluginWriter()
 	}
 }
 
@@ -62,6 +66,30 @@ func NewPluginFileWriter() *remotePluginWriter {
 	return &remotePluginWriter{
 		textWriter:  New(WithWriter(os.Stderr), WithDisableCaller()),
 		fileWriter:  NewLogFileWriter(),
+		protoWriter: io.Discard,
+	}
+}
+
+func newTestGatewayPluginWriter() *remotePluginWriter {
+	return &remotePluginWriter{
+		textWriter:  New(WithWriter(os.Stderr), WithDisableCaller()),
+		fileWriter:  NewFileWriter(nil),
+		protoWriter: io.Discard,
+	}
+}
+
+func newSubprocPluginWriter() *remotePluginWriter {
+	return &remotePluginWriter{
+		textWriter:  New(WithWriter(io.Discard), WithDisableCaller()),
+		fileWriter:  NewFileWriter(nil),
+		protoWriter: os.Stderr,
+	}
+}
+
+func NewGatewayPluginWriter() *remotePluginWriter {
+	return &remotePluginWriter{
+		textWriter:  New(WithWriter(os.Stderr), WithDisableCaller()),
+		fileWriter:  NewFileWriter(nil),
 		protoWriter: io.Discard,
 	}
 }
@@ -160,6 +188,28 @@ func (f fileWriter) Write(b []byte) (int, error) {
 	return f.file.Write(b)
 }
 
-func pluginsRunningInProcess() bool {
-	return testruntime.IsTesting || getModuleBasename() == "testenv"
+func GetLogFileName() string {
+	return fmt.Sprintf("plugin_%s_%s", meta.ModeAgent, getModuleBasename())
+}
+
+func WithMode(ctx context.Context, mode meta.PluginMode) context.Context {
+	return context.WithValue(ctx, pluginModeKey, mode)
+}
+
+func getModuleBasename() string {
+	md := meta.ReadMetadata()
+	return path.Base(md.Module)
+}
+
+func isInProcessAgentPlugin(ctx context.Context) bool {
+	return (testruntime.IsTesting || getModuleBasename() == "testenv") && (getMode(ctx) == meta.ModeAgent)
+}
+
+func getMode(ctx context.Context) meta.PluginMode {
+	mode := ctx.Value(pluginModeKey)
+
+	if mode != nil {
+		return mode.(meta.PluginMode)
+	}
+	return meta.ModeGateway
 }

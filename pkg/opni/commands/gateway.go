@@ -110,6 +110,7 @@ func BuildGatewayCmd() *cobra.Command {
 			lg.Info(fmt.Sprintf("loaded %d plugins", numLoaded))
 			close(doneLoadingPlugins)
 		}))
+		ctx = logger.WithMode(ctx, meta.ModeGateway)
 		pluginLoader.LoadPlugins(ctx, gatewayConfig.Spec.Plugins.Dir, plugins.GatewayScheme)
 		select {
 		case <-doneLoadingPlugins:

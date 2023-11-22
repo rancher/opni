@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
@@ -117,6 +118,7 @@ func (tp TestPluginSet) LoadPlugins(ctx context.Context, loader *plugins.PluginL
 		RootCAs:      caPool,
 		ServerName:   "localhost",
 	}
+	ctx = logger.WithMode(ctx, mode)
 
 	wg := &sync.WaitGroup{}
 	for _, p := range tp[mode] {
@@ -156,6 +158,11 @@ func (tp TestPluginSet) EnablePlugin(pkgName, pluginName string, mode meta.Plugi
 			BinaryPath: pluginName,
 			GoVersion:  runtime.Version(),
 			Module:     pkgName,
+			ExtendedMetadata: &meta.ExtendedPluginMeta{
+				ModeList: meta.ModeList{
+					Modes: []meta.PluginMode{mode},
+				},
+			},
 		},
 	})
 }

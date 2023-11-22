@@ -46,7 +46,7 @@ func (a *Agent) streamRuleGroupUpdates(ctx context.Context) (<-chan [][]byte, er
 	}
 	a.logger.Debug("rule discovery configured")
 	searchInterval := time.Minute * 15
-	if interval := a.config.Rules.Discovery.Interval; interval != "" {
+	if interval := a.config.Rules.Discovery.GetInterval(); interval != "" {
 		duration, err := time.ParseDuration(interval)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse discovery interval: %w", err)

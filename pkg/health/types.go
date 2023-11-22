@@ -13,9 +13,15 @@ type HealthClientSet interface {
 	GetHealth(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*corev1.Health, error)
 }
 
-type HealthStatusUpdater interface {
-	StatusC() chan StatusUpdate
-	HealthC() chan HealthUpdate
+type HealthStatusUpdateReader interface {
+	StatusC() <-chan StatusUpdate
+	HealthC() <-chan HealthUpdate
+}
+
+type HealthStatusUpdateWriter interface {
+	StatusWriterC() chan<- StatusUpdate
+	HealthWriterC() chan<- HealthUpdate
+	Close()
 }
 
 type HealthStatusQuerier interface {

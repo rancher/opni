@@ -7,8 +7,11 @@ Declares the topology plugin's gateway meta scheme.
 import (
 	"context"
 
+	"log/slog"
+
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/agent"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
@@ -27,7 +30,6 @@ import (
 	"github.com/rancher/opni/plugins/topology/pkg/topology/gateway/drivers"
 	"github.com/rancher/opni/plugins/topology/pkg/topology/gateway/stream"
 	"google.golang.org/protobuf/proto"
-	"log/slog"
 )
 
 type Plugin struct {
@@ -51,6 +53,19 @@ type Plugin struct {
 	delegate            future.Future[streamext.StreamDelegate[agent.ClientSet]]
 	uninstallController future.Future[*task.Controller]
 	clusterDriver       future.Future[drivers.ClusterDriver]
+}
+
+// ManagementServices implements managementext.ManagementAPIExtension.
+func (p *Plugin) ManagementServices(_ managementext.ServiceController) []util.ServicePackInterface {
+	return []util.ServicePackInterface{
+		util.PackService[representation.TopologyRepresentationServer](&representation.TopologyRepresentation_ServiceDesc, p),
+		util.PackService[orchestrator.TopologyOrchestratorServer](&orchestrator.TopologyOrchestrator_ServiceDesc, &p.topologyBackend),
+	}
+}
+
+// Authorized checks whether a given set of roles is allowed to access a given request
+func (p *Plugin) CheckAuthz(_ context.Context, _ *corev1.ReferenceList, _, _ string) bool {
+	return true
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
@@ -121,18 +136,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeGateway))
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
-	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(
-			util.PackService(
-				&representation.TopologyRepresentation_ServiceDesc,
-				p,
-			),
-			util.PackService(
-				&orchestrator.TopologyOrchestrator_ServiceDesc,
-				&p.topologyBackend,
-			),
-		),
-	)
+	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(p))
 	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.topologyBackend))
 	return scheme

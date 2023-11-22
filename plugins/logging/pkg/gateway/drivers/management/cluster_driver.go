@@ -23,4 +23,4 @@ type ClusterDriver interface {
 	ListAllSnapshotSchedules(ctx context.Context) (*loggingadmin.SnapshotStatusList, error)
 }
 
-var Drivers = driverutil.NewDriverCache[ClusterDriver]()
+var Drivers = driverutil.NewCache[ClusterDriver]()

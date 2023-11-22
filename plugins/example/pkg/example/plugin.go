@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"log/slog"
@@ -23,7 +24,6 @@ import (
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
-	driverutil "github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/kvutil"
@@ -40,119 +40,138 @@ import (
 )
 
 type ExamplePlugin struct {
-	util.Initializer
 	UnsafeExampleAPIExtensionServer
 	UnsafeExampleUnaryExtensionServer
 	capabilityv1.UnsafeBackendServer
+	capabilityv1.UnsafeRBACManagerServer
 	system.UnimplementedSystemPluginClient
 	ctx    context.Context
 	logger *slog.Logger
 
 	storageBackend      future.Future[storage.Backend]
+	rbacStorage         future.Future[storage.RoleStore]
 	uninstallController future.Future[*task.Controller]
+	driver              ExampleDriver
+}
 
-	configServerBackend ConfigServerBackend
+// ManagementServices implements managementext.ManagementAPIExtension.
+func (p *ExamplePlugin) ManagementServices(ctrl managementext.ServiceController) []util.ServicePackInterface {
+	ctrl.SetServingStatus(ExampleAPIExtension_ServiceDesc.ServiceName, managementext.NotServing)
+	ctrl.SetServingStatus(Config_ServiceDesc.ServiceName, managementext.NotServing)
+
+	return []util.ServicePackInterface{
+		util.PackService[ExampleAPIExtensionServer](&ExampleAPIExtension_ServiceDesc, p),
+		util.PackService[ConfigServer](&Config_ServiceDesc, &p.driver),
+	}
+}
+
+// Authorized checks whether a given set of roles is allowed to access a given request
+func (p *ExamplePlugin) CheckAuthz(_ context.Context, _ *corev1.ReferenceList, _, _ string) bool {
+	return true
 }
 
 var _ ExampleAPIExtensionServer = (*ExamplePlugin)(nil)
 var _ ExampleUnaryExtensionServer = (*ExamplePlugin)(nil)
 
-func (s *ExamplePlugin) Initialize() {
-	s.InitOnce(func() {})
-}
-
-func (s *ExamplePlugin) Echo(_ context.Context, req *EchoRequest) (*EchoResponse, error) {
+func (p *ExamplePlugin) Echo(_ context.Context, req *EchoRequest) (*EchoResponse, error) {
 	return &EchoResponse{
 		Message: req.Message,
 	}, nil
 }
 
-func (s *ExamplePlugin) Hello(context.Context, *emptypb.Empty) (*EchoResponse, error) {
+func (p *ExamplePlugin) Hello(context.Context, *emptypb.Empty) (*EchoResponse, error) {
 	return &EchoResponse{
 		Message: "Hello World",
 	}, nil
 }
 
-func (s *ExamplePlugin) Ready(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	if !s.Initialized() {
-		return nil, util.StatusError(codes.Unavailable)
-	}
+func (p *ExamplePlugin) Ready(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	return &emptypb.Empty{}, nil
 }
 
-func (s *ExamplePlugin) UseCachingProvider(cacheProvider caching.CachingProvider[proto.Message]) {
+func (p *ExamplePlugin) UseCachingProvider(cacheProvider caching.CachingProvider[proto.Message]) {
 	cacheProvider.SetCache(caching.NewInMemoryGrpcTtlCache(50*1024*1024, 1*time.Minute))
 }
 
-func (s *ExamplePlugin) UseManagementAPI(client managementv1.ManagementClient) {
+func (p *ExamplePlugin) UseManagementAPI(client managementv1.ManagementClient) {
 	cfg, err := client.GetConfig(context.Background(), &emptypb.Empty{}, grpc.WaitForReady(true))
 	if err != nil {
-		s.logger.With(logger.Err(err)).Error("failed to get config")
+		p.logger.With(logger.Err(err)).Error("failed to get config")
 		return
 	}
 	objectList, err := machinery.LoadDocuments(cfg.Documents)
 	if err != nil {
-		s.logger.With(logger.Err(err)).Error("failed to load config")
+		p.logger.With(logger.Err(err)).Error("failed to load config")
 		return
 	}
-	machinery.LoadAuthProviders(s.ctx, objectList)
+	machinery.LoadAuthProviders(p.ctx, objectList)
 	objectList.Visit(func(config *v1beta1.GatewayConfig) {
-		backend, err := machinery.ConfigureStorageBackend(s.ctx, &config.Spec.Storage)
+		backend, err := machinery.ConfigureStorageBackend(p.ctx, &config.Spec.Storage)
 		if err != nil {
-			s.logger.With(logger.Err(err)).Error("failed to configure storage backend")
+			p.logger.With(logger.Err(err)).Error("failed to configure storage backend")
 			return
 		}
-		s.storageBackend.Set(backend)
+		p.storageBackend.Set(backend)
 	})
 
-	if !s.storageBackend.IsSet() {
+	if !p.storageBackend.IsSet() {
 		return
 	}
-	<-s.ctx.Done()
+	<-p.ctx.Done()
 }
 
-func (s *ExamplePlugin) UseKeyValueStore(client system.KeyValueStoreClient) {
-	ctrl, err := task.NewController(s.ctx, "uninstall", system.NewKVStoreClient[*corev1.TaskStatus](client), &uninstallTaskRunner{
-		storageBackend: s.storageBackend.Get(),
+func (p *ExamplePlugin) UseKeyValueStore(client system.KeyValueStoreClient) {
+	ctrl, err := task.NewController(p.ctx, "uninstall", system.NewKVStoreClient[*corev1.TaskStatus](client), &uninstallTaskRunner{
+		storageBackend: p.storageBackend.Get(),
 	})
 	if err != nil {
-		s.logger.With(logger.Err(err)).Error("failed to create uninstall controller")
+		p.logger.With(logger.Err(err)).Error("failed to create uninstall controller")
 		return
 	}
-	s.uninstallController.Set(ctrl)
+	p.uninstallController.Set(ctrl)
 
-	builder, _ := drivers.Get("example")
-	driver, _ := builder(s.ctx,
-		driverutil.NewOption("defaultConfigStore", kvutil.WithKey(system.NewKVStoreClient[*ConfigSpec](client), "/config/default")),
-		driverutil.NewOption("activeConfigStore", kvutil.WithKey(system.NewKVStoreClient[*ConfigSpec](client), "/config/active")),
-	)
-	s.configServerBackend.Initialize(driver)
+	p.driver.Initialize(ExampleDriverImplOptions{
+		DefaultConfigStore: kvutil.WithKey(system.NewKVStoreClient[*ConfigSpec](client), "/config/default"),
+		ActiveConfigStore:  kvutil.WithKey(system.NewKVStoreClient[*ConfigSpec](client), "/config/active"),
+	})
 
-	<-s.ctx.Done()
+	p.rbacStorage.Set(kvutil.WithPrefix(system.NewKVStoreClient[*corev1.Role](client), "/roles"))
+
+	<-p.ctx.Done()
 }
 
-func (s *ExamplePlugin) ConfigureRoutes(app *gin.Engine) {
+func (p *ExamplePlugin) ConfigureRoutes(app *gin.Engine) {
 	app.GET("/example", func(c *gin.Context) {
-		s.logger.Debug("handling /example")
+		p.logger.Debug("handling /example")
 		c.JSON(http.StatusOK, map[string]string{
 			"message": "hello world",
 		})
 	})
 }
 
-func (s *ExamplePlugin) Info(context.Context, *emptypb.Empty) (*capabilityv1.Details, error) {
+func (p *ExamplePlugin) info() *capabilityv1.Details {
 	return &capabilityv1.Details{
 		Name:   wellknown.CapabilityExample,
 		Source: "plugin_example",
+	}
+}
+
+func (p *ExamplePlugin) Info(context.Context, *corev1.Reference) (*capabilityv1.Details, error) {
+	return p.info(), nil
+}
+
+func (p *ExamplePlugin) List(context.Context, *emptypb.Empty) (*capabilityv1.DetailsList, error) {
+	return &capabilityv1.DetailsList{
+		Items: []*capabilityv1.Details{p.info()},
 	}, nil
 }
 
-func (s *ExamplePlugin) CanInstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (p *ExamplePlugin) CanInstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return &emptypb.Empty{}, nil
 }
 
-func (s *ExamplePlugin) Status(ctx context.Context, ref *corev1.Reference) (*capabilityv1.NodeCapabilityStatus, error) {
-	cluster, err := s.storageBackend.Get().GetCluster(ctx, ref)
+func (p *ExamplePlugin) Status(ctx context.Context, ref *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
+	cluster, err := p.storageBackend.Get().GetCluster(ctx, ref.GetAgent())
 	if err != nil {
 		return nil, err
 	}
@@ -161,8 +180,8 @@ func (s *ExamplePlugin) Status(ctx context.Context, ref *corev1.Reference) (*cap
 	}, nil
 }
 
-func (s *ExamplePlugin) Install(ctx context.Context, req *capabilityv1.InstallRequest) (*capabilityv1.InstallResponse, error) {
-	_, err := s.storageBackend.Get().UpdateCluster(ctx, req.Cluster,
+func (p *ExamplePlugin) Install(ctx context.Context, req *capabilityv1.InstallRequest) (*capabilityv1.InstallResponse, error) {
+	_, err := p.storageBackend.Get().UpdateCluster(ctx, req.Agent,
 		storage.NewAddCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityExample)),
 	)
 	if err != nil {
@@ -173,17 +192,17 @@ func (s *ExamplePlugin) Install(ctx context.Context, req *capabilityv1.InstallRe
 	}, nil
 }
 
-func (s *ExamplePlugin) Uninstall(ctx context.Context, req *capabilityv1.UninstallRequest) (*emptypb.Empty, error) {
-	cluster, err := s.storageBackend.Get().GetCluster(ctx, req.Cluster)
+func (p *ExamplePlugin) Uninstall(ctx context.Context, req *capabilityv1.UninstallRequest) (*emptypb.Empty, error) {
+	cluster, err := p.storageBackend.Get().GetCluster(ctx, req.Agent)
 	if err != nil {
 		return nil, err
 	}
 	if cluster == nil {
-		return nil, status.Errorf(codes.NotFound, "cluster %q not found", req.Cluster)
+		return nil, status.Errorf(codes.NotFound, "cluster %q not found", req.Agent)
 	}
 
 	found := false
-	_, err = s.storageBackend.Get().UpdateCluster(ctx, cluster.Reference(), func(c *corev1.Cluster) {
+	_, err = p.storageBackend.Get().UpdateCluster(ctx, cluster.Reference(), func(c *corev1.Cluster) {
 		for _, cap := range c.Metadata.Capabilities {
 			if cap.Name == wellknown.CapabilityExample {
 				found = true
@@ -199,7 +218,7 @@ func (s *ExamplePlugin) Uninstall(ctx context.Context, req *capabilityv1.Uninsta
 		return nil, status.Error(codes.FailedPrecondition, "cluster does not have the reuqested capability")
 	}
 
-	err = s.uninstallController.Get().LaunchTask(req.Cluster.Id)
+	err = p.uninstallController.Get().LaunchTask(req.Agent.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -207,17 +226,92 @@ func (s *ExamplePlugin) Uninstall(ctx context.Context, req *capabilityv1.Uninsta
 	return &emptypb.Empty{}, nil
 }
 
-func (s *ExamplePlugin) UninstallStatus(_ context.Context, ref *corev1.Reference) (*corev1.TaskStatus, error) {
-	return s.uninstallController.Get().TaskStatus(ref.GetId())
+func (p *ExamplePlugin) UninstallStatus(_ context.Context, ref *capabilityv1.UninstallStatusRequest) (*corev1.TaskStatus, error) {
+	return p.uninstallController.Get().TaskStatus(ref.GetAgent().GetId())
 }
 
-func (s *ExamplePlugin) CancelUninstall(_ context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	s.uninstallController.Get().CancelTask(ref.GetId())
+func (p *ExamplePlugin) CancelUninstall(_ context.Context, ref *capabilityv1.CancelUninstallRequest) (*emptypb.Empty, error) {
+	p.uninstallController.Get().CancelTask(ref.GetAgent().GetId())
 	return &emptypb.Empty{}, nil
 }
 
-func (s *ExamplePlugin) InstallerTemplate(context.Context, *emptypb.Empty) (*capabilityv1.InstallerTemplateResponse, error) {
+func (p *ExamplePlugin) InstallerTemplate(context.Context, *emptypb.Empty) (*capabilityv1.InstallerTemplateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InstallerTemplate not implemented")
+}
+
+func (p *ExamplePlugin) GetAvailablePermissions(_ context.Context, _ *emptypb.Empty) (*corev1.AvailablePermissions, error) {
+	return &corev1.AvailablePermissions{
+		Items: []*corev1.PermissionDescription{
+			{
+				Type: string(corev1.PermissionTypeCluster),
+				Verbs: []*corev1.PermissionVerb{
+					corev1.VerbGet(),
+				},
+			},
+		},
+	}, nil
+}
+
+func (p *ExamplePlugin) GetRole(ctx context.Context, in *corev1.Reference) (*corev1.Role, error) {
+	var revision int64
+	role, err := p.rbacStorage.Get().Get(ctx, in.GetId(), storage.WithRevisionOut(&revision))
+	if err != nil {
+		return nil, err
+	}
+	metadata := &corev1.RoleMetadata{
+		ResourceVersion: strconv.FormatInt(revision, 10),
+	}
+
+	role.Metadata = metadata
+
+	return role, nil
+}
+
+func (p *ExamplePlugin) CreateRole(ctx context.Context, in *corev1.Role) (*emptypb.Empty, error) {
+	var revision int64
+	_, err := p.rbacStorage.Get().Get(ctx, in.Reference().GetId(), storage.WithRevisionOut(&revision))
+	if err == nil {
+		return nil, storage.ErrAlreadyExists
+	}
+	if !storage.IsNotFound(err) {
+		return nil, err
+	}
+	err = p.rbacStorage.Get().Put(ctx, in.GetId(), in, storage.WithRevision(revision))
+	return &emptypb.Empty{}, err
+}
+
+func (p *ExamplePlugin) UpdateRole(ctx context.Context, in *corev1.Role) (*emptypb.Empty, error) {
+	store := p.rbacStorage.Get()
+	oldRole, err := store.Get(ctx, in.Reference().GetId())
+	if err != nil {
+		return &emptypb.Empty{}, err
+	}
+
+	oldRole.Permissions = in.GetPermissions()
+	err = store.Put(ctx, oldRole.Reference().GetId(), oldRole, storage.WithRevision(in.GetRevision()))
+	return &emptypb.Empty{}, err
+}
+
+func (p *ExamplePlugin) DeleteRole(ctx context.Context, in *corev1.Reference) (*emptypb.Empty, error) {
+	err := p.rbacStorage.Get().Delete(ctx, in.GetId())
+	return &emptypb.Empty{}, err
+}
+
+func (p *ExamplePlugin) ListRoles(ctx context.Context, _ *emptypb.Empty) (*corev1.RoleList, error) {
+	keys, err := p.rbacStorage.Get().ListKeys(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+
+	roles := []*corev1.Reference{}
+	for _, key := range keys {
+		roles = append(roles, &corev1.Reference{
+			Id: key,
+		})
+	}
+	return &corev1.RoleList{
+		Items: roles,
+	}, nil
 }
 
 func Scheme(ctx context.Context) meta.Scheme {
@@ -226,18 +320,13 @@ func Scheme(ctx context.Context) meta.Scheme {
 		ctx:                 ctx,
 		logger:              logger.NewPluginLogger().WithGroup("example"),
 		storageBackend:      future.New[storage.Backend](),
+		rbacStorage:         future.New[storage.RoleStore](),
 		uninstallController: future.New[*task.Controller](),
 	}
-
-	future.Wait2(p.storageBackend, p.uninstallController, func(_ storage.Backend, _ *task.Controller) {
-		p.Initialize()
-	})
-	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(
-		util.PackService(&ExampleAPIExtension_ServiceDesc, p),
-		util.PackService(&Config_ServiceDesc, &p.configServerBackend),
-	))
+	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(p))
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(p))
+	scheme.Add(capability.CapabilityRBACPluginID, capability.NewRBACPlugin(p))
 	return scheme
 }
 
@@ -247,9 +336,9 @@ type uninstallTaskRunner struct {
 	storageBackend storage.Backend
 }
 
-func (a *uninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveTask) error {
+func (u *uninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveTask) error {
 	ti.AddLogEntry(slog.LevelInfo, "Removing capability from cluster metadata")
-	_, err := a.storageBackend.UpdateCluster(ctx, &corev1.Reference{
+	_, err := u.storageBackend.UpdateCluster(ctx, &corev1.Reference{
 		Id: ti.TaskId(),
 	}, storage.NewRemoveCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityExample)))
 	if err != nil {
@@ -258,8 +347,7 @@ func (a *uninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveT
 	return nil
 }
 
-func (a *uninstallTaskRunner) OnTaskCompleted(ctx context.Context, ti task.ActiveTask, state task.State, args ...any) {
-
+func (u *uninstallTaskRunner) OnTaskCompleted(ctx context.Context, ti task.ActiveTask, state task.State, args ...any) {
 	switch state {
 	case task.StateCompleted:
 		ti.AddLogEntry(slog.LevelInfo, "Capability uninstalled successfully")
@@ -271,7 +359,7 @@ func (a *uninstallTaskRunner) OnTaskCompleted(ctx context.Context, ti task.Activ
 	}
 
 	// Reset the deletion timestamp
-	_, err := a.storageBackend.UpdateCluster(ctx, &corev1.Reference{
+	_, err := u.storageBackend.UpdateCluster(ctx, &corev1.Reference{
 		Id: ti.TaskId(),
 	}, func(c *corev1.Cluster) {
 		for _, cap := range c.GetCapabilities() {

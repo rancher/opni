@@ -13,7 +13,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/tracing"
 	"google.golang.org/grpc"
-	rpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
+	reflectionpb "google.golang.org/grpc/reflection/grpc_reflection_v1"
 )
 
 var ErrNotImplemented = errors.New("not implemented")
@@ -30,13 +30,13 @@ var Handshake = plugin.HandshakeConfig{
 }
 
 func CheckAvailability(ctx context.Context, cc *grpc.ClientConn, id string) error {
-	ref := rpb.NewServerReflectionClient(cc)
+	ref := reflectionpb.NewServerReflectionClient(cc)
 	stream, err := ref.ServerReflectionInfo(ctx)
 	if err != nil {
 		return err
 	}
-	if err := stream.Send(&rpb.ServerReflectionRequest{
-		MessageRequest: &rpb.ServerReflectionRequest_ListServices{},
+	if err := stream.Send(&reflectionpb.ServerReflectionRequest{
+		MessageRequest: &reflectionpb.ServerReflectionRequest_ListServices{},
 	}); err != nil {
 		return err
 	}

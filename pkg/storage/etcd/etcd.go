@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"log/slog"
 	"path"
-	"time"
+	"sync"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
 
-	"github.com/lestrrat-go/backoff/v2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
@@ -20,14 +20,7 @@ import (
 )
 
 var (
-	errRetry       = errors.New("the object has been modified, retrying")
-	defaultBackoff = backoff.NewExponentialPolicy(
-		backoff.WithMaxRetries(20),
-		backoff.WithMinInterval(10*time.Millisecond),
-		backoff.WithMaxInterval(1*time.Second),
-		backoff.WithJitterFactor(0.1),
-		backoff.WithMultiplier(1.5),
-	)
+	errRetry = errors.New("the object has been modified, retrying")
 )
 
 func isRetryErr(err error) bool {
@@ -47,6 +40,8 @@ type EtcdStore struct {
 	EtcdStoreOptions
 	Logger *slog.Logger
 	Client *clientv3.Client
+
+	closeOnce sync.Once
 }
 
 var _ storage.Backend = (*EtcdStore)(nil)
@@ -76,16 +71,16 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 	var tlsConfig *tls.Config
 	if conf.Certs != nil {
 		var err error
-		tlsConfig, err = util.LoadClientMTLSConfig(conf.Certs)
+		tlsConfig, err = util.LoadClientMTLSConfig(*conf.Certs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load client TLS config: %w", err)
 		}
 	}
-	slog.SetDefault(lg.WithGroup("etcd"))
 	clientConfig := clientv3.Config{
 		Endpoints: conf.Endpoints,
 		TLS:       tlsConfig,
-		Context:   ctx,
+		Context:   context.WithoutCancel(ctx),
+		Logger:    zap.NewNop(), // TODO
 	}
 	cli, err := clientv3.New(clientConfig)
 	if err != nil {
@@ -101,6 +96,12 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 	}, nil
 }
 
+func (e *EtcdStore) Close() {
+	e.closeOnce.Do(func() {
+		e.Client.Close()
+	})
+}
+
 func (e *EtcdStore) KeyringStore(prefix string, ref *corev1.Reference) storage.KeyringStore {
 	pfx := e.Prefix
 	if prefix != "" {
@@ -114,13 +115,22 @@ func (e *EtcdStore) KeyringStore(prefix string, ref *corev1.Reference) storage.K
 }
 
 func (e *EtcdStore) KeyValueStore(prefix string) storage.KeyValueStore {
-	pfx := e.Prefix
-	if prefix != "" {
-		pfx = prefix
+	if e.Prefix != "" {
+		prefix = path.Join(e.Prefix, prefix)
 	}
 	return &genericKeyValueStore{
 		client: e.Client,
-		prefix: path.Join(pfx, "kv"),
+		prefix: path.Join(prefix, "kv"),
+	}
+}
+
+func (e *EtcdStore) LockManager(prefix string) storage.LockManager {
+	if e.Prefix != "" {
+		prefix = path.Join(e.Prefix, prefix)
+	}
+	return &EtcdLockManager{
+		client: e.Client,
+		prefix: path.Join(prefix, "kv"),
 	}
 }
 

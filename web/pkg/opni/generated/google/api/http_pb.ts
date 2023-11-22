@@ -104,14 +104,14 @@ export class HttpRule extends Message<HttpRule> {
   body = "";
 
   /**
-   * @generated from field: string response_body = 12;
-   */
-  responseBody = "";
-
-  /**
    * @generated from field: repeated google.api.HttpRule additional_bindings = 11;
    */
   additionalBindings: HttpRule[] = [];
+
+  /**
+   * @generated from field: string response_body = 12;
+   */
+  responseBody = "";
 
   constructor(data?: PartialMessage<HttpRule>) {
     super();
@@ -129,8 +129,8 @@ export class HttpRule extends Message<HttpRule> {
     { no: 6, name: "patch", kind: "scalar", T: 9 /* ScalarType.STRING */, oneof: "pattern" },
     { no: 8, name: "custom", kind: "message", T: CustomHttpPattern, oneof: "pattern" },
     { no: 7, name: "body", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 12, name: "response_body", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 11, name: "additional_bindings", kind: "message", T: HttpRule, repeated: true },
+    { no: 12, name: "response_body", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): HttpRule {

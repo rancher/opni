@@ -9,9 +9,7 @@ import (
 	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/prometheus/common/model"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/tokens"
-	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/samber/lo"
 	"github.com/ttacon/chalk"
 )
@@ -75,15 +73,25 @@ func RenderClusterList(list *corev1.ClusterList, status []*corev1.HealthStatus) 
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	renderSessionAttributes := false
+	renderInstanceInfo := false
 	for _, s := range status {
 		if len(s.GetStatus().GetSessionAttributes()) > 0 {
 			renderSessionAttributes = true
 			break
 		}
 	}
+	for _, c := range list.Items {
+		if c.GetMetadata().GetLastKnownConnectionDetails().GetInstanceInfo() != nil {
+			renderInstanceInfo = true
+			break
+		}
+	}
 	hdr := table.Row{"ID", "LABELS", "CAPABILITIES", "STATUS"}
 	if renderSessionAttributes {
 		hdr = append(hdr, "ATTRIBUTES")
+	}
+	if renderInstanceInfo {
+		hdr = append(hdr, "INSTANCE")
 	}
 	w.AppendHeader(hdr)
 	for i, t := range list.Items {
@@ -103,6 +111,18 @@ func RenderClusterList(list *corev1.ClusterList, status []*corev1.HealthStatus) 
 		if renderSessionAttributes {
 			row = append(row, strings.Join(status[i].Status.GetSessionAttributes(), ","))
 		}
+		if renderInstanceInfo {
+			instanceInfo := t.GetMetadata().GetLastKnownConnectionDetails().GetInstanceInfo()
+			if instanceInfo != nil && instanceInfo.GetAcquired() {
+				instanceName := instanceInfo.GetRelayAddress()
+				if instanceInfo.Annotations != nil && instanceInfo.Annotations["hostname"] != "" {
+					instanceName = instanceInfo.Annotations["hostname"]
+				}
+				row = append(row, instanceName)
+			} else {
+				row = append(row, "")
+			}
+		}
 		w.AppendRow(row)
 	}
 	return w.Render()
@@ -110,7 +130,7 @@ func RenderClusterList(list *corev1.ClusterList, status []*corev1.HealthStatus) 
 
 func RenderRole(role *corev1.Role) string {
 	return RenderRoleList(&corev1.RoleList{
-		Items: []*corev1.Role{role},
+		Items: []*corev1.Reference{{Id: role.GetId()}},
 	})
 }
 
@@ -118,16 +138,8 @@ func RenderRoleList(list *corev1.RoleList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	w.AppendHeader(table.Row{"ID", "SELECTOR", "CLUSTER IDS"})
-	for _, role := range list.Items {
-		clusterIds := strings.Join(role.ClusterIDs, "\n")
-		if len(clusterIds) == 0 {
-			clusterIds = "(none)"
-		}
-		expressionStr := role.MatchLabels.ExpressionString()
-		if expressionStr == "" {
-			expressionStr = "(none)"
-		}
-		w.AppendRow(table.Row{role.Id, expressionStr, clusterIds})
+	for _, role := range list.GetItems() {
+		w.AppendRow(table.Row{role.Id})
 	}
 	return w.Render()
 }
@@ -229,21 +241,6 @@ func RenderAccessMatrix(am AccessMatrix) string {
 	return w.Render()
 }
 
-func RenderCapabilityList(list *managementv1.CapabilityList) string {
-	w := table.NewWriter()
-	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"NAME", "SOURCE", "DRIVERS", "CLUSTERS"})
-	for _, c := range list.Items {
-		w.AppendRow(table.Row{
-			c.GetDetails().GetName(),
-			c.GetDetails().GetSource(),
-			strings.Join(c.GetDetails().GetDrivers(), ","),
-			c.GetNodeCount(),
-		})
-	}
-	return w.Render()
-}
-
 func RenderMetricSamples(samples []*model.Sample) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
@@ -259,19 +256,6 @@ func RenderMetricSamples(samples []*model.Sample) string {
 			continue
 		}
 		w.AppendRow(table.Row{s.Metric["namespace"], user, s.Value})
-	}
-	return w.Render()
-}
-
-func RenderCortexRules(resp *cortexadmin.ListRulesResponse) string {
-	w := table.NewWriter()
-	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"cluster", "namespace", "group name", "rule name", "type", "health", "alert state"})
-
-	for _, group := range resp.Data.Groups {
-		for _, rule := range group.Rules {
-			w.AppendRow(table.Row{group.ClusterId, group.File, group.Name, rule.Name, rule.Type, rule.Health, rule.State})
-		}
 	}
 	return w.Render()
 }
@@ -314,8 +298,22 @@ func RenderClusterDetails(cluster *corev1.Cluster) string {
 	w.AppendSeparator()
 	lkcd := cluster.GetMetadata().GetLastKnownConnectionDetails()
 	if lkcd != nil {
-		w.AppendRow(table.Row{"Last Known Connection", "Connection Time", lkcd.GetTime().AsTime().Local().Format(time.RFC3339)})
+		connectionTime := lkcd.GetTime().AsTime().Local()
+		w.AppendRow(table.Row{"Last Known Connection", "Connection Time", fmt.Sprintf("%s: (up %s)", connectionTime.Format(time.RFC3339), time.Since(connectionTime).Round(time.Second))})
 		w.AppendRow(table.Row{"", "Peer Address", lkcd.GetAddress()})
+		if lkcd.InstanceInfo != nil {
+			instanceName := lkcd.InstanceInfo.GetRelayAddress()
+			if lkcd.InstanceInfo.Annotations != nil && lkcd.InstanceInfo.Annotations["hostname"] != "" {
+				instanceName = lkcd.InstanceInfo.Annotations["hostname"]
+			}
+			w.AppendRow(table.Row{"", "Gateway Instance", instanceName})
+			w.AppendSeparator()
+			w.AppendRow(table.Row{"Instance Info", "Relay Address", lkcd.InstanceInfo.GetRelayAddress()})
+			w.AppendRow(table.Row{"", "Management Address", lkcd.InstanceInfo.GetManagementAddress()})
+			for k, v := range lkcd.InstanceInfo.GetAnnotations() {
+				w.AppendRow(table.Row{"", k, v})
+			}
+		}
 		if lkcd.AgentBuildInfo != nil {
 			w.AppendSeparator()
 			w.AppendRow(table.Row{"Build Info", "Go Version", lkcd.AgentBuildInfo.GetGoVersion()})

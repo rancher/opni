@@ -13,62 +13,43 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
-// Implements a subset of methods usually required by a driver which uses a DefaultingConfigTracker
+// Implements a subset of methods usually required by a server which uses a DefaultingConfigTracker
 // to manage its configuration. These implementations should not vary between drivers, so they are
 // provided here as a convenience.
-//
-// Usage example:
-//
-//	type Driver struct {
-//		foo.UnsafeFooServer
-//
-//		// package foo;
-//		// message GetRequest {
-//		//   core.Revision revision = 1;
-//		// }
-//		*driverutil.BaseConfigServer[*foo.ResetRequest, *foo.HistoryResponse, T]
-//	}
-//
-//	func NewDriver() *Driver {
-//		defaultStore := ...
-//		activeStore := ...
-//		return &Driver{
-//			BaseConfigServer: driverutil.NewBaseConfigServer[*foo.ResetRequest, *foo.HistoryResponse](defaultStore, activeStore, flagutil.LoadDefaults)
-//		}
-//	}
-func NewBaseConfigServer[
-	R ResetRequestType[T],
-	HR HistoryResponseType[T],
-	T InstallableConfigType[T],
-](
-	defaultStore, activeStore storage.ValueStoreT[T],
-	loadDefaultsFunc DefaultLoaderFunc[T],
-) *BaseConfigServer[R, HR, T] {
-	return &BaseConfigServer[R, HR, T]{
-		tracker: NewDefaultingConfigTracker[T](defaultStore, activeStore, loadDefaultsFunc),
-	}
-}
-
 type BaseConfigServer[
+	G GetRequestType,
+	S SetRequestType[T],
 	R ResetRequestType[T],
+	H HistoryRequestType,
 	HR HistoryResponseType[T],
-	T InstallableConfigType[T],
+	T ConfigType[T],
 ] struct {
 	tracker *DefaultingConfigTracker[T]
 }
 
-// GetConfiguration implements ConfigurableServerInterface.
-func (s *BaseConfigServer[R, HR, T]) GetConfiguration(ctx context.Context, in *GetRequest) (T, error) {
+// Returns a new instance of the BaseConfigServer with the defined type.
+// Can be called from a nil pointer of the BaseConfigServer type.
+// Example:
+// var server *BaseConfigServer[...]
+// server = server.Build()
+func (*BaseConfigServer[G, S, R, H, HR, T]) Build(
+	defaultStore, activeStore storage.ValueStoreT[T],
+	loadDefaultsFunc DefaultLoaderFunc[T],
+) *BaseConfigServer[G, S, R, H, HR, T] {
+	return &BaseConfigServer[G, S, R, H, HR, T]{
+		tracker: NewDefaultingConfigTracker[T](defaultStore, activeStore, loadDefaultsFunc),
+	}
+}
+
+func (s *BaseConfigServer[G, S, R, H, HR, T]) GetConfiguration(ctx context.Context, in G) (T, error) {
 	return s.tracker.GetConfigOrDefault(ctx, in.GetRevision())
 }
 
-// GetDefaultConfiguration implements ConfigurableServerInterface.
-func (s *BaseConfigServer[R, HR, T]) GetDefaultConfiguration(ctx context.Context, in *GetRequest) (T, error) {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) GetDefaultConfiguration(ctx context.Context, in G) (T, error) {
 	return s.tracker.GetDefaultConfig(ctx, in.GetRevision())
 }
 
-// Install implements ConfigurableServerInterface.
-func (s *BaseConfigServer[R, HR, T]) Install(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) Install(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	var t T
 	t = t.ProtoReflect().New().Interface().(T)
 	s.setEnabled(t, lo.ToPtr(true))
@@ -79,16 +60,14 @@ func (s *BaseConfigServer[R, HR, T]) Install(ctx context.Context, _ *emptypb.Emp
 	return &emptypb.Empty{}, nil
 }
 
-// ResetDefaultConfiguration implements ConfigurableServerInterface.
-func (s *BaseConfigServer[R, HR, T]) ResetDefaultConfiguration(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) ResetDefaultConfiguration(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	if err := s.tracker.ResetDefaultConfig(ctx); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
-// ResetConfiguration implements ConfigurableServerInterface.
-func (s *BaseConfigServer[R, HR, T]) ResetConfiguration(ctx context.Context, in R) (*emptypb.Empty, error) {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) ResetConfiguration(ctx context.Context, in R) (*emptypb.Empty, error) {
 	// If T contains a field named "enabled", assume it has installation semantics
 	// and ensure a non-nil mask is always passed to ResetConfig. This ensures
 	// the active config is never deleted from the underlying store, and therefore
@@ -113,26 +92,23 @@ func (s *BaseConfigServer[R, HR, T]) ResetConfiguration(ctx context.Context, in 
 	return &emptypb.Empty{}, nil
 }
 
-// SetConfiguration implements ConfigurableServerInterface.
-func (s *BaseConfigServer[R, HR, T]) SetConfiguration(ctx context.Context, t T) (*emptypb.Empty, error) {
-	s.setEnabled(t, nil)
-	if err := s.tracker.ApplyConfig(ctx, t); err != nil {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) SetConfiguration(ctx context.Context, in S) (*emptypb.Empty, error) {
+	s.setEnabled(in.GetSpec(), nil)
+	if err := s.tracker.ApplyConfig(ctx, in.GetSpec()); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
-// SetDefaultConfiguration implements ConfigurableServerInterface.
-func (s *BaseConfigServer[R, HR, T]) SetDefaultConfiguration(ctx context.Context, t T) (*emptypb.Empty, error) {
-	s.setEnabled(t, nil)
-	if err := s.tracker.SetDefaultConfig(ctx, t); err != nil {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) SetDefaultConfiguration(ctx context.Context, in S) (*emptypb.Empty, error) {
+	s.setEnabled(in.GetSpec(), nil)
+	if err := s.tracker.SetDefaultConfig(ctx, in.GetSpec()); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
-// Uninstall implements ConfigurableServerInterface.
-func (s *BaseConfigServer[R, HR, T]) Uninstall(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) Uninstall(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	var t T
 	t = t.ProtoReflect().New().Interface().(T)
 	s.setEnabled(t, lo.ToPtr(false))
@@ -143,7 +119,7 @@ func (s *BaseConfigServer[R, HR, T]) Uninstall(ctx context.Context, _ *emptypb.E
 	return &emptypb.Empty{}, nil
 }
 
-func (s *BaseConfigServer[R, HR, T]) setEnabled(t T, enabled *bool) {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) setEnabled(t T, enabled *bool) {
 	field := util.FieldByName[T]("enabled")
 	if field == nil {
 		return
@@ -156,21 +132,21 @@ func (s *BaseConfigServer[R, HR, T]) setEnabled(t T, enabled *bool) {
 	}
 }
 
-func (s *BaseConfigServer[R, HR, T]) ConfigurationHistory(ctx context.Context, req *ConfigurationHistoryRequest) (HR, error) {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) ConfigurationHistory(ctx context.Context, in H) (HR, error) {
 	options := []storage.HistoryOpt{
-		storage.IncludeValues(req.GetIncludeValues()),
+		storage.IncludeValues(in.GetIncludeValues()),
 	}
-	if req.Revision != nil {
-		options = append(options, storage.WithRevision(req.GetRevision().GetRevision()))
+	if in.GetRevision() != nil {
+		options = append(options, storage.WithRevision(in.GetRevision().GetRevision()))
 	}
-	revisions, err := s.tracker.History(ctx, req.GetTarget(), options...)
+	revisions, err := s.tracker.History(ctx, in.GetTarget(), options...)
 	resp := util.NewMessage[HR]()
 	if err != nil {
 		return resp, err
 	}
 	entries := resp.ProtoReflect().Mutable(util.FieldByName[HR]("entries")).List()
 	for _, rev := range revisions {
-		if req.IncludeValues {
+		if in.GetIncludeValues() {
 			spec := rev.Value()
 			SetRevision(spec, rev.Revision(), rev.Timestamp())
 			entries.Append(protoreflect.ValueOfMessage(spec.ProtoReflect()))
@@ -183,6 +159,117 @@ func (s *BaseConfigServer[R, HR, T]) ConfigurationHistory(ctx context.Context, r
 	return resp, nil
 }
 
-func (s *BaseConfigServer[R, HR, T]) Tracker() *DefaultingConfigTracker[T] {
+func (s *BaseConfigServer[G, S, R, H, HR, T]) Tracker() *DefaultingConfigTracker[T] {
 	return s.tracker
+}
+
+// ServerDryRun sends a dry-run request to the tracker and returns the results
+// in a generic wrapper type.
+//
+// Because DryRun is an optional config server API, the request and response
+// types are not part of the collection of required type parameters for this
+// server. The typed request can be passed directly to ServerDryRun using the
+// generic interface DryRunRequestType[T], which it will already implement
+// if the request is well-formed. The corresponding response type can't be
+// known at compile-time, so the caller will need to translate the generic
+// response type DryRunResults[T] into the correct response type for the rpc.
+//
+// This is typically most of the work required to implement a dry-run endpoint,
+// but callers may wish to perform additional validation on the modified config
+// before returning the dry-run response to the client using the typed dry-run
+// response message.
+//
+// If the config type has validation rules defined using protovalidate, they
+// will be run against the modified config and included in this response.
+func (s *BaseConfigServer[G, S, R, H, HR, T]) ServerDryRun(ctx context.Context, req DryRunRequestType[T]) (DryRunResults[T], error) {
+	return s.tracker.DryRun(ctx, req)
+}
+
+type ContextKeyableConfigServer[
+	G interface {
+		GetRequestType
+		ContextKeyable
+	},
+	S interface {
+		SetRequestType[T]
+		ContextKeyable
+	},
+	R interface {
+		ResetRequestType[T]
+		ContextKeyable
+	},
+	H interface {
+		HistoryRequestType
+		ContextKeyable
+	},
+	HR HistoryResponseType[T],
+	T ConfigType[T],
+] struct {
+	base *BaseConfigServer[G, S, R, H, HR, T]
+}
+
+// Returns a new instance of the ContextKeyableConfigServer with the defined type.
+// This is a conveience function to avoid repeating the type parameters.
+func (*ContextKeyableConfigServer[G, S, R, H, HR, T]) Build(
+	defaultStore storage.ValueStoreT[T],
+	activeStore storage.KeyValueStoreT[T],
+	loadDefaultsFunc DefaultLoaderFunc[T],
+) *ContextKeyableConfigServer[G, S, R, H, HR, T] {
+	tracker := NewDefaultingActiveKeyedConfigTracker(
+		defaultStore,
+		activeStore,
+		loadDefaultsFunc,
+	)
+	return &ContextKeyableConfigServer[G, S, R, H, HR, T]{
+		base: &BaseConfigServer[G, S, R, H, HR, T]{
+			tracker: tracker,
+		},
+	}
+}
+
+func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) GetDefaultConfiguration(ctx context.Context, in G) (T, error) {
+	return s.base.GetDefaultConfiguration(ctx, in)
+}
+
+func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) ResetDefaultConfiguration(ctx context.Context, in *emptypb.Empty) (*emptypb.Empty, error) {
+	return s.base.ResetDefaultConfiguration(ctx, in)
+}
+
+func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) SetDefaultConfiguration(ctx context.Context, in S) (*emptypb.Empty, error) {
+	return s.base.SetDefaultConfiguration(ctx, in)
+}
+
+func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) GetConfiguration(ctx context.Context, in G) (T, error) {
+	return s.base.GetConfiguration(contextWithKey(ctx, in), in)
+}
+
+func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) ResetConfiguration(ctx context.Context, in R) (*emptypb.Empty, error) {
+	return s.base.ResetConfiguration(contextWithKey(ctx, in), in)
+}
+
+func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) SetConfiguration(ctx context.Context, in S) (*emptypb.Empty, error) {
+	return s.base.SetConfiguration(contextWithKey(ctx, in), in)
+}
+
+func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) ConfigurationHistory(ctx context.Context, in H) (HR, error) {
+	return s.base.ConfigurationHistory(contextWithKey(ctx, in), in)
+}
+
+func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) Install(ctx context.Context, in ContextKeyable) (*emptypb.Empty, error) {
+	return s.base.Install(contextWithKey(ctx, in), &emptypb.Empty{})
+}
+
+func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) Uninstall(ctx context.Context, in ContextKeyable) (*emptypb.Empty, error) {
+	return s.base.Uninstall(contextWithKey(ctx, in), &emptypb.Empty{})
+}
+
+func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) ServerDryRun(ctx context.Context, req interface {
+	DryRunRequestType[T]
+	ContextKeyable
+}) (DryRunResults[T], error) {
+	return s.base.ServerDryRun(contextWithKey(ctx, req), req)
+}
+
+func (s *ContextKeyableConfigServer[G, S, R, H, HR, T]) InjectContextKey(ctx context.Context, in ContextKeyable) context.Context {
+	return contextWithKey(ctx, in)
 }

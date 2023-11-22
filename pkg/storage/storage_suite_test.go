@@ -1,14 +1,12 @@
 package storage_test
 
 import (
-	"context"
 	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/storage"
 	_ "github.com/rancher/opni/pkg/test/setup"
 )
 
@@ -110,27 +108,31 @@ func role(id string, clusterIdOrSelector ...interface{}) func() *corev1.Role {
 		for _, i := range clusterIdOrSelector {
 			switch v := i.(type) {
 			case string:
-				r.ClusterIDs = append(r.ClusterIDs, v)
+				appendClusterIDsToRole(r, v)
 			case []string:
-				r.ClusterIDs = append(r.ClusterIDs, v...)
+				appendClusterIDsToRole(r, v...)
 			case *corev1.LabelSelector:
-				r.MatchLabels = v
+				r.Permissions = append(r.Permissions, &corev1.PermissionItem{
+					Type:        string(corev1.PermissionTypeCluster),
+					Verbs:       []*corev1.PermissionVerb{corev1.VerbGet()},
+					MatchLabels: v,
+				})
 			}
 		}
 		return r
 	}
 }
 
-var rbacStore storage.RBACStore
-
-func rb(id string, roleName string, subjects ...string) func() *corev1.RoleBinding {
-	return func() *corev1.RoleBinding {
-		rb := &corev1.RoleBinding{
-			Id:       id,
-			RoleId:   roleName,
-			Subjects: subjects,
+func appendClusterIDsToRole(role *corev1.Role, ids ...string) {
+	for _, permission := range role.GetPermissions() {
+		if permission.Type == string(corev1.PermissionTypeCluster) && corev1.VerbGet().InList(permission.GetVerbs()) {
+			permission.Ids = append(permission.Ids, ids...)
+			return
 		}
-		storage.ApplyRoleBindingTaints(context.Background(), rbacStore, rb)
-		return rb
 	}
+	role.Permissions = append(role.Permissions, &corev1.PermissionItem{
+		Type:  string(corev1.PermissionTypeCluster),
+		Verbs: []*corev1.PermissionVerb{corev1.VerbGet()},
+		Ids:   ids,
+	})
 }

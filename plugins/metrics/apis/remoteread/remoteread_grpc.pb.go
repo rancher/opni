@@ -125,7 +125,7 @@ func (c *remoteReadGatewayClient) Discover(ctx context.Context, in *DiscoveryReq
 }
 
 // RemoteReadGatewayServer is the server API for RemoteReadGateway service.
-// All implementations must embed UnimplementedRemoteReadGatewayServer
+// All implementations should embed UnimplementedRemoteReadGatewayServer
 // for forward compatibility
 type RemoteReadGatewayServer interface {
 	AddTarget(context.Context, *TargetAddRequest) (*emptypb.Empty, error)
@@ -136,10 +136,9 @@ type RemoteReadGatewayServer interface {
 	Stop(context.Context, *StopReadRequest) (*emptypb.Empty, error)
 	GetTargetStatus(context.Context, *TargetStatusRequest) (*TargetStatus, error)
 	Discover(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error)
-	mustEmbedUnimplementedRemoteReadGatewayServer()
 }
 
-// UnimplementedRemoteReadGatewayServer must be embedded to have forward compatible implementations.
+// UnimplementedRemoteReadGatewayServer should be embedded to have forward compatible implementations.
 type UnimplementedRemoteReadGatewayServer struct {
 }
 
@@ -167,7 +166,6 @@ func (UnimplementedRemoteReadGatewayServer) GetTargetStatus(context.Context, *Ta
 func (UnimplementedRemoteReadGatewayServer) Discover(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Discover not implemented")
 }
-func (UnimplementedRemoteReadGatewayServer) mustEmbedUnimplementedRemoteReadGatewayServer() {}
 
 // UnsafeRemoteReadGatewayServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to RemoteReadGatewayServer will
@@ -430,17 +428,16 @@ func (c *remoteReadAgentClient) Discover(ctx context.Context, in *DiscoveryReque
 }
 
 // RemoteReadAgentServer is the server API for RemoteReadAgent service.
-// All implementations must embed UnimplementedRemoteReadAgentServer
+// All implementations should embed UnimplementedRemoteReadAgentServer
 // for forward compatibility
 type RemoteReadAgentServer interface {
 	Start(context.Context, *StartReadRequest) (*emptypb.Empty, error)
 	Stop(context.Context, *StopReadRequest) (*emptypb.Empty, error)
 	GetTargetStatus(context.Context, *TargetStatusRequest) (*TargetStatus, error)
 	Discover(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error)
-	mustEmbedUnimplementedRemoteReadAgentServer()
 }
 
-// UnimplementedRemoteReadAgentServer must be embedded to have forward compatible implementations.
+// UnimplementedRemoteReadAgentServer should be embedded to have forward compatible implementations.
 type UnimplementedRemoteReadAgentServer struct {
 }
 
@@ -456,7 +453,6 @@ func (UnimplementedRemoteReadAgentServer) GetTargetStatus(context.Context, *Targ
 func (UnimplementedRemoteReadAgentServer) Discover(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Discover not implemented")
 }
-func (UnimplementedRemoteReadAgentServer) mustEmbedUnimplementedRemoteReadAgentServer() {}
 
 // UnsafeRemoteReadAgentServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to RemoteReadAgentServer will

@@ -290,6 +290,7 @@ func (b *Builder) runInTreeBuilds(ctx context.Context) error {
 
 	generated := goBuild.
 		Pipeline("Generate").
+		WithExec([]string{"go", "mod", "tidy"}).
 		WithExec(mage([]string{"generate:all"}))
 
 	charts := goBuild.

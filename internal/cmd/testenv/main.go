@@ -21,18 +21,21 @@ import (
 	"github.com/google/uuid"
 	"github.com/mattn/go-tty"
 	"github.com/pkg/browser"
-	v1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/dashboard"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/freeport"
+	"github.com/rancher/opni/pkg/test/localauth"
 	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
+	"github.com/samber/lo"
 	"github.com/spf13/pflag"
 	"github.com/ttacon/chalk"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -62,9 +65,11 @@ func main() {
 	)
 	var remoteGatewayAddress string
 	var agentIdSeed int64
+	var remoteEtcdPort int
 
 	pflag.BoolVar(&enableGateway, "enable-gateway", true, "enable gateway")
 	pflag.BoolVar(&enableEtcd, "enable-etcd", true, "enable etcd")
+	pflag.IntVar(&remoteEtcdPort, "remote-etcd-port", 0, "remote etcd port")
 	pflag.BoolVar(&enableJetstream, "enable-jetstream", true, "enable jetstream")
 	pflag.BoolVar(&enableNodeExporter, "enable-node-exporter", true, "enable node exporter")
 	pflag.StringVar(&remoteGatewayAddress, "remote-gateway-address", "", "remote gateway address")
@@ -90,6 +95,7 @@ func main() {
 	options := []test.EnvironmentOption{
 		test.WithEnableGateway(enableGateway),
 		test.WithEnableEtcd(enableEtcd),
+		test.WithRemoteEtcdPort(remoteEtcdPort),
 		test.WithEnableNodeExporter(enableNodeExporter),
 		test.WithEnableJetstream(enableJetstream),
 		test.WithDefaultAgentOpts(defaultAgentOpts...),
@@ -214,6 +220,8 @@ func main() {
 		if enableGateway {
 			testlog.Log.Info(chalk.Blue.Color("Press (a) to launch a new agent"))
 			testlog.Log.Info(chalk.Blue.Color("Press (s) to stop an agent"))
+			testlog.Log.Info(chalk.Blue.Color("Press (A)(0-9) to launch a new agent with a consistent id"))
+			testlog.Log.Info(chalk.Blue.Color("Press (S)(0-9) to stop an agent with a consistent id"))
 			testlog.Log.Info(chalk.Blue.Color("Press (M) to configure the metrics backend"))
 			testlog.Log.Info(chalk.Blue.Color("Press (U) to uninstall the metrics backend"))
 			testlog.Log.Info(chalk.Blue.Color("Press (L) to configure the alerting backend"))
@@ -237,7 +245,9 @@ func main() {
 			if !enableGateway {
 				return
 			}
-			opts := []dashboard.ServerOption{}
+			opts := []dashboard.ServerOption{
+				dashboard.WithLocalAuthenticator(&localauth.TestLocalAuthenticator{}),
+			}
 			if noEmbeddedWebAssets {
 				absPath, err := filepath.Abs("web/")
 				if err != nil {
@@ -247,7 +257,11 @@ func main() {
 				fs := os.DirFS(absPath)
 				opts = append(opts, dashboard.WithAssetsFS(fs))
 			}
-			dashboardSrv, err := dashboard.NewServer(&environment.GatewayConfig().Spec.Management, opts...)
+			dashboardSrv, err := dashboard.NewServer(
+				&environment.GatewayConfig().Spec.Management,
+				environment.PluginLoader(),
+				environment.GatewayObject(),
+				opts...)
 			if err != nil {
 				testlog.Log.Error("error", logger.Err(err))
 				return
@@ -258,11 +272,14 @@ func main() {
 		})
 	}
 
+	consistentAgents := make([]lo.Tuple2[context.Context, context.CancelFunc], 10)
+
 	var capabilityMu sync.Mutex
 
-	var pPressed bool
+	var pPressed, capitalAPressed, capitalSPressed bool
 	handleKey := func(rn rune) {
-		if pPressed {
+		switch {
+		case pPressed:
 			pPressed = false
 			var path string
 			switch rn {
@@ -291,6 +308,23 @@ func main() {
 			go cmd.Wait()
 			testlog.Log.Info(fmt.Sprintf("Starting pprof server on %s", url))
 			return
+		case capitalAPressed:
+			capitalAPressed = false
+			switch rn {
+			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+				ctx, ca := context.WithCancel(context.Background())
+				consistentAgents[rn-'0'] = lo.T2(ctx, ca)
+				environment.BootstrapNewAgent(fmt.Sprintf("agent%c", rn), test.WithContext(ctx))
+			}
+		case capitalSPressed:
+			capitalSPressed = false
+			switch rn {
+			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+				if consistentAgents[rn-'0'].A != nil {
+					consistentAgents[rn-'0'].B()
+					consistentAgents[rn-'0'] = lo.Tuple2[context.Context, context.CancelFunc]{}
+				}
+			}
 		}
 
 		switch rn {
@@ -332,7 +366,7 @@ func main() {
 					return
 				}
 				if resp.StatusCode != http.StatusOK {
-					testlog.Log.Error(fmt.Sprintf("%s", resp.Status))
+					testlog.Log.Error(resp.Status)
 					return
 				}
 			}()
@@ -348,6 +382,16 @@ func main() {
 				agentCancelFuncs[0]()
 				agentCancelFuncs = agentCancelFuncs[1:]
 			}()
+		case 'A':
+			pPressed = false
+			capitalAPressed = true
+			capitalSPressed = false
+			testlog.Log.Info("'A' pressed, waiting for next key...")
+		case 'S':
+			pPressed = false
+			capitalAPressed = false
+			capitalSPressed = true
+			testlog.Log.Info("'S' pressed, waiting for next key...")
 		case 'M':
 			capabilityMu.Lock()
 			go func() {
@@ -367,7 +411,7 @@ func main() {
 				}
 				// take the first preset
 				preset := presets.Items[0]
-				_, err = opsClient.SetConfiguration(context.Background(), preset.GetSpec())
+				_, err = opsClient.SetConfiguration(context.Background(), &cortexops.SetRequest{Spec: preset.GetSpec()})
 				if err != nil {
 					testlog.Log.Error("error", logger.Err(err))
 					return
@@ -400,13 +444,11 @@ func main() {
 					testlog.Log.Error("error", logger.Err(err))
 					return
 				}
-				for _, cluster := range clusters.Items {
-					_, err := client.InstallCapability(environment.Context(), &managementv1.CapabilityInstallRequest{
-						Name: "metrics",
-						Target: &v1.InstallRequest{
-							Cluster:        cluster.Reference(),
-							IgnoreWarnings: true,
-						},
+				for _, agent := range clusters.Items {
+					_, err := client.InstallCapability(environment.Context(), &capabilityv1.InstallRequest{
+						Capability:     &corev1.Reference{Id: wellknown.CapabilityMetrics},
+						Agent:          agent.Reference(),
+						IgnoreWarnings: true,
 					})
 					if err != nil {
 						testlog.Log.Error("error", logger.Err(err))
@@ -420,7 +462,7 @@ func main() {
 						AlertType: &alertingv1.AlertTypeDetails{
 							Type: &alertingv1.AlertTypeDetails_PrometheusQuery{
 								PrometheusQuery: &alertingv1.AlertConditionPrometheusQuery{
-									ClusterId: cluster.Reference(),
+									ClusterId: agent.Reference(),
 									Query:     "sum(up > 0) > 0",
 									For:       durationpb.New(time.Second * 1),
 								},
@@ -442,12 +484,10 @@ func main() {
 					testlog.Log.Error("error", logger.Err(err))
 					return
 				}
-				for _, cluster := range clusters.Items {
-					_, err := client.UninstallCapability(environment.Context(), &managementv1.CapabilityUninstallRequest{
-						Name: "metrics",
-						Target: &v1.UninstallRequest{
-							Cluster: cluster.Reference(),
-						},
+				for _, agent := range clusters.Items {
+					_, err := client.UninstallCapability(environment.Context(), &capabilityv1.UninstallRequest{
+						Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+						Agent:      agent.Reference(),
 					})
 					if err != nil {
 						testlog.Log.Error("error", logger.Err(err))
@@ -468,6 +508,8 @@ func main() {
 			}
 		case 'p':
 			pPressed = true
+			capitalAPressed = false
+			capitalSPressed = false
 			testlog.Log.Info("'p' pressed, waiting for next key...")
 		case 'g':
 			environment.WriteGrafanaConfig()
@@ -479,11 +521,24 @@ func main() {
 				testlog.Log.Error("error", logger.Err(err))
 				return
 			}
-			if _, err := client.CreateRole(environment.Context(), &corev1.Role{
-				Id: "testenv-role",
-				MatchLabels: &corev1.LabelSelector{
-					MatchLabels: map[string]string{
-						"visible": "true",
+			if _, err := client.CreateBackendRole(environment.Context(), &corev1.BackendRole{
+				Capability: &corev1.CapabilityType{
+					Name: wellknown.CapabilityMetrics,
+				},
+				Role: &corev1.Role{
+					Id: "testenv-role",
+					Permissions: []*corev1.PermissionItem{
+						{
+							MatchLabels: &corev1.LabelSelector{
+								MatchLabels: map[string]string{
+									"visible": "true",
+								},
+							},
+							Verbs: []*corev1.PermissionVerb{
+								{Verb: "GET"},
+							},
+							Type: string(corev1.PermissionTypeCluster),
+						},
 					},
 				},
 			}); err != nil {
@@ -542,8 +597,13 @@ func main() {
 
 	// listen for spacebar on stdin
 	t, err := tty.Open()
-	defer t.Close()
 	if err == nil {
+		defer func() {
+			if err := recover(); err != nil {
+				testlog.Log.Error(fmt.Sprint(err))
+			}
+			t.Close()
+		}()
 		showHelp()
 		go func() {
 			for {

@@ -60,15 +60,14 @@ func (c *remoteWriteClient) SyncRules(ctx context.Context, in *Payload, opts ...
 }
 
 // RemoteWriteServer is the server API for RemoteWrite service.
-// All implementations must embed UnimplementedRemoteWriteServer
+// All implementations should embed UnimplementedRemoteWriteServer
 // for forward compatibility
 type RemoteWriteServer interface {
 	Push(context.Context, *cortexpb.WriteRequest) (*cortexpb.WriteResponse, error)
 	SyncRules(context.Context, *Payload) (*emptypb.Empty, error)
-	mustEmbedUnimplementedRemoteWriteServer()
 }
 
-// UnimplementedRemoteWriteServer must be embedded to have forward compatible implementations.
+// UnimplementedRemoteWriteServer should be embedded to have forward compatible implementations.
 type UnimplementedRemoteWriteServer struct {
 }
 
@@ -78,7 +77,6 @@ func (UnimplementedRemoteWriteServer) Push(context.Context, *cortexpb.WriteReque
 func (UnimplementedRemoteWriteServer) SyncRules(context.Context, *Payload) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SyncRules not implemented")
 }
-func (UnimplementedRemoteWriteServer) mustEmbedUnimplementedRemoteWriteServer() {}
 
 // UnsafeRemoteWriteServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to RemoteWriteServer will

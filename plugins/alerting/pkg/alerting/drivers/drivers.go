@@ -19,7 +19,7 @@ type ClusterDriver interface {
 	GetDefaultReceiver() *config.WebhookConfig
 }
 
-var Drivers = driverutil.NewDriverCache[ClusterDriver]()
+var Drivers = driverutil.NewCache[ClusterDriver]()
 
 type NoopClusterDriver struct {
 	alertops.UnimplementedAlertingAdminServer

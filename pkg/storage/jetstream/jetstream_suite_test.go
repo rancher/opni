@@ -22,7 +22,6 @@ func TestJetStream(t *testing.T) {
 }
 
 var store = future.New[*jetstream.JetStreamStore]()
-var lmF = future.New[*jetstream.LockManager]()
 
 var _ = BeforeSuite(func() {
 	testruntime.IfIntegration(func() {
@@ -37,10 +36,6 @@ var _ = BeforeSuite(func() {
 		Expect(err).NotTo(HaveOccurred())
 		store.Set(s)
 
-		lm, err := jetstream.NewJetstreamLockManager(context.Background(), env.JetStreamConfig())
-		Expect(err).NotTo(HaveOccurred())
-		lmF.Set(lm)
-
 		DeferCleanup(env.Stop, "Test Suite Finished")
 	})
 })
@@ -50,7 +45,7 @@ var _ = Describe("Jetstream Cluster Store", Ordered, Label("integration", "slow"
 var _ = Describe("Jetstream RBAC Store", Ordered, Label("integration", "slow"), RBACStoreTestSuite(store))
 var _ = Describe("Jetstream Keyring Store", Ordered, Label("integration", "slow"), KeyringStoreTestSuite(store))
 var _ = Describe("Jetstream KV Store", Ordered, Label("integration", "slow"), KeyValueStoreTestSuite(store, NewBytes, Equal))
-var _ = Describe("Jetstream Lock Manager", Ordered, Label("integration", "slow"), LockManagerTestSuite(lmF))
+var _ = Describe("Jetstream Lock Manager", Ordered, Label("integration", "slow"), LockManagerTestSuite(store))
 
 var _ = Context("Error Codes", func() {
 	Specify("Nats KeyNotFound errors should be equal to ErrNotFound", func() {

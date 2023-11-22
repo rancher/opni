@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package system;
 
-import "github.com/rancher/opni/pkg/apis/management/v1/management.proto";
+import "github.com/rancher/opni/pkg/validation/validate.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -22,6 +22,7 @@ service KeyValueStore {
   rpc Delete(DeleteRequest) returns (DeleteResponse);
   rpc ListKeys(ListKeysRequest) returns (ListKeysResponse);
   rpc History(HistoryRequest) returns (HistoryResponse);
+  rpc Lock(LockRequest) returns (stream LockResponse);
 }
 
 message BrokerID {
@@ -33,8 +34,8 @@ message DialAddress {
 }
 
 message PutRequest {
-  string         key      = 1;
-  bytes          value    = 2;
+  string         key      = 1 [(buf.validate.field).required = true];
+  bytes          value    = 2 [(buf.validate.field).required = true];
   optional int64 revision = 3;
 }
 
@@ -43,7 +44,7 @@ message PutResponse {
 }
 
 message GetRequest {
-  string         key      = 1;
+  string         key      = 1 [(buf.validate.field).required = true];
   optional int64 revision = 2;
 }
 
@@ -53,15 +54,18 @@ message GetResponse {
 }
 
 message DeleteRequest {
-  string         key      = 1;
+  string         key      = 1 [(buf.validate.field).required = true];
   optional int64 revision = 2;
 }
 
 message DeleteResponse {}
 
 message ListKeysRequest {
-  string         key   = 1;
-  optional int64 limit = 2;
+  string         key   = 1 [(buf.validate.field).required = true];
+  optional int64 limit = 2 [(buf.validate.field) = {
+    int64:        {gte: 0}
+    ignore_empty: true
+  }];
 }
 
 message ListKeysResponse {
@@ -69,7 +73,7 @@ message ListKeysResponse {
 }
 
 message HistoryRequest {
-  string key           = 1;
+  string key           = 1 [(buf.validate.field).required = true];
   bool   includeValues = 3;
 }
 
@@ -98,4 +102,24 @@ message WatchResponse {
   EventType   eventType = 1;
   KeyRevision current   = 2;
   KeyRevision previous  = 3;
+}
+
+message LockRequest {
+  // The key to acquire a lock for.
+  string key = 1 [(buf.validate.field).required = true];
+  // If true, the request will return immediately with an error if the lock is
+  // already held. Otherwise, the lock will be acquired, and the request will
+  // block until canceled.
+  bool tryLock = 2;
+}
+
+message LockResponse {
+  enum Event {
+    Unknown = 0;
+    // The lock was acquired.
+    Acquired = 1;
+    // The lock was not acquired because it is already held (TryLock only)
+    AcquireFailed = 2;
+  }
+  Event event = 1;
 }

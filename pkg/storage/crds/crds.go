@@ -25,7 +25,7 @@ type CRDStore struct {
 }
 
 var _ storage.TokenStore = (*CRDStore)(nil)
-var _ storage.RBACStore = (*CRDStore)(nil)
+var _ storage.RoleBindingStore = (*CRDStore)(nil)
 var _ storage.KeyringStoreBroker = (*CRDStore)(nil)
 
 var (

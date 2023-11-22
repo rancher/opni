@@ -19,13 +19,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (b *LoggingBackend) CanInstall(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	b.WaitForInit()
-	err := b.canInstall(ctx)
-
-	return &emptypb.Empty{}, err
-}
-
 func (b *LoggingBackend) canInstall(ctx context.Context) error {
 	installState := b.ClusterDriver.GetInstallStatus(ctx)
 	switch installState {
@@ -54,14 +47,14 @@ func (b *LoggingBackend) Install(ctx context.Context, req *capabilityv1.InstallR
 		warningErr = err
 	}
 
-	cluster, err := b.StorageBackend.GetCluster(ctx, req.GetCluster())
+	cluster, err := b.StorageBackend.GetCluster(ctx, req.GetAgent())
 	if err != nil {
 		return nil, err
 	}
 
 	name := cluster.GetMetadata().GetLabels()[opnicorev1.NameLabel]
 
-	if err := b.ClusterDriver.StoreCluster(ctx, req.GetCluster(), name); err != nil {
+	if err := b.ClusterDriver.StoreCluster(ctx, req.GetAgent(), name); err != nil {
 		if !req.IgnoreWarnings {
 			return &capabilityv1.InstallResponse{
 				Status:  capabilityv1.InstallResponseStatus_Error,
@@ -74,7 +67,7 @@ func (b *LoggingBackend) Install(ctx context.Context, req *capabilityv1.InstallR
 	supportLabelValue, ok := cluster.GetMetadata().GetLabels()[opnicorev1.SupportLabel]
 	supportUser := ok && supportLabelValue == "true"
 	if supportUser {
-		p, err := b.generatePassword(ctx, req.GetCluster())
+		p, err := b.generatePassword(ctx, req.GetAgent())
 		if err != nil {
 			return nil, err
 		}
@@ -84,14 +77,14 @@ func (b *LoggingBackend) Install(ctx context.Context, req *capabilityv1.InstallR
 		}
 	}
 
-	_, err = b.StorageBackend.UpdateCluster(ctx, req.Cluster,
+	_, err = b.StorageBackend.UpdateCluster(ctx, req.Agent,
 		storage.NewAddCapabilityMutator[*opnicorev1.Cluster](capabilities.Cluster(wellknown.CapabilityLogs)),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	b.requestNodeSync(ctx, req.Cluster)
+	b.requestNodeSync(ctx, req.Agent)
 
 	if warningErr != nil {
 		return &capabilityv1.InstallResponse{

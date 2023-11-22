@@ -232,11 +232,11 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 	}
 }
 
-func (l *Listener) StatusC() chan StatusUpdate {
+func (l *Listener) StatusC() <-chan StatusUpdate {
 	return l.statusUpdate
 }
 
-func (l *Listener) HealthC() chan HealthUpdate {
+func (l *Listener) HealthC() <-chan HealthUpdate {
 	return l.healthUpdate
 }
 

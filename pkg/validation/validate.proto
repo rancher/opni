@@ -1,0 +1,26 @@
+syntax = "proto3";
+package validate;
+
+// note: import this file instead of "buf/validate/*.proto"
+
+import public "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate/validate.proto";
+import public "buf/validate/expression.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/rancher/opni/pkg/validation";
+
+message PEMBlock {
+  string              type    = 1;
+  map<string, string> headers = 2;
+  bytes               bytes   = 3;
+}
+
+message X509Certificate {
+  bytes                     raw       = 1;
+  bool                      isCA      = 2;
+  string                    issuer    = 3;
+  string                    subject   = 4;
+  google.protobuf.Timestamp notBefore = 5;
+  google.protobuf.Timestamp notAfter  = 6;
+  string                    alg       = 7;
+}

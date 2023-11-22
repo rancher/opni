@@ -3,11 +3,13 @@ package slo
 import (
 	"context"
 
-	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
-	"github.com/rancher/opni/plugins/slo/apis/slo"
 	"log/slog"
 
+	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/slo/apis/slo"
+
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
@@ -29,6 +31,18 @@ type Plugin struct {
 	mgmtClient          future.Future[managementv1.ManagementClient]
 	adminClient         future.Future[cortexadmin.CortexAdminClient]
 	alertEndpointClient future.Future[alertingv1.AlertEndpointsClient]
+}
+
+// ManagementServices implements managementext.ManagementAPIExtension.
+func (p *Plugin) ManagementServices(_ managementext.ServiceController) []util.ServicePackInterface {
+	return []util.ServicePackInterface{
+		util.PackService[slo.SLOServer](&slo.SLO_ServiceDesc, p),
+	}
+}
+
+// Authorized checks whether a given set of roles is allowed to access a given request
+func (p *Plugin) CheckAuthz(_ context.Context, _ *corev1.ReferenceList, _, _ string) bool {
+	return true
 }
 
 type StorageAPIs struct {
@@ -54,7 +68,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
-	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(util.PackService(&slo.SLO_ServiceDesc, p)))
+	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(p))
 	return scheme
 }

@@ -3,6 +3,7 @@ package stream
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"google.golang.org/grpc/codes"
@@ -16,15 +17,11 @@ import (
 )
 
 // Aggregator allows the user to aggregate the responses from a broadcast request, and store the result in reply.
-type Aggregator func(reply any, msg *streamv1.BroadcastReplyList) error
-
-func DiscardReplies(any, *streamv1.BroadcastReplyList) error {
-	return nil
-}
+type Aggregator any // func(target *corev1.Reference, reply [T proto.Message], err error)
 
 type StreamDelegate[T any] interface {
 	WithTarget(*corev1.Reference) T
-	WithBroadcastSelector(*corev1.ClusterSelector, Aggregator) T
+	WithBroadcastSelector(*streamv1.TargetSelector, Aggregator) T
 }
 
 func NewDelegate[T any](cc grpc.ClientConnInterface, newClientFunc func(grpc.ClientConnInterface) T) StreamDelegate[T] {
@@ -46,7 +43,25 @@ func (w *delegatingClient[T]) WithTarget(target *corev1.Reference) T {
 	})
 }
 
-func (w *delegatingClient[T]) WithBroadcastSelector(selector *corev1.ClusterSelector, aggregator Aggregator) T {
+func (w *delegatingClient[T]) WithBroadcastSelector(selector *streamv1.TargetSelector, aggregator Aggregator) T {
+	rf := reflect.TypeOf(aggregator)
+	msg := "expected a function matching `[T proto.Message] func(target *corev1.Reference, reply T, err error)`"
+	if rf.Kind() != reflect.Func {
+		panic(fmt.Sprintf("aggregator must be a function, got %T", aggregator))
+	}
+	if rf.NumIn() != 3 || rf.NumOut() != 0 {
+		panic(fmt.Sprintf("%s, got %s (wrong number of inputs or outputs)", msg, rf))
+	}
+	if rf.In(0) != reflect.TypeOf((**corev1.Reference)(nil)).Elem() {
+		panic(fmt.Sprintf("%s, got %s (first input must be *corev1.Reference)", msg, rf))
+	}
+	if !rf.In(1).Implements(reflect.TypeOf((*proto.Message)(nil)).Elem()) {
+		panic(fmt.Sprintf("%s, got %s (second input must implement proto.Message)", msg, rf))
+	}
+	if rf.In(2) != reflect.TypeOf((*error)(nil)).Elem() {
+		panic(fmt.Sprintf("%s, got %s (third input must be error)", msg, rf))
+	}
+
 	return w.newClientFunc(&targetedDelegatingClient[T]{
 		selector:       selector,
 		delegateClient: streamv1.NewDelegateClient(w.streamClientIntf),
@@ -56,7 +71,7 @@ func (w *delegatingClient[T]) WithBroadcastSelector(selector *corev1.ClusterSele
 
 type targetedDelegatingClient[T any] struct {
 	target         *corev1.Reference
-	selector       *corev1.ClusterSelector
+	selector       *streamv1.TargetSelector
 	delegateClient streamv1.DelegateClient
 	aggregator     Aggregator
 }
@@ -93,15 +108,15 @@ func (w *targetedDelegatingClient[T]) Invoke(ctx context.Context, method string,
 			Target:  w.target,
 		}, opts...)
 		if err != nil {
-			return err
+			return status.Errorf(codes.Internal, "delegate request failed: %v", err)
 		}
 		resp := respMsg.GetResponse()
-		stat := resp.GetStatus()
+		stat := respMsg.GetStatus()
 		if stat.Code() != codes.OK {
 			return stat.Err()
 		}
-		if err := proto.Unmarshal(resp.Response, reply.(proto.Message)); err != nil {
-			return status.Errorf(codes.Internal, "failed to unmarshal response: %v", err)
+		if err := proto.Unmarshal(resp, reply.(proto.Message)); err != nil {
+			return status.Errorf(codes.Internal, "failed to unmarshal response: %s: %v", string(resp), err)
 		}
 	case w.selector != nil:
 		respMsg, err := w.delegateClient.Broadcast(ctx, &streamv1.BroadcastMessage{
@@ -112,8 +127,30 @@ func (w *targetedDelegatingClient[T]) Invoke(ctx context.Context, method string,
 			return err
 		}
 
-		if err := w.aggregator(reply, respMsg); err != nil {
-			return fmt.Errorf("broadcast aggregator failed: %w", err)
+		var nilError error
+		nilErrorValue := reflect.ValueOf(&nilError).Elem()
+
+		fn := reflect.ValueOf(w.aggregator)
+		for _, r := range respMsg.GetItems() {
+			err := status.ErrorProto(r.GetResponse().GetStatusProto())
+			if err != nil {
+				fn.Call([]reflect.Value{
+					reflect.ValueOf(r.GetTarget()),
+					reflect.ValueOf(reflect.New(fn.Type().In(1)).Elem()), // nil pointer of reply type
+					reflect.ValueOf(err),
+				})
+			} else {
+				respBytes := r.GetResponse().GetResponse()
+				resp := reflect.New(fn.Type().In(1)).Elem().Interface().(proto.Message).ProtoReflect().New().Interface()
+				if err := proto.Unmarshal(respBytes, resp); err != nil {
+					panic("bug: failed to unmarshal response: " + err.Error())
+				}
+				fn.Call([]reflect.Value{
+					reflect.ValueOf(r.GetTarget()),
+					reflect.ValueOf(resp),
+					nilErrorValue,
+				})
+			}
 		}
 	default:
 		panic("bug: no target or selector given")

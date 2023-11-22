@@ -89,7 +89,6 @@ import (
 	_ "github.com/rancher/opni/pkg/storage/etcd"
 	_ "github.com/rancher/opni/pkg/storage/jetstream"
 	"github.com/rancher/opni/pkg/update/noop"
-	_ "github.com/rancher/opni/pkg/update/noop"
 )
 
 var (
@@ -107,6 +106,7 @@ type ServicePorts struct {
 	ManagementGRPC   int `env:"OPNI_MANAGEMENT_GRPC_PORT"`
 	ManagementHTTP   int `env:"OPNI_MANAGEMENT_HTTP_PORT"`
 	ManagementWeb    int `env:"OPNI_MANAGEMENT_WEB_PORT"`
+	ManagementRelay  int `env:"OPNI_MANAGEMENT_RELAY_PORT"`
 	CortexGRPC       int `env:"CORTEX_GRPC_PORT"`
 	CortexHTTP       int `env:"CORTEX_HTTP_PORT"`
 	TestEnvironment  int `env:"TEST_ENV_API_PORT"`
@@ -181,11 +181,15 @@ type Environment struct {
 	nodeConfigOverridesMu sync.Mutex
 	nodeConfigOverrides   map[string]*OverridePrometheusConfig
 
+	pluginLoader *plugins.PluginLoader
+	gw           *gateway.Gateway
+
 	shutdownHooks []func()
 }
 
 type EnvironmentOptions struct {
 	enableEtcd             bool
+	remoteEtcdPort         int
 	enableJetstream        bool
 	enableGateway          bool
 	defaultAgentOpts       []StartAgentOption
@@ -245,6 +249,12 @@ func WithStorageBackend(backend v1beta1.StorageType) EnvironmentOption {
 	}
 }
 
+func WithRemoteEtcdPort(port int) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.remoteEtcdPort = port
+	}
+}
+
 func defaultAgentVersion() string {
 	if v, ok := os.LookupEnv("TEST_ENV_DEFAULT_AGENT_VERSION"); ok {
 		return v
@@ -256,7 +266,7 @@ func defaultStorageBackend() v1beta1.StorageType {
 	if v, ok := os.LookupEnv("TEST_ENV_DEFAULT_STORAGE_BACKEND"); ok {
 		return v1beta1.StorageType(v)
 	}
-	return "jetstream"
+	return "etcd"
 }
 
 func FindTestBin() (string, error) {
@@ -303,6 +313,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	// TODO : bootstrap with otelcollector
 	options := EnvironmentOptions{
 		enableEtcd:             false,
+		remoteEtcdPort:         0,
 		enableJetstream:        true,
 		enableNodeExporter:     false,
 		enableGateway:          true,
@@ -320,13 +331,18 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		}
 	}
 
-	if options.storageBackend == "etcd" && !options.enableEtcd {
+	if options.storageBackend == "etcd" && (!options.enableEtcd && options.remoteEtcdPort == 0) {
 		options.enableEtcd = true
 	} else if options.storageBackend == "jetstream" && !options.enableJetstream {
 		options.enableJetstream = true
 	}
+	if options.enableEtcd && options.remoteEtcdPort != 0 {
+		options.enableEtcd = false
+	}
 
-	e.Logger = testlog.Log.WithGroup("env")
+	if e.Logger == nil {
+		e.Logger = testlog.Log.WithGroup("env")
+	}
 	e.nodeConfigOverrides = make(map[string]*OverridePrometheusConfig)
 
 	e.EnvironmentOptions = options
@@ -353,7 +369,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	if err != nil {
 		return err
 	}
-	if options.enableEtcd {
+	if options.enableEtcd || options.remoteEtcdPort != 0 {
 		if err := os.Mkdir(path.Join(e.tempDir, "etcd"), 0700); err != nil {
 			return err
 		}
@@ -449,6 +465,8 @@ http_server_config:
 
 	if options.enableEtcd {
 		e.startEtcd()
+	} else {
+		e.ports.Etcd = options.remoteEtcdPort
 	}
 
 	if options.enableJetstream {
@@ -1586,9 +1604,10 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 			GRPCListenAddress:    fmt.Sprintf("localhost:%d", e.ports.GatewayGRPC),
 			MetricsListenAddress: fmt.Sprintf("localhost:%d", e.ports.GatewayMetrics),
 			Management: v1beta1.ManagementSpec{
-				GRPCListenAddress: fmt.Sprintf("tcp://localhost:%d", e.ports.ManagementGRPC),
-				HTTPListenAddress: fmt.Sprintf(":%d", e.ports.ManagementHTTP),
-				WebListenAddress:  fmt.Sprintf("localhost:%d", e.ports.ManagementWeb),
+				GRPCListenAddress:  fmt.Sprintf("tcp://localhost:%d", e.ports.ManagementGRPC),
+				HTTPListenAddress:  fmt.Sprintf(":%d", e.ports.ManagementHTTP),
+				WebListenAddress:   fmt.Sprintf("localhost:%d", e.ports.ManagementWeb),
+				RelayListenAddress: lo.Ternary(e.storageBackend == "etcd", fmt.Sprintf("tcp://localhost:%d", e.ports.ManagementRelay), ""),
 				// WebCerts: v1beta1.CertsSpec{
 				// 	CACertData:      dashboardCertData,
 				// 	ServingCertData: dashboardCertData,
@@ -1794,6 +1813,14 @@ func (e *Environment) NewStreamConnection(pins []string) (grpc.ClientConnInterfa
 	return ts.Serve()
 }
 
+func (e *Environment) PluginLoader() *plugins.PluginLoader {
+	return e.pluginLoader
+}
+
+func (e *Environment) GatewayObject() *gateway.Gateway {
+	return e.gw
+}
+
 func (e *Environment) NewManagementClient(opts ...EnvClientOption) managementv1.ManagementClient {
 	options := EnvClientOptions{
 		dialOptions: []grpc.DialOption{},
@@ -1819,7 +1846,7 @@ func (e *Environment) NewManagementClient(opts ...EnvClientOption) managementv1.
 	return c
 }
 
-func (e *Environment) ManagementClientConn() grpc.ClientConnInterface {
+func (e *Environment) ManagementClientConn() *grpc.ClientConn {
 	if !e.enableGateway {
 		panic("gateway disabled")
 	}
@@ -1858,13 +1885,17 @@ func (e *Environment) PrometheusAPIEndpoint() string {
 	return fmt.Sprintf("https://localhost:%d/prometheus/api/v1", e.ports.GatewayHTTP)
 }
 
+func (e *Environment) loadPlugins() {
+
+}
+
 func (e *Environment) startGateway() {
 	if !e.enableGateway {
 		panic("gateway disabled")
 	}
 	lg := e.Logger
 	e.gatewayConfig = e.NewGatewayConfig()
-	pluginLoader := plugins.NewPluginLoader()
+	e.pluginLoader = plugins.NewPluginLoader()
 
 	lifecycler := config.NewLifecycler(meta.ObjectList{e.gatewayConfig, &v1beta1.AuthProvider{
 		TypeMeta: meta.TypeMeta{
@@ -1878,25 +1909,27 @@ func (e *Environment) startGateway() {
 			Type: "test",
 		},
 	}})
-	g := gateway.NewGateway(e.ctx, e.gatewayConfig, pluginLoader,
+	e.gw = gateway.NewGateway(e.ctx, e.gatewayConfig, e.pluginLoader,
+		gateway.WithLogger(lg.WithGroup("gateway")),
 		gateway.WithLifecycler(lifecycler),
 		gateway.WithExtraUpdateHandlers(noop.NewSyncServer()),
 	)
 
-	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g, pluginLoader,
-		management.WithCapabilitiesDataSource(g),
-		management.WithHealthStatusDataSource(g),
+	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, e.gw, e.pluginLoader,
+		management.WithCapabilitiesDataSource(e.gw.CapabilitiesDataSource()),
+		management.WithHealthStatusDataSource(e.gw),
 		management.WithLifecycler(lifecycler),
 	)
-	g.MustRegisterCollector(m)
+
+	e.gw.MustRegisterCollector(m)
 
 	doneLoadingPlugins := make(chan struct{})
-	pluginLoader.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
+	e.pluginLoader.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
 		lg.Info(fmt.Sprintf("loaded %d plugins", numLoaded))
 		close(doneLoadingPlugins)
 	}))
 	lg.Info("Loading gateway plugins...")
-	globalTestPlugins.LoadPlugins(e.ctx, pluginLoader, pluginmeta.ModeGateway)
+	globalTestPlugins.LoadPlugins(e.ctx, e.pluginLoader, pluginmeta.ModeGateway)
 
 	select {
 	case <-doneLoadingPlugins:
@@ -1908,7 +1941,7 @@ func (e *Environment) startGateway() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := g.ListenAndServe(e.ctx)
+		err := e.gw.ListenAndServe(e.ctx)
 		if errors.Is(err, context.Canceled) {
 			lg.Info("gateway server stopped")
 		} else if err != nil {
@@ -1997,6 +2030,7 @@ func WithListenPort(port int) StartAgentOption {
 
 func (e *Environment) BootstrapNewAgent(id string, opts ...StartAgentOption) error {
 	cc := e.ManagementClientConn()
+	defer cc.Close()
 
 	client := managementv1.NewManagementClient(cc)
 	token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
@@ -2015,7 +2049,10 @@ func (e *Environment) BootstrapNewAgent(id string, opts ...StartAgentOption) err
 	_, errC := e.StartAgent(id, token, []string{fp}, opts...)
 	select {
 	case err := <-errC:
-		return err
+		if err != nil {
+			return err
+		}
+		return WaitForAgentReady(e.ctx, client, id)
 	case <-e.ctx.Done():
 		return e.ctx.Err()
 	}
@@ -2207,6 +2244,36 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		e.runningAgentsMu.Unlock()
 	}()
 	return agentCtx, errC
+}
+
+func WaitForAgentReady(ctx context.Context, client managementv1.ManagementClient, id string) error {
+	ctx, ca := context.WithCancel(ctx)
+	defer ca()
+	hs, err := client.WatchClusterHealthStatus(ctx, &emptypb.Empty{})
+	if err != nil {
+		return err
+	}
+	var lastErr error
+	for {
+		event, err := hs.Recv()
+		if err != nil {
+			if lastErr == nil {
+				lastErr = err
+			}
+			break
+		}
+		if event.GetCluster().GetId() == id {
+			if !event.GetHealthStatus().GetStatus().GetConnected() {
+				lastErr = fmt.Errorf("agent %q not connected", id)
+			} else if !event.GetHealthStatus().GetHealth().GetReady() {
+				lastErr = fmt.Errorf("agent %q not ready", id)
+			} else {
+				lastErr = nil
+				break
+			}
+		}
+	}
+	return lastErr
 }
 
 func (e *Environment) GetAgent(id string) RunningAgent {

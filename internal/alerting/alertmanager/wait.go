@@ -21,5 +21,4 @@ func waitForAlertmanagerFile(ctx context.Context, configFile string) bool {
 			}
 		}
 	}
-	return false
 }

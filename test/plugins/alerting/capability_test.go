@@ -10,14 +10,12 @@ import (
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testruntime"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/alerting/apis/alertops"
 	"github.com/samber/lo"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -61,28 +59,15 @@ var _ = Describe("agent capability tests", Ordered, Label("integration"), func()
 			mgmtClient := env.NewManagementClient()
 
 			By("bootstrapping agents")
-			certsInfo, err := mgmtClient.CertsInfo(context.Background(), &emptypb.Empty{})
-			Expect(err).NotTo(HaveOccurred())
-			fingerprint := certsInfo.Chain[len(certsInfo.Chain)-1].Fingerprint
-			Expect(fingerprint).NotTo(BeEmpty())
-
-			token, err := mgmtClient.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
-				Ttl: durationpb.New(1 * time.Hour),
-			})
-			Expect(err).NotTo(HaveOccurred())
 			for _, agent := range agents {
-				_, errC := env.StartAgent(agent, token, []string{fingerprint})
-				Eventually(errC).Should(Receive(BeNil()))
+				err := env.BootstrapNewAgent(agent)
+				Expect(err).NotTo(HaveOccurred())
 			}
 
 			for _, agent := range agents {
-				resp, err := mgmtClient.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
-					Name: wellknown.CapabilityAlerting,
-					Target: &capabilityv1.InstallRequest{
-						Cluster: &corev1.Reference{
-							Id: agent,
-						},
-					},
+				resp, err := mgmtClient.InstallCapability(context.Background(), &capabilityv1.InstallRequest{
+					Capability: &corev1.Reference{Id: wellknown.CapabilityAlerting},
+					Agent:      &corev1.Reference{Id: agent},
 				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.Status).To(Equal(capabilityv1.InstallResponseStatus_Success))
@@ -186,13 +171,9 @@ var _ = Describe("agent capability tests", Ordered, Label("integration"), func()
 		It("should be able to uninstall the alerting capability on all downstream agents", func() {
 			mgmtClient := env.NewManagementClient()
 			for _, agent := range agents {
-				_, err := mgmtClient.UninstallCapability(context.Background(), &managementv1.CapabilityUninstallRequest{
-					Name: wellknown.CapabilityAlerting,
-					Target: &capabilityv1.UninstallRequest{
-						Cluster: &corev1.Reference{
-							Id: agent,
-						},
-					},
+				_, err := mgmtClient.UninstallCapability(context.Background(), &capabilityv1.UninstallRequest{
+					Capability: &corev1.Reference{Id: wellknown.CapabilityAlerting},
+					Agent:      &corev1.Reference{Id: agent},
 				})
 				Expect(err).NotTo(HaveOccurred())
 			}

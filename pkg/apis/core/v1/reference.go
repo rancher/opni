@@ -34,9 +34,3 @@ func (r *BootstrapToken) Reference() *Reference {
 		Id: r.TokenID,
 	}
 }
-
-func (r *RoleBinding) RoleReference() *Reference {
-	return &Reference{
-		Id: r.RoleId,
-	}
-}

@@ -62,9 +62,9 @@ func (l *LoggingNode) SetClient(client node.NodeLoggingCapabilityClient) {
 
 func (l *LoggingNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
 	return &capabilityv1.Details{
-		Name:    wellknown.CapabilityLogs,
-		Source:  "plugin_logging",
-		Drivers: drivers.NodeDrivers.List(),
+		Name:             wellknown.CapabilityLogs,
+		Source:           "plugin_logging",
+		AvailableDrivers: drivers.NodeDrivers.List(),
 	}, nil
 }
 

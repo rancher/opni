@@ -11,38 +11,30 @@ import (
 	. "github.com/onsi/gomega"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
-	"google.golang.org/protobuf/types/known/durationpb"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 	var environment *test.Environment
-	var fingerprint string
 	var adminClient cortexadmin.CortexAdminClient
 	agentId := "agent-1"
 	userId := "user-1"
+	capability := &corev1.CapabilityType{
+		Name: wellknown.CapabilityMetrics,
+	}
 	BeforeAll(func() {
 		environment = &test.Environment{}
 		Expect(environment.Start()).To(Succeed())
 		DeferCleanup(environment.Stop)
 		client := environment.NewManagementClient()
 
-		certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
+		err := environment.BootstrapNewAgent(agentId)
 		Expect(err).NotTo(HaveOccurred())
-		fingerprint = certsInfo.Chain[len(certsInfo.Chain)-1].Fingerprint
-		Expect(fingerprint).NotTo(BeEmpty())
-
-		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
-			Ttl: durationpb.New(1 * time.Hour),
-		})
-		Expect(err).NotTo(HaveOccurred())
-
-		_, errC := environment.StartAgent(agentId, token, []string{fingerprint})
-		Eventually(errC).Should(Receive(BeNil()))
 
 		opsClient := cortexops.NewCortexOpsClient(environment.ManagementClientConn())
 		err = cortexops.InstallWithPreset(environment.Context(), opsClient)
@@ -50,14 +42,10 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 		Expect(cortexops.WaitForReady(environment.Context(), opsClient)).To(Succeed())
 
 		mgmtClient := environment.NewManagementClient()
-		resp, err := mgmtClient.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
-			Name: "metrics",
-			Target: &capabilityv1.InstallRequest{
-				Cluster: &corev1.Reference{
-					Id: agentId,
-				},
-				IgnoreWarnings: true,
-			},
+		resp, err := mgmtClient.InstallCapability(context.Background(), &capabilityv1.InstallRequest{
+			Capability:     &corev1.Reference{Id: wellknown.CapabilityMetrics},
+			Agent:          &corev1.Reference{Id: agentId},
+			IgnoreWarnings: true,
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.Status).To(Or(
@@ -67,15 +55,29 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 
 		adminClient = cortexadmin.NewCortexAdminClient(environment.ManagementClientConn())
 
-		_, err = client.CreateRole(context.Background(), &corev1.Role{
-			Id:         "role-1",
-			ClusterIDs: []string{agentId},
+		_, err = client.CreateBackendRole(context.Background(), &corev1.BackendRole{
+			Capability: capability,
+			Role: &corev1.Role{
+				Id: "role-1",
+				Permissions: []*corev1.PermissionItem{
+					{
+						Type: string(corev1.PermissionTypeCluster),
+						Verbs: []*corev1.PermissionVerb{
+							corev1.VerbGet(),
+						},
+						Ids: []string{agentId},
+					},
+				},
+			},
 		})
 		Expect(err).NotTo(HaveOccurred())
 		_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
 			Id:       "role-binding-1",
 			RoleId:   "role-1",
 			Subjects: []string{userId},
+			Metadata: &corev1.RoleBindingMetadata{
+				Capability: lo.ToPtr(wellknown.CapabilityMetrics),
+			},
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})

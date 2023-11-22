@@ -104,7 +104,7 @@ func (c *modelTrainingClient) GPUInfo(ctx context.Context, in *emptypb.Empty, op
 }
 
 // ModelTrainingServer is the server API for ModelTraining service.
-// All implementations must embed UnimplementedModelTrainingServer
+// All implementations should embed UnimplementedModelTrainingServer
 // for forward compatibility
 type ModelTrainingServer interface {
 	TrainModel(context.Context, *ModelTrainingParametersList) (*ModelTrainingResponse, error)
@@ -113,10 +113,9 @@ type ModelTrainingServer interface {
 	GetModelStatus(context.Context, *emptypb.Empty) (*ModelStatus, error)
 	GetModelTrainingParameters(context.Context, *emptypb.Empty) (*ModelTrainingParametersList, error)
 	GPUInfo(context.Context, *emptypb.Empty) (*GPUInfoList, error)
-	mustEmbedUnimplementedModelTrainingServer()
 }
 
-// UnimplementedModelTrainingServer must be embedded to have forward compatible implementations.
+// UnimplementedModelTrainingServer should be embedded to have forward compatible implementations.
 type UnimplementedModelTrainingServer struct {
 }
 
@@ -138,7 +137,6 @@ func (UnimplementedModelTrainingServer) GetModelTrainingParameters(context.Conte
 func (UnimplementedModelTrainingServer) GPUInfo(context.Context, *emptypb.Empty) (*GPUInfoList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GPUInfo not implemented")
 }
-func (UnimplementedModelTrainingServer) mustEmbedUnimplementedModelTrainingServer() {}
 
 // UnsafeModelTrainingServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to ModelTrainingServer will

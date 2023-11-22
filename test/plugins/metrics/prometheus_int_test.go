@@ -3,14 +3,14 @@ package metrics_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
-	"google.golang.org/protobuf/types/known/durationpb"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -51,38 +51,42 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label("int
 	//#region Happy Path Tests
 
 	When("querying metrics from the gateway", func() {
-		It("can return Prometheus metrics", func() {
-			token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
-				Ttl: durationpb.New(time.Minute),
-			})
+		It("can return Prometheus metrics", func(ctx SpecContext) {
+			err := environment.BootstrapNewAgent("test-cluster-id")
 			Expect(err).NotTo(HaveOccurred())
 
-			certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
-			Expect(err).NotTo(HaveOccurred())
-			fingerprint = certsInfo.Chain[len(certsInfo.Chain)-1].Fingerprint
-			Expect(fingerprint).NotTo(BeEmpty())
-
-			_, errC := environment.StartAgent("test-cluster-id", token, []string{fingerprint})
-			Eventually(errC).Should(Receive(BeNil()))
-
-			_, err = client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
-				Name: wellknown.CapabilityMetrics,
-				Target: &capabilityv1.InstallRequest{
-					Cluster: &corev1.Reference{Id: "test-cluster-id"},
-				},
+			_, err = client.InstallCapability(context.Background(), &capabilityv1.InstallRequest{
+				Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+				Agent:      &corev1.Reference{Id: "test-cluster-id"},
 			})
 			Expect(err).NotTo(HaveOccurred())
 
 			//http request to the gateway endpoint including auth header
-			_, err = client.CreateRole(context.Background(), &corev1.Role{
-				Id:         "test-role",
-				ClusterIDs: []string{"test-cluster-id"},
+			_, err = client.CreateBackendRole(context.Background(), &corev1.BackendRole{
+				Capability: &corev1.CapabilityType{
+					Name: wellknown.CapabilityMetrics,
+				},
+				Role: &corev1.Role{
+					Id: "test-role",
+					Permissions: []*corev1.PermissionItem{
+						{
+							Type: string(corev1.PermissionTypeCluster),
+							Verbs: []*corev1.PermissionVerb{
+								corev1.VerbGet(),
+							},
+							Ids: []string{"test-cluster-id"},
+						},
+					},
+				},
 			})
 			Expect(err).NotTo(HaveOccurred())
 			_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
 				Id:       "test-role-binding",
 				RoleId:   "test-role",
 				Subjects: []string{"user@example.com"},
+				Metadata: &corev1.RoleBindingMetadata{
+					Capability: lo.ToPtr(wellknown.CapabilityMetrics),
+				},
 			})
 			Expect(err).NotTo(HaveOccurred())
 			tlsConfig := environment.GatewayClientTLSConfig()
@@ -120,7 +124,7 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label("int
 			Expect(errT).NotTo(HaveOccurred())
 			Expect(respTime.Unix()).To(BeNumerically("<=", (now)))
 			defer resp.Body.Close()
-			b, err := ioutil.ReadAll(resp.Body)
+			b, err := io.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(b)).To(Equal(`{"status":"success","data":["__tenant_id__"]}`))
 		})

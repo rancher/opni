@@ -104,7 +104,7 @@ func (c *alertingAdminClient) Info(ctx context.Context, in *emptypb.Empty, opts 
 }
 
 // AlertingAdminServer is the server API for AlertingAdmin service.
-// All implementations must embed UnimplementedAlertingAdminServer
+// All implementations should embed UnimplementedAlertingAdminServer
 // for forward compatibility
 type AlertingAdminServer interface {
 	GetClusterConfiguration(context.Context, *emptypb.Empty) (*ClusterConfiguration, error)
@@ -114,10 +114,9 @@ type AlertingAdminServer interface {
 	InstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	UninstallCluster(context.Context, *UninstallRequest) (*emptypb.Empty, error)
 	Info(context.Context, *emptypb.Empty) (*ComponentInfo, error)
-	mustEmbedUnimplementedAlertingAdminServer()
 }
 
-// UnimplementedAlertingAdminServer must be embedded to have forward compatible implementations.
+// UnimplementedAlertingAdminServer should be embedded to have forward compatible implementations.
 type UnimplementedAlertingAdminServer struct {
 }
 
@@ -139,7 +138,6 @@ func (UnimplementedAlertingAdminServer) UninstallCluster(context.Context, *Unins
 func (UnimplementedAlertingAdminServer) Info(context.Context, *emptypb.Empty) (*ComponentInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Info not implemented")
 }
-func (UnimplementedAlertingAdminServer) mustEmbedUnimplementedAlertingAdminServer() {}
 
 // UnsafeAlertingAdminServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to AlertingAdminServer will
@@ -325,21 +323,19 @@ func (c *adminInfoClient) SyncInfo(ctx context.Context, in *emptypb.Empty, opts 
 }
 
 // AdminInfoServer is the server API for AdminInfo service.
-// All implementations must embed UnimplementedAdminInfoServer
+// All implementations should embed UnimplementedAdminInfoServer
 // for forward compatibility
 type AdminInfoServer interface {
 	SyncInfo(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	mustEmbedUnimplementedAdminInfoServer()
 }
 
-// UnimplementedAdminInfoServer must be embedded to have forward compatible implementations.
+// UnimplementedAdminInfoServer should be embedded to have forward compatible implementations.
 type UnimplementedAdminInfoServer struct {
 }
 
 func (UnimplementedAdminInfoServer) SyncInfo(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SyncInfo not implemented")
 }
-func (UnimplementedAdminInfoServer) mustEmbedUnimplementedAdminInfoServer() {}
 
 // UnsafeAdminInfoServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to AdminInfoServer will
@@ -437,21 +433,19 @@ func (x *configReconcilerSyncConfigClient) Recv() (*SyncRequest, error) {
 }
 
 // ConfigReconcilerServer is the server API for ConfigReconciler service.
-// All implementations must embed UnimplementedConfigReconcilerServer
+// All implementations should embed UnimplementedConfigReconcilerServer
 // for forward compatibility
 type ConfigReconcilerServer interface {
 	SyncConfig(ConfigReconciler_SyncConfigServer) error
-	mustEmbedUnimplementedConfigReconcilerServer()
 }
 
-// UnimplementedConfigReconcilerServer must be embedded to have forward compatible implementations.
+// UnimplementedConfigReconcilerServer should be embedded to have forward compatible implementations.
 type UnimplementedConfigReconcilerServer struct {
 }
 
 func (UnimplementedConfigReconcilerServer) SyncConfig(ConfigReconciler_SyncConfigServer) error {
 	return status.Errorf(codes.Unimplemented, "method SyncConfig not implemented")
 }
-func (UnimplementedConfigReconcilerServer) mustEmbedUnimplementedConfigReconcilerServer() {}
 
 // UnsafeConfigReconcilerServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to ConfigReconcilerServer will

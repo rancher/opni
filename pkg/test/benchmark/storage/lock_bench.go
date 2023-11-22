@@ -16,17 +16,19 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func LockManagerBenchmark[T storage.LockManager](
+func LockManagerBenchmark[T storage.LockManagerBroker](
 	name string,
 	lmFs future.Future[[]T],
 ) func() {
 	return func() {
-		var lms []T
+		var lms []storage.LockManager
 		BeforeAll(func() {
 			testruntime.IfCI(func() {
 				Skip("skipping lock benchmark in CI")
 			})
-			lms = lmFs.Get()
+			for _, lm := range lmFs.Get() {
+				lms = append(lms, lm.LockManager("test"))
+			}
 		})
 
 		Context(fmt.Sprintf("Acquiring and releasing %s exclusive locks should be efficient", name), func() {

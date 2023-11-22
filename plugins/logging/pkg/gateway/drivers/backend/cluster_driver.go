@@ -29,4 +29,4 @@ type ClusterDriver interface {
 	SetSyncTime()
 }
 
-var Drivers = driverutil.NewDriverCache[ClusterDriver]()
+var Drivers = driverutil.NewCache[ClusterDriver]()

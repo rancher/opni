@@ -17,4 +17,4 @@ type NodeDriver interface {
 	DiscoverRules(ctx context.Context) (*rules.RuleManifest, error)
 }
 
-var NodeDrivers = driverutil.NewDriverCache[NodeDriver]()
+var NodeDrivers = driverutil.NewCache[NodeDriver]()

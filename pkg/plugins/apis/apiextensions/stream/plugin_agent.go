@@ -15,11 +15,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-plugin"
-	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/kralicky/totem"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -47,7 +47,7 @@ func NewAgentPlugin(p StreamAPIExtension) plugin.Plugin {
 	if ok {
 		fnName := fn.Name()
 		parts := strings.Split(fnName, "/")
-		name = fmt.Sprintf("plugin_%s", parts[slices.Index(parts, "plugins")+1])
+		name = parts[slices.Index(parts, "plugins")+1]
 	}
 
 	ext := &agentStreamExtensionServerImpl{
@@ -56,16 +56,9 @@ func NewAgentPlugin(p StreamAPIExtension) plugin.Plugin {
 		activeStreams: make(map[string]chan struct{}),
 	}
 	if p != nil {
-		servers := p.StreamServers()
-		for _, srv := range servers {
-			descriptor, err := grpcreflect.LoadServiceDescriptor(srv.Desc)
-			if err != nil {
-				panic(err)
-			}
-			ext.servers = append(ext.servers, &richServer{
-				Server:   srv,
-				richDesc: descriptor,
-			})
+		for _, srv := range p.StreamServers() {
+			srv := srv
+			ext.servers = append(ext.servers, srv)
 		}
 		if clientHandler, ok := p.(StreamClientHandler); ok {
 			ext.clientHandler = clientHandler
@@ -81,7 +74,7 @@ type agentStreamExtensionServerImpl struct {
 	apiextensions.UnimplementedStreamAPIExtensionServer
 
 	name          string
-	servers       []*richServer
+	servers       []util.ServicePackInterface
 	clientHandler StreamClientHandler
 	logger        *slog.Logger
 
@@ -123,7 +116,7 @@ func (e *agentStreamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectS
 		return err
 	}
 	for _, srv := range e.servers {
-		ts.RegisterService(srv.Desc, srv.Impl)
+		ts.RegisterService(srv.Unpack())
 	}
 	timeout := discoveryTimeout.Load()
 	var cc grpc.ClientConnInterface

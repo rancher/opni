@@ -8,6 +8,75 @@ import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialM
 import { Duration, Message, proto3 } from "@bufbuild/protobuf";
 
 /**
+ * @generated from message storage.Config
+ */
+export class Config extends Message<Config> {
+  /**
+   * Backend storage to use. Supported backends are: s3, gcs, azure, swift, filesystem.
+   *
+   * @generated from field: optional string backend = 1;
+   */
+  backend?: string;
+
+  /**
+   * @generated from field: storage.S3Config s3 = 2;
+   */
+  s3?: S3Config;
+
+  /**
+   * @generated from field: storage.GcsConfig gcs = 3;
+   */
+  gcs?: GcsConfig;
+
+  /**
+   * @generated from field: storage.AzureConfig azure = 4;
+   */
+  azure?: AzureConfig;
+
+  /**
+   * @generated from field: storage.SwiftConfig swift = 5;
+   */
+  swift?: SwiftConfig;
+
+  /**
+   * @generated from field: storage.FilesystemConfig filesystem = 6;
+   */
+  filesystem?: FilesystemConfig;
+
+  constructor(data?: PartialMessage<Config>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "storage.Config";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "backend", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 2, name: "s3", kind: "message", T: S3Config },
+    { no: 3, name: "gcs", kind: "message", T: GcsConfig },
+    { no: 4, name: "azure", kind: "message", T: AzureConfig },
+    { no: 5, name: "swift", kind: "message", T: SwiftConfig },
+    { no: 6, name: "filesystem", kind: "message", T: FilesystemConfig },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Config {
+    return new Config().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): Config {
+    return new Config().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): Config {
+    return new Config().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: Config | PlainMessage<Config> | undefined, b: Config | PlainMessage<Config> | undefined): boolean {
+    return proto3.util.equals(Config, a, b);
+  }
+}
+
+/**
  * @generated from message storage.AzureConfig
  */
 export class AzureConfig extends Message<AzureConfig> {
@@ -97,75 +166,6 @@ export class AzureConfig extends Message<AzureConfig> {
 
   static equals(a: AzureConfig | PlainMessage<AzureConfig> | undefined, b: AzureConfig | PlainMessage<AzureConfig> | undefined): boolean {
     return proto3.util.equals(AzureConfig, a, b);
-  }
-}
-
-/**
- * @generated from message storage.Config
- */
-export class Config extends Message<Config> {
-  /**
-   * Backend storage to use. Supported backends are: s3, gcs, azure, swift, filesystem.
-   *
-   * @generated from field: optional string backend = 1;
-   */
-  backend?: string;
-
-  /**
-   * @generated from field: storage.S3Config s3 = 2;
-   */
-  s3?: S3Config;
-
-  /**
-   * @generated from field: storage.GcsConfig gcs = 3;
-   */
-  gcs?: GcsConfig;
-
-  /**
-   * @generated from field: storage.AzureConfig azure = 4;
-   */
-  azure?: AzureConfig;
-
-  /**
-   * @generated from field: storage.SwiftConfig swift = 5;
-   */
-  swift?: SwiftConfig;
-
-  /**
-   * @generated from field: storage.FilesystemConfig filesystem = 6;
-   */
-  filesystem?: FilesystemConfig;
-
-  constructor(data?: PartialMessage<Config>) {
-    super();
-    proto3.util.initPartial(data, this);
-  }
-
-  static readonly runtime: typeof proto3 = proto3;
-  static readonly typeName = "storage.Config";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "backend", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
-    { no: 2, name: "s3", kind: "message", T: S3Config },
-    { no: 3, name: "gcs", kind: "message", T: GcsConfig },
-    { no: 4, name: "azure", kind: "message", T: AzureConfig },
-    { no: 5, name: "swift", kind: "message", T: SwiftConfig },
-    { no: 6, name: "filesystem", kind: "message", T: FilesystemConfig },
-  ]);
-
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Config {
-    return new Config().fromBinary(bytes, options);
-  }
-
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): Config {
-    return new Config().fromJson(jsonValue, options);
-  }
-
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): Config {
-    return new Config().fromJsonString(jsonString, options);
-  }
-
-  static equals(a: Config | PlainMessage<Config> | undefined, b: Config | PlainMessage<Config> | undefined): boolean {
-    return proto3.util.equals(Config, a, b);
   }
 }
 

@@ -48,21 +48,19 @@ func (c *ruleSyncClient) SyncRules(ctx context.Context, in *RuleManifest, opts .
 }
 
 // RuleSyncServer is the server API for RuleSync service.
-// All implementations must embed UnimplementedRuleSyncServer
+// All implementations should embed UnimplementedRuleSyncServer
 // for forward compatibility
 type RuleSyncServer interface {
 	SyncRules(context.Context, *RuleManifest) (*emptypb.Empty, error)
-	mustEmbedUnimplementedRuleSyncServer()
 }
 
-// UnimplementedRuleSyncServer must be embedded to have forward compatible implementations.
+// UnimplementedRuleSyncServer should be embedded to have forward compatible implementations.
 type UnimplementedRuleSyncServer struct {
 }
 
 func (UnimplementedRuleSyncServer) SyncRules(context.Context, *RuleManifest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SyncRules not implemented")
 }
-func (UnimplementedRuleSyncServer) mustEmbedUnimplementedRuleSyncServer() {}
 
 // UnsafeRuleSyncServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to RuleSyncServer will

@@ -1,14 +1,13 @@
 package rollback
 
 import (
-	"context"
 	"fmt"
 	"slices"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/bufbuild/protovalidate-go"
 	"github.com/nsf/jsondiff"
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/plugins/driverutil/complete"
@@ -26,23 +25,36 @@ import (
 )
 
 // Builds a rollback command given a use string and a function that returns a
-// new typed client from a context (this function is usually generated).
+// new typed client from a (generated) service context injector.
 //
-//	rollback.BuildCmd("rollback", NewXClientFromContext)
+//	rollback.BuildCmd("rollback", XContextInjector)
 func BuildCmd[
-	C driverutil.Client[T, R, D, DR, HR],
+	I driverutil.ClientContextInjector[C],
 	T driverutil.ConfigType[T],
+	G driverutil.GetRequestType,
+	S driverutil.SetRequestType[T],
 	R driverutil.ResetRequestType[T],
 	D driverutil.DryRunRequestType[T],
 	DR driverutil.DryRunResponseType[T],
+	H driverutil.HistoryRequestType,
 	HR driverutil.HistoryResponseType[T],
-](use string, newClientFunc func(context.Context) (C, bool)) *cobra.Command {
+	C interface {
+		driverutil.GetClient[T, G]
+		driverutil.SetClient[T, S]
+		driverutil.ResetClient[T, R]
+		driverutil.DryRunClient[T, D, DR]
+		driverutil.HistoryClient[T, H, HR]
+	},
+](use string, cci I) *cobra.Command {
 	var (
 		revision   *int64
 		target     driverutil.Target
 		diffFull   bool
 		diffFormat string
 	)
+	var getRequest = util.NewMessage[G]()
+	var historyRequest = util.NewMessage[H]()
+
 	cmd := &cobra.Command{
 		Use:   use,
 		Short: `Revert the active or default configuration to a previous revision.`,
@@ -75,7 +87,7 @@ constitute a discontinuity and the rollback will proceed as normal, except that
 the secret values will not change from the current configuration.
 `[1:],
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, ok := newClientFunc(cmd.Context())
+			client, ok := cci.ClientFromContext(cmd.Context())
 			if !ok {
 				cmd.PrintErrln("failed to get client from context")
 				return nil
@@ -86,26 +98,26 @@ the secret values will not change from the current configuration.
 
 			switch target {
 			case driverutil.Target_ActiveConfiguration:
+				withoutRevision := util.ProtoClone(getRequest)
+				driverutil.UnsetRevision(withoutRevision)
 				var err error
-				currentConfig, err = client.GetConfiguration(cmd.Context(), &driverutil.GetRequest{})
+				currentConfig, err = client.GetConfiguration(cmd.Context(), withoutRevision)
 				if err != nil {
 					return err
 				}
-				targetConfig, err = client.GetConfiguration(cmd.Context(), &driverutil.GetRequest{
-					Revision: corev1.NewRevision(*revision),
-				})
+				targetConfig, err = client.GetConfiguration(cmd.Context(), getRequest)
 				if err != nil {
 					return err
 				}
 			case driverutil.Target_DefaultConfiguration:
+				withoutRevision := util.ProtoClone(getRequest)
+				driverutil.UnsetRevision(withoutRevision)
 				var err error
-				currentConfig, err = client.GetDefaultConfiguration(cmd.Context(), &driverutil.GetRequest{})
+				currentConfig, err = client.GetDefaultConfiguration(cmd.Context(), withoutRevision)
 				if err != nil {
 					return err
 				}
-				targetConfig, err = client.GetDefaultConfiguration(cmd.Context(), &driverutil.GetRequest{
-					Revision: corev1.NewRevision(*revision),
-				})
+				targetConfig, err = client.GetDefaultConfiguration(cmd.Context(), getRequest)
 				if err != nil {
 					return err
 				}
@@ -217,21 +229,13 @@ the secret values will not change from the current configuration.
 				yes := "Yes"
 
 				comments := []string{}
-				if len(dryRunResp.GetValidationErrors()) > 0 {
+				if errs := (*protovalidate.ValidationError)(dryRunResp.GetValidationErrors()); errs != nil {
 					yes += " (bypass validation checks)"
-					comments = append(comments, "Validation warnings:")
+					errStr := errs.Error()
+					comments = append(comments, errStr)
+					cmd.Println(chalk.Yellow.Color(errStr))
 				}
-				for _, e := range dryRunResp.GetValidationErrors() {
-					switch e.Severity {
-					case driverutil.ValidationError_Error:
-						comments = append(comments, fmt.Sprintf(" - %s: %s", e.GetSeverity(), e.GetMessage()))
-					case driverutil.ValidationError_Warning:
-						comments = append(comments, fmt.Sprintf(" - %s: %s", e.GetSeverity(), e.GetMessage()))
-					}
-				}
-				for _, comment := range comments {
-					cmd.Println(chalk.Yellow.Color(comment))
-				}
+
 				var confirm string
 				if err := survey.AskOne(&survey.Select{
 					Message: message,
@@ -255,7 +259,7 @@ the secret values will not change from the current configuration.
 						continue
 					}
 				case yes:
-					if len(dryRunResp.GetValidationErrors()) > 0 {
+					if dryRunResp.GetValidationErrors() != nil {
 						var confirm bool
 						if err := survey.AskOne(&survey.Confirm{
 							Message: "This will bypass validation checks. The configuration may not function correctly. Are you sure?",
@@ -277,15 +281,15 @@ the secret values will not change from the current configuration.
 					// reset using a mask that includes all present fields in the target config,
 					// and the target config as the patch.
 					resetReq := util.NewMessage[R]()
-
-					rm := resetReq.ProtoReflect()
-					rmd := rm.Descriptor()
-					rm.Set(rmd.Fields().ByName("mask"), protoreflect.ValueOfMessage(fieldmask.ByPresence(targetConfig.ProtoReflect()).ProtoReflect()))
-					rm.Set(rmd.Fields().ByName("patch"), protoreflect.ValueOfMessage(targetConfig.ProtoReflect()))
+					resetReq.ProtoReflect().Set(util.FieldByName[S]("mask"), protoreflect.ValueOfMessage(fieldmask.ByPresence(targetConfig.ProtoReflect()).ProtoReflect()))
+					resetReq.ProtoReflect().Set(util.FieldByName[S]("patch"), protoreflect.ValueOfMessage(targetConfig.ProtoReflect()))
 
 					_, err = client.ResetConfiguration(cmd.Context(), resetReq)
 				case driverutil.Target_DefaultConfiguration:
-					_, err = client.SetDefaultConfiguration(cmd.Context(), targetConfig)
+					setReq := util.NewMessage[S]()
+					setReq.ProtoReflect().Set(util.FieldByName[S]("spec"), protoreflect.ValueOfMessage(targetConfig.ProtoReflect()))
+
+					_, err = client.SetDefaultConfiguration(cmd.Context(), setReq)
 				}
 				if err != nil {
 					cmd.PrintErrln("rollback failed:", err)
@@ -295,26 +299,34 @@ the secret values will not change from the current configuration.
 			}
 		},
 	}
-	cmd.Flags().Var(flagutil.IntPtrValue(nil, &revision), "revision", "revision to rollback to")
-	cmd.Flags().Var(flagutil.EnumValue(&target), "target", "the configuration type to rollback")
+
+	// adds --revision and any other custom flags defined on G
+	cmd.Flags().AddFlagSet(getRequest.FlagSet())
+	cmd.MarkFlagRequired("revision")
+	cmd.RegisterFlagCompletionFunc("revision", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		cliutil.BasePreRunE(cmd, args)
+		client, ok := cci.ClientFromContext(cmd.Context())
+		if !ok {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+		return complete.Revisions(cmd.Context(), historyRequest, client)
+	})
+
+	// adds --target and any other custom flags defined on H. H also would
+	// add the --revision flag again, but because it has already been added
+	// by the G flagset, it will be ignored.
+	cmd.Flags().AddFlagSet(historyRequest.FlagSet())
+	flagutil.SetDefValue(cmd.Flags(), "include-values", "true")
+	cmd.Flags().MarkHidden("include-values")
+
 	cmd.PersistentFlags().BoolVar(&diffFull, "diff-full", false, "show full diff, including all unchanged fields")
 	cmd.PersistentFlags().StringVar(&diffFormat, "diff-format", "console", "diff format (console, json, html)")
-
-	cmd.MarkFlagRequired("revision")
 
 	cmd.RegisterFlagCompletionFunc("target", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"ActiveConfiguration", "DefaultConfiguration"}, cobra.ShellCompDirectiveDefault
 	})
 	cmd.RegisterFlagCompletionFunc("diff-format", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"console", "json", "html"}, cobra.ShellCompDirectiveDefault
-	})
-	cmd.RegisterFlagCompletionFunc("revision", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		cliutil.BasePreRunE(cmd, args)
-		client, ok := newClientFunc(cmd.Context())
-		if !ok {
-			return nil, cobra.ShellCompDirectiveNoFileComp
-		}
-		return complete.Revisions(cmd.Context(), target, client)
 	})
 	return cmd
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/lestrrat-go/jwx/jws"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/storage/inmemory"
 	mock_storage "github.com/rancher/opni/pkg/test/mock/storage"
 	"github.com/rancher/opni/pkg/test/testdata"
 	"github.com/rancher/opni/pkg/util"
@@ -69,14 +70,15 @@ var _ = Describe("Server V2", Ordered, Label("unit"), func() {
 			TokenStore:         mockTokenStore,
 			ClusterStore:       mockClusterStore,
 			KeyringStoreBroker: mockKeyringStoreBroker,
+			LockManagerBroker:  inmemory.NewLockManagerBroker(),
 		}, cert.PrivateKey.(crypto.Signer))
 		bootstrapv2.RegisterBootstrapServer(srv, server)
 
 		listener := bufconn.Listen(1024 * 1024)
 		go srv.Serve(listener)
 
-		cc, err := grpc.Dial("bufconn", grpc.WithDialer(func(s string, d time.Duration) (net.Conn, error) {
-			return listener.Dial()
+		cc, err := grpc.Dial("bufconn", grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+			return listener.DialContext(ctx)
 		}), grpc.WithTransportCredentials(insecure.NewCredentials()))
 		Expect(err).NotTo(HaveOccurred())
 		client = bootstrapv2.NewBootstrapClient(cc)

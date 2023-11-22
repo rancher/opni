@@ -4,12 +4,12 @@ import (
 	"context"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/jhump/protoreflect/desc"
 	"google.golang.org/grpc"
 
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
+	"github.com/rancher/opni/pkg/util"
 )
 
 const (
@@ -18,7 +18,7 @@ const (
 )
 
 type StreamAPIExtension interface {
-	StreamServers() []Server
+	StreamServers() []util.ServicePackInterface
 }
 
 // A plugin can optionally implement StreamClientHandler to obtain a
@@ -30,17 +30,6 @@ type StreamClientHandler interface {
 type StreamAPIExtensionWithHandlers interface {
 	StreamAPIExtension
 	StreamClientHandler
-}
-
-type Server struct {
-	Desc              *grpc.ServiceDesc
-	Impl              interface{}
-	RequireCapability string
-}
-
-type richServer struct {
-	Server
-	richDesc *desc.ServiceDescriptor
 }
 
 type streamExtPlugin interface {

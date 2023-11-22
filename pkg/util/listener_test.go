@@ -65,7 +65,7 @@ var _ = Describe("Listener Utils", Ordered, Label("unit"), func() {
 			os.Create("/tmp/opni-test-util-dir/opni-test-util.sock/foo")
 
 			By("creating a new socket where the non-empty directory is")
-			listener, err = util.NewProtocolListener(
+			_, err = util.NewProtocolListener(
 				"unix:///tmp/opni-test-util-dir/opni-test-util.sock")
 			Expect(err).To(HaveOccurred())
 

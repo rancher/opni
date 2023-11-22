@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"slices"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,7 +25,6 @@ import (
 	"github.com/rancher/opni/pkg/test/testruntime"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 

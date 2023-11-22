@@ -5,7 +5,6 @@ import (
 	"crypto"
 	"fmt"
 	"strings"
-	"sync"
 
 	"maps"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/health/annotations"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/storage/lock"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
@@ -29,14 +29,14 @@ type ServerV2 struct {
 	bootstrapv2.UnsafeBootstrapServer
 	privateKey     crypto.Signer
 	storage        Storage
-	clusterIdLocks util.LockMap[string, *sync.Mutex]
+	clusterIdLocks storage.LockManager
 }
 
 func NewServerV2(storage Storage, privateKey crypto.Signer) *ServerV2 {
 	return &ServerV2{
 		privateKey:     privateKey,
 		storage:        storage,
-		clusterIdLocks: util.NewLockMap[string, *sync.Mutex](),
+		clusterIdLocks: storage.LockManager("bootstrap"),
 	}
 }
 
@@ -109,8 +109,7 @@ func (h *ServerV2) Auth(ctx context.Context, authReq *bootstrapv2.BootstrapAuthR
 	}
 
 	// lock the mutex associated with the cluster ID
-	// TODO: when scaling the gateway we need a distributed lock
-	lock := h.clusterIdLocks.Get(authReq.ClientId)
+	lock := h.clusterIdLocks.Locker(authReq.ClientId, lock.WithAcquireContext(ctx))
 	lock.Lock()
 	defer lock.Unlock()
 

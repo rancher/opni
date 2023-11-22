@@ -9,7 +9,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
@@ -140,18 +140,13 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 		Expect(cortexops.WaitForReady(env.Context(), opsClient)).To(Succeed())
 
 		client = env.NewManagementClient()
-		token, err = client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
-			Ttl: durationpb.New(time.Hour),
-		})
-		Expect(err).NotTo(HaveOccurred())
-		info, err = client.CertsInfo(context.Background(), &emptypb.Empty{})
-		Expect(err).NotTo(HaveOccurred())
 		instrumentationPort, done = env.StartInstrumentationServer()
 		DeferCleanup(func() {
 			done <- struct{}{}
 		})
-		_, errC := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		Eventually(errC).Should(Receive(BeNil()))
+		err = env.BootstrapNewAgent("agent")
+		Expect(err).NotTo(HaveOccurred())
+
 		env.SetPrometheusNodeConfigOverride("agent", test.NewOverridePrometheusConfig(
 			"slo/prometheus/config.yaml",
 			[]test.PrometheusJob{
@@ -161,9 +156,8 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 				},
 			}),
 		)
-
-		_, errC = env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		Eventually(errC).Should(Receive(BeNil()))
+		err = env.BootstrapNewAgent("agent2")
+		Expect(err).NotTo(HaveOccurred())
 
 		env.SetPrometheusNodeConfigOverride("agent2", test.NewOverridePrometheusConfig(
 			"slo/prometheus/config.yaml",
@@ -175,13 +169,13 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 			}),
 		)
 
-		client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
-			Name:   wellknown.CapabilityMetrics,
-			Target: &v1.InstallRequest{Cluster: &corev1.Reference{Id: "agent"}},
+		client.InstallCapability(context.Background(), &capabilityv1.InstallRequest{
+			Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+			Agent:      &corev1.Reference{Id: "agent"},
 		})
-		client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
-			Name:   wellknown.CapabilityMetrics,
-			Target: &v1.InstallRequest{Cluster: &corev1.Reference{Id: "agent2"}},
+		client.InstallCapability(context.Background(), &capabilityv1.InstallRequest{
+			Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+			Agent:      &corev1.Reference{Id: "agent2"},
 		})
 
 		sloClient = sloapi.NewSLOClient(env.ManagementClientConn())
@@ -625,6 +619,8 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 					[]string{info.Chain[len(info.Chain)-1].Fingerprint},
 					test.WithContext(ctxCa),
 				)
+				Eventually(errC).Should(Receive(BeNil()))
+				Expect(test.WaitForAgentReady(ctx, client, id)).To(Succeed())
 				env.SetPrometheusNodeConfigOverride(id, test.NewOverridePrometheusConfig(
 					"slo/prometheus/config.yaml",
 					[]test.PrometheusJob{
@@ -634,11 +630,10 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 						},
 					}),
 				)
-				Eventually(errC).Should(Receive(BeNil()))
 
-				_, err := client.InstallCapability(ctx, &managementv1.CapabilityInstallRequest{
-					Name:   wellknown.CapabilityMetrics,
-					Target: &v1.InstallRequest{Cluster: &corev1.Reference{Id: id}},
+				_, err := client.InstallCapability(ctx, &capabilityv1.InstallRequest{
+					Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+					Agent:      &corev1.Reference{Id: id},
 				})
 				Expect(err).NotTo(HaveOccurred())
 

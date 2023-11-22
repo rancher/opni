@@ -10,10 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/capabilities"
-	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/plugins"
-	"github.com/rancher/opni/pkg/test/testlog"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
@@ -23,13 +20,8 @@ import (
 
 var _ = Describe("Clusters", Ordered, Label("unit"), func() {
 	var tv *testVars
-	var capBackendStore capabilities.BackendStore
 	BeforeAll(func() {
-		capBackendStore = capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{}, testlog.Log)
-
-		setupManagementServer(&tv, plugins.NoopLoader, management.WithCapabilitiesDataSource(testCapabilityDataSource{
-			store: capBackendStore,
-		}))()
+		setupManagementServer(&tv, plugins.NoopLoader)()
 	})
 
 	It("should initially have no clusters", func() {

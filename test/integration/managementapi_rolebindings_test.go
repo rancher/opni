@@ -25,14 +25,6 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 		Expect(environment.Start()).To(Succeed())
 		DeferCleanup(environment.Stop)
 		client = environment.NewManagementClient()
-
-		_, err := client.CreateRole(context.Background(), &corev1.Role{
-			Id: "test-role",
-			MatchLabels: &corev1.LabelSelector{
-				MatchLabels: map[string]string{"test": "test"},
-			},
-		})
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	//#endregion
@@ -138,11 +130,10 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label("
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		rbInfo, err := client.GetRoleBinding(context.Background(), &corev1.Reference{
+		_, err := client.GetRoleBinding(context.Background(), &corev1.Reference{
 			Id: "test-rolebinding2",
 		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(rbInfo.Taints).To(ContainElement("role not found"))
 	})
 
 	It("cannot create rolebindings without an Id", func() {

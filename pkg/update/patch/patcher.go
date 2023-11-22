@@ -64,10 +64,10 @@ func (ZstdPatcher) GeneratePatch(old io.Reader, new io.Reader, patchOut io.Write
 		zstd.WithWindowSize(zstd.MaxWindowSize),
 		zstd.WithEncoderLevel(zstd.SpeedBestCompression),
 	)
-	defer enc.Close()
 	if err != nil {
 		return err
 	}
+	defer enc.Close()
 	newBytes, err := io.ReadAll(new)
 	if err != nil {
 		return err

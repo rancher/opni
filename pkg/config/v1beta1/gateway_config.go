@@ -14,7 +14,9 @@ type GatewayConfigSpec struct {
 	//+kubebuilder:default=":8080"
 	HTTPListenAddress string `json:"httpListenAddress,omitempty"`
 	//+kubebuilder:default=":9090"
-	GRPCListenAddress string `json:"grpcListenAddress,omitempty"`
+	GRPCListenAddress    string `json:"grpcListenAddress,omitempty"`
+	GRPCAdvertiseAddress string `json:"grpcAdvertiseAddress,omitempty"`
+
 	//+kubebuilder:default=":8086"
 	MetricsListenAddress string `json:"metricsListenAddress,omitempty"`
 	//+kubebuilder:default="localhost"
@@ -102,6 +104,11 @@ type ManagementSpec struct {
 	HTTPListenAddress string `json:"httpListenAddress,omitempty"`
 	//+kubebuilder:default="0.0.0.0:12080"
 	WebListenAddress string `json:"webListenAddress,omitempty"`
+
+	RelayListenAddress    string `json:"relayListenAddress,omitempty"`
+	RelayAdvertiseAddress string `json:"relayAdvertiseAddress,omitempty"`
+	GRPCAdvertiseAddress  string `json:"grpcAdvertiseAddress,omitempty"`
+	WebAdvertiseAddress   string `json:"webAdvertiseAddress,omitempty"`
 
 	WebCerts *CertsSpec `json:"webCerts,omitempty"`
 }

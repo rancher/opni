@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"log/slog"
@@ -46,7 +47,8 @@ type JetStreamStore struct {
 		Roles        nats.KeyValue
 		RoleBindings nats.KeyValue
 	}
-	logger *slog.Logger
+	logger    *slog.Logger
+	closeOnce sync.Once
 }
 
 var _ storage.Backend = (*JetStreamStore)(nil)
@@ -107,11 +109,6 @@ func NewJetStreamStore(ctx context.Context, conf *v1beta1.JetStreamStorageSpec, 
 		return nil, err
 	}
 
-	go func() {
-		<-ctx.Done()
-		nc.Close()
-	}()
-
 	ctrl := backoff.Exponential(
 		backoff.WithMaxRetries(0),
 		backoff.WithMinInterval(10*time.Millisecond),
@@ -155,6 +152,13 @@ func NewJetStreamStore(ctx context.Context, conf *v1beta1.JetStreamStorageSpec, 
 	return store, nil
 }
 
+func (s *JetStreamStore) Close() {
+	s.closeOnce.Do(func() {
+		s.nc.Close()
+		s.logger.Debug("nats client closed")
+	})
+}
+
 func (s *JetStreamStore) upsertBucket(name string) nats.KeyValue {
 	bucketName := fmt.Sprintf("%s-%s", s.BucketPrefix, name)
 	for s.ctx.Err() == nil {
@@ -188,6 +192,15 @@ func (s *JetStreamStore) KeyringStore(prefix string, ref *corev1.Reference) stor
 		kv:     s.kv.Keyrings,
 		ref:    ref,
 		prefix: prefix,
+	}
+}
+
+func (s *JetStreamStore) LockManager(
+	/*prefix*/ string, // FIXME
+) storage.LockManager {
+	return &LockManager{
+		js:  s.js,
+		ctx: s.ctx,
 	}
 }
 

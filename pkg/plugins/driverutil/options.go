@@ -40,11 +40,11 @@ func (o *option[T]) Apply(dest any) error {
 
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
-		if !field.CanSet() || !field.CanAddr() {
-			continue
-		}
 		tag := v.Type().Field(i).Tag.Get("option")
 		if tag == o.key {
+			if !field.CanSet() || !field.CanAddr() {
+				return fmt.Errorf("invalid option field %q (is it exported?)", v.Type().Field(i).Name)
+			}
 			value := reflect.ValueOf(o.value)
 			if value.IsZero() {
 				return nil

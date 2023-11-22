@@ -194,7 +194,7 @@ func (s *AlertingNode) updateConfig(ctx context.Context, config *node.AlertingCa
 
 func (s *AlertingNode) hasRemoteHealthClient() bool {
 	s.healthMu.RLock()
-	s.healthMu.RUnlock()
+	defer s.healthMu.RUnlock()
 	return s.healthListenerClient != nil
 }
 

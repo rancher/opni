@@ -2,24 +2,29 @@ package driverutil
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
+	"github.com/bufbuild/protovalidate-go"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/fieldmask"
 	"github.com/rancher/opni/pkg/util/merge"
+	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 type DefaultLoaderFunc[T any] func(T)
 
 type DryRunResults[T any] struct {
-	Current  T
-	Modified T
+	Current          T
+	Modified         T
+	ValidationErrors *protovalidate.ValidationError
 }
 
 type DefaultingConfigTracker[T ConfigType[T]] struct {
@@ -31,6 +36,8 @@ type DefaultingConfigTracker[T ConfigType[T]] struct {
 
 	redact   func(SecretsRedactor[T])
 	unredact func(SecretsRedactor[T], T) error
+
+	validator *protovalidate.Validator
 }
 
 func NewDefaultingConfigTracker[T ConfigType[T]](
@@ -45,6 +52,7 @@ func NewDefaultingConfigTracker[T ConfigType[T]](
 		revisionFieldIndex: GetRevisionFieldIndex[T](),
 		redact:             (SecretsRedactor[T]).RedactSecrets,
 		unredact:           (SecretsRedactor[T]).UnredactSecrets,
+		validator:          validation.MustNewValidator(),
 	}
 }
 
@@ -120,6 +128,10 @@ func (ct *DefaultingConfigTracker[T]) getDefaultConfigLocked(ctx context.Context
 		def = ct.newDefaultSpec()
 	}
 	return def, revision, nil
+}
+
+func (ct *DefaultingConfigTracker[T]) ActiveStore() storage.ValueStoreT[T] {
+	return ct.activeStore
 }
 
 // Returns the active config if it has been set, otherwise returns a "not found" error.
@@ -266,56 +278,28 @@ func (ct *DefaultingConfigTracker[T]) ApplyConfig(ctx context.Context, newConfig
 	return ct.activeStore.Put(ctx, existing, storage.WithRevision(rev))
 }
 
-func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, req DryRunRequestType[T]) (*DryRunResults[T], error) {
+func (ct *DefaultingConfigTracker[T]) DryRun(ctx context.Context, req DryRunRequestType[T]) (DryRunResults[T], error) {
 	switch req.GetTarget() {
 	case Target_ActiveConfiguration:
 		switch req.GetAction() {
 		case Action_Set:
-			res, err := ct.DryRunApplyConfig(ctx, req.GetSpec())
-			if err != nil {
-				return nil, err
-			}
-			return &DryRunResults[T]{
-				Current:  res.Current,
-				Modified: res.Modified,
-			}, nil
+			return ct.DryRunApplyConfig(ctx, req.GetSpec())
 		case Action_Reset:
-			res, err := ct.DryRunResetConfig(ctx, req.GetMask(), req.GetPatch(), req.GetRevision())
-			if err != nil {
-				return nil, err
-			}
-			return &DryRunResults[T]{
-				Current:  res.Current,
-				Modified: res.Modified,
-			}, nil
+			return ct.DryRunResetConfig(ctx, req.GetMask(), req.GetPatch(), req.GetRevision())
 		default:
-			return nil, fmt.Errorf("invalid action: %s", req.GetAction())
+			return DryRunResults[T]{}, fmt.Errorf("invalid action: %s", req.GetAction())
 		}
 	case Target_DefaultConfiguration:
 		switch req.GetAction() {
 		case Action_Set:
-			res, err := ct.DryRunSetDefaultConfig(ctx, req.GetSpec())
-			if err != nil {
-				return nil, err
-			}
-			return &DryRunResults[T]{
-				Current:  res.Current,
-				Modified: res.Modified,
-			}, nil
+			return ct.DryRunSetDefaultConfig(ctx, req.GetSpec())
 		case Action_Reset:
-			res, err := ct.DryRunResetDefaultConfig(ctx, req.GetRevision())
-			if err != nil {
-				return nil, err
-			}
-			return &DryRunResults[T]{
-				Current:  res.Current,
-				Modified: res.Modified,
-			}, nil
+			return ct.DryRunResetDefaultConfig(ctx, req.GetRevision())
 		default:
-			return nil, fmt.Errorf("invalid action: %s", req.GetAction())
+			return DryRunResults[T]{}, fmt.Errorf("invalid action: %s", req.GetAction())
 		}
 	default:
-		return nil, fmt.Errorf("invalid target: %s", req.GetTarget())
+		return DryRunResults[T]{}, fmt.Errorf("invalid target: %s", req.GetTarget())
 	}
 }
 
@@ -337,6 +321,18 @@ func (ct *DefaultingConfigTracker[T]) History(ctx context.Context, target Target
 		rev.Value().RedactSecrets()
 	}
 	return revisions, nil
+}
+
+func (ct *DefaultingConfigTracker[T]) runValidation(conf T) (*protovalidate.ValidationError, error) {
+	err := ct.validator.Validate(conf)
+	var valErr *protovalidate.ValidationError
+	if err != nil {
+		if !errors.As(err, &valErr) {
+			// invalid validation rules, etc.
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+	}
+	return valErr, nil
 }
 
 func (ct *DefaultingConfigTracker[T]) DryRunApplyConfig(ctx context.Context, newConfig T) (DryRunResults[T], error) {
@@ -362,13 +358,19 @@ func (ct *DefaultingConfigTracker[T]) DryRunApplyConfig(ctx context.Context, new
 	ct.redact(current)
 	ct.redact(modified)
 
-	// Unset the revision for the modified config. Revisions are not stored
+	// Preserve the revision for the modified config. Revisions are not stored
 	// in the actual object inside the kv store, so they should not be included
 	// in the diff.
-	UnsetRevision(modified)
+	CopyRevision(modified, current)
+
+	valErr, err := ct.runValidation(modified)
+	if err != nil {
+		return DryRunResults[T]{}, err
+	}
 	return DryRunResults[T]{
-		Current:  current,
-		Modified: modified,
+		Current:          current,
+		Modified:         modified,
+		ValidationErrors: valErr,
 	}, nil
 }
 
@@ -390,9 +392,18 @@ func (ct *DefaultingConfigTracker[T]) DryRunSetDefaultConfig(ctx context.Context
 	ct.redact(current)
 	ct.redact(newDefault)
 
+	SetRevision(current, rev)
+	CopyRevision(newDefault, current)
+
+	valErr, err := ct.runValidation(newDefault)
+	if err != nil {
+		return DryRunResults[T]{}, err
+	}
+
 	return DryRunResults[T]{
-		Current:  current,
-		Modified: newDefault,
+		Current:          current,
+		Modified:         newDefault,
+		ValidationErrors: valErr,
 	}, nil
 }
 
@@ -411,9 +422,15 @@ func (ct *DefaultingConfigTracker[T]) DryRunResetDefaultConfig(ctx context.Conte
 
 	ct.redact(current)
 	ct.redact(newDefault)
+
+	valErr, err := ct.runValidation(newDefault)
+	if err != nil {
+		return DryRunResults[T]{}, err
+	}
 	return DryRunResults[T]{
-		Current:  current,
-		Modified: newDefault,
+		Current:          current,
+		Modified:         newDefault,
+		ValidationErrors: valErr,
 	}, nil
 }
 
@@ -431,9 +448,15 @@ func (ct *DefaultingConfigTracker[T]) DryRunResetConfig(ctx context.Context, mas
 	if mask == nil {
 		ct.redact(activeConfig)
 		ct.redact(defaultConfig)
+
+		valErr, err := ct.runValidation(defaultConfig)
+		if err != nil {
+			return DryRunResults[T]{}, err
+		}
 		return DryRunResults[T]{
-			Current:  activeConfig,
-			Modified: defaultConfig,
+			Current:          activeConfig,
+			Modified:         defaultConfig,
+			ValidationErrors: valErr,
 		}, nil
 	}
 
@@ -460,8 +483,75 @@ func (ct *DefaultingConfigTracker[T]) DryRunResetConfig(ctx context.Context, mas
 
 	ct.redact(originalCurrent)
 	ct.redact(defaultConfig)
+
+	valErr, err := ct.runValidation(defaultConfig)
+	if err != nil {
+		return DryRunResults[T]{}, err
+	}
 	return DryRunResults[T]{
-		Current:  originalCurrent,
-		Modified: defaultConfig,
+		Current:          originalCurrent,
+		Modified:         defaultConfig,
+		ValidationErrors: valErr,
 	}, nil
+}
+
+type contextKeyedValueStore[T ConfigType[T]] struct {
+	base storage.KeyValueStoreT[T]
+}
+
+type contextKeyedValueStore_keyType struct{}
+
+var contextKeyedValueStore_key contextKeyedValueStore_keyType
+var corev1ReferenceType = (&corev1.Reference{}).ProtoReflect().Descriptor()
+var corev1IdField = corev1ReferenceType.Fields().ByName("id")
+
+func contextWithKey(ctx context.Context, ck ContextKeyable) context.Context {
+	field := ck.ContextKey()
+	switch field.Kind() {
+	case protoreflect.MessageKind:
+		if field.Message() == corev1ReferenceType {
+			key := ck.ProtoReflect().Get(field).Message().Get(corev1IdField).String()
+			return context.WithValue(ctx, contextKeyedValueStore_key, key)
+		}
+	case protoreflect.StringKind:
+		key := ck.ProtoReflect().Get(field).String()
+		return context.WithValue(ctx, contextKeyedValueStore_key, key)
+	}
+	panic(fmt.Errorf("invalid context key type: %s", field.Message().FullName()))
+}
+
+func keyFromContext(ctx context.Context) string {
+	return ctx.Value(contextKeyedValueStore_key).(string)
+}
+
+func (s *contextKeyedValueStore[T]) Put(ctx context.Context, value T, opts ...storage.PutOpt) error {
+	return s.base.Put(ctx, keyFromContext(ctx), value, opts...)
+}
+
+func (s *contextKeyedValueStore[T]) Get(ctx context.Context, opts ...storage.GetOpt) (T, error) {
+	return s.base.Get(ctx, keyFromContext(ctx), opts...)
+}
+
+func (s *contextKeyedValueStore[T]) Watch(ctx context.Context, opts ...storage.WatchOpt) (<-chan storage.WatchEvent[storage.KeyRevision[T]], error) {
+	return s.base.Watch(ctx, keyFromContext(ctx), opts...)
+}
+
+func (s *contextKeyedValueStore[T]) Delete(ctx context.Context, opts ...storage.DeleteOpt) error {
+	return s.base.Delete(ctx, keyFromContext(ctx), opts...)
+}
+
+func (s *contextKeyedValueStore[T]) History(ctx context.Context, opts ...storage.HistoryOpt) ([]storage.KeyRevision[T], error) {
+	return s.base.History(ctx, keyFromContext(ctx), opts...)
+}
+
+// A config tracker that uses a single default store and many active stores,
+// each with a unique key.
+func NewDefaultingActiveKeyedConfigTracker[T ConfigType[T]](
+	defaultStore storage.ValueStoreT[T],
+	activeStore storage.KeyValueStoreT[T],
+	loadDefaultsFunc DefaultLoaderFunc[T],
+) *DefaultingConfigTracker[T] {
+	return NewDefaultingConfigTracker[T](defaultStore, &contextKeyedValueStore[T]{
+		base: activeStore,
+	}, loadDefaultsFunc)
 }

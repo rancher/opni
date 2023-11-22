@@ -5,11 +5,13 @@ package ext;
 import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "github.com/rancher/opni/pkg/plugins/driverutil/types.proto";
+import "github.com/rancher/opni/pkg/validation/validate.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
 
-option go_package = "github.com/rancher/opni/pkg/test/testdata/plugins/ext";
+option go_package      = "github.com/rancher/opni/pkg/test/testdata/plugins/ext";
 option (cli.generator) = {
   generate:                        true
   generate_flags_for_all_messages: true
@@ -61,7 +63,7 @@ service Ext {
   }
   rpc Set(SetRequest) returns (SetRequest) {
     option (google.api.http) = {
-      put: "/set/{node.id}"
+      put:  "/set/{node.id}"
       body: "*"
 
       additional_bindings {
@@ -73,6 +75,50 @@ service Ext {
   rpc ServerStream(FooRequest) returns (stream FooResponse);
   rpc ClientStream(stream FooRequest) returns (FooResponse);
   rpc BidirectionalStream(stream FooRequest) returns (stream FooResponse);
+}
+
+service Config {
+  rpc GetDefaultConfiguration(SampleGetRequest) returns (SampleConfiguration) {
+    option (cli.command) = {
+      use: "get-default"
+    };
+  }
+  rpc SetDefaultConfiguration(SampleSetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use:         "set-default"
+      granularity: EditMessage
+    };
+  }
+  rpc GetConfiguration(SampleGetRequest) returns (SampleConfiguration) {
+    option (cli.command) = {
+      use: "get"
+    };
+  }
+  rpc SetConfiguration(SampleSetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use:         "set"
+      granularity: EditMessage
+    };
+  }
+  rpc ResetDefaultConfiguration(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "reset-default"
+    };
+  }
+  rpc ResetConfiguration(SampleResetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use:         "reset"
+      granularity: EditMessage
+    };
+  }
+  rpc DryRun(SampleDryRunRequest) returns (SampleDryRunResponse) {
+    option (cli.command).skip = true;
+  }
+  rpc ConfigurationHistory(SampleHistoryRequest) returns (SampleConfigurationHistoryResponse) {
+    option (cli.command) = {
+      use: "history"
+    };
+  }
 }
 
 message Reference {
@@ -131,37 +177,69 @@ message BazRequest {
 }
 
 message SampleConfiguration {
-  optional bool       enabled       = 1;
-  core.Revision       revision      = 2 [(cli.flag).skip = true];
+  optional bool       enabled       = 1 [(cli.flag).skip = true];
+  core.Revision       revision      = 2;
   optional string     stringField   = 3;
   optional string     secretField   = 4 [(cli.flag).secret = true];
   map<string, string> mapField      = 5;
   repeated string     repeatedField = 6;
-  SampleMessage       messageField  = 7;
+  optional SampleEnum enumField     = 7;
+  SampleMessage       messageField  = 8;
+}
+
+enum SampleEnum {
+  Unknown = 0;
+  Foo     = 1;
+  Bar     = 2;
+}
+
+message SampleGetRequest {
+  optional string key = 10; // for context key tests
+
+  core.Revision revision = 1 [(cli.flag_set).no_prefix = true];
+}
+
+message SampleSetRequest {
+  optional string     key  = 10; // for context key tests
+  SampleConfiguration spec = 2;
 }
 
 message SampleDryRunRequest {
+  optional string key = 10; // for context key tests
+
   driverutil.Target target = 1;
   driverutil.Action action = 2;
 
   SampleConfiguration spec = 3; // Set
 
-  google.protobuf.FieldMask mask  = 4 [(cli.flag).skip = true]; // Reset
-  SampleConfiguration       patch = 5 [(cli.flag).skip = true]; // Reset
+  core.Revision             revision = 4; // Reset
+  google.protobuf.FieldMask mask     = 5 [(cli.flag).skip = true]; // Reset
+  SampleConfiguration       patch    = 6 [(cli.flag).skip = true]; // Reset
 }
 
 message SampleDryRunResponse {
-  SampleConfiguration                 current          = 1;
-  SampleConfiguration                 modified         = 2;
-  repeated driverutil.ValidationError validationErrors = 3;
+  SampleConfiguration     current          = 1 [(cli.flag).skip = true];
+  SampleConfiguration     modified         = 2 [(cli.flag).skip = true];
+  buf.validate.Violations validationErrors = 3 [(cli.flag).skip = true];
 }
+
+message SampleHistoryRequest {
+  optional string   key           = 10; // for context key tests
+  driverutil.Target target        = 1;
+  core.Revision     revision      = 2  [(cli.flag_set).no_prefix = true];
+  bool              includeValues = 3  [(cli.flag).default = "true"];
+}
+
 message SampleConfigurationHistoryResponse {
   repeated SampleConfiguration entries = 1;
 }
 
 message SampleResetRequest {
-  google.protobuf.FieldMask mask  = 1 [(cli.flag).skip = true];
-  SampleConfiguration       patch = 2 [(cli.flag).skip = true];
+  optional string key = 10; // for context key tests
+
+  core.Revision             revision = 1 [(cli.flag_set).no_prefix = true];
+  google.protobuf.FieldMask mask     = 2 [(cli.flag).skip = true];
+  SampleConfiguration       patch    = 3 [(cli.flag).skip = true];
 }
 
 message SampleMessage {

@@ -55,7 +55,7 @@ type MetricsNode struct {
 	targetRunner   TargetRunner
 
 	configMu sync.RWMutex
-	config   *node.MetricsCapabilityConfig
+	config   *node.MetricsCapabilityStatus
 
 	listeners  []drivers.MetricsNodeConfigurator
 	conditions health.ConditionTracker
@@ -69,6 +69,7 @@ func NewMetricsNode(ct health.ConditionTracker, lg *slog.Logger) *MetricsNode {
 		logger:       lg,
 		conditions:   ct,
 		targetRunner: NewTargetRunner(lg),
+		config:       &node.MetricsCapabilityStatus{},
 	}
 	mn.conditions.AddListener(mn.sendHealthUpdate)
 	mn.targetRunner.SetRemoteReaderClient(NewRemoteReader(&http.Client{}))
@@ -137,14 +138,6 @@ func (m *MetricsNode) AddNodeDriver(driver drivers.MetricsNodeDriver) {
 	defer m.nodeDriverMu.Unlock()
 
 	m.nodeDrivers = append(m.nodeDrivers, driver)
-}
-
-func (m *MetricsNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.Details, error) {
-	return &capabilityv1.Details{
-		Name:    wellknown.CapabilityMetrics,
-		Source:  "plugin_metrics",
-		Drivers: drivers.NodeDrivers.List(),
-	}, nil
 }
 
 // Implements capabilityv1.NodeServer
@@ -296,7 +289,7 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 }
 
 // requires identityClientMu to be held (either R or W)
-func (m *MetricsNode) updateConfig(ctx context.Context, config *node.MetricsCapabilityConfig) error {
+func (m *MetricsNode) updateConfig(ctx context.Context, config *node.MetricsCapabilityStatus) error {
 	id, err := m.identityClient.Whoami(ctx, &emptypb.Empty{})
 	if err != nil {
 		m.logger.With(logger.Err(err)).Error("error fetching node id", err)
@@ -308,7 +301,7 @@ func (m *MetricsNode) updateConfig(ctx context.Context, config *node.MetricsCapa
 		m.configMu.Lock()
 	}
 	defer m.configMu.Unlock()
-	if !config.Enabled && len(config.Conditions) > 0 {
+	if config.GetEnabled() && len(config.Conditions) > 0 {
 		m.conditions.Set(health.CondBackend, health.StatusDisabled, strings.Join(config.Conditions, ", "))
 	} else {
 		m.conditions.Clear(health.CondBackend)

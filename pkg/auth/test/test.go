@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type AuthStrategy string
@@ -44,11 +45,11 @@ func (m *TestAuthMiddleware) StreamServerInterceptor() grpc.StreamServerIntercep
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		md, ok := metadata.FromIncomingContext(ss.Context())
 		if !ok {
-			return grpc.Errorf(codes.InvalidArgument, "no metadata in context")
+			return status.Errorf(codes.InvalidArgument, "no metadata in context")
 		}
 		authHeader := md.Get(auth.AuthorizationKey)
 		if len(authHeader) > 0 && authHeader[0] == "" {
-			return grpc.Errorf(codes.InvalidArgument, "authorization header required")
+			return status.Errorf(codes.InvalidArgument, "authorization header required")
 		}
 		userId := authHeader[0]
 		ss = &streams.ServerStreamWithContext{

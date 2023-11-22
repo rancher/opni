@@ -82,17 +82,16 @@ func (c *monitorManagementClient) DeleteMonitor(ctx context.Context, in *v1.Refe
 }
 
 // MonitorManagementServer is the server API for MonitorManagement service.
-// All implementations must embed UnimplementedMonitorManagementServer
+// All implementations should embed UnimplementedMonitorManagementServer
 // for forward compatibility
 type MonitorManagementServer interface {
 	CreateMonitor(context.Context, *Monitor) (*emptypb.Empty, error)
 	GetMonitor(context.Context, *v1.Reference) (*Monitor, error)
 	UpdateMonitor(context.Context, *Monitor) (*emptypb.Empty, error)
 	DeleteMonitor(context.Context, *v1.Reference) (*emptypb.Empty, error)
-	mustEmbedUnimplementedMonitorManagementServer()
 }
 
-// UnimplementedMonitorManagementServer must be embedded to have forward compatible implementations.
+// UnimplementedMonitorManagementServer should be embedded to have forward compatible implementations.
 type UnimplementedMonitorManagementServer struct {
 }
 
@@ -108,7 +107,6 @@ func (UnimplementedMonitorManagementServer) UpdateMonitor(context.Context, *Moni
 func (UnimplementedMonitorManagementServer) DeleteMonitor(context.Context, *v1.Reference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteMonitor not implemented")
 }
-func (UnimplementedMonitorManagementServer) mustEmbedUnimplementedMonitorManagementServer() {}
 
 // UnsafeMonitorManagementServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to MonitorManagementServer will
@@ -294,7 +292,7 @@ func (c *notificationManagementClient) DeleteDestination(ctx context.Context, in
 }
 
 // NotificationManagementServer is the server API for NotificationManagement service.
-// All implementations must embed UnimplementedNotificationManagementServer
+// All implementations should embed UnimplementedNotificationManagementServer
 // for forward compatibility
 type NotificationManagementServer interface {
 	CreateNotification(context.Context, *Channel) (*emptypb.Empty, error)
@@ -302,10 +300,9 @@ type NotificationManagementServer interface {
 	ListNotifications(context.Context, *emptypb.Empty) (*ChannelList, error)
 	UpdateNotification(context.Context, *Channel) (*emptypb.Empty, error)
 	DeleteDestination(context.Context, *v1.Reference) (*emptypb.Empty, error)
-	mustEmbedUnimplementedNotificationManagementServer()
 }
 
-// UnimplementedNotificationManagementServer must be embedded to have forward compatible implementations.
+// UnimplementedNotificationManagementServer should be embedded to have forward compatible implementations.
 type UnimplementedNotificationManagementServer struct {
 }
 
@@ -323,8 +320,6 @@ func (UnimplementedNotificationManagementServer) UpdateNotification(context.Cont
 }
 func (UnimplementedNotificationManagementServer) DeleteDestination(context.Context, *v1.Reference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteDestination not implemented")
-}
-func (UnimplementedNotificationManagementServer) mustEmbedUnimplementedNotificationManagementServer() {
 }
 
 // UnsafeNotificationManagementServer may be embedded to opt out of forward compatibility for this service.
@@ -500,15 +495,14 @@ func (c *alertManagementClient) AcknowledgeAlert(ctx context.Context, in *Acknow
 }
 
 // AlertManagementServer is the server API for AlertManagement service.
-// All implementations must embed UnimplementedAlertManagementServer
+// All implementations should embed UnimplementedAlertManagementServer
 // for forward compatibility
 type AlertManagementServer interface {
 	ListAlerts(context.Context, *emptypb.Empty) (*ListAlertsResponse, error)
 	AcknowledgeAlert(context.Context, *AcknowledgeAlertRequest) (*emptypb.Empty, error)
-	mustEmbedUnimplementedAlertManagementServer()
 }
 
-// UnimplementedAlertManagementServer must be embedded to have forward compatible implementations.
+// UnimplementedAlertManagementServer should be embedded to have forward compatible implementations.
 type UnimplementedAlertManagementServer struct {
 }
 
@@ -518,7 +512,6 @@ func (UnimplementedAlertManagementServer) ListAlerts(context.Context, *emptypb.E
 func (UnimplementedAlertManagementServer) AcknowledgeAlert(context.Context, *AcknowledgeAlertRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AcknowledgeAlert not implemented")
 }
-func (UnimplementedAlertManagementServer) mustEmbedUnimplementedAlertManagementServer() {}
 
 // UnsafeAlertManagementServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to AlertManagementServer will

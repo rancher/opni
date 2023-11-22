@@ -25,6 +25,7 @@ import (
 	mock_ext "github.com/rancher/opni/pkg/test/mock/ext"
 	"github.com/rancher/opni/pkg/test/testdata/plugins/ext"
 	"github.com/rancher/opni/pkg/test/testutil"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 )
 
@@ -78,12 +79,9 @@ var _ = Describe("Stream API Extensions Plugin", Ordered, Label("unit"), func() 
 			}
 			pluginImpl.EXPECT().
 				StreamServers().
-				DoAndReturn(func() []stream.Server {
-					return []stream.Server{
-						{
-							Desc: &ext.Ext2_ServiceDesc,
-							Impl: ext2MockA,
-						},
+				DoAndReturn(func() []util.ServicePackInterface {
+					return []util.ServicePackInterface{
+						util.PackService(&ext.Ext2_ServiceDesc, &ext2MockA),
 					}
 				}).
 				Times(1)

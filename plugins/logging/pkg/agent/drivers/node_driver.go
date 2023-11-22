@@ -11,7 +11,7 @@ type LoggingNodeDriver interface {
 	ConfigureNode(*node.LoggingCapabilityConfig)
 }
 
-var NodeDrivers = driverutil.NewDriverCache[LoggingNodeDriver]()
+var NodeDrivers = driverutil.NewCache[LoggingNodeDriver]()
 
 func NewListenerFunc(ctx context.Context, fn func(cfg *node.LoggingCapabilityConfig)) chan<- *node.LoggingCapabilityConfig {
 	listenerC := make(chan *node.LoggingCapabilityConfig, 1)

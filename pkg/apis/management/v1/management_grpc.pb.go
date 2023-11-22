@@ -22,41 +22,132 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Management_CreateBootstrapToken_FullMethodName      = "/management.Management/CreateBootstrapToken"
-	Management_RevokeBootstrapToken_FullMethodName      = "/management.Management/RevokeBootstrapToken"
-	Management_ListBootstrapTokens_FullMethodName       = "/management.Management/ListBootstrapTokens"
-	Management_GetBootstrapToken_FullMethodName         = "/management.Management/GetBootstrapToken"
-	Management_ListClusters_FullMethodName              = "/management.Management/ListClusters"
-	Management_WatchClusters_FullMethodName             = "/management.Management/WatchClusters"
-	Management_DeleteCluster_FullMethodName             = "/management.Management/DeleteCluster"
-	Management_CertsInfo_FullMethodName                 = "/management.Management/CertsInfo"
-	Management_GetCluster_FullMethodName                = "/management.Management/GetCluster"
-	Management_GetClusterHealthStatus_FullMethodName    = "/management.Management/GetClusterHealthStatus"
-	Management_WatchClusterHealthStatus_FullMethodName  = "/management.Management/WatchClusterHealthStatus"
-	Management_EditCluster_FullMethodName               = "/management.Management/EditCluster"
-	Management_CreateRole_FullMethodName                = "/management.Management/CreateRole"
-	Management_UpdateRole_FullMethodName                = "/management.Management/UpdateRole"
-	Management_DeleteRole_FullMethodName                = "/management.Management/DeleteRole"
-	Management_GetRole_FullMethodName                   = "/management.Management/GetRole"
-	Management_CreateRoleBinding_FullMethodName         = "/management.Management/CreateRoleBinding"
-	Management_UpdateRoleBinding_FullMethodName         = "/management.Management/UpdateRoleBinding"
-	Management_DeleteRoleBinding_FullMethodName         = "/management.Management/DeleteRoleBinding"
-	Management_GetRoleBinding_FullMethodName            = "/management.Management/GetRoleBinding"
-	Management_ListRoles_FullMethodName                 = "/management.Management/ListRoles"
-	Management_ListRoleBindings_FullMethodName          = "/management.Management/ListRoleBindings"
-	Management_SubjectAccess_FullMethodName             = "/management.Management/SubjectAccess"
-	Management_APIExtensions_FullMethodName             = "/management.Management/APIExtensions"
-	Management_GetConfig_FullMethodName                 = "/management.Management/GetConfig"
-	Management_UpdateConfig_FullMethodName              = "/management.Management/UpdateConfig"
-	Management_ListCapabilities_FullMethodName          = "/management.Management/ListCapabilities"
-	Management_CapabilityInstaller_FullMethodName       = "/management.Management/CapabilityInstaller"
-	Management_InstallCapability_FullMethodName         = "/management.Management/InstallCapability"
-	Management_UninstallCapability_FullMethodName       = "/management.Management/UninstallCapability"
-	Management_CapabilityStatus_FullMethodName          = "/management.Management/CapabilityStatus"
-	Management_CapabilityUninstallStatus_FullMethodName = "/management.Management/CapabilityUninstallStatus"
-	Management_CancelCapabilityUninstall_FullMethodName = "/management.Management/CancelCapabilityUninstall"
-	Management_GetDashboardSettings_FullMethodName      = "/management.Management/GetDashboardSettings"
-	Management_UpdateDashboardSettings_FullMethodName   = "/management.Management/UpdateDashboardSettings"
+	LocalPassword_CreateLocalPassword_FullMethodName = "/management.LocalPassword/CreateLocalPassword"
+)
+
+// LocalPasswordClient is the client API for LocalPassword service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type LocalPasswordClient interface {
+	CreateLocalPassword(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*LocalPasswordResponse, error)
+}
+
+type localPasswordClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewLocalPasswordClient(cc grpc.ClientConnInterface) LocalPasswordClient {
+	return &localPasswordClient{cc}
+}
+
+func (c *localPasswordClient) CreateLocalPassword(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*LocalPasswordResponse, error) {
+	out := new(LocalPasswordResponse)
+	err := c.cc.Invoke(ctx, LocalPassword_CreateLocalPassword_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// LocalPasswordServer is the server API for LocalPassword service.
+// All implementations should embed UnimplementedLocalPasswordServer
+// for forward compatibility
+type LocalPasswordServer interface {
+	CreateLocalPassword(context.Context, *emptypb.Empty) (*LocalPasswordResponse, error)
+}
+
+// UnimplementedLocalPasswordServer should be embedded to have forward compatible implementations.
+type UnimplementedLocalPasswordServer struct {
+}
+
+func (UnimplementedLocalPasswordServer) CreateLocalPassword(context.Context, *emptypb.Empty) (*LocalPasswordResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateLocalPassword not implemented")
+}
+
+// UnsafeLocalPasswordServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to LocalPasswordServer will
+// result in compilation errors.
+type UnsafeLocalPasswordServer interface {
+	mustEmbedUnimplementedLocalPasswordServer()
+}
+
+func RegisterLocalPasswordServer(s grpc.ServiceRegistrar, srv LocalPasswordServer) {
+	s.RegisterService(&LocalPassword_ServiceDesc, srv)
+}
+
+func _LocalPassword_CreateLocalPassword_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LocalPasswordServer).CreateLocalPassword(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LocalPassword_CreateLocalPassword_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LocalPasswordServer).CreateLocalPassword(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// LocalPassword_ServiceDesc is the grpc.ServiceDesc for LocalPassword service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var LocalPassword_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "management.LocalPassword",
+	HandlerType: (*LocalPasswordServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateLocalPassword",
+			Handler:    _LocalPassword_CreateLocalPassword_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.com/rancher/opni/pkg/apis/management/v1/management.proto",
+}
+
+const (
+	Management_CreateBootstrapToken_FullMethodName           = "/management.Management/CreateBootstrapToken"
+	Management_RevokeBootstrapToken_FullMethodName           = "/management.Management/RevokeBootstrapToken"
+	Management_ListBootstrapTokens_FullMethodName            = "/management.Management/ListBootstrapTokens"
+	Management_GetBootstrapToken_FullMethodName              = "/management.Management/GetBootstrapToken"
+	Management_ListClusters_FullMethodName                   = "/management.Management/ListClusters"
+	Management_WatchClusters_FullMethodName                  = "/management.Management/WatchClusters"
+	Management_DeleteCluster_FullMethodName                  = "/management.Management/DeleteCluster"
+	Management_CertsInfo_FullMethodName                      = "/management.Management/CertsInfo"
+	Management_GetCluster_FullMethodName                     = "/management.Management/GetCluster"
+	Management_GetClusterHealthStatus_FullMethodName         = "/management.Management/GetClusterHealthStatus"
+	Management_WatchClusterHealthStatus_FullMethodName       = "/management.Management/WatchClusterHealthStatus"
+	Management_EditCluster_FullMethodName                    = "/management.Management/EditCluster"
+	Management_ListRBACBackends_FullMethodName               = "/management.Management/ListRBACBackends"
+	Management_GetAvailableBackendPermissions_FullMethodName = "/management.Management/GetAvailableBackendPermissions"
+	Management_CreateBackendRole_FullMethodName              = "/management.Management/CreateBackendRole"
+	Management_UpdateBackendRole_FullMethodName              = "/management.Management/UpdateBackendRole"
+	Management_DeleteBackendRole_FullMethodName              = "/management.Management/DeleteBackendRole"
+	Management_GetBackendRole_FullMethodName                 = "/management.Management/GetBackendRole"
+	Management_ListBackendRoles_FullMethodName               = "/management.Management/ListBackendRoles"
+	Management_AddAdminRoleBinding_FullMethodName            = "/management.Management/AddAdminRoleBinding"
+	Management_RemoveAdminRoleBinding_FullMethodName         = "/management.Management/RemoveAdminRoleBinding"
+	Management_ListAdminRoleBinding_FullMethodName           = "/management.Management/ListAdminRoleBinding"
+	Management_CreateRoleBinding_FullMethodName              = "/management.Management/CreateRoleBinding"
+	Management_UpdateRoleBinding_FullMethodName              = "/management.Management/UpdateRoleBinding"
+	Management_DeleteRoleBinding_FullMethodName              = "/management.Management/DeleteRoleBinding"
+	Management_GetRoleBinding_FullMethodName                 = "/management.Management/GetRoleBinding"
+	Management_ListRoleBindings_FullMethodName               = "/management.Management/ListRoleBindings"
+	Management_APIExtensions_FullMethodName                  = "/management.Management/APIExtensions"
+	Management_GetConfig_FullMethodName                      = "/management.Management/GetConfig"
+	Management_UpdateConfig_FullMethodName                   = "/management.Management/UpdateConfig"
+	Management_ListCapabilities_FullMethodName               = "/management.Management/ListCapabilities"
+	Management_InstallCapability_FullMethodName              = "/management.Management/InstallCapability"
+	Management_UninstallCapability_FullMethodName            = "/management.Management/UninstallCapability"
+	Management_CapabilityStatus_FullMethodName               = "/management.Management/CapabilityStatus"
+	Management_CapabilityUninstallStatus_FullMethodName      = "/management.Management/CapabilityUninstallStatus"
+	Management_CancelCapabilityUninstall_FullMethodName      = "/management.Management/CancelCapabilityUninstall"
+	Management_GetDashboardSettings_FullMethodName           = "/management.Management/GetDashboardSettings"
+	Management_UpdateDashboardSettings_FullMethodName        = "/management.Management/UpdateDashboardSettings"
 )
 
 // ManagementClient is the client API for Management service.
@@ -75,29 +166,30 @@ type ManagementClient interface {
 	GetClusterHealthStatus(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.HealthStatus, error)
 	WatchClusterHealthStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Management_WatchClusterHealthStatusClient, error)
 	EditCluster(ctx context.Context, in *EditClusterRequest, opts ...grpc.CallOption) (*v1.Cluster, error)
-	CreateRole(ctx context.Context, in *v1.Role, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	UpdateRole(ctx context.Context, in *v1.Role, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	DeleteRole(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	GetRole(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.Role, error)
+	ListRBACBackends(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.CapabilityTypeList, error)
+	GetAvailableBackendPermissions(ctx context.Context, in *v1.CapabilityType, opts ...grpc.CallOption) (*v1.AvailablePermissions, error)
+	CreateBackendRole(ctx context.Context, in *v1.BackendRole, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	UpdateBackendRole(ctx context.Context, in *v1.BackendRole, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DeleteBackendRole(ctx context.Context, in *v1.BackendRoleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetBackendRole(ctx context.Context, in *v1.BackendRoleRequest, opts ...grpc.CallOption) (*v1.Role, error)
+	ListBackendRoles(ctx context.Context, in *v1.CapabilityType, opts ...grpc.CallOption) (*v1.RoleList, error)
+	AddAdminRoleBinding(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	RemoveAdminRoleBinding(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListAdminRoleBinding(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.ReferenceList, error)
 	CreateRoleBinding(ctx context.Context, in *v1.RoleBinding, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	UpdateRoleBinding(ctx context.Context, in *v1.RoleBinding, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteRoleBinding(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetRoleBinding(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.RoleBinding, error)
-	ListRoles(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.RoleList, error)
 	ListRoleBindings(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.RoleBindingList, error)
-	SubjectAccess(ctx context.Context, in *v1.SubjectAccessRequest, opts ...grpc.CallOption) (*v1.ReferenceList, error)
 	APIExtensions(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*APIExtensionInfoList, error)
 	GetConfig(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GatewayConfig, error)
 	UpdateConfig(ctx context.Context, in *UpdateConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListCapabilities(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityList, error)
-	// Deprecated: Do not use.
-	// Deprecated: For agent v2, use InstallCapability instead.
-	CapabilityInstaller(ctx context.Context, in *CapabilityInstallerRequest, opts ...grpc.CallOption) (*CapabilityInstallerResponse, error)
-	InstallCapability(ctx context.Context, in *CapabilityInstallRequest, opts ...grpc.CallOption) (*v11.InstallResponse, error)
-	UninstallCapability(ctx context.Context, in *CapabilityUninstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	CapabilityStatus(ctx context.Context, in *CapabilityStatusRequest, opts ...grpc.CallOption) (*v11.NodeCapabilityStatus, error)
-	CapabilityUninstallStatus(ctx context.Context, in *CapabilityStatusRequest, opts ...grpc.CallOption) (*v1.TaskStatus, error)
-	CancelCapabilityUninstall(ctx context.Context, in *CapabilityUninstallCancelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	InstallCapability(ctx context.Context, in *v11.InstallRequest, opts ...grpc.CallOption) (*v11.InstallResponse, error)
+	UninstallCapability(ctx context.Context, in *v11.UninstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CapabilityStatus(ctx context.Context, in *v11.StatusRequest, opts ...grpc.CallOption) (*v11.NodeCapabilityStatus, error)
+	CapabilityUninstallStatus(ctx context.Context, in *v11.UninstallStatusRequest, opts ...grpc.CallOption) (*v1.TaskStatus, error)
+	CancelCapabilityUninstall(ctx context.Context, in *v11.CancelUninstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetDashboardSettings(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DashboardSettings, error)
 	UpdateDashboardSettings(ctx context.Context, in *DashboardSettings, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
@@ -264,36 +356,90 @@ func (c *managementClient) EditCluster(ctx context.Context, in *EditClusterReque
 	return out, nil
 }
 
-func (c *managementClient) CreateRole(ctx context.Context, in *v1.Role, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, Management_CreateRole_FullMethodName, in, out, opts...)
+func (c *managementClient) ListRBACBackends(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.CapabilityTypeList, error) {
+	out := new(v1.CapabilityTypeList)
+	err := c.cc.Invoke(ctx, Management_ListRBACBackends_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *managementClient) UpdateRole(ctx context.Context, in *v1.Role, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, Management_UpdateRole_FullMethodName, in, out, opts...)
+func (c *managementClient) GetAvailableBackendPermissions(ctx context.Context, in *v1.CapabilityType, opts ...grpc.CallOption) (*v1.AvailablePermissions, error) {
+	out := new(v1.AvailablePermissions)
+	err := c.cc.Invoke(ctx, Management_GetAvailableBackendPermissions_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *managementClient) DeleteRole(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *managementClient) CreateBackendRole(ctx context.Context, in *v1.BackendRole, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, Management_DeleteRole_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, Management_CreateBackendRole_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *managementClient) GetRole(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.Role, error) {
+func (c *managementClient) UpdateBackendRole(ctx context.Context, in *v1.BackendRole, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Management_UpdateBackendRole_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) DeleteBackendRole(ctx context.Context, in *v1.BackendRoleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Management_DeleteBackendRole_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) GetBackendRole(ctx context.Context, in *v1.BackendRoleRequest, opts ...grpc.CallOption) (*v1.Role, error) {
 	out := new(v1.Role)
-	err := c.cc.Invoke(ctx, Management_GetRole_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, Management_GetBackendRole_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) ListBackendRoles(ctx context.Context, in *v1.CapabilityType, opts ...grpc.CallOption) (*v1.RoleList, error) {
+	out := new(v1.RoleList)
+	err := c.cc.Invoke(ctx, Management_ListBackendRoles_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) AddAdminRoleBinding(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Management_AddAdminRoleBinding_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) RemoveAdminRoleBinding(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Management_RemoveAdminRoleBinding_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) ListAdminRoleBinding(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.ReferenceList, error) {
+	out := new(v1.ReferenceList)
+	err := c.cc.Invoke(ctx, Management_ListAdminRoleBinding_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -336,27 +482,9 @@ func (c *managementClient) GetRoleBinding(ctx context.Context, in *v1.Reference,
 	return out, nil
 }
 
-func (c *managementClient) ListRoles(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.RoleList, error) {
-	out := new(v1.RoleList)
-	err := c.cc.Invoke(ctx, Management_ListRoles_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *managementClient) ListRoleBindings(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.RoleBindingList, error) {
 	out := new(v1.RoleBindingList)
 	err := c.cc.Invoke(ctx, Management_ListRoleBindings_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *managementClient) SubjectAccess(ctx context.Context, in *v1.SubjectAccessRequest, opts ...grpc.CallOption) (*v1.ReferenceList, error) {
-	out := new(v1.ReferenceList)
-	err := c.cc.Invoke(ctx, Management_SubjectAccess_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -399,17 +527,7 @@ func (c *managementClient) ListCapabilities(ctx context.Context, in *emptypb.Emp
 	return out, nil
 }
 
-// Deprecated: Do not use.
-func (c *managementClient) CapabilityInstaller(ctx context.Context, in *CapabilityInstallerRequest, opts ...grpc.CallOption) (*CapabilityInstallerResponse, error) {
-	out := new(CapabilityInstallerResponse)
-	err := c.cc.Invoke(ctx, Management_CapabilityInstaller_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *managementClient) InstallCapability(ctx context.Context, in *CapabilityInstallRequest, opts ...grpc.CallOption) (*v11.InstallResponse, error) {
+func (c *managementClient) InstallCapability(ctx context.Context, in *v11.InstallRequest, opts ...grpc.CallOption) (*v11.InstallResponse, error) {
 	out := new(v11.InstallResponse)
 	err := c.cc.Invoke(ctx, Management_InstallCapability_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -418,7 +536,7 @@ func (c *managementClient) InstallCapability(ctx context.Context, in *Capability
 	return out, nil
 }
 
-func (c *managementClient) UninstallCapability(ctx context.Context, in *CapabilityUninstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *managementClient) UninstallCapability(ctx context.Context, in *v11.UninstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, Management_UninstallCapability_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -427,7 +545,7 @@ func (c *managementClient) UninstallCapability(ctx context.Context, in *Capabili
 	return out, nil
 }
 
-func (c *managementClient) CapabilityStatus(ctx context.Context, in *CapabilityStatusRequest, opts ...grpc.CallOption) (*v11.NodeCapabilityStatus, error) {
+func (c *managementClient) CapabilityStatus(ctx context.Context, in *v11.StatusRequest, opts ...grpc.CallOption) (*v11.NodeCapabilityStatus, error) {
 	out := new(v11.NodeCapabilityStatus)
 	err := c.cc.Invoke(ctx, Management_CapabilityStatus_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -436,7 +554,7 @@ func (c *managementClient) CapabilityStatus(ctx context.Context, in *CapabilityS
 	return out, nil
 }
 
-func (c *managementClient) CapabilityUninstallStatus(ctx context.Context, in *CapabilityStatusRequest, opts ...grpc.CallOption) (*v1.TaskStatus, error) {
+func (c *managementClient) CapabilityUninstallStatus(ctx context.Context, in *v11.UninstallStatusRequest, opts ...grpc.CallOption) (*v1.TaskStatus, error) {
 	out := new(v1.TaskStatus)
 	err := c.cc.Invoke(ctx, Management_CapabilityUninstallStatus_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -445,7 +563,7 @@ func (c *managementClient) CapabilityUninstallStatus(ctx context.Context, in *Ca
 	return out, nil
 }
 
-func (c *managementClient) CancelCapabilityUninstall(ctx context.Context, in *CapabilityUninstallCancelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *managementClient) CancelCapabilityUninstall(ctx context.Context, in *v11.CancelUninstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, Management_CancelCapabilityUninstall_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -473,7 +591,7 @@ func (c *managementClient) UpdateDashboardSettings(ctx context.Context, in *Dash
 }
 
 // ManagementServer is the server API for Management service.
-// All implementations must embed UnimplementedManagementServer
+// All implementations should embed UnimplementedManagementServer
 // for forward compatibility
 type ManagementServer interface {
 	CreateBootstrapToken(context.Context, *CreateBootstrapTokenRequest) (*v1.BootstrapToken, error)
@@ -488,35 +606,35 @@ type ManagementServer interface {
 	GetClusterHealthStatus(context.Context, *v1.Reference) (*v1.HealthStatus, error)
 	WatchClusterHealthStatus(*emptypb.Empty, Management_WatchClusterHealthStatusServer) error
 	EditCluster(context.Context, *EditClusterRequest) (*v1.Cluster, error)
-	CreateRole(context.Context, *v1.Role) (*emptypb.Empty, error)
-	UpdateRole(context.Context, *v1.Role) (*emptypb.Empty, error)
-	DeleteRole(context.Context, *v1.Reference) (*emptypb.Empty, error)
-	GetRole(context.Context, *v1.Reference) (*v1.Role, error)
+	ListRBACBackends(context.Context, *emptypb.Empty) (*v1.CapabilityTypeList, error)
+	GetAvailableBackendPermissions(context.Context, *v1.CapabilityType) (*v1.AvailablePermissions, error)
+	CreateBackendRole(context.Context, *v1.BackendRole) (*emptypb.Empty, error)
+	UpdateBackendRole(context.Context, *v1.BackendRole) (*emptypb.Empty, error)
+	DeleteBackendRole(context.Context, *v1.BackendRoleRequest) (*emptypb.Empty, error)
+	GetBackendRole(context.Context, *v1.BackendRoleRequest) (*v1.Role, error)
+	ListBackendRoles(context.Context, *v1.CapabilityType) (*v1.RoleList, error)
+	AddAdminRoleBinding(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	RemoveAdminRoleBinding(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	ListAdminRoleBinding(context.Context, *emptypb.Empty) (*v1.ReferenceList, error)
 	CreateRoleBinding(context.Context, *v1.RoleBinding) (*emptypb.Empty, error)
 	UpdateRoleBinding(context.Context, *v1.RoleBinding) (*emptypb.Empty, error)
 	DeleteRoleBinding(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	GetRoleBinding(context.Context, *v1.Reference) (*v1.RoleBinding, error)
-	ListRoles(context.Context, *emptypb.Empty) (*v1.RoleList, error)
 	ListRoleBindings(context.Context, *emptypb.Empty) (*v1.RoleBindingList, error)
-	SubjectAccess(context.Context, *v1.SubjectAccessRequest) (*v1.ReferenceList, error)
 	APIExtensions(context.Context, *emptypb.Empty) (*APIExtensionInfoList, error)
 	GetConfig(context.Context, *emptypb.Empty) (*GatewayConfig, error)
 	UpdateConfig(context.Context, *UpdateConfigRequest) (*emptypb.Empty, error)
 	ListCapabilities(context.Context, *emptypb.Empty) (*CapabilityList, error)
-	// Deprecated: Do not use.
-	// Deprecated: For agent v2, use InstallCapability instead.
-	CapabilityInstaller(context.Context, *CapabilityInstallerRequest) (*CapabilityInstallerResponse, error)
-	InstallCapability(context.Context, *CapabilityInstallRequest) (*v11.InstallResponse, error)
-	UninstallCapability(context.Context, *CapabilityUninstallRequest) (*emptypb.Empty, error)
-	CapabilityStatus(context.Context, *CapabilityStatusRequest) (*v11.NodeCapabilityStatus, error)
-	CapabilityUninstallStatus(context.Context, *CapabilityStatusRequest) (*v1.TaskStatus, error)
-	CancelCapabilityUninstall(context.Context, *CapabilityUninstallCancelRequest) (*emptypb.Empty, error)
+	InstallCapability(context.Context, *v11.InstallRequest) (*v11.InstallResponse, error)
+	UninstallCapability(context.Context, *v11.UninstallRequest) (*emptypb.Empty, error)
+	CapabilityStatus(context.Context, *v11.StatusRequest) (*v11.NodeCapabilityStatus, error)
+	CapabilityUninstallStatus(context.Context, *v11.UninstallStatusRequest) (*v1.TaskStatus, error)
+	CancelCapabilityUninstall(context.Context, *v11.CancelUninstallRequest) (*emptypb.Empty, error)
 	GetDashboardSettings(context.Context, *emptypb.Empty) (*DashboardSettings, error)
 	UpdateDashboardSettings(context.Context, *DashboardSettings) (*emptypb.Empty, error)
-	mustEmbedUnimplementedManagementServer()
 }
 
-// UnimplementedManagementServer must be embedded to have forward compatible implementations.
+// UnimplementedManagementServer should be embedded to have forward compatible implementations.
 type UnimplementedManagementServer struct {
 }
 
@@ -556,17 +674,35 @@ func (UnimplementedManagementServer) WatchClusterHealthStatus(*emptypb.Empty, Ma
 func (UnimplementedManagementServer) EditCluster(context.Context, *EditClusterRequest) (*v1.Cluster, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method EditCluster not implemented")
 }
-func (UnimplementedManagementServer) CreateRole(context.Context, *v1.Role) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateRole not implemented")
+func (UnimplementedManagementServer) ListRBACBackends(context.Context, *emptypb.Empty) (*v1.CapabilityTypeList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListRBACBackends not implemented")
 }
-func (UnimplementedManagementServer) UpdateRole(context.Context, *v1.Role) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateRole not implemented")
+func (UnimplementedManagementServer) GetAvailableBackendPermissions(context.Context, *v1.CapabilityType) (*v1.AvailablePermissions, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAvailableBackendPermissions not implemented")
 }
-func (UnimplementedManagementServer) DeleteRole(context.Context, *v1.Reference) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteRole not implemented")
+func (UnimplementedManagementServer) CreateBackendRole(context.Context, *v1.BackendRole) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateBackendRole not implemented")
 }
-func (UnimplementedManagementServer) GetRole(context.Context, *v1.Reference) (*v1.Role, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetRole not implemented")
+func (UnimplementedManagementServer) UpdateBackendRole(context.Context, *v1.BackendRole) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateBackendRole not implemented")
+}
+func (UnimplementedManagementServer) DeleteBackendRole(context.Context, *v1.BackendRoleRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteBackendRole not implemented")
+}
+func (UnimplementedManagementServer) GetBackendRole(context.Context, *v1.BackendRoleRequest) (*v1.Role, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBackendRole not implemented")
+}
+func (UnimplementedManagementServer) ListBackendRoles(context.Context, *v1.CapabilityType) (*v1.RoleList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListBackendRoles not implemented")
+}
+func (UnimplementedManagementServer) AddAdminRoleBinding(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddAdminRoleBinding not implemented")
+}
+func (UnimplementedManagementServer) RemoveAdminRoleBinding(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveAdminRoleBinding not implemented")
+}
+func (UnimplementedManagementServer) ListAdminRoleBinding(context.Context, *emptypb.Empty) (*v1.ReferenceList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAdminRoleBinding not implemented")
 }
 func (UnimplementedManagementServer) CreateRoleBinding(context.Context, *v1.RoleBinding) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateRoleBinding not implemented")
@@ -580,14 +716,8 @@ func (UnimplementedManagementServer) DeleteRoleBinding(context.Context, *v1.Refe
 func (UnimplementedManagementServer) GetRoleBinding(context.Context, *v1.Reference) (*v1.RoleBinding, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRoleBinding not implemented")
 }
-func (UnimplementedManagementServer) ListRoles(context.Context, *emptypb.Empty) (*v1.RoleList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListRoles not implemented")
-}
 func (UnimplementedManagementServer) ListRoleBindings(context.Context, *emptypb.Empty) (*v1.RoleBindingList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListRoleBindings not implemented")
-}
-func (UnimplementedManagementServer) SubjectAccess(context.Context, *v1.SubjectAccessRequest) (*v1.ReferenceList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SubjectAccess not implemented")
 }
 func (UnimplementedManagementServer) APIExtensions(context.Context, *emptypb.Empty) (*APIExtensionInfoList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method APIExtensions not implemented")
@@ -601,22 +731,19 @@ func (UnimplementedManagementServer) UpdateConfig(context.Context, *UpdateConfig
 func (UnimplementedManagementServer) ListCapabilities(context.Context, *emptypb.Empty) (*CapabilityList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListCapabilities not implemented")
 }
-func (UnimplementedManagementServer) CapabilityInstaller(context.Context, *CapabilityInstallerRequest) (*CapabilityInstallerResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CapabilityInstaller not implemented")
-}
-func (UnimplementedManagementServer) InstallCapability(context.Context, *CapabilityInstallRequest) (*v11.InstallResponse, error) {
+func (UnimplementedManagementServer) InstallCapability(context.Context, *v11.InstallRequest) (*v11.InstallResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InstallCapability not implemented")
 }
-func (UnimplementedManagementServer) UninstallCapability(context.Context, *CapabilityUninstallRequest) (*emptypb.Empty, error) {
+func (UnimplementedManagementServer) UninstallCapability(context.Context, *v11.UninstallRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UninstallCapability not implemented")
 }
-func (UnimplementedManagementServer) CapabilityStatus(context.Context, *CapabilityStatusRequest) (*v11.NodeCapabilityStatus, error) {
+func (UnimplementedManagementServer) CapabilityStatus(context.Context, *v11.StatusRequest) (*v11.NodeCapabilityStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CapabilityStatus not implemented")
 }
-func (UnimplementedManagementServer) CapabilityUninstallStatus(context.Context, *CapabilityStatusRequest) (*v1.TaskStatus, error) {
+func (UnimplementedManagementServer) CapabilityUninstallStatus(context.Context, *v11.UninstallStatusRequest) (*v1.TaskStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CapabilityUninstallStatus not implemented")
 }
-func (UnimplementedManagementServer) CancelCapabilityUninstall(context.Context, *CapabilityUninstallCancelRequest) (*emptypb.Empty, error) {
+func (UnimplementedManagementServer) CancelCapabilityUninstall(context.Context, *v11.CancelUninstallRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelCapabilityUninstall not implemented")
 }
 func (UnimplementedManagementServer) GetDashboardSettings(context.Context, *emptypb.Empty) (*DashboardSettings, error) {
@@ -625,7 +752,6 @@ func (UnimplementedManagementServer) GetDashboardSettings(context.Context, *empt
 func (UnimplementedManagementServer) UpdateDashboardSettings(context.Context, *DashboardSettings) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateDashboardSettings not implemented")
 }
-func (UnimplementedManagementServer) mustEmbedUnimplementedManagementServer() {}
 
 // UnsafeManagementServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to ManagementServer will
@@ -860,74 +986,182 @@ func _Management_EditCluster_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Management_CreateRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Role)
+func _Management_ListRBACBackends_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ManagementServer).CreateRole(ctx, in)
+		return srv.(ManagementServer).ListRBACBackends(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Management_CreateRole_FullMethodName,
+		FullMethod: Management_ListRBACBackends_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementServer).CreateRole(ctx, req.(*v1.Role))
+		return srv.(ManagementServer).ListRBACBackends(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Management_UpdateRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Role)
+func _Management_GetAvailableBackendPermissions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.CapabilityType)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ManagementServer).UpdateRole(ctx, in)
+		return srv.(ManagementServer).GetAvailableBackendPermissions(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Management_UpdateRole_FullMethodName,
+		FullMethod: Management_GetAvailableBackendPermissions_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementServer).UpdateRole(ctx, req.(*v1.Role))
+		return srv.(ManagementServer).GetAvailableBackendPermissions(ctx, req.(*v1.CapabilityType))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Management_DeleteRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Management_CreateBackendRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.BackendRole)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).CreateBackendRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Management_CreateBackendRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).CreateBackendRole(ctx, req.(*v1.BackendRole))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_UpdateBackendRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.BackendRole)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).UpdateBackendRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Management_UpdateBackendRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).UpdateBackendRole(ctx, req.(*v1.BackendRole))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_DeleteBackendRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.BackendRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).DeleteBackendRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Management_DeleteBackendRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).DeleteBackendRole(ctx, req.(*v1.BackendRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_GetBackendRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.BackendRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).GetBackendRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Management_GetBackendRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).GetBackendRole(ctx, req.(*v1.BackendRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_ListBackendRoles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.CapabilityType)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).ListBackendRoles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Management_ListBackendRoles_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).ListBackendRoles(ctx, req.(*v1.CapabilityType))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_AddAdminRoleBinding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(v1.Reference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ManagementServer).DeleteRole(ctx, in)
+		return srv.(ManagementServer).AddAdminRoleBinding(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Management_DeleteRole_FullMethodName,
+		FullMethod: Management_AddAdminRoleBinding_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementServer).DeleteRole(ctx, req.(*v1.Reference))
+		return srv.(ManagementServer).AddAdminRoleBinding(ctx, req.(*v1.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Management_GetRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Management_RemoveAdminRoleBinding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(v1.Reference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ManagementServer).GetRole(ctx, in)
+		return srv.(ManagementServer).RemoveAdminRoleBinding(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Management_GetRole_FullMethodName,
+		FullMethod: Management_RemoveAdminRoleBinding_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementServer).GetRole(ctx, req.(*v1.Reference))
+		return srv.(ManagementServer).RemoveAdminRoleBinding(ctx, req.(*v1.Reference))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_ListAdminRoleBinding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).ListAdminRoleBinding(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Management_ListAdminRoleBinding_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).ListAdminRoleBinding(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1004,24 +1238,6 @@ func _Management_GetRoleBinding_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Management_ListRoles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ManagementServer).ListRoles(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Management_ListRoles_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementServer).ListRoles(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Management_ListRoleBindings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
@@ -1036,24 +1252,6 @@ func _Management_ListRoleBindings_Handler(srv interface{}, ctx context.Context, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ManagementServer).ListRoleBindings(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Management_SubjectAccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.SubjectAccessRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ManagementServer).SubjectAccess(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Management_SubjectAccess_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementServer).SubjectAccess(ctx, req.(*v1.SubjectAccessRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1130,26 +1328,8 @@ func _Management_ListCapabilities_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Management_CapabilityInstaller_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CapabilityInstallerRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ManagementServer).CapabilityInstaller(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Management_CapabilityInstaller_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementServer).CapabilityInstaller(ctx, req.(*CapabilityInstallerRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Management_InstallCapability_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CapabilityInstallRequest)
+	in := new(v11.InstallRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1161,13 +1341,13 @@ func _Management_InstallCapability_Handler(srv interface{}, ctx context.Context,
 		FullMethod: Management_InstallCapability_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementServer).InstallCapability(ctx, req.(*CapabilityInstallRequest))
+		return srv.(ManagementServer).InstallCapability(ctx, req.(*v11.InstallRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _Management_UninstallCapability_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CapabilityUninstallRequest)
+	in := new(v11.UninstallRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1179,13 +1359,13 @@ func _Management_UninstallCapability_Handler(srv interface{}, ctx context.Contex
 		FullMethod: Management_UninstallCapability_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementServer).UninstallCapability(ctx, req.(*CapabilityUninstallRequest))
+		return srv.(ManagementServer).UninstallCapability(ctx, req.(*v11.UninstallRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _Management_CapabilityStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CapabilityStatusRequest)
+	in := new(v11.StatusRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1197,13 +1377,13 @@ func _Management_CapabilityStatus_Handler(srv interface{}, ctx context.Context, 
 		FullMethod: Management_CapabilityStatus_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementServer).CapabilityStatus(ctx, req.(*CapabilityStatusRequest))
+		return srv.(ManagementServer).CapabilityStatus(ctx, req.(*v11.StatusRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _Management_CapabilityUninstallStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CapabilityStatusRequest)
+	in := new(v11.UninstallStatusRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1215,13 +1395,13 @@ func _Management_CapabilityUninstallStatus_Handler(srv interface{}, ctx context.
 		FullMethod: Management_CapabilityUninstallStatus_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementServer).CapabilityUninstallStatus(ctx, req.(*CapabilityStatusRequest))
+		return srv.(ManagementServer).CapabilityUninstallStatus(ctx, req.(*v11.UninstallStatusRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _Management_CancelCapabilityUninstall_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CapabilityUninstallCancelRequest)
+	in := new(v11.CancelUninstallRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1233,7 +1413,7 @@ func _Management_CancelCapabilityUninstall_Handler(srv interface{}, ctx context.
 		FullMethod: Management_CancelCapabilityUninstall_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementServer).CancelCapabilityUninstall(ctx, req.(*CapabilityUninstallCancelRequest))
+		return srv.(ManagementServer).CancelCapabilityUninstall(ctx, req.(*v11.CancelUninstallRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1322,20 +1502,44 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Management_EditCluster_Handler,
 		},
 		{
-			MethodName: "CreateRole",
-			Handler:    _Management_CreateRole_Handler,
+			MethodName: "ListRBACBackends",
+			Handler:    _Management_ListRBACBackends_Handler,
 		},
 		{
-			MethodName: "UpdateRole",
-			Handler:    _Management_UpdateRole_Handler,
+			MethodName: "GetAvailableBackendPermissions",
+			Handler:    _Management_GetAvailableBackendPermissions_Handler,
 		},
 		{
-			MethodName: "DeleteRole",
-			Handler:    _Management_DeleteRole_Handler,
+			MethodName: "CreateBackendRole",
+			Handler:    _Management_CreateBackendRole_Handler,
 		},
 		{
-			MethodName: "GetRole",
-			Handler:    _Management_GetRole_Handler,
+			MethodName: "UpdateBackendRole",
+			Handler:    _Management_UpdateBackendRole_Handler,
+		},
+		{
+			MethodName: "DeleteBackendRole",
+			Handler:    _Management_DeleteBackendRole_Handler,
+		},
+		{
+			MethodName: "GetBackendRole",
+			Handler:    _Management_GetBackendRole_Handler,
+		},
+		{
+			MethodName: "ListBackendRoles",
+			Handler:    _Management_ListBackendRoles_Handler,
+		},
+		{
+			MethodName: "AddAdminRoleBinding",
+			Handler:    _Management_AddAdminRoleBinding_Handler,
+		},
+		{
+			MethodName: "RemoveAdminRoleBinding",
+			Handler:    _Management_RemoveAdminRoleBinding_Handler,
+		},
+		{
+			MethodName: "ListAdminRoleBinding",
+			Handler:    _Management_ListAdminRoleBinding_Handler,
 		},
 		{
 			MethodName: "CreateRoleBinding",
@@ -1354,16 +1558,8 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Management_GetRoleBinding_Handler,
 		},
 		{
-			MethodName: "ListRoles",
-			Handler:    _Management_ListRoles_Handler,
-		},
-		{
 			MethodName: "ListRoleBindings",
 			Handler:    _Management_ListRoleBindings_Handler,
-		},
-		{
-			MethodName: "SubjectAccess",
-			Handler:    _Management_SubjectAccess_Handler,
 		},
 		{
 			MethodName: "APIExtensions",
@@ -1380,10 +1576,6 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListCapabilities",
 			Handler:    _Management_ListCapabilities_Handler,
-		},
-		{
-			MethodName: "CapabilityInstaller",
-			Handler:    _Management_CapabilityInstaller_Handler,
 		},
 		{
 			MethodName: "InstallCapability",

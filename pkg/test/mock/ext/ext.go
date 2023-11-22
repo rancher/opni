@@ -12,6 +12,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	grpc "google.golang.org/grpc"
 	metadata "google.golang.org/grpc/metadata"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // MockExtClient is a mock of ExtClient interface.
@@ -259,7 +260,7 @@ func (mr *MockExt_ServerStreamClientMockRecorder) Recv() *gomock.Call {
 }
 
 // RecvMsg mocks base method.
-func (m_2 *MockExt_ServerStreamClient) RecvMsg(m interface{}) error {
+func (m_2 *MockExt_ServerStreamClient) RecvMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "RecvMsg", m)
 	ret0, _ := ret[0].(error)
@@ -273,7 +274,7 @@ func (mr *MockExt_ServerStreamClientMockRecorder) RecvMsg(m interface{}) *gomock
 }
 
 // SendMsg mocks base method.
-func (m_2 *MockExt_ServerStreamClient) SendMsg(m interface{}) error {
+func (m_2 *MockExt_ServerStreamClient) SendMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "SendMsg", m)
 	ret0, _ := ret[0].(error)
@@ -382,7 +383,7 @@ func (mr *MockExt_ClientStreamClientMockRecorder) Header() *gomock.Call {
 }
 
 // RecvMsg mocks base method.
-func (m_2 *MockExt_ClientStreamClient) RecvMsg(m interface{}) error {
+func (m_2 *MockExt_ClientStreamClient) RecvMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "RecvMsg", m)
 	ret0, _ := ret[0].(error)
@@ -410,7 +411,7 @@ func (mr *MockExt_ClientStreamClientMockRecorder) Send(arg0 interface{}) *gomock
 }
 
 // SendMsg mocks base method.
-func (m_2 *MockExt_ClientStreamClient) SendMsg(m interface{}) error {
+func (m_2 *MockExt_ClientStreamClient) SendMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "SendMsg", m)
 	ret0, _ := ret[0].(error)
@@ -519,7 +520,7 @@ func (mr *MockExt_BidirectionalStreamClientMockRecorder) Recv() *gomock.Call {
 }
 
 // RecvMsg mocks base method.
-func (m_2 *MockExt_BidirectionalStreamClient) RecvMsg(m interface{}) error {
+func (m_2 *MockExt_BidirectionalStreamClient) RecvMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "RecvMsg", m)
 	ret0, _ := ret[0].(error)
@@ -547,7 +548,7 @@ func (mr *MockExt_BidirectionalStreamClientMockRecorder) Send(arg0 interface{}) 
 }
 
 // SendMsg mocks base method.
-func (m_2 *MockExt_BidirectionalStreamClient) SendMsg(m interface{}) error {
+func (m_2 *MockExt_BidirectionalStreamClient) SendMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "SendMsg", m)
 	ret0, _ := ret[0].(error)
@@ -699,18 +700,6 @@ func (mr *MockExtServerMockRecorder) Set(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockExtServer)(nil).Set), arg0, arg1)
 }
 
-// mustEmbedUnimplementedExtServer mocks base method.
-func (m *MockExtServer) mustEmbedUnimplementedExtServer() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "mustEmbedUnimplementedExtServer")
-}
-
-// mustEmbedUnimplementedExtServer indicates an expected call of mustEmbedUnimplementedExtServer.
-func (mr *MockExtServerMockRecorder) mustEmbedUnimplementedExtServer() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedExtServer", reflect.TypeOf((*MockExtServer)(nil).mustEmbedUnimplementedExtServer))
-}
-
 // MockUnsafeExtServer is a mock of UnsafeExtServer interface.
 type MockUnsafeExtServer struct {
 	ctrl     *gomock.Controller
@@ -784,7 +773,7 @@ func (mr *MockExt_ServerStreamServerMockRecorder) Context() *gomock.Call {
 }
 
 // RecvMsg mocks base method.
-func (m_2 *MockExt_ServerStreamServer) RecvMsg(m interface{}) error {
+func (m_2 *MockExt_ServerStreamServer) RecvMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "RecvMsg", m)
 	ret0, _ := ret[0].(error)
@@ -826,7 +815,7 @@ func (mr *MockExt_ServerStreamServerMockRecorder) SendHeader(arg0 interface{}) *
 }
 
 // SendMsg mocks base method.
-func (m_2 *MockExt_ServerStreamServer) SendMsg(m interface{}) error {
+func (m_2 *MockExt_ServerStreamServer) SendMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "SendMsg", m)
 	ret0, _ := ret[0].(error)
@@ -918,7 +907,7 @@ func (mr *MockExt_ClientStreamServerMockRecorder) Recv() *gomock.Call {
 }
 
 // RecvMsg mocks base method.
-func (m_2 *MockExt_ClientStreamServer) RecvMsg(m interface{}) error {
+func (m_2 *MockExt_ClientStreamServer) RecvMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "RecvMsg", m)
 	ret0, _ := ret[0].(error)
@@ -960,7 +949,7 @@ func (mr *MockExt_ClientStreamServerMockRecorder) SendHeader(arg0 interface{}) *
 }
 
 // SendMsg mocks base method.
-func (m_2 *MockExt_ClientStreamServer) SendMsg(m interface{}) error {
+func (m_2 *MockExt_ClientStreamServer) SendMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "SendMsg", m)
 	ret0, _ := ret[0].(error)
@@ -1052,7 +1041,7 @@ func (mr *MockExt_BidirectionalStreamServerMockRecorder) Recv() *gomock.Call {
 }
 
 // RecvMsg mocks base method.
-func (m_2 *MockExt_BidirectionalStreamServer) RecvMsg(m interface{}) error {
+func (m_2 *MockExt_BidirectionalStreamServer) RecvMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "RecvMsg", m)
 	ret0, _ := ret[0].(error)
@@ -1094,7 +1083,7 @@ func (mr *MockExt_BidirectionalStreamServerMockRecorder) SendHeader(arg0 interfa
 }
 
 // SendMsg mocks base method.
-func (m_2 *MockExt_BidirectionalStreamServer) SendMsg(m interface{}) error {
+func (m_2 *MockExt_BidirectionalStreamServer) SendMsg(m any) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "SendMsg", m)
 	ret0, _ := ret[0].(error)
@@ -1131,6 +1120,367 @@ func (m *MockExt_BidirectionalStreamServer) SetTrailer(arg0 metadata.MD) {
 func (mr *MockExt_BidirectionalStreamServerMockRecorder) SetTrailer(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTrailer", reflect.TypeOf((*MockExt_BidirectionalStreamServer)(nil).SetTrailer), arg0)
+}
+
+// MockConfigClient is a mock of ConfigClient interface.
+type MockConfigClient struct {
+	ctrl     *gomock.Controller
+	recorder *MockConfigClientMockRecorder
+}
+
+// MockConfigClientMockRecorder is the mock recorder for MockConfigClient.
+type MockConfigClientMockRecorder struct {
+	mock *MockConfigClient
+}
+
+// NewMockConfigClient creates a new mock instance.
+func NewMockConfigClient(ctrl *gomock.Controller) *MockConfigClient {
+	mock := &MockConfigClient{ctrl: ctrl}
+	mock.recorder = &MockConfigClientMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockConfigClient) EXPECT() *MockConfigClientMockRecorder {
+	return m.recorder
+}
+
+// ConfigurationHistory mocks base method.
+func (m *MockConfigClient) ConfigurationHistory(ctx context.Context, in *ext.SampleHistoryRequest, opts ...grpc.CallOption) (*ext.SampleConfigurationHistoryResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ConfigurationHistory", varargs...)
+	ret0, _ := ret[0].(*ext.SampleConfigurationHistoryResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ConfigurationHistory indicates an expected call of ConfigurationHistory.
+func (mr *MockConfigClientMockRecorder) ConfigurationHistory(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigurationHistory", reflect.TypeOf((*MockConfigClient)(nil).ConfigurationHistory), varargs...)
+}
+
+// DryRun mocks base method.
+func (m *MockConfigClient) DryRun(ctx context.Context, in *ext.SampleDryRunRequest, opts ...grpc.CallOption) (*ext.SampleDryRunResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DryRun", varargs...)
+	ret0, _ := ret[0].(*ext.SampleDryRunResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DryRun indicates an expected call of DryRun.
+func (mr *MockConfigClientMockRecorder) DryRun(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DryRun", reflect.TypeOf((*MockConfigClient)(nil).DryRun), varargs...)
+}
+
+// GetConfiguration mocks base method.
+func (m *MockConfigClient) GetConfiguration(ctx context.Context, in *ext.SampleGetRequest, opts ...grpc.CallOption) (*ext.SampleConfiguration, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetConfiguration", varargs...)
+	ret0, _ := ret[0].(*ext.SampleConfiguration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetConfiguration indicates an expected call of GetConfiguration.
+func (mr *MockConfigClientMockRecorder) GetConfiguration(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConfiguration", reflect.TypeOf((*MockConfigClient)(nil).GetConfiguration), varargs...)
+}
+
+// GetDefaultConfiguration mocks base method.
+func (m *MockConfigClient) GetDefaultConfiguration(ctx context.Context, in *ext.SampleGetRequest, opts ...grpc.CallOption) (*ext.SampleConfiguration, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetDefaultConfiguration", varargs...)
+	ret0, _ := ret[0].(*ext.SampleConfiguration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDefaultConfiguration indicates an expected call of GetDefaultConfiguration.
+func (mr *MockConfigClientMockRecorder) GetDefaultConfiguration(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDefaultConfiguration", reflect.TypeOf((*MockConfigClient)(nil).GetDefaultConfiguration), varargs...)
+}
+
+// ResetConfiguration mocks base method.
+func (m *MockConfigClient) ResetConfiguration(ctx context.Context, in *ext.SampleResetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ResetConfiguration", varargs...)
+	ret0, _ := ret[0].(*emptypb.Empty)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResetConfiguration indicates an expected call of ResetConfiguration.
+func (mr *MockConfigClientMockRecorder) ResetConfiguration(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetConfiguration", reflect.TypeOf((*MockConfigClient)(nil).ResetConfiguration), varargs...)
+}
+
+// ResetDefaultConfiguration mocks base method.
+func (m *MockConfigClient) ResetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ResetDefaultConfiguration", varargs...)
+	ret0, _ := ret[0].(*emptypb.Empty)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResetDefaultConfiguration indicates an expected call of ResetDefaultConfiguration.
+func (mr *MockConfigClientMockRecorder) ResetDefaultConfiguration(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetDefaultConfiguration", reflect.TypeOf((*MockConfigClient)(nil).ResetDefaultConfiguration), varargs...)
+}
+
+// SetConfiguration mocks base method.
+func (m *MockConfigClient) SetConfiguration(ctx context.Context, in *ext.SampleSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SetConfiguration", varargs...)
+	ret0, _ := ret[0].(*emptypb.Empty)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SetConfiguration indicates an expected call of SetConfiguration.
+func (mr *MockConfigClientMockRecorder) SetConfiguration(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConfiguration", reflect.TypeOf((*MockConfigClient)(nil).SetConfiguration), varargs...)
+}
+
+// SetDefaultConfiguration mocks base method.
+func (m *MockConfigClient) SetDefaultConfiguration(ctx context.Context, in *ext.SampleSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SetDefaultConfiguration", varargs...)
+	ret0, _ := ret[0].(*emptypb.Empty)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SetDefaultConfiguration indicates an expected call of SetDefaultConfiguration.
+func (mr *MockConfigClientMockRecorder) SetDefaultConfiguration(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDefaultConfiguration", reflect.TypeOf((*MockConfigClient)(nil).SetDefaultConfiguration), varargs...)
+}
+
+// MockConfigServer is a mock of ConfigServer interface.
+type MockConfigServer struct {
+	ctrl     *gomock.Controller
+	recorder *MockConfigServerMockRecorder
+}
+
+// MockConfigServerMockRecorder is the mock recorder for MockConfigServer.
+type MockConfigServerMockRecorder struct {
+	mock *MockConfigServer
+}
+
+// NewMockConfigServer creates a new mock instance.
+func NewMockConfigServer(ctrl *gomock.Controller) *MockConfigServer {
+	mock := &MockConfigServer{ctrl: ctrl}
+	mock.recorder = &MockConfigServerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockConfigServer) EXPECT() *MockConfigServerMockRecorder {
+	return m.recorder
+}
+
+// ConfigurationHistory mocks base method.
+func (m *MockConfigServer) ConfigurationHistory(arg0 context.Context, arg1 *ext.SampleHistoryRequest) (*ext.SampleConfigurationHistoryResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConfigurationHistory", arg0, arg1)
+	ret0, _ := ret[0].(*ext.SampleConfigurationHistoryResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ConfigurationHistory indicates an expected call of ConfigurationHistory.
+func (mr *MockConfigServerMockRecorder) ConfigurationHistory(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigurationHistory", reflect.TypeOf((*MockConfigServer)(nil).ConfigurationHistory), arg0, arg1)
+}
+
+// DryRun mocks base method.
+func (m *MockConfigServer) DryRun(arg0 context.Context, arg1 *ext.SampleDryRunRequest) (*ext.SampleDryRunResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DryRun", arg0, arg1)
+	ret0, _ := ret[0].(*ext.SampleDryRunResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DryRun indicates an expected call of DryRun.
+func (mr *MockConfigServerMockRecorder) DryRun(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DryRun", reflect.TypeOf((*MockConfigServer)(nil).DryRun), arg0, arg1)
+}
+
+// GetConfiguration mocks base method.
+func (m *MockConfigServer) GetConfiguration(arg0 context.Context, arg1 *ext.SampleGetRequest) (*ext.SampleConfiguration, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetConfiguration", arg0, arg1)
+	ret0, _ := ret[0].(*ext.SampleConfiguration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetConfiguration indicates an expected call of GetConfiguration.
+func (mr *MockConfigServerMockRecorder) GetConfiguration(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConfiguration", reflect.TypeOf((*MockConfigServer)(nil).GetConfiguration), arg0, arg1)
+}
+
+// GetDefaultConfiguration mocks base method.
+func (m *MockConfigServer) GetDefaultConfiguration(arg0 context.Context, arg1 *ext.SampleGetRequest) (*ext.SampleConfiguration, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDefaultConfiguration", arg0, arg1)
+	ret0, _ := ret[0].(*ext.SampleConfiguration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDefaultConfiguration indicates an expected call of GetDefaultConfiguration.
+func (mr *MockConfigServerMockRecorder) GetDefaultConfiguration(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDefaultConfiguration", reflect.TypeOf((*MockConfigServer)(nil).GetDefaultConfiguration), arg0, arg1)
+}
+
+// ResetConfiguration mocks base method.
+func (m *MockConfigServer) ResetConfiguration(arg0 context.Context, arg1 *ext.SampleResetRequest) (*emptypb.Empty, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResetConfiguration", arg0, arg1)
+	ret0, _ := ret[0].(*emptypb.Empty)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResetConfiguration indicates an expected call of ResetConfiguration.
+func (mr *MockConfigServerMockRecorder) ResetConfiguration(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetConfiguration", reflect.TypeOf((*MockConfigServer)(nil).ResetConfiguration), arg0, arg1)
+}
+
+// ResetDefaultConfiguration mocks base method.
+func (m *MockConfigServer) ResetDefaultConfiguration(arg0 context.Context, arg1 *emptypb.Empty) (*emptypb.Empty, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResetDefaultConfiguration", arg0, arg1)
+	ret0, _ := ret[0].(*emptypb.Empty)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResetDefaultConfiguration indicates an expected call of ResetDefaultConfiguration.
+func (mr *MockConfigServerMockRecorder) ResetDefaultConfiguration(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetDefaultConfiguration", reflect.TypeOf((*MockConfigServer)(nil).ResetDefaultConfiguration), arg0, arg1)
+}
+
+// SetConfiguration mocks base method.
+func (m *MockConfigServer) SetConfiguration(arg0 context.Context, arg1 *ext.SampleSetRequest) (*emptypb.Empty, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetConfiguration", arg0, arg1)
+	ret0, _ := ret[0].(*emptypb.Empty)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SetConfiguration indicates an expected call of SetConfiguration.
+func (mr *MockConfigServerMockRecorder) SetConfiguration(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConfiguration", reflect.TypeOf((*MockConfigServer)(nil).SetConfiguration), arg0, arg1)
+}
+
+// SetDefaultConfiguration mocks base method.
+func (m *MockConfigServer) SetDefaultConfiguration(arg0 context.Context, arg1 *ext.SampleSetRequest) (*emptypb.Empty, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetDefaultConfiguration", arg0, arg1)
+	ret0, _ := ret[0].(*emptypb.Empty)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SetDefaultConfiguration indicates an expected call of SetDefaultConfiguration.
+func (mr *MockConfigServerMockRecorder) SetDefaultConfiguration(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDefaultConfiguration", reflect.TypeOf((*MockConfigServer)(nil).SetDefaultConfiguration), arg0, arg1)
+}
+
+// MockUnsafeConfigServer is a mock of UnsafeConfigServer interface.
+type MockUnsafeConfigServer struct {
+	ctrl     *gomock.Controller
+	recorder *MockUnsafeConfigServerMockRecorder
+}
+
+// MockUnsafeConfigServerMockRecorder is the mock recorder for MockUnsafeConfigServer.
+type MockUnsafeConfigServerMockRecorder struct {
+	mock *MockUnsafeConfigServer
+}
+
+// NewMockUnsafeConfigServer creates a new mock instance.
+func NewMockUnsafeConfigServer(ctrl *gomock.Controller) *MockUnsafeConfigServer {
+	mock := &MockUnsafeConfigServer{ctrl: ctrl}
+	mock.recorder = &MockUnsafeConfigServerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockUnsafeConfigServer) EXPECT() *MockUnsafeConfigServerMockRecorder {
+	return m.recorder
+}
+
+// mustEmbedUnimplementedConfigServer mocks base method.
+func (m *MockUnsafeConfigServer) mustEmbedUnimplementedConfigServer() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "mustEmbedUnimplementedConfigServer")
+}
+
+// mustEmbedUnimplementedConfigServer indicates an expected call of mustEmbedUnimplementedConfigServer.
+func (mr *MockUnsafeConfigServerMockRecorder) mustEmbedUnimplementedConfigServer() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedConfigServer", reflect.TypeOf((*MockUnsafeConfigServer)(nil).mustEmbedUnimplementedConfigServer))
 }
 
 // MockExt2Client is a mock of Ext2Client interface.
@@ -1212,18 +1562,6 @@ func (m *MockExt2Server) Foo(arg0 context.Context, arg1 *ext.FooRequest) (*ext.F
 func (mr *MockExt2ServerMockRecorder) Foo(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Foo", reflect.TypeOf((*MockExt2Server)(nil).Foo), arg0, arg1)
-}
-
-// mustEmbedUnimplementedExt2Server mocks base method.
-func (m *MockExt2Server) mustEmbedUnimplementedExt2Server() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "mustEmbedUnimplementedExt2Server")
-}
-
-// mustEmbedUnimplementedExt2Server indicates an expected call of mustEmbedUnimplementedExt2Server.
-func (mr *MockExt2ServerMockRecorder) mustEmbedUnimplementedExt2Server() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedExt2Server", reflect.TypeOf((*MockExt2Server)(nil).mustEmbedUnimplementedExt2Server))
 }
 
 // MockUnsafeExt2Server is a mock of UnsafeExt2Server interface.

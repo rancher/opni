@@ -8,6 +8,9 @@ import (
 )
 
 func NewServerStreamWithContext(stream grpc.ServerStream) *ServerStreamWithContext {
+	if s, ok := stream.(*ServerStreamWithContext); ok {
+		return s
+	}
 	return &ServerStreamWithContext{
 		Stream: stream,
 		Ctx:    stream.Context(),
@@ -15,6 +18,9 @@ func NewServerStreamWithContext(stream grpc.ServerStream) *ServerStreamWithConte
 }
 
 func NewClientStreamWithContext(stream grpc.ClientStream) *ClientStreamWithContext {
+	if s, ok := stream.(*ClientStreamWithContext); ok {
+		return s
+	}
 	cs := &ClientStreamWithContext{
 		Stream: stream,
 		Ctx:    stream.Context(),

@@ -3,9 +3,9 @@ package metrics_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/rancher/opni/pkg/alerting/metrics/naming"
@@ -18,11 +18,9 @@ import (
 	. "github.com/onsi/gomega"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -37,36 +35,30 @@ type TestMetricLabelSet struct {
 }
 
 func expectRuleGroupToExist(ctx context.Context, adminClient cortexadmin.CortexAdminClient, tenant string, groupName string, expectedYaml []byte) error {
-	for i := 0; i < 10; i++ {
-		resp, err := adminClient.GetRule(ctx, &cortexadmin.GetRuleRequest{
-			ClusterId: tenant,
-			Namespace: "test",
-			GroupName: groupName,
-		})
-		if err == nil {
-			Expect(resp.Data).To(Not(BeNil()))
-			Expect(resp.Data).To(MatchYAML(expectedYaml))
-			return nil
-		}
-		time.Sleep(1)
+	resp, err := adminClient.GetRule(ctx, &cortexadmin.GetRuleRequest{
+		ClusterId: tenant,
+		Namespace: "test",
+		GroupName: groupName,
+	})
+	if err == nil {
+		Expect(resp.Data).To(Not(BeNil()))
+		Expect(resp.Data).To(MatchYAML(expectedYaml))
+		return nil
 	}
 	return fmt.Errorf("Rule %s should exist, but doesn't", groupName)
 }
 
 func expectRuleGroupToNotExist(ctx context.Context, adminClient cortexadmin.CortexAdminClient, tenant string, groupName string) error {
-	for i := 0; i < 10; i++ {
-		_, err := adminClient.GetRule(ctx, &cortexadmin.GetRuleRequest{
-			ClusterId: tenant,
-			Namespace: "test",
-			GroupName: groupName,
-		})
-		if err != nil {
-			Expect(status.Code(err)).To(Equal(codes.NotFound))
-			return nil
-		}
-
-		time.Sleep(1)
+	_, err := adminClient.GetRule(ctx, &cortexadmin.GetRuleRequest{
+		ClusterId: tenant,
+		Namespace: "test",
+		GroupName: groupName,
+	})
+	if err != nil {
+		Expect(status.Code(err)).To(Equal(codes.NotFound))
+		return nil
 	}
+
 	return fmt.Errorf("Rule %s still exists, but shouldn't", groupName)
 }
 
@@ -123,18 +115,13 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 		Expect(cortexops.WaitForReady(env.Context(), opsClient)).To(Succeed())
 
 		client := env.NewManagementClient()
-		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
-			Ttl: durationpb.New(time.Hour),
-		})
-		Expect(err).NotTo(HaveOccurred())
-		info, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
-		Expect(err).NotTo(HaveOccurred())
+
 		adminClient = cortexadmin.NewCortexAdminClient(env.ManagementClientConn())
 		// wait until data has been stored in cortex for the cluster
 		kubernetesTempMetricServerPort = env.StartMockKubernetesMetricServer()
 		fmt.Printf("Mock kubernetes metrics server started on port %d\n", kubernetesTempMetricServerPort)
-		_, errc := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		Eventually(errc).Should(Receive(BeNil()))
+		err = env.BootstrapNewAgent("agent")
+		Expect(err).NotTo(HaveOccurred())
 		kubernetesJobName = "kubernetes"
 		env.SetPrometheusNodeConfigOverride("agent", test.NewOverridePrometheusConfig(
 			"alerting/prometheus/config.yaml",
@@ -145,22 +132,18 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 				},
 			}),
 		)
-		_, errc2 := env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		Eventually(errc2).Should(Receive(BeNil()))
+		err = env.BootstrapNewAgent("agent2")
+		Expect(err).NotTo(HaveOccurred())
 
-		_, err = client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
-			Name: wellknown.CapabilityMetrics,
-			Target: &capabilityv1.InstallRequest{
-				Cluster: &corev1.Reference{Id: "agent"},
-			},
+		_, err = client.InstallCapability(context.Background(), &capabilityv1.InstallRequest{
+			Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+			Agent:      &corev1.Reference{Id: "agent"},
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		_, err = client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
-			Name: wellknown.CapabilityMetrics,
-			Target: &capabilityv1.InstallRequest{
-				Cluster: &corev1.Reference{Id: "agent2"},
-			},
+		_, err = client.InstallCapability(context.Background(), &capabilityv1.InstallRequest{
+			Capability: &corev1.Reference{Id: wellknown.CapabilityMetrics},
+			Agent:      &corev1.Reference{Id: "agent2"},
 		})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -360,7 +343,7 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 
 		It("Should be able to create rules from prometheus yaml", func() {
 			sampleRule := fmt.Sprintf("%s/sampleRule.yaml", ruleTestDataDir)
-			sampleRuleYamlString, err := ioutil.ReadFile(sampleRule)
+			sampleRuleYamlString, err := os.ReadFile(sampleRule)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
 				&cortexadmin.LoadRuleRequest{
@@ -373,7 +356,7 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 			// Note that sloth by default groups its output into a list of rulefmt.RuleGroup called "groups:"
 			// While we require the list of rulefmt.RuleGroup to be separated by "---\n"
 			slothGeneratedGroup := fmt.Sprintf("%s/slothGeneratedGroup.yaml", ruleTestDataDir)
-			slothGeneratedGroupYamlString, err := ioutil.ReadFile(slothGeneratedGroup)
+			slothGeneratedGroupYamlString, err := os.ReadFile(slothGeneratedGroup)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
 				&cortexadmin.LoadRuleRequest{
@@ -394,7 +377,7 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 
 		It("Should be able to update existing rule groups", func() {
 			sampleRuleUpdate := fmt.Sprintf("%s/sampleRuleUpdate.yaml", ruleTestDataDir)
-			sampleRuleYamlUpdateString, err := ioutil.ReadFile(sampleRuleUpdate)
+			sampleRuleYamlUpdateString, err := os.ReadFile(sampleRuleUpdate)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
 				&cortexadmin.LoadRuleRequest{
@@ -431,7 +414,7 @@ var _ = XDescribe("Converting ServiceLevelObjective Messages to Prometheus Rules
 	When("We are in a multitenant environment", func() {
 		It("Should be able to apply rules across tenants", func() {
 			sampleRule := fmt.Sprintf("%s/sampleRule.yaml", ruleTestDataDir)
-			sampleRuleYamlString, err := ioutil.ReadFile(sampleRule)
+			sampleRuleYamlString, err := os.ReadFile(sampleRule)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
 				&cortexadmin.LoadRuleRequest{

@@ -5,6 +5,8 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/metrics/pkg/agent"
 	"github.com/rancher/opni/plugins/metrics/pkg/gateway"
+
+	_ "github.com/rancher/opni/plugins/metrics/pkg/gateway/services"
 )
 
 func init() {

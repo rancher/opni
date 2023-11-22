@@ -4,11 +4,20 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"os"
-
-	"github.com/rancher/opni/pkg/config/v1beta1"
 )
 
-func LoadClientMTLSConfig(certs *v1beta1.MTLSSpec) (*tls.Config, error) {
+type MTLSSpecShape = struct {
+	// Path to the server CA certificate.
+	ServerCA string `json:"serverCA,omitempty"`
+	// Path to the client CA certificate (not needed in all cases).
+	ClientCA string `json:"clientCA,omitempty"`
+	// Path to the certificate used for client-cert auth.
+	ClientCert string `json:"clientCert,omitempty"`
+	// Path to the private key used for client-cert auth.
+	ClientKey string `json:"clientKey,omitempty"`
+}
+
+func LoadClientMTLSConfig(certs MTLSSpecShape) (*tls.Config, error) {
 	clientCert, err := tls.LoadX509KeyPair(certs.ClientCert, certs.ClientKey)
 	if err != nil {
 		return nil, err

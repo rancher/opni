@@ -37,8 +37,8 @@ func (UnimplementedSystemPluginClient) UseCachingProvider(caching.CachingProvide
 func (UnimplementedSystemPluginClient) mustEmbedUnimplementedSystemPluginClient()                 {}
 
 type SystemPluginServer interface {
-	ServeManagementAPI(managementv1.ManagementServer)
-	ServeKeyValueStore(storage.KeyValueStore)
+	ServeManagementAPI(server managementv1.ManagementServer)
+	ServeKeyValueStore(namespace string, backend storage.Backend)
 	ServeAPIExtensions(dialAddress string) error
 	ServeCachingProvider()
 }
@@ -132,6 +132,7 @@ func (c *systemPluginClientImpl) UseAPIExtensions(ctx context.Context, addr *Dia
 	if err != nil {
 		return nil, err
 	}
+	defer cc.Close()
 	c.client.UseAPIExtensions(&apiExtensionInterfaceImpl{
 		managementClientConn: cc,
 	})
@@ -179,8 +180,14 @@ func (s *systemPluginHandler) ServeManagementAPI(api managementv1.ManagementServ
 	)
 }
 
-func (s *systemPluginHandler) ServeKeyValueStore(store storage.KeyValueStore) {
-	kvStoreSrv := NewKVStoreServer(store)
+func (s *systemPluginHandler) ServeKeyValueStore(namespace string, backend storage.Backend) {
+	store := backend.KeyValueStore(namespace)
+	var lockManager storage.LockManager
+	if lmb, ok := backend.(storage.LockManagerBroker); ok {
+		lockManager = lmb.LockManager(namespace)
+	}
+
+	kvStoreSrv := NewKVStoreServer(store, lockManager)
 	s.serveSystemApi(
 		func(srv *grpc.Server) {
 			RegisterKeyValueStoreServer(srv, kvStoreSrv)

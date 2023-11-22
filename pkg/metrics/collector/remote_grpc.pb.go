@@ -49,21 +49,19 @@ func (c *remoteCollectorClient) GetMetrics(ctx context.Context, in *emptypb.Empt
 }
 
 // RemoteCollectorServer is the server API for RemoteCollector service.
-// All implementations must embed UnimplementedRemoteCollectorServer
+// All implementations should embed UnimplementedRemoteCollectorServer
 // for forward compatibility
 type RemoteCollectorServer interface {
 	GetMetrics(context.Context, *emptypb.Empty) (*v1.MetricsData, error)
-	mustEmbedUnimplementedRemoteCollectorServer()
 }
 
-// UnimplementedRemoteCollectorServer must be embedded to have forward compatible implementations.
+// UnimplementedRemoteCollectorServer should be embedded to have forward compatible implementations.
 type UnimplementedRemoteCollectorServer struct {
 }
 
 func (UnimplementedRemoteCollectorServer) GetMetrics(context.Context, *emptypb.Empty) (*v1.MetricsData, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMetrics not implemented")
 }
-func (UnimplementedRemoteCollectorServer) mustEmbedUnimplementedRemoteCollectorServer() {}
 
 // UnsafeRemoteCollectorServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to RemoteCollectorServer will

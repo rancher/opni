@@ -2,6 +2,7 @@ package types
 
 import (
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	proxyv1 "github.com/rancher/opni/pkg/apis/proxy/v1"
 	"github.com/rancher/opni/pkg/metrics/collector"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
@@ -13,7 +14,9 @@ type (
 	StreamAPIExtensionPlugin     = apiextensions.StreamAPIExtensionClient
 	UnaryAPIExtensionPlugin      = apiextensions.UnaryAPIExtensionClient
 	CapabilityBackendPlugin      = capabilityv1.BackendClient
+	CapabilityRBACPlugin         = capabilityv1.RBACManagerClient
 	CapabilityNodePlugin         = capabilityv1.NodeClient
+	ProxyPlugin                  = proxyv1.RegisterProxyClient
 	MetricsPlugin                = collector.RemoteProducer
 	SystemPlugin                 = system.SystemPluginServer
 )

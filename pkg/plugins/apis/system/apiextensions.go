@@ -17,6 +17,10 @@ type ExtensionClientInterface interface {
 	// available, it will retry until it becomes available, or until the context
 	// is canceled.
 	GetClientConn(ctx context.Context, serviceNames ...string) (grpc.ClientConnInterface, error)
+
+	// Returns a ClientConn that makes no guarantees about the availability of
+	// any API extensions.
+	GetClientConnUnchecked() grpc.ClientConnInterface
 }
 
 type apiExtensionInterfaceImpl struct {
@@ -45,4 +49,8 @@ EXTENSIONS:
 		return nil, fmt.Errorf("api extension %s is not available", name)
 	}
 	return c.managementClientConn, nil
+}
+
+func (c *apiExtensionInterfaceImpl) GetClientConnUnchecked() grpc.ClientConnInterface {
+	return c.managementClientConn
 }

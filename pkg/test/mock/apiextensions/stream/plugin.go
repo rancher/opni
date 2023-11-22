@@ -10,7 +10,7 @@ import (
 
 	v1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	apiextensions "github.com/rancher/opni/pkg/plugins/apis/apiextensions"
-	stream "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
+	util "github.com/rancher/opni/pkg/util"
 	gomock "go.uber.org/mock/gomock"
 	grpc "google.golang.org/grpc"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -40,10 +40,10 @@ func (m *MockStreamAPIExtension) EXPECT() *MockStreamAPIExtensionMockRecorder {
 }
 
 // StreamServers mocks base method.
-func (m *MockStreamAPIExtension) StreamServers() []stream.Server {
+func (m *MockStreamAPIExtension) StreamServers() []util.ServicePackInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StreamServers")
-	ret0, _ := ret[0].([]stream.Server)
+	ret0, _ := ret[0].([]util.ServicePackInterface)
 	return ret0
 }
 
@@ -112,10 +112,10 @@ func (m *MockStreamAPIExtensionWithHandlers) EXPECT() *MockStreamAPIExtensionWit
 }
 
 // StreamServers mocks base method.
-func (m *MockStreamAPIExtensionWithHandlers) StreamServers() []stream.Server {
+func (m *MockStreamAPIExtensionWithHandlers) StreamServers() []util.ServicePackInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StreamServers")
-	ret0, _ := ret[0].([]stream.Server)
+	ret0, _ := ret[0].([]util.ServicePackInterface)
 	return ret0
 }
 
@@ -201,28 +201,4 @@ func (m *MockstreamExtPlugin) Notify(arg0 context.Context, arg1 *v1.StreamEvent)
 func (mr *MockstreamExtPluginMockRecorder) Notify(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Notify", reflect.TypeOf((*MockstreamExtPlugin)(nil).Notify), arg0, arg1)
-}
-
-// mustEmbedUnimplementedStreamAPIExtensionServer mocks base method.
-func (m *MockstreamExtPlugin) mustEmbedUnimplementedStreamAPIExtensionServer() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "mustEmbedUnimplementedStreamAPIExtensionServer")
-}
-
-// mustEmbedUnimplementedStreamAPIExtensionServer indicates an expected call of mustEmbedUnimplementedStreamAPIExtensionServer.
-func (mr *MockstreamExtPluginMockRecorder) mustEmbedUnimplementedStreamAPIExtensionServer() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedStreamAPIExtensionServer", reflect.TypeOf((*MockstreamExtPlugin)(nil).mustEmbedUnimplementedStreamAPIExtensionServer))
-}
-
-// mustEmbedUnimplementedStreamServer mocks base method.
-func (m *MockstreamExtPlugin) mustEmbedUnimplementedStreamServer() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "mustEmbedUnimplementedStreamServer")
-}
-
-// mustEmbedUnimplementedStreamServer indicates an expected call of mustEmbedUnimplementedStreamServer.
-func (mr *MockstreamExtPluginMockRecorder) mustEmbedUnimplementedStreamServer() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedStreamServer", reflect.TypeOf((*MockstreamExtPlugin)(nil).mustEmbedUnimplementedStreamServer))
 }

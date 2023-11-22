@@ -1,0 +1,150 @@
+{{ define "GetDefaultConfiguration" }}
+Returns the default implementation-specific configuration, or one previously set.
+
+If a default configuration was previously set using SetDefaultConfiguration, it
+returns that configuration. Otherwise, returns implementation-specific defaults.
+
+An optional revision argument can be provided to get a specific historical
+version of the configuration instead of the current configuration.
+{{ end }}
+
+{{ define "SetDefaultConfiguration" }}
+Sets the default configuration that will be used as the base for future configuration changes.
+If no custom default configuration is set using this method, implementation-specific
+defaults may be chosen.
+
+Unlike with SetConfiguration, the input is not merged with the existing configuration,
+instead replacing it directly.
+
+If the revision field is set, the server will reject the request if the current
+revision does not match the provided revision.
+
+This API is different from the SetConfiguration API, and should not be necessary
+for most use cases. It can be used in situations where an additional persistence
+layer that is not driver-specific is desired.
+{{ end }}
+
+{{ define "ResetDefaultConfiguration" }}
+Resets the default configuration to the implementation-specific defaults.
+
+If a custom default configuration was previously set using SetDefaultConfiguration,
+it will be replaced with the implementation-specific defaults. Otherwise,
+this will have no effect.
+{{ end }}
+
+
+{{ define "GetConfiguration" }}
+Gets the current configuration, or the default configuration if not set.
+
+This configuration is maintained and versioned separately from the default
+configuration, and has different semantics regarding merging and persistence.
+
+The active configuration can be set using SetConfiguration. Then, future
+calls to GetConfiguration will return that configuration instead of falling
+back to the default.
+
+An optional revision argument can be provided to get a specific historical
+version of the configuration instead of the current configuration.
+This revision value can be obtained from the revision field of a previous
+call to GetConfiguration, or from the revision field of one of the history
+entries returned by GetConfigurationHistory.
+{{ end }}
+
+{{ define "SetConfiguration" }}
+Updates the active configuration by merging the input with the current active configuration.
+If there is no active configuration, the input will be merged with the default configuration.
+
+The merge is performed by replacing all *present* fields in the input with the
+corresponding fields in the target. Slices and maps are overwritten and not combined.
+Any *non-present* fields in the input are ignored, and the corresponding fields
+in the target are left unchanged.
+
+Field presence is defined by the protobuf spec. The following kinds of fields
+have presence semantics:
+- Messages
+- Repeated fields (scalars or messages)
+- Maps
+- Optional scalars
+Non-optional scalars do *not* have presence semantics, and are always treated
+as present for the purposes of merging. For this reason, it is not recommended
+to use non-optional scalars in messages intended to be used with this API.
+
+Subsequent calls to this API will merge inputs with the previous active configuration,
+not the default configuration.
+
+When updating an existing configuration, the revision number in the input configuration
+must match the revision number of the existing configuration, otherwise a conflict
+error will be returned. The timestamp field of the revision is ignored for this purpose.
+
+Some fields in the configuration may be marked as secrets. These fields are
+write-only from this API, and the placeholder value "***" will be returned in
+place of the actual value when getting the configuration.
+When setting the configuration, the same placeholder value can be used to indicate
+the existing value should be preserved.
+{{ end }}
+
+{{ define "ResetConfiguration" }}
+Resets the active configuration to the current default configuration.
+
+The request may optionally contain a field mask to specify which fields should
+be preserved. Furthermore, if a mask is set, the request may also contain a patch
+object used to apply additional changes to the masked fields. These changes are
+applied atomically at the time of reset. Fields present in the patch object, but
+not in the mask, are ignored.
+
+For example, with the following message:
+ message Example {
+  optional int32 a = 1;
+  optional int32 b = 2;
+  optional int32 c = 3;
+ }
+
+and current state:
+  active:  { a: 1, b: 2, c: 3 }
+  default: { a: 4, b: 5, c: 6 }
+
+and reset request parameters:
+  {
+    mask:  { paths: [ "a", "b" ] }
+    patch: { a: 100 }
+  }
+
+The resulting active configuration will be:
+  active: {
+    a: 100, // masked, set to 100 via patch
+    b: 2,   // masked, but not set in patch, so left unchanged
+    c: 6,   // not masked, reset to default
+  }
+{{ end }}
+
+{{ define "DryRun" }}
+Show what changes would be made to a configuration without saving them.
+The request expects an action, target, and spec to be provided. These
+correspond roughly to the other APIs in this service.
+
+Configuring DryRunRequest:
+- Use the Active target for the SetConfiguration API, and the Default target
+  for the SetDefaultConfiguration API. Install and Uninstall actions do not
+  require a target (if they are available in this service).
+- The Set action requires the spec field to be set.
+- The Reset action ignores the spec field, and will use the optional patch
+  and mask fields if provided.
+
+Notes:
+- When DryRun is used on Install or Uninstall requests, the response will
+  contain modifications to the 'enabled' field only. This field is read-only
+  in the Set* APIs.
+- To validate the current configuration but keep it unchanged, use the
+  Set action with an empty spec.
+- Configurations returned by DryRun will always have an empty revision field.
+{{ end }}
+
+{{ define "ConfigurationHistory" }}
+Get a list of all past revisions of the configuration.
+
+Will return the history for either the active or default configuration
+depending on the specified target.
+
+The entries are ordered from oldest to newest, where the last entry is
+the current configuration.
+{{ end }}

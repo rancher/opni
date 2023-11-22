@@ -36,7 +36,8 @@ type OpenIDConfigSpec struct {
 }
 
 type GatewaySpec struct {
-	Image *opnimeta.ImageSpec `json:"image,omitempty"`
+	Replicas *int32              `json:"replicas,omitempty"`
+	Image    *opnimeta.ImageSpec `json:"image,omitempty"`
 	//+kubebuilder:validation:Required
 	Auth     AuthSpec `json:"auth,omitempty"`
 	Hostname string   `json:"hostname,omitempty"`
@@ -57,6 +58,8 @@ type GatewaySpec struct {
 	//+kubebuilder:validation:Optional
 	//+kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	StorageType cfgv1beta1.StorageType `json:"storageType,omitempty"`
+	//+kubebuilder:default=bsdiff
+	PatchEngine cfgv1beta1.PatchEngine `json:"patchEngine,omitempty"`
 
 	NodeSelector      map[string]string           `json:"nodeSelector,omitempty"`
 	Tolerations       []corev1.Toleration         `json:"tolerations,omitempty"`

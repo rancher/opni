@@ -1,13 +1,12 @@
 package capabilities
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
-	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"log/slog"
+
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 )
 
 var (
@@ -22,23 +21,28 @@ type BackendStore interface {
 	Add(name string, backend capabilityv1.BackendClient) error
 	// Returns all capability names known to the store
 	List() []string
-	// Render the installer command template for the given capability
-	RenderInstaller(name string, spec UserInstallerTemplateSpec) (string, error)
+}
+
+type RBACManagerStore interface {
+	// Obtain a backend rbac client for the given capability name
+	Get(name string) (capabilityv1.RBACManagerClient, error)
+	// Add a capability rbac manager with the given name
+	Add(name string, rbac capabilityv1.RBACManagerClient) error
+	// Returns all capability names with rbac managers known to the store
+	List() []string
 }
 
 type backendStore struct {
 	capabilityv1.UnsafeBackendServer
-	serverSpec ServerInstallerTemplateSpec
-	mu         sync.RWMutex
-	backends   map[string]capabilityv1.BackendClient
-	logger     *slog.Logger
+	mu       sync.RWMutex
+	backends map[string]capabilityv1.BackendClient
+	logger   *slog.Logger
 }
 
-func NewBackendStore(serverSpec ServerInstallerTemplateSpec, logger *slog.Logger) BackendStore {
+func NewBackendStore(logger *slog.Logger) BackendStore {
 	return &backendStore{
-		serverSpec: serverSpec,
-		backends:   make(map[string]capabilityv1.BackendClient),
-		logger:     logger,
+		backends: make(map[string]capabilityv1.BackendClient),
+		logger:   logger,
 	}
 }
 
@@ -72,22 +76,45 @@ func (s *backendStore) List() []string {
 	return capabilities
 }
 
-func (s *backendStore) RenderInstaller(name string, spec UserInstallerTemplateSpec) (string, error) {
-	backend, err := s.Get(name)
-	if err != nil {
-		return "", err
+type rbacManagerStore struct {
+	mu           sync.RWMutex
+	rbacManagers map[string]capabilityv1.RBACManagerClient
+	logger       *slog.Logger
+}
+
+func NewRBACManagerStore(logger *slog.Logger) RBACManagerStore {
+	return &rbacManagerStore{
+		rbacManagers: make(map[string]capabilityv1.RBACManagerClient),
+		logger:       logger,
 	}
-	resp, err := backend.InstallerTemplate(context.Background(), &emptypb.Empty{})
-	if err != nil {
-		return "", err
+}
+
+func (s *rbacManagerStore) Get(name string) (capabilityv1.RBACManagerClient, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	manager, ok := s.rbacManagers[name]
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", ErrBackendNotFound, name)
 	}
-	templateSpec := InstallerTemplateSpec{
-		UserInstallerTemplateSpec:   spec,
-		ServerInstallerTemplateSpec: s.serverSpec,
+	return manager, nil
+}
+
+func (s *rbacManagerStore) Add(name string, manager capabilityv1.RBACManagerClient) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.rbacManagers[name]; ok {
+		return fmt.Errorf("%w: %s", ErrBackendAlreadyExists, name)
 	}
-	result, err := RenderInstallerCommand(resp.Template, templateSpec)
-	if err != nil {
-		return "", err
+	s.rbacManagers[name] = manager
+	return nil
+}
+
+func (s *rbacManagerStore) List() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	capabilities := make([]string, 0, len(s.rbacManagers))
+	for capability := range s.rbacManagers {
+		capabilities = append(capabilities, capability)
 	}
-	return RenderInstallerCommand(result, templateSpec)
+	return capabilities
 }

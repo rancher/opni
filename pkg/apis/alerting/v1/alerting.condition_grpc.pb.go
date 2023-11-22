@@ -184,7 +184,7 @@ func (c *alertConditionsClient) Timeline(ctx context.Context, in *TimelineReques
 }
 
 // AlertConditionsServer is the server API for AlertConditions service.
-// All implementations must embed UnimplementedAlertConditionsServer
+// All implementations should embed UnimplementedAlertConditionsServer
 // for forward compatibility
 type AlertConditionsServer interface {
 	ListAlertConditionGroups(context.Context, *emptypb.Empty) (*v1.ReferenceList, error)
@@ -203,10 +203,9 @@ type AlertConditionsServer interface {
 	// id corresponds to conditionId
 	DeactivateSilence(context.Context, *ConditionReference) (*emptypb.Empty, error)
 	Timeline(context.Context, *TimelineRequest) (*TimelineResponse, error)
-	mustEmbedUnimplementedAlertConditionsServer()
 }
 
-// UnimplementedAlertConditionsServer must be embedded to have forward compatible implementations.
+// UnimplementedAlertConditionsServer should be embedded to have forward compatible implementations.
 type UnimplementedAlertConditionsServer struct {
 }
 
@@ -249,7 +248,6 @@ func (UnimplementedAlertConditionsServer) DeactivateSilence(context.Context, *Co
 func (UnimplementedAlertConditionsServer) Timeline(context.Context, *TimelineRequest) (*TimelineResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Timeline not implemented")
 }
-func (UnimplementedAlertConditionsServer) mustEmbedUnimplementedAlertConditionsServer() {}
 
 // UnsafeAlertConditionsServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to AlertConditionsServer will

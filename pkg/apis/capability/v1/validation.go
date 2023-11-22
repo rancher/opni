@@ -2,26 +2,52 @@ package v1
 
 import "github.com/rancher/opni/pkg/validation"
 
-func (req *UninstallRequest) Validate() error {
-	if err := validation.Validate(req.Cluster); err != nil {
+func (r *InstallRequest) Validate() error {
+	if err := validation.Validate(r.Capability); err != nil {
+		return err
+	}
+	if err := validation.Validate(r.Agent); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (req *InstallRequest) Validate() error {
-	if err := validation.Validate(req.Cluster); err != nil {
+func (r *UninstallRequest) Validate() error {
+	if err := validation.Validate(r.Capability); err != nil {
+		return err
+	}
+	if err := validation.Validate(r.Agent); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (req *SyncRequest) Validate() error {
-	if req.Cluster != nil && req.Cluster.Id != "" {
-		// empty string indicates "all" here
-		if err := validation.Validate(req.Cluster); err != nil {
-			return err
-		}
+func (r *StatusRequest) Validate() error {
+	if err := validation.Validate(r.Capability); err != nil {
+		return err
+	}
+	if err := validation.Validate(r.Agent); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *UninstallStatusRequest) Validate() error {
+	if err := validation.Validate(r.Capability); err != nil {
+		return err
+	}
+	if err := validation.Validate(r.Agent); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *CancelUninstallRequest) Validate() error {
+	if err := validation.Validate(r.Capability); err != nil {
+		return err
+	}
+	if err := validation.Validate(r.Agent); err != nil {
+		return err
 	}
 	return nil
 }

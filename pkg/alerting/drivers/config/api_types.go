@@ -471,7 +471,7 @@ func parseURL(s string) (*amCfg.URL, error) {
 	if u.Host == "" {
 		return nil, fmt.Errorf("missing host for URL")
 	}
-	return &amCfg.URL{u}, nil
+	return &amCfg.URL{URL: u}, nil
 }
 
 // HostPort represents a "host:port" network address.

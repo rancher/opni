@@ -47,21 +47,18 @@ func (c *nodeTopologyCapabilityClient) Sync(ctx context.Context, in *SyncRequest
 }
 
 // NodeTopologyCapabilityServer is the server API for NodeTopologyCapability service.
-// All implementations must embed UnimplementedNodeTopologyCapabilityServer
+// All implementations should embed UnimplementedNodeTopologyCapabilityServer
 // for forward compatibility
 type NodeTopologyCapabilityServer interface {
 	Sync(context.Context, *SyncRequest) (*SyncResponse, error)
-	mustEmbedUnimplementedNodeTopologyCapabilityServer()
 }
 
-// UnimplementedNodeTopologyCapabilityServer must be embedded to have forward compatible implementations.
+// UnimplementedNodeTopologyCapabilityServer should be embedded to have forward compatible implementations.
 type UnimplementedNodeTopologyCapabilityServer struct {
 }
 
 func (UnimplementedNodeTopologyCapabilityServer) Sync(context.Context, *SyncRequest) (*SyncResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Sync not implemented")
-}
-func (UnimplementedNodeTopologyCapabilityServer) mustEmbedUnimplementedNodeTopologyCapabilityServer() {
 }
 
 // UnsafeNodeTopologyCapabilityServer may be embedded to opt out of forward compatibility for this service.

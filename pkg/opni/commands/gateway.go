@@ -98,7 +98,7 @@ func BuildGatewayCmd() *cobra.Command {
 		)
 
 		m := management.NewServer(ctx, &gatewayConfig.Spec.Management, g, pluginLoader,
-			management.WithCapabilitiesDataSource(g),
+			management.WithCapabilitiesDataSource(g.CapabilitiesDataSource()),
 			management.WithHealthStatusDataSource(g),
 			management.WithLifecycler(lifecycler),
 		)
@@ -137,7 +137,7 @@ func BuildGatewayCmd() *cobra.Command {
 			return err
 		})
 
-		d, err := dashboard.NewServer(&gatewayConfig.Spec.Management)
+		d, err := dashboard.NewServer(&gatewayConfig.Spec.Management, pluginLoader, g)
 		if err != nil {
 			lg.With(logger.Err(err)).Error("failed to start dashboard server")
 		} else {

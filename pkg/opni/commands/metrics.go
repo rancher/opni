@@ -4,6 +4,7 @@ package commands
 
 import (
 	"github.com/rancher/opni/plugins/metrics/apis/cortexops"
+	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +16,7 @@ func BuildMetricsCmd() *cobra.Command {
 
 	cmd.AddCommand(BuildCortexAdminCmd())
 	cmd.AddCommand(cortexops.BuildCortexOpsCmd())
-	cmd.AddCommand(BuildMetricsConfigCmd())
+	cmd.AddCommand(node.BuildNodeConfigurationCmd())
 
 	ConfigureManagementCommand(cmd)
 	ConfigureCortexAdminCommand(cmd)

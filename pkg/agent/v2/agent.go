@@ -433,7 +433,7 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 		"address", listener.Addr().String(),
 	).Info("agent http server starting")
 
-	ctx, ca := context.WithCancel(ctx)
+	ctx, ca := context.WithCancelCause(ctx)
 
 	e1 := lo.Async(func() error {
 		return util.ServeHandler(ctx, a.router.Handler(), listener)

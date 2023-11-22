@@ -19,8 +19,8 @@ func TestStorage(t *testing.T) {
 	RunSpecs(t, "Storage Suite")
 }
 
-var lmsEtcdF = future.New[[]*etcd.EtcdLockManager]()
-var lmsJetstreamF = future.New[[]*jetstream.LockManager]()
+var lmsEtcdF = future.New[[]*etcd.EtcdStore]()
+var lmsJetstreamF = future.New[[]*jetstream.JetStreamStore]()
 
 var _ = BeforeSuite(func() {
 	testruntime.IfIntegration(func() {
@@ -31,17 +31,17 @@ var _ = BeforeSuite(func() {
 			test.WithEnableJetstream(false),
 		)
 
-		lmsE := make([]*etcd.EtcdLockManager, 7)
+		lmsE := make([]*etcd.EtcdStore, 7)
 		for i := 0; i < 7; i++ {
-			l, err := etcd.NewEtcdLockManager(context.Background(), env.EtcdConfig(),
+			l, err := etcd.NewEtcdStore(context.Background(), env.EtcdConfig(),
 				etcd.WithPrefix("test"),
 			)
 			Expect(err).NotTo(HaveOccurred())
 			lmsE[i] = l
 		}
-		lmsJ := make([]*jetstream.LockManager, 7)
+		lmsJ := make([]*jetstream.JetStreamStore, 7)
 		for i := 0; i < 7; i++ {
-			j, err := jetstream.NewJetstreamLockManager(context.Background(), env.JetStreamConfig())
+			j, err := jetstream.NewJetStreamStore(context.Background(), env.JetStreamConfig())
 			Expect(err).NotTo(HaveOccurred())
 			lmsJ[i] = j
 		}

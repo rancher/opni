@@ -5,6 +5,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
 	_ "github.com/rancher/opni/pkg/test/setup"
 	"github.com/rancher/opni/pkg/test/testdata/plugins/ext"
@@ -19,7 +20,10 @@ import (
 
 var _ = Describe("Base Config Server", Label("unit"), Ordered, func() {
 	var server *driverutil.BaseConfigServer[
+		*driverutil.GetRequest,
+		*ext.SampleSetRequest,
 		*ext.SampleResetRequest,
+		*driverutil.ConfigurationHistoryRequest,
 		*ext.SampleConfigurationHistoryResponse,
 		*ext.SampleConfiguration,
 	]
@@ -49,10 +53,7 @@ var _ = Describe("Base Config Server", Label("unit"), Ordered, func() {
 	}
 
 	BeforeEach(func() {
-		server = driverutil.NewBaseConfigServer[
-			*ext.SampleResetRequest,
-			*ext.SampleConfigurationHistoryResponse,
-		](newValueStore(), newValueStore(), setDefaults)
+		server = server.Build(newValueStore(), newValueStore(), setDefaults)
 	})
 	Context("GetConfiguration", func() {
 		It("should forward the request to the tracker", func(ctx context.Context) {
@@ -251,7 +252,9 @@ var _ = Describe("Base Config Server", Label("unit"), Ordered, func() {
 			Expect(server.Tracker().ApplyConfig(ctx, util.ProtoClone(config))).To(Succeed())
 			By("setting the configuration")
 			config.Enabled = lo.ToPtr(true)
-			_, err := server.SetConfiguration(ctx, util.ProtoClone(config))
+			_, err := server.SetConfiguration(ctx, &ext.SampleSetRequest{
+				Spec: util.ProtoClone(config),
+			})
 			Expect(err).NotTo(HaveOccurred())
 			By("getting the configuration")
 			res, err := server.GetConfiguration(ctx, &driverutil.GetRequest{})
@@ -265,7 +268,9 @@ var _ = Describe("Base Config Server", Label("unit"), Ordered, func() {
 			defaults := newDefaults()
 			defaults.Enabled = lo.ToPtr(true)
 			By("setting the default configuration")
-			_, err := server.SetDefaultConfiguration(ctx, defaults)
+			_, err := server.SetDefaultConfiguration(ctx, &ext.SampleSetRequest{
+				Spec: defaults,
+			})
 			Expect(err).NotTo(HaveOccurred())
 			By("getting the default configuration")
 			res, err := server.GetDefaultConfiguration(ctx, &driverutil.GetRequest{})
@@ -307,5 +312,238 @@ var _ = Describe("Base Config Server", Label("unit"), Ordered, func() {
 				Expect(res.GetEntries()[i]).To(testutil.ProtoEqual(expected))
 			}
 		})
+	})
+})
+
+var _ = Describe("Context Keyable Config Server", Label("unit"), Ordered, func() {
+	var server *driverutil.ContextKeyableConfigServer[
+		*ext.SampleGetRequest,
+		*ext.SampleSetRequest,
+		*ext.SampleResetRequest,
+		*ext.SampleHistoryRequest,
+		*ext.SampleConfigurationHistoryResponse,
+		*ext.SampleConfiguration,
+	]
+	rand := protorand.New[*ext.SampleConfiguration]()
+	rand.ExcludeMask(&fieldmaskpb.FieldMask{
+		Paths: []string{
+			"revision",
+			"enabled",
+		},
+	})
+	rand.Seed(GinkgoRandomSeed())
+	mustGen := func() *ext.SampleConfiguration {
+		t := rand.MustGen()
+		driverutil.UnsetRevision(t)
+		return t
+	}
+	var setDefaults func(*ext.SampleConfiguration)
+	var newDefaults func() *ext.SampleConfiguration
+	{
+		defaults := mustGen()
+		setDefaults = func(t *ext.SampleConfiguration) {
+			merge.MergeWithReplace(t, defaults)
+		}
+		newDefaults = func() *ext.SampleConfiguration {
+			return util.ProtoClone(defaults)
+		}
+	}
+	_ = newDefaults
+
+	// These tests are similar to the base tests, but focusing on the ability to
+	// use a multi-valued kv store and switch between active storages based on
+	// the context key in the request.
+	BeforeEach(func() {
+		server = server.Build(newValueStore(), newKeyValueStore(), setDefaults)
+	})
+	keyList := []string{
+		"key1",
+		"key2",
+		"key3",
+	}
+	It("should use the context key as a namespace into the active storage", func(ctx SpecContext) {
+		valuesByKey := make(map[string]*ext.SampleConfiguration)
+		for _, key := range keyList {
+			valuesByKey[key] = mustGen()
+		}
+		By("setting the active configuration for each keys")
+		for _, key := range keyList {
+			_, err := server.SetConfiguration(ctx, &ext.SampleSetRequest{
+				Key:  &key,
+				Spec: valuesByKey[key],
+			})
+			Expect(err).NotTo(HaveOccurred())
+		}
+
+		By("getting the active configuration for each key")
+		for _, key := range keyList {
+			res, err := server.GetConfiguration(ctx, &ext.SampleGetRequest{
+				Key: &key,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			expected := valuesByKey[key]
+			expected.RedactSecrets()
+			Expect(res.GetRevision().GetRevision()).To(BeNumerically(">", 0))
+			driverutil.UnsetRevision(res)
+			Expect(res).To(testutil.ProtoEqual(expected))
+		}
+
+		By("ensuring config history records changes to each key independently")
+		for _, key := range keyList {
+			history, err := server.ConfigurationHistory(ctx, &ext.SampleHistoryRequest{
+				Key:           &key,
+				Target:        driverutil.Target_ActiveConfiguration,
+				IncludeValues: true,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(history.Entries).To(HaveLen(1))
+			Expect(history.Entries[0].GetRevision()).NotTo(BeNil())
+			clone := util.ProtoClone(history.Entries[0])
+			clone.Revision = nil
+			Expect(clone).To(testutil.ProtoEqual(valuesByKey[key]))
+		}
+	})
+
+	It("should ignore the context key when setting the default configuration", func(ctx SpecContext) {
+		By("setting the default configuration multiple times")
+		requests := make([]*ext.SampleConfiguration, 10)
+		for i := 0; i < 10; i++ {
+			requests[i] = mustGen()
+			var prevRevision *corev1.Revision
+			if i > 0 {
+				prevRevision = requests[i-1].GetRevision()
+			}
+			driverutil.SetRevision(requests[i], prevRevision.GetRevision())
+			_, err := server.SetDefaultConfiguration(ctx, &ext.SampleSetRequest{
+				Key:  &keyList[i%len(keyList)],
+				Spec: requests[i],
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			dc, err := server.GetDefaultConfiguration(ctx, &ext.SampleGetRequest{
+				Key: &keyList[(i*3)%len(keyList)],
+			})
+			Expect(err).NotTo(HaveOccurred())
+			driverutil.CopyRevision(requests[i], dc)
+
+			clone := util.ProtoClone(requests[i])
+			clone.RedactSecrets()
+			Expect(dc).To(testutil.ProtoEqual(clone))
+		}
+
+		By("ensuring only one default configuration exists")
+		var responses []*ext.SampleConfiguration
+
+		for i := 0; i < 10; i++ {
+			res, err := server.GetDefaultConfiguration(ctx, &ext.SampleGetRequest{
+				Key: &keyList[i%len(keyList)],
+			})
+			Expect(err).NotTo(HaveOccurred())
+			responses = append(responses, res)
+		}
+		// all responses should be identical, including revision
+		for i := 1; i < len(responses); i++ {
+			Expect(responses[i]).To(testutil.ProtoEqual(responses[0]))
+		}
+
+		By("ensuring config history correctly records all changes to the same config")
+		for i := 0; i < 10; i++ {
+			history, err := server.ConfigurationHistory(ctx, &ext.SampleHistoryRequest{
+				Key:           &keyList[i%len(keyList)],
+				Target:        driverutil.Target_DefaultConfiguration,
+				IncludeValues: true,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(history.Entries).To(HaveLen(10))
+			for j := 0; j < 10; j++ {
+				Expect(history.Entries[j].GetRevision()).NotTo(BeNil())
+				clone := util.ProtoClone(requests[j])
+				clone.RedactSecrets()
+				history.Entries[j].Revision.Timestamp = nil
+				Expect(clone).To(testutil.ProtoEqual(history.Entries[j]))
+			}
+		}
+	})
+
+	It("should reset individual active configs using the context key", func(ctx SpecContext) {
+		By("setting the active configuration for each key")
+		keyList := []string{"key1", "key2", "key3"}
+		valuesByKey := make(map[string]*ext.SampleConfiguration)
+		for _, key := range keyList {
+			valuesByKey[key] = mustGen()
+			_, err := server.SetConfiguration(ctx, &ext.SampleSetRequest{
+				Key:  &key,
+				Spec: valuesByKey[key],
+			})
+			Expect(err).NotTo(HaveOccurred())
+		}
+
+		By("setting the default configuration multiple times")
+		requests := make([]*ext.SampleConfiguration, 10)
+		for i := 0; i < 10; i++ {
+			requests[i] = mustGen()
+			var prevRevision *corev1.Revision
+			if i > 0 {
+				prevRevision = requests[i-1].GetRevision()
+			}
+			driverutil.SetRevision(requests[i], prevRevision.GetRevision())
+			_, err := server.SetDefaultConfiguration(ctx, &ext.SampleSetRequest{
+				Key:  &keyList[i%len(keyList)],
+				Spec: requests[i],
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			dc, err := server.GetDefaultConfiguration(ctx, &ext.SampleGetRequest{
+				Key: &keyList[(i*3)%len(keyList)],
+			})
+			Expect(err).NotTo(HaveOccurred())
+			driverutil.CopyRevision(requests[i], dc)
+		}
+
+		By("resetting the active configuration for each key")
+		for _, key := range keyList {
+			_, err := server.ResetConfiguration(ctx, &ext.SampleResetRequest{
+				Key: &key,
+			})
+			Expect(err).NotTo(HaveOccurred())
+		}
+
+		By("ensuring all active configurations are individually reset, but to the single default")
+		for _, key := range keyList {
+			res, err := server.GetConfiguration(ctx, &ext.SampleGetRequest{
+				Key: &key,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			expected := requests[len(requests)-1]
+			expected.RedactSecrets()
+			Expect(res.GetRevision().GetRevision()).To(BeNumerically(">", 0))
+			driverutil.UnsetRevision(res)
+			driverutil.UnsetRevision(expected)
+			Expect(res).To(testutil.ProtoEqual(expected))
+		}
+
+		By("ensuring config history correctly records all changes for each key")
+		for _, key := range keyList {
+			history, err := server.ConfigurationHistory(ctx, &ext.SampleHistoryRequest{
+				Key:           &key,
+				Target:        driverutil.Target_ActiveConfiguration,
+				IncludeValues: true,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(history.Entries).To(HaveLen(2))
+			Expect(history.Entries[0].GetRevision()).NotTo(BeNil())
+			Expect(history.Entries[1].GetRevision()).NotTo(BeNil())
+			clone := util.ProtoClone(valuesByKey[key])
+			clone.RedactSecrets()
+			driverutil.CopyRevision(clone, history.Entries[0])
+			Expect(clone).To(testutil.ProtoEqual(history.Entries[0]))
+
+			clone = util.ProtoClone(requests[len(requests)-1])
+			clone.RedactSecrets()
+			driverutil.CopyRevision(clone, history.Entries[1])
+			Expect(clone).To(testutil.ProtoEqual(history.Entries[1]))
+		}
 	})
 })

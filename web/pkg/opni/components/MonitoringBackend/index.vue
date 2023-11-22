@@ -9,6 +9,7 @@ import { Duration } from '@bufbuild/protobuf';
 import { Banner } from '@components/Banner';
 import Backend from '../Backend';
 import CapabilityTable from '../CapabilityTable';
+import { SetRequest } from '../../generated/github.com/rancher/opni/plugins/metrics/apis/cortexops/cortexops_pb';
 import Grafana from './Grafana';
 import StorageComponent from './Storage';
 
@@ -166,7 +167,7 @@ export default {
         throw dryRun.validationErrors.map(e => e.message);
       }
 
-      await CortexOps.service.SetConfiguration(newConfig);
+      await CortexOps.service.SetConfiguration(new CortexOps.types.SetRequest({ spec: newConfig }));
       await CortexOps.service.Install();
     },
 

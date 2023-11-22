@@ -5,15 +5,11 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
-	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var _ = Describe("Impersonated Metrics", Ordered, Label("integration"), func() {
@@ -25,25 +21,12 @@ var _ = Describe("Impersonated Metrics", Ordered, Label("integration"), func() {
 		Expect(environment.Start()).To(Succeed())
 		DeferCleanup(environment.Stop)
 
-		client := environment.NewManagementClient()
-
-		certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
-		Expect(err).NotTo(HaveOccurred())
-		fingerprint := certsInfo.Chain[len(certsInfo.Chain)-1].Fingerprint
-		Expect(fingerprint).NotTo(BeEmpty())
-
-		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
-			Ttl: durationpb.New(1 * time.Hour),
-		})
-		Expect(err).NotTo(HaveOccurred())
-
 		ctx, ca := context.WithCancel(environment.Context())
 		agent1Cancel = ca
-		_, errC := environment.StartAgent("agent1", token, []string{fingerprint}, test.WithContext(ctx), test.WithLocalAgent())
-		Eventually(errC).Should(Receive(BeNil()))
-
-		_, errC = environment.StartAgent("agent2", token, []string{fingerprint})
-		Eventually(errC).Should(Receive(BeNil()))
+		err := environment.BootstrapNewAgent("agent1", test.WithContext(ctx), test.WithLocalAgent())
+		Expect(err).NotTo(HaveOccurred())
+		err = environment.BootstrapNewAgent("agent2")
+		Expect(err).NotTo(HaveOccurred())
 
 		hostport := environment.GatewayConfig().Spec.MetricsListenAddress
 		_, port, _ := net.SplitHostPort(hostport)

@@ -60,6 +60,7 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, opts ...ClientOption) 
 			grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()),
 			grpc.WithPerRPCCredentials(cluster.ClusterIDKey),
 			grpc.WithPerRPCCredentials(session.AttributesKey),
+			grpc.WithDisableHealthCheck(),
 		},
 		SyncStderr: os.Stderr,
 		Stderr:     os.Stderr,

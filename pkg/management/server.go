@@ -13,14 +13,19 @@ import (
 
 	"log/slog"
 
+	"github.com/gin-gonic/gin"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/jhump/protoreflect/desc"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/auth/local"
+	authutil "github.com/rancher/opni/pkg/auth/util"
 	"github.com/rancher/opni/pkg/caching"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/plugins"
@@ -28,7 +33,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
-	"github.com/rancher/opni/pkg/rbac"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
@@ -51,7 +55,7 @@ type CoreDataSource interface {
 // CapabilitiesDataSource provides a way to obtain data which the management
 // server needs to serve capabilities-related endpoints
 type CapabilitiesDataSource interface {
-	CapabilitiesStore() capabilities.BackendStore
+	capabilityv1.BackendServer
 }
 
 type HealthStatusDataSource interface {
@@ -62,19 +66,23 @@ type HealthStatusDataSource interface {
 type apiExtension struct {
 	client      apiextensions.ManagementAPIExtensionClient
 	clientConn  *grpc.ClientConn
+	status      *health.ServingStatus
 	serviceDesc *desc.ServiceDescriptor
 	httpRules   []*managementv1.HTTPRuleDescriptor
 }
 
 type Server struct {
 	managementv1.UnsafeManagementServer
+	managementv1.UnimplementedLocalPasswordServer
 	managementServerOptions
 	config            *v1beta1.ManagementSpec
+	rbacManagerStore  capabilities.RBACManagerStore
 	logger            *slog.Logger
-	rbacProvider      rbac.Provider
 	coreDataSource    CoreDataSource
 	grpcServer        *grpc.Server
 	dashboardSettings *DashboardSettingsManager
+	router            *gin.Engine
+	localAuth         local.LocalAuthenticator
 
 	apiExtMu      sync.RWMutex
 	apiExtensions []apiExtension
@@ -130,11 +138,12 @@ func NewServer(
 		config:                  conf,
 		logger:                  lg,
 		coreDataSource:          cds,
-		rbacProvider:            storage.NewRBACProvider(cds.StorageBackend()),
+		rbacManagerStore:        capabilities.NewRBACManagerStore(lg),
 		dashboardSettings: &DashboardSettingsManager{
 			kv:     cds.StorageBackend().KeyValueStore("dashboard"),
 			logger: lg,
 		},
+		router: gin.New(),
 	}
 
 	director := m.configureApiExtensionDirector(ctx, pluginLoader)
@@ -147,6 +156,7 @@ func NewServer(
 			otelgrpc.UnaryServerInterceptor()),
 	)
 	managementv1.RegisterManagementServer(m.grpcServer, m)
+	managementv1.RegisterLocalPasswordServer(m.grpcServer, m)
 	channelzservice.RegisterChannelzServiceToServer(m.grpcServer)
 
 	pluginLoader.Hook(hooks.OnLoadM(func(sp types.SystemPlugin, md meta.PluginMeta) {
@@ -161,6 +171,38 @@ func NewServer(
 		}()
 	}))
 
+	pluginLoader.Hook(hooks.OnLoadM(func(p types.CapabilityRBACPlugin, md meta.PluginMeta) {
+		list, err := p.List(ctx, &emptypb.Empty{})
+		if err != nil {
+			lg.With(
+				"plugin", md.Module,
+				logger.Err(err),
+			).Error("failed to list capabilities")
+			return
+		}
+		for _, cap := range list.GetItems() {
+			info, err := p.Info(ctx, &corev1.Reference{Id: cap.GetName()})
+			if err != nil {
+				lg.With(
+					"plugin", md.Module,
+				).Error("failed to get capability info")
+				return
+			}
+			if err := m.rbacManagerStore.Add(info.Name, p); err != nil {
+				lg.With(
+					"plugin", md.Module,
+					logger.Err(err),
+				).Error("failed to add capability backend rbac")
+			}
+			lg.With(
+				"plugin", md.Module,
+				"capability", info.Name,
+			).Info("added capability rbac backend")
+		}
+	}))
+
+	m.localAuth = local.NewLocalAuthenticator(m.coreDataSource.StorageBackend().KeyValueStore(authutil.AuthNamespace))
+
 	return m
 }
 
@@ -169,7 +211,7 @@ type managementApiServer interface {
 }
 
 func (m *Server) ListenAndServe(ctx context.Context) error {
-	ctx, ca := context.WithCancel(ctx)
+	ctx, ca := context.WithCancelCause(ctx)
 
 	e1 := lo.Async(func() error {
 		err := m.listenAndServeGrpc(ctx)
@@ -223,7 +265,6 @@ func (m *Server) listenAndServeHttp(ctx context.Context) error {
 	lg.With(
 		"address", m.config.HTTPListenAddress,
 	).Info("management HTTP server starting")
-	mux := http.NewServeMux()
 	gwmux := runtime.NewServeMux(
 		runtime.WithMarshalerOption("application/json", &LegacyJsonMarshaler{}),
 		runtime.WithMarshalerOption("application/octet-stream", &DynamicV1Marshaler{}),
@@ -232,13 +273,13 @@ func (m *Server) listenAndServeHttp(ctx context.Context) error {
 
 	m.configureManagementHttpApi(ctx, gwmux)
 	m.configureHttpApiExtensions(gwmux)
-	mux.Handle("/", gwmux)
+	m.router.Any("/*any", gin.WrapF(gwmux.ServeHTTP))
 	server := &http.Server{
-		Addr:    m.config.HTTPListenAddress,
-		Handler: mux,
+		Addr: m.config.HTTPListenAddress,
 		BaseContext: func(net.Listener) context.Context {
 			return ctx
 		},
+		Handler: m.router.Handler(),
 	}
 	errC := lo.Async(func() error {
 		return server.ListenAndServe()
@@ -292,51 +333,20 @@ func (m *Server) ListCapabilities(ctx context.Context, in *emptypb.Empty) (*mana
 		}
 	}
 
-	names := m.capabilitiesDataSource.CapabilitiesStore().List()
+	list, err := m.capabilitiesDataSource.List(ctx, in)
+	if err != nil {
+		return nil, err
+	}
 	var items []*managementv1.CapabilityInfo
-	for _, name := range names {
-		capability, err := m.capabilitiesDataSource.CapabilitiesStore().Get(name)
-		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-		details, err := capability.Info(ctx, in)
-		if err != nil {
-			m.logger.With(
-				logger.Err(err),
-				"capability", name,
-			).Error("failed to fetch capability details")
-			continue
-		}
+	for _, details := range list.GetItems() {
 		items = append(items, &managementv1.CapabilityInfo{
 			Details:   details,
-			NodeCount: counts[name],
+			NodeCount: counts[details.GetName()],
 		})
 	}
 
 	return &managementv1.CapabilityList{
 		Items: items,
-	}, nil
-}
-
-func (m *Server) CapabilityInstaller(
-	_ context.Context,
-	req *managementv1.CapabilityInstallerRequest,
-) (*managementv1.CapabilityInstallerResponse, error) {
-	if m.capabilitiesDataSource == nil {
-		return nil, status.Error(codes.Unavailable, "capability backend store not configured")
-	}
-
-	cmd, err := m.capabilitiesDataSource.
-		CapabilitiesStore().
-		RenderInstaller(req.Name, capabilities.UserInstallerTemplateSpec{
-			Token: req.Token,
-			Pin:   req.Pin,
-		})
-	if err != nil {
-		return nil, err
-	}
-	return &managementv1.CapabilityInstallerResponse{
-		Command: cmd,
 	}, nil
 }
 

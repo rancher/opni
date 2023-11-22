@@ -69,21 +69,19 @@ func (x *streamServiceStreamClient) Recv() (*StreamResponse, error) {
 }
 
 // StreamServiceServer is the server API for StreamService service.
-// All implementations must embed UnimplementedStreamServiceServer
+// All implementations should embed UnimplementedStreamServiceServer
 // for forward compatibility
 type StreamServiceServer interface {
 	Stream(StreamService_StreamServer) error
-	mustEmbedUnimplementedStreamServiceServer()
 }
 
-// UnimplementedStreamServiceServer must be embedded to have forward compatible implementations.
+// UnimplementedStreamServiceServer should be embedded to have forward compatible implementations.
 type UnimplementedStreamServiceServer struct {
 }
 
 func (UnimplementedStreamServiceServer) Stream(StreamService_StreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method Stream not implemented")
 }
-func (UnimplementedStreamServiceServer) mustEmbedUnimplementedStreamServiceServer() {}
 
 // UnsafeStreamServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to StreamServiceServer will

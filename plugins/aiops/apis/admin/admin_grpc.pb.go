@@ -103,7 +103,7 @@ func (c *aIAdminClient) GetRuntimeClasses(ctx context.Context, in *emptypb.Empty
 }
 
 // AIAdminServer is the server API for AIAdmin service.
-// All implementations must embed UnimplementedAIAdminServer
+// All implementations should embed UnimplementedAIAdminServer
 // for forward compatibility
 type AIAdminServer interface {
 	GetAISettings(context.Context, *emptypb.Empty) (*AISettings, error)
@@ -112,10 +112,9 @@ type AIAdminServer interface {
 	UpgradeAvailable(context.Context, *emptypb.Empty) (*UpgradeAvailableResponse, error)
 	DoUpgrade(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	GetRuntimeClasses(context.Context, *emptypb.Empty) (*RuntimeClassResponse, error)
-	mustEmbedUnimplementedAIAdminServer()
 }
 
-// UnimplementedAIAdminServer must be embedded to have forward compatible implementations.
+// UnimplementedAIAdminServer should be embedded to have forward compatible implementations.
 type UnimplementedAIAdminServer struct {
 }
 
@@ -137,7 +136,6 @@ func (UnimplementedAIAdminServer) DoUpgrade(context.Context, *emptypb.Empty) (*e
 func (UnimplementedAIAdminServer) GetRuntimeClasses(context.Context, *emptypb.Empty) (*RuntimeClassResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRuntimeClasses not implemented")
 }
-func (UnimplementedAIAdminServer) mustEmbedUnimplementedAIAdminServer() {}
 
 // UnsafeAIAdminServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to AIAdminServer will

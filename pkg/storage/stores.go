@@ -12,9 +12,13 @@ import (
 type Backend interface {
 	TokenStore
 	ClusterStore
-	RBACStore
+	RoleBindingStore
 	KeyringStoreBroker
 	KeyValueStoreBroker
+
+	// Close shuts down any connections and releases any resources held
+	// by the storage backend client.
+	Close()
 }
 
 type MutatorFunc[T any] func(T)
@@ -42,16 +46,11 @@ type ClusterStore interface {
 	ListClusters(ctx context.Context, matchLabels *corev1.LabelSelector, matchOptions corev1.MatchOptions) (*corev1.ClusterList, error)
 }
 
-type RBACStore interface {
-	CreateRole(context.Context, *corev1.Role) error
-	UpdateRole(ctx context.Context, ref *corev1.Reference, mutator RoleMutator) (*corev1.Role, error)
-	DeleteRole(context.Context, *corev1.Reference) error
-	GetRole(context.Context, *corev1.Reference) (*corev1.Role, error)
+type RoleBindingStore interface {
 	CreateRoleBinding(context.Context, *corev1.RoleBinding) error
 	UpdateRoleBinding(ctx context.Context, ref *corev1.Reference, mutator RoleBindingMutator) (*corev1.RoleBinding, error)
 	DeleteRoleBinding(context.Context, *corev1.Reference) error
 	GetRoleBinding(context.Context, *corev1.Reference) (*corev1.RoleBinding, error)
-	ListRoles(context.Context) (*corev1.RoleList, error)
 	ListRoleBindings(context.Context) (*corev1.RoleBindingList, error)
 }
 
@@ -118,7 +117,9 @@ type KeyValueStoreT[T any] interface {
 	// When the watch is started, the current value of the key will be sent
 	// if and only if both of the following conditions are met:
 	// 1. A revision is explicitly set in the watch options. If no revision is
-	//    specified, only future events will be sent.
+	//    specified, only future events will be sent. Revision 0 is equivalent
+	//    to the oldest revision among all keys matching the prefix, not
+	//    including deleted keys.
 	// 2. The key exists; or in prefix mode, there is at least one key matching
 	//    the prefix.
 	//
@@ -138,6 +139,8 @@ type KeyValueStoreT[T any] interface {
 	ListKeys(ctx context.Context, prefix string, opts ...ListOpt) ([]string, error)
 	History(ctx context.Context, key string, opts ...HistoryOpt) ([]KeyRevision[T], error)
 }
+
+type RoleStore = KeyValueStoreT[*corev1.Role]
 
 type ValueStoreT[T any] interface {
 	Put(ctx context.Context, value T, opts ...PutOpt) error
@@ -161,12 +164,16 @@ type KeyValueStoreTBroker[T any] interface {
 	KeyValueStore(namespace string) KeyValueStoreT[T]
 }
 
-// A store that can be used to compute subject access rules
-type SubjectAccessCapableStore interface {
-	ListClusters(ctx context.Context, matchLabels *corev1.LabelSelector, matchOptions corev1.MatchOptions) (*corev1.ClusterList, error)
-	GetRole(ctx context.Context, ref *corev1.Reference) (*corev1.Role, error)
-	ListRoleBindings(ctx context.Context) (*corev1.RoleBindingList, error)
+type LockManagerBroker interface {
+	LockManager(namespace string) LockManager
 }
+
+// A store that can be used to compute subject access rules
+// type SubjectAccessCapableStore interface {
+// 	ListClusters(ctx context.Context, matchLabels *corev1.LabelSelector, matchOptions corev1.MatchOptions) (*corev1.ClusterList, error)
+// 	GetRole(ctx context.Context, ref *corev1.Reference) (*corev1.Role, error)
+// 	ListRoleBindings(ctx context.Context) (*corev1.RoleBindingList, error)
+// }
 
 type WatchEventType string
 
@@ -179,8 +186,15 @@ type Lock interface {
 	//
 	// Lock returns an error when acquiring the lock fails.
 	Lock() error
+
+	// TryLock tries to acquire the lock on the key and reports whether it succeeded.
+	TryLock() (bool, error)
+
 	// Unlock releases the lock on the key. If the lock was never held, it will return an error.
 	Unlock() error
+	// Key returns a unique temporary prefix key that exists while the lock is held.
+	// If the lock is not currently held, the return value is undefined.
+	Key() string
 }
 
 // LockManager replaces sync.Mutex when a distributed locking mechanism is required.

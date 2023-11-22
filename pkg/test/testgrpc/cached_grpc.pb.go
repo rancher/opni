@@ -70,16 +70,15 @@ func (c *simpleServiceClient) GetValueWithForcedClientCaching(ctx context.Contex
 }
 
 // SimpleServiceServer is the server API for SimpleService service.
-// All implementations must embed UnimplementedSimpleServiceServer
+// All implementations should embed UnimplementedSimpleServiceServer
 // for forward compatibility
 type SimpleServiceServer interface {
 	Increment(context.Context, *IncrementRequest) (*emptypb.Empty, error)
 	GetValue(context.Context, *emptypb.Empty) (*Value, error)
 	GetValueWithForcedClientCaching(context.Context, *emptypb.Empty) (*Value, error)
-	mustEmbedUnimplementedSimpleServiceServer()
 }
 
-// UnimplementedSimpleServiceServer must be embedded to have forward compatible implementations.
+// UnimplementedSimpleServiceServer should be embedded to have forward compatible implementations.
 type UnimplementedSimpleServiceServer struct {
 }
 
@@ -92,7 +91,6 @@ func (UnimplementedSimpleServiceServer) GetValue(context.Context, *emptypb.Empty
 func (UnimplementedSimpleServiceServer) GetValueWithForcedClientCaching(context.Context, *emptypb.Empty) (*Value, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetValueWithForcedClientCaching not implemented")
 }
-func (UnimplementedSimpleServiceServer) mustEmbedUnimplementedSimpleServiceServer() {}
 
 // UnsafeSimpleServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to SimpleServiceServer will
@@ -236,7 +234,7 @@ func (c *objectServiceClient) List(ctx context.Context, in *emptypb.Empty, opts 
 }
 
 // ObjectServiceServer is the server API for ObjectService service.
-// All implementations must embed UnimplementedObjectServiceServer
+// All implementations should embed UnimplementedObjectServiceServer
 // for forward compatibility
 type ObjectServiceServer interface {
 	// Adds the value to the an arbitrary server-side object.
@@ -244,10 +242,9 @@ type ObjectServiceServer interface {
 	IncrementObject(context.Context, *IncrementObjectRequest) (*emptypb.Empty, error)
 	GetObjectValue(context.Context, *ObjectReference) (*Value, error)
 	List(context.Context, *emptypb.Empty) (*ObjectList, error)
-	mustEmbedUnimplementedObjectServiceServer()
 }
 
-// UnimplementedObjectServiceServer must be embedded to have forward compatible implementations.
+// UnimplementedObjectServiceServer should be embedded to have forward compatible implementations.
 type UnimplementedObjectServiceServer struct {
 }
 
@@ -260,7 +257,6 @@ func (UnimplementedObjectServiceServer) GetObjectValue(context.Context, *ObjectR
 func (UnimplementedObjectServiceServer) List(context.Context, *emptypb.Empty) (*ObjectList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method List not implemented")
 }
-func (UnimplementedObjectServiceServer) mustEmbedUnimplementedObjectServiceServer() {}
 
 // UnsafeObjectServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to ObjectServiceServer will
@@ -406,7 +402,7 @@ func (c *aggregatorServiceClient) GetAllWithNestedCaching(ctx context.Context, i
 }
 
 // AggregatorServiceServer is the server API for AggregatorService service.
-// All implementations must embed UnimplementedAggregatorServiceServer
+// All implementations should embed UnimplementedAggregatorServiceServer
 // for forward compatibility
 type AggregatorServiceServer interface {
 	// Increments the global value and all object values by 1,
@@ -416,10 +412,9 @@ type AggregatorServiceServer interface {
 	// returns sum of all values
 	GetAll(context.Context, *emptypb.Empty) (*Value, error)
 	GetAllWithNestedCaching(context.Context, *emptypb.Empty) (*Value, error)
-	mustEmbedUnimplementedAggregatorServiceServer()
 }
 
-// UnimplementedAggregatorServiceServer must be embedded to have forward compatible implementations.
+// UnimplementedAggregatorServiceServer should be embedded to have forward compatible implementations.
 type UnimplementedAggregatorServiceServer struct {
 }
 
@@ -432,7 +427,6 @@ func (UnimplementedAggregatorServiceServer) GetAll(context.Context, *emptypb.Emp
 func (UnimplementedAggregatorServiceServer) GetAllWithNestedCaching(context.Context, *emptypb.Empty) (*Value, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAllWithNestedCaching not implemented")
 }
-func (UnimplementedAggregatorServiceServer) mustEmbedUnimplementedAggregatorServiceServer() {}
 
 // UnsafeAggregatorServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to AggregatorServiceServer will

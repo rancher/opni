@@ -3,7 +3,7 @@
 /* eslint-disable */
 
 import { ConfigurationHistoryRequest, GetRequest, InstallStatus } from "../../../../pkg/plugins/driverutil/types_pb";
-import { CapabilityBackendConfigSpec, ConfigurationHistoryResponse, DryRunRequest, DryRunResponse, PresetList, ResetRequest } from "./cortexops_pb";
+import { CapabilityBackendConfigSpec, ConfigurationHistoryResponse, DryRunRequest, DryRunResponse, PresetList, ResetRequest, SetRequest } from "./cortexops_pb";
 import { axios } from "@pkg/opni/utils/axios";
 
 
@@ -38,7 +38,7 @@ export async function GetDefaultConfiguration(input: GetRequest): Promise<Capabi
 }
 
 
-export async function SetDefaultConfiguration(input: CapabilityBackendConfigSpec): Promise<void> {
+export async function SetDefaultConfiguration(input: SetRequest): Promise<void> {
   try {
     
     if (input) {
@@ -73,13 +73,13 @@ export async function ResetDefaultConfiguration(): Promise<void> {
   try {
     
     const rawResponse = (await axios.request({
-      method: 'delete',
+      method: 'post',
       responseType: 'arraybuffer',
       headers: {
         'Content-Type': 'application/octet-stream',
         'Accept': 'application/octet-stream',
       },
-      url: `/opni-api/CortexOps/configuration/default`
+      url: `/opni-api/CortexOps/configuration/default/reset`
     })).data;
 
     const response = rawResponse;
@@ -126,7 +126,7 @@ export async function GetConfiguration(input: GetRequest): Promise<CapabilityBac
 }
 
 
-export async function SetConfiguration(input: CapabilityBackendConfigSpec): Promise<void> {
+export async function SetConfiguration(input: SetRequest): Promise<void> {
   try {
     
     if (input) {
@@ -165,18 +165,80 @@ export async function ResetConfiguration(input: ResetRequest): Promise<void> {
     }
   
     const rawResponse = (await axios.request({
-      method: 'delete',
+      method: 'post',
       responseType: 'arraybuffer',
       headers: {
         'Content-Type': 'application/octet-stream',
         'Accept': 'application/octet-stream',
       },
-      url: `/opni-api/CortexOps/configuration`,
+      url: `/opni-api/CortexOps/configuration/reset`,
     data: input?.toBinary() as ArrayBuffer
     })).data;
 
     const response = rawResponse;
     console.info('Here is the response for a request to CortexOps-ResetConfiguration:', response);
+    return response;
+  } catch (ex: any) {
+    if (ex?.response?.data) {
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
+      console.error(s);
+    }
+    throw ex;
+  }
+}
+
+
+export async function DryRun(input: DryRunRequest): Promise<DryRunResponse> {
+  try {
+    
+    if (input) {
+      console.info('Here is the input for a request to CortexOps-DryRun:', input);
+    }
+  
+    const rawResponse = (await axios.request({
+      method: 'post',
+      responseType: 'arraybuffer',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Accept': 'application/octet-stream',
+      },
+      url: `/opni-api/CortexOps/dry-run`,
+    data: input?.toBinary() as ArrayBuffer
+    })).data;
+
+    const response = DryRunResponse.fromBinary(new Uint8Array(rawResponse));
+    console.info('Here is the response for a request to CortexOps-DryRun:', response);
+    return response;
+  } catch (ex: any) {
+    if (ex?.response?.data) {
+      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
+      console.error(s);
+    }
+    throw ex;
+  }
+}
+
+
+export async function ConfigurationHistory(input: ConfigurationHistoryRequest): Promise<ConfigurationHistoryResponse> {
+  try {
+    
+    if (input) {
+      console.info('Here is the input for a request to CortexOps-ConfigurationHistory:', input);
+    }
+  
+    const rawResponse = (await axios.request({
+      method: 'get',
+      responseType: 'arraybuffer',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Accept': 'application/octet-stream',
+      },
+      url: `/opni-api/CortexOps/configuration/history`,
+    data: input?.toBinary() as ArrayBuffer
+    })).data;
+
+    const response = ConfigurationHistoryResponse.fromBinary(new Uint8Array(rawResponse));
+    console.info('Here is the response for a request to CortexOps-ConfigurationHistory:', response);
     return response;
   } catch (ex: any) {
     if (ex?.response?.data) {
@@ -281,68 +343,6 @@ export async function ListPresets(): Promise<PresetList> {
 
     const response = PresetList.fromBinary(new Uint8Array(rawResponse));
     console.info('Here is the response for a request to CortexOps-ListPresets:', response);
-    return response;
-  } catch (ex: any) {
-    if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
-      console.error(s);
-    }
-    throw ex;
-  }
-}
-
-
-export async function DryRun(input: DryRunRequest): Promise<DryRunResponse> {
-  try {
-    
-    if (input) {
-      console.info('Here is the input for a request to CortexOps-DryRun:', input);
-    }
-  
-    const rawResponse = (await axios.request({
-      method: 'post',
-      responseType: 'arraybuffer',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Accept': 'application/octet-stream',
-      },
-      url: `/opni-api/CortexOps/dry-run`,
-    data: input?.toBinary() as ArrayBuffer
-    })).data;
-
-    const response = DryRunResponse.fromBinary(new Uint8Array(rawResponse));
-    console.info('Here is the response for a request to CortexOps-DryRun:', response);
-    return response;
-  } catch (ex: any) {
-    if (ex?.response?.data) {
-      const s = String.fromCharCode.apply(null, Array.from(new Uint8Array(ex?.response?.data)));
-      console.error(s);
-    }
-    throw ex;
-  }
-}
-
-
-export async function ConfigurationHistory(input: ConfigurationHistoryRequest): Promise<ConfigurationHistoryResponse> {
-  try {
-    
-    if (input) {
-      console.info('Here is the input for a request to CortexOps-ConfigurationHistory:', input);
-    }
-  
-    const rawResponse = (await axios.request({
-      method: 'get',
-      responseType: 'arraybuffer',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Accept': 'application/octet-stream',
-      },
-      url: `/opni-api/CortexOps/configuration/history`,
-    data: input?.toBinary() as ArrayBuffer
-    })).data;
-
-    const response = ConfigurationHistoryResponse.fromBinary(new Uint8Array(rawResponse));
-    console.info('Here is the response for a request to CortexOps-ConfigurationHistory:', response);
     return response;
   } catch (ex: any) {
     if (ex?.response?.data) {

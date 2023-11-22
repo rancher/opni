@@ -1,0 +1,758 @@
+syntax = "proto3";
+
+package config.v1;
+
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "github.com/rancher/opni/pkg/plugins/driverutil/types.proto";
+import "github.com/rancher/opni/pkg/validation/validate.proto";
+import "google/protobuf/any.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
+
+option go_package      = "github.com/rancher/opni/pkg/config/v1;configv1";
+option (cli.generator) = {
+  generate: true
+};
+
+// Gateway configuration management
+service GatewayConfig {
+  option (cli.command_group) = {
+    use: "config"
+  };
+
+  rpc GetDefaultConfiguration(driverutil.GetRequest) returns (GatewayConfigSpec) {
+    option (cli.command) = {
+      use: "get-default"
+    };
+  }
+  rpc SetDefaultConfiguration(SetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use:         "set-default"
+      granularity: EditMessage
+    };
+  }
+  rpc GetConfiguration(driverutil.GetRequest) returns (GatewayConfigSpec) {
+    option (cli.command) = {
+      use: "get"
+    };
+  }
+  rpc SetConfiguration(SetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use:         "set"
+      granularity: EditMessage
+    };
+  }
+  rpc ResetDefaultConfiguration(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "reset-default"
+    };
+  }
+  rpc ResetConfiguration(ResetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use:         "reset"
+      granularity: EditMessage
+    };
+  }
+  rpc DryRun(DryRunRequest) returns (DryRunResponse) {
+    option (cli.command).skip = true;
+  }
+  rpc ConfigurationHistory(driverutil.ConfigurationHistoryRequest) returns (HistoryResponse) {
+    option (cli.command) = {
+      use: "history"
+    };
+  }
+  rpc WatchReactive(ReactiveWatchRequest) returns (stream ReactiveEvents) {
+    option (cli.command) = {
+      use: "watch"
+    };
+  }
+}
+
+message ReactiveWatchRequest {
+  // If true, uses [reactive.Bind] to watch all paths at once. If false,
+  // each path recieves updates separately.
+  bool bind = 1;
+
+  // List of paths to watch.
+  repeated string paths = 2;
+}
+
+message ReactiveEvents {
+  // In bind mode, this will contain one item for each path in the request,
+  // in order. Otherwise, this will only contain a single item.
+  repeated ReactiveEvent items = 1;
+}
+
+message ReactiveEvent {
+  // The path that triggered this event, as an index into the request path list.
+  int32 index = 1;
+
+  core.Value value = 2;
+}
+
+message GatewayConfigSpec {
+  option (buf.validate.message) = {
+    cel: {
+      id:         "check_conflicting_addresses"
+      message:    "gateway listen addresses must not conflict"
+      expression: 
+        "["
+        "  this.server.httpListenAddress,"
+        "  this.server.grpcListenAddress,"
+        "  this.management.httpListenAddress,"
+        "  this.management.grpcListenAddress,"
+        "  this.relay.grpcListenAddress,"
+        "  this.health.httpListenAddress,"
+        "  this.dashboard.httpListenAddress"
+        "].filter(a, !a.endsWith(':0')).unique()"
+    }
+  };
+  core.Revision        revision     = 1  [(cli.flag).skip = true];
+  ServerSpec           server       = 2;
+  ManagementServerSpec management   = 3;
+  RelayServerSpec      relay        = 4;
+  HealthServerSpec     health       = 5;
+  DashboardServerSpec  dashboard    = 6;
+  StorageSpec          storage      = 7;
+  CertsSpec            certs        = 8;
+  PluginsSpec          plugins      = 9;
+  KeyringSpec          keyring      = 10;
+  UpgradesSpec         upgrades     = 11;
+  RateLimitingSpec     rateLimiting = 12;
+  AuthSpec             auth         = 13 [(cli.flag).skip = true];
+}
+
+message ServerSpec {
+  // Address and port to serve the gateway's internal http server on.
+  optional string httpListenAddress = 1 [
+    (cli.flag).default       = "0.0.0.0:8080",
+    (buf.validate.field).cel = {
+      id:         "server_http_listen_address"
+      expression: "this.isValidListenAddress()"
+    }
+  ];
+  // Address and port to serve the gateway's external grpc server on.
+  optional string grpcListenAddress = 2 [
+    (cli.flag).default       = "0.0.0.0:9090",
+    (buf.validate.field).cel = {
+      id:         "server_grpc_listen_address"
+      expression: "this.isValidListenAddress()"
+    }
+  ];
+
+  // The advertise address for the server.
+  optional string advertiseAddress = 3 [
+    (cli.flag).skip      = true,
+    (buf.validate.field) = {
+      cel: [
+        {
+          id:         "server_grpc_advertise_address"
+          expression: "this.isValidListenAddress()"
+        },
+        {
+          id:         "server_grpc_advertise_address_port"
+          message:    "advertise address must have a non-zero port"
+          expression: "!this.endsWith(':0') && !this.endsWith(':')"
+        }
+      ]
+    }
+  ];
+}
+
+message ManagementServerSpec {
+  // Address and port to serve the management http server on.
+  optional string httpListenAddress = 1 [
+    (cli.flag).default       = "0.0.0.0:11080",
+    (buf.validate.field).cel = {
+      id:         "mgmt_http_listen_address"
+      expression: "this.isValidListenAddress()"
+    }
+  ];
+  // Address and port to serve the management grpc server on.
+  optional string grpcListenAddress = 2 [
+    (cli.flag).default       = "0.0.0.0:11090",
+    (buf.validate.field).cel = {
+      id:         "mgmt_grpc_listen_address"
+      expression: "this.isValidListenAddress()"
+    }
+  ];
+  // The advertise address for the management server.
+  // This is the address at which other gateway instances will be able to reach
+  // this management server.
+  optional string advertiseAddress = 3 [
+    (cli.flag).skip      = true,
+    (buf.validate.field) = {
+      cel: [
+        {
+          id:         "mgmt_grpc_advertise_address"
+          expression: "this.isValidListenAddress()"
+        },
+        {
+          id:         "mgmt_grpc_advertise_address_port"
+          message:    "advertise address must have a non-zero port"
+          expression: "!this.endsWith(':0') && !this.endsWith(':')"
+        }
+      ]
+    }
+  ];
+}
+
+message RelayServerSpec {
+  // Address and port to serve the relay grpc server on.
+  optional string grpcListenAddress = 4 [
+    (cli.flag).default       = "0.0.0.0:11190",
+    (buf.validate.field).cel = {
+      id:         "relay_grpc_listen_address"
+      expression: "this.isValidListenAddress()"
+    }
+  ];
+  // The advertise address for the relay server.
+  // This is the address at which other gateway instances will be able to reach
+  // this relay server. Configured automatically by the manager if not set.
+  optional string advertiseAddress = 5 [
+    (cli.flag).skip      = true,
+    (buf.validate.field) = {
+      cel: [
+        {
+          id:         "relay_grpc_advertise_address"
+          expression: "this.isValidListenAddress()"
+        },
+        {
+          id:         "relay_grpc_advertise_address_port"
+          message:    "advertise address must have a non-zero port"
+          expression: "!this.endsWith(':0') && !this.endsWith(':')"
+        }
+      ]
+    }
+  ];
+}
+
+message HealthServerSpec {
+  // Address and port to serve the gateway's internal health/metrics/profiling http server on.
+  optional string httpListenAddress = 1 [
+    (cli.flag).default       = "0.0.0.0:8086",
+    (buf.validate.field).cel = {
+      id:         "health_http_listen_address"
+      expression: "this.isValidListenAddress()"
+    }
+  ];
+}
+
+message DashboardServerSpec {
+  // Address and port to serve the web dashboard on.
+  optional string httpListenAddress = 1 [
+    (cli.flag).default       = "0.0.0.0:12080",
+    (buf.validate.field).cel = {
+      id:         "dashboard_http_listen_address"
+      expression: "this.isValidListenAddress()"
+    }
+  ];
+  // The advertise address for the dashboard server.
+  optional string advertiseAddress = 2 [
+    (cli.flag).skip      = true,
+    (buf.validate.field) = {
+      cel: [
+        {
+          id:         "dashboard_http_advertise_address"
+          expression: "this.isValidListenAddress()"
+        },
+        {
+          id:         "dashboard_http_advertise_address_port"
+          message:    "advertise address must have a non-zero port"
+          expression: "!this.endsWith(':0') && !this.endsWith(':')"
+        }
+      ]
+    }
+  ];
+  // The hostname at which the dashboard is expected to be reachable.
+  // This is required when using OpenID Connect authentication.
+  optional string hostname = 3 [
+    // https://datatracker.ietf.org/doc/html/rfc1034#section-3.5
+    (buf.validate.field).string.hostname = true
+  ];
+  // List of trusted proxies for the dashboard's http server.
+  repeated string trustedProxies = 4 [
+    (buf.validate.field).repeated = {
+      items: {
+        cel: {
+          id:         "ip_or_cidr"
+          message:    "must be a valid IP address or CIDR"
+          expression: "this.isIp() || this.isIpPrefix()"
+        }
+      }
+    }
+  ];
+}
+
+enum StorageBackend {
+  // Use etcd for key-value storage. This is the recommended default.
+  Etcd = 0;
+  // Use NATS JetStream for key-value storage.
+  JetStream = 1;
+}
+
+message StorageSpec {
+  option (buf.validate.message).cel = {
+    id:         "storage_backend_configured"
+    message:    "selected storage backend must have matching configuration set"
+    expression: "(this.backend == 0 && has(this.etcd)) || (this.backend == 1 && has(this.jetStream))"
+  };
+
+  // Key-value storage backend.
+  optional StorageBackend backend = 1 [
+    (cli.flag).default                     = "Etcd",
+    (buf.validate.field).enum.defined_only = true
+  ];
+  EtcdSpec etcd = 2 [(buf.validate.field).ignore_if = {
+    id:         "etcd"
+    expression: "this.backend != 0"
+  }];
+  JetStreamSpec jetStream = 3 [(buf.validate.field).ignore_if = {
+    id:         "jetstream"
+    expression: "this.backend != 1"
+  }];
+}
+
+message EtcdSpec {
+  // Etcd server endpoints.
+  repeated string endpoints = 1 [
+    (buf.validate.field) = {
+      repeated: {
+        min_items: 1
+        unique:    true
+        items:     {string: {uri_ref: true}}
+      }
+    }
+  ];
+
+  // Etcd client certificate configuration.
+  MTLSSpec certs = 2;
+}
+
+message MTLSSpec {
+  option (buf.validate.message) = {
+    cel: [
+      {
+        id:         "fields_mutually_exclusive_serverca"
+        message:    "fields serverCA and serverCAData are mutually exclusive"
+        expression: "!(has(this.serverCA) && has(this.serverCAData))"
+      },
+      {
+        id:         "fields_mutually_exclusive_clientca"
+        message:    "fields clientCA and clientCAData are mutually exclusive"
+        expression: "!(has(this.clientCA) && has(this.clientCAData))"
+      },
+      {
+        id:         "fields_mutually_exclusive_clientcert"
+        message:    "fields clientCert and clientCertData are mutually exclusive"
+        expression: "!(has(this.clientCert) && has(this.clientCertData))"
+      },
+      {
+        id:         "fields_mutually_exclusive_clientkey"
+        message:    "fields clientKey and clientKeyData are mutually exclusive"
+        expression: "!(has(this.clientKey) && has(this.clientKeyData))"
+      },
+      {
+        id:         "x509_validate_client_cert"
+        expression: 
+          "(has(this.clientCertData) && has(this.serverCAData))"
+          "? x509Parse(this.clientCertData).checkSignatureFrom(x509Parse(this.serverCAData))"
+          ": true"
+      }
+    ]
+  };
+  // Path to the server CA certificate. Mutually exclusive with serverCAData.
+  optional string serverCA = 1;
+  // PEM encoded server CA certificate data. Mutually exclusive with serverCA.
+  optional string serverCAData = 2 [
+    (cli.flag).secret        = true,
+    (buf.validate.field).cel = {
+      id:         "x509_server_ca_data"
+      expression: "this.x509IsValid()"
+    }
+  ];
+  // Path to the client CA certificate (not needed in all cases). Mutually exclusive with clientCAData.
+  optional string clientCA = 3;
+  // PEM encoded client CA certificate data. Mutually exclusive with clientCA.
+  optional string clientCAData = 4 [
+    (cli.flag).secret    = true,
+    (buf.validate.field) = {
+      cel: {
+        id:         "x509_client_ca_data"
+        expression: "this.x509IsValid()"
+      }
+    }
+  ];
+  // Path to the certificate used for client-cert auth. Mutually exclusive with clientCertData.
+  optional string clientCert = 5;
+  // PEM encoded client certificate data. Mutually exclusive with clientCert.
+  optional string clientCertData = 6 [
+    (cli.flag).secret        = true,
+    (buf.validate.field).cel = {
+      id:         "x509_client_cert_data"
+      expression: "this.x509IsValid()"
+    }
+  ];
+  // Path to the private key used for client-cert auth. Mutually exclusive with clientKeyData.
+  optional string clientKey = 7;
+  // PEM encoded client key data. Mutually exclusive with clientKey.
+  optional string clientKeyData = 8 [
+    (cli.flag).secret        = true,
+    (buf.validate.field).cel = {
+      id:         "pem_client_key_data"
+      expression: "this.pemIsValid()"
+    }
+  ];
+}
+
+message JetStreamSpec {
+  // Jetstream server endpoint.
+  optional string endpoint = 1 [
+    (buf.validate.field) = {
+      required: true
+      string:   {uri_ref: true}
+    }
+  ];
+
+  // Path to the Jetstream nkey seed.
+  optional string nkeySeedPath = 2 [
+    (buf.validate.field) = {
+      required: true
+    }
+  ];
+}
+
+message CertsSpec {
+  option (buf.validate.message) = {
+    cel: [
+      {
+        id:         "fields_mutually_exclusive_ca"
+        message:    "fields caCert and caCertData are mutually exclusive"
+        expression: "!(has(this.caCert) && has(this.caCertData))"
+      },
+      {
+        id:         "fields_mutually_exclusive_servingcert"
+        message:    "fields servingCert and servingCertData are mutually exclusive"
+        expression: "!(has(this.servingCert) && has(this.servingCertData))"
+      },
+      {
+        id:         "fields_mutually_exclusive_servingkey"
+        message:    "fields servingKey and servingKeyData are mutually exclusive"
+        expression: "!(has(this.servingKey) && has(this.servingKeyData))"
+      },
+      {
+        id:         "x509_validate_chain"
+        expression: 
+          "(has(this.servingCertData) && has(this.caCertData))"
+          "? x509Parse(this.servingCertData).checkSignatureFrom(x509Parse(this.caCertData))"
+          ": true"
+      }
+    ]
+  };
+
+  // Path to a PEM encoded CA certificate file. Mutually exclusive with caCertData.
+  optional string caCert = 1;
+  // PEM encoded CA certificate data. Mutually exclusive with caCert.
+  optional string caCertData = 2 [
+    (buf.validate.field).cel = {
+      id:         "x509_ca_cert_data"
+      expression: "this.x509IsValid()"
+    },
+    (cli.flag).secret = true
+  ];
+  // Path to a PEM encoded server certificate file. Mutually exclusive with servingCertData.
+  optional string servingCert = 3;
+  // PEM encoded server certificate data. Mutually exclusive with servingCert.
+  optional string servingCertData = 4 [
+    (cli.flag).secret        = true,
+    (buf.validate.field).cel = {
+      id:         "x509_serving_cert_data"
+      expression: "this.x509IsValid()"
+    }
+  ];
+  // Path to a PEM encoded server key file. Mutually exclusive with servingKeyData.
+  optional string servingKey = 5;
+  // String containing PEM encoded server key data. Mutually exclusive with servingKey.
+  optional string servingKeyData = 6 [
+    (cli.flag).secret        = true,
+    (buf.validate.field).cel = {
+      id:         "pem_serving_key_data"
+      expression: "this.pemIsValid()"
+    }
+  ];
+}
+
+message PluginsSpec {
+  option (buf.validate.message) = {
+    cel: [
+      {
+        id:         "plugin_dirs_unique"
+        message:    "plugin search dir and filesystem cache dir cannot be the same"
+        expression: "this.cache.backend == 0 ? this.cache.filesystem.dir != this.dir : true"
+      }
+    ]
+  };
+
+  // Directory to search for plugin binaries.
+  optional string dir = 1 [
+    (cli.flag).default            = "/var/lib/opni/plugins",
+    (buf.validate.field).required = true
+  ];
+
+  // Optional set of filters which can be used to prevent specific plugins
+  // from being loaded.
+  PluginFilters filters = 2;
+
+  // Plugin cache configuration.
+  CacheSpec cache = 4;
+}
+
+enum PatchEngine {
+  Bsdiff = 0;
+  Zstd   = 1;
+}
+
+enum CacheBackend {
+  Filesystem = 0;
+}
+
+message PluginFilters {
+  // List of plugin go module paths not to load.
+  repeated string exclude = 1 [
+    (buf.validate.field).repeated = {
+      items: {
+        cel: {
+          id:         "go_module_path"
+          message:    "must be a valid go module path"
+          expression: "this.isValidModulePath()"
+        }
+      }
+    }
+  ];
+}
+
+message CacheSpec {
+  // Cache backend to use for storing plugin binaries and patches.
+  optional CacheBackend backend = 2 [
+    (cli.flag).default                     = "Filesystem",
+    (buf.validate.field).enum.defined_only = true
+  ];
+
+  // Filesystem cache configuration. Required if backend is Filesystem.
+  FilesystemCacheSpec filesystem = 3 [(buf.validate.field).ignore_if = {
+    id:         "filesystem"
+    expression: "this.backend != 0"
+  }];
+}
+
+message FilesystemCacheSpec {
+  // Directory to store plugin binaries and patches in.
+  optional string dir = 1 [
+    (cli.flag).default            = "/var/lib/opni/plugin-cache",
+    (buf.validate.field).required = true
+  ];
+}
+
+message KeyringSpec {
+  // Directories to search for files containing runtime keys.
+  // All files in these directories will be loaded into the keyring on
+  // startup. Keys loaded in this way will not be persisted.
+  repeated string runtimeKeyDirs = 1 [
+    (buf.validate.field).repeated = {
+      unique: true
+    }
+  ];
+}
+
+message UpgradesSpec {
+  optional AgentUpgradesSpec  agents  = 1;
+  optional PluginUpgradesSpec plugins = 2;
+}
+
+message AgentUpgradesSpec {
+  enum Driver {
+    Noop       = 0;
+    Kubernetes = 1;
+  }
+
+  // Agent upgrade driver to use.
+  optional Driver driver = 1 [
+    (cli.flag).default                     = "Kubernetes",
+    (buf.validate.field).enum.defined_only = true
+  ];
+
+  // Kubernetes agent upgrade configuration.
+  KubernetesAgentUpgradeSpec kubernetes = 2;
+}
+
+message PluginUpgradesSpec {
+  enum Driver {
+    Noop   = 0;
+    Binary = 1;
+  }
+
+  // Plugin upgrade driver to use.
+  optional Driver driver = 1 [
+    (cli.flag).default                     = "Binary",
+    (buf.validate.field).enum.defined_only = true
+  ];
+
+  // Binary plugin upgrade configuration.
+  BinaryPluginUpgradeSpec binary = 2;
+}
+
+message BinaryPluginUpgradeSpec {
+  // Patch engine to use for calculating plugin patches.
+  optional PatchEngine patchEngine = 1 [
+    (cli.flag).default                     = "Zstd",
+    (buf.validate.field).enum.defined_only = true
+  ];
+}
+
+message KubernetesAgentUpgradeSpec {
+  enum ImageResolver {
+    Noop       = 0;
+    Kubernetes = 1;
+  }
+
+  // Agent image resolver to use.
+  optional ImageResolver imageResolver = 1 [
+    (cli.flag).default                     = "Kubernetes",
+    (buf.validate.field).enum.defined_only = true
+  ];
+
+  optional string namespace = 2;
+
+  optional string repoOverride = 3;
+}
+
+message RateLimitingSpec {
+  // Base event rate used for rate limiting agent connection attempts.
+  optional double rate = 1 [
+    (cli.flag).default = "10.0"
+  ];
+  // Burst event rate.
+  optional int32 burst = 2 [
+    (cli.flag).default = "50"
+  ];
+}
+
+message AuthSpec {
+  enum Backend {
+    Basic  = 0;
+    OpenID = 1;
+  }
+
+  // Auth backend to use.
+  Backend backend = 1 [
+    (cli.flag).default                     = "Basic",
+    (buf.validate.field).enum.defined_only = true
+  ];
+
+  // Basic auth using a username and password.
+  BasicAuthSpec basic = 3 [(buf.validate.field).ignore_if = {
+    id:         "basic"
+    expression: "this.backend != 0"
+  }];
+
+  // OpenID Connect auth.
+  OpenIDAuthSpec openid = 2 [(buf.validate.field).ignore_if = {
+    id:         "openid"
+    expression: "this.backend != 1"
+  }];
+}
+
+message OpenIDAuthSpec {
+  // The OP's Issuer identifier. This must exactly match the issuer URL
+  // obtained from the discovery endpoint, and will match the `iss' claim
+  // in the ID Tokens issued by the OP.
+  // The discovery endpoint consists of this URL concatenated with the
+  // exact string `/.well-known/openid-configuration'.
+  optional string issuer = 1 [
+    (buf.validate.field) = {
+      required: true
+      string: {
+        uri_ref: true
+        prefix:  "https://"
+      }
+    }
+  ];
+
+  // Optional PEM-encoded CA certificate data for the issuer.
+  optional string caCertData = 2 [
+    (buf.validate.field).cel = {
+      id:         "openid_issuer_ca_cert_data"
+      expression: "this.x509IsValid()"
+    }
+  ];
+
+  // The RP's client ID.
+  optional string clientId = 3 [
+    (buf.validate.field).required = true
+  ];
+
+  // The RP's client secret.
+  optional string clientSecret = 4 [
+    (cli.flag).secret             = true,
+    (buf.validate.field).required = true
+  ];
+
+  // IdentifyingClaim is the claim that will be used to identify the user
+  // (e.g. "sub", "email", etc). Defaults to "sub".
+  optional string identifyingClaim = 5 [
+    (cli.flag).default            = "sub",
+    (buf.validate.field).required = true
+  ];
+
+  // Scope specifies optional requested permissions.
+  repeated string scopes = 6 [
+    (buf.validate.field) = {
+      required: true
+      repeated: {
+        unique: true
+      }
+      cel: [
+        {
+          id:         "require_openid_scope"
+          message:    "'openid' scope is required"
+          expression: "this.contains('openid')"
+        }
+      ]
+    }
+  ];
+}
+
+message BasicAuthSpec {}
+
+message SetRequest {
+  GatewayConfigSpec spec = 1;
+}
+
+message ResetRequest {
+  core.Revision             revision = 1 [(cli.flag_set).no_prefix = true];
+  google.protobuf.FieldMask mask     = 2 [(cli.flag).skip = true];
+  GatewayConfigSpec         patch    = 3 [(cli.flag).skip = true];
+}
+
+message DryRunRequest {
+  driverutil.Target target = 1;
+  driverutil.Action action = 2;
+
+  GatewayConfigSpec spec = 3; // Set
+
+  core.Revision             revision = 4; // Reset
+  GatewayConfigSpec         patch    = 5; // Reset
+  google.protobuf.FieldMask mask     = 6 [(cli.flag).skip = true]; // Reset
+}
+
+message DryRunResponse {
+  GatewayConfigSpec       current          = 1;
+  GatewayConfigSpec       modified         = 2;
+  buf.validate.Violations validationErrors = 3;
+}
+
+message HistoryResponse {
+  repeated GatewayConfigSpec entries = 1;
+}

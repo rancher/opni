@@ -2121,11 +2121,19 @@ spec:
                 type: object
               management:
                 properties:
+                  grpcAdvertiseAddress:
+                    type: string
                   grpcListenAddress:
                     default: tcp://0.0.0.0:11090
                     type: string
                   httpListenAddress:
                     default: 0.0.0.0:11080
+                    type: string
+                  relayAdvertiseAddress:
+                    type: string
+                  relayListenAddress:
+                    type: string
+                  webAdvertiseAddress:
                     type: string
                   webCerts:
                     properties:
@@ -2159,6 +2167,9 @@ spec:
                 additionalProperties:
                   type: string
                 type: object
+              patchEngine:
+                default: bsdiff
+                type: string
               pluginSearchDirs:
                 items:
                   type: string
@@ -2169,6 +2180,9 @@ spec:
                     default: /debug/pprof
                     type: string
                 type: object
+              replicas:
+                format: int32
+                type: integer
               serviceAnnotations:
                 additionalProperties:
                   type: string

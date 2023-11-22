@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -183,7 +184,7 @@ func (x *extBidirectionalStreamClient) Recv() (*FooResponse, error) {
 }
 
 // ExtServer is the server API for Ext service.
-// All implementations must embed UnimplementedExtServer
+// All implementations should embed UnimplementedExtServer
 // for forward compatibility
 type ExtServer interface {
 	Foo(context.Context, *FooRequest) (*FooResponse, error)
@@ -193,10 +194,9 @@ type ExtServer interface {
 	ServerStream(*FooRequest, Ext_ServerStreamServer) error
 	ClientStream(Ext_ClientStreamServer) error
 	BidirectionalStream(Ext_BidirectionalStreamServer) error
-	mustEmbedUnimplementedExtServer()
 }
 
-// UnimplementedExtServer must be embedded to have forward compatible implementations.
+// UnimplementedExtServer should be embedded to have forward compatible implementations.
 type UnimplementedExtServer struct {
 }
 
@@ -221,7 +221,6 @@ func (UnimplementedExtServer) ClientStream(Ext_ClientStreamServer) error {
 func (UnimplementedExtServer) BidirectionalStream(Ext_BidirectionalStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method BidirectionalStream not implemented")
 }
-func (UnimplementedExtServer) mustEmbedUnimplementedExtServer() {}
 
 // UnsafeExtServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to ExtServer will
@@ -425,6 +424,353 @@ var Ext_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	Config_GetDefaultConfiguration_FullMethodName   = "/ext.Config/GetDefaultConfiguration"
+	Config_SetDefaultConfiguration_FullMethodName   = "/ext.Config/SetDefaultConfiguration"
+	Config_GetConfiguration_FullMethodName          = "/ext.Config/GetConfiguration"
+	Config_SetConfiguration_FullMethodName          = "/ext.Config/SetConfiguration"
+	Config_ResetDefaultConfiguration_FullMethodName = "/ext.Config/ResetDefaultConfiguration"
+	Config_ResetConfiguration_FullMethodName        = "/ext.Config/ResetConfiguration"
+	Config_DryRun_FullMethodName                    = "/ext.Config/DryRun"
+	Config_ConfigurationHistory_FullMethodName      = "/ext.Config/ConfigurationHistory"
+)
+
+// ConfigClient is the client API for Config service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type ConfigClient interface {
+	GetDefaultConfiguration(ctx context.Context, in *SampleGetRequest, opts ...grpc.CallOption) (*SampleConfiguration, error)
+	SetDefaultConfiguration(ctx context.Context, in *SampleSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetConfiguration(ctx context.Context, in *SampleGetRequest, opts ...grpc.CallOption) (*SampleConfiguration, error)
+	SetConfiguration(ctx context.Context, in *SampleSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ResetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ResetConfiguration(ctx context.Context, in *SampleResetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DryRun(ctx context.Context, in *SampleDryRunRequest, opts ...grpc.CallOption) (*SampleDryRunResponse, error)
+	ConfigurationHistory(ctx context.Context, in *SampleHistoryRequest, opts ...grpc.CallOption) (*SampleConfigurationHistoryResponse, error)
+}
+
+type configClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewConfigClient(cc grpc.ClientConnInterface) ConfigClient {
+	return &configClient{cc}
+}
+
+func (c *configClient) GetDefaultConfiguration(ctx context.Context, in *SampleGetRequest, opts ...grpc.CallOption) (*SampleConfiguration, error) {
+	out := new(SampleConfiguration)
+	err := c.cc.Invoke(ctx, Config_GetDefaultConfiguration_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *configClient) SetDefaultConfiguration(ctx context.Context, in *SampleSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Config_SetDefaultConfiguration_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *configClient) GetConfiguration(ctx context.Context, in *SampleGetRequest, opts ...grpc.CallOption) (*SampleConfiguration, error) {
+	out := new(SampleConfiguration)
+	err := c.cc.Invoke(ctx, Config_GetConfiguration_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *configClient) SetConfiguration(ctx context.Context, in *SampleSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Config_SetConfiguration_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *configClient) ResetDefaultConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Config_ResetDefaultConfiguration_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *configClient) ResetConfiguration(ctx context.Context, in *SampleResetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Config_ResetConfiguration_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *configClient) DryRun(ctx context.Context, in *SampleDryRunRequest, opts ...grpc.CallOption) (*SampleDryRunResponse, error) {
+	out := new(SampleDryRunResponse)
+	err := c.cc.Invoke(ctx, Config_DryRun_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *configClient) ConfigurationHistory(ctx context.Context, in *SampleHistoryRequest, opts ...grpc.CallOption) (*SampleConfigurationHistoryResponse, error) {
+	out := new(SampleConfigurationHistoryResponse)
+	err := c.cc.Invoke(ctx, Config_ConfigurationHistory_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ConfigServer is the server API for Config service.
+// All implementations should embed UnimplementedConfigServer
+// for forward compatibility
+type ConfigServer interface {
+	GetDefaultConfiguration(context.Context, *SampleGetRequest) (*SampleConfiguration, error)
+	SetDefaultConfiguration(context.Context, *SampleSetRequest) (*emptypb.Empty, error)
+	GetConfiguration(context.Context, *SampleGetRequest) (*SampleConfiguration, error)
+	SetConfiguration(context.Context, *SampleSetRequest) (*emptypb.Empty, error)
+	ResetDefaultConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	ResetConfiguration(context.Context, *SampleResetRequest) (*emptypb.Empty, error)
+	DryRun(context.Context, *SampleDryRunRequest) (*SampleDryRunResponse, error)
+	ConfigurationHistory(context.Context, *SampleHistoryRequest) (*SampleConfigurationHistoryResponse, error)
+}
+
+// UnimplementedConfigServer should be embedded to have forward compatible implementations.
+type UnimplementedConfigServer struct {
+}
+
+func (UnimplementedConfigServer) GetDefaultConfiguration(context.Context, *SampleGetRequest) (*SampleConfiguration, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetDefaultConfiguration not implemented")
+}
+func (UnimplementedConfigServer) SetDefaultConfiguration(context.Context, *SampleSetRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetDefaultConfiguration not implemented")
+}
+func (UnimplementedConfigServer) GetConfiguration(context.Context, *SampleGetRequest) (*SampleConfiguration, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetConfiguration not implemented")
+}
+func (UnimplementedConfigServer) SetConfiguration(context.Context, *SampleSetRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetConfiguration not implemented")
+}
+func (UnimplementedConfigServer) ResetDefaultConfiguration(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetDefaultConfiguration not implemented")
+}
+func (UnimplementedConfigServer) ResetConfiguration(context.Context, *SampleResetRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetConfiguration not implemented")
+}
+func (UnimplementedConfigServer) DryRun(context.Context, *SampleDryRunRequest) (*SampleDryRunResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DryRun not implemented")
+}
+func (UnimplementedConfigServer) ConfigurationHistory(context.Context, *SampleHistoryRequest) (*SampleConfigurationHistoryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConfigurationHistory not implemented")
+}
+
+// UnsafeConfigServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ConfigServer will
+// result in compilation errors.
+type UnsafeConfigServer interface {
+	mustEmbedUnimplementedConfigServer()
+}
+
+func RegisterConfigServer(s grpc.ServiceRegistrar, srv ConfigServer) {
+	s.RegisterService(&Config_ServiceDesc, srv)
+}
+
+func _Config_GetDefaultConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SampleGetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConfigServer).GetDefaultConfiguration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Config_GetDefaultConfiguration_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConfigServer).GetDefaultConfiguration(ctx, req.(*SampleGetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Config_SetDefaultConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SampleSetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConfigServer).SetDefaultConfiguration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Config_SetDefaultConfiguration_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConfigServer).SetDefaultConfiguration(ctx, req.(*SampleSetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Config_GetConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SampleGetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConfigServer).GetConfiguration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Config_GetConfiguration_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConfigServer).GetConfiguration(ctx, req.(*SampleGetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Config_SetConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SampleSetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConfigServer).SetConfiguration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Config_SetConfiguration_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConfigServer).SetConfiguration(ctx, req.(*SampleSetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Config_ResetDefaultConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConfigServer).ResetDefaultConfiguration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Config_ResetDefaultConfiguration_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConfigServer).ResetDefaultConfiguration(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Config_ResetConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SampleResetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConfigServer).ResetConfiguration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Config_ResetConfiguration_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConfigServer).ResetConfiguration(ctx, req.(*SampleResetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Config_DryRun_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SampleDryRunRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConfigServer).DryRun(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Config_DryRun_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConfigServer).DryRun(ctx, req.(*SampleDryRunRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Config_ConfigurationHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SampleHistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConfigServer).ConfigurationHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Config_ConfigurationHistory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConfigServer).ConfigurationHistory(ctx, req.(*SampleHistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// Config_ServiceDesc is the grpc.ServiceDesc for Config service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Config_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "ext.Config",
+	HandlerType: (*ConfigServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetDefaultConfiguration",
+			Handler:    _Config_GetDefaultConfiguration_Handler,
+		},
+		{
+			MethodName: "SetDefaultConfiguration",
+			Handler:    _Config_SetDefaultConfiguration_Handler,
+		},
+		{
+			MethodName: "GetConfiguration",
+			Handler:    _Config_GetConfiguration_Handler,
+		},
+		{
+			MethodName: "SetConfiguration",
+			Handler:    _Config_SetConfiguration_Handler,
+		},
+		{
+			MethodName: "ResetDefaultConfiguration",
+			Handler:    _Config_ResetDefaultConfiguration_Handler,
+		},
+		{
+			MethodName: "ResetConfiguration",
+			Handler:    _Config_ResetConfiguration_Handler,
+		},
+		{
+			MethodName: "DryRun",
+			Handler:    _Config_DryRun_Handler,
+		},
+		{
+			MethodName: "ConfigurationHistory",
+			Handler:    _Config_ConfigurationHistory_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.com/rancher/opni/pkg/test/testdata/plugins/ext/ext.proto",
+}
+
+const (
 	Ext2_Foo_FullMethodName = "/ext.Ext2/Foo"
 )
 
@@ -453,21 +799,19 @@ func (c *ext2Client) Foo(ctx context.Context, in *FooRequest, opts ...grpc.CallO
 }
 
 // Ext2Server is the server API for Ext2 service.
-// All implementations must embed UnimplementedExt2Server
+// All implementations should embed UnimplementedExt2Server
 // for forward compatibility
 type Ext2Server interface {
 	Foo(context.Context, *FooRequest) (*FooResponse, error)
-	mustEmbedUnimplementedExt2Server()
 }
 
-// UnimplementedExt2Server must be embedded to have forward compatible implementations.
+// UnimplementedExt2Server should be embedded to have forward compatible implementations.
 type UnimplementedExt2Server struct {
 }
 
 func (UnimplementedExt2Server) Foo(context.Context, *FooRequest) (*FooResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Foo not implemented")
 }
-func (UnimplementedExt2Server) mustEmbedUnimplementedExt2Server() {}
 
 // UnsafeExt2Server may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to Ext2Server will

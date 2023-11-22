@@ -2,9 +2,11 @@ package v1
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/samber/lo"
 )
 
@@ -35,4 +37,32 @@ func (m *ListClustersRequest) CacheKey() string {
 		key += mKey + m.MatchLabels.MatchLabels[mKey]
 	}
 	return key
+}
+
+func RenderCapabilityList(list *CapabilityList) string {
+	w := table.NewWriter()
+	w.SetStyle(table.StyleColoredDark)
+	w.AppendHeader(table.Row{"NAME", "SOURCE", "DRIVERS", "CLUSTERS"})
+	for _, c := range list.Items {
+		drivers := c.GetDetails().GetAvailableDrivers()
+		enabledDriver := c.GetDetails().GetEnabledDriver()
+		if len(drivers) > 0 {
+			slices.SortFunc(drivers, func(a, b string) int {
+				if a == enabledDriver {
+					return -1
+				}
+				return strings.Compare(a, b)
+			})
+			if drivers[0] == enabledDriver {
+				drivers[0] = fmt.Sprintf("%s (enabled)", drivers[0])
+			}
+		}
+		w.AppendRow(table.Row{
+			c.GetDetails().GetName(),
+			c.GetDetails().GetSource(),
+			strings.Join(drivers, ", "), // ex: "driver1 (enabled), driver2, driver3"
+			c.GetNodeCount(),
+		})
+	}
+	return w.Render()
 }

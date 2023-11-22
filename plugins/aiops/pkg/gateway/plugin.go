@@ -9,6 +9,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/opensearch-project/opensearch-go"
 	"github.com/rancher/opni/apis"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
@@ -37,6 +38,19 @@ type AIOpsPlugin struct {
 	aggregationKv   future.Future[nats.KeyValue]
 	modelTrainingKv future.Future[nats.KeyValue]
 	statisticsKv    future.Future[nats.KeyValue]
+}
+
+// ManagementServices implements managementext.ManagementAPIExtension.
+func (p *AIOpsPlugin) ManagementServices(_ managementext.ServiceController) []util.ServicePackInterface {
+	return []util.ServicePackInterface{
+		util.PackService[modeltraining.ModelTrainingServer](&modeltraining.ModelTraining_ServiceDesc, p),
+		util.PackService[admin.AIAdminServer](&admin.AIAdmin_ServiceDesc, p),
+	}
+}
+
+// Authorized checks whether a given set of roles is allowed to access a given request
+func (p *AIOpsPlugin) CheckAuthz(_ context.Context, _ *corev1.ReferenceList, _, _ string) bool {
+	return true
 }
 
 type PluginOptions struct {
@@ -185,9 +199,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 	go p.setOpensearchConnection()
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
-	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(
-		util.PackService(&modeltraining.ModelTraining_ServiceDesc, p),
-		util.PackService(&admin.AIAdmin_ServiceDesc, p),
-	))
+	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(p))
 	return scheme
 }

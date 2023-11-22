@@ -30,7 +30,9 @@ func InstallWithPreset(ctx context.Context, client CortexOpsClient, presetId ...
 			return fmt.Errorf("preset %s not found", presetId[0])
 		}
 	}
-	if _, err := client.SetConfiguration(ctx, targetPreset.GetSpec()); err != nil {
+	if _, err := client.SetConfiguration(ctx, &SetRequest{
+		Spec: targetPreset.GetSpec(),
+	}); err != nil {
 		return err
 	}
 	_, err = client.Install(ctx, &emptypb.Empty{})
@@ -57,7 +59,10 @@ func WaitForReady(ctx context.Context, client CortexOpsClient) error {
 
 type SpecializedConfigServer = driverutil.ConfigServer[
 	*CapabilityBackendConfigSpec,
+	*driverutil.GetRequest,
+	*SetRequest,
 	*ResetRequest,
+	*driverutil.ConfigurationHistoryRequest,
 	*ConfigurationHistoryResponse,
 ]
 

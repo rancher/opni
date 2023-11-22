@@ -8,7 +8,8 @@ import (
 )
 
 const (
-	AuthorizationKey = "authorization"
+	AuthorizationKey     = "authorization"
+	AdminRoleBindingName = "opni.io_admin"
 )
 
 type Protocol uint32
@@ -52,4 +53,11 @@ var (
 	ErrMiddlewareAlreadyExists = errors.New("auth middleware already exists")
 	ErrNilMiddleware           = errors.New("auth middleware is nil")
 	ErrMiddlewareNotFound      = errors.New("auth middleware not found")
+)
+
+type AuthType string
+
+const (
+	AuthTypeBasic AuthType = "basic"
+	AuthTypeOIDC  AuthType = "oidc"
 )

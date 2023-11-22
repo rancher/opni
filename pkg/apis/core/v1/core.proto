@@ -3,13 +3,17 @@ syntax = "proto3";
 package core;
 
 import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
+import "github.com/rancher/opni/pkg/validation/validate.proto";
+import "google/protobuf/any.proto";
+import "google/protobuf/descriptor.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/rancher/opni/pkg/apis/core/v1";
+option go_package      = "github.com/rancher/opni/pkg/apis/core/v1";
 option (cli.generator) = {
-  generate: true
+  generate:          true
+  generate_deepcopy: true
 };
 
 service Pinger {
@@ -69,6 +73,8 @@ message LastKnownConnectionDetails {
   BuildInfo                 agentBuildInfo = 3;
   // plugin package id -> hash
   map<string, string> pluginVersions = 4;
+  // which gateway instance the agent was connected to
+  InstanceInfo instanceInfo = 5;
 }
 
 // Go build info types
@@ -126,13 +132,6 @@ message ClusterSelector {
   MatchOptions    matchOptions  = 3;
 }
 
-message Role {
-  string          id          = 1;
-  repeated string clusterIDs  = 2;
-  LabelSelector   matchLabels = 3;
-  RoleMetadata    metadata    = 4;
-}
-
 message RoleMetadata {
   // read-only
   string resourceVersion = 1;
@@ -149,14 +148,60 @@ message RoleBinding {
 message RoleBindingMetadata {
   // read-only
   string resourceVersion = 1;
-}
-
-message RoleList {
-  repeated Role items = 1;
+  // immutable after creation
+  optional string capability = 2;
 }
 
 message RoleBindingList {
   repeated RoleBinding items = 1;
+}
+
+message CapabilityType {
+  string name = 2;
+}
+
+message CapabilityTypeList {
+  repeated string names = 2;
+}
+
+message PermissionVerb {
+  string verb = 1;
+}
+
+message PermissionDescription {
+  string                  type  = 1;
+  repeated PermissionVerb verbs = 2;
+}
+
+message AvailablePermissions {
+  repeated PermissionDescription items = 1;
+}
+
+message PermissionItem {
+  string                  type        = 1;
+  repeated PermissionVerb verbs       = 2;
+  repeated string         ids         = 3;
+  LabelSelector           matchLabels = 4;
+}
+
+message Role {
+  string                  id          = 1;
+  repeated PermissionItem permissions = 2;
+  RoleMetadata            metadata    = 3;
+}
+
+message BackendRole {
+  CapabilityType capability = 1;
+  Role           role       = 2;
+}
+
+message BackendRoleRequest {
+  CapabilityType capability = 1;
+  Reference      roleRef    = 2;
+}
+
+message RoleList {
+  repeated Reference items = 1;
 }
 
 message CertInfo {
@@ -170,7 +215,13 @@ message CertInfo {
 }
 
 message Reference {
-  string id = 1;
+  string id = 1 [(buf.validate.field) = {
+    ignore_empty: true
+    string: {
+      max_bytes: 128
+      pattern:   "^[a-zA-Z0-9-_.\\(\\)]+$"
+    }
+  }];
 }
 
 message ReferenceList {
@@ -316,4 +367,58 @@ message Revision {
   // Do not depend on this field being set; if it is, it is for informational
   // purposes only.
   google.protobuf.Timestamp timestamp = 2 [(cli.flag).skip = true];
+}
+
+message InstanceInfo {
+  string              relayAddress      = 1;
+  string              managementAddress = 2;
+  string              gatewayAddress    = 3;
+  string              webAddress        = 4;
+  bool                acquired          = 5;
+  Health              health            = 6;
+  Status              status            = 7;
+  map<string, string> annotations       = 8;
+}
+
+// Value represents a protoreflect.Value
+message Value {
+  oneof data {
+    bool                bool_value    = 1;
+    int32               int32_value   = 2;
+    int64               int64_value   = 3;
+    uint32              uint32_value  = 4;
+    uint64              uint64_value  = 5;
+    float               float32_value = 6;
+    double              float64_value = 7;
+    string              string_value  = 8;
+    bytes               bytes_value   = 9;
+    int32               enum          = 10;
+    google.protobuf.Any message       = 11;
+    ListValue           list          = 12;
+    MapValue            map           = 13;
+  }
+
+  message ListValue {
+    repeated Value values = 2;
+  }
+
+  message MapKey {
+    oneof data {
+      bool   bool_value   = 1;
+      int32  int32_value  = 2;
+      int64  int64_value  = 3;
+      uint32 uint32_value = 4;
+      uint64 uint64_value = 5;
+      string string_value = 6;
+    }
+  }
+
+  message MapEntry {
+    MapKey key   = 1;
+    Value  value = 2;
+  }
+
+  message MapValue {
+    repeated MapEntry entries = 2;
+  }
 }

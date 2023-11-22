@@ -7,8 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-
-	"github.com/rancher/opni/pkg/config/v1beta1"
 )
 
 func ParsePEMEncodedCertChain(chain []byte) ([]*x509.Certificate, error) {
@@ -39,7 +37,22 @@ func ParsePEMEncodedCert(data []byte) (*x509.Certificate, error) {
 	return x509.ParseCertificate(block.Bytes)
 }
 
-func LoadServingCertBundle(certsSpec v1beta1.CertsSpec) (*tls.Certificate, *x509.CertPool, error) {
+type CertsSpecShape = struct {
+	// Path to a PEM encoded CA certificate file. Mutually exclusive with CACertData
+	CACert *string `json:"caCert,omitempty"`
+	// String containing PEM encoded CA certificate data. Mutually exclusive with CACert
+	CACertData []byte `json:"caCertData,omitempty"`
+	// Path to a PEM encoded server certificate file. Mutually exclusive with ServingCertData
+	ServingCert *string `json:"servingCert,omitempty"`
+	// String containing PEM encoded server certificate data. Mutually exclusive with ServingCert
+	ServingCertData []byte `json:"servingCertData,omitempty"`
+	// Path to a PEM encoded server key file. Mutually exclusive with ServingKeyData
+	ServingKey *string `json:"servingKey,omitempty"`
+	// String containing PEM encoded server key data. Mutually exclusive with ServingKey
+	ServingKeyData []byte `json:"servingKeyData,omitempty"`
+}
+
+func LoadServingCertBundle(certsSpec CertsSpecShape) (*tls.Certificate, *x509.CertPool, error) {
 	var caCertData, servingCertData, servingKeyData []byte
 	switch {
 	case certsSpec.CACert != nil:

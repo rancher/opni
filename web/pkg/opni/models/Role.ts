@@ -1,6 +1,7 @@
 import { deleteRole } from '../utils/requests/management';
 import { findBy } from '../utils/array';
 import { Resource } from './Resource';
+import { Reference } from '../generated/github.com/rancher/opni/pkg/apis/core/v1/core_pb';
 
 export interface MatchExpression {
     key: string;
@@ -13,14 +14,24 @@ export interface MatchLabel {
     matchExpressions: MatchExpression[]
 }
 
+export interface Verb {
+  verb: string;
+}
+
+export interface Permission {
+  ids: string[];
+  type: string;
+  matchLabels: MatchLabel;
+  verbs: Verb[];
+}
+
 export interface RoleResponse {
   id: string;
-  clusterIDs: string[];
-  matchLabels: MatchLabel
+  permissions: Permission[];
 }
 
 export interface RolesResponse {
-  items: RoleResponse[];
+  items: Reference[];
 }
 
 export class Role extends Resource {
@@ -44,7 +55,11 @@ export class Role extends Resource {
     }
 
     get clusterIds() {
-      return this.base.clusterIDs;
+      var merged: string[] = [];
+      this.base.permissions.forEach(perm => {
+        perm.ids.forEach(id => merged.push(id));
+      });
+      return merged.filter(n => n);
     }
 
     get clusters() {
@@ -66,7 +81,11 @@ export class Role extends Resource {
     }
 
     get matchExpressionsDisplay() {
-      return this.base.matchLabels.matchExpressions.map(this.formatMatchExpression);
+      var matchExpressions: string[] = [];
+      this.base.permissions.forEach(perm => {
+        matchExpressions.push(...perm.matchLabels.matchExpressions.map(this.formatMatchExpression))
+      })
+      return matchExpressions;
     }
 
     formatMatchExpression(matchExpression: MatchExpression) {
@@ -77,7 +96,11 @@ export class Role extends Resource {
     }
 
     get matchLabelsDisplay() {
-      return Object.entries(this.base.matchLabels.matchLabels).map(([key, value]) => `${ key }=${ value }`);
+      var kvs: [string, string][] = [];
+      this.base.permissions.forEach(perm => {
+        kvs.push(...Object.entries(perm.matchLabels.matchLabels))
+      });
+      return kvs.map(([key, value]) => `${ key }=${ value }`);
     }
 
     get availableActions(): any[] {

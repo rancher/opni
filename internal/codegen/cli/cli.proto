@@ -64,6 +64,7 @@ enum EditScope {
   // a file.
   EditMessage = 1;
 }
+
 message CommandOptions {
   string          use            = 25601;
   repeated string aliases        = 25602;

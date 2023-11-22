@@ -2,9 +2,8 @@ syntax = "proto3";
 
 package collector;
 
-// import "go.opentelemetry.io/proto/otlp/metrics/v1/metrics.proto";
+import "go.opentelemetry.io/proto/otlp/metrics/v1/metrics.proto";
 import "google/protobuf/empty.proto";
-import "opentelemetry/proto/metrics/v1/metrics.proto";
 
 option go_package = "github.com/rancher/opni/pkg/metrics/collector";
 

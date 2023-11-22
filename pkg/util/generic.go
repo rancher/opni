@@ -3,6 +3,7 @@ package util
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"strings"
 	"sync"
@@ -18,7 +19,7 @@ import (
 func Must[T any](t T, err ...error) T {
 	if len(err) > 0 {
 		if err[0] != nil {
-			panic(err)
+			panic(errors.Join(err...))
 		}
 	} else if tv := reflect.ValueOf(t); (tv != reflect.Value{}) {
 		if verr := tv.Interface().(error); verr != nil {

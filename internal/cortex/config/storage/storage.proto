@@ -106,11 +106,13 @@ message AzureConfig {
       default: "20"
     }
   ];
-  // Azure storage MSI resource. Either this or account key must be set.
-  optional string msi_resource = 6 [(cli.flag) = {secret: true}];
-  // Azure storage MSI resource managed identity client Id. If not supplied system assigned identity is used
+  // Deprecated: Azure storage MSI resource. It will be set automatically by Azure SDK.
+  optional string msi_resource = 6 [deprecated = true];
+  // Azure storage MSI resource managed identity client Id. If not supplied default Azure credential will be used. Set it to empty if you need to authenticate via Azure Workload Identity.
   optional string user_assigned_id = 7;
   HttpConfig      http             = 8;
+  // The values of `account-name` and `endpoint-suffix` values will not be ignored if `connection-string` is set. Use this method over `account-key` if you need to authenticate via a SAS token or if you use the Azurite emulator.
+  optional string connection_string = 10 [(cli.flag) = {secret: true}];
 }
 
 message FilesystemConfig {}

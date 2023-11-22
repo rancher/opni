@@ -46,4 +46,6 @@ message Config {
   google.protobuf.Duration shuffle_sharding_ingesters_lookback_period = 15 [(cli.flag) = {default: "0s"}];
   // Experimental. Use Thanos promql engine https://github.com/thanos-io/promql-engine rather than the Prometheus promql engine.
   optional bool thanos_engine = 16 [(cli.flag) = {default: "false"}];
+  // Max number of steps allowed for every subquery expression in query. Number of steps is calculated using subquery range / step. A value > 0 enables it.
+  optional int64 max_subquery_steps = 18 [(cli.flag) = {default: "0"}];
 }

@@ -120,13 +120,17 @@ func (m *KubernetesManagerDriver) ConfigureNode(config *node.LoggingCapabilityCo
 	var success bool
 BACKOFF:
 	for backoff.Continue(b) {
-		logCollectorConf := m.buildLoggingCollectorConfig()
-		if err := m.reconcileObject(logCollectorConf, config.Enabled); err != nil {
-			m.Logger.With(
-				"object", client.ObjectKeyFromObject(logCollectorConf).String(),
-				logger.Err(err),
-			).Error("error reconciling object")
-			continue BACKOFF
+		for _, obj := range []client.Object{
+			m.buildDataPrepper(),
+			m.buildLoggingCollectorConfig(),
+		} {
+			if err := m.reconcileObject(obj, false); err != nil {
+				m.Logger.With(
+					"object", client.ObjectKeyFromObject(obj).String(),
+					logger.Err(err),
+				).Error("error reconciling object")
+				continue BACKOFF
+			}
 		}
 
 		if err := m.reconcileCollector(config.Enabled); err != nil {
@@ -145,6 +149,32 @@ BACKOFF:
 	} else {
 		m.Logger.Info("objects reconciled successfully")
 	}
+}
+
+func (m *KubernetesManagerDriver) buildDataPrepper() *opniloggingv1beta1.DataPrepper {
+	dataPrepper := &opniloggingv1beta1.DataPrepper{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      dataPrepperName,
+			Namespace: m.Namespace,
+		},
+		Spec: opniloggingv1beta1.DataPrepperSpec{
+			//Username: config.Username,
+			PasswordFrom: &corev1.SecretKeySelector{
+				Key: secretKey,
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+			},
+			Opensearch: &opniloggingv1beta1.OpensearchSpec{
+				//Endpoint:                 config.Url,
+				InsecureDisableSSLVerify: false,
+			},
+			//ClusterID:     m.clusterID,
+			EnableTracing: true,
+			Version:       dataPrepperVersion,
+		},
+	}
+	return dataPrepper
 }
 
 func (m *KubernetesManagerDriver) buildLoggingCollectorConfig() *opniloggingv1beta1.CollectorConfig {

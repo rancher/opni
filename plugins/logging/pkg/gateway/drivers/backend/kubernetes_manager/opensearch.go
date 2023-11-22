@@ -204,6 +204,9 @@ func opensearchToRole(in *opsterv1.OpensearchRole) *corev1.Role {
 				Ids: namespaces,
 			},
 		},
+		Metadata: &corev1.RoleMetadata{
+			ResourceVersion: in.ResourceVersion,
+		},
 	}
 }
 

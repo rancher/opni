@@ -374,14 +374,22 @@ func (d *KubernetesManagerDriver) UpdateRole(ctx context.Context, in *corev1.Rol
 	if err != nil {
 		return k8sutilerrors.GRPCFromK8s(err)
 	}
+	if _, ok := role.Labels[opniLabelKey]; !ok {
+		return utilerrors.New(codes.NotFound, errors.New("role exists but is not managed by opni"))
+	}
+
+	if in.GetMetadata().GetResourceVersion() != role.ResourceVersion {
+		return utilerrors.New(codes.Aborted, errors.New("resource version mismatch, please refresh the role and try again"))
+	}
 
 	updated := roleToOpensearch(d.Namespace, in)
 	for k, v := range updated.ObjectMeta.Annotations {
 		role.ObjectMeta.Annotations[k] = v
 	}
-	for k, v := range updated.ObjectMeta.Labels {
-		role.ObjectMeta.Labels[k] = v
+	if _, ok := updated.ObjectMeta.Annotations[labelMatcherAnnotation]; !ok {
+		delete(role.ObjectMeta.Annotations, labelMatcherAnnotation)
 	}
+
 	role.Spec = updated.Spec
 	err = d.K8sClient.Update(ctx, role)
 	if err != nil {

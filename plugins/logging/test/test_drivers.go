@@ -11,11 +11,13 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/opensearch/opensearch"
 	"github.com/rancher/opni/pkg/plugins/driverutil"
+	utilerrors "github.com/rancher/opni/pkg/util/errors"
 	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
 	backenddriver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/backend"
 	managementdriver "github.com/rancher/opni/plugins/logging/pkg/gateway/drivers/management"
 	"github.com/rancher/opni/plugins/logging/pkg/util"
 	loggingutil "github.com/rancher/opni/plugins/logging/pkg/util"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -240,10 +242,77 @@ func (d *MockBackendDriver) SetSyncTime() {
 	d.syncTime = time.Now()
 }
 
+type MockRBACDriver struct {
+	roles   map[string]*corev1.Role
+	rolesMu sync.RWMutex
+}
+
+func NewMockRBACDriver() *MockRBACDriver {
+	return &MockRBACDriver{
+		roles: map[string]*corev1.Role{},
+	}
+}
+
+func (d *MockRBACDriver) GetRole(_ context.Context, in *corev1.Reference) (*corev1.Role, error) {
+	d.rolesMu.RLock()
+	defer d.rolesMu.RUnlock()
+	if role, ok := d.roles[in.GetId()]; ok {
+		return role, nil
+	}
+	return nil, utilerrors.New(codes.NotFound, fmt.Errorf("not found"))
+}
+
+func (d *MockRBACDriver) CreateRole(_ context.Context, in *corev1.Role) error {
+	d.rolesMu.Lock()
+	defer d.rolesMu.Unlock()
+	if _, ok := d.roles[in.GetId()]; ok {
+		return utilerrors.New(codes.AlreadyExists, fmt.Errorf("already exists"))
+	}
+	d.roles[in.GetId()] = in
+	return nil
+}
+
+func (d *MockRBACDriver) UpdateRole(_ context.Context, in *corev1.Role) error {
+	d.rolesMu.Lock()
+	defer d.rolesMu.Unlock()
+	if _, ok := d.roles[in.GetId()]; !ok {
+		return utilerrors.New(codes.NotFound, fmt.Errorf("role not found"))
+	}
+	d.roles[in.GetId()] = in
+	return nil
+}
+
+func (d *MockRBACDriver) DeleteRole(_ context.Context, in *corev1.Reference) error {
+	d.rolesMu.Lock()
+	defer d.rolesMu.Unlock()
+	if _, ok := d.roles[in.GetId()]; !ok {
+		return utilerrors.New(codes.NotFound, fmt.Errorf("role not found"))
+	}
+	delete(d.roles, in.GetId())
+	return nil
+}
+
+func (d *MockRBACDriver) ListRoles(_ context.Context) (*corev1.RoleList, error) {
+	d.rolesMu.RLock()
+	defer d.rolesMu.RUnlock()
+	out := &corev1.RoleList{
+		Items: []*corev1.Reference{},
+	}
+	for k, _ := range d.roles {
+		out.Items = append(out.Items, &corev1.Reference{
+			Id: k,
+		})
+	}
+	return out, nil
+}
+
 func init() {
 	stateStore := &loggingutil.MockInstallState{}
 	backenddriver.ClusterDrivers.Register("mock-driver", func(_ context.Context, _ ...driverutil.Option) (backenddriver.ClusterDriver, error) {
 		return NewMockBackendDriver(stateStore), nil
+	})
+	backenddriver.RBACDrivers.Register("mock-driver", func(_ context.Context, _ ...driverutil.Option) (backenddriver.RBACDriver, error) {
+		return NewMockRBACDriver(), nil
 	})
 	managementdriver.Drivers.Register("mock-driver", func(_ context.Context, _ ...driverutil.Option) (managementdriver.ClusterDriver, error) {
 		return NewMockManagementDriver(stateStore), nil

@@ -13,6 +13,7 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/desc/builder"
 	"github.com/rancher/opni/internal/codegen/cli"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/runtime/protoimpl"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -248,6 +249,11 @@ FIELDS:
 			delete(b.cache, rfType)
 		}
 		newFieldHook(field, rf)
+
+		// check if the field is deprecated
+		if strings.HasPrefix(strings.TrimSpace(field.GetComments().LeadingComment), "Deprecated: ") {
+			field.Options.Deprecated = lo.ToPtr(true)
+		}
 		m.AddField(field)
 	}
 	b.cache[msgType] = m

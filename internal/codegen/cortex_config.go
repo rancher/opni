@@ -301,7 +301,7 @@ func mergeFileDescriptors(targetpb *descriptorpb.FileDescriptorProto, target, ex
 
 func mergeMessageDescriptors(targetpb *descriptorpb.DescriptorProto, target, existing protoreflect.MessageDescriptor) {
 	// tracks numbers that may have collisions, and the field that now has that number
-	possibleCollisions := make(map[int32]protoreflect.FieldDescriptor)
+	collisions := make(map[int32]protoreflect.FieldDescriptor)
 	targetFields := target.Fields()
 	existingFields := existing.Fields()
 	for i, l := 0, targetFields.Len(); i < l; i++ {
@@ -311,8 +311,19 @@ func mergeMessageDescriptors(targetpb *descriptorpb.DescriptorProto, target, exi
 			// check if the field number changed
 			if existingField.Number() != targetField.Number() {
 				// keep the existing field number
-				*targetpb.Field[existingField.Index()].Number = int32(existingField.Number())
-				possibleCollisions[int32(existingField.Number())] = targetField
+				existingNumber := int32(existingField.Number())
+				// check if there is already a field with this number
+				isCollision := false
+				for _, f := range targetpb.Field {
+					if *f.Number == existingNumber {
+						isCollision = true
+						break
+					}
+				}
+				*targetpb.Field[targetField.Index()].Number = existingNumber
+				if isCollision {
+					collisions[int32(existingField.Number())] = targetField
+				}
 			}
 			if targetpb.Field[i].Options == nil {
 				targetpb.Field[i].Options = &descriptorpb.FieldOptions{}
@@ -393,13 +404,16 @@ func mergeMessageDescriptors(targetpb *descriptorpb.DescriptorProto, target, exi
 	fields := target.Fields()
 	var largestNumber protoreflect.FieldNumber
 	for i, l := 0, fields.Len(); i < l; i++ {
+		// This is intentionally calculated on the original generated descriptor's
+		// fields, not the modified descriptorpb. This keeps the merge operation
+		// idempotent.
 		largestNumber = max(largestNumber, fields.Get(i).Number())
 	}
 	nextAvailableNumber := int32(largestNumber + 1)
 
 	for i, l := 0, fields.Len(); i < l; i++ {
 		targetField := fields.Get(i)
-		if owner, ok := possibleCollisions[int32(targetField.Number())]; ok {
+		if owner, ok := collisions[int32(targetField.Number())]; ok {
 			if targetField == owner {
 				continue
 			}

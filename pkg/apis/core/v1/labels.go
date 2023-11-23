@@ -14,9 +14,10 @@ const (
 	LabelSelectorOpExists       LabelSelectorOperator = "Exists"
 	LabelSelectorOpDoesNotExist LabelSelectorOperator = "DoesNotExist"
 
-	NameLabel       = "opni.io/name"
-	SupportLabel    = "opni.io/support-user"
-	LegacyNameLabel = "kubernetes.io/metadata.name"
+	NameLabel         = "opni.io/name"
+	SupportLabel      = "opni.io/support-user"
+	AllowMatcherLabel = "opni.io/label-match"
+	LegacyNameLabel   = "kubernetes.io/metadata.name"
 )
 
 var (

@@ -19,14 +19,15 @@ func (b *LoggingBackend) GetAvailablePermissions(_ context.Context, _ *emptypb.E
 				Verbs: []*corev1.PermissionVerb{
 					corev1.VerbGet(),
 				},
-				EnableLabelMatch: true,
+				Labels: map[string]string{
+					corev1.AllowMatcherLabel: "true",
+				},
 			},
 			{
 				Type: string(corev1.PermissionTypeNamespace),
 				Verbs: []*corev1.PermissionVerb{
 					corev1.VerbGet(),
 				},
-				EnableLabelMatch: false,
 			},
 		},
 	}, nil

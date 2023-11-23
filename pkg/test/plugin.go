@@ -133,7 +133,7 @@ func (tp TestPluginSet) LoadPlugins(ctx context.Context, loader *plugins.PluginL
 			return tlsConfig, nil
 		}
 		go plugin.Serve(sc)
-		cc := plugins.ClientConfig(p.Metadata, scheme, plugins.WithReattachConfig(<-ch))
+		cc := plugins.ClientConfig(ctx, p.Metadata, scheme, plugins.WithReattachConfig(<-ch))
 		cc.TLSConfig = tlsConfig
 		wg.Add(1)
 		go func() {

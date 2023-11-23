@@ -8,6 +8,7 @@ import (
 	"time"
 
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
+	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/spf13/afero"
 	"google.golang.org/protobuf/proto"
@@ -61,7 +62,9 @@ func (ls *LogServer) StreamLogs(req *controlv1.LogStreamRequest, server controlv
 	nameFilters := req.Filters.NamePattern
 	follow := req.Follow
 
-	f := logger.ReadOnlyFile(logger.GetLogFileName())
+	ctx := logger.WithAgentId(server.Context(), cluster.StreamAuthorizedID(server.Context()))
+	f := logger.ReadOnlyFile(logger.GetLogFileName(ctx))
+	ls.logger.Warn("streaming from file...", "name", logger.GetLogFileName(ctx))
 
 	defer f.Close()
 

@@ -21,6 +21,7 @@ const (
 	forwardedPluginPrefix                                     = "plugin."
 	pluginLoggerKey            pluginLoggerKeyType            = "plugin_logger"
 	pluginModeKey              pluginModeKeyType              = "plugin_logger_mode"
+	pluginAgentKey             pluginAgentKeyType             = "plugin_logger_agent"
 	pluginWriterKey            pluginWriterKeyType            = "plugin_writer"
 	testPluginLoggerEnabledKey testPluginLoggerEnabledKeyType = "is_test_plugin_logger"
 	NoRepeatInterval                                          = 3600 * time.Hour // arbitrarily long time to denote one-time sampling
@@ -30,6 +31,7 @@ const (
 type (
 	pluginLoggerKeyType            string
 	pluginModeKeyType              string
+	pluginAgentKeyType             string
 	pluginWriterKeyType            string
 	testPluginLoggerEnabledKeyType string
 )

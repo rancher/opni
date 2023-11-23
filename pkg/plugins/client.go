@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os/exec"
@@ -42,9 +43,14 @@ func WithSecureConfig(sc *plugin.SecureConfig) ClientOption {
 	}
 }
 
-func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, opts ...ClientOption) *plugin.ClientConfig {
+func ClientConfig(ctx context.Context, md meta.PluginMeta, scheme meta.Scheme, opts ...ClientOption) *plugin.ClientConfig {
 	options := &ClientOptions{}
 	options.apply(opts...)
+
+	if md.ExtendedMetadata != nil {
+		mode := md.ExtendedMetadata.ModeList.Modes[0]
+		ctx = logger.WithMode(ctx, mode)
+	}
 
 	cc := &plugin.ClientConfig{
 		Plugins:          scheme.PluginMap(),
@@ -63,7 +69,7 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, opts ...ClientOption) 
 			grpc.WithPerRPCCredentials(cluster.ClusterIDKey),
 			grpc.WithPerRPCCredentials(session.AttributesKey),
 		},
-		Stderr: logger.NewPluginFileWriter(),
+		Stderr: logger.NewPluginFileWriter(ctx),
 	}
 
 	if options.reattach != nil {

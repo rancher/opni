@@ -2184,6 +2184,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 				mu.Unlock()
 				return
 			}
+			e.ctx = logger.WithAgentId(e.ctx, id)
 			globalTestPlugins.LoadPlugins(e.ctx, pl, pluginmeta.ModeAgent)
 			agentListMu.Lock()
 			agentList[id] = cancel

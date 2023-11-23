@@ -105,7 +105,7 @@ func BuildAgentV2Cmd() *cobra.Command {
 				return
 			}
 
-			err = p.ListenAndServe(p.Context())
+			err = p.ListenAndServe(cmd.Context())
 
 			agentlg.Info("shutting down plugins")
 			plugin.CleanupClients()

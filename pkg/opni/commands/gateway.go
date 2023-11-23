@@ -22,6 +22,7 @@ import (
 	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/hooks"
+	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/update/noop"
 	"github.com/samber/lo"

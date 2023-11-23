@@ -41,6 +41,18 @@ func NewEtcdMutex(
 	}
 }
 
+func (e *etcdMutex) lock(ctx context.Context) (chan struct{}, error) {
+	mutex := concurrency.NewMutex(
+		e.session,
+		path.Join(e.prefix, e.key),
+	)
+	if err := mutex.Lock(ctx); err != nil {
+		return nil, err
+	}
+	e.mutex = mutex
+	return lo.Async(e.keepalive), nil
+}
+
 func (e *etcdMutex) tryLock(ctx context.Context) (chan struct{}, error) {
 	mutex := concurrency.NewMutex(
 		e.session,

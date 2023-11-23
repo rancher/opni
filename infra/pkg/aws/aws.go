@@ -46,7 +46,6 @@ func (p *provisioner) buildEksResources(ctx *Context, conf resources.MainCluster
 		NodeSecurityGroupTags:    ToStringMap(conf.Tags),
 		CreateOidcProvider:       BoolPtr(true),
 		NodeAmiId:                String("ami-0e3d54adf66a363de"),
-		NodeRootVolumeSize:       IntPtr(256),
 	})
 	if err != nil {
 		return nil, errors.WithStack(err)

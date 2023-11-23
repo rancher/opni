@@ -169,7 +169,7 @@ require (
 
 require (
 	github.com/go-logr/zapr v1.2.4 // indirect
-	go.uber.org/zap v1.25.0 // indirect
+	go.uber.org/zap v1.25.0
 )
 
 require (

@@ -10,6 +10,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/lock"
+	"github.com/samber/lo"
 )
 
 type Lock struct {
@@ -42,8 +43,7 @@ func (l *Lock) Key() string {
 	return l.key
 }
 
-func (l *Lock) acquire(ctx context.Context, retrier backoffv2.Policy) (chan struct{}, error) {
-	acq := retrier.Start(ctx)
+func (l *Lock) acquire(ctx context.Context, retrier *backoffv2.Policy) (chan struct{}, error) {
 	var curErr error
 	mutex := newJetstreamMutex(l.lg, l.js, l.prefix, l.key)
 	done, err := mutex.tryLock()
@@ -52,15 +52,20 @@ func (l *Lock) acquire(ctx context.Context, retrier backoffv2.Policy) (chan stru
 		l.mutex = &mutex
 		return done, nil
 	}
-	for backoffv2.Continue(acq) {
-		done, err := mutex.tryLock()
-		curErr = err
-		if err == nil {
-			l.mutex = &mutex
-			return done, nil
+	if retrier != nil {
+		ret := *retrier
+		acq := ret.Start(ctx)
+		for backoffv2.Continue(acq) {
+			done, err := mutex.tryLock()
+			curErr = err
+			if err == nil {
+				l.mutex = &mutex
+				return done, nil
+			}
 		}
+		return nil, errors.Join(ctx.Err(), curErr)
 	}
-	return nil, errors.Join(ctx.Err(), curErr)
+	return nil, curErr
 }
 
 func (l *Lock) Lock(ctx context.Context) (chan struct{}, error) {
@@ -69,11 +74,13 @@ func (l *Lock) Lock(ctx context.Context) (chan struct{}, error) {
 
 	var closureDone chan struct{}
 	if err := l.scheduler.Schedule(func() error {
-		done, err := l.acquire(ctxca, backoffv2.Constant(
-			backoffv2.WithMaxRetries(0),
-			backoffv2.WithInterval(LockRetryDelay),
-			backoffv2.WithJitterFactor(0.1),
-		))
+		done, err := l.acquire(ctxca,
+			lo.ToPtr(backoffv2.Constant(
+				backoffv2.WithMaxRetries(0),
+				backoffv2.WithInterval(LockRetryDelay),
+				backoffv2.WithJitterFactor(0.1),
+			)),
+		)
 		if err != nil {
 			return err
 		}
@@ -111,11 +118,7 @@ func (l *Lock) TryLock(ctx context.Context) (acquired bool, done chan struct{}, 
 	defer ca()
 	var closureDone chan struct{}
 	if err := l.scheduler.Schedule(func() error {
-		done, err := l.acquire(ctxca, backoffv2.Constant(
-			backoffv2.WithMaxRetries(1),
-			backoffv2.WithInterval(LockRetryDelay),
-			backoffv2.WithJitterFactor(0.1),
-		))
+		done, err := l.acquire(ctxca, nil)
 		if err != nil {
 			return err
 		}

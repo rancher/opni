@@ -2,7 +2,6 @@ package etcd
 
 import (
 	"log/slog"
-	"sync"
 
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/lock"
@@ -14,9 +13,6 @@ type EtcdLockManager struct {
 	prefix string
 
 	lg *slog.Logger
-
-	leaseMu sync.Mutex
-	leaseId *clientv3.LeaseID
 }
 
 func NewEtcdLockManager(
@@ -34,7 +30,7 @@ func NewEtcdLockManager(
 
 // !! Cannot reuse *concurrency.Session across multiple locks since it will break liveliness guarantee A
 // locks will share their sessions and therefore keepalives will be sent for all locks, not just a specific lock.
-// In the current implementation session's are forcibly orphaned when the non-blocking call to unlock is
+// In the current implementation sessions are forcibly orphaned when the non-blocking call to unlock is
 // made so we cannot re-use sessions in that case either -- since the session  will be orphaned for all locks
 // if the session is re-used.
 func (e *EtcdLockManager) NewLock(key string, opts ...lock.LockOption) storage.Lock {

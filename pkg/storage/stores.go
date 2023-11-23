@@ -177,7 +177,7 @@ type LockManagerBroker interface {
 
 type WatchEventType string
 
-// Lock is a distributed lock that can be used to coordinate access to a resource or interest in such
+// Lock is a distributed lock that can be used to coordinate access to a resource or interest in
 // such a resource.
 // Locks follow the following liveliness & atomicity guarantees to prevent distributed deadlocks
 // and guarantee atomicity in the critical section.
@@ -198,7 +198,7 @@ type Lock interface {
 	TryLock(ctx context.Context) (acquired bool, expired chan struct{}, err error)
 
 	// Unlock releases the lock on the key in a non-blocking fashion.
-	// It spawns a goroutine that will perform the unlock mecahnism until it succeeds or the the lock is
+	// It spawns a goroutine that will perform the unlock mechanism until it succeeds or the the lock is
 	// expired by the server.
 	// It immediately signals to the lock's original expired channel that the lock is released.
 	Unlock() error

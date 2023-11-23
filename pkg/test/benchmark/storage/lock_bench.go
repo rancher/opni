@@ -39,7 +39,7 @@ func LockManagerBenchmark[T storage.LockManager](
 			ctx = context.Background()
 		})
 
-		XContext("acquiring and holds many locks should have a small footprint", func() {
+		Context("acquiring and holds many locks should have a small footprint", func() {
 			AfterAll(func() {
 				f, err := os.Create(fmt.Sprintf("%s-locks.mem.pprof", name))
 				Expect(err).To(Succeed())

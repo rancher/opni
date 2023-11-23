@@ -164,12 +164,12 @@ require (
 	opensearch.opster.io v0.0.0-00010101000000-000000000000
 	sigs.k8s.io/controller-runtime v0.16.3
 	sigs.k8s.io/node-feature-discovery-operator v0.2.1-0.20230131182250-99b8584e2745
-	sigs.k8s.io/yaml v1.3.0
+	sigs.k8s.io/yaml v1.4.0
 )
 
 require (
 	github.com/go-logr/zapr v1.2.4 // indirect
-	go.uber.org/zap v1.25.0
+	go.uber.org/zap v1.25.0 // indirect
 )
 
 require (

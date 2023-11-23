@@ -15,6 +15,20 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const (
+	pluginGroupPrefix                         = "plugin"
+	forwardedPluginPrefix                     = "plugin."
+	pluginLoggerKey       pluginLoggerKeyType = "plugin_logger"
+	pluginModeKey         pluginModeKeyType   = "plugin_logger_mode"
+	pluginAgentKey        pluginAgentKeyType  = "plugin_logger_agent"
+)
+
+type (
+	pluginLoggerKeyType string
+	pluginModeKeyType   string
+	pluginAgentKeyType  string
+)
+
 func NewPluginLogger(ctx context.Context, opts ...LoggerOption) *slog.Logger {
 	options := &LoggerOptions{
 		Level:     DefaultLogLevel,
@@ -41,15 +55,49 @@ func PluginLoggerFromContext(ctx context.Context) *slog.Logger {
 	return logger.(*slog.Logger)
 }
 
+func ReadOnlyFile(filename string) afero.File {
+	f, err := logFs.OpenFile(filename, os.O_RDONLY|os.O_CREATE, 0666)
+	if err != nil {
+		panic(err)
+	}
+	return f
+}
+
+func WriteOnlyFile(filename string) afero.File {
+	newFile, err := logFs.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		panic(err)
+	}
+
+	fd, loaded := fileDesc.LoadOrStore(filename, newFile)
+	if loaded {
+		newFile.Close()
+	}
+
+	return fd
+}
+
+func GetLogFileName(ctx context.Context) string {
+	return fmt.Sprintf("plugin_%s_%s", meta.ModeAgent, getAgentId(ctx))
+}
+
+func WithMode(ctx context.Context, mode meta.PluginMode) context.Context {
+	return context.WithValue(ctx, pluginModeKey, mode)
+}
+
+func WithAgentId(ctx context.Context, agentId string) context.Context {
+	return context.WithValue(ctx, pluginAgentKey, agentId)
+}
+
 // writer used for agent loggers and plugin loggers
-type remotePluginWriter struct {
+type RemotePluginWriter struct {
 	textWriter  *slog.Logger
 	fileWriter  *fileWriter
 	protoWriter io.Writer
 }
 
-func newPluginWriter(ctx context.Context) *remotePluginWriter {
-	if isInProcessAgentPlugin(ctx) {
+func newPluginWriter(ctx context.Context) *RemotePluginWriter {
+	if isInProcessPluginLogger(ctx) {
 		mode := getMode(ctx)
 		if mode == meta.ModeAgent {
 			return NewPluginFileWriter(ctx)
@@ -61,31 +109,31 @@ func newPluginWriter(ctx context.Context) *remotePluginWriter {
 	}
 }
 
-func NewPluginFileWriter(ctx context.Context) *remotePluginWriter {
-	return &remotePluginWriter{
+func NewPluginFileWriter(ctx context.Context) *RemotePluginWriter {
+	return &RemotePluginWriter{
 		textWriter:  New(WithWriter(os.Stderr), WithDisableCaller()),
 		fileWriter:  newLogFileWriter(ctx),
 		protoWriter: io.Discard,
 	}
 }
 
-func newTestGatewayPluginWriter() *remotePluginWriter {
-	return &remotePluginWriter{
+func newTestGatewayPluginWriter() *RemotePluginWriter {
+	return &RemotePluginWriter{
 		textWriter:  New(WithWriter(os.Stderr), WithDisableCaller()),
 		fileWriter:  newFileWriter(nil),
 		protoWriter: io.Discard,
 	}
 }
 
-func newSubprocPluginWriter() *remotePluginWriter {
-	return &remotePluginWriter{
+func newSubprocPluginWriter() *RemotePluginWriter {
+	return &RemotePluginWriter{
 		textWriter:  New(WithWriter(io.Discard), WithDisableCaller()),
 		fileWriter:  newFileWriter(nil),
 		protoWriter: os.Stderr,
 	}
 }
 
-func (w *remotePluginWriter) Write(b []byte) (int, error) {
+func (w *RemotePluginWriter) Write(b []byte) (int, error) {
 	if w.fileWriter == nil || w.textWriter == nil {
 		return 0, nil
 	}
@@ -98,20 +146,25 @@ func (w *remotePluginWriter) Write(b []byte) (int, error) {
 	}
 
 	n, err = w.fileWriter.Write(b)
-	w.protoWriter.Write(b)
-
+	if err != nil {
+		return n, err
+	}
+	n, err = w.protoWriter.Write(b)
+	if err != nil {
+		return n, err
+	}
 	return n, err
 }
 
-func (w *remotePluginWriter) Close() { // TODO where to close file?
+func (w *RemotePluginWriter) Close() { // TODO where to close file?
 	w.fileWriter.file.Close()
 }
 
-func (w *remotePluginWriter) writeProtoToText(b []byte) (int, error) {
-	n := len(b)
+func (w *RemotePluginWriter) writeProtoToText(b []byte) (int, error) {
+	unsafeN := len(b)
 	record := &controlv1.StructuredLogRecord{}
 
-	if n < 4 {
+	if unsafeN < 4 {
 		return 0, io.ErrUnexpectedEOF
 	}
 
@@ -120,7 +173,7 @@ func (w *remotePluginWriter) writeProtoToText(b []byte) (int, error) {
 		uint32(b[2])<<16 |
 		uint32(b[3])<<24
 
-	invalidHeader := size > 65536
+	invalidHeader := size > 65535
 	if invalidHeader {
 		return 0, io.ErrUnexpectedEOF
 	}
@@ -150,7 +203,7 @@ func (w *remotePluginWriter) writeProtoToText(b []byte) (int, error) {
 		lg.Debug(record.Message, attrs...)
 	}
 
-	return n, nil
+	return int(size), nil
 }
 
 // stores agent and agent plugin logs, retrieved with debug cli
@@ -179,18 +232,6 @@ func (f fileWriter) Write(b []byte) (int, error) {
 	return f.file.Write(b)
 }
 
-func GetLogFileName(ctx context.Context) string {
-	return fmt.Sprintf("plugin_%s_%s", meta.ModeAgent, getAgentId(ctx))
-}
-
-func WithMode(ctx context.Context, mode meta.PluginMode) context.Context {
-	return context.WithValue(ctx, pluginModeKey, mode)
-}
-
-func WithAgentId(ctx context.Context, agentId string) context.Context {
-	return context.WithValue(ctx, pluginAgentKey, agentId)
-}
-
 func getAgentId(ctx context.Context) string {
 	id := ctx.Value(pluginAgentKey)
 	if id != nil {
@@ -200,8 +241,8 @@ func getAgentId(ctx context.Context) string {
 	return ""
 }
 
-func isInProcessAgentPlugin(ctx context.Context) bool {
-	return (getModuleBasename() == "testenv") && (getMode(ctx) == meta.ModeAgent)
+func isInProcessPluginLogger(ctx context.Context) bool {
+	return (getModuleBasename() == "testenv")
 }
 
 func getModuleBasename() string {

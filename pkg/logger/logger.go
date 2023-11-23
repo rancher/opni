@@ -17,23 +17,8 @@ import (
 )
 
 const (
-	pluginGroupPrefix                                         = "plugin"
-	forwardedPluginPrefix                                     = "plugin."
-	pluginLoggerKey            pluginLoggerKeyType            = "plugin_logger"
-	pluginModeKey              pluginModeKeyType              = "plugin_logger_mode"
-	pluginAgentKey             pluginAgentKeyType             = "plugin_logger_agent"
-	pluginWriterKey            pluginWriterKeyType            = "plugin_writer"
-	testPluginLoggerEnabledKey testPluginLoggerEnabledKeyType = "is_test_plugin_logger"
-	NoRepeatInterval                                          = 3600 * time.Hour // arbitrarily long time to denote one-time sampling
-	errKey                                                    = "err"
-)
-
-type (
-	pluginLoggerKeyType            string
-	pluginModeKeyType              string
-	pluginAgentKeyType             string
-	pluginWriterKeyType            string
-	testPluginLoggerEnabledKeyType string
+	NoRepeatInterval = 3600 * time.Hour // arbitrarily long time to denote one-time sampling
+	errKey           = "err"
 )
 
 var (
@@ -242,26 +227,4 @@ func (s *sampler) onDroppedHook(_ context.Context, r slog.Record) {
 	key := r.Message
 	count, _ := s.dropped.LoadOrStore(key, 0)
 	s.dropped.Store(key, count+1)
-}
-
-func ReadOnlyFile(filename string) afero.File {
-	f, err := logFs.OpenFile(filename, os.O_RDONLY|os.O_CREATE, 0666)
-	if err != nil {
-		panic(err)
-	}
-	return f
-}
-
-func WriteOnlyFile(filename string) afero.File {
-	newFile, err := logFs.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		panic(err)
-	}
-
-	fd, loaded := fileDesc.LoadOrStore(filename, newFile)
-	if loaded {
-		newFile.Close()
-	}
-
-	return fd
 }

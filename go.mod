@@ -154,11 +154,11 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.28.3
+	k8s.io/api v0.28.4
 	k8s.io/apiextensions-apiserver v0.28.3
-	k8s.io/apimachinery v0.28.3
+	k8s.io/apimachinery v0.28.4
 	k8s.io/cli-runtime v0.28.2
-	k8s.io/client-go v0.28.3
+	k8s.io/client-go v0.28.4
 	k8s.io/component-base v0.28.3
 	k8s.io/kubectl v0.28.2
 	opensearch.opster.io v0.0.0-00010101000000-000000000000
@@ -169,7 +169,7 @@ require (
 
 require (
 	github.com/go-logr/zapr v1.2.4 // indirect
-	go.uber.org/zap v1.25.0
+	go.uber.org/zap v1.25.0 // indirect
 )
 
 require (

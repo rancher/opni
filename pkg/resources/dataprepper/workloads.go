@@ -150,9 +150,9 @@ func (r *Reconciler) config() (resources.Resource, []byte) {
 		Username:           r.dataPrepper.Spec.Username,
 		Password:           string(password),
 		OpensearchEndpoint: r.opensearchEndpoint(),
-		Insecure:           r.dataPrepper.Spec.Opensearch.InsecureDisableSSLVerify || r.forceInsecure,
-		ClusterID:          r.dataPrepper.Spec.ClusterID,
-		EnableTracing:      r.dataPrepper.Spec.EnableTracing,
+		//Insecure:           r.dataPrepper.Spec.Opensearch.InsecureDisableSSLVerify || r.forceInsecure,
+		ClusterID:     r.dataPrepper.Spec.ClusterID,
+		EnableTracing: r.dataPrepper.Spec.EnableTracing,
 	}
 
 	var buffer bytes.Buffer

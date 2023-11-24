@@ -188,8 +188,12 @@ func (m *KubernetesManagerDriver) buildDataPrepper() *opniloggingv1beta1.DataPre
 					Name: secretName,
 				},
 			},
-			Opensearch: &opniloggingv1beta1.OpensearchSpec{
-				InsecureDisableSSLVerify: false,
+			//Opensearch: &opniloggingv1beta1.OpensearchSpec{
+			//	InsecureDisableSSLVerify: false,
+			//},
+			OpensearchCluster: &opnimeta.OpensearchClusterRef{
+				Name:      "opni", // TODO: update
+				Namespace: m.Namespace,
 			},
 			//ClusterID:     m.clusterID,
 			EnableTracing: true,

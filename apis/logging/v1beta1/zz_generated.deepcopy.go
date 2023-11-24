@@ -243,9 +243,9 @@ func (in *DataPrepperSpec) DeepCopyInto(out *DataPrepperSpec) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.Opensearch != nil {
-		in, out := &in.Opensearch, &out.Opensearch
-		*out = new(OpensearchSpec)
+	if in.OpensearchCluster != nil {
+		in, out := &in.OpensearchCluster, &out.OpensearchCluster
+		*out = new(meta.OpensearchClusterRef)
 		**out = **in
 	}
 	if in.PasswordFrom != nil {

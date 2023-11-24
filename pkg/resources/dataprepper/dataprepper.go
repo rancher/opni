@@ -116,7 +116,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		return
 	}
 
-	if r.dataPrepper.Spec.Opensearch == nil {
+	if r.dataPrepper.Spec.OpensearchCluster == nil {
 		retErr = errors.New("missing opensearch configuration")
 	}
 

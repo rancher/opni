@@ -140,6 +140,13 @@ BACKOFF:
 			).Error("error reconciling object")
 		}
 
+		if err := m.reconcileDataPrepper(config.Enabled); err != nil {
+			m.Logger.With(
+				"object", "opni data prepper",
+				logger.Err(err),
+			).Error("error reconciling object")
+		}
+
 		success = true
 		break
 	}
@@ -288,6 +295,33 @@ func (m *KubernetesManagerDriver) reconcileCollector(shouldExist bool) error {
 		}
 
 		return m.k8sClient.Update(context.TODO(), coll)
+	})
+	return err
+}
+
+func (m *KubernetesManagerDriver) reconcileDataPrepper(shouldExist bool) error {
+	dataPrepper := &opniloggingv1beta1.DataPrepper{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      dataPrepperName,
+			Namespace: m.Namespace,
+		},
+	}
+	err := m.k8sClient.Get(context.TODO(), client.ObjectKeyFromObject(dataPrepper), dataPrepper)
+	if client.IgnoreNotFound(err) != nil {
+		return err
+	}
+
+	if k8serrors.IsNotFound(err) && shouldExist {
+		dataPrepper = m.buildDataPrepper()
+		return m.k8sClient.Create(context.TODO(), dataPrepper)
+	}
+
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := m.k8sClient.Get(context.TODO(), client.ObjectKeyFromObject(dataPrepper), dataPrepper)
+		if err != nil {
+			return err
+		}
+		return m.k8sClient.Update(context.TODO(), dataPrepper)
 	})
 	return err
 }

@@ -134,6 +134,10 @@ func (r *Reconciler) config() (resources.Resource, []byte) {
 		return resources.Error(secret, err), []byte{}
 	}
 
+	username, ok := passwordSecret.Data["username"]
+	if !ok {
+		return resources.Error(secret, errors.New("username secret key does not exist")), []byte{}
+	}
 	password, ok := passwordSecret.Data[r.dataPrepper.Spec.PasswordFrom.Key]
 	if !ok {
 		return resources.Error(secret, errors.New("password secret key does not exist")), []byte{}
@@ -147,11 +151,11 @@ func (r *Reconciler) config() (resources.Resource, []byte) {
 		ClusterID          string
 		EnableTracing      bool
 	}{
-		Username:           r.dataPrepper.Spec.Username,
+		Username:           string(username),
 		Password:           string(password),
 		OpensearchEndpoint: r.opensearchEndpoint(),
 		//Insecure:           r.dataPrepper.Spec.Opensearch.InsecureDisableSSLVerify || r.forceInsecure,
-		ClusterID:     r.dataPrepper.Spec.ClusterID,
+		ClusterID:     "f6cd589f-d88b-4c6e-94e5-b694c9d3fb34", //TODO: fetch from the right source
 		EnableTracing: r.dataPrepper.Spec.EnableTracing,
 	}
 

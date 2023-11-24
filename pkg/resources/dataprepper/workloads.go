@@ -14,7 +14,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	opsterv1 "opensearch.opster.io/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -145,17 +147,12 @@ func (r *Reconciler) config() (resources.Resource, []byte) {
 		ClusterID          string
 		EnableTracing      bool
 	}{
-		Username: r.dataPrepper.Spec.Username,
-		Password: string(password),
-		OpensearchEndpoint: func() string {
-			if r.urlOverride != "" {
-				return r.urlOverride
-			}
-			return r.dataPrepper.Spec.Opensearch.Endpoint
-		}(),
-		Insecure:      r.dataPrepper.Spec.Opensearch.InsecureDisableSSLVerify || r.forceInsecure,
-		ClusterID:     r.dataPrepper.Spec.ClusterID,
-		EnableTracing: r.dataPrepper.Spec.EnableTracing,
+		Username:           r.dataPrepper.Spec.Username,
+		Password:           string(password),
+		OpensearchEndpoint: r.opensearchEndpoint(),
+		Insecure:           r.dataPrepper.Spec.Opensearch.InsecureDisableSSLVerify || r.forceInsecure,
+		ClusterID:          r.dataPrepper.Spec.ClusterID,
+		EnableTracing:      r.dataPrepper.Spec.EnableTracing,
 	}
 
 	var buffer bytes.Buffer
@@ -289,4 +286,19 @@ func (r *Reconciler) deployment(configData []byte) resources.Resource {
 	ctrl.SetControllerReference(r.dataPrepper, deploy, r.client.Scheme())
 
 	return resources.Present(deploy)
+}
+
+func (r *Reconciler) opensearchEndpoint() string {
+	lg := log.FromContext(r.ctx)
+
+	cluster := &opsterv1.OpenSearchCluster{}
+	err := r.client.Get(r.ctx, types.NamespacedName{
+		Name:      r.dataPrepper.Spec.OpensearchCluster.Name,
+		Namespace: r.dataPrepper.Namespace,
+	}, cluster)
+	if err != nil {
+		lg.Error(err, "can't get opensearch details")
+		return ""
+	}
+	return fmt.Sprintf("https://%s:9200", cluster.Spec.General.ServiceName)
 }

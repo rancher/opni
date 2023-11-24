@@ -44,6 +44,7 @@ type LoggingBackendConfig struct {
 	UninstallController *task.Controller                          `validate:"required"`
 	OpensearchManager   *opensearchdata.Manager                   `validate:"required"`
 	ClusterDriver       driver.ClusterDriver                      `validate:"required"`
+	RBACDriver          driver.RBACDriver                         `validate:"required"`
 }
 
 var _ node.NodeLoggingCapabilityServer = (*LoggingBackend)(nil)
@@ -61,7 +62,7 @@ func (b *LoggingBackend) Initialize(conf LoggingBackendConfig) {
 			return event.Type == managementv1.WatchEventType_Put && slices.ContainsFunc(event.Cluster.Metadata.Capabilities, func(c *corev1.ClusterCapability) bool {
 				return c.Name == wellknown.CapabilityLogs
 			})
-		}, b.updateClusterMetadata)
+		}, b.updateClusterMetadata, b.updateRoles)
 
 		go func() {
 			clusters, err := b.MgmtClient.ListClusters(context.Background(), &managementv1.ListClustersRequest{})
@@ -90,7 +91,7 @@ func (b *LoggingBackend) info() *capabilityv1.Details {
 	return &capabilityv1.Details{
 		Name:             wellknown.CapabilityLogs,
 		Source:           "plugin_logging",
-		AvailableDrivers: driver.Drivers.List(),
+		AvailableDrivers: driver.ClusterDrivers.List(),
 	}
 }
 

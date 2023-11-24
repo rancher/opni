@@ -8,6 +8,7 @@ import (
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/validation"
 	"github.com/samber/lo"
@@ -31,9 +32,10 @@ func (s *Server) ListRBACBackends(_ context.Context, _ *emptypb.Empty) (*corev1.
 func (s *Server) GetAvailableBackendPermissions(ctx context.Context, in *corev1.CapabilityType) (*corev1.AvailablePermissions, error) {
 	client, err := s.rbacManagerStore.Get(in.GetName())
 	if err != nil {
+		s.logger.With(logger.Err(err)).Error("failed to fetch client from store")
 		return nil, err
 	}
-	return client.GetAvailablePermissions(ctx, nil)
+	return client.GetAvailablePermissions(ctx, &emptypb.Empty{})
 }
 
 func (s *Server) CreateBackendRole(ctx context.Context, in *corev1.BackendRole) (*emptypb.Empty, error) {

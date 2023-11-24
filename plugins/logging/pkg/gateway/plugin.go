@@ -68,7 +68,8 @@ type Plugin struct {
 	opensearchManager   *opensearchdata.Manager
 	logging             backend.LoggingBackend
 	otelForwarder       *otel.Forwarder
-	backendDriver       backenddriver.ClusterDriver
+	clusterDriver       backenddriver.ClusterDriver
+	rbacDriver          backenddriver.RBACDriver
 	managementDriver    managementdriver.ClusterDriver
 }
 
@@ -200,7 +201,8 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 				MgmtClient:          mgmtClient,
 				Delegate:            delegate,
 				OpensearchManager:   p.opensearchManager,
-				ClusterDriver:       p.backendDriver,
+				ClusterDriver:       p.clusterDriver,
+				RBACDriver:          p.rbacDriver,
 			})
 		},
 	)
@@ -242,9 +244,14 @@ func Scheme(ctx context.Context) meta.Scheme {
 	}
 
 	var ok bool
-	backendDriverBuilder, ok := backenddriver.Drivers.Get(driverName)
+	clusterDriverBuilder, ok := backenddriver.ClusterDrivers.Get(driverName)
 	if !ok {
-		p.logger.Error(fmt.Sprintf("could not find backend driver %q", driverName))
+		p.logger.Error(fmt.Sprintf("could not find cluster driver %q", driverName))
+		os.Exit(1)
+	}
+	rbacDriverBuilder, ok := backenddriver.RBACDrivers.Get(driverName)
+	if !ok {
+		p.logger.Error(fmt.Sprintf("could not find cluster driver %q", driverName))
 		os.Exit(1)
 	}
 	managementDriverBuilder, ok := managementdriver.Drivers.Get(driverName)
@@ -259,7 +266,12 @@ func Scheme(ctx context.Context) meta.Scheme {
 		driverutil.NewOption("opensearchCluster", p.opensearchCluster),
 		driverutil.NewOption("logger", p.logger),
 	}
-	p.backendDriver, err = backendDriverBuilder(ctx, driverOptions...)
+	p.clusterDriver, err = clusterDriverBuilder(ctx, driverOptions...)
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("failed to create cluster driver: %v", err))
+		os.Exit(1)
+	}
+	p.rbacDriver, err = rbacDriverBuilder(ctx, driverOptions...)
 	if err != nil {
 		p.logger.Error(fmt.Sprintf("failed to create backend driver: %v", err))
 		os.Exit(1)
@@ -273,7 +285,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 
 	p.LoggingManager = p.NewLoggingManagerForPlugin()
 
-	if state := p.backendDriver.GetInstallStatus(ctx); state == backenddriver.Installed {
+	if state := p.clusterDriver.GetInstallStatus(ctx); state == backenddriver.Installed {
 		go p.opensearchManager.SetClient(p.LoggingManager.managementDriver.NewOpensearchClientForCluster)
 		go p.alertingServer.SetClient(p.LoggingManager.managementDriver.NewOpensearchClientForCluster)
 		err = p.LoggingManager.createInitialAdmin()
@@ -285,6 +297,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.logging))
+	scheme.Add(capability.CapabilityRBACPluginID, capability.NewRBACPlugin(&p.logging))
 	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(p))
 	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(p))
 
@@ -294,7 +307,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 func (p *Plugin) NewLoggingManagerForPlugin() *LoggingManagerV2 {
 	return &LoggingManagerV2{
 		managementDriver:  p.managementDriver,
-		backendDriver:     p.backendDriver,
+		backendDriver:     p.clusterDriver,
 		logger:            p.logger.WithGroup("opensearch-manager"),
 		alertingServer:    p.alertingServer,
 		opensearchManager: p.opensearchManager,

@@ -647,6 +647,7 @@ rules:
   - opensearch.opster.io
   resources:
   - opensearchclusters
+  - opensearchroles
   verbs:
   - create
   - delete
@@ -659,12 +660,14 @@ rules:
   - opensearch.opster.io
   resources:
   - opensearchclusters/finalizers
+  - opensearchroles/finalizers
   verbs:
   - update
 - apiGroups:
   - opensearch.opster.io
   resources:
   - opensearchclusters/status
+  - opensearchroles/status
   verbs:
   - get
   - patch

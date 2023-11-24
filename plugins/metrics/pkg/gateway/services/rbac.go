@@ -78,6 +78,9 @@ func (r *RBACBackendService) GetAvailablePermissions(_ context.Context, _ *empty
 				Verbs: []*corev1.PermissionVerb{
 					corev1.VerbGet(),
 				},
+				Labels: map[string]string{
+					corev1.AllowMatcherLabel: "true",
+				},
 			},
 		},
 	}, nil

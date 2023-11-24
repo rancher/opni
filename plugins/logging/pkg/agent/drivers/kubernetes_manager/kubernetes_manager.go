@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	secretName         = "opni-opensearch-auth"
+	secretName         = "opni-internal-auth"
 	secretKey          = "password"
 	dataPrepperName    = "opni-shipper"
 	dataPrepperVersion = "2.0.1"

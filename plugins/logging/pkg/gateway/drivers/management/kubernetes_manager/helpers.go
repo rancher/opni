@@ -375,6 +375,9 @@ func convertProtobufToDashboards(
 			"opensearchDashboards.branding.loadingLogo.defaultUrl":  "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-loading.svg",
 			"opensearchDashboards.branding.logo.defaultUrl":         "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-logo-dark.svg",
 			"opensearchDashboards.branding.mark.defaultUrl":         "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-mark.svg",
+			"opensearch.requestHeadersAllowlist":                    `["securitytenant","Authorization","x-forwarded-for","x-proxy-user","x-proxy-roles"]`,
+			"opensearch_security.proxycache.user_header":            "x-proxy-user",
+			"opensearch_security.proxycache.roles_header":           "x-proxy-roles",
 		},
 	}
 }

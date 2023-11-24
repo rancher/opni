@@ -2,10 +2,12 @@ package opniopensearch
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"text/template"
 
 	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	"golang.org/x/crypto/bcrypt"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +20,10 @@ const (
 	bcryptCost        = 12
 	internalUsersKey  = "internal_users.yml"
 	securityConfigKey = "config.yml"
+)
+
+var (
+	ErrInvalidCIDR = errors.New("invalid CIDR format")
 )
 
 var (
@@ -39,7 +45,7 @@ kibanaserver:
   reserved: true
   description: "Demo OpenSearch Dashboards user"`))
 
-	securityConfig = `
+	securityConfigTemplate = template.Must(template.New("securityConfig").Parse(`
 ---
 _meta:
   type: "config"
@@ -50,10 +56,10 @@ config:
     http:
       anonymous_auth_enabled: false
       xff:
-        enabled: false
-        internalProxies: '192\.168\.0\.10|192\.168\.0\.11' # regex pattern
+        enabled: {{ .ProxyAuthEnabled }}
+        internalProxies: '{{ .PodIPRegex }}' # regex pattern
         #internalProxies: '.*' # trust all internal proxies, regex pattern
-        #remoteIpHeader:  'x-forwarded-for'
+        remoteIpHeader:  'x-forwarded-for'
         ###### see https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html for regex help
         ###### more information about XFF https://en.wikipedia.org/wiki/X-Forwarded-For
         ###### and here https://tools.ietf.org/html/rfc7239
@@ -69,11 +75,25 @@ config:
           challenge: true
         authentication_backend:
           type: intern
+      {{- if ..ProxyAuthEnabled }}
+      proxy_auth_domain:
+        http_enabled: true
+        transport_enabled: false
+        order: 1
+        http_authenticator:
+          type: extended-proxy
+          challenge: false
+          config:
+            user_header: "x-proxy-user"
+            roles_header: "x-proxy-roles"
+        authentication_backend:
+          type: noop
+      {{- end }}
       clientcert_auth_domain:
         description: "Authenticate via SSL client certificates"
         http_enabled: true
         transport_enabled: false
-        order: 1
+        order: 0
         http_authenticator:
           type: clientcert
           config:
@@ -81,13 +101,18 @@ config:
             challenge: false
         authentication_backend:
           type: noop
-`
+`))
 )
 
 type internalUsersHashes struct {
 	AdminUser  string
 	Admin      string
 	Dashboards string
+}
+
+type authProxyConfig struct {
+	ProxyAuthEnabled bool
+	PodIPRegex       string
 }
 
 type internalUsersPasswords struct {
@@ -134,6 +159,15 @@ func (r *Reconciler) generateInternalUsers(passwords internalUsersPasswords) (ru
 		return nil, err
 	}
 
+	var configBuffer bytes.Buffer
+	err = securityConfigTemplate.Execute(&configBuffer, authProxyConfig{
+		ProxyAuthEnabled: r.instance.Spec.OpensearchSettings.AuthProxyIPRegex != nil,
+		PodIPRegex:       lo.FromPtrOr(r.instance.Spec.OpensearchSettings.AuthProxyIPRegex, ""),
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-securityconfig", r.instance.Name),
@@ -141,7 +175,7 @@ func (r *Reconciler) generateInternalUsers(passwords internalUsersPasswords) (ru
 		},
 		Data: map[string][]byte{
 			internalUsersKey:  buffer.Bytes(),
-			securityConfigKey: []byte(securityConfig),
+			securityConfigKey: configBuffer.Bytes(),
 		},
 	}
 	ctrl.SetControllerReference(r.instance, secret, r.client.Scheme())

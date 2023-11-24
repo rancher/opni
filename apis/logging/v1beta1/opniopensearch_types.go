@@ -53,11 +53,12 @@ type OpniOpensearchSpec struct {
 }
 
 type OpensearchSettings struct {
-	ImageOverride *string                   `json:"imageOverride,omitempty"`
-	NodePools     []opsterv1.NodePool       `json:"nodePools,omitempty"`
-	Dashboards    opsterv1.DashboardsConfig `json:"dashboards,omitempty"`
-	Security      *opsterv1.Security        `json:"security,omitempty"`
-	S3Settings    *OpensearchS3Settings     `json:"s3,omitempty"`
+	ImageOverride    *string                   `json:"imageOverride,omitempty"`
+	NodePools        []opsterv1.NodePool       `json:"nodePools,omitempty"`
+	Dashboards       opsterv1.DashboardsConfig `json:"dashboards,omitempty"`
+	Security         *opsterv1.Security        `json:"security,omitempty"`
+	S3Settings       *OpensearchS3Settings     `json:"s3,omitempty"`
+	AuthProxyIPRegex *string                   `json:"authProxyIPRegex,omitempty"`
 }
 
 type OpensearchS3Settings struct {

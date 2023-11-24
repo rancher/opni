@@ -263,6 +263,8 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 		return err
 	}
 
+	podIPRegex := lo.FromPtrOr(cluster.PodIPRegex, `10\..*`)
+
 	if !exists {
 		k8sOpensearchCluster = &loggingv1beta1.OpniOpensearch{
 			ObjectMeta: metav1.ObjectMeta{
@@ -284,7 +286,8 @@ func (d *KubernetesManagerDriver) CreateOrUpdateCluster(
 							},
 						},
 					},
-					S3Settings: s3ToKubernetes(cluster.GetS3()),
+					S3Settings:       s3ToKubernetes(cluster.GetS3()),
+					AuthProxyIPRegex: &podIPRegex,
 				},
 				ExternalURL: cluster.ExternalURL,
 				ClusterConfigSpec: &loggingv1beta1.ClusterConfigSpec{

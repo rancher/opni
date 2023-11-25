@@ -204,7 +204,15 @@ var _ = Describe("Agent Memory Tests", Ordered, Serial, Label("integration", "sl
 					IdentityProvider: "env",
 					Storage: v1beta1.StorageSpec{
 						Type: v1beta1.StorageTypeEtcd,
-						Etcd: environment.EtcdConfig(),
+						Etcd: &v1beta1.EtcdStorageSpec{
+							Endpoints: environment.EtcdConfig().Endpoints,
+							Certs: &v1beta1.MTLSSpec{
+								ServerCA:   environment.EtcdConfig().Certs.GetServerCA(),
+								ClientCA:   environment.EtcdConfig().Certs.GetClientCA(),
+								ClientCert: environment.EtcdConfig().Certs.GetClientCert(),
+								ClientKey:  environment.EtcdConfig().Certs.GetClientKey(),
+							},
+						},
 					},
 					Bootstrap: &v1beta1.BootstrapSpec{
 						Token: t.EncodeHex(),

@@ -20,9 +20,9 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
+	System_UseConfigAPI_FullMethodName       = "/system.System/UseConfigAPI"
 	System_UseManagementAPI_FullMethodName   = "/system.System/UseManagementAPI"
 	System_UseKeyValueStore_FullMethodName   = "/system.System/UseKeyValueStore"
-	System_UseAPIExtensions_FullMethodName   = "/system.System/UseAPIExtensions"
 	System_UseCachingProvider_FullMethodName = "/system.System/UseCachingProvider"
 )
 
@@ -30,9 +30,9 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SystemClient interface {
+	UseConfigAPI(ctx context.Context, in *BrokerID, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	UseManagementAPI(ctx context.Context, in *BrokerID, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	UseKeyValueStore(ctx context.Context, in *BrokerID, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	UseAPIExtensions(ctx context.Context, in *DialAddress, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	UseCachingProvider(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
@@ -42,6 +42,15 @@ type systemClient struct {
 
 func NewSystemClient(cc grpc.ClientConnInterface) SystemClient {
 	return &systemClient{cc}
+}
+
+func (c *systemClient) UseConfigAPI(ctx context.Context, in *BrokerID, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, System_UseConfigAPI_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *systemClient) UseManagementAPI(ctx context.Context, in *BrokerID, opts ...grpc.CallOption) (*emptypb.Empty, error) {
@@ -62,15 +71,6 @@ func (c *systemClient) UseKeyValueStore(ctx context.Context, in *BrokerID, opts 
 	return out, nil
 }
 
-func (c *systemClient) UseAPIExtensions(ctx context.Context, in *DialAddress, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, System_UseAPIExtensions_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *systemClient) UseCachingProvider(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, System_UseCachingProvider_FullMethodName, in, out, opts...)
@@ -84,9 +84,9 @@ func (c *systemClient) UseCachingProvider(ctx context.Context, in *emptypb.Empty
 // All implementations should embed UnimplementedSystemServer
 // for forward compatibility
 type SystemServer interface {
+	UseConfigAPI(context.Context, *BrokerID) (*emptypb.Empty, error)
 	UseManagementAPI(context.Context, *BrokerID) (*emptypb.Empty, error)
 	UseKeyValueStore(context.Context, *BrokerID) (*emptypb.Empty, error)
-	UseAPIExtensions(context.Context, *DialAddress) (*emptypb.Empty, error)
 	UseCachingProvider(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 }
 
@@ -94,14 +94,14 @@ type SystemServer interface {
 type UnimplementedSystemServer struct {
 }
 
+func (UnimplementedSystemServer) UseConfigAPI(context.Context, *BrokerID) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UseConfigAPI not implemented")
+}
 func (UnimplementedSystemServer) UseManagementAPI(context.Context, *BrokerID) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UseManagementAPI not implemented")
 }
 func (UnimplementedSystemServer) UseKeyValueStore(context.Context, *BrokerID) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UseKeyValueStore not implemented")
-}
-func (UnimplementedSystemServer) UseAPIExtensions(context.Context, *DialAddress) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UseAPIExtensions not implemented")
 }
 func (UnimplementedSystemServer) UseCachingProvider(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UseCachingProvider not implemented")
@@ -116,6 +116,24 @@ type UnsafeSystemServer interface {
 
 func RegisterSystemServer(s grpc.ServiceRegistrar, srv SystemServer) {
 	s.RegisterService(&System_ServiceDesc, srv)
+}
+
+func _System_UseConfigAPI_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BrokerID)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).UseConfigAPI(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: System_UseConfigAPI_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).UseConfigAPI(ctx, req.(*BrokerID))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _System_UseManagementAPI_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -154,24 +172,6 @@ func _System_UseKeyValueStore_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _System_UseAPIExtensions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DialAddress)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SystemServer).UseAPIExtensions(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: System_UseAPIExtensions_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SystemServer).UseAPIExtensions(ctx, req.(*DialAddress))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _System_UseCachingProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
@@ -198,16 +198,16 @@ var System_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*SystemServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "UseConfigAPI",
+			Handler:    _System_UseConfigAPI_Handler,
+		},
+		{
 			MethodName: "UseManagementAPI",
 			Handler:    _System_UseManagementAPI_Handler,
 		},
 		{
 			MethodName: "UseKeyValueStore",
 			Handler:    _System_UseKeyValueStore_Handler,
-		},
-		{
-			MethodName: "UseAPIExtensions",
-			Handler:    _System_UseAPIExtensions_Handler,
 		},
 		{
 			MethodName: "UseCachingProvider",

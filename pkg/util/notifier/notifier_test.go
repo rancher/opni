@@ -129,7 +129,7 @@ var _ = Describe("Update Notifier", Label("unit"), func() {
 			Eventually(channels[i]).Should(Receive(Equal(testGroups1)))
 		}
 
-		groups.Store(testGroups2) // cancel the channels
+		groups.Store(&testGroups2) // cancel the channels
 		for i := 0; i < count; i++ {
 			contexts[i].ca()
 		}
@@ -160,7 +160,7 @@ var _ = Describe("Update Notifier", Label("unit"), func() {
 			Eventually(channels[i]).Should(Receive(Equal(testGroups1)))
 		}
 
-		groups.Store(testGroups2)
+		groups.Store(&testGroups2)
 
 		go un.Refresh(context.Background())
 
@@ -180,7 +180,7 @@ var _ = Describe("Update Notifier", Label("unit"), func() {
 			testGroups3_rulefmt = append(testGroups3_rulefmt, (rulefmt.RuleGroup)(group3))
 		}
 
-		groups.Store(testGroups3)
+		groups.Store(&testGroups3)
 
 		go un.Refresh(context.Background())
 

@@ -12,7 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/config/v1beta1"
+	configv1 "github.com/rancher/opni/pkg/config/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/storage"
@@ -29,7 +29,7 @@ type FilesystemPluginSyncServer struct {
 	controlv1.UnsafeUpdateSyncServer
 	SyncServerOptions
 	logger           *slog.Logger
-	config           v1beta1.PluginsSpec
+	config           *configv1.FilesystemCacheSpec
 	loadMetadataOnce sync.Once
 	manifest         *controlv1.UpdateManifest
 	patchCache       patch.Cache
@@ -61,7 +61,9 @@ func WithFs(fsys afero.Fs) SyncServerOption {
 }
 
 func NewFilesystemPluginSyncServer(
-	cfg v1beta1.PluginsSpec,
+	ctx context.Context,
+	cacheConfig *configv1.CacheSpec,
+	patchEngine patch.BinaryPatcher,
 	lg *slog.Logger,
 	opts ...SyncServerOption,
 ) (*FilesystemPluginSyncServer, error) {
@@ -70,31 +72,21 @@ func NewFilesystemPluginSyncServer(
 	}
 	options.apply(opts...)
 
-	var patchEngine patch.BinaryPatcher
-	switch cfg.Binary.Cache.PatchEngine {
-	case v1beta1.PatchEngineBsdiff:
-		patchEngine = patch.BsdiffPatcher{}
-	case v1beta1.PatchEngineZstd:
-		patchEngine = patch.ZstdPatcher{}
-	default:
-		return nil, fmt.Errorf("unknown patch engine: %s", cfg.Binary.Cache.PatchEngine)
-	}
-
 	var cache patch.Cache
-	switch cfg.Binary.Cache.Backend {
-	case v1beta1.CacheBackendFilesystem:
+	switch cacheConfig.GetBackend() {
+	case configv1.CacheBackend_Filesystem:
 		var err error
-		cache, err = patch.NewFilesystemCache(options.fsys, cfg.Binary.Cache.Filesystem, patchEngine, lg.WithGroup("cache"))
+		cache, err = patch.NewFilesystemCache(options.fsys, cacheConfig.GetFilesystem(), patchEngine, lg.WithGroup("cache"))
 		if err != nil {
 			return nil, err
 		}
 	default:
-		return nil, fmt.Errorf("unknown cache backend: %s", cfg.Binary.Cache.Backend)
+		return nil, fmt.Errorf("unknown cache backend: %s", cacheConfig.GetBackend().String())
 	}
 
 	return &FilesystemPluginSyncServer{
 		SyncServerOptions: options,
-		config:            cfg,
+		config:            cacheConfig.GetFilesystem(),
 		logger:            lg,
 		patchCache:        cache,
 	}, nil
@@ -148,7 +140,7 @@ func (f *FilesystemPluginSyncServer) loadUpdateManifest() {
 		panic("bug: tried to call loadUpdateManifest twice")
 	}
 	md, err := patch.GetFilesystemPlugins(plugins.DiscoveryConfig{
-		Dir:        f.config.Dir,
+		Dir:        f.config.GetDir(),
 		Fs:         f.fsys,
 		Logger:     f.logger,
 		Filters:    f.filters,

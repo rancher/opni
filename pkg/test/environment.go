@@ -53,6 +53,7 @@ import (
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/meta"
+	configv1 "github.com/rancher/opni/pkg/config/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/gateway"
 	"github.com/rancher/opni/pkg/ident"
@@ -2395,22 +2396,22 @@ func (e *Environment) EtcdClient() (*clientv3.Client, error) {
 	})
 }
 
-func (e *Environment) EtcdConfig() *v1beta1.EtcdStorageSpec {
+func (e *Environment) EtcdConfig() *configv1.EtcdSpec {
 	if !e.enableEtcd {
 		panic("etcd disabled")
 	}
-	return &v1beta1.EtcdStorageSpec{
+	return &configv1.EtcdSpec{
 		Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
 	}
 }
 
-func (e *Environment) JetStreamConfig() *v1beta1.JetStreamStorageSpec {
+func (e *Environment) JetStreamConfig() *configv1.JetStreamSpec {
 	if !e.enableJetstream {
 		panic("JetStream disabled")
 	}
-	return &v1beta1.JetStreamStorageSpec{
-		Endpoint:     fmt.Sprintf("http://localhost:%d", e.ports.Jetstream),
-		NkeySeedPath: path.Join(e.tempDir, "jetstream", "seed", "nats-auth.conf"),
+	return &configv1.JetStreamSpec{
+		Endpoint:     lo.ToPtr(fmt.Sprintf("http://localhost:%d", e.ports.Jetstream)),
+		NkeySeedPath: lo.ToPtr(path.Join(e.tempDir, "jetstream", "seed", "nats-auth.conf")),
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"net"
 	"runtime"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -65,7 +66,10 @@ var _ = Describe("Client V2", Ordered, Label("unit"), func() {
 			Certificates: []tls.Certificate{*cert},
 		})))
 
-		server := bootstrap.NewServerV2(store, cert.PrivateKey.(crypto.Signer))
+		signer := cert.PrivateKey.(crypto.Signer)
+		ptr := &atomic.Pointer[crypto.Signer]{}
+		ptr.Store(&signer)
+		server := bootstrap.NewServerV2(store, ptr)
 		bootstrapv2.RegisterBootstrapServer(srv, server)
 
 		listener, err := net.Listen("tcp4", "127.0.0.1:0")

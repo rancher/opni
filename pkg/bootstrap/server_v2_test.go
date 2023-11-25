@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/lestrrat-go/jwx/jwa"
@@ -65,13 +66,16 @@ var _ = Describe("Server V2", Ordered, Label("unit"), func() {
 		Expect(err).NotTo(HaveOccurred())
 		cert = &crt
 
+		ptr := &atomic.Pointer[crypto.Signer]{}
+		signer := cert.PrivateKey.(crypto.Signer)
+		ptr.Store(&signer)
 		srv := grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
 		server := bootstrap.NewServerV2(bootstrap.StorageConfig{
 			TokenStore:         mockTokenStore,
 			ClusterStore:       mockClusterStore,
 			KeyringStoreBroker: mockKeyringStoreBroker,
 			LockManagerBroker:  inmemory.NewLockManagerBroker(),
-		}, cert.PrivateKey.(crypto.Signer))
+		}, ptr)
 		bootstrapv2.RegisterBootstrapServer(srv, server)
 
 		listener := bufconn.Listen(1024 * 1024)

@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"crypto/tls"
 	"net"
 	"runtime"
 	"sync"
@@ -12,13 +13,17 @@ import (
 	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/protobuf/reflect/protopath"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/rancher/opni/pkg/agent"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
-	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/config/reactive"
+	configv1 "github.com/rancher/opni/pkg/config/v1"
 	"github.com/rancher/opni/pkg/util"
 )
 
@@ -50,7 +55,7 @@ func (f ConnectionHandlerFunc) HandleAgentConnection(ctx context.Context, client
 
 type GatewayGRPCServer struct {
 	streamv1.UnsafeStreamServer
-	conf       *v1beta1.GatewayConfigSpec
+	mgr        *configv1.GatewayConfigManager
 	logger     *slog.Logger
 	serverOpts []grpc.ServerOption
 
@@ -59,23 +64,62 @@ type GatewayGRPCServer struct {
 }
 
 func NewGRPCServer(
-	cfg *v1beta1.GatewayConfigSpec,
+	mgr *configv1.GatewayConfigManager,
 	lg *slog.Logger,
 	opts ...grpc.ServerOption,
 ) *GatewayGRPCServer {
 	return &GatewayGRPCServer{
-		conf:       cfg,
+		mgr:        mgr,
 		logger:     lg.WithGroup("grpc"),
 		serverOpts: opts,
 	}
 }
 
-func (s *GatewayGRPCServer) ListenAndServe(ctx context.Context) error {
-	listener, err := net.Listen("tcp4", s.conf.GRPCListenAddress)
-	if err != nil {
-		return err
+func (s *GatewayGRPCServer) ListenAndServe(ctx context.Context) (serveError error) {
+	var cancel context.CancelFunc
+	var done chan struct{}
+	doServe := func(addr string, certs *configv1.CertsSpec) error {
+		if cancel != nil {
+			cancel()
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-done:
+				// server stopped, continue
+			}
+		}
+		done = make(chan struct{})
+		var serveCtx context.Context
+		serveCtx, cancel = context.WithCancel(ctx)
+		listener, err := net.Listen("tcp4", addr)
+		if err != nil {
+			return err
+		}
+		tlsConfig, err := certs.AsTlsConfig(tls.NoClientCert)
+		if err != nil {
+			return err
+		}
+		go func() {
+			s.serve(serveCtx, listener, tlsConfig)
+			close(done)
+		}()
+		return nil
 	}
+
+	reactive.Bind(ctx,
+		func(v []protoreflect.Value) {
+			serveError = doServe(v[0].String(), v[1].Message().Interface().(*configv1.CertsSpec))
+		},
+		s.mgr.Reactive(configv1.ProtoPath().Server().GrpcListenAddress()),
+		s.mgr.Reactive(protopath.Path(configv1.ProtoPath().Certs())),
+	)
+	<-ctx.Done()
+	return
+}
+
+func (s *GatewayGRPCServer) serve(ctx context.Context, listener net.Listener, tlsConfig *tls.Config) error {
 	server := grpc.NewServer(append(s.serverOpts,
+		grpc.Creds(credentials.NewTLS(tlsConfig)),
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
 			MinTime:             15 * time.Second,
 			PermitWithoutStream: true,

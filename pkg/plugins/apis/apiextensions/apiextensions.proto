@@ -3,6 +3,7 @@ syntax = "proto3";
 package apiextensions;
 
 import "github.com/kralicky/totem/totem.proto";
+import "github.com/rancher/opni/pkg/config/v1/gateway_config.proto";
 import "google.golang.org/grpc/health/grpc_health_v1/health.proto";
 import "google/protobuf/descriptor.proto";
 import "google/protobuf/empty.proto";
@@ -19,7 +20,7 @@ service ManagementAPIExtension {
 }
 
 service HTTPAPIExtension {
-  rpc Configure(CertConfig) returns (HTTPAPIExtensionConfig);
+  rpc Configure(config.v1.CertsSpec) returns (HTTPAPIExtensionConfig);
 }
 
 service StreamAPIExtension {
@@ -28,16 +29,6 @@ service StreamAPIExtension {
 
 service UnaryAPIExtension {
   rpc UnaryDescriptor(google.protobuf.Empty) returns (google.protobuf.ServiceDescriptorProto);
-}
-
-message CertConfig {
-  string ca       = 1;
-  bytes  caData   = 2;
-  string cert     = 3;
-  bytes  certData = 4;
-  string key      = 5;
-  bytes  keyData  = 6;
-  bool   insecure = 7;
 }
 
 message HTTPAPIExtensionConfig {

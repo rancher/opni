@@ -5,6 +5,7 @@ import (
 	"crypto"
 	"fmt"
 	"strings"
+	"sync/atomic"
 
 	"maps"
 
@@ -27,12 +28,12 @@ import (
 
 type ServerV2 struct {
 	bootstrapv2.UnsafeBootstrapServer
-	privateKey     crypto.Signer
+	privateKey     *atomic.Pointer[crypto.Signer]
 	storage        Storage
 	clusterIdLocks storage.LockManager
 }
 
-func NewServerV2(storage Storage, privateKey crypto.Signer) *ServerV2 {
+func NewServerV2(storage Storage, privateKey *atomic.Pointer[crypto.Signer]) *ServerV2 {
 	return &ServerV2{
 		privateKey:     privateKey,
 		storage:        storage,
@@ -84,7 +85,7 @@ func (h *ServerV2) Auth(ctx context.Context, authReq *bootstrapv2.BootstrapAuthR
 	// Remove "Bearer " from the header
 	bearerToken := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer"))
 	// Verify the token
-	payload, err := jws.Verify([]byte(bearerToken), jwa.EdDSA, h.privateKey.Public())
+	payload, err := jws.Verify([]byte(bearerToken), jwa.EdDSA, (*h.privateKey.Load()).Public())
 	if err != nil {
 		return nil, util.StatusError(codes.PermissionDenied)
 	}

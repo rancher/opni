@@ -4,10 +4,15 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync/atomic"
+
+	"log/slog"
 
 	"github.com/prometheus/client_golang/prometheus"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
-	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/config/reactive"
+	configv1 "github.com/rancher/opni/pkg/config/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/oci"
 	"github.com/rancher/opni/pkg/update"
@@ -17,11 +22,10 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"log/slog"
 )
 
 type kubernetesSyncServer struct {
-	imageFetcher oci.Fetcher
+	imageFetcher atomic.Pointer[oci.Fetcher]
 	lg           *slog.Logger
 }
 
@@ -44,7 +48,8 @@ func WithNamespace(namespace string) KubernetesOption {
 }
 
 func NewKubernetesSyncServer(
-	conf v1beta1.KubernetesAgentUpgradeSpec,
+	ctx context.Context,
+	conf reactive.Reactive[*configv1.KubernetesAgentUpgradeSpec],
 	lg *slog.Logger,
 	opts ...KubernetesOption,
 ) (update.UpdateTypeHandler, error) {
@@ -53,15 +58,22 @@ func NewKubernetesSyncServer(
 	}
 	options.apply(opts...)
 
-	imageFetcher, err := machinery.ConfigureOCIFetcher(string(conf.ImageResolver), options.namespace)
-	if err != nil {
-		return nil, err
+	srv := &kubernetesSyncServer{
+		imageFetcher: atomic.Pointer[oci.Fetcher]{},
+		lg:           lg,
 	}
 
-	return &kubernetesSyncServer{
-		imageFetcher: imageFetcher,
-		lg:           lg,
-	}, nil
+	conf.WatchFunc(ctx, func(conf *configv1.KubernetesAgentUpgradeSpec) {
+		imageFetcher, err := machinery.ConfigureOCIFetcher(conf.GetImageResolver(), options.namespace)
+		if err != nil {
+			lg.With(logger.Err(err)).Error("failed to configure OCI image fetcher")
+			return
+		}
+		lg.With("resolver", conf.GetImageResolver().String()).Info("configured OCI image fetcher")
+		srv.imageFetcher.Store(&imageFetcher)
+	})
+
+	return srv, nil
 }
 
 func (k *kubernetesSyncServer) Strategy() string {
@@ -97,6 +109,10 @@ func (k *kubernetesSyncServer) CalculateExpectedManifest(ctx context.Context, up
 	if updateType != opniurn.Agent {
 		return nil, status.Error(codes.Unimplemented, kubernetes.ErrUnhandledUpdateType(string(updateType)).Error())
 	}
+	imageFetcher := k.imageFetcher.Load()
+	if imageFetcher == nil {
+		return nil, status.Error(codes.Unavailable, "oci image fetcher not configured")
+	}
 	expectedManifest := &controlv1.UpdateManifest{}
 	strategyKey := controlv1.UpdateStrategyKeyForType(updateType)
 	strategy := metadata.ValueFromIncomingContext(ctx, strategyKey)
@@ -106,7 +122,7 @@ func (k *kubernetesSyncServer) CalculateExpectedManifest(ctx context.Context, up
 		return nil, status.Errorf(codes.InvalidArgument, "expected 1 value for metadata key %s, got %d", strategyKey, len(strategy))
 	}
 	for component, updateType := range kubernetes.ComponentImageMap {
-		image, err := k.imageFetcher.GetImage(ctx, updateType)
+		image, err := (*imageFetcher).GetImage(ctx, updateType)
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}
@@ -164,6 +180,11 @@ func (k *kubernetesSyncServer) imageForEntry(
 	ctx context.Context,
 	entry *controlv1.UpdateManifestEntry,
 ) (*oci.Image, error) {
+	imageFetcher := k.imageFetcher.Load()
+	if imageFetcher == nil {
+		return nil, status.Error(codes.Unavailable, "oci image fetcher not configured")
+	}
+
 	urn, err := opniurn.ParseString(entry.GetPackage())
 	if err != nil {
 		return nil, err
@@ -177,7 +198,7 @@ func (k *kubernetesSyncServer) imageForEntry(
 		return nil, nil
 	}
 
-	return k.imageFetcher.GetImage(ctx, imageType)
+	return (*imageFetcher).GetImage(ctx, imageType)
 }
 
 func patchForEntry(

@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	totem "github.com/kralicky/totem"
+	configv1 "github.com/rancher/opni/pkg/config/v1"
 	apiextensions "github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	gomock "go.uber.org/mock/gomock"
 	grpc "google.golang.org/grpc"
@@ -504,7 +505,7 @@ func (m *MockHTTPAPIExtensionClient) EXPECT() *MockHTTPAPIExtensionClientMockRec
 }
 
 // Configure mocks base method.
-func (m *MockHTTPAPIExtensionClient) Configure(ctx context.Context, in *apiextensions.CertConfig, opts ...grpc.CallOption) (*apiextensions.HTTPAPIExtensionConfig, error) {
+func (m *MockHTTPAPIExtensionClient) Configure(ctx context.Context, in *configv1.CertsSpec, opts ...grpc.CallOption) (*apiextensions.HTTPAPIExtensionConfig, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
@@ -547,7 +548,7 @@ func (m *MockHTTPAPIExtensionServer) EXPECT() *MockHTTPAPIExtensionServerMockRec
 }
 
 // Configure mocks base method.
-func (m *MockHTTPAPIExtensionServer) Configure(arg0 context.Context, arg1 *apiextensions.CertConfig) (*apiextensions.HTTPAPIExtensionConfig, error) {
+func (m *MockHTTPAPIExtensionServer) Configure(arg0 context.Context, arg1 *configv1.CertsSpec) (*apiextensions.HTTPAPIExtensionConfig, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Configure", arg0, arg1)
 	ret0, _ := ret[0].(*apiextensions.HTTPAPIExtensionConfig)

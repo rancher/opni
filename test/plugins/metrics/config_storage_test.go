@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/apis"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	configv1 "github.com/rancher/opni/pkg/config/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
@@ -45,9 +46,9 @@ var _ = Describe("Config Storage Tests", Label("integration"), func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			backend, err := machinery.ConfigureStorageBackend(environment.Context(), &v1beta1.StorageSpec{
-				Type: v1beta1.StorageTypeEtcd,
-				Etcd: environment.EtcdConfig(),
+			backend, err := machinery.ConfigureStorageBackendV1(environment.Context(), &configv1.StorageSpec{
+				Backend: configv1.StorageBackend_Etcd.Enum(),
+				Etcd:    environment.EtcdConfig(),
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -94,9 +95,9 @@ var _ = Describe("Config Storage Tests", Label("integration"), func() {
 				Expect(environment.Start(test.WithEnableEtcd(true), test.WithEnableJetstream(false), test.WithStorageBackend(v1beta1.StorageTypeEtcd), test.WithEnableGateway(false))).To(Succeed())
 				DeferCleanup(environment.Stop)
 
-				backend, err := machinery.ConfigureStorageBackend(environment.Context(), &v1beta1.StorageSpec{
-					Type: v1beta1.StorageTypeEtcd,
-					Etcd: environment.EtcdConfig(),
+				backend, err := machinery.ConfigureStorageBackendV1(environment.Context(), &configv1.StorageSpec{
+					Backend: configv1.StorageBackend_Etcd.Enum(),
+					Etcd:    environment.EtcdConfig(),
 				})
 				Expect(err).NotTo(HaveOccurred())
 

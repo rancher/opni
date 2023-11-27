@@ -37,7 +37,7 @@ var (
 	DefaultTimeFormat = "2006 Jan 02 15:04:05"
 	logSampler        = &sampler{}
 	levelString       = []string{"DEBUG", "INFO", "WARN", "ERROR"}
-	fileDesc          gpkgsync.Map[string, afero.File]
+	fileDesc          gpkgsync.Map[string, *FileWriter]
 )
 
 func init() {

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"sync"
+	"testing"
 
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/plugins/meta"
@@ -55,30 +56,32 @@ func PluginLoggerFromContext(ctx context.Context) *slog.Logger {
 	return logger.(*slog.Logger)
 }
 
-func ReadOnlyFile(filename string) afero.File {
-	f, err := logFs.OpenFile(filename, os.O_RDONLY|os.O_CREATE, 0666)
+func ReadFile(filename string) afero.File {
+	f, err := logFs.OpenFile(filename, os.O_CREATE|os.O_RDONLY, 0666)
 	if err != nil {
 		panic(err)
 	}
 	return f
 }
 
-func WriteOnlyFile(filename string) afero.File {
-	newFile, err := logFs.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+func WriteOnlyFile(filename string) *FileWriter {
+	fileWriter, ok := fileDesc.Load(filename)
+	if ok {
+		return fileWriter
+	}
+
+	newFile, err := logFs.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
 	if err != nil {
 		panic(err)
 	}
+	newFileWriter := newFileWriter(newFile)
+	fileDesc.Store(filename, newFileWriter)
 
-	fd, loaded := fileDesc.LoadOrStore(filename, newFile)
-	if loaded {
-		newFile.Close()
-	}
-
-	return fd
+	return newFileWriter
 }
 
-func GetLogFileName(ctx context.Context) string {
-	return fmt.Sprintf("plugin_%s_%s", meta.ModeAgent, getAgentId(ctx))
+func GetLogFileName(agentId string) string {
+	return fmt.Sprintf("plugin_%s_%s", meta.ModeAgent, agentId)
 }
 
 func WithMode(ctx context.Context, mode meta.PluginMode) context.Context {
@@ -92,12 +95,12 @@ func WithAgentId(ctx context.Context, agentId string) context.Context {
 // writer used for agent loggers and plugin loggers
 type RemotePluginWriter struct {
 	textWriter  *slog.Logger
-	fileWriter  *fileWriter
+	fileWriter  *FileWriter
 	protoWriter io.Writer
 }
 
 func newPluginWriter(ctx context.Context) *RemotePluginWriter {
-	if isInProcessPluginLogger(ctx) {
+	if isInProcessPluginLogger() {
 		mode := getMode(ctx)
 		if mode == meta.ModeAgent {
 			return NewPluginFileWriter(ctx)
@@ -112,7 +115,7 @@ func newPluginWriter(ctx context.Context) *RemotePluginWriter {
 func NewPluginFileWriter(ctx context.Context) *RemotePluginWriter {
 	return &RemotePluginWriter{
 		textWriter:  New(WithWriter(os.Stderr), WithDisableCaller()),
-		fileWriter:  newLogFileWriter(ctx),
+		fileWriter:  WriteOnlyFile(GetLogFileName(getAgentId(ctx))),
 		protoWriter: io.Discard,
 	}
 }
@@ -207,23 +210,19 @@ func (w *RemotePluginWriter) writeProtoToText(b []byte) (int, error) {
 }
 
 // stores agent and agent plugin logs, retrieved with debug cli
-type fileWriter struct {
+type FileWriter struct {
 	file afero.File
 	mu   *sync.RWMutex
 }
 
-func newLogFileWriter(ctx context.Context) *fileWriter {
-	return newFileWriter(WriteOnlyFile(GetLogFileName(ctx)))
-}
-
-func newFileWriter(f afero.File) *fileWriter {
-	return &fileWriter{
+func newFileWriter(f afero.File) *FileWriter {
+	return &FileWriter{
 		file: f,
 		mu:   &sync.RWMutex{},
 	}
 }
 
-func (f fileWriter) Write(b []byte) (int, error) {
+func (f *FileWriter) Write(b []byte) (int, error) {
 	if f.file == nil {
 		return 0, nil
 	}
@@ -241,8 +240,8 @@ func getAgentId(ctx context.Context) string {
 	return ""
 }
 
-func isInProcessPluginLogger(ctx context.Context) bool {
-	return (getModuleBasename() == "testenv")
+func isInProcessPluginLogger() bool {
+	return getModuleBasename() == "testenv" || testing.Testing()
 }
 
 func getModuleBasename() string {

@@ -62,10 +62,8 @@ func (ls *LogServer) StreamLogs(req *controlv1.LogStreamRequest, server controlv
 	nameFilters := req.Filters.NamePattern
 	follow := req.Follow
 
-	ctx := logger.WithAgentId(server.Context(), cluster.StreamAuthorizedID(server.Context()))
-	f := logger.ReadOnlyFile(logger.GetLogFileName(ctx))
-	ls.logger.Warn("streaming from file...", "name", logger.GetLogFileName(ctx))
-
+	filename := logger.GetLogFileName(cluster.StreamAuthorizedID(server.Context()))
+	f := logger.ReadFile(filename)
 	defer f.Close()
 
 	for {

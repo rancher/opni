@@ -140,7 +140,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 
 	ctx = logger.WithAgentId(ctx, id)
 	ctx = logger.WithMode(ctx, meta.ModeAgent)
-	lg := logger.New(logger.WithLogLevel(level), logger.WithFileWriter(logger.WriteOnlyFile(logger.GetLogFileName(ctx)))).WithGroup("agent")
+	lg := logger.New(logger.WithLogLevel(level), logger.WithFileWriter(logger.WriteOnlyFile(logger.GetLogFileName(id)))).WithGroup("agent")
 	lg.Debug(fmt.Sprintf("using log level: %s", level.String()))
 
 	var pl *plugins.PluginLoader

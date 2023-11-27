@@ -25,93 +25,73 @@ const (
 )
 
 var (
-	dataPrepperTemplate = template.Must(template.New("dataprepper").Parse(`log-pipeline:
-  workers: 8
-  delay: 100
-  buffer:
-    bounded_blocking:
-      buffer_size: 4096
-      batch_size: 512
-  source:
-    http:
-      ssl: false
-  sink:
-  - opensearch:
-      hosts: ["{{ .OpensearchEndpoint }}"]
-      {{- if .Insecure }}
-      insecure: true
-      {{- end }}
-      username: {{ .Username }}
-      password: {{ .Password }}
-      index: logs
-{{- if .EnableTracing }}
-entry-pipeline:
-  workers : 8
-  delay: "100"
-  buffer:
-    bounded_blocking:
-      buffer_size: 4096
-      batch_size: 160
+	dataPrepperTemplate = template.Must(template.New("dataprepper").Parse(`otel-trace-pipeline:
+  workers: 8 
+  delay: "100" 
   source:
     otel_trace_source:
-      ssl: false
-  sink:
-  - pipeline:
-      name: "raw-pipeline"
-  - pipeline:
-      name: "service-map-pipeline"
-raw-pipeline:
-  workers : 8
+      ssl: false # Change this to enable encryption in transit
+      authentication:
+        unauthenticated:
   buffer:
     bounded_blocking:
-      buffer_size: 4096
-      batch_size: 160
+      buffer_size: 25600
+      batch_size: 400
+  sink:
+    - pipeline:
+        name: "raw-pipeline"
+    - pipeline:
+        name: "service-map-pipeline"
+raw-pipeline:
+  workers: 8 
+  delay: "3000" 
   source:
     pipeline:
-      name: "entry-pipeline"
+      name: "otel-trace-pipeline"
+  buffer:
+    bounded_blocking:
+      buffer_size: 25600
+      batch_size: 3200
   processor:
-  - otel_trace_raw:
-  - add_entries:
-      entries:
-      - key: cluster_id
-        value: {{ .ClusterID }}
+    - otel_trace_raw:
+    - otel_trace_group:
+        hosts: ["{{ .OpensearchEndpoint }}"]
+        {{- if .Insecure }}
+        insecure: true
+        {{- end }}
+        username: {{ .Username }}
+        password: {{ .Password }}
   sink:
-  - opensearch:
-      hosts: ["{{ .OpensearchEndpoint }}"]
-      {{- if .Insecure }}
-      insecure: true
-      {{- end }}
-      username: {{ .Username }}
-      password: {{ .Password }}
-      index: otel-v1-apm-span
-      index_type: management_disabled
+    - opensearch:
+        hosts: ["{{ .OpensearchEndpoint }}"]
+        {{- if .Insecure }}
+        insecure: true
+        {{- end }}
+        username: {{ .Username }}
+        password: {{ .Password }}
+        index_type: trace-analytics-raw
 service-map-pipeline:
-  workers : 1
+  workers: 8
   delay: "100"
   source:
     pipeline:
-      name: "entry-pipeline"
+      name: "otel-trace-pipeline"
   processor:
-  - service_map_stateful:
-  - add_entries:
-      entries:
-      - key: cluster_id
-        value: {{ .ClusterID }}
+    - service_map_stateful:
+        window_duration: 180 
   buffer:
     bounded_blocking:
-      buffer_size: 512
-      batch_size: 8
+      buffer_size: 25600
+      batch_size: 400
   sink:
-  - opensearch:
-      hosts: ["{{ .OpensearchEndpoint }}"]
-      {{- if .Insecure }}
-      insecure: true
-      {{- end }}
-      username: {{ .Username }}
-      password: {{ .Password }}
-      index: otel-v1-apm-service-map
-      index_type: management_disabled
-{{- end }}
+    - opensearch:
+        hosts: ["{{ .OpensearchEndpoint }}"]
+        {{- if .Insecure }}
+        insecure: true
+        {{- end }}
+        username: {{ .Username }}
+        password: {{ .Password }}
+        index_type: trace-analytics-service-map
 `))
 )
 

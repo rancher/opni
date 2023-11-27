@@ -83,6 +83,10 @@ processors:
       - set(attributes["kubernetes_component"], attributes["k8s.pod.labels.component"]) where attributes["k8s.pod.labels.tier"] == "control-plane"
 
 exporters:
+  otlp:
+    endpoint: {{ .DataPrepperEndpoint }}
+    tls:
+      insecure: true
   opensearch:
     http:
       endpoint: {{ .Endpoint }}
@@ -108,13 +112,14 @@ service:
       exporters: ["opensearch"]
     traces:
       receivers: ["otlp"]
-      exporters: ["opensearch"]
+      exporters: ["otlp"]
 `))
 )
 
 type PreprocessorConfig struct {
-	Endpoint   string
-	WriteIndex string
+	Endpoint            string
+	DataPrepperEndpoint string
+	WriteIndex          string
 }
 
 func (r *Reconciler) configMapName() string {
@@ -138,6 +143,10 @@ func (r *Reconciler) opensearchEndpoint() string {
 		return ""
 	}
 	return fmt.Sprintf("https://%s:9200", cluster.Spec.General.ServiceName)
+}
+
+func (r *Reconciler) dataPrepperEndpoint() string {
+	return fmt.Sprintf("http://%s:21890", "opni-shipper")
 }
 
 func (r *Reconciler) preprocessorVolumes() (
@@ -210,8 +219,9 @@ func (r *Reconciler) configMap() (resources.Resource, string) {
 
 	var buffer bytes.Buffer
 	err := templatePreprocessorConfig.Execute(&buffer, PreprocessorConfig{
-		Endpoint:   r.opensearchEndpoint(),
-		WriteIndex: r.preprocessor.Spec.WriteIndex,
+		Endpoint:            r.opensearchEndpoint(),
+		WriteIndex:          r.preprocessor.Spec.WriteIndex,
+		DataPrepperEndpoint: r.dataPrepperEndpoint(),
 	})
 	if err != nil {
 		return resources.Error(cm, err), ""

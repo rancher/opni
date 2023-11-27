@@ -6,9 +6,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -19,42 +21,68 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/rancher/opni/pkg/validation"
+	"github.com/samber/lo"
 
 	"emperror.dev/errors"
 	"github.com/rancher/opni/pkg/logger"
+
+	// TODO : one or more inflight transactions
+	"golang.org/x/sync/semaphore"
 )
 
 const (
 	maxConcurrentSnapshots = 1
 	compressedExtension    = ".zip"
-	metadataDir            = ".metadata"
+	_metadataDir           = ".metadata"
 )
 
 const (
-	successfulSnapshotStatus SnapshotStatus = "successful"
-	failedSnapshotStatus     SnapshotStatus = "failed"
+	LocationPrefixLocal = "file://"
+	LocationPrefixS3    = "s3://"
+)
+
+const (
+	SnapshotStatusSuccessful SnapshotStatus = "successful"
+	SnapshotStatusFailed     SnapshotStatus = "failed"
+)
+
+const (
+	CompressionZip CompressionType = "zip"
 )
 
 type SnapshotStatus string
+
+type CompressionType string
 
 type SnapshotConfig struct {
 	SnapshotDir  string
 	SnapshotName string
 
 	DataDir string
-
+	// 0 indicates no retention limit is enforced
 	Retention int
 
 	Compression *CompressionConfig
 	S3          *S3Config
 }
 
-func (s *SnapshotConfig) compressionEnabled() bool {
-	return s.Compression != nil
+func (c *SnapshotConfig) Validate() error {
+	if c.SnapshotName == "" {
+		return validation.Error("snapshot name required")
+	}
+	if c.DataDir == "" {
+		return validation.Error("data dir required")
+	}
+	return nil
 }
 
-func (s *SnapshotConfig) s3Enabled() bool {
-	return s.S3 != nil
+func (c *SnapshotConfig) compressionEnabled() bool {
+	return c.Compression != nil
+}
+
+func (c *SnapshotConfig) s3Enabled() bool {
+	return c.S3 != nil
 }
 
 type S3Config struct {
@@ -71,139 +99,54 @@ type S3Config struct {
 }
 
 type CompressionConfig struct {
-	Type string
+	Type CompressionType
 }
 
-type AbstractSnapshotter interface {
+type Snapshotter interface {
 	Save(ctx context.Context, snapshotPath string) error
 }
 
-type AbstractSnapshotManager interface {
-	Save(ctx context.Context) error
-	List(ctx context.Context) error
+type Restorer interface {
+	Restore(ctx context.Context, path string) error
 }
 
-type SnapshotManager struct {
+type BackupRestore interface {
+	Snapshotter
+	Restorer
+}
+
+type SnapshotManager interface {
+	Save(ctx context.Context) error
+	List(ctx context.Context) ([]SnapshotMetadata, error)
+	Restore(ctx context.Context, snapMd SnapshotMetadata) error
+}
+
+type snapshotManager struct {
 	lg     *slog.Logger
 	config SnapshotConfig
-	impl   AbstractSnapshotter
+	impl   BackupRestore
+
+	s3Client  *minio.Client
+	semaphore *semaphore.Weighted
 }
 
-var _ AbstractSnapshotManager = (*SnapshotManager)(nil)
+var _ SnapshotManager = (*snapshotManager)(nil)
 
 func NewSnapshotManager(
-	impl AbstractSnapshotter,
-) *SnapshotManager {
-	return &SnapshotManager{
-		impl: impl,
+	impl BackupRestore,
+	config SnapshotConfig,
+	lg *slog.Logger,
+) SnapshotManager {
+	return &snapshotManager{
+		impl:      impl,
+		config:    config,
+		lg:        lg,
+		semaphore: semaphore.NewWeighted(1),
 	}
 }
 
-func (s *SnapshotManager) List(ctx context.Context) error {
-	return nil
-}
-
-func (s *SnapshotManager) Save(ctx context.Context) error {
-	nodeName := "TODO"
-	now := time.Now().Round(time.Second)
-	snapshotName := fmt.Sprintf(
-		"%s-%s-%d",
-		s.config.SnapshotName,
-		nodeName,
-		now.Unix(),
-	)
-	snapshotDir, err := s.snapshotDir(true)
-	if err != nil {
-		return err
-	}
-	snapshotPath := filepath.Join(snapshotDir, snapshotName)
-	var sf *snapshotFile
-	if err := s.impl.Save(ctx, snapshotPath); err != nil {
-		sf = &snapshotFile{
-			Name:      snapshotName,
-			Location:  "",
-			CreatedAt: now,
-			Status:    failedSnapshotStatus,
-			Message:   base64.StdEncoding.EncodeToString([]byte(err.Error())),
-			Size:      0,
-			// metadataSource: extraMetadata,
-		}
-	}
-
-	if sf == nil {
-		if s.config.compressionEnabled() {
-			zipPath, err := s.compressSnapshot(
-				s.config.SnapshotDir, snapshotName, snapshotPath, now,
-			)
-			if err != nil {
-				return errors.Wrap(err, "failed to compress etcd snapshot")
-			}
-			snapshotPath = zipPath
-			s.lg.Info("compressed snapshot")
-		}
-		f, err := os.Stat(snapshotPath)
-		if err != nil {
-			return errors.Wrap(err, "unable to retrieve snapshot information from local snapshot")
-		}
-		sf = &snapshotFile{
-			Name:       f.Name(),
-			Location:   "file://" + snapshotPath,
-			CreatedAt:  now,
-			Status:     successfulSnapshotStatus,
-			Size:       f.Size(),
-			Compressed: s.config.compressionEnabled(),
-		}
-
-		// TODO : persist snapshot metadata file locally
-
-		// TODO : check/prune retention limits
-		if err := s.retention(s.config.Retention, s.config.SnapshotName, s.config.SnapshotDir); err != nil {
-			return errors.Wrap(err, "failed to apply local snapshot retention policy")
-		}
-
-		if s.config.s3Enabled() {
-			// TODO : init client here
-			sf = &snapshotFile{
-				Name:      filepath.Base(snapshotPath),
-				CreatedAt: now,
-				Message:   base64.StdEncoding.EncodeToString([]byte(err.Error())),
-				Size:      0,
-				Status:    failedSnapshotStatus,
-				S3: &s3Config{
-					Endpoint:      s.config.S3.Endpoint,
-					EndpointCA:    s.config.S3.EndpointCA,
-					SkipSSLVerify: s.config.S3.SkipSSLVerify,
-					Bucket:        s.config.S3.BucketName,
-					Region:        s.config.S3.Region,
-					Folder:        s.config.S3.Folder,
-					Insecure:      s.config.S3.Insecure,
-				},
-			}
-			// if init succeeds here, try upload
-			sf, err := s.uploadS3(ctx, snapshotPath, now)
-			if err != nil {
-				s.lg.With(logger.Err(err)).Error(
-					"Error received during snapshot upload %s", err)
-			} else {
-				s.lg.Info("S3 upload complete")
-			}
-
-			if err := s.retentionS3(); err != nil {
-				s.lg.With(logger.Err(err)).Error(
-					"failed to apply s3 snapshot retention policy",
-				)
-			}
-
-			// TODO : persist metadata file locally
-			fmt.Println(sf)
-			// either it is snapshot md or s3 failure record
-		}
-	}
-	return nil
-}
-
-// snapshotDir ensures that the snapshot directory exists, and then returns its path.
-func (s *SnapshotManager) snapshotDir(create bool) (string, error) {
+// TODO : we may not need the default snapshot dir behaviour
+func (s *snapshotManager) snapshotDir(create bool) (string, error) {
 	if s.config.SnapshotDir == "" {
 		// we have to create the snapshot dir if we are using
 		// the default snapshot dir if it doesn't exist
@@ -224,6 +167,209 @@ func (s *SnapshotManager) snapshotDir(create bool) (string, error) {
 	}
 	return s.config.SnapshotDir, nil
 }
+
+func (s *snapshotManager) metadataDir(create bool) (string, error) {
+	snapDir, err := s.snapshotDir(create)
+	if err != nil {
+		return snapDir, err
+	}
+
+	metadataDir := filepath.Join(snapDir, _metadataDir)
+	_, err = os.Stat(metadataDir)
+	if err != nil {
+		if create && os.IsNotExist(err) {
+			if err := os.MkdirAll(metadataDir, 0700); err != nil {
+				return "", err
+			}
+		}
+	}
+
+	return metadataDir, nil
+}
+
+func (s *snapshotManager) commitMetadata(sf *SnapshotMetadata) error {
+	metadataDir, err := s.metadataDir(true)
+	if err != nil {
+		return err
+	}
+	mdPath := filepath.Join(metadataDir, sf.Name)
+	data, err := json.Marshal(sf)
+	if err != nil {
+		return err
+	}
+	s.lg.With("path", mdPath).Info("commiting metadata")
+	return os.WriteFile(mdPath, data, 0700)
+}
+
+func (s *snapshotManager) List(ctx context.Context) ([]SnapshotMetadata, error) {
+	metadataDir, err := s.metadataDir(false)
+	if err != nil {
+		// TODO : maybe do some error handling here and return appropriate status codes
+		return []SnapshotMetadata{}, err
+	}
+	s.lg.With("path", metadataDir).Info("listing local metadata")
+	fSys := os.DirFS(metadataDir)
+	res := []SnapshotMetadata{}
+	err = fs.WalkDir(fSys, ".", func(path string, d fs.DirEntry, _ error) error {
+		s.lg.With("path", path).Info("checking")
+		if path == "" {
+			return nil
+		}
+		if d != nil && !d.IsDir() {
+			data, err := os.ReadFile(filepath.Join(metadataDir, path))
+			if err != nil {
+				s.lg.With(logger.Err(err)).Error("failed to read snapshot metadata contents")
+				return err
+			}
+			var sf SnapshotMetadata
+			if err := json.Unmarshal(data, &sf); err != nil {
+				s.lg.With(logger.Err(err)).Warn("failed to unmarshal snapshot file contents, skipping")
+			} else {
+				res = append(res, sf)
+			}
+		}
+		return nil
+	})
+	// TODO : don't necessarily return error here
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO : check S3 data here if config is defined
+	return res, nil
+}
+
+func (s *snapshotManager) compressionConfig() *compressionMetadata {
+	return lo.Ternary[*compressionMetadata](
+		s.config.compressionEnabled(),
+		&compressionMetadata{
+			Type: CompressionZip,
+		},
+		nil,
+	)
+}
+
+func (s *snapshotManager) Save(ctx context.Context) error {
+	if ack := s.semaphore.TryAcquire(1); !ack {
+		return errors.New("snapshot already in progress")
+	}
+	now := time.Now().Round(time.Second)
+	snapshotName := fmt.Sprintf(
+		"%s-opni-%d",
+		s.config.SnapshotName,
+		now.Unix(),
+	)
+	snapshotDir, err := s.snapshotDir(true)
+	if err != nil {
+		return err
+	}
+	snapshotPath := filepath.Join(snapshotDir, snapshotName)
+	lg := s.lg.With("snapshot", snapshotName, "path", snapshotPath)
+	var sf *SnapshotMetadata
+	if err := s.impl.Save(ctx, snapshotPath); err != nil {
+		sf = &SnapshotMetadata{
+			Name:      snapshotName,
+			Location:  "",
+			CreatedAt: now,
+			Status:    SnapshotStatusFailed,
+			Message:   base64.StdEncoding.EncodeToString([]byte(err.Error())),
+			Size:      0,
+		}
+
+		if err := s.commitMetadata(sf); err != nil {
+			lg.With(logger.Err(err)).Error("failed to commit metadata after failed snapshot")
+			return err
+		}
+	}
+
+	if sf == nil {
+		if s.config.compressionEnabled() {
+			zipPath, err := s.compressSnapshot(
+				s.config.SnapshotDir, snapshotName, snapshotPath, now,
+			)
+			if err != nil {
+				return errors.Wrap(err, "failed to compress etcd snapshot")
+			}
+			snapshotPath = zipPath
+			lg.Info("compressed snapshot")
+		}
+		f, err := os.Stat(snapshotPath)
+		if err != nil {
+			return errors.Wrap(err, "unable to retrieve snapshot information from local snapshot")
+		}
+		sf = &SnapshotMetadata{
+			Name:                f.Name(),
+			Location:            LocationPrefixLocal + snapshotPath,
+			CreatedAt:           now,
+			Status:              SnapshotStatusSuccessful,
+			Size:                f.Size(),
+			Compressed:          s.config.compressionEnabled(),
+			CompressionMetadata: s.compressionConfig(),
+		}
+
+		if err := s.commitMetadata(sf); err != nil {
+			lg.Warn("failed to commit metadata after successful snapshot")
+		}
+
+		// TODO : check/prune based on retention limits
+		if err := s.retention(s.config.Retention, s.config.SnapshotName, s.config.SnapshotDir); err != nil {
+			return errors.Wrap(err, "failed to apply local snapshot retention policy")
+		}
+
+		if s.config.s3Enabled() {
+			if err := s.preRunS3(); err != nil {
+				sf = &SnapshotMetadata{
+					Name:      filepath.Base(snapshotPath),
+					CreatedAt: now,
+					Message:   base64.StdEncoding.EncodeToString([]byte(err.Error())),
+					Size:      0,
+					Status:    SnapshotStatusFailed,
+					S3: &s3Metadata{
+						Endpoint:      s.config.S3.Endpoint,
+						EndpointCA:    s.config.S3.EndpointCA,
+						SkipSSLVerify: s.config.S3.SkipSSLVerify,
+						Bucket:        s.config.S3.BucketName,
+						Region:        s.config.S3.Region,
+						Folder:        s.config.S3.Folder,
+						Insecure:      s.config.S3.Insecure,
+					},
+				}
+			} else {
+				// if init succeeds here, try upload
+				sf, err = s.uploadS3(ctx, snapshotPath, now)
+				if err != nil {
+					lg.With(logger.Err(err)).Error(
+						"Error received during snapshot upload %s", err)
+				} else {
+					lg.Info("S3 upload complete")
+				}
+
+				if err := s.retentionS3(); err != nil {
+					lg.With(logger.Err(err)).Error(
+						"failed to apply s3 snapshot retention policy",
+					)
+				}
+			}
+		}
+		if err := s.commitMetadata(sf); err != nil {
+			lg.Warn("failed to persist metadata locally")
+		}
+	}
+	return nil
+}
+
+func (s *snapshotManager) preRunS3() error {
+	if s.s3Client == nil {
+		client, err := s.initS3Client()
+		if err != nil {
+			return err
+		}
+		s.s3Client = client
+	}
+	return nil
+}
+
+// snapshotDir ensures that the snapshot directory exists, and then returns its path.
 
 // isValidCertificate checks to see if the given
 // byte slice is a valid x509 certificate.
@@ -267,7 +413,7 @@ func readS3EndpointCA(endpointCA string) ([]byte, error) {
 	return ca, nil
 }
 
-func (s *SnapshotManager) initS3Client() (*minio.Client, error) {
+func (s *snapshotManager) initS3Client() (*minio.Client, error) {
 	if s.config.S3.BucketName == "" {
 		return nil, errors.New("s3 bucket name was not set")
 	}
@@ -301,19 +447,19 @@ func (s *SnapshotManager) initS3Client() (*minio.Client, error) {
 	return c, nil
 }
 
-func (s *SnapshotManager) uploadS3(ctx context.Context, snapshotPath string, now time.Time) (*snapshotFile, error) {
-	s.lg.Info("Uploading snapshot to s3://%s/%s", s.config.S3.BucketName, snapshotPath)
+func (s *snapshotManager) uploadS3(ctx context.Context, snapshotPath string, now time.Time) (*SnapshotMetadata, error) {
+	s.lg.Info(fmt.Sprintf("Uploading snapshot to s3://%s/%s", s.config.S3.BucketName, snapshotPath))
 
 	basename := filepath.Base(snapshotPath)
-	metadata := filepath.Join(filepath.Dir(snapshotPath), "..", metadataDir, basename)
+	metadata := filepath.Join(filepath.Dir(snapshotPath), "..", _metadataDir, basename)
 	snapshotKey := path.Join(s.config.S3.Folder, basename)
-	metadataKey := path.Join(s.config.S3.Folder, metadataDir, basename)
+	metadataKey := path.Join(s.config.S3.Folder, _metadataDir, basename)
 
-	sf := &snapshotFile{
+	sf := &SnapshotMetadata{
 		Name:      basename,
-		Location:  fmt.Sprintf("s3://%s/%s", s.config.S3.BucketName, snapshotKey),
+		Location:  LocationPrefixS3 + fmt.Sprintf("%s/%s", s.config.S3.BucketName, snapshotKey),
 		CreatedAt: now,
-		S3: &s3Config{
+		S3: &s3Metadata{
 			Endpoint:      s.config.S3.Endpoint,
 			EndpointCA:    s.config.S3.EndpointCA,
 			SkipSSLVerify: s.config.S3.SkipSSLVerify,
@@ -322,7 +468,8 @@ func (s *SnapshotManager) uploadS3(ctx context.Context, snapshotPath string, now
 			Folder:        s.config.S3.Folder,
 			Insecure:      s.config.S3.Insecure,
 		},
-		Compressed: strings.HasSuffix(snapshotPath, compressedExtension),
+		Compressed:          strings.HasSuffix(snapshotPath, compressedExtension),
+		CompressionMetadata: s.compressionConfig(),
 	}
 
 	client, err := s.initS3Client()
@@ -332,10 +479,10 @@ func (s *SnapshotManager) uploadS3(ctx context.Context, snapshotPath string, now
 
 	uploadInfo, err := s.uploadS3Snapshot(client, ctx, snapshotKey, snapshotPath)
 	if err != nil {
-		sf.Status = failedSnapshotStatus
+		sf.Status = SnapshotStatusFailed
 		sf.Message = base64.StdEncoding.EncodeToString([]byte(err.Error()))
 	} else {
-		sf.Status = successfulSnapshotStatus
+		sf.Status = SnapshotStatusSuccessful
 		sf.Size = uploadInfo.Size
 	}
 	if _, err := s.uploadS3Metadata(client, ctx, metadataKey, metadata); err != nil {
@@ -348,7 +495,7 @@ func (s *SnapshotManager) uploadS3(ctx context.Context, snapshotPath string, now
 	return sf, nil
 }
 
-func (s *SnapshotManager) uploadS3Snapshot(
+func (s *snapshotManager) uploadS3Snapshot(
 	client *minio.Client,
 	ctx context.Context,
 	key, path string,
@@ -369,7 +516,7 @@ func (s *SnapshotManager) uploadS3Snapshot(
 	return client.FPutObject(ctxca, s.config.S3.BucketName, key, path, opts)
 }
 
-func (s *SnapshotManager) uploadS3Metadata(
+func (s *snapshotManager) uploadS3Metadata(
 	client *minio.Client,
 	ctx context.Context,
 	key, path string,
@@ -392,15 +539,17 @@ func (s *SnapshotManager) uploadS3Metadata(
 	return client.FPutObject(ctxca, s.config.S3.BucketName, key, path, opts)
 }
 
-func (s *SnapshotManager) retention(retention int, snapshotPrefix string, snapshotDir string) error {
+func (s *snapshotManager) retention(retention int, snapshotPrefix string, snapshotDir string) error {
+	// TODO
 	return nil
 }
 
-func (s *SnapshotManager) retentionS3() error {
+func (s *snapshotManager) retentionS3() error {
+	// TODO
 	return nil
 }
 
-func (s *SnapshotManager) compressSnapshot(
+func (s *snapshotManager) compressSnapshot(
 	snapshotDir, snapshotName, snapshotPath string,
 	now time.Time,
 ) (string, error) {
@@ -452,23 +601,119 @@ func (s *SnapshotManager) compressSnapshot(
 	return zipPath, err
 }
 
-// snapshotFile represents a single snapshot and it's
-// metadata.
-type snapshotFile struct {
+func (s *snapshotManager) Restore(ctx context.Context, snapMd SnapshotMetadata) error {
+	if err := snapMd.Validate(); err != nil {
+		return err
+	}
+	switch {
+	case strings.HasPrefix(snapMd.Location, LocationPrefixLocal):
+		return s.restoreFromFile(ctx, snapMd)
+	case strings.HasPrefix(snapMd.Location, LocationPrefixS3):
+		return s.restoreFromS3(ctx, snapMd)
+	default:
+		return errors.New(
+			fmt.Sprintf(
+				"unimplemented encoded storage type in '%s' for restore",
+				snapMd.Location,
+			))
+	}
+}
+
+func (s *snapshotManager) restoreFromFile(ctx context.Context, snapMd SnapshotMetadata) error {
+	path := strings.TrimPrefix(snapMd.Location, LocationPrefixLocal)
+
+	if snapMd.Compressed {
+		var err error
+		path, err = s.decompress(path)
+		if err != nil {
+			return err
+		}
+	}
+
+	return s.impl.Restore(ctx, path)
+
+}
+
+func (s *snapshotManager) restoreFromS3(ctx context.Context, snapMd SnapshotMetadata) error {
+	if !s.config.s3Enabled() {
+		return errors.New("s3 is not enabled in snapshot manager despite having an s3 snapshot")
+	}
+	client, err := s.initS3Client()
+	if err != nil {
+		return err
+	}
+	opts := minio.GetObjectOptions{}
+	exists, err := client.BucketExists(ctx, s.config.S3.BucketName)
+	if err != nil {
+		return errors.Wrap(err, "failed to verify bucket existence")
+	}
+	if !exists {
+		return fmt.Errorf("bucket '%s' does not exist", s.config.S3.BucketName)
+	}
+	path := strings.TrimPrefix(snapMd.Location, LocationPrefixS3)
+
+	if err := client.FGetObject(ctx, s.config.S3.BucketName, path, path, opts); err != nil {
+		return err
+	}
+
+	if snapMd.Compressed {
+		var err error
+		path, err = s.decompress(path)
+		if err != nil {
+			return errors.Wrap(err, "failed to decompress downloaded S3 snapshot")
+		}
+	}
+
+	return s.impl.Restore(ctx, path)
+}
+
+func (s *snapshotManager) decompress(path string) (string, error) {
+	zf, err := zip.OpenReader(path)
+	if err != nil {
+		return "", err
+	}
+	defer zf.Close()
+
+	if len(zf.File) != 1 {
+		return "", errors.New("expected only one file")
+	}
+	fileToExtract := zf.File[0]
+	fileReader, err := fileToExtract.Open()
+	if err != nil {
+		return "", err
+	}
+	defer fileReader.Close()
+
+	extractedFileP := strings.TrimSuffix(path, string(CompressionZip))
+	extractedFile, err := os.Create(extractedFileP)
+	if err != nil {
+		s.lg.Error(err.Error())
+	}
+	defer extractedFile.Close()
+
+	if _, err := io.Copy(extractedFile, fileReader); err != nil {
+		return "", err
+	}
+	return extractedFileP, nil
+}
+
+// SnapshotMetadata represents a single snapshot and its metadata.
+type SnapshotMetadata struct {
 	Name string `json:"name"`
 	// Location contains the full path of the snapshot. For
 	// local paths, the location will be prefixed with "file://".
-	Location   string         `json:"location,omitempty"`
-	Metadata   string         `json:"metadata,omitempty"`
-	Message    string         `json:"message,omitempty"`
-	CreatedAt  time.Time      `json:"createdAt,omitempty"`
-	Size       int64          `json:"size,omitempty"`
-	Status     SnapshotStatus `json:"status,omitempty"`
-	S3         *s3Config      `json:"s3Config,omitempty"`
-	Compressed bool           `json:"compressed"`
+	Location            string               `json:"location,omitempty"`
+	Metadata            string               `json:"metadata,omitempty"`
+	Message             string               `json:"message,omitempty"`
+	CreatedAt           time.Time            `json:"createdAt,omitempty"`
+	Size                int64                `json:"size,omitempty"`
+	Status              SnapshotStatus       `json:"status,omitempty"`
+	S3                  *s3Metadata          `json:"s3Metadata,omitempty"`
+	Compressed          bool                 `json:"compressed"`
+	CompressionMetadata *compressionMetadata `json:"compressionMetadata"`
 }
 
-type s3Config struct {
+type s3Metadata struct {
 	Endpoint      string `json:"endpoint,omitempty"`
 	EndpointCA    string `json:"endpointCA,omitempty"`
 	SkipSSLVerify bool   `json:"skipSSLVerify,omitempty"`
@@ -476,4 +721,18 @@ type s3Config struct {
 	Region        string `json:"region,omitempty"`
 	Folder        string `json:"folder,omitempty"`
 	Insecure      bool   `json:"insecure,omitempty"`
+}
+
+type compressionMetadata struct {
+	Type CompressionType `json:"type"`
+}
+
+func (c *SnapshotMetadata) Validate() error {
+	if c.Location == "" {
+		return errors.New("snapshot location required")
+	}
+	if c.Compressed && c.CompressionMetadata == nil {
+		return errors.New("mismatched compression fields")
+	}
+	return nil
 }

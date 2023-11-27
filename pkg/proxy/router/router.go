@@ -2,12 +2,16 @@ package router
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -47,19 +51,39 @@ func NewRouter(config RouterConfig) (Router, error) {
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = (&net.Dialer{
+		Timeout: 5 * time.Second,
+	}).DialContext
+	transport.TLSHandshakeTimeout = 5 * time.Second
+
+	if endpoint.BackendCAData != nil {
+		pool := x509.NewCertPool()
+		ok := pool.AppendCertsFromPEM([]byte(endpoint.GetBackendCAData()))
+		if !ok {
+			config.Logger.Warn("no certs added from pem data")
+		}
+		transport.TLSClientConfig = &tls.Config{
+			RootCAs: pool,
+		}
+	}
+
 	return &implRouter{
-		backend: backend,
-		store:   config.Store,
-		path:    path,
-		logger:  config.Logger,
+		backend:   backend,
+		store:     config.Store,
+		path:      path,
+		logger:    config.Logger,
+		transport: transport,
 	}, nil
 }
 
 type implRouter struct {
-	backend backend.Backend
-	store   storage.RoleBindingStore
-	path    string
-	logger  *slog.Logger
+	backend   backend.Backend
+	store     storage.RoleBindingStore
+	path      string
+	logger    *slog.Logger
+	transport http.RoundTripper
 }
 
 func (r *implRouter) handle(c *gin.Context) {
@@ -84,13 +108,15 @@ func (r *implRouter) handle(c *gin.Context) {
 	if !ok {
 		path = ""
 	}
-	rewrite, err := r.backend.RewriteProxyRequest(path, roleList)
+	userID, _ := subject.(string)
+	rewrite, err := r.backend.RewriteProxyRequest(path, roleList, userID)
 	if err != nil {
 		r.logger.With(logger.Err(err)).Error("failed to get rewrite function")
 		c.AbortWithStatus(http.StatusInternalServerError)
 	}
 	proxy := httputil.ReverseProxy{
-		Rewrite: rewrite,
+		Rewrite:   rewrite,
+		Transport: r.transport,
 	}
 	proxy.ServeHTTP(c.Writer, c.Request)
 }

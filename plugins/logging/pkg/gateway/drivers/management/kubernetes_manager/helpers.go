@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 
+	opsterv1 "github.com/Opster/opensearch-k8s-operator/opensearch-operator/api/v1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/util"
 	k8sutilerrors "github.com/rancher/opni/pkg/util/errors/k8sutil"
@@ -18,7 +19,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
-	opsterv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -365,8 +365,8 @@ func convertProtobufToDashboards(
 		},
 		Version: osVersion,
 		Tls: &opsterv1.DashboardsTlsConfig{
-			Enable:   true,
-			Generate: true,
+			Enable:   false,
+			Generate: false,
 		},
 		AdditionalConfig: map[string]string{
 			"opensearchDashboards.branding.applicationTitle":        "Opni Logging",

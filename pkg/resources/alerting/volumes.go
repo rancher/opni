@@ -182,7 +182,7 @@ http_server_config:
 	return cm, nil
 }
 
-// Similar to "opensearch.opster.io/pkg/builders"
+// Similar to "github.com/Opster/opensearch-k8s-operator/opensearch-operator/pkg/builders"
 func (r *Reconciler) handlePVC(diskSize string) (pvc corev1.PersistentVolumeClaim, volumes []corev1.Volume) {
 	dataVolume := corev1.Volume{}
 

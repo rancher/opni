@@ -126,6 +126,8 @@ spec:
                                 secretName:
                                   type: string
                               type: object
+                            subPath:
+                              type: string
                           required:
                           - name
                           - path

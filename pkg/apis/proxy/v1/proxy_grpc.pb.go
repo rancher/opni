@@ -8,7 +8,6 @@ package v1
 
 import (
 	context "context"
-	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -30,7 +29,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RegisterProxyClient interface {
 	Endpoint(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ProxyEndpoint, error)
-	AuthHeaders(ctx context.Context, in *v1.ReferenceList, opts ...grpc.CallOption) (*HeaderResponse, error)
+	AuthHeaders(ctx context.Context, in *HeaderRequest, opts ...grpc.CallOption) (*HeaderResponse, error)
 }
 
 type registerProxyClient struct {
@@ -50,7 +49,7 @@ func (c *registerProxyClient) Endpoint(ctx context.Context, in *emptypb.Empty, o
 	return out, nil
 }
 
-func (c *registerProxyClient) AuthHeaders(ctx context.Context, in *v1.ReferenceList, opts ...grpc.CallOption) (*HeaderResponse, error) {
+func (c *registerProxyClient) AuthHeaders(ctx context.Context, in *HeaderRequest, opts ...grpc.CallOption) (*HeaderResponse, error) {
 	out := new(HeaderResponse)
 	err := c.cc.Invoke(ctx, RegisterProxy_AuthHeaders_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -64,7 +63,7 @@ func (c *registerProxyClient) AuthHeaders(ctx context.Context, in *v1.ReferenceL
 // for forward compatibility
 type RegisterProxyServer interface {
 	Endpoint(context.Context, *emptypb.Empty) (*ProxyEndpoint, error)
-	AuthHeaders(context.Context, *v1.ReferenceList) (*HeaderResponse, error)
+	AuthHeaders(context.Context, *HeaderRequest) (*HeaderResponse, error)
 }
 
 // UnimplementedRegisterProxyServer should be embedded to have forward compatible implementations.
@@ -74,7 +73,7 @@ type UnimplementedRegisterProxyServer struct {
 func (UnimplementedRegisterProxyServer) Endpoint(context.Context, *emptypb.Empty) (*ProxyEndpoint, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Endpoint not implemented")
 }
-func (UnimplementedRegisterProxyServer) AuthHeaders(context.Context, *v1.ReferenceList) (*HeaderResponse, error) {
+func (UnimplementedRegisterProxyServer) AuthHeaders(context.Context, *HeaderRequest) (*HeaderResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AuthHeaders not implemented")
 }
 
@@ -108,7 +107,7 @@ func _RegisterProxy_Endpoint_Handler(srv interface{}, ctx context.Context, dec f
 }
 
 func _RegisterProxy_AuthHeaders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.ReferenceList)
+	in := new(HeaderRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -120,7 +119,7 @@ func _RegisterProxy_AuthHeaders_Handler(srv interface{}, ctx context.Context, de
 		FullMethod: RegisterProxy_AuthHeaders_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RegisterProxyServer).AuthHeaders(ctx, req.(*v1.ReferenceList))
+		return srv.(RegisterProxyServer).AuthHeaders(ctx, req.(*HeaderRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

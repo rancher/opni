@@ -3,13 +3,64 @@ package backend
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	proxyv1 "github.com/rancher/opni/pkg/apis/proxy/v1"
+	"github.com/rancher/opni/pkg/auth"
 	utilerrors "github.com/rancher/opni/pkg/util/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+func (b *LoggingBackend) Endpoint(ctx context.Context, _ *emptypb.Empty) (*proxyv1.ProxyEndpoint, error) {
+	backendURL, err := b.RBACDriver.GetBackendURL(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &proxyv1.ProxyEndpoint{
+		Path:    "/logging",
+		Backend: backendURL,
+	}, nil
+}
+
+func (b *LoggingBackend) AuthHeaders(ctx context.Context, req *proxyv1.HeaderRequest) (*proxyv1.HeaderResponse, error) {
+	existingRoles := map[string]bool{}
+	list, err := b.RBACDriver.ListRoles(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, role := range list.GetItems() {
+		existingRoles[role.GetId()] = true
+	}
+
+	bindings := req.GetBindings().GetItems()
+	headerRoles := make([]string, 0, len(bindings)+1)
+	for _, binding := range bindings {
+		if binding.GetId() == auth.AdminRoleBindingName {
+			headerRoles = append(headerRoles, "admin")
+			break
+		}
+		if _, ok := existingRoles[binding.GetId()]; ok {
+			headerRoles = append(headerRoles, binding.GetId())
+		}
+	}
+	headerRoles = append(headerRoles, "kibanauser")
+
+	return &proxyv1.HeaderResponse{
+		Headers: []*proxyv1.Header{
+			{
+				Key:    "x-proxy-user",
+				Values: []string{req.GetUser()},
+			},
+			{
+				Key:    "x-proxy-roles",
+				Values: []string{strings.Join(headerRoles, ",")},
+			},
+		},
+	}, nil
+}
 
 func (b *LoggingBackend) GetAvailablePermissions(_ context.Context, _ *emptypb.Empty) (*corev1.AvailablePermissions, error) {
 	return &corev1.AvailablePermissions{

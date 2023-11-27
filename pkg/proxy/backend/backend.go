@@ -13,7 +13,7 @@ import (
 )
 
 type Backend interface {
-	RewriteProxyRequest(string, *corev1.ReferenceList) (func(*httputil.ProxyRequest), error)
+	RewriteProxyRequest(string, *corev1.ReferenceList, string) (func(*httputil.ProxyRequest), error)
 }
 
 type implBackend struct {
@@ -27,6 +27,7 @@ func NewBackend(logger *slog.Logger, client proxyv1.RegisterProxyClient) (Backen
 	if err != nil {
 		return nil, err
 	}
+
 	return &implBackend{
 		backendURL:   info.GetBackend(),
 		pluginClient: client,
@@ -34,7 +35,7 @@ func NewBackend(logger *slog.Logger, client proxyv1.RegisterProxyClient) (Backen
 	}, nil
 }
 
-func (b *implBackend) RewriteProxyRequest(path string, roleList *corev1.ReferenceList) (func(*httputil.ProxyRequest), error) {
+func (b *implBackend) RewriteProxyRequest(path string, roleList *corev1.ReferenceList, user string) (func(*httputil.ProxyRequest), error) {
 	proxyURL, err := url.Parse(b.backendURL)
 	if err != nil {
 		b.logger.Error("failed to parse backend URL")
@@ -43,7 +44,10 @@ func (b *implBackend) RewriteProxyRequest(path string, roleList *corev1.Referenc
 
 	var extraHeaders *proxyv1.HeaderResponse
 	if roleList != nil {
-		extraHeaders, err = b.pluginClient.AuthHeaders(context.TODO(), roleList)
+		extraHeaders, err = b.pluginClient.AuthHeaders(context.TODO(), &proxyv1.HeaderRequest{
+			User:     user,
+			Bindings: roleList,
+		})
 		if err != nil {
 			b.logger.Error("failed to fetch additional headers")
 			return nil, err

@@ -306,6 +306,10 @@ func (d *MockRBACDriver) ListRoles(_ context.Context) (*corev1.RoleList, error) 
 	return out, nil
 }
 
+func (d *MockRBACDriver) GetBackendURL(context.Context) (string, error) {
+	return "http://test.test:5601", nil
+}
+
 func init() {
 	stateStore := &loggingutil.MockInstallState{}
 	backenddriver.ClusterDrivers.Register("mock-driver", func(_ context.Context, _ ...driverutil.Option) (backenddriver.ClusterDriver, error) {

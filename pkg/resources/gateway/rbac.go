@@ -74,7 +74,7 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 			},
 			{
 				APIGroups: []string{
-					"opensearch.opster.io",
+					"github.com/Opster/opensearch-k8s-operator/opensearch-operator",
 				},
 				Resources: []string{
 					"opensearchclusters",
@@ -87,7 +87,7 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 			},
 			{
 				APIGroups: []string{
-					"opensearch.opster.io",
+					"github.com/Opster/opensearch-k8s-operator/opensearch-operator",
 				},
 				Resources: []string{
 					"opensearchroles",

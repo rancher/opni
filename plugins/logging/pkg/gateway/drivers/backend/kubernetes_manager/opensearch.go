@@ -4,10 +4,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
+	opsterv1 "github.com/Opster/opensearch-k8s-operator/opensearch-operator/api/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	opsterv1 "opensearch.opster.io/api/v1"
 )
 
 const (

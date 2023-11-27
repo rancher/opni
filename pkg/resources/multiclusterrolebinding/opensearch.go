@@ -4,17 +4,19 @@ import (
 	"fmt"
 	"time"
 
+	opensearchv1 "github.com/Opster/opensearch-k8s-operator/opensearch-operator/api/v1"
+	"github.com/Opster/opensearch-k8s-operator/opensearch-operator/pkg/helpers"
+	opensearchk8s "github.com/Opster/opensearch-k8s-operator/opensearch-operator/pkg/reconcilers/k8s"
 	"github.com/rancher/opni/pkg/opensearch/certs"
 	opensearchtypes "github.com/rancher/opni/pkg/opensearch/opensearch/types"
 	opensearch "github.com/rancher/opni/pkg/opensearch/reconciler"
 	"github.com/rancher/opni/pkg/resources"
-	opensearchv1 "opensearch.opster.io/api/v1"
-	"opensearch.opster.io/pkg/helpers"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.OpenSearchCluster) (retResult *reconcile.Result, retErr error) {
-	username, password, retErr := helpers.UsernameAndPassword(r.ctx, r.client, opensearchCluster)
+	opensearchClient := opensearchk8s.NewK8sClient(r.client, r.ctx)
+	username, password, retErr := helpers.UsernameAndPassword(opensearchClient, opensearchCluster)
 	if retErr != nil {
 		return
 	}

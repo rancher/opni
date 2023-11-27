@@ -8,6 +8,9 @@ import (
 
 	"log/slog"
 
+	opsterv1 "github.com/Opster/opensearch-k8s-operator/opensearch-operator/api/v1"
+	"github.com/Opster/opensearch-k8s-operator/opensearch-operator/pkg/helpers"
+	opensearchk8s "github.com/Opster/opensearch-k8s-operator/opensearch-operator/pkg/reconcilers/k8s"
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/apis"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
@@ -30,8 +33,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
-	opsterv1 "opensearch.opster.io/api/v1"
-	"opensearch.opster.io/pkg/helpers"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -145,7 +146,8 @@ FETCH:
 		}
 	}
 
-	username, _, err := helpers.UsernameAndPassword(ctx, d.K8sClient, cluster)
+	opensearchK8sClient := opensearchk8s.NewK8sClient(d.K8sClient, ctx)
+	username, _, err := helpers.UsernameAndPassword(opensearchK8sClient, cluster)
 	if err != nil {
 		panic(err)
 	}

@@ -1,11 +1,11 @@
 package v1beta1
 
 import (
+	openv1 "github.com/Opster/opensearch-k8s-operator/opensearch-operator/api/v1"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	openv1 "opensearch.opster.io/api/v1"
 )
 
 const (

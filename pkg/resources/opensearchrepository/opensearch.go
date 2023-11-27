@@ -3,12 +3,12 @@ package opensearchrepository
 import (
 	"errors"
 
+	opensearchv1 "github.com/Opster/opensearch-k8s-operator/opensearch-operator/api/v1"
 	"github.com/rancher/opni/pkg/opensearch/certs"
 	osapi "github.com/rancher/opni/pkg/opensearch/opensearch/types"
 	opensearch "github.com/rancher/opni/pkg/opensearch/reconciler"
 	"github.com/rancher/opni/pkg/util/meta"
 	"k8s.io/client-go/util/retry"
-	opensearchv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )

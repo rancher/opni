@@ -9,6 +9,8 @@ import (
 
 	"log/slog"
 
+	opsterv1 "github.com/Opster/opensearch-k8s-operator/opensearch-operator/api/v1"
+	"github.com/Opster/opensearch-k8s-operator/opensearch-operator/pkg/builders"
 	"github.com/rancher/opni/apis"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
@@ -29,7 +31,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
-	opsterv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -441,6 +442,15 @@ func (d *KubernetesManagerDriver) ListRoles(ctx context.Context) (*corev1.RoleLi
 		}
 	}
 	return retList, nil
+}
+
+func (d *KubernetesManagerDriver) GetBackendURL(ctx context.Context) (string, error) {
+	cluster, err := d.fetchOpensearch(ctx)
+	if err != nil {
+		return "", k8sutilerrors.GRPCFromK8s(err)
+	}
+	host := builders.DashboardsServiceName(cluster)
+	return fmt.Sprintf("http://%s.%s:5601", host, d.Namespace), nil
 }
 
 func (d *KubernetesManagerDriver) fetchOpensearch(ctx context.Context) (*opsterv1.OpenSearchCluster, error) {

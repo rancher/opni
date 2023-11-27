@@ -35,6 +35,7 @@ type RBACDriver interface {
 	UpdateRole(context.Context, *corev1.Role) error
 	DeleteRole(context.Context, *corev1.Reference) error
 	ListRoles(context.Context) (*corev1.RoleList, error)
+	GetBackendURL(context.Context) (string, error)
 }
 
 var (

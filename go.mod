@@ -8,6 +8,7 @@ require (
 	github.com/99designs/keyring v1.2.2
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Masterminds/semver v1.5.0
+	github.com/Opster/opensearch-k8s-operator/opensearch-operator v0.0.0-00010101000000-000000000000
 	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b
 	github.com/alecthomas/kingpin/v2 v2.3.2
 	github.com/alitto/pond v1.8.3
@@ -165,7 +166,6 @@ require (
 	k8s.io/client-go v0.28.3
 	k8s.io/component-base v0.28.3
 	k8s.io/kubectl v0.28.2
-	opensearch.opster.io v0.0.0-00010101000000-000000000000
 	sigs.k8s.io/controller-runtime v0.16.3
 	sigs.k8s.io/node-feature-discovery-operator v0.2.1-0.20230131182250-99b8584e2745
 	sigs.k8s.io/yaml v1.3.0
@@ -594,6 +594,8 @@ replace github.com/openshift/api => github.com/openshift/api v0.0.0-202102162110
 replace (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go => github.com/kralicky/protovalidate/tools/internal/gen v0.0.0-20231106202428-cb08e3797203
 	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be
+	//opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20231124032547-2158e537f8ea
+	github.com/Opster/opensearch-k8s-operator/opensearch-operator => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20231124032547-2158e537f8ea
 	github.com/bufbuild/protovalidate-go => github.com/kralicky/protovalidate-go v0.0.0-20231106202554-5e160b661210
 	github.com/cortexproject/cortex => github.com/kralicky/cortex v1.16.0-opni.9
 	// TODO: Update when https://github.com/grafana-operator/grafana-operator/pull/1301/files is merged
@@ -604,7 +606,6 @@ replace (
 	github.com/opensearch-project/opensearch-go/v2 => github.com/dbason/opensearch-go/v2 v2.0.0-20221202021211-6aec8f80bc41
 	github.com/rancher/charts-build-scripts => github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116
 	github.com/samber/slog-sampling => github.com/jan-law/slog-sampling v0.0.0-20231013170129-ef692b2d04c4
-	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20230911044558-c677eb01b26a
 )
 
 // Cortex replacements (copied from cortex go.mod)

@@ -7,14 +7,15 @@ import (
 	"os"
 	"time"
 
+	opsterv1 "github.com/Opster/opensearch-k8s-operator/opensearch-operator/api/v1"
+	"github.com/Opster/opensearch-k8s-operator/opensearch-operator/pkg/helpers"
+	opensearchk8s "github.com/Opster/opensearch-k8s-operator/opensearch-operator/pkg/reconcilers/k8s"
 	"github.com/cenkalti/backoff"
 	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	"github.com/nats-io/nats.go"
 	opensearch "github.com/opensearch-project/opensearch-go"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	opsterv1 "opensearch.opster.io/api/v1"
-	"opensearch.opster.io/pkg/helpers"
 )
 
 func newNatsConnection() (*nats.Conn, error) {
@@ -72,7 +73,8 @@ FETCH:
 			break FETCH
 		}
 	}
-	esUsername, esPassword, err := helpers.UsernameAndPassword(s.ctx, s.k8sClient, cluster)
+	opensearchK8sClient := opensearchk8s.NewK8sClient(s.k8sClient, s.ctx)
+	esUsername, esPassword, err := helpers.UsernameAndPassword(opensearchK8sClient, cluster)
 	if err != nil {
 		panic(err)
 	}

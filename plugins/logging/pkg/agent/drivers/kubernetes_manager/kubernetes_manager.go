@@ -38,7 +38,7 @@ const (
 	secretName         = "opni-internal-auth"
 	secretKey          = "password"
 	dataPrepperName    = "opni-shipper"
-	dataPrepperVersion = "2.2.1"
+	dataPrepperVersion = "2.6.0"
 	clusterOutputName  = "opni-output"
 	clusterFlowName    = "opni-flow"
 	loggingConfigName  = "opni-logging"

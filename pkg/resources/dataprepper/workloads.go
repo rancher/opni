@@ -77,7 +77,7 @@ service-map-pipeline:
     pipeline:
       name: "otel-trace-pipeline"
   processor:
-    - service_map_stateful:
+    - service_map:
         window_duration: 180 
   buffer:
     bounded_blocking:

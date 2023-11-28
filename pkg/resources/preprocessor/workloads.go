@@ -35,6 +35,9 @@ receivers:
       grpc: {}
       http: {}
 processors:
+  batch:
+    timeout: 15s
+    send_batch_size: 1000
   resource:
     attributes:
     - key: container_image
@@ -112,6 +115,7 @@ service:
       exporters: ["opensearch"]
     traces:
       receivers: ["otlp"]
+      processors: ["batch"]
       exporters: ["otlp"]
 `))
 )

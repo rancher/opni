@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/cisco-open/operator-tools/pkg/reconciler"
+	apicorev1 "github.com/rancher/opni/apis/core/v1"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources"
@@ -22,7 +23,7 @@ type Reconciler struct {
 	ctx    context.Context
 	client client.Client
 	mc     *corev1beta1.MonitoringCluster
-	gw     *corev1beta1.Gateway
+	gw     *apicorev1.Gateway
 	lg     *slog.Logger
 }
 
@@ -47,7 +48,7 @@ func NewReconciler(
 }
 
 func (r *Reconciler) Reconcile() (reconcile.Result, error) {
-	gw := &corev1beta1.Gateway{}
+	gw := &apicorev1.Gateway{}
 	err := r.client.Get(r.ctx, types.NamespacedName{
 		Name:      r.mc.Spec.Gateway.Name,
 		Namespace: r.mc.Namespace,
@@ -71,11 +72,11 @@ func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 
 	allResources := []resources.Resource{}
 
-	grafanaResources, err := r.grafana()
-	if err != nil {
-		return k8sutil.RequeueErr(err).Result()
-	}
-	allResources = append(allResources, grafanaResources...)
+	// grafanaResources, err := r.grafana()
+	// if err != nil {
+	// 	return k8sutil.RequeueErr(err).Result()
+	// }
+	// allResources = append(allResources, grafanaResources...)
 
 	if op := resources.ReconcileAll(r, allResources); op.ShouldRequeue() {
 		return op.Result()

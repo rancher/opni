@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	apicorev1 "github.com/rancher/opni/apis/core/v1"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 
 	"github.com/rancher/opni/pkg/resources/alerting"
@@ -62,7 +63,7 @@ func (r *CoreAlertingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Service{}).
 		Owns(&corev1.Secret{}).
 		Watches(
-			&corev1beta1.Gateway{},
+			&apicorev1.Gateway{},
 			handler.EnqueueRequestsFromMapFunc(r.findAlertingClusters),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).

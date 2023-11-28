@@ -6,7 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/cisco-open/operator-tools/pkg/reconciler"
-	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	apicorev1 "github.com/rancher/opni/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util/k8sutil"
@@ -21,14 +21,14 @@ type Reconciler struct {
 	reconciler.ResourceReconciler
 	ctx    context.Context
 	client client.Client
-	gw     *corev1beta1.Gateway
+	gw     *apicorev1.Gateway
 	lg     *slog.Logger
 }
 
 func NewReconciler(
 	ctx context.Context,
 	client client.Client,
-	instance *corev1beta1.Gateway,
+	instance *apicorev1.Gateway,
 ) *Reconciler {
 	return &Reconciler{
 		ResourceReconciler: reconciler.NewReconcilerWith(client,
@@ -53,30 +53,30 @@ func (r *Reconciler) Reconcile() (retResult reconcile.Result, retErr error) {
 		return k8sutil.Requeue().Result()
 	}
 
+	certs, err := r.certs()
+	if err != nil {
+		return k8sutil.RequeueErr(err).Result()
+	}
+	if op := resources.ReconcileAll(r, certs); op.ShouldRequeue() {
+		return op.Result()
+	}
+	if res := r.checkConfiguration(); res.ShouldRequeue() {
+		return res.Result()
+	}
+
 	allResources := []resources.Resource{}
 	etcdResources, err := r.etcd()
 	if err != nil {
 		return k8sutil.RequeueErr(err).Result()
 	}
 	allResources = append(allResources, etcdResources...)
-	configMap, configDigest, err := r.configMap()
-	if err != nil {
-		return k8sutil.RequeueErr(err).Result()
-	}
-	allResources = append(allResources, configMap)
-	certs, err := r.certs()
-	if err != nil {
-		return k8sutil.RequeueErr(err).Result()
-	}
-	allResources = append(allResources, certs...)
+
 	keys, err := r.ephemeralKeys()
 	if err != nil {
 		return k8sutil.RequeueErr(err).Result()
 	}
 	allResources = append(allResources, keys...)
-	deployment, err := r.deployment(map[string]string{
-		resources.OpniConfigHash: configDigest,
-	})
+	deployment, err := r.deployment(nil)
 	if err != nil {
 		return k8sutil.RequeueErr(err).Result()
 	}

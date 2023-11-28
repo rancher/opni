@@ -14,7 +14,7 @@ import "google/protobuf/empty.proto";
 option go_package = "github.com/rancher/opni/pkg/apis/management/v1";
 
 option (cli.generator) = {
-  generate:          true
+  generate: true
 };
 
 service LocalPassword {
@@ -118,13 +118,13 @@ service Management {
       granularity: EditMessage
     };
     option (google.api.http) = {
-      put: "/rbac/backend/{capability.name}/roles"
+      put:  "/rbac/backend/{capability.name}/roles"
       body: "*"
     };
   }
   rpc DeleteBackendRole(core.BackendRoleRequest) returns (google.protobuf.Empty) {
     option (cli.command) = {
-      use:         "backend-roles delete"
+      use: "backend-roles delete"
     };
     option (google.api.http) = {
       delete: "/rbac/backend/{capability.name}/roles/{roleRef.id}"
@@ -132,7 +132,7 @@ service Management {
   }
   rpc GetBackendRole(core.BackendRoleRequest) returns (core.Role) {
     option (cli.command) = {
-      use:         "backend-roles get"
+      use: "backend-roles get"
     };
     option (google.api.http) = {
       get: "/rbac/backend/{capability.name}/roles/{roleRef.id}"
@@ -140,7 +140,7 @@ service Management {
   }
   rpc ListBackendRoles(core.CapabilityType) returns (core.RoleList) {
     option (cli.command) = {
-      use:         "backend-roles list"
+      use: "backend-roles list"
     };
     option (google.api.http) = {
       get: "/rbac/backend/{name}/roles"

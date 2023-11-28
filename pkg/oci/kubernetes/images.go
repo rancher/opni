@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	apicorev1 "github.com/rancher/opni/apis/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,7 +25,7 @@ var retryBackoff = wait.Backoff{
 }
 
 func (d *kubernetesResolveImageDriver) getOpniImageString(ctx context.Context) (string, error) {
-	gateway := &corev1beta1.Gateway{}
+	gateway := &apicorev1.Gateway{}
 	retryFunc := func() error {
 		err := d.k8sClient.Get(ctx, client.ObjectKey{
 			Namespace: d.namespace,

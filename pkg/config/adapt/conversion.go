@@ -1,6 +1,8 @@
 package adapt
 
 import (
+	"strings"
+
 	configv1 "github.com/rancher/opni/pkg/config/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/samber/lo"
@@ -14,14 +16,14 @@ func V1GatewayConfigOf[T *v1beta1.GatewayConfig | *configv1.GatewayConfigSpec](i
 		return &configv1.GatewayConfigSpec{
 			Server: &configv1.ServerSpec{
 				HttpListenAddress: &in.Spec.HTTPListenAddress,
-				GrpcListenAddress: &in.Spec.GRPCListenAddress,
+				GrpcListenAddress: lo.ToPtr(strings.TrimPrefix(in.Spec.GRPCAdvertiseAddress, "tcp://")),
 			},
 			Management: &configv1.ManagementServerSpec{
-				HttpListenAddress: lo.ToPtr(in.Spec.Management.GetHTTPListenAddress()),
-				GrpcListenAddress: lo.ToPtr(in.Spec.Management.GetGRPCListenAddress()),
+				HttpListenAddress: &in.Spec.Management.HTTPListenAddress,
+				GrpcListenAddress: lo.ToPtr(strings.TrimPrefix(in.Spec.Management.GetGRPCListenAddress(), "tcp://")),
 			},
 			Relay: &configv1.RelayServerSpec{
-				GrpcListenAddress: &in.Spec.Management.RelayListenAddress,
+				GrpcListenAddress: lo.ToPtr(strings.TrimPrefix(in.Spec.Management.RelayListenAddress, "tcp://")),
 				AdvertiseAddress:  &in.Spec.Management.RelayAdvertiseAddress,
 			},
 			Health: &configv1.HealthServerSpec{

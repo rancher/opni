@@ -1,0 +1,123 @@
+syntax = "proto3";
+
+package config.v1;
+
+import "github.com/rancher/opni/internal/codegen/cli/cli.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "github.com/rancher/opni/pkg/config/v1/gateway_config.proto";
+import "github.com/rancher/opni/pkg/plugins/driverutil/types.proto";
+import "github.com/rancher/opni/pkg/validation/validate.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+
+option go_package      = "github.com/rancher/opni/pkg/config/v1;configv1";
+option (cli.generator) = {
+  generate: true
+};
+
+// Gateway configuration management
+service GatewayConfig {
+  option (cli.command_group) = {
+    use: "config"
+  };
+
+  rpc GetDefaultConfiguration(driverutil.GetRequest) returns (GatewayConfigSpec) {
+    option (cli.command) = {
+      use: "get-default"
+    };
+  }
+  rpc SetDefaultConfiguration(SetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use:         "set-default"
+      granularity: EditMessage
+    };
+  }
+  rpc GetConfiguration(driverutil.GetRequest) returns (GatewayConfigSpec) {
+    option (cli.command) = {
+      use: "get"
+    };
+  }
+  rpc SetConfiguration(SetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use:         "set"
+      granularity: EditMessage
+    };
+  }
+  rpc ResetDefaultConfiguration(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use: "reset-default"
+    };
+  }
+  rpc ResetConfiguration(ResetRequest) returns (google.protobuf.Empty) {
+    option (cli.command) = {
+      use:         "reset"
+      granularity: EditMessage
+    };
+  }
+  rpc DryRun(DryRunRequest) returns (DryRunResponse) {
+    option (cli.command).skip = true;
+  }
+  rpc ConfigurationHistory(driverutil.ConfigurationHistoryRequest) returns (HistoryResponse) {
+    option (cli.command) = {
+      use: "history"
+    };
+  }
+  rpc WatchReactive(ReactiveWatchRequest) returns (stream ReactiveEvents) {
+    option (cli.command) = {
+      use: "watch"
+    };
+  }
+}
+
+message ReactiveWatchRequest {
+  // If true, uses [reactive.Bind] to watch all paths at once. If false,
+  // each path recieves updates separately.
+  bool bind = 1;
+
+  // List of paths to watch.
+  repeated string paths = 2;
+}
+
+message ReactiveEvents {
+  // In bind mode, this will contain one item for each path in the request,
+  // in order. Otherwise, this will only contain a single item.
+  repeated ReactiveEvent items = 1;
+}
+
+message ReactiveEvent {
+  // The path that triggered this event, as an index into the request path list.
+  int32 index = 1;
+
+  core.Value value = 2;
+}
+
+message SetRequest {
+  GatewayConfigSpec spec = 1;
+}
+
+message ResetRequest {
+  core.Revision             revision = 1 [(cli.flag_set).no_prefix = true];
+  google.protobuf.FieldMask mask     = 2 [(cli.flag).skip = true];
+  GatewayConfigSpec         patch    = 3 [(cli.flag).skip = true];
+}
+
+message DryRunRequest {
+  driverutil.Target target = 1;
+  driverutil.Action action = 2;
+
+  GatewayConfigSpec spec = 3; // Set
+
+  core.Revision             revision = 4; // Reset
+  GatewayConfigSpec         patch    = 5; // Reset
+  google.protobuf.FieldMask mask     = 6 [(cli.flag).skip = true]; // Reset
+}
+
+message DryRunResponse {
+  GatewayConfigSpec       current          = 1;
+  GatewayConfigSpec       modified         = 2;
+  buf.validate.Violations validationErrors = 3;
+}
+
+message HistoryResponse {
+  repeated GatewayConfigSpec entries = 1;
+}

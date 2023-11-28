@@ -26,6 +26,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+const FieldManagerName = "opni-crd-value-store"
+
 type ValueStoreMethods[O client.Object, T driverutil.ConfigType[T]] interface {
 	ControllerReference() (client.Object, bool)
 	FillObjectFromConfig(obj O, conf T)
@@ -154,7 +156,7 @@ func (s *CRDValueStore[O, T]) Put(ctx context.Context, value T, opts ...storage.
 	s.methods.FillObjectFromConfig(obj, value)
 
 	if !exists {
-		err := s.client.Create(ctx, obj)
+		err := s.client.Create(ctx, obj, client.FieldOwner(FieldManagerName))
 		if err != nil {
 			return toGrpcError(err)
 		}
@@ -166,7 +168,8 @@ func (s *CRDValueStore[O, T]) Put(ctx context.Context, value T, opts ...storage.
 			obj.SetResourceVersion(strconv.FormatInt(*putOptions.Revision, 10))
 		}
 
-		err := s.client.Update(ctx, obj)
+		obj.GetObjectKind().SetGroupVersionKind(s.gvk)
+		err := s.client.Update(ctx, obj, client.FieldOwner(FieldManagerName))
 		if err != nil {
 			return toGrpcError(err)
 		}

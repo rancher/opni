@@ -352,7 +352,7 @@ func getLockManager(ctx context.Context, config *LockBackendConfig) (storage.Loc
 		return lm, nil
 	}
 	if config.Jetstream != nil {
-		js, err := jetstream.AcquireJetstreamConn(context.Background(), config.Jetstream, logger.New().WithGroup("js"))
+		_, js, err := jetstream.AcquireJetstreamConn(context.Background(), config.Jetstream, logger.New().WithGroup("js"))
 		if err != nil {
 			return nil, err
 		}

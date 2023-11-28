@@ -12,10 +12,10 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 )
 
-func AcquireJetstreamConn(ctx context.Context, conf *v1beta1.JetStreamStorageSpec, lg *slog.Logger) (nats.JetStreamContext, error) {
+func AcquireJetstreamConn(ctx context.Context, conf *v1beta1.JetStreamStorageSpec, lg *slog.Logger) (*nats.Conn, nats.JetStreamContext, error) {
 	nkeyOpt, err := nats.NkeyOptionFromSeed(conf.NkeySeedPath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	nc, err := nats.Connect(conf.Endpoint,
 		nkeyOpt,
@@ -40,7 +40,7 @@ func AcquireJetstreamConn(ctx context.Context, conf *v1beta1.JetStreamStorageSpe
 		}),
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	ctrl := backoff.Exponential(
@@ -56,16 +56,16 @@ func AcquireJetstreamConn(ctx context.Context, conf *v1beta1.JetStreamStorageSpe
 		}
 		select {
 		case <-ctrl.Done():
-			return nil, ctx.Err()
+			return nil, nil, ctx.Err()
 		case <-ctrl.Next():
 		}
 	}
 
 	js, err := nc.JetStream(nats.Context(ctx))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return js, nil
+	return nc, js, nil
 }
 
 // Takes a prefix path and replaces invalid elements for jetstream with their valid identifiers

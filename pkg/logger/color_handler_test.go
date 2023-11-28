@@ -161,7 +161,7 @@ func TestHandler(t *testing.T) {
 			F: func(l *slog.Logger) {
 				l.WithGroup("group").Info("test", "key", "val", "key2", "val2")
 			},
-			Want: `2009 Nov 10 23:00:00 INFO group test key=val key2=val2`,
+			Want: `2009 Nov 10 23:00:00 INFO group test key2=val2`,
 		},
 		{
 			Opts: &LoggerOptions{

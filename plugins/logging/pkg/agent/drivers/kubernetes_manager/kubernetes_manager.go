@@ -120,17 +120,13 @@ func (m *KubernetesManagerDriver) ConfigureNode(config *node.LoggingCapabilityCo
 	var success bool
 BACKOFF:
 	for backoff.Continue(b) {
-		for _, obj := range []client.Object{
-			m.buildDataPrepper(),
-			m.buildLoggingCollectorConfig(),
-		} {
-			if err := m.reconcileObject(obj, false); err != nil {
-				m.Logger.With(
-					"object", client.ObjectKeyFromObject(obj).String(),
-					logger.Err(err),
-				).Error("error reconciling object")
-				continue BACKOFF
-			}
+		logCollectorConf := m.buildLoggingCollectorConfig()
+		if err := m.reconcileObject(logCollectorConf, config.Enabled); err != nil {
+			m.Logger.With(
+				"object", client.ObjectKeyFromObject(logCollectorConf).String(),
+				logger.Err(err),
+			).Error("error reconciling object")
+			continue BACKOFF
 		}
 
 		if err := m.reconcileCollector(config.Enabled); err != nil {

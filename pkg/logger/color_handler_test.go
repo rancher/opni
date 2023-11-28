@@ -333,6 +333,14 @@ func TestHandler(t *testing.T) {
 			},
 			Want: `2009 Nov 10 23:00:00 ERROR group test err=fail`,
 		},
+		{
+			F: func(l *slog.Logger) {
+				var t *T
+				l = l.With("t", t)
+				l.Info("test")
+			},
+			Want: `2009 Nov 10 23:00:00 INFO test t=""`,
+		},
 	}
 
 	for i, test := range tests {
@@ -523,3 +531,11 @@ var (
 	testDuration = 23 * time.Second
 	errTest      = errors.New("fail")
 )
+
+type T struct {
+	U
+}
+
+type U interface {
+	MarshalText() ([]byte, error)
+}

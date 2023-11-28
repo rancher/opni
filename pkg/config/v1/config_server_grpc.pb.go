@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - ragu               v1.0.0
-// source: github.com/rancher/opni/pkg/config/v1/gateway_config.proto
+// source: github.com/rancher/opni/pkg/config/v1/config_server.proto
 
 package configv1
 
@@ -429,5 +429,5 @@ var GatewayConfig_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "github.com/rancher/opni/pkg/config/v1/gateway_config.proto",
+	Metadata: "github.com/rancher/opni/pkg/config/v1/config_server.proto",
 }

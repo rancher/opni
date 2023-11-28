@@ -28,10 +28,6 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 	if err != nil {
 		return nil, err
 	}
-	// pvc, err := r.pluginCachePVC()
-	// if err != nil {
-	// 	return nil, err
-	// }
 
 	gatewayApiVersion := r.gw.APIVersion
 	replicas := r.gw.Spec.Replicas
@@ -104,10 +100,6 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 							),
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name:      "config",
-									MountPath: "/etc/opni",
-								},
-								{
 									Name:      "amtool",
 									MountPath: "/etc/amtool",
 								},
@@ -144,10 +136,8 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 									MountPath: "/var/lib/opni/plugin-cache",
 								},
 								{
-									Name:        "local-agent-key",
-									MountPath:   "/run/opni/keyring/session-attribute.json",
-									SubPathExpr: "session-attribute.json",
-									ReadOnly:    true,
+									Name:      "local-agent-key",
+									MountPath: "/run/opni/keyring",
 								},
 							},
 							Ports: append(append(publicPorts, internalPorts...), adminDashboardPorts...),
@@ -191,17 +181,6 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 					},
 					Volumes: []corev1.Volume{
 						{
-							Name: "config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "opni-gateway",
-									},
-									DefaultMode: lo.ToPtr[int32](0400),
-								},
-							},
-						},
-						{
 							Name: "amtool",
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -216,7 +195,13 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 							Name: "certs",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName:  "opni-gateway-serving-cert",
+									SecretName: "opni-gateway-serving-cert",
+									Items: []corev1.KeyToPath{
+										{
+											Key:  "tls.key",
+											Path: "tls.key",
+										},
+									},
 									DefaultMode: lo.ToPtr[int32](0400),
 								},
 							},
@@ -403,21 +388,23 @@ func (r *Reconciler) deployment(extraAnnotations map[string]string) ([]resources
 		gatewayStatefulSet.Spec.Template.Spec.Containers[0].VolumeMounts =
 			append(gatewayStatefulSet.Spec.Template.Spec.Containers[0].VolumeMounts, volMount)
 	}
-	// add additional volumes for alerting
-	if r.gw.Spec.Alerting.Enabled && r.gw.Spec.Alerting.GatewayVolumeMounts != nil {
-		for _, alertVol := range r.gw.Spec.Alerting.GatewayVolumeMounts {
-			vol := corev1.Volume{
-				Name:         alertVol.Name,
-				VolumeSource: alertVol.VolumeSource,
-			}
-			volMount := corev1.VolumeMount{
-				Name:      alertVol.Name,
-				MountPath: alertVol.MountPath,
-			}
-			gatewayStatefulSet.Spec.Template.Spec.Volumes = append(gatewayStatefulSet.Spec.Template.Spec.Volumes, vol)
-			gatewayStatefulSet.Spec.Template.Spec.Containers[0].VolumeMounts = append(gatewayStatefulSet.Spec.Template.Spec.Containers[0].VolumeMounts, volMount)
-		}
-	}
+
+	// TODO(config)
+	// // add additional volumes for alerting
+	// if r.gw.Spec.Alerting.Enabled && r.gw.Spec.Alerting.GatewayVolumeMounts != nil {
+	// 	for _, alertVol := range r.gw.Spec.Alerting.GatewayVolumeMounts {
+	// 		vol := corev1.Volume{
+	// 			Name:         alertVol.Name,
+	// 			VolumeSource: alertVol.VolumeSource,
+	// 		}
+	// 		volMount := corev1.VolumeMount{
+	// 			Name:      alertVol.Name,
+	// 			MountPath: alertVol.MountPath,
+	// 		}
+	// 		gatewayStatefulSet.Spec.Template.Spec.Volumes = append(gatewayStatefulSet.Spec.Template.Spec.Volumes, vol)
+	// 		gatewayStatefulSet.Spec.Template.Spec.Containers[0].VolumeMounts = append(gatewayStatefulSet.Spec.Template.Spec.Containers[0].VolumeMounts, volMount)
+	// 	}
+	// }
 
 	ctrl.SetControllerReference(r.gw, gatewayStatefulSet, r.client.Scheme())
 	return []resources.Resource{

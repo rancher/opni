@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/cisco-open/operator-tools/pkg/reconciler"
+	corev1 "github.com/rancher/opni/apis/core/v1"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources"
@@ -20,7 +21,7 @@ type Reconciler struct {
 	ctx    context.Context
 	client client.Client
 	ac     *corev1beta1.AlertingCluster
-	gw     *corev1beta1.Gateway
+	gw     *corev1.Gateway
 	lg     *slog.Logger
 }
 
@@ -46,7 +47,7 @@ func NewReconciler(
 }
 
 func (r *Reconciler) Reconcile() (reconcile.Result, error) {
-	gw := &corev1beta1.Gateway{}
+	gw := &corev1.Gateway{}
 	err := r.client.Get(r.ctx, client.ObjectKey{
 		Name:      r.ac.Spec.Gateway.Name,
 		Namespace: r.ac.Namespace,

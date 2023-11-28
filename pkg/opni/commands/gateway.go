@@ -8,7 +8,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bufbuild/protovalidate-go"
+	"github.com/nsf/jsondiff"
 	opnicorev1 "github.com/rancher/opni/apis/core/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/config/reactive"
 	"github.com/rancher/opni/pkg/config/reactive/subtle"
 	configv1 "github.com/rancher/opni/pkg/config/v1"
@@ -21,8 +24,8 @@ import (
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/update/noop"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/fieldmask"
 	"github.com/rancher/opni/pkg/util/flagutil"
-	"github.com/rancher/opni/pkg/util/merge"
 	"github.com/rancher/opni/pkg/validation"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -31,6 +34,7 @@ import (
 	_ "github.com/rancher/opni/pkg/oci/kubernetes"
 	_ "github.com/rancher/opni/pkg/oci/noop"
 	_ "github.com/rancher/opni/pkg/plugins/apis"
+	"github.com/rancher/opni/pkg/plugins/driverutil"
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/storage/crds"
 	_ "github.com/rancher/opni/pkg/storage/crds"
@@ -233,56 +237,123 @@ import (
 // }
 
 func BuildGatewayCmd() *cobra.Command {
+	var inCluster bool
+	host, hostOk := os.LookupEnv("KUBERNETES_SERVICE_HOST")
+	port, portOk := os.LookupEnv("KUBERNETES_SERVICE_PORT")
+	if hostOk && portOk && host != "" && port != "" {
+		inCluster = true
+	}
+
+	var applyDefaultFlags bool
+	var ignoreValidationErrors bool
+	storageConfig := &configv1.StorageSpec{}
 	config := &configv1.GatewayConfigSpec{}
 	cmd := &cobra.Command{
 		Use:   "gateway",
 		Short: "Run the Opni Gateway",
 		Long: `
-Flags available for this command are defaults, generally only used for the
-initial setup of the Opni Gateway. Most users will want to configure
-the gateway after installation using the dashboard UI or via the 'opni config'
-CLI command.
+Flags and Configuration
+===========================
+Flags for this command are split into two categories: 'storage' flags and
+'default' flags. Though the storage spec is contained within the complete
+gateway configuration, but is separated for startup and initialization purposes,
 
-The values of these flags are defaults that are used as an initial base
-configuration, and can be reverted to if necessary.
 
-When running in Kubernetes, the Gateway custom resource is the corresponding
-"active" configuration. Using the dashboard or CLI to change these settings
-will update the custom resource; if possible, avoid editing it directly.
+Storage flags (--storage.*)
+===========================
+These flags configure the storage backend used to persist and retrieve
+the active configuration. The values set by these flags will take precedence
+over the corresponding values in the active configuration, if it exists.
+* If running in Kubernetes, these flags are ignored.
 
-Outside of Kubernetes, the active configuration is persisted in the KV store.
-Regardless of runtime environment, the config APIs work the same way.
 
-These defaults can be modified at runtime, but changes to the defaults will not
-be persisted across restarts. To persist changes, use the active configuration
-mechanisms described above. Note that similar configuration APIs for other
-Opni components generally do persist their default config in the KV store. The
-Gateway is different in this regard.
+Default flags (--default.*)
+===========================
+These flags allow adjusting the default values used when starting up the
+gateway for the first time. They are all optional, and are ignored once
+an active configuration has been created. However, if --apply-default-flags
+is set, if there is an existing active configuration, any --default.* flags
+listed on the command line will be applied to the active configuration before
+starting the gateway.
+
+* If running in Kubernetes, these flags are ignored, and --apply-default-flags
+  has no effect.
+
+
+Startup Logic
+===========================
+If the gateway is running inside a Kubernetes cluster, see the section below
+for startup logic specific to Kubernetes. Regardless of runtime environment,
+the runtime config APIs work the same way.
+
+The gateway startup logic is as follows:
+
+When the gateway starts up, it uses its storage flags (--storage.*) to connect
+to a KV store and look for an active configuration.
+- If there is no existing active config in the KV store, it will create one
+  with the default values from its flags (--default.*).
+- If there is an existing active config, it will use that. Additionally, before
+  starting the gateway, if --apply-default-flags is set, it will apply any
+  --default.* flags listed on the command line to the active configuration,
+  overwriting any existing values, and persisting the changes to the KV store.
+
+
+Startup Logic (Kubernetes)
+===========================
+When the gateway is running inside Kubernetes, it will look for the Gateway
+custom resource that controls the running pod. Because this custom resource
+controls the deployment of the gateway pod itself, it assumes it will always
+exist. If it does not exist, the gateway will exit with an error.
+
+When running in Kubernetes, the 'config' field in the Gateway custom resource
+is the corresponding "active" configuration. Using the dashboard or CLI to
+change these settings will update the custom resource; if possible, avoid
+editing it directly.
+
+In Kubernetes, all flags are ignored. Because the active configuration is
+always present in the Gateway custom resource, it does not need to supply
+its own default values or storage settings.
+
+
+Runtime Config APIs
+===========================
+Once the gateway has started, the active configuration can be modified at
+runtime using the dashboard UI or the 'opni config' CLI command.
+
+Changes to the active configuration will be persisted to the KV store, and
+relevant components will be notified of changed fields and will reload their
+configuration accordingly (restarting servers, etc).
+
+Changes to the default configuration, while possible, will not be persisted
+across restarts. The gateway only stores its default configuration in-memory.
+Note that similar configuration APIs for other Opni components generally do
+persist their default configurations in the KV store.
 `[1:],
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lg := logger.New()
 			ctx := cmd.Context()
-
 			tracing.Configure("gateway")
-			v, err := validation.NewValidator()
-			if err != nil {
-				return err
-			}
 
 			var storageBackend storage.Backend
 
 			defaultStore := inmemory.NewValueStore[*configv1.GatewayConfigSpec](util.ProtoClone)
-			if err := v.Validate(config); err != nil {
-				fmt.Fprintln(cmd.ErrOrStderr(), err.Error())
-				return errors.New("exiting due to validation errors")
-			}
-			if err := defaultStore.Put(ctx, config); err != nil {
-				return fmt.Errorf("failed to set defaults from flags: %w", err)
-			}
 
+			if !inCluster {
+				v, err := validation.NewValidator()
+				if err != nil {
+					return err
+				}
+				if err := v.Validate(config); err != nil {
+					fmt.Fprintln(cmd.ErrOrStderr(), err.Error())
+					return errors.New("exiting due to validation errors")
+				}
+				if err := defaultStore.Put(ctx, config); err != nil {
+					return fmt.Errorf("failed to set defaults from flags: %w", err)
+				}
+			}
 			var activeStore storage.ValueStoreT[*configv1.GatewayConfigSpec]
 
-			if inCluster() {
+			if inCluster {
 				lg.Info("loading config (in-cluster)")
 				activeStore = crds.NewCRDValueStore[*opnicorev1.Gateway, *configv1.GatewayConfigSpec](types.NamespacedName{
 					Namespace: os.Getenv("POD_NAMESPACE"),
@@ -296,37 +367,79 @@ Gateway is different in this regard.
 				if err != nil {
 					return err
 				}
-				activeStore = kvutil.WithMessageCodec[*configv1.GatewayConfigSpec](
-					kvutil.WithKey(storageBackend.KeyValueStore("gateway"), "config"))
 			} else {
 				lg.Info("loading config")
+				var err error
 				storageBackend, err = machinery.ConfigureStorageBackendV1(ctx, config.GetStorage())
 				if err != nil {
 					return err
 				}
 				lg.Info("storage configured", "backend", config.Storage.GetBackend().String())
-
-				activeStore = kvutil.WithMessageCodec[*configv1.GatewayConfigSpec](
-					kvutil.WithKey(storageBackend.KeyValueStore("gateway"), "config"))
 			}
-			mgr := configv1.NewGatewayConfigManager(defaultStore, activeStore, func(gcs *configv1.GatewayConfigSpec) {
-				flagutil.LoadDefaults(gcs)
-				merge.MergeWithReplace(gcs, config)
-			}, configv1.WithControllerOptions(
-				reactive.WithLogger(lg.WithGroup("config")),
-				reactive.WithDiffMode(reactive.DiffFull),
-			))
+			activeStore = kvutil.WithMessageCodec[*configv1.GatewayConfigSpec](
+				kvutil.WithKey(storageBackend.KeyValueStore("gateway"), "config"))
 
-			if _, err := mgr.Tracker().ActiveStore().Get(context.Background()); err != nil {
-				if storage.IsNotFound(err) {
-					lg.Info("no previous configuration found, creating from defaults")
-					_, err := mgr.SetConfiguration(context.Background(), &configv1.SetRequest{})
+			mgr := configv1.NewGatewayConfigManager(
+				defaultStore, activeStore,
+				flagutil.LoadDefaults,
+				configv1.WithControllerOptions(
+					reactive.WithLogger(lg.WithGroup("config")),
+					reactive.WithDiffMode(reactive.DiffFull),
+				),
+			)
+
+			if !inCluster {
+				var rev *corev1.Revision
+				if ac, err := mgr.Tracker().ActiveStore().Get(context.Background()); err != nil {
+					if storage.IsNotFound(err) {
+						lg.Info("no previous configuration found, creating from defaults")
+						_, err := mgr.SetConfiguration(context.Background(), &configv1.SetRequest{})
+						if err != nil {
+							return fmt.Errorf("failed to set configuration: %w", err)
+						}
+					}
+				} else {
+					rev = ac.GetRevision()
+					lg.Info("loaded existing configuration", "rev", ac.GetRevision().GetRevision())
+				}
+
+				if applyDefaultFlags {
+					mask := fieldmask.ByPresence(config.ProtoReflect())
+					resp, err := mgr.DryRun(ctx, &configv1.DryRunRequest{
+						Target:   driverutil.Target_ActiveConfiguration,
+						Action:   driverutil.Action_Reset,
+						Revision: rev,
+						Patch:    config,
+						Mask:     mask,
+					})
 					if err != nil {
-						return fmt.Errorf("failed to set configuration: %w", err)
+						return err
+					}
+					opts := jsondiff.DefaultConsoleOptions()
+					opts.SkipMatches = true
+					diff, anyChanges := driverutil.RenderJsonDiff(resp.Current, resp.Modified, opts)
+					stat := driverutil.DiffStat(diff, opts)
+					if anyChanges {
+						lg.Info("applying default flags to active configuration", "diff", stat)
+						lg.Info("⤷ diff:\n" + diff)
+					} else {
+						lg.Warn("--apply-default-flags was set, but no changes would be made to the active configuration")
+					}
+					if resp.GetValidationErrors() != nil {
+						lg.Error("refusing to apply default flags due to validation errors (re-run with --ignore-validation-errors to skip this check)")
+						return (*protovalidate.ValidationError)(resp.ValidationErrors)
+					}
+					if anyChanges {
+						_, err := mgr.ResetConfiguration(ctx, &configv1.ResetRequest{
+							Revision: rev,
+							Mask:     mask,
+							Patch:    config,
+						})
+						if err != nil {
+							return err
+						}
 					}
 				}
-			} else {
-				lg.Info("loaded existing configuration")
 			}
 
 			if err := mgr.Start(ctx); err != nil {
@@ -382,18 +495,17 @@ Gateway is different in this regard.
 			return eg.Wait()
 		},
 	}
-	cmd.Flags().AddFlagSet(config.FlagSet("defaults"))
+	if !inCluster {
+		cmd.Flags().AddFlagSet(storageConfig.FlagSet("storage"))
+		cmd.Flags().AddFlagSet(config.FlagSet("defaults"))
+		cmd.Flags().BoolVar(&applyDefaultFlags, "apply-default-flags", false,
+			"Apply default flags listed on the command-line to the active configuration on startup")
+		cmd.Flags().BoolVar(&ignoreValidationErrors, "ignore-validation-errors", false, "Ignore validation errors when applying default flags")
+		cmd.Flags().MarkHidden("ignore-validation-errors")
+	}
 	return cmd
 }
 
 func init() {
 	AddCommandsToGroup(OpniComponents, BuildGatewayCmd())
-}
-
-func inCluster() bool {
-	host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
-	if len(host) == 0 || len(port) == 0 {
-		return false
-	}
-	return true
 }

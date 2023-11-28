@@ -50,7 +50,6 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.3
 	github.com/hashicorp/memberlist v0.5.0
 	github.com/iancoleman/strcase v0.3.0
-	github.com/imdario/mergo v0.3.16
 	github.com/jarcoal/httpmock v1.3.0
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/jhump/protoreflect v1.15.1
@@ -364,6 +363,7 @@ require (
 	github.com/hashicorp/yamux v0.0.0-20211028200310-0bc27b27de87 // indirect
 	github.com/huandu/xstrings v1.4.0
 	github.com/iancoleman/orderedmap v0.2.0 // indirect
+	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/influxdata/go-syslog/v3 v3.0.1-0.20210608084020-ac565dc76ba6 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
@@ -584,7 +584,7 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.13.5-0.20230601165947-6ce0bf390ce3 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.14.3-0.20230601165947-6ce0bf390ce3 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.3.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.3.0
 	sourcegraph.com/sourcegraph/appdash v0.0.0-20211028080628-e2786a622600 // indirect
 )
 

@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strconv"
 	"sync"
@@ -335,6 +336,10 @@ func (h *colorHandler) appendValue(buf *buffer, v slog.Value, shouldQuote bool) 
 		case slog.Level:
 			h.appendLevel(buf, cv)
 		case encoding.TextMarshaler:
+			if reflect.ValueOf(cv).IsNil() {
+				h.appendString(buf, "nil", shouldQuote)
+				break
+			}
 			data, err := cv.MarshalText()
 			if err != nil {
 				break

@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	opnicorev1 "github.com/rancher/opni/apis/core/v1"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
 	"github.com/rancher/opni/pkg/storage"
@@ -133,6 +134,7 @@ var _ = BeforeSuite(func() {
 	testruntime.IfLabelFilterMatches(Label("integration", "slow"), func() {
 		ctx, ca := context.WithCancel(context.Background())
 		s := scheme.Scheme
+		opnicorev1.AddToScheme(s)
 		opnicorev1beta1.AddToScheme(s)
 		monitoringv1beta1.AddToScheme(s)
 		config, _, err := testk8s.StartK8s(ctx, []string{"../../../config/crd/bases"}, s)
@@ -142,6 +144,7 @@ var _ = BeforeSuite(func() {
 
 		k8sClient, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
 			RestConfig: config,
+			Scheme:     s,
 		})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -154,6 +157,6 @@ var _ = BeforeSuite(func() {
 var _ = Describe("CRD Token Store", Ordered, Label("integration", "slow"), TokenStoreTestSuite(store))
 var _ = Describe("CRD RBAC Store", Ordered, Label("integration", "slow"), RBACStoreTestSuite(store))
 var _ = Describe("CRD Keyring Store", Ordered, Label("integration", "slow"), KeyringStoreTestSuite(store))
-var _ = Describe("CRD Value Store", Ordered, Label("integration", "slow"), KeyValueStoreTestSuite(kvStore, newObject, func(a any) types.GomegaMatcher {
+var _ = FDescribe("CRD Value Store", Ordered, Label("integration", "slow"), KeyValueStoreTestSuite(kvStore, newObject, func(a any) types.GomegaMatcher {
 	return testutil.ProtoEqual(a.(proto.Message))
 }))

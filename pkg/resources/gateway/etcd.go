@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rancher/opni/pkg/config/v1beta1"
+	configv1 "github.com/rancher/opni/pkg/config/v1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
@@ -356,7 +356,7 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 
 	ctrl.SetControllerReference(r.gw, statefulset, r.client.Scheme())
 
-	return resources.PresentIff(r.gw.Spec.StorageType == v1beta1.StorageTypeEtcd, statefulset), nil
+	return resources.PresentIff(r.gw.Spec.Config.GetStorage().GetBackend() == configv1.StorageBackend_Etcd, statefulset), nil
 }
 
 func (r *Reconciler) etcdSecrets() ([]resources.Resource, error) {
@@ -399,8 +399,8 @@ func (r *Reconciler) etcdSecrets() ([]resources.Resource, error) {
 
 	ctrl.SetControllerReference(r.gw, password, r.client.Scheme())
 	return []resources.Resource{
-		resources.PresentIff(r.gw.Spec.StorageType == v1beta1.StorageTypeEtcd, password),
-		resources.PresentIff(r.gw.Spec.StorageType == v1beta1.StorageTypeEtcd, token),
+		resources.PresentIff(r.gw.Spec.Config.GetStorage().GetBackend() == configv1.StorageBackend_Etcd, password),
+		resources.PresentIff(r.gw.Spec.Config.GetStorage().GetBackend() == configv1.StorageBackend_Etcd, token),
 	}, nil
 }
 
@@ -449,7 +449,7 @@ func (r *Reconciler) etcdServices() ([]resources.Resource, error) {
 	ctrl.SetControllerReference(r.gw, headless, r.client.Scheme())
 	ctrl.SetControllerReference(r.gw, svc, r.client.Scheme())
 	return []resources.Resource{
-		resources.PresentIff(r.gw.Spec.StorageType == v1beta1.StorageTypeEtcd, headless),
-		resources.PresentIff(r.gw.Spec.StorageType == v1beta1.StorageTypeEtcd, svc),
+		resources.PresentIff(r.gw.Spec.Config.GetStorage().GetBackend() == configv1.StorageBackend_Etcd, headless),
+		resources.PresentIff(r.gw.Spec.Config.GetStorage().GetBackend() == configv1.StorageBackend_Etcd, svc),
 	}, nil
 }

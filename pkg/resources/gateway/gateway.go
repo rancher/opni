@@ -53,30 +53,30 @@ func (r *Reconciler) Reconcile() (retResult reconcile.Result, retErr error) {
 		return k8sutil.Requeue().Result()
 	}
 
+	certs, err := r.certs()
+	if err != nil {
+		return k8sutil.RequeueErr(err).Result()
+	}
+	if op := resources.ReconcileAll(r, certs); op.ShouldRequeue() {
+		return op.Result()
+	}
+	if res := r.checkConfiguration(); res.ShouldRequeue() {
+		return res.Result()
+	}
+
 	allResources := []resources.Resource{}
 	etcdResources, err := r.etcd()
 	if err != nil {
 		return k8sutil.RequeueErr(err).Result()
 	}
 	allResources = append(allResources, etcdResources...)
-	configMap, configDigest, err := r.configMap()
-	if err != nil {
-		return k8sutil.RequeueErr(err).Result()
-	}
-	allResources = append(allResources, configMap)
-	certs, err := r.certs()
-	if err != nil {
-		return k8sutil.RequeueErr(err).Result()
-	}
-	allResources = append(allResources, certs...)
+
 	keys, err := r.ephemeralKeys()
 	if err != nil {
 		return k8sutil.RequeueErr(err).Result()
 	}
 	allResources = append(allResources, keys...)
-	deployment, err := r.deployment(map[string]string{
-		resources.OpniConfigHash: configDigest,
-	})
+	deployment, err := r.deployment(nil)
 	if err != nil {
 		return k8sutil.RequeueErr(err).Result()
 	}

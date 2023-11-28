@@ -1,6 +1,7 @@
 package apis
 
 import (
+	opnicorev1 "github.com/rancher/opni/apis/core/v1"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,6 +23,7 @@ func NewScheme() *runtime.Scheme {
 
 var schemeBuilders = []func(*runtime.Scheme) error{
 	apiextv1.AddToScheme,
+	opnicorev1.AddToScheme,
 	opnicorev1beta1.AddToScheme,
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/nats-io/jsm.go"
 	"github.com/nats-io/nats.go"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -43,7 +44,7 @@ var _ = BeforeSuite(func() {
 		Expect(err).NotTo(HaveOccurred())
 		store.Set(s)
 
-		js, err := jetstream.AcquireJetstreamConn(
+		nc, js, err := jetstream.AcquireJetstreamConn(
 			context.Background(),
 			env.JetStreamConfig(),
 			logger.NewNop(),
@@ -58,21 +59,21 @@ var _ = BeforeSuite(func() {
 		Expect(err).NotTo(HaveOccurred())
 		lmF.Set(lm)
 
-		js1, err := jetstream.AcquireJetstreamConn(
+		_, js1, err := jetstream.AcquireJetstreamConn(
 			context.Background(),
 			env.JetStreamConfig(),
 			logger.NewNop(),
 		)
 		Expect(err).NotTo(HaveOccurred())
 
-		js2, err := jetstream.AcquireJetstreamConn(
+		_, js2, err := jetstream.AcquireJetstreamConn(
 			context.Background(),
 			env.JetStreamConfig(),
 			logger.NewNop(),
 		)
 		Expect(err).NotTo(HaveOccurred())
 
-		js3, err := jetstream.AcquireJetstreamConn(
+		_, js3, err := jetstream.AcquireJetstreamConn(
 			context.Background(),
 			env.JetStreamConfig(),
 			logger.New(),
@@ -86,6 +87,12 @@ var _ = BeforeSuite(func() {
 		lmSetF.Set(lo.Tuple3[storage.LockManager, storage.LockManager, storage.LockManager]{
 			A: x, B: y, C: z,
 		})
+		mgr, err := jsm.New(nc)
+		Expect(err).NotTo(HaveOccurred())
+
+		sn := jetstream.NewSnapshotter(mgr, logger.New())
+		snapshotter.Set(sn)
+
 		DeferCleanup(env.Stop, "Test Suite Finished")
 	})
 })
@@ -97,7 +104,7 @@ var _ = Describe("Jetstream Keyring Store", Ordered, Label("integration", "slow"
 var _ = Describe("Jetstream KV Store", Ordered, Label("integration", "slow"), KeyValueStoreTestSuite(store, NewBytes, Equal))
 
 var _ = Describe("Jetstream Lock Manager", Ordered, Label("integration", "slow"), LockManagerTestSuite(lmF, lmSetF))
-var _ = XDescribe("Jetstream Backup Restore", Ordered, Label("integration", "slow"), SnapshotSuiteTest(snapshotter))
+var _ = Describe("Jetstream Backup Restore", Ordered, Label("integration", "slow"), SnapshotSuiteTest(snapshotter))
 
 var _ = Context("Error Codes", func() {
 	Specify("Nats KeyNotFound errors should be equal to ErrNotFound", func() {

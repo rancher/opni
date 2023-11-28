@@ -270,7 +270,7 @@ require (
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
-	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/dustin/go-humanize v1.0.1
 	github.com/dvsekhvalnov/jose2go v1.5.0 // indirect
 	github.com/ecordell/optgen v0.0.9 // indirect
 	github.com/edsrzf/mmap-go v1.1.0 // indirect

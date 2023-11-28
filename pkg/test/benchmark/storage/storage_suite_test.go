@@ -43,7 +43,7 @@ var _ = BeforeSuite(func() {
 		}
 		lmsJ := make([]*jetstream.LockManager, 7)
 		for i := 0; i < 7; i++ {
-			js, err := jetstream.AcquireJetstreamConn(context.Background(), env.JetStreamConfig(), logger.New().WithGroup("js"))
+			_, js, err := jetstream.AcquireJetstreamConn(context.Background(), env.JetStreamConfig(), logger.New().WithGroup("js"))
 			Expect(err).To(Succeed())
 
 			j := jetstream.NewLockManager(context.Background(), js, "test", logger.NewNop())

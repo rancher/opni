@@ -118,3 +118,4 @@ var _ = Describe("Etcd RBAC Store", Ordered, Label("integration", "slow"), RBACS
 var _ = Describe("Etcd Keyring Store", Ordered, Label("integration", "slow"), KeyringStoreTestSuite(store))
 var _ = Describe("Etcd KV Store", Ordered, Label("integration", "slow"), KeyValueStoreTestSuite(store, NewBytes, Equal))
 var _ = Describe("Etcd Lock Manager", Ordered, Label("integration", "slow"), LockManagerTestSuite(lmF, lmSet))
+var _ = Describe("Etcd Backup Restore", Ordered, Label("integration", "slow"), SnapshotSuiteTest(snapshotter))

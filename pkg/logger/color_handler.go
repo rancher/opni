@@ -348,7 +348,7 @@ func (h *colorHandler) appendValue(buf *buffer, v slog.Value, shouldQuote bool) 
 		case *slog.Source:
 			h.appendSource(buf, cv.File, cv.Line)
 		default:
-			h.appendString(buf, fmt.Sprint(v.Any()), shouldQuote)
+			h.appendString(buf, fmt.Sprint(cv), shouldQuote)
 		}
 	}
 }

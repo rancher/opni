@@ -98,7 +98,7 @@ func TestHandler(t *testing.T) {
 			F: func(l *slog.Logger) {
 				l.Info("test", "key", "val")
 			},
-			Want: `2009 Nov 10 23:00:00 INFO logger/color_handler_test.go:98 test key=val`,
+			Want: `2009 Nov 10 23:00:00 INFO logger/color_handler_test.go:99 test key=val`,
 		},
 		{
 			Opts: &LoggerOptions{
@@ -107,7 +107,7 @@ func TestHandler(t *testing.T) {
 			F: func(l *slog.Logger) {
 				l.Info("test", "key", "val")
 			},
-			Want: `INFO test key=val`,
+			Want: `2009 Nov 10 23:00:00 INFO test key=val`,
 		},
 		{
 			Opts: &LoggerOptions{
@@ -324,7 +324,7 @@ func TestHandler(t *testing.T) {
 			F: func(l *slog.Logger) {
 				l.Info("test")
 			},
-			Want: `2009 Nov 10 23:00:00 INFO logger/color_handler_test.go:324 test`,
+			Want: `2009 Nov 10 23:00:00 INFO logger/color_handler_test.go:325 test`,
 		},
 		{
 			F: func(l *slog.Logger) {

@@ -29,6 +29,8 @@ var lmSetF = future.New[lo.Tuple3[
 ]]()
 var store = future.New[*jetstream.JetStreamStore]()
 
+var snapshotter = future.New[*jetstream.Snapshotter]()
+
 var _ = BeforeSuite(func() {
 	testruntime.IfIntegration(func() {
 		env := test.Environment{}
@@ -95,6 +97,7 @@ var _ = Describe("Jetstream Keyring Store", Ordered, Label("integration", "slow"
 var _ = Describe("Jetstream KV Store", Ordered, Label("integration", "slow"), KeyValueStoreTestSuite(store, NewBytes, Equal))
 
 var _ = Describe("Jetstream Lock Manager", Ordered, Label("integration", "slow"), LockManagerTestSuite(lmF, lmSetF))
+var _ = XDescribe("Jetstream Backup Restore", Ordered, Label("integration", "slow"), SnapshotSuiteTest(snapshotter))
 
 var _ = Context("Error Codes", func() {
 	Specify("Nats KeyNotFound errors should be equal to ErrNotFound", func() {

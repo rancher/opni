@@ -57,7 +57,7 @@ require (
 	github.com/jwalton/go-supportscolor v1.1.0
 	github.com/karlseguin/ccache/v3 v3.0.3
 	github.com/kazegusuri/channelzcli v0.0.0-20230307031351-17bac34c51ca
-	github.com/klauspost/compress v1.16.7
+	github.com/klauspost/compress v1.17.0
 	github.com/kralicky/gpkg v0.0.0-20231114180450-2f4bff8c5588
 	github.com/kralicky/kmatch v0.0.0-20230301203314-20f658a0e56c
 	github.com/kralicky/protols v0.0.0-20231102164430-669d20c5e11a
@@ -73,8 +73,9 @@ require (
 	github.com/mholt/archiver/v4 v4.0.0-alpha.8
 	github.com/mitchellh/mapstructure v1.5.1-0.20220423185008-bf980b35cac4
 	github.com/muesli/termenv v0.15.2
-	github.com/nats-io/nats.go v1.28.0
-	github.com/nats-io/nkeys v0.4.4
+	github.com/nats-io/jsm.go v0.1.0
+	github.com/nats-io/nats.go v1.30.0
+	github.com/nats-io/nkeys v0.4.5
 	github.com/nsf/jsondiff v0.0.0-20230430225905-43f6cf3098c1
 	github.com/olebedev/when v0.0.0-20221205223600-4d190b02b8d8
 	github.com/onsi/biloba v0.1.5
@@ -202,7 +203,7 @@ require (
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
 	github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230512164433-5d1fd1a340c9 // indirect
-	github.com/antonmedv/expr v1.15.0 // indirect
+	github.com/antonmedv/expr v1.15.2 // indirect
 	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
@@ -408,7 +409,7 @@ require (
 	github.com/miekg/dns v1.1.55 // indirect
 	github.com/minio/highwayhash v1.0.2 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
-	github.com/minio/minio-go/v7 v7.0.63 // indirect
+	github.com/minio/minio-go/v7 v7.0.63
 	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
@@ -431,8 +432,8 @@ require (
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
-	github.com/nats-io/jwt/v2 v2.3.0 // indirect
-	github.com/nats-io/nats-server/v2 v2.8.4
+	github.com/nats-io/jwt/v2 v2.5.2 // indirect
+	github.com/nats-io/nats-server/v2 v2.10.0
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/ncw/swift v1.0.53 // indirect
 	github.com/nwaples/rardecode/v2 v2.0.0-beta.2 // indirect
@@ -517,10 +518,10 @@ require (
 	go.etcd.io/bbolt v1.3.7 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.9 // indirect
 	go.etcd.io/etcd/client/v2 v2.305.9 // indirect
-	go.etcd.io/etcd/etcdutl/v3 v3.5.9 // indirect
+	go.etcd.io/etcd/etcdutl/v3 v3.5.9
 	go.etcd.io/etcd/pkg/v3 v3.5.9 // indirect
 	go.etcd.io/etcd/raft/v3 v3.5.9 // indirect
-	go.etcd.io/etcd/server/v3 v3.5.9 // indirect
+	go.etcd.io/etcd/server/v3 v3.5.9
 	go.mongodb.org/mongo-driver v1.12.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/collector v0.84.0 // indirect

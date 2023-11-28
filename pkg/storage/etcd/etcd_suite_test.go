@@ -2,10 +2,14 @@ package etcd_test
 
 import (
 	"context"
+	"crypto/tls"
+	"fmt"
+	"path/filepath"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/etcd"
@@ -13,13 +17,40 @@ import (
 	. "github.com/rancher/opni/pkg/test/conformance/storage"
 	_ "github.com/rancher/opni/pkg/test/setup"
 	"github.com/rancher/opni/pkg/test/testruntime"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/samber/lo"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 func TestEtcd(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Etcd Storage Suite")
+}
+
+func clientFromConfig(
+	ctx context.Context,
+	conf *v1beta1.EtcdStorageSpec,
+) (*clientv3.Client, *clientv3.Config, error) {
+	var tlsConfig *tls.Config
+	if conf.Certs != nil {
+		var err error
+		tlsConfig, err = util.LoadClientMTLSConfig(*conf.Certs)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to load client TLS config: %w", err)
+		}
+	}
+
+	clientConfig := &clientv3.Config{
+		Endpoints: conf.Endpoints,
+		TLS:       tlsConfig,
+		Context:   context.WithoutCancel(ctx),
+	}
+	cli, err := clientv3.New(*clientConfig)
+	if err != nil {
+		return nil, clientConfig, fmt.Errorf("failed to create etcd client: %w", err)
+	}
+	return cli, clientConfig, nil
 }
 
 var store = future.New[*etcd.EtcdStore]()
@@ -28,6 +59,7 @@ var lmF = future.New[storage.LockManager]()
 var lmSet = future.New[lo.Tuple3[
 	storage.LockManager, storage.LockManager, storage.LockManager,
 ]]()
+var snapshotter = future.New[*etcd.Snapshotter]()
 
 var _ = BeforeSuite(func() {
 	testruntime.IfIntegration(func() {
@@ -68,7 +100,14 @@ var _ = BeforeSuite(func() {
 
 		Expect(err).NotTo(HaveOccurred())
 		store.Set(client)
+
+		cli, config, err := clientFromConfig(context.Background(), env.EtcdConfig())
 		Expect(err).To(Succeed())
+		dataDir := filepath.Join(env.GetTempDirectory(), "etcd")
+
+		s := etcd.NewSnapshotter(config, cli, dataDir, logger.New())
+
+		snapshotter.Set(s)
 		DeferCleanup(env.Stop, "Test Suite Finished")
 	})
 })

@@ -2,20 +2,22 @@ package gateway
 
 import (
 	"context"
-	"encoding/base64"
+	"fmt"
 	"io"
 	"log/slog"
+	"path"
 	"strings"
 	sync "sync"
 	"time"
 
+	"github.com/google/uuid"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/storage/lock"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/streams"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -37,20 +39,14 @@ type TrackedInstanceListener interface {
 }
 
 const (
-	instancesKey = "$instances"
+	instancesKey = "__instances"
 )
 
 type activeTrackedConnection struct {
 	agentId               string
-	leaseId               string
+	holder                string
 	revision              int64
 	timestamp             time.Time
-	instanceInfo          *corev1.InstanceInfo
-	trackingContext       context.Context
-	cancelTrackingContext context.CancelFunc
-}
-
-type activeTrackedInstance struct {
 	instanceInfo          *corev1.InstanceInfo
 	trackingContext       context.Context
 	cancelTrackingContext context.CancelFunc
@@ -64,48 +60,48 @@ type activeTrackedInstance struct {
 type ConnectionTracker struct {
 	localInstanceInfo *corev1.InstanceInfo
 	rootContext       context.Context
-	kv                storage.KeyValueStore
-	lm                storage.LockManager
+	connectionsKv     storage.KeyValueStore
+	connectionsLm     storage.LockManager
 	logger            *slog.Logger
 
-	listenersMu       sync.Mutex
-	connListeners     []TrackedConnectionListener
-	instanceListeners []TrackedInstanceListener
+	listenersMu   sync.Mutex
+	connListeners []TrackedConnectionListener
 
 	mu                sync.RWMutex
 	activeConnections map[string]*activeTrackedConnection
-	activeInstances   map[string]*activeTrackedInstance
+
+	whoami string
 }
 
 func NewConnectionTracker(
 	rootContext context.Context,
 	localInstanceInfo *corev1.InstanceInfo,
-	kv storage.KeyValueStore,
-	lm storage.LockManager,
+	connectionsKv storage.KeyValueStore,
+	connectionsLm storage.LockManager,
 	lg *slog.Logger,
 ) *ConnectionTracker {
-	return &ConnectionTracker{
+	ct := &ConnectionTracker{
 		localInstanceInfo: localInstanceInfo,
 		rootContext:       rootContext,
-		kv:                kv,
-		lm:                lm,
+		connectionsKv:     connectionsKv,
+		connectionsLm:     connectionsLm,
 		logger:            lg,
 		activeConnections: make(map[string]*activeTrackedConnection),
-		activeInstances:   make(map[string]*activeTrackedInstance),
+		whoami:            uuid.New().String(),
 	}
+	return ct
 }
 
 func NewReadOnlyConnectionTracker(
 	rootContext context.Context,
-	kv storage.KeyValueStore,
+	connectionsKv storage.KeyValueStore,
 ) *ConnectionTracker {
 	return &ConnectionTracker{
 		localInstanceInfo: nil,
 		rootContext:       rootContext,
-		kv:                kv,
+		connectionsKv:     connectionsKv,
 		logger:            slog.New(slog.NewJSONHandler(io.Discard, nil)),
 		activeConnections: make(map[string]*activeTrackedConnection),
-		activeInstances:   make(map[string]*activeTrackedInstance),
 	}
 }
 
@@ -136,19 +132,7 @@ func (ct *ConnectionTracker) AddTrackedConnectionListener(listener TrackedConnec
 
 	ct.connListeners = append(ct.connListeners, listener)
 	for _, conn := range ct.activeConnections {
-		listener.HandleTrackedConnection(conn.trackingContext, conn.agentId, conn.leaseId, conn.instanceInfo)
-	}
-}
-
-func (ct *ConnectionTracker) AddTrackedInstanceListener(listener TrackedInstanceListener) {
-	ct.listenersMu.Lock()
-	defer ct.listenersMu.Unlock()
-	ct.mu.RLock()
-	defer ct.mu.RUnlock()
-
-	ct.instanceListeners = append(ct.instanceListeners, listener)
-	for _, instance := range ct.activeInstances {
-		listener.HandleTrackedInstance(instance.trackingContext, instance.instanceInfo)
+		listener.HandleTrackedConnection(conn.trackingContext, conn.agentId, conn.holder, conn.instanceInfo)
 	}
 }
 
@@ -159,22 +143,16 @@ func (ct *ConnectionTracker) LocalInstanceInfo() *corev1.InstanceInfo {
 // Starts the connection tracker. This will block until the context is canceled
 // and the underlying kv store watcher is closed.
 func (ct *ConnectionTracker) Run(ctx context.Context) error {
-	var wg sync.WaitGroup
-	if ct.localInstanceInfo != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			ct.lockInstance(ctx)
-		}()
-	}
-	watcher, err := ct.kv.Watch(ctx, "", storage.WithPrefix(), storage.WithRevision(0))
+	// var wg sync.WaitGroup
+	eg, ctx := errgroup.WithContext(ctx)
+
+	connectionsWatcher, err := ct.connectionsKv.Watch(ctx, "", storage.WithPrefix(), storage.WithRevision(0))
 	if err != nil {
 		return err
 	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for event := range watcher {
+
+	eg.Go(func() error {
+		for event := range connectionsWatcher {
 			ct.mu.Lock()
 			var key string
 			switch event.EventType {
@@ -183,38 +161,24 @@ func (ct *ConnectionTracker) Run(ctx context.Context) error {
 			case storage.WatchEventDelete:
 				key = event.Previous.Key()
 			}
-			if strings.HasPrefix(key, instancesKey) {
-				ct.handleInstanceEventLocked(event)
-			} else {
-				ct.handleConnectionEventLocked(event)
+			if !strings.HasPrefix(key, instancesKey) {
+				ct.handleConnEvent(event)
 			}
 			ct.mu.Unlock()
 		}
-	}()
-	wg.Wait()
-	return nil
-}
+		return nil
+	})
 
-// repeatedly attempts to acquire the connection lock for the unique key
-// "$instances". This key can be used to track the set of all instances
-// that are currently running.
-func (ct *ConnectionTracker) lockInstance(ctx context.Context) {
-	instanceInfo := &corev1.InstanceInfo{
-		RelayAddress:      ct.localInstanceInfo.GetRelayAddress(),
-		ManagementAddress: ct.localInstanceInfo.GetManagementAddress(),
-		GatewayAddress:    ct.localInstanceInfo.GetGatewayAddress(),
-		WebAddress:        ct.localInstanceInfo.GetWebAddress(),
-	}
-	for ctx.Err() == nil {
-		locker := ct.lm.Locker(instancesKey, lock.WithAcquireContext(ctx),
-			lock.WithInitialValue(base64.StdEncoding.EncodeToString(util.Must(proto.Marshal(instanceInfo)))))
-		locker.Lock()
-	}
+	return eg.Wait()
 }
 
 type instanceInfoKeyType struct{}
 
 var instanceInfoKey = instanceInfoKeyType{}
+
+func (ct *ConnectionTracker) connKey(agentId string) string {
+	return path.Join(agentId, ct.whoami)
+}
 
 func (ct *ConnectionTracker) StreamServerInterceptor() grpc.StreamServerInterceptor {
 	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
@@ -225,12 +189,12 @@ func (ct *ConnectionTracker) StreamServerInterceptor() grpc.StreamServerIntercep
 			GatewayAddress:    ct.localInstanceInfo.GetGatewayAddress(),
 			WebAddress:        ct.localInstanceInfo.GetWebAddress(),
 		}
-		locker := ct.lm.Locker(agentId,
-			lock.WithAcquireContext(ss.Context()),
-			lock.WithInitialValue(base64.StdEncoding.EncodeToString(util.Must(proto.Marshal(instanceInfo)))),
+		key := agentId
+		lock := ct.connectionsLm.NewLock(
+			key,
 		)
 		ct.logger.With("agentId", agentId).Debug("attempting to acquire connection lock")
-		if acquired, err := locker.TryLock(); !acquired {
+		if acquired, _, err := lock.TryLock(ss.Context()); !acquired {
 			ct.logger.With(
 				logger.Err(err),
 				"agentId", agentId,
@@ -244,7 +208,7 @@ func (ct *ConnectionTracker) StreamServerInterceptor() grpc.StreamServerIntercep
 
 		defer func() {
 			ct.logger.With("agentId", agentId).Debug("releasing agent connection lock")
-			if err := locker.Unlock(); err != nil {
+			if err := lock.Unlock(); err != nil {
 				ct.logger.With(
 					logger.Err(err),
 					"agentId", agentId,
@@ -253,7 +217,9 @@ func (ct *ConnectionTracker) StreamServerInterceptor() grpc.StreamServerIntercep
 		}()
 
 		instanceInfo.Acquired = true
-		ct.kv.Put(ss.Context(), locker.Key(), util.Must(proto.Marshal(instanceInfo)))
+		if err := ct.connectionsKv.Put(ss.Context(), ct.connKey(agentId), util.Must(proto.Marshal(instanceInfo))); err != nil {
+			ct.logger.Warn("failed to persist instance info in the connections KV")
+		}
 
 		stream := streams.NewServerStreamWithContext(ss)
 		stream.Ctx = context.WithValue(stream.Ctx, instanceInfoKey, util.ProtoClone(instanceInfo))
@@ -261,29 +227,84 @@ func (ct *ConnectionTracker) StreamServerInterceptor() grpc.StreamServerIntercep
 	}
 }
 
-func (ct *ConnectionTracker) handleConnectionEventLocked(event storage.WatchEvent[storage.KeyRevision[[]byte]]) {
-	decodeKey := func(key string) (agentId string, leaseId string, ok bool) {
-		parts := strings.Split(key, "/")
-
-		if len(parts) != 2 {
-			// only handle keys of the form <agentId>/<leaseId>
-			return "", "", false
-		}
-
-		agentId = parts[0]
-		leaseId = parts[1]
-		ok = true
-		return
+func decodeConnKey(key string) (agentId string, leaseId string, ok bool) {
+	parts := strings.Split(key, "/")
+	if len(parts) != 2 {
+		// only handle keys of the form <agentId>/<leaseId>
+		return "", "", false
 	}
 
+	agentId = parts[0]
+	leaseId = parts[1]
+	ok = true
+	return
+}
+
+func (ct *ConnectionTracker) handleConnUpdate(
+	event storage.WatchEvent[storage.KeyRevision[[]byte]],
+	agentId string,
+	conn *activeTrackedConnection,
+	info *corev1.InstanceInfo,
+) {
+	key := event.Current.Key()
+	lg := ct.logger.With("key", key, "agentId", agentId)
+	lg.Debug(fmt.Sprintf("found active connection for %s", agentId))
+	if !info.GetAcquired() {
+		// a different instance is only attempting to acquire the lock,
+		// ignore the event
+		ct.logger.With("agent", agentId, "instance", info.GetRelayAddress()).Debug("tracked connection is still being acquired...")
+		return
+	}
+	// a different instance has acquired the lock, invalidate
+	// the current tracked connection
+	ct.logger.With("agentId", agentId).Debug("tracked connection invalidated")
+	conn.cancelTrackingContext()
+	delete(ct.activeConnections, agentId)
+}
+
+func (ct *ConnectionTracker) handleConnCreate(
+	event storage.WatchEvent[storage.KeyRevision[[]byte]],
+	agentId, holder string,
+	info *corev1.InstanceInfo,
+) {
+	if !info.GetAcquired() {
+		return // ignore unacquired connections
+	}
+	if ct.IsLocalInstance(info) {
+		ct.logger.With("agentId", agentId).Debug("tracking new connection (local)")
+	} else {
+		ct.logger.With("agentId", agentId).Debug("tracking new connection")
+	}
+	ctx, cancel := context.WithCancel(ct.rootContext)
+	conn := &activeTrackedConnection{
+		agentId:               agentId,
+		holder:                holder,
+		revision:              event.Current.Revision(),
+		instanceInfo:          info,
+		trackingContext:       ctx,
+		cancelTrackingContext: cancel,
+	}
+	ct.activeConnections[agentId] = conn
+	for _, listener := range ct.connListeners {
+		listener.HandleTrackedConnection(ctx, agentId, holder, info)
+	}
+}
+
+func (ct *ConnectionTracker) handleConnEvent(event storage.WatchEvent[storage.KeyRevision[[]byte]]) {
+	key := event.Current.Key()
+	agentId, holder, ok := decodeConnKey(key)
+	if !ok {
+		ct.logger.With("event", key).Warn("event cannot be indexed in the form : <agentId>/<leaseId>")
+		return
+	}
 	switch event.EventType {
 	case storage.WatchEventPut:
-		agentId, leaseId, ok := decodeKey(event.Current.Key())
-		if !ok {
-			return
-		}
 		ct.listenersMu.Lock()
 		defer ct.listenersMu.Unlock()
+		lg := ct.logger.With(
+			"agentId", agentId,
+			"key", event.Current.Key(),
+		)
 		instanceInfo := sync.OnceValues(func() (*corev1.InstanceInfo, error) {
 			var info corev1.InstanceInfo
 			if err := proto.Unmarshal(event.Current.Value(), &info); err != nil {
@@ -291,12 +312,8 @@ func (ct *ConnectionTracker) handleConnectionEventLocked(event storage.WatchEven
 			}
 			return &info, nil
 		})
-		lg := ct.logger.With(
-			"agentId", agentId,
-			"key", event.Current.Key(),
-		)
 		if conn, ok := ct.activeConnections[agentId]; ok {
-			if conn.leaseId == leaseId {
+			if conn.holder == holder {
 				// key was updated, not a new connection
 				lg.Debug("tracked connection updated")
 				return
@@ -306,54 +323,31 @@ func (ct *ConnectionTracker) handleConnectionEventLocked(event storage.WatchEven
 				lg.With(logger.Err(err)).Error("failed to unmarshal instance info")
 				return
 			}
-			if !info.GetAcquired() {
-				// a different instance is only attempting to acquire the lock,
-				// ignore the event
-				ct.logger.With("agent", agentId, "instance", info.GetRelayAddress()).Debug("observed lock attempt from another instance")
-				return
-			}
-			// a different instance has acquired the lock, invalidate
-			// the current tracked connection
-			ct.logger.With("agentId", agentId).Debug("tracked connection invalidated")
-			conn.cancelTrackingContext()
-			delete(ct.activeConnections, agentId)
+			ct.handleConnUpdate(
+				event,
+				agentId,
+				conn,
+				info,
+			)
 		}
 		info, err := instanceInfo()
 		if err != nil {
 			lg.With(logger.Err(err)).Error("failed to unmarshal instance info")
 			return
 		}
-		if !info.GetAcquired() {
-			return // ignore unacquired connections
-		}
-		if ct.IsLocalInstance(info) {
-			ct.logger.With("agentId", agentId).Debug("tracking new connection (local)")
-		} else {
-			ct.logger.With("agentId", agentId).Debug("tracking new connection")
-		}
-		ctx, cancel := context.WithCancel(ct.rootContext)
-		conn := &activeTrackedConnection{
-			agentId:               agentId,
-			leaseId:               leaseId,
-			revision:              event.Current.Revision(),
-			instanceInfo:          info,
-			trackingContext:       ctx,
-			cancelTrackingContext: cancel,
-		}
-		ct.activeConnections[agentId] = conn
-		for _, listener := range ct.connListeners {
-			listener.HandleTrackedConnection(ctx, agentId, leaseId, info)
-		}
+		ct.handleConnCreate(
+			event,
+			agentId,
+			holder,
+			info,
+		)
+
 	case storage.WatchEventDelete:
-		agentId, leaseId, ok := decodeKey(event.Previous.Key())
-		if !ok {
-			return
-		}
 		// make sure the previous revision of the deleted key is the same as the
 		// revision of the tracked connection.
 		lg := ct.logger.With("key", event.Previous.Key(), "rev", event.Previous.Revision())
 		if conn, ok := ct.activeConnections[agentId]; ok {
-			if conn.leaseId != leaseId {
+			if conn.holder != holder {
 				// likely an expired lock attempt, ignore
 				return
 			}
@@ -372,50 +366,9 @@ func (ct *ConnectionTracker) handleConnectionEventLocked(event storage.WatchEven
 				).Debug("tracked connection deleted")
 			}
 			conn.cancelTrackingContext()
-
 			delete(ct.activeConnections, agentId)
 		} else {
 			lg.With("key", event.Previous.Key()).Debug("ignoring untracked key deletion event")
-		}
-	}
-}
-
-func (ct *ConnectionTracker) handleInstanceEventLocked(event storage.WatchEvent[storage.KeyRevision[[]byte]]) {
-	switch event.EventType {
-	case storage.WatchEventPut:
-		leaseId := event.Current.Key()[len(instancesKey)+1:]
-		instanceInfo := &corev1.InstanceInfo{}
-		if err := proto.Unmarshal(event.Current.Value(), instanceInfo); err != nil {
-			ct.logger.With(logger.Err(err)).Error("failed to unmarshal instance info")
-			return
-		}
-		if _, ok := ct.activeInstances[leaseId]; ok {
-			return
-		}
-		ct.logger.With("leaseId", leaseId).Debug("tracking new instance")
-		trackingCtx, cancel := context.WithCancel(ct.rootContext)
-		instance := &activeTrackedInstance{
-			instanceInfo:          instanceInfo,
-			trackingContext:       trackingCtx,
-			cancelTrackingContext: cancel,
-		}
-		ct.activeInstances[leaseId] = instance
-		for _, listener := range ct.instanceListeners {
-			listener.HandleTrackedInstance(instance.trackingContext, instance.instanceInfo)
-		}
-	case storage.WatchEventDelete:
-		leaseId := event.Previous.Key()[len(instancesKey)+1:]
-		instanceInfo := &corev1.InstanceInfo{}
-		if err := proto.Unmarshal(event.Previous.Value(), instanceInfo); err != nil {
-			ct.logger.With(logger.Err(err)).Error("failed to unmarshal instance info")
-			return
-		}
-		if instance, ok := ct.activeInstances[leaseId]; ok {
-			ct.logger.With("leaseId", leaseId).Debug("tracked instance deleted")
-			instance.cancelTrackingContext()
-			delete(ct.activeInstances, leaseId)
-		} else {
-			ct.logger.With("leaseId", leaseId).Debug("ignoring untracked instance deletion event")
 		}
 	}
 }

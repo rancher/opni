@@ -1,6 +1,7 @@
 package inmemory
 
 import (
+	"context"
 	"sync"
 
 	"github.com/rancher/opni/pkg/storage"
@@ -41,7 +42,7 @@ func (lmb *LockManagerBroker) LockManager(name string) storage.LockManager {
 	return lmb.lockManagers[name]
 }
 
-func (lm *LockManager) Locker(key string, _ ...lock.LockOption) storage.Lock {
+func (lm *LockManager) NewLock(key string, _ ...lock.LockOption) storage.Lock {
 	return &Lock{
 		mu: lm.lockMap.Get(key),
 	}
@@ -58,15 +59,15 @@ func (l *Lock) Key() string {
 }
 
 // Lock implements storage.Lock.
-func (l *Lock) Lock() error {
+func (l *Lock) Lock(_ context.Context) (chan struct{}, error) {
 	l.mu.Lock()
-	return nil
+	return make(chan struct{}), nil
 }
 
 // TryLock implements storage.Lock.
-func (l *Lock) TryLock() (bool, error) {
+func (l *Lock) TryLock(_ context.Context) (bool, chan struct{}, error) {
 	ok := l.mu.TryLock()
-	return ok, nil
+	return ok, make(chan struct{}), nil
 }
 
 // Unlock implements storage.Lock.

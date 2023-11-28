@@ -2,11 +2,11 @@ package system
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/bufbuild/protovalidate-go"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/storage/lock"
 	"github.com/rancher/opni/pkg/validation"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
@@ -203,12 +203,14 @@ func (s *kvStoreServer) Lock(in *LockRequest, stream KeyValueStore_LockServer) e
 		return err
 	}
 
-	locker := s.lm.Locker(in.Key, lock.WithAcquireContext(stream.Context()))
+	locker := s.lm.NewLock(in.Key)
+	var expiredC chan struct{}
 	if in.TryLock {
-		acquired, err := locker.TryLock()
+		acquired, expired, err := locker.TryLock(stream.Context())
 		if err != nil {
 			return status.Errorf(codes.Internal, err.Error())
 		}
+		expiredC = expired
 		if !acquired {
 			if err := stream.Send(&LockResponse{
 				Event: LockResponse_AcquireFailed,
@@ -218,9 +220,11 @@ func (s *kvStoreServer) Lock(in *LockRequest, stream KeyValueStore_LockServer) e
 			return nil
 		}
 	} else {
-		if err := locker.Lock(); err != nil {
+		expired, err := locker.Lock(stream.Context())
+		if err != nil {
 			return status.Errorf(codes.Internal, err.Error())
 		}
+		expiredC = expired
 	}
 	defer locker.Unlock()
 
@@ -229,8 +233,13 @@ func (s *kvStoreServer) Lock(in *LockRequest, stream KeyValueStore_LockServer) e
 	}); err != nil {
 		return err
 	}
-	<-stream.Context().Done()
-	streamErr := stream.Context().Err()
+	var streamErr error
+	select {
+	case <-stream.Context().Done():
+		streamErr = stream.Context().Err()
+	case <-expiredC:
+		streamErr = fmt.Errorf("lock expired from storage backend")
+	}
 	if status.FromContextError(streamErr).Code() == codes.Canceled { //nolint
 		return nil
 	}

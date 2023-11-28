@@ -188,15 +188,17 @@ type Environment struct {
 }
 
 type EnvironmentOptions struct {
-	enableEtcd             bool
-	remoteEtcdPort         int
-	enableJetstream        bool
-	enableGateway          bool
-	defaultAgentOpts       []StartAgentOption
-	defaultAgentVersion    string
-	enableDisconnectServer bool
-	enableNodeExporter     bool
-	storageBackend         v1beta1.StorageType
+	enableEtcd              bool
+	remoteEtcdPort          int
+	remoteJetStreamPort     int
+	remoteJetStreamSeedPath string
+	enableJetstream         bool
+	enableGateway           bool
+	defaultAgentOpts        []StartAgentOption
+	defaultAgentVersion     string
+	enableDisconnectServer  bool
+	enableNodeExporter      bool
+	storageBackend          v1beta1.StorageType
 }
 
 type EnvironmentOption func(*EnvironmentOptions)
@@ -252,6 +254,18 @@ func WithStorageBackend(backend v1beta1.StorageType) EnvironmentOption {
 func WithRemoteEtcdPort(port int) EnvironmentOption {
 	return func(o *EnvironmentOptions) {
 		o.remoteEtcdPort = port
+	}
+}
+
+func WithRemoteJetStreamPort(port int) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.remoteJetStreamPort = port
+	}
+}
+
+func WithRemoteJetStreamSeedPath(path string) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.remoteJetStreamSeedPath = path
 	}
 }
 
@@ -314,6 +328,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	options := EnvironmentOptions{
 		enableEtcd:             false,
 		remoteEtcdPort:         0,
+		remoteJetStreamPort:    0,
 		enableJetstream:        true,
 		enableNodeExporter:     false,
 		enableGateway:          true,
@@ -333,11 +348,14 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 
 	if options.storageBackend == "etcd" && (!options.enableEtcd && options.remoteEtcdPort == 0) {
 		options.enableEtcd = true
-	} else if options.storageBackend == "jetstream" && !options.enableJetstream {
+	} else if options.storageBackend == "jetstream" && (!options.enableJetstream && options.remoteJetStreamPort == 0) {
 		options.enableJetstream = true
 	}
 	if options.enableEtcd && options.remoteEtcdPort != 0 {
 		options.enableEtcd = false
+	}
+	if options.enableJetstream && options.remoteJetStreamPort != 0 {
+		options.enableJetstream = false
 	}
 
 	if e.Logger == nil {
@@ -374,7 +392,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 			return err
 		}
 	}
-	if options.enableJetstream {
+	if options.enableJetstream || options.remoteJetStreamPort != 0 {
 		if err := os.MkdirAll(path.Join(e.tempDir, "jetstream/data"), 0700); err != nil {
 			return err
 		}
@@ -471,6 +489,8 @@ http_server_config:
 
 	if options.enableJetstream {
 		e.startJetstream()
+	} else {
+		e.ports.Jetstream = options.remoteJetStreamPort
 	}
 
 	if options.enableNodeExporter {
@@ -1607,7 +1627,7 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 				GRPCListenAddress:  fmt.Sprintf("tcp://localhost:%d", e.ports.ManagementGRPC),
 				HTTPListenAddress:  fmt.Sprintf(":%d", e.ports.ManagementHTTP),
 				WebListenAddress:   fmt.Sprintf("localhost:%d", e.ports.ManagementWeb),
-				RelayListenAddress: lo.Ternary(e.storageBackend == "etcd", fmt.Sprintf("tcp://localhost:%d", e.ports.ManagementRelay), ""),
+				RelayListenAddress: fmt.Sprintf("tcp://localhost:%d", e.ports.ManagementRelay),
 				// WebCerts: v1beta1.CertsSpec{
 				// 	CACertData:      dashboardCertData,
 				// 	ServingCertData: dashboardCertData,
@@ -1677,16 +1697,11 @@ func (e *Environment) NewGatewayConfig() *v1beta1.GatewayConfig {
 			Storage: lo.Switch[v1beta1.StorageType, v1beta1.StorageSpec](e.storageBackend).
 				Case(v1beta1.StorageTypeEtcd, v1beta1.StorageSpec{
 					Type: v1beta1.StorageTypeEtcd,
-					Etcd: &v1beta1.EtcdStorageSpec{
-						Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
-					},
+					Etcd: e.etcdConfig(),
 				}).
 				Case(v1beta1.StorageTypeJetStream, v1beta1.StorageSpec{
-					Type: v1beta1.StorageTypeJetStream,
-					JetStream: &v1beta1.JetStreamStorageSpec{
-						Endpoint:     fmt.Sprintf("nats://localhost:%d", e.ports.Jetstream),
-						NkeySeedPath: path.Join(e.tempDir, "jetstream", "seed", "nats-auth.conf"),
-					},
+					Type:      v1beta1.StorageTypeJetStream,
+					JetStream: e.jetstreamConfig(),
 				}).
 				DefaultF(func() v1beta1.StorageSpec {
 					panic("unknown storage backend")
@@ -2131,16 +2146,11 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 			Storage: lo.Switch[v1beta1.StorageType, v1beta1.StorageSpec](e.storageBackend).
 				Case(v1beta1.StorageTypeEtcd, v1beta1.StorageSpec{
 					Type: v1beta1.StorageTypeEtcd,
-					Etcd: &v1beta1.EtcdStorageSpec{
-						Endpoints: []string{fmt.Sprintf("http://127.0.0.1:%d", e.ports.Etcd)},
-					},
+					Etcd: e.etcdConfig(),
 				}).
 				Case(v1beta1.StorageTypeJetStream, v1beta1.StorageSpec{
-					Type: v1beta1.StorageTypeJetStream,
-					JetStream: &v1beta1.JetStreamStorageSpec{
-						Endpoint:     fmt.Sprintf("nats://127.0.0.1:%d", e.ports.Jetstream),
-						NkeySeedPath: path.Join(e.tempDir, "jetstream", "seed", "nats-auth.conf"),
-					},
+					Type:      v1beta1.StorageTypeJetStream,
+					JetStream: e.jetstreamConfig(),
 				}).
 				DefaultF(func() v1beta1.StorageSpec {
 					panic("unknown storage backend")
@@ -2399,6 +2409,10 @@ func (e *Environment) EtcdConfig() *v1beta1.EtcdStorageSpec {
 	if !e.enableEtcd {
 		panic("etcd disabled")
 	}
+	return e.etcdConfig()
+}
+
+func (e *Environment) etcdConfig() *v1beta1.EtcdStorageSpec {
 	return &v1beta1.EtcdStorageSpec{
 		Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
 	}
@@ -2407,6 +2421,16 @@ func (e *Environment) EtcdConfig() *v1beta1.EtcdStorageSpec {
 func (e *Environment) JetStreamConfig() *v1beta1.JetStreamStorageSpec {
 	if !e.enableJetstream {
 		panic("JetStream disabled")
+	}
+	return e.jetstreamConfig()
+}
+
+func (e *Environment) jetstreamConfig() *v1beta1.JetStreamStorageSpec {
+	if e.remoteJetStreamSeedPath != "" {
+		return &v1beta1.JetStreamStorageSpec{
+			Endpoint:     fmt.Sprintf("http://localhost:%d", e.ports.Jetstream),
+			NkeySeedPath: e.remoteJetStreamSeedPath,
+		}
 	}
 	return &v1beta1.JetStreamStorageSpec{
 		Endpoint:     fmt.Sprintf("http://localhost:%d", e.ports.Jetstream),

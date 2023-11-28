@@ -280,7 +280,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		}
 		lg := lg.WithGroup("connections")
 		connectionsKv := storageBackend.KeyValueStore("connections")
-		connectionsLm := storageBackendLmBroker.LockManager("connections")
+		connectionsLm := storageBackendLmBroker.LockManager("lock/connections")
 		relayAdvertiseAddr := conf.Spec.Management.RelayAdvertiseAddress
 		mgmtAdvertiseAddr := conf.Spec.Management.GRPCAdvertiseAddress
 		gatewayAdvertiseAddr := conf.Spec.GRPCAdvertiseAddress

@@ -2,6 +2,7 @@ package lock_test
 
 import (
 	"fmt"
+	"sync"
 	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -45,6 +46,36 @@ var _ = Describe("Lock", Label("unit"), func() {
 			})
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(lock.ErrLockActionRequested))
+		})
+	})
+
+	When("using a lock scheduler", func() {
+		It("should act as pseudo-mutex", func() {
+			l := lock.NewLockScheduler()
+			num := int32(0)
+			var wg sync.WaitGroup
+			for i := 0; i < 100; i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					if err := l.Schedule(func() error {
+						return nil
+					}); err != nil {
+						panic(err)
+					}
+
+					// safe path
+					num += 1
+
+					if err := l.Done(func() error {
+						return nil
+					}); err != nil {
+						panic(err)
+					}
+				}()
+			}
+			wg.Wait()
+			Expect(num).To(Equal(int32(100)))
 		})
 	})
 

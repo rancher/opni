@@ -159,8 +159,11 @@ func (w *RemotePluginWriter) Write(b []byte) (int, error) {
 	return n, err
 }
 
-func (w *RemotePluginWriter) Close() { // TODO where to close file?
-	w.fileWriter.file.Close()
+func CloseLogStreaming(agentId string) {
+	fileWriter, ok := fileDesc.Load(GetLogFileName(agentId))
+	if ok {
+		fileWriter.file.Close()
+	}
 }
 
 func (w *RemotePluginWriter) writeProtoToText(b []byte) (int, error) {

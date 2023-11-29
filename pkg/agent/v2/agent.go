@@ -507,6 +507,7 @@ ROUTES:
 
 func (a *Agent) runGatewayClient(ctx context.Context) error {
 	lg := a.logger
+	defer logger.CloseLogStreaming(a.tenantID)
 	isRetry := false
 	for ctx.Err() == nil {
 		if isRetry {

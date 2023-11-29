@@ -24,7 +24,7 @@ var ServiceGroups embed.FS
 
 // map of directory names to their embed.FS
 var EnabledFilters = map[string]embed.FS{"metricgroups": MetricGroups, "servicegroups": ServiceGroups}
-var filters = constructFilters(logger.NewPluginLogger(context.TODO()).WithGroup("slo"))
+var filters = constructFilters(logger.NewPluginLogger(context.Background()).WithGroup("slo"))
 
 // Regexp adds unmarshalling from json for regexp.Regexp
 type Regexp struct {

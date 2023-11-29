@@ -15,7 +15,7 @@ var _ = Describe("SLO Filter tests", Ordered, Label("unit", "slow"), func() {
 		When("We use SLO filters", func() {
 			It("should get parse them from our embedded directory definitions", func() {
 				for dirName, embedFs := range slo.EnabledFilters {
-					lg := logger.NewPluginLogger(context.TODO()).WithGroup("slo")
+					lg := logger.NewPluginLogger(context.Background()).WithGroup("slo")
 
 					filters := slo.GetGroupConfigsFromEmbed(lg, dirName, embedFs)
 					Expect(filters).NotTo(HaveLen(0))

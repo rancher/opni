@@ -7,8 +7,6 @@ import (
 
 	node_drivers "github.com/rancher/opni/plugins/alerting/pkg/agent/drivers"
 
-	"log/slog"
-
 	promoperatorv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
@@ -23,8 +21,8 @@ import (
 )
 
 type NodeDriverOptions struct {
+	ctx       context.Context
 	K8sClient client.Client `option:"k8sClient"`
-	Logger    *slog.Logger  `option:"logger"`
 }
 
 type Driver struct {
@@ -116,9 +114,10 @@ var _ node_drivers.NodeDriver = (*Driver)(nil)
 
 func init() {
 	node_drivers.NodeDrivers.Register("k8s_driver", func(ctx context.Context, opts ...driverutil.Option) (node_drivers.NodeDriver, error) {
+		lg := logger.PluginLoggerFromContext(ctx).WithGroup("alerting").WithGroup("rule-discovery")
 		driverOptions := &NodeDriverOptions{
+			ctx:       logger.WithPluginLogger(ctx, lg),
 			K8sClient: nil,
-			Logger:    logger.NewPluginLogger().WithGroup("alerting").WithGroup("rule-discovery"),
 		}
 		if err := driverutil.ApplyOptions(driverOptions, opts...); err != nil {
 			return nil, err

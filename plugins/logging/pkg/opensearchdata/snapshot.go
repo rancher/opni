@@ -7,11 +7,13 @@ import (
 	"time"
 
 	"github.com/opensearch-project/opensearch-go/opensearchutil"
+	"github.com/rancher/opni/pkg/logger"
 	opensearchtypes "github.com/rancher/opni/pkg/opensearch/opensearch/types"
 	loggingerrors "github.com/rancher/opni/plugins/logging/pkg/errors"
 )
 
 func (m *Manager) DoSnapshot(ctx context.Context, repository string, indices []string) error {
+	lg := logger.PluginLoggerFromContext(m.ctx)
 	m.WaitForInit()
 
 	snapshotName := fmt.Sprintf("upgrade-%s", time.Now().Format(time.UnixDate))
@@ -28,7 +30,7 @@ func (m *Manager) DoSnapshot(ctx context.Context, repository string, indices []s
 	defer resp.Body.Close()
 
 	if resp.IsError() {
-		m.logger.Error(fmt.Sprintf("opensearch request failed: %s", resp.String()))
+		lg.Error(fmt.Sprintf("opensearch request failed: %s", resp.String()))
 		return loggingerrors.ErrOpensearchResponse
 	}
 

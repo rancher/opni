@@ -8,8 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"log/slog"
-
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"
@@ -27,7 +25,7 @@ type BatchingConfig struct {
 }
 
 type TopologyStreamer struct {
-	logger     *slog.Logger
+	ctx        context.Context
 	conditions health.ConditionTracker
 
 	v                chan client.Object
@@ -39,7 +37,7 @@ type TopologyStreamer struct {
 	topologyStreamClient   stream.RemoteTopologyClient
 }
 
-func NewTopologyStreamer(ct health.ConditionTracker, lg *slog.Logger) *TopologyStreamer {
+func NewTopologyStreamer(ctx context.Context, ct health.ConditionTracker) *TopologyStreamer {
 	return &TopologyStreamer{
 		// FIXME: reintroduce this when we want to monitor kubernetes events
 		// eventWatchClient: util.Must(client.NewWithWatch(
@@ -47,7 +45,7 @@ func NewTopologyStreamer(ct health.ConditionTracker, lg *slog.Logger) *TopologyS
 		// 	client.Options{
 		// 		Scheme: apis.NewScheme(),
 		// 	})),
-		logger:     lg,
+		ctx:        ctx,
 		conditions: ct,
 	}
 }
@@ -66,7 +64,7 @@ func (s *TopologyStreamer) SetIdentityClient(identityClient controlv1.IdentityCl
 }
 
 func (s *TopologyStreamer) Run(ctx context.Context, spec *node.TopologyCapabilitySpec) error {
-	lg := s.logger
+	lg := logger.PluginLoggerFromContext(s.ctx)
 	if spec == nil {
 		lg.With("stream", "topology").Warn("no topology capability spec provided, setting defaults")
 

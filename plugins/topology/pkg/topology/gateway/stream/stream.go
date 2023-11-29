@@ -15,18 +15,18 @@ import (
 
 	"github.com/nats-io/nats.go"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/topology/store"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/topology/apis/stream"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"log/slog"
 )
 
 type TopologyStreamWriteConfig struct {
-	Logger *slog.Logger
-	Nc     *nats.Conn
+	Context context.Context
+	Nc      *nats.Conn
 }
 
 type TopologyStreamWriter struct {
@@ -42,9 +42,10 @@ var _ stream.RemoteTopologyServer = (*TopologyStreamWriter)(nil)
 
 func (t *TopologyStreamWriter) Initialize(conf TopologyStreamWriteConfig) {
 	t.InitOnce(func() {
+		lg := logger.PluginLoggerFromContext(conf.Context)
 		objStore, err := store.NewTopologyObjectStore(conf.Nc)
 		if err != nil {
-			conf.Logger.With("error", err).Error("failed to initialize topology object store")
+			lg.With("error", err).Error("failed to initialize topology object store")
 			os.Exit(1)
 		}
 		t.topologyObjectStore = objStore
@@ -66,6 +67,8 @@ func (t *TopologyStreamWriter) objectDef(clusterId *corev1.Reference, repr strea
 }
 
 func (t *TopologyStreamWriter) Push(_ context.Context, payload *stream.Payload) (*emptypb.Empty, error) {
+	lg := logger.PluginLoggerFromContext(t.Context)
+
 	if !t.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
@@ -77,7 +80,7 @@ func (t *TopologyStreamWriter) Push(_ context.Context, payload *stream.Payload) 
 	if err != nil {
 		return nil, err
 	}
-	t.Logger.With("info", info).Debug("successfully pushed topology data")
+	lg.With("info", info).Debug("successfully pushed topology data")
 	return &emptypb.Empty{}, nil
 }
 

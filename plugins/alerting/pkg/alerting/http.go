@@ -13,7 +13,8 @@ import (
 var _ httpext.HTTPAPIExtension = (*Plugin)(nil)
 
 func (p *Plugin) ConfigureRoutes(router *gin.Engine) {
-	router.Use(logger.GinLogger(p.logger.With("component", "http-proxy")), gin.Recovery())
+	lg := logger.PluginLoggerFromContext(p.ctx)
+	router.Use(logger.GinLogger(lg.With("component", "http-proxy")), gin.Recovery())
 	p.hsServer.ConfigureRoutes(router)
 	p.httpProxy.ConfigureRoutes(router)
 }

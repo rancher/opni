@@ -14,11 +14,13 @@ import (
 	"time"
 
 	channelzcmd "github.com/kazegusuri/channelzcli/cmd"
+	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/keyring"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/pkg/storage"
@@ -27,8 +29,10 @@ import (
 	"go.etcd.io/etcd/etcdctl/v3/ctlv3"
 	channelzgrpc "google.golang.org/grpc/channelz/grpc_channelz_v1"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"sigs.k8s.io/yaml"
 )
 
@@ -43,6 +47,7 @@ func BuildDebugCmd() *cobra.Command {
 	debugCmd.AddCommand(BuildDebugChannelzCmd())
 	debugCmd.AddCommand(BuildDebugDashboardSettingsCmd())
 	debugCmd.AddCommand(BuildDebugImportAgentCmd())
+	debugCmd.AddCommand(BuildDebugAgentLogStreamGetCmd())
 	ConfigureManagementCommand(debugCmd)
 	return debugCmd
 }
@@ -459,6 +464,91 @@ func BuildDebugImportAgentCmd() *cobra.Command {
 	cmd.MarkFlagRequired("id")
 	cmd.MarkFlagRequired("keyring")
 
+	return cmd
+}
+
+func BuildDebugAgentLogStreamGetCmd() *cobra.Command {
+	var since, until, level, output string
+	var follow bool
+	var names []string
+	cmd := &cobra.Command{
+		Use:   "agent-logs <cluster-id>",
+		Short: "Get agent logs",
+		Args:  cobra.ExactArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return completeClusters(cmd, args, toComplete)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				cl, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
+				if err != nil {
+					lg.Error("fatal", err)
+					os.Exit(1)
+				}
+				for _, c := range cl.Items {
+					args = append(args, c.Id)
+				}
+			}
+			streamRequest := &managementv1.StreamAgentLogsRequest{
+				Agent: &corev1.Reference{
+					Id: args[0],
+				},
+				Request: &controlv1.LogStreamRequest{
+					Filters: &controlv1.LogStreamFilters{
+						NamePattern: names,
+						Level:       lo.ToPtr(int32(logger.ParseLevel(level))),
+					},
+					Follow: follow,
+				},
+			}
+
+			startTime := parseTimeOrDie(since)
+			endTime := parseTimeOrDie(until)
+			streamRequest.Request.Since = timestamppb.New(startTime)
+			streamRequest.Request.Until = timestamppb.New(endTime)
+
+			stream, err := mgmtClient.GetAgentLogStream(cmd.Context(), streamRequest)
+			if err != nil {
+				return err
+			}
+			for {
+				log, err := stream.Recv()
+				if err != nil {
+					return err
+				}
+
+				done := (proto.Equal(log, &controlv1.StructuredLogRecord{}))
+				keepFollowing := done && follow
+				if keepFollowing {
+					continue
+				} else if done {
+					return nil
+				}
+
+				var attrs strings.Builder
+				for _, attr := range log.Attributes {
+					attrs.WriteString(attr.Key)
+					attrs.WriteString("=")
+					attrs.WriteString(attr.Value)
+					attrs.WriteString(" ")
+				}
+				fmt.Println(log.Time.AsTime().Format(logger.DefaultTimeFormat), log.Level, log.Name, log.Source, log.Message, attrs.String())
+			}
+		},
+	}
+
+	cmd.Flags().StringVar(&since, "since", "1 day ago", "Start time")
+	cmd.Flags().StringVar(&until, "until", "now", "End time")
+	cmd.Flags().StringSliceVar(&names, "name", nil, "Pattern filter(s) by component name")
+	cmd.Flags().StringVar(&level, "level", "info", "Minimum log level severity (debug, info, warn, error)")
+	cmd.Flags().StringVar(&output, "output", "text", "Output format")
+	cmd.Flags().BoolVar(&follow, "follow", false, "Follow logs")
+	cmd.RegisterFlagCompletionFunc("level", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"debug", "info", "warn", "error"}, cobra.ShellCompDirectiveDefault
+	})
+	cmd.RegisterFlagCompletionFunc("output", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"text", "json"}, cobra.ShellCompDirectiveDefault
+	})
 	return cmd
 }
 

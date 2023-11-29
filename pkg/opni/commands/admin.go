@@ -313,7 +313,7 @@ func parseTimeOrDie(timeStr string) time.Time {
 	}
 	t, err := when.EN.Parse(timeStr, time.Now())
 	if err != nil || t == nil {
-		lg.Error("could not interpret start time")
+		lg.Error("could not interpret start/end time")
 		os.Exit(1)
 	}
 	return t.Time

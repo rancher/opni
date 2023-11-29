@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/alarms/v1"
 
@@ -13,6 +14,7 @@ import (
 )
 
 func (p *Plugin) newClusterWatcherHooks(ctx context.Context, ingressStream *nats.StreamConfig) *management.ManagementWatcherHooks[*managementv1.WatchEvent] {
+	lg := logger.PluginLoggerFromContext(p.ctx)
 	err := natsutil.NewPersistentStream(p.js.Get(), ingressStream)
 	if err != nil {
 		panic(err)
@@ -22,7 +24,7 @@ func (p *Plugin) newClusterWatcherHooks(ctx context.Context, ingressStream *nats
 		createClusterEvent,
 		func(ctx context.Context, event *managementv1.WatchEvent) error {
 			err := natsutil.NewDurableReplayConsumer(p.js.Get(), ingressStream.Name, alarms.NewAgentDurableReplayConsumer(event.Cluster.Id))
-			p.logger.Info(fmt.Sprintf("added durable ordered push consumer for cluster %s", event.Cluster.Id))
+			lg.Info(fmt.Sprintf("added durable ordered push consumer for cluster %s", event.Cluster.Id))
 			if err != nil {
 				panic(err)
 			}

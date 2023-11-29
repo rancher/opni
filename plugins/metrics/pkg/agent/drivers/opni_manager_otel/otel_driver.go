@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"os"
 
-	"log/slog"
-
 	"github.com/lestrrat-go/backoff/v2"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
@@ -46,9 +44,9 @@ func (*OTELNodeDriver) ConfigureRuleGroupFinder(_ *v1beta1.RulesSpec) notifier.F
 var _ drivers.MetricsNodeDriver = (*OTELNodeDriver)(nil)
 
 type OTELNodeDriverOptions struct {
-	K8sClient client.Client `option:"k8sClient"`
-	Logger    *slog.Logger  `option:"logger"`
-	Namespace string        `option:"namespace"`
+	K8sClient client.Client   `option:"k8sClient"`
+	Context   context.Context `option:"context"`
+	Namespace string          `option:"namespace"`
 }
 
 func NewOTELDriver(options OTELNodeDriverOptions) (*OTELNodeDriver, error) {
@@ -72,7 +70,7 @@ func NewOTELDriver(options OTELNodeDriverOptions) (*OTELNodeDriver, error) {
 }
 
 func (o *OTELNodeDriver) ConfigureNode(nodeId string, conf *node.MetricsCapabilityConfig) error {
-	lg := o.Logger.With("nodeId", nodeId)
+	lg := logger.PluginLoggerFromContext(o.Context).With("nodeId", nodeId)
 	if o.state.GetRunning() {
 		o.state.Cancel()
 	}
@@ -101,7 +99,7 @@ BACKOFF:
 				client.ObjectKeyFromObject(obj.A).String(),
 				obj.B))
 
-			if err := reconcilerutil.ReconcileObject(lg, o.K8sClient, o.Namespace, obj); err != nil {
+			if err := reconcilerutil.ReconcileObject(o.Context, o.K8sClient, o.Namespace, obj); err != nil {
 				lg.With(
 					"object", client.ObjectKeyFromObject(obj.A).String(),
 					logger.Err(err),
@@ -139,6 +137,7 @@ func (o *OTELNodeDriver) DiscoverPrometheuses(_ context.Context, _ string) ([]*r
 func (o *OTELNodeDriver) buildMonitoringCollectorConfig(
 	incomingSpec *node.OTELSpec,
 ) *monitoringv1beta1.CollectorConfig {
+	lg := logger.PluginLoggerFromContext(o.Context)
 	collectorConfig := &monitoringv1beta1.CollectorConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: otel.MetricsCrdName,
@@ -149,12 +148,14 @@ func (o *OTELNodeDriver) buildMonitoringCollectorConfig(
 			OtelSpec:            lo.FromPtrOr(node.CompatOTELStruct(incomingSpec), otel.OTELSpec{}),
 		},
 	}
-	o.Logger.Debug(fmt.Sprintf("building %s", string(util.Must(json.Marshal(collectorConfig)))))
+	lg.Debug(fmt.Sprintf("building %s", string(util.Must(json.Marshal(collectorConfig)))))
 	return collectorConfig
 }
 
 func (o *OTELNodeDriver) reconcileCollector(shouldExist bool) error {
-	o.Logger.Debug("reconciling collector")
+	lg := logger.PluginLoggerFromContext(o.Context)
+
+	lg.Debug("reconciling collector")
 	coll := &opnicorev1beta1.Collector{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: otel.CollectorName,
@@ -171,30 +172,30 @@ func (o *OTELNodeDriver) reconcileCollector(shouldExist bool) error {
 
 	switch {
 	case !collectorExists && shouldExist:
-		o.Logger.Debug("collector does not exist and should exist, creating")
+		lg.Debug("collector does not exist and should exist, creating")
 		coll = o.buildEmptyCollector()
 		coll.Spec.MetricsConfig = &corev1.LocalObjectReference{
 			Name: otel.MetricsCrdName,
 		}
 		return o.K8sClient.Create(context.TODO(), coll)
 	case !collectorExists && !shouldExist:
-		o.Logger.Debug("collector does not exist and should not exist, skipping")
+		lg.Debug("collector does not exist and should not exist, skipping")
 		return nil
 	}
 
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		o.Logger.Debug("updating collector with metrics config")
+		lg.Debug("updating collector with metrics config")
 		err := o.K8sClient.Get(context.TODO(), client.ObjectKeyFromObject(coll), coll)
 		if err != nil {
 			return err
 		}
 		if shouldExist {
-			o.Logger.Debug("setting metrics config")
+			lg.Debug("setting metrics config")
 			coll.Spec.MetricsConfig = &corev1.LocalObjectReference{
 				Name: otel.MetricsCrdName,
 			}
 		} else {
-			o.Logger.Debug("removing metrics config")
+			lg.Debug("removing metrics config")
 			coll.Spec.MetricsConfig = nil
 		}
 		return o.K8sClient.Update(context.TODO(), coll)
@@ -253,10 +254,12 @@ func (o *OTELNodeDriver) getAgentService() (*corev1.Service, error) {
 }
 
 func init() {
-	drivers.NodeDrivers.Register("opni-manager-otel", func(_ context.Context, opts ...driverutil.Option) (drivers.MetricsNodeDriver, error) {
+	drivers.NodeDrivers.Register("opni-manager-otel", func(ctx context.Context, opts ...driverutil.Option) (drivers.MetricsNodeDriver, error) {
+		lg := logger.PluginLoggerFromContext(ctx).WithGroup("metrics").WithGroup("otel")
+
 		options := OTELNodeDriverOptions{
 			Namespace: os.Getenv("POD_NAMESPACE"),
-			Logger:    logger.NewPluginLogger().WithGroup("metrics").WithGroup("otel"),
+			Context:   logger.WithPluginLogger(ctx, lg),
 		}
 		if err := driverutil.ApplyOptions(&options, opts...); err != nil {
 			return nil, err

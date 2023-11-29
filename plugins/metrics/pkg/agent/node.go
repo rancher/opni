@@ -18,8 +18,6 @@ import (
 
 	"slices"
 
-	"log/slog"
-
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -40,7 +38,7 @@ type MetricsNode struct {
 	// we only need a subset of the methods
 	remoteread.UnsafeRemoteReadAgentServer
 
-	logger *slog.Logger
+	ctx context.Context
 
 	nodeClientMu sync.RWMutex
 	nodeClient   node.NodeMetricsCapabilityClient
@@ -64,11 +62,11 @@ type MetricsNode struct {
 	nodeDrivers  []drivers.MetricsNodeDriver
 }
 
-func NewMetricsNode(ct health.ConditionTracker, lg *slog.Logger) *MetricsNode {
+func NewMetricsNode(ctx context.Context, ct health.ConditionTracker) *MetricsNode {
 	mn := &MetricsNode{
-		logger:       lg,
+		ctx:          ctx,
 		conditions:   ct,
-		targetRunner: NewTargetRunner(lg),
+		targetRunner: NewTargetRunner(ctx),
 	}
 	mn.conditions.AddListener(mn.sendHealthUpdate)
 	mn.targetRunner.SetRemoteReaderClient(NewRemoteReader(&http.Client{}))
@@ -77,23 +75,24 @@ func NewMetricsNode(ct health.ConditionTracker, lg *slog.Logger) *MetricsNode {
 }
 
 func (m *MetricsNode) sendHealthUpdate() {
+	lg := logger.PluginLoggerFromContext(m.ctx)
 	// TODO this can be optimized to de-duplicate rapid updates
 	m.healthListenerClientMu.RLock()
 	defer m.healthListenerClientMu.RUnlock()
 	if m.healthListenerClient != nil {
 		health, err := m.GetHealth(context.TODO(), &emptypb.Empty{})
 		if err != nil {
-			m.logger.With(
+			lg.With(
 				logger.Err(err),
 			).Warn("failed to get node health")
 			return
 		}
 		if _, err := m.healthListenerClient.UpdateHealth(context.TODO(), health); err != nil {
-			m.logger.With(
+			lg.With(
 				logger.Err(err),
 			).Warn("failed to send node health update")
 		} else {
-			m.logger.Debug("sent node health update")
+			lg.Debug("sent node health update")
 		}
 	}
 }
@@ -150,13 +149,15 @@ func (m *MetricsNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.D
 // Implements capabilityv1.NodeServer
 
 func (m *MetricsNode) SyncNow(_ context.Context, req *capabilityv1.Filter) (*emptypb.Empty, error) {
+	lg := logger.PluginLoggerFromContext(m.ctx)
+
 	if len(req.CapabilityNames) > 0 {
 		if !slices.Contains(req.CapabilityNames, wellknown.CapabilityMetrics) {
-			m.logger.Debug("ignoring sync request due to capability filter")
+			lg.Debug("ignoring sync request due to capability filter")
 			return &emptypb.Empty{}, nil
 		}
 	}
-	m.logger.Debug("received sync request")
+	lg.Debug("received sync request")
 
 	m.nodeClientMu.RLock()
 	defer m.nodeClientMu.RUnlock()
@@ -224,11 +225,13 @@ func (m *MetricsNode) GetTargetStatus(_ context.Context, request *remoteread.Tar
 }
 
 func (m *MetricsNode) Discover(ctx context.Context, request *remoteread.DiscoveryRequest) (*remoteread.DiscoveryResponse, error) {
+	lg := logger.PluginLoggerFromContext(m.ctx)
+
 	m.nodeDriverMu.RLock()
 	defer m.nodeDriverMu.RUnlock()
 
 	if len(m.nodeDrivers) == 0 {
-		m.logger.Warn("no node driver available for discvoery")
+		lg.Warn("no node driver available for discvoery")
 
 		return &remoteread.DiscoveryResponse{
 			Entries: []*remoteread.DiscoveryEntry{},
@@ -252,7 +255,9 @@ func (m *MetricsNode) Discover(ctx context.Context, request *remoteread.Discover
 }
 
 func (m *MetricsNode) doSync(ctx context.Context) {
-	m.logger.Debug("syncing metrics node")
+	lg := logger.PluginLoggerFromContext(m.ctx)
+
+	lg.Debug("syncing metrics node")
 	m.nodeClientMu.RLock()
 	defer m.nodeClientMu.RUnlock()
 	m.identityClientMu.RLock()
@@ -283,9 +288,9 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 
 	switch syncResp.ConfigStatus {
 	case node.ConfigStatus_UpToDate:
-		m.logger.Info("metrics node config is up to date")
+		lg.Info("metrics node config is up to date")
 	case node.ConfigStatus_NeedsUpdate:
-		m.logger.Info("updating metrics node config")
+		lg.Info("updating metrics node config")
 		if err := m.updateConfig(ctx, syncResp.UpdatedConfig); err != nil {
 			m.conditions.Set(health.CondNodeDriver, health.StatusFailure, err.Error())
 			return
@@ -297,14 +302,16 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 
 // requires identityClientMu to be held (either R or W)
 func (m *MetricsNode) updateConfig(ctx context.Context, config *node.MetricsCapabilityConfig) error {
+	lg := logger.PluginLoggerFromContext(m.ctx)
+
 	id, err := m.identityClient.Whoami(ctx, &emptypb.Empty{})
 	if err != nil {
-		m.logger.With(logger.Err(err)).Error("error fetching node id", err)
+		lg.With(logger.Err(err)).Error("error fetching node id", err)
 		return err
 	}
 
 	if !m.configMu.TryLock() {
-		m.logger.Debug("waiting on a previous config update to finish...")
+		lg.Debug("waiting on a previous config update to finish...")
 		m.configMu.Lock()
 	}
 	defer m.configMu.Unlock()
@@ -326,7 +333,7 @@ func (m *MetricsNode) updateConfig(ctx context.Context, config *node.MetricsCapa
 
 	if err := eg.Error(); err != nil {
 		m.config.Conditions = append(config.Conditions, err.Error())
-		m.logger.With(logger.Err(err)).Error("node configuration error")
+		lg.With(logger.Err(err)).Error("node configuration error")
 		return err
 	}
 

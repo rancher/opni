@@ -6,8 +6,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"log/slog"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/rancher/opni/pkg/agent"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -45,7 +43,7 @@ type AlertingNodeBackend struct {
 	node.UnsafeNodeAlertingCapabilityServer
 	node.UnsafeAlertingNodeConfigurationServer
 
-	lg *slog.Logger
+	ctx context.Context
 
 	nodeStatusMu sync.RWMutex
 	nodeStatus   map[string]*capabilityv1.NodeCapabilityStatus
@@ -58,10 +56,10 @@ type AlertingNodeBackend struct {
 }
 
 func NewAlertingNodeBackend(
-	lg *slog.Logger,
+	ctx context.Context,
 ) *AlertingNodeBackend {
 	return &AlertingNodeBackend{
-		lg:             lg,
+		ctx:            ctx,
 		delegate:       future.New[streamext.StreamDelegate[agent.ClientSet]](),
 		mgmtClient:     future.New[managementv1.ManagementClient](),
 		storageBackend: future.New[storage.Backend](),
@@ -118,6 +116,8 @@ func (a *AlertingNodeBackend) requestNodeSync(ctx context.Context, target *corev
 func (a *AlertingNodeBackend) broadcastNodeSync(ctx context.Context) {
 	// keep any metadata in the context, but don't propagate cancellation
 	ctx = context.WithoutCancel(ctx)
+	lg := logger.PluginLoggerFromContext(a.ctx)
+
 	var errs []error
 	a.delegate.Get().
 		WithBroadcastSelector(&corev1.ClusterSelector{}, func(reply any, msg *streamv1.BroadcastReplyList) error {
@@ -134,7 +134,7 @@ func (a *AlertingNodeBackend) broadcastNodeSync(ctx context.Context) {
 			CapabilityNames: []string{wellknown.CapabilityAlerting},
 		})
 	if len(errs) > 0 {
-		a.lg.With(
+		lg.With(
 			logger.Err(errors.Join(errs...)),
 		).Warn("one or more agents failed to sync; they may not be updated immediately")
 	}
@@ -236,17 +236,21 @@ func (a *AlertingNodeBackend) getDefaultNodeSpec(ctx context.Context) (*node.Ale
 }
 
 func (a *AlertingNodeBackend) getNodeSpecOrDefault(ctx context.Context, id string) (*node.AlertingCapabilitySpec, error) {
+	lg := logger.PluginLoggerFromContext(a.ctx)
+
 	nodeSpec, err := a.capabilityKV.Get().NodeCapabilitySpecs.Get(ctx, id)
 	if status.Code(err) == codes.NotFound {
 		return a.getDefaultNodeSpec(ctx)
 	} else if err != nil {
-		a.lg.With(logger.Err(err)).Error("failed to get node capability spec")
+		lg.With(logger.Err(err)).Error("failed to get node capability spec")
 		return nil, status.Errorf(codes.Unavailable, "failed to get node capability spec: %v", err)
 	}
 	return nodeSpec, nil
 }
 
 func (a *AlertingNodeBackend) Sync(ctx context.Context, req *node.AlertingCapabilityConfig) (*node.SyncResponse, error) {
+	lg := logger.PluginLoggerFromContext(a.ctx)
+
 	if !a.Initialized() {
 		return nil, status.Error(codes.Unavailable, "Alerting Node Backend is not yet initialized")
 	}
@@ -278,7 +282,7 @@ func (a *AlertingNodeBackend) Sync(ctx context.Context, req *node.AlertingCapabi
 	status.Conditions = req.GetConditions()
 	status.LastSync = timestamppb.Now()
 
-	a.lg.With(
+	lg.With(
 		"id", id,
 		"time", status.LastSync.AsTime(),
 	).Debug("synced node")

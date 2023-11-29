@@ -4,8 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 
-	"log/slog"
-
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -38,8 +36,7 @@ type Plugin struct {
 	system.UnimplementedSystemPluginClient
 	collector.CollectorServer
 
-	ctx    context.Context
-	logger *slog.Logger
+	ctx context.Context
 
 	cortexAdmin       cortex.CortexAdminServer
 	cortexHttp        cortex.HttpApiServer
@@ -69,10 +66,17 @@ func NewPlugin(ctx context.Context) *Plugin {
 	cortex.RegisterMeterProvider(mp)
 
 	collector := collector.NewCollectorServer(cortexReader)
+
+	lg := logger.NewPluginLogger(ctx).WithGroup("metrics")
+	adminLg := lg.WithGroup("cortex-admin")
+	rwLg := lg.WithGroup("cortex-rw")
+	metricsBackendLg := lg.WithGroup("metrics-backend")
+	httpLg := lg.WithGroup("cortex-http")
+	ctx = logger.WithPluginLogger(ctx, lg)
+
 	p := &Plugin{
 		CollectorServer: collector,
 		ctx:             ctx,
-		logger:          logger.NewPluginLogger().WithGroup("metrics"),
 
 		config:              future.New[*v1beta1.GatewayConfig](),
 		authMw:              future.New[map[string]auth.Middleware](),
@@ -93,7 +97,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 			p.cortexAdmin.Initialize(cortex.CortexAdminServerConfig{
 				CortexClientSet: cortexClientSet,
 				Config:          &config.Spec,
-				Logger:          p.logger.WithGroup("cortex-admin"),
+				Context:         logger.WithPluginLogger(ctx, adminLg),
 			})
 		})
 
@@ -102,7 +106,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 			p.cortexRemoteWrite.Initialize(cortex.RemoteWriteForwarderConfig{
 				CortexClientSet: cortexClientSet,
 				Config:          &config.Spec,
-				Logger:          p.logger.WithGroup("cortex-rw"),
+				Context:         logger.WithPluginLogger(ctx, rwLg),
 			})
 		})
 
@@ -120,11 +124,11 @@ func NewPlugin(ctx context.Context) *Plugin {
 	) {
 		driverName := config.Spec.Cortex.Management.ClusterDriver
 		if driverName == "" {
-			p.logger.Warn("no cluster driver configured")
+			lg.Warn("no cluster driver configured")
 		}
 		builder, ok := drivers.ClusterDrivers.Get(driverName)
 		if !ok {
-			p.logger.With(
+			lg.With(
 				"driver", driverName,
 			).Error("unknown cluster driver, using fallback noop driver")
 			builder, ok = drivers.ClusterDrivers.Get("noop")
@@ -136,14 +140,13 @@ func NewPlugin(ctx context.Context) *Plugin {
 			driverutil.NewOption("defaultConfigStore", backendKvClients.DefaultClusterConfigurationSpec),
 		)
 		if err != nil {
-			p.logger.With(
+			lg.With(
 				"driver", driverName,
 				logger.Err(err),
 			).Error("failed to initialize cluster driver")
 			panic("failed to initialize cluster driver")
-			return
 		}
-		p.logger.With(
+		lg.With(
 			"driver", driverName,
 		).Info("initialized cluster driver")
 		p.clusterDriver.Set(driver)
@@ -158,7 +161,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 			backendKvClients *backend.KVClients,
 		) {
 			p.metrics.Initialize(backend.MetricsBackendConfig{
-				Logger:              p.logger.WithGroup("metrics-backend"),
+				Context:             logger.WithPluginLogger(p.ctx, metricsBackendLg),
 				StorageBackend:      storageBackend,
 				MgmtClient:          mgmtClient,
 				UninstallController: uninstallController,
@@ -178,12 +181,11 @@ func NewPlugin(ctx context.Context) *Plugin {
 			authMiddlewares map[string]auth.Middleware,
 		) {
 			p.cortexHttp.Initialize(cortex.HttpApiServerConfig{
-				PluginContext:    p.ctx,
+				PluginContext:    logger.WithPluginLogger(p.ctx, httpLg),
 				ManagementClient: mgmtApi,
 				CortexClientSet:  cortexClientSet,
 				Config:           &config.Spec,
 				CortexTLSConfig:  tlsConfig,
-				Logger:           p.logger.WithGroup("cortex-http"),
 				StorageBackend:   storageBackend,
 				AuthMiddlewares:  authMiddlewares,
 			})
@@ -193,12 +195,13 @@ func NewPlugin(ctx context.Context) *Plugin {
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeGateway))
+
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(&p.cortexHttp))
 	streamMetricReader := metric.NewManualReader()
 	p.CollectorServer.AppendReader(streamMetricReader)
-	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(p,
+	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(ctx, p,
 		streamext.WithMetrics(streamext.GatewayStreamMetricsConfig{
 			Reader:          streamMetricReader,
 			LabelsForStream: p.labelsForStreamMetrics,

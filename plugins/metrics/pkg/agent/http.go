@@ -13,7 +13,6 @@ import (
 	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"log/slog"
 
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/health"
@@ -23,7 +22,7 @@ import (
 type HttpServer struct {
 	apiextensions.UnsafeHTTPAPIExtensionServer
 
-	logger *slog.Logger
+	ctx context.Context
 
 	remoteWriteClientMu sync.RWMutex
 	remoteWriteClient   clients.Locker[remotewrite.RemoteWriteClient]
@@ -33,9 +32,9 @@ type HttpServer struct {
 	enabled atomic.Bool
 }
 
-func NewHttpServer(ct health.ConditionTracker, lg *slog.Logger) *HttpServer {
+func NewHttpServer(ctx context.Context, ct health.ConditionTracker) *HttpServer {
 	return &HttpServer{
-		logger:     lg,
+		ctx:        ctx,
 		conditions: ct,
 	}
 }

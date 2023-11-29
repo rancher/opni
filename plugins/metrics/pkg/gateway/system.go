@@ -25,17 +25,18 @@ import (
 )
 
 func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
+	lg := logger.PluginLoggerFromContext(p.ctx)
 	p.mgmtClient.Set(client)
 	cfg, err := client.GetConfig(context.Background(), &emptypb.Empty{}, grpc.WaitForReady(true))
 	if err != nil {
-		p.logger.With(
+		lg.With(
 			logger.Err(err),
 		).Error("failed to get config")
 		os.Exit(1)
 	}
 	objectList, err := machinery.LoadDocuments(cfg.Documents)
 	if err != nil {
-		p.logger.With(
+		lg.With(
 			logger.Err(err),
 		).Error("failed to load config")
 		os.Exit(1)
@@ -44,7 +45,7 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 	objectList.Visit(func(config *v1beta1.GatewayConfig) {
 		backend, err := machinery.ConfigureStorageBackend(p.ctx, &config.Spec.Storage)
 		if err != nil {
-			p.logger.With(
+			lg.With(
 				logger.Err(err),
 			).Error("failed to configure storage backend")
 			os.Exit(1)
@@ -55,7 +56,7 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		p.cortexTlsConfig.Set(tlsConfig)
 		clientset, err := cortex.NewClientSet(p.ctx, &config.Spec.Cortex, tlsConfig)
 		if err != nil {
-			p.logger.With(
+			lg.With(
 				logger.Err(err),
 			).Error("failed to configure cortex clientset")
 			os.Exit(1)
@@ -68,9 +69,10 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 }
 
 func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
+	lg := logger.PluginLoggerFromContext(p.ctx)
 	ctrl, err := task.NewController(p.ctx, "uninstall", system.NewKVStoreClient[*corev1.TaskStatus](client), &p.uninstallRunner)
 	if err != nil {
-		p.logger.With(
+		lg.With(
 			logger.Err(err),
 		).Error("failed to create task controller")
 		os.Exit(1)

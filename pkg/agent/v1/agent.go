@@ -60,6 +60,7 @@ const (
 
 type Agent struct {
 	controlv1.UnimplementedHealthServer
+	controlv1.UnimplementedLogServer
 	AgentOptions
 	config v1beta1.AgentConfigSpec
 	router *gin.Engine

@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/auth/session"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/metrics"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/apis/remotewrite"
@@ -23,7 +24,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"log/slog"
 )
 
 type RemoteWriteForwarder struct {
@@ -39,7 +39,7 @@ var _ remotewrite.RemoteWriteServer = (*RemoteWriteForwarder)(nil)
 type RemoteWriteForwarderConfig struct {
 	CortexClientSet ClientSet                  `validate:"required"`
 	Config          *v1beta1.GatewayConfigSpec `validate:"required"`
-	Logger          *slog.Logger               `validate:"required"`
+	Context         context.Context            `validate:"required"`
 }
 
 func (f *RemoteWriteForwarder) Initialize(conf RemoteWriteForwarderConfig) {
@@ -139,6 +139,8 @@ func (f *RemoteWriteForwarder) Push(ctx context.Context, writeReq *cortexpb.Writ
 }
 
 func (f *RemoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewrite.Payload) (_ *emptypb.Empty, syncErr error) {
+	lg := logger.PluginLoggerFromContext(f.Context)
+
 	if !f.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
@@ -150,7 +152,7 @@ func (f *RemoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewri
 
 	defer func() {
 		if syncErr != nil {
-			f.Logger.With(
+			lg.With(
 				"err", syncErr,
 				"clusterId", clusterId,
 			).Error("error syncing rules to cortex")

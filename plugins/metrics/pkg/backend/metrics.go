@@ -13,8 +13,6 @@ import (
 	"github.com/rancher/opni/plugins/metrics/apis/node"
 	"github.com/rancher/opni/plugins/metrics/apis/remoteread"
 
-	"log/slog"
-
 	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -63,7 +61,7 @@ type MetricsAgentClientSet interface {
 }
 
 type MetricsBackendConfig struct {
-	Logger              *slog.Logger                                    `validate:"required"`
+	Context             context.Context                                 `validate:"required"`
 	StorageBackend      storage.Backend                                 `validate:"required"`
 	MgmtClient          managementv1.ManagementClient                   `validate:"required"`
 	UninstallController *task.Controller                                `validate:"required"`
@@ -100,6 +98,7 @@ func (m *MetricsBackend) requestNodeSync(ctx context.Context, target *corev1.Ref
 }
 
 func (m *MetricsBackend) broadcastNodeSync(ctx context.Context) {
+	lg := logger.PluginLoggerFromContext(m.Context)
 	// keep any metadata in the context, but don't propagate cancellation
 	ctx = context.WithoutCancel(ctx)
 	var errs []error
@@ -118,7 +117,7 @@ func (m *MetricsBackend) broadcastNodeSync(ctx context.Context) {
 			CapabilityNames: []string{wellknown.CapabilityMetrics},
 		})
 	if len(errs) > 0 {
-		m.Logger.With(
+		lg.With(
 			logger.Err(errors.Join(errs...)),
 		).Warn("one or more agents failed to sync; they may not be updated immediately")
 	}
@@ -126,6 +125,7 @@ func (m *MetricsBackend) broadcastNodeSync(ctx context.Context) {
 
 // Implements node.NodeMetricsCapabilityServer
 func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node.SyncResponse, error) {
+	lg := logger.PluginLoggerFromContext(m.Context)
 	m.WaitForInit()
 	id := cluster.StreamAuthorizedID(ctx)
 
@@ -147,7 +147,7 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 		// auto-disable if cortex is not installed
 		if err := m.ClusterDriver.ShouldDisableNode(cluster.Reference()); err != nil {
 			reason := status.Convert(err).Message()
-			m.Logger.With(
+			lg.With(
 				"reason", reason,
 			).Info("disabling metrics capability for node")
 			enabled = false
@@ -167,7 +167,7 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 	status.Enabled = req.GetCurrentConfig().GetEnabled()
 	status.Conditions = req.GetCurrentConfig().GetConditions()
 	status.LastSync = timestamppb.Now()
-	m.Logger.With(
+	lg.With(
 		"id", id,
 		"time", status.LastSync.AsTime(),
 	).Debug("synced node")
@@ -204,11 +204,12 @@ func init() {
 }
 
 func (m *MetricsBackend) getDefaultNodeSpec(ctx context.Context) (*node.MetricsCapabilitySpec, error) {
+	lg := logger.PluginLoggerFromContext(m.Context)
 	nodeSpec, err := m.KV.DefaultCapabilitySpec.Get(ctx)
 	if status.Code(err) == codes.NotFound {
 		nodeSpec = FallbackDefaultNodeSpec.Load()
 	} else if err != nil {
-		m.Logger.With(logger.Err(err)).Error("failed to get default capability spec")
+		lg.With(logger.Err(err)).Error("failed to get default capability spec")
 		return nil, status.Errorf(codes.Unavailable, "failed to get default capability spec: %v", err)
 	}
 	grpc.SetTrailer(ctx, node.DefaultConfigMetadata())
@@ -216,11 +217,12 @@ func (m *MetricsBackend) getDefaultNodeSpec(ctx context.Context) (*node.MetricsC
 }
 
 func (m *MetricsBackend) getNodeSpecOrDefault(ctx context.Context, id string) (*node.MetricsCapabilitySpec, error) {
+	lg := logger.PluginLoggerFromContext(m.Context)
 	nodeSpec, err := m.KV.NodeCapabilitySpecs.Get(ctx, id)
 	if status.Code(err) == codes.NotFound {
 		return m.getDefaultNodeSpec(ctx)
 	} else if err != nil {
-		m.Logger.With(logger.Err(err)).Error("failed to get node capability spec")
+		lg.With(logger.Err(err)).Error("failed to get node capability spec")
 		return nil, status.Errorf(codes.Unavailable, "failed to get node capability spec: %v", err)
 	}
 	// handle the case where an older config is now invalid: reset to factory default

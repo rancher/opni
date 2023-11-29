@@ -45,8 +45,7 @@ type ExamplePlugin struct {
 	UnsafeExampleUnaryExtensionServer
 	capabilityv1.UnsafeBackendServer
 	system.UnimplementedSystemPluginClient
-	ctx    context.Context
-	logger *slog.Logger
+	ctx context.Context
 
 	storageBackend      future.Future[storage.Backend]
 	uninstallController future.Future[*task.Controller]
@@ -85,21 +84,22 @@ func (s *ExamplePlugin) UseCachingProvider(cacheProvider caching.CachingProvider
 }
 
 func (s *ExamplePlugin) UseManagementAPI(client managementv1.ManagementClient) {
+	lg := logger.PluginLoggerFromContext(s.ctx)
 	cfg, err := client.GetConfig(context.Background(), &emptypb.Empty{}, grpc.WaitForReady(true))
 	if err != nil {
-		s.logger.With(logger.Err(err)).Error("failed to get config")
+		lg.With(logger.Err(err)).Error("failed to get config")
 		return
 	}
 	objectList, err := machinery.LoadDocuments(cfg.Documents)
 	if err != nil {
-		s.logger.With(logger.Err(err)).Error("failed to load config")
+		lg.With(logger.Err(err)).Error("failed to load config")
 		return
 	}
 	machinery.LoadAuthProviders(s.ctx, objectList)
 	objectList.Visit(func(config *v1beta1.GatewayConfig) {
 		backend, err := machinery.ConfigureStorageBackend(s.ctx, &config.Spec.Storage)
 		if err != nil {
-			s.logger.With(logger.Err(err)).Error("failed to configure storage backend")
+			lg.With(logger.Err(err)).Error("failed to configure storage backend")
 			return
 		}
 		s.storageBackend.Set(backend)
@@ -112,11 +112,12 @@ func (s *ExamplePlugin) UseManagementAPI(client managementv1.ManagementClient) {
 }
 
 func (s *ExamplePlugin) UseKeyValueStore(client system.KeyValueStoreClient) {
+	lg := logger.PluginLoggerFromContext(s.ctx)
 	ctrl, err := task.NewController(s.ctx, "uninstall", system.NewKVStoreClient[*corev1.TaskStatus](client), &uninstallTaskRunner{
 		storageBackend: s.storageBackend.Get(),
 	})
 	if err != nil {
-		s.logger.With(logger.Err(err)).Error("failed to create uninstall controller")
+		lg.With(logger.Err(err)).Error("failed to create uninstall controller")
 		return
 	}
 	s.uninstallController.Set(ctrl)
@@ -132,8 +133,9 @@ func (s *ExamplePlugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 }
 
 func (s *ExamplePlugin) ConfigureRoutes(app *gin.Engine) {
+	lg := logger.PluginLoggerFromContext(s.ctx)
 	app.GET("/example", func(c *gin.Context) {
-		s.logger.Debug("handling /example")
+		lg.Debug("handling /example")
 		c.JSON(http.StatusOK, map[string]string{
 			"message": "hello world",
 		})
@@ -222,9 +224,10 @@ func (s *ExamplePlugin) InstallerTemplate(context.Context, *emptypb.Empty) (*cap
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
+	lg := logger.NewPluginLogger(ctx).WithGroup("example")
+	ctx = logger.WithPluginLogger(ctx, lg)
 	p := &ExamplePlugin{
 		ctx:                 ctx,
-		logger:              logger.NewPluginLogger().WithGroup("example"),
 		storageBackend:      future.New[storage.Backend](),
 		uninstallController: future.New[*task.Controller](),
 	}

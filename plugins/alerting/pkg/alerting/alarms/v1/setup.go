@@ -13,6 +13,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
@@ -108,7 +109,7 @@ func (p *AlarmServerComponent) activateCondition(
 	cond *alertingv1.AlertCondition,
 	conditionId string,
 ) (ref *corev1.Reference, retErr error) {
-	lg := p.logger.With("condition", cond.GetName(), "id", cond.GetId(), "cond-group", cond.GroupId)
+	lg := logger.PluginLoggerFromContext(p.ctx).With("condition", cond.GetName(), "id", cond.GetId(), "cond-group", cond.GroupId)
 	lg.Info("activating alarm")
 	conditionStorage, err := p.conditionStorage.GetContext(ctx)
 	if err != nil {
@@ -173,9 +174,10 @@ func (p *AlarmServerComponent) handleSystemAlertCreation(
 	conditionName string,
 	namespace string,
 ) error {
+	lg := logger.PluginLoggerFromContext(p.ctx)
 	err := p.onSystemConditionCreate(newConditionId, conditionName, namespace, k)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("failed to create agent condition %s", err))
+		lg.Error(fmt.Sprintf("failed to create agent condition %s", err))
 	}
 	return nil
 }
@@ -187,9 +189,10 @@ func (p *AlarmServerComponent) handleDownstreamCapabilityAlertCreation(
 	conditionName string,
 	namespace string,
 ) error {
+	lg := logger.PluginLoggerFromContext(p.ctx)
 	err := p.onDownstreamCapabilityConditionCreate(newConditionId, conditionName, namespace, k)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("failed to create agent condition %s", err))
+		lg.Error(fmt.Sprintf("failed to create agent condition %s", err))
 	}
 	return nil
 }
@@ -201,9 +204,10 @@ func (p *AlarmServerComponent) handleMonitoringBackendAlertCreation(
 	conditionName string,
 	namespace string,
 ) error {
+	lg := logger.PluginLoggerFromContext(p.ctx)
 	err := p.onCortexClusterStatusCreate(newConditionId, conditionName, namespace, k)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("failed to create cortex cluster condition %s", err))
+		lg.Error(fmt.Sprintf("failed to create cortex cluster condition %s", err))
 	}
 	return nil
 }

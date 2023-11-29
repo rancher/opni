@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"unicode"
@@ -35,6 +36,7 @@ const (
 )
 
 type colorHandler struct {
+	slog.Handler
 	level          slog.Leveler
 	addSource      bool
 	replaceAttr    func([]string, slog.Attr) slog.Attr
@@ -188,22 +190,22 @@ func (h *colorHandler) appendLevel(buf *buffer, level slog.Level) {
 	switch {
 	case level < slog.LevelInfo:
 		buf.WriteStringIf(h.colorEnabled, ansiBrightMagenta)
-		buf.WriteString("DEBUG")
+		buf.WriteString(levelString[0])
 		appendLevelDelta(buf, level-slog.LevelDebug)
 		buf.WriteStringIf(h.colorEnabled, ansiReset)
 	case level < slog.LevelWarn:
 		buf.WriteStringIf(h.colorEnabled, ansiBrightBlue)
-		buf.WriteString("INFO")
+		buf.WriteString(levelString[1])
 		appendLevelDelta(buf, level-slog.LevelInfo)
 		buf.WriteStringIf(h.colorEnabled, ansiReset)
 	case level < slog.LevelError:
 		buf.WriteStringIf(h.colorEnabled, ansiBrightYellow)
-		buf.WriteString("WARN")
+		buf.WriteString(levelString[2])
 		appendLevelDelta(buf, level-slog.LevelWarn)
 		buf.WriteStringIf(h.colorEnabled, ansiReset)
 	default:
 		buf.WriteStringIf(h.colorEnabled, ansiBrightRed)
-		buf.WriteString("ERROR")
+		buf.WriteString(levelString[3])
 		appendLevelDelta(buf, level-slog.LevelError)
 		buf.WriteStringIf(h.colorEnabled, ansiReset)
 	}
@@ -223,7 +225,7 @@ func (h *colorHandler) writeGroups(buf *buffer) {
 	last := len(h.groups) - 1
 	for i, group := range h.groups {
 		if i == 0 {
-			if group == pluginGroupPrefix {
+			if strings.HasPrefix(group, forwardedPluginPrefix) || group == pluginGroupPrefix {
 				buf.WriteStringIf(h.colorEnabled, ansiBrightCyan)
 			} else {
 				buf.WriteStringIf(h.colorEnabled, ansiBrightGreen)

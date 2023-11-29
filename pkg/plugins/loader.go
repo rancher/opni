@@ -297,7 +297,7 @@ func (p *PluginLoader) LoadPlugins(ctx context.Context, pluginDir string, scheme
 				continue
 			}
 		}
-		cc := ClientConfig(md, scheme, clientOpts...)
+		cc := ClientConfig(ctx, md, scheme, clientOpts...)
 
 		wg.Add(1)
 		go func() {

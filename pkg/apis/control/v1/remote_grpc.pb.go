@@ -289,3 +289,120 @@ var UpdateSync_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "github.com/rancher/opni/pkg/apis/control/v1/remote.proto",
 }
+
+const (
+	Log_StreamLogs_FullMethodName = "/control.Log/StreamLogs"
+)
+
+// LogClient is the client API for Log service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type LogClient interface {
+	StreamLogs(ctx context.Context, in *LogStreamRequest, opts ...grpc.CallOption) (Log_StreamLogsClient, error)
+}
+
+type logClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewLogClient(cc grpc.ClientConnInterface) LogClient {
+	return &logClient{cc}
+}
+
+func (c *logClient) StreamLogs(ctx context.Context, in *LogStreamRequest, opts ...grpc.CallOption) (Log_StreamLogsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Log_ServiceDesc.Streams[0], Log_StreamLogs_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &logStreamLogsClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Log_StreamLogsClient interface {
+	Recv() (*StructuredLogRecord, error)
+	grpc.ClientStream
+}
+
+type logStreamLogsClient struct {
+	grpc.ClientStream
+}
+
+func (x *logStreamLogsClient) Recv() (*StructuredLogRecord, error) {
+	m := new(StructuredLogRecord)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// LogServer is the server API for Log service.
+// All implementations must embed UnimplementedLogServer
+// for forward compatibility
+type LogServer interface {
+	StreamLogs(*LogStreamRequest, Log_StreamLogsServer) error
+	mustEmbedUnimplementedLogServer()
+}
+
+// UnimplementedLogServer must be embedded to have forward compatible implementations.
+type UnimplementedLogServer struct {
+}
+
+func (UnimplementedLogServer) StreamLogs(*LogStreamRequest, Log_StreamLogsServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamLogs not implemented")
+}
+func (UnimplementedLogServer) mustEmbedUnimplementedLogServer() {}
+
+// UnsafeLogServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to LogServer will
+// result in compilation errors.
+type UnsafeLogServer interface {
+	mustEmbedUnimplementedLogServer()
+}
+
+func RegisterLogServer(s grpc.ServiceRegistrar, srv LogServer) {
+	s.RegisterService(&Log_ServiceDesc, srv)
+}
+
+func _Log_StreamLogs_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(LogStreamRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(LogServer).StreamLogs(m, &logStreamLogsServer{stream})
+}
+
+type Log_StreamLogsServer interface {
+	Send(*StructuredLogRecord) error
+	grpc.ServerStream
+}
+
+type logStreamLogsServer struct {
+	grpc.ServerStream
+}
+
+func (x *logStreamLogsServer) Send(m *StructuredLogRecord) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+// Log_ServiceDesc is the grpc.ServiceDesc for Log service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Log_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "control.Log",
+	HandlerType: (*LogServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StreamLogs",
+			Handler:       _Log_StreamLogs_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "github.com/rancher/opni/pkg/apis/control/v1/remote.proto",
+}

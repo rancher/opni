@@ -15,25 +15,25 @@ func (m *Server) GetClusterHealthStatus(
 	_ context.Context,
 	ref *corev1.Reference,
 ) (*corev1.HealthStatus, error) {
-	if m.healthStatusDataSource == nil {
+	if m.agentControlDataSource == nil {
 		return nil, status.Error(codes.Unavailable, "health API not configured")
 	}
 	if err := validation.Validate(ref); err != nil {
 		return nil, err
 	}
 
-	return m.healthStatusDataSource.GetClusterHealthStatus(ref)
+	return m.agentControlDataSource.GetClusterHealthStatus(ref)
 }
 
 func (m *Server) WatchClusterHealthStatus(
 	_ *emptypb.Empty,
 	stream managementv1.Management_WatchClusterHealthStatusServer,
 ) error {
-	if m.healthStatusDataSource == nil {
+	if m.agentControlDataSource == nil {
 		return status.Error(codes.Unavailable, "health API not configured")
 	}
 
-	healthStatusC := m.healthStatusDataSource.WatchClusterHealthStatus(stream.Context())
+	healthStatusC := m.agentControlDataSource.WatchClusterHealthStatus(stream.Context())
 	for {
 		select {
 		case <-stream.Context().Done():

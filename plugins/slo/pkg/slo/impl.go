@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/prometheus/promql/parser"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/apis/slo"
@@ -37,7 +38,7 @@ func (s SLOMonitoring) Create() (*corev1.Reference, error) {
 	rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
 	toApply := []rulefmt.RuleGroup{rrecording, rmetadata, ralerting}
 	ruleId := slo.GetId()
-	err := tryApplyThenDeleteCortexRules(s.ctx, s.p, s.p.logger, req.GetSlo().GetClusterId(), &ruleId, toApply)
+	err := tryApplyThenDeleteCortexRules(s.ctx, s.p, req.GetSlo().GetClusterId(), &ruleId, toApply)
 	if err != nil {
 		return nil, err
 	}
@@ -45,17 +46,18 @@ func (s SLOMonitoring) Create() (*corev1.Reference, error) {
 }
 
 func (s SLOMonitoring) Update(existing *sloapi.SLOData) (*sloapi.SLOData, error) {
+	lg := logger.PluginLoggerFromContext(s.p.ctx)
 	incomingSLO := (s.req).(*sloapi.SLOData) // Create is the same as Update if within the same cluster
 	newSlo := SLODataToStruct(incomingSLO)
 	rrecording, rmetadata, ralerting := newSlo.ConstructCortexRules(nil)
 	toApply := []rulefmt.RuleGroup{rrecording, rmetadata, ralerting}
-	err := tryApplyThenDeleteCortexRules(s.ctx, s.p, s.p.logger, incomingSLO.GetSLO().GetClusterId(), nil, toApply)
+	err := tryApplyThenDeleteCortexRules(s.ctx, s.p, incomingSLO.GetSLO().GetClusterId(), nil, toApply)
 
 	// successfully applied rules to another cluster
 	if err == nil && existing.SLO.ClusterId != incomingSLO.SLO.ClusterId {
 		_, err := s.p.DeleteSLO(s.ctx, &corev1.Reference{Id: existing.Id})
 		if err != nil {
-			s.lg.With("sloId", existing.Id).Error(fmt.Sprintf(
+			lg.With("sloId", existing.Id).Error(fmt.Sprintf(
 				"Unable to delete SLO when updating between clusters :  %v",
 				err))
 		}
@@ -64,8 +66,10 @@ func (s SLOMonitoring) Update(existing *sloapi.SLOData) (*sloapi.SLOData, error)
 }
 
 func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
+	lg := logger.PluginLoggerFromContext(s.p.ctx)
+
 	id, clusterId := existing.Id, existing.SLO.ClusterId
-	//err := deleteCortexSLORules(s.p, id, clusterId, s.ctx, s.lg)
+	//err := deleteCortexSLORules(s.p, id, clusterId, s.ctx, lg)
 	errArr := []error{}
 	slo := SLODataToStruct(existing)
 	rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
@@ -76,7 +80,6 @@ func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
 				err := deleteCortexSLORules(
 					s.ctx,
 					s.p,
-					s.p.logger,
 					clusterId,
 					rule.Alert.Value,
 				)
@@ -88,7 +91,6 @@ func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
 				err := deleteCortexSLORules(
 					s.ctx,
 					s.p,
-					s.p.logger,
 					clusterId,
 					rule.Record.Value,
 				)
@@ -100,7 +102,7 @@ func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
 	}
 	err := createGrafanaSLOMask(s.ctx, s.p, clusterId, id)
 	if err != nil {
-		s.p.logger.Error(fmt.Sprintf("creating grafana mask failed %s", err))
+		lg.Error(fmt.Sprintf("creating grafana mask failed %s", err))
 		errArr = append(errArr, err)
 	}
 	return errors.Combine(errArr...)
@@ -115,7 +117,7 @@ func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (*corev1.Reference, *sloapi.
 	rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
 	toApply := []rulefmt.RuleGroup{rrecording, rmetadata, ralerting}
 	ruleId := slo.GetId()
-	err := tryApplyThenDeleteCortexRules(s.ctx, s.p, s.p.logger, sloData.GetClusterId(), &ruleId, toApply)
+	err := tryApplyThenDeleteCortexRules(s.ctx, s.p, sloData.GetClusterId(), &ruleId, toApply)
 	clonedData.SLO.Name = sloData.Name + "-clone"
 	clonedData.Id = slo.GetId()
 	return &corev1.Reference{Id: slo.GetId()}, clonedData, err
@@ -196,7 +198,7 @@ func (s SLOMonitoring) MultiClusterClone(
 			)
 			continue
 		}
-		errArr[idx] = tryApplyThenDeleteCortexRules(s.ctx, s.p, s.p.logger, clusterId.Id, &ruleId, toApply)
+		errArr[idx] = tryApplyThenDeleteCortexRules(s.ctx, s.p, clusterId.Id, &ruleId, toApply)
 		clonedData.SLO.Name = sloData.Name + "-clone-" + strconv.Itoa(idx)
 		clonedData.Id = slo.GetId()
 		clusterDefinitions[idx] = clonedData
@@ -211,10 +213,11 @@ func (s SLOMonitoring) MultiClusterClone(
 // - If it has Data, check if it is within budget
 // - If is within budget, check if any alerts are firing
 func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, error) {
+	lg := logger.PluginLoggerFromContext(s.p.ctx)
 	now := time.Now()
 
 	if now.Sub(existing.CreatedAt.AsTime()) <= sloapi.MinEvaluateInterval*2 {
-		s.lg.Debug("SLO status is not ready to be evaluated : ", "sloId", existing.Id, "status", (&sloapi.SLOStatus{State: sloapi.SLOStatusState_Creating}).String())
+		lg.Debug("SLO status is not ready to be evaluated : ", "sloId", existing.Id, "status", (&sloapi.SLOStatus{State: sloapi.SLOStatusState_Creating}).String())
 
 		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_Creating}, nil
 	}
@@ -234,7 +237,7 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 	if sliDataVector == nil || sliDataVector.Len() == 0 {
 		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_NoData}, nil
 	}
-	s.lg.With("sloId", slo.GetId()).Debug(fmt.Sprintf("sli status response vector : %s", sliDataVector.String()))
+	lg.With("sloId", slo.GetId()).Debug(fmt.Sprintf("sli status response vector : %s", sliDataVector.String()))
 	// ======================= error budget =======================
 	// race condition can cause initial evaluation to fail with empty vector, resulting in no data state
 	// this is why we return creating state with two intervals
@@ -250,7 +253,7 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 	if metadataBudget <= 0 {
 		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_Breaching}, nil
 	}
-	s.lg.With("sloId", slo.GetId()).Debug(fmt.Sprintf("sli status %s", metadataVector.String()))
+	lg.With("sloId", slo.GetId()).Debug(fmt.Sprintf("sli status %s", metadataVector.String()))
 	//
 	//// ======================= alert =======================
 
@@ -270,7 +273,7 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 	if (*alertDataVector1)[len(*alertDataVector1)-1].Value > 0 || (*alertDataVector2)[len(*alertDataVector2)-1].Value > 0 {
 		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_Warning}, nil
 	}
-	s.lg.With("sloId", slo.GetId()).Debug("alert status response vector ", alertDataVector1.String(), alertDataVector2.String())
+	lg.With("sloId", slo.GetId()).Debug("alert status response vector ", alertDataVector1.String(), alertDataVector2.String())
 	return &sloapi.SLOStatus{
 		State: state,
 	}, nil

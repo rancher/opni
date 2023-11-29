@@ -22,8 +22,6 @@ import (
 
 	"slices"
 
-	"log/slog"
-
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/client"
 	"github.com/rancher/opni/pkg/alerting/drivers/config"
@@ -77,12 +75,11 @@ type TestEnvAlertingClusterDriverOptions struct {
 
 type TestEnvAlertingClusterDriver struct {
 	env              *test.Environment
+	ctx              context.Context
 	managedInstances []AlertingServerUnit
 	enabled          *atomic.Bool
 	ConfigFile       string
 	stateMu          *sync.RWMutex
-	logger           *slog.Logger
-
 	*shared.AlertingClusterOptions
 
 	*alertops.ClusterConfiguration
@@ -106,8 +103,7 @@ func NewTestEnvAlertingClusterDriver(env *test.Environment, options TestEnvAlert
 		panic(err)
 	}
 	configFile := path.Join(dir, "alertmanager.yaml")
-	lg := logger.NewPluginLogger().WithGroup("alerting-test-cluster-driver")
-	lg = lg.With("config-file", configFile)
+	lg := logger.NewPluginLogger(env.Context()).WithGroup("alerting-test-cluster-driver").With("config-file", configFile)
 
 	initial := &atomic.Bool{}
 	initial.Store(false)
@@ -133,6 +129,7 @@ func NewTestEnvAlertingClusterDriver(env *test.Environment, options TestEnvAlert
 
 	return &TestEnvAlertingClusterDriver{
 		env:                    env,
+		ctx:                    logger.WithPluginLogger(env.Context(), lg),
 		managedInstances:       []AlertingServerUnit{},
 		enabled:                initial,
 		ConfigFile:             configFile,
@@ -140,7 +137,6 @@ func NewTestEnvAlertingClusterDriver(env *test.Environment, options TestEnvAlert
 		ClusterConfiguration: &alertops.ClusterConfiguration{
 			ResourceLimits: &alertops.ResourceLimitSpec{},
 		},
-		logger:            lg,
 		subscribers:       options.Subscribers,
 		stateMu:           &sync.RWMutex{},
 		embdServerAddress: opniAddr,
@@ -209,6 +205,7 @@ func (l *TestEnvAlertingClusterDriver) ConfigureCluster(_ context.Context, confi
 }
 
 func (l *TestEnvAlertingClusterDriver) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*alertops.InstallStatus, error) {
+	lg := logger.PluginLoggerFromContext(l.ctx)
 	if !l.enabled.Load() {
 		return &alertops.InstallStatus{
 			State: alertops.InstallState_NotInstalled,
@@ -222,7 +219,7 @@ func (l *TestEnvAlertingClusterDriver) GetClusterStatus(ctx context.Context, _ *
 		}, nil
 	}
 	if err := l.AlertingClient.StatusClient().Ready(ctx); err != nil {
-		l.logger.Error("error", logger.Err(err))
+		lg.Error("error", logger.Err(err))
 		return &alertops.InstallStatus{
 			State: alertops.InstallState_InstallUpdating,
 		}, nil
@@ -336,6 +333,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	ctx context.Context,
 	configFilePath string,
 ) AlertingServerUnit {
+	lg := logger.PluginLoggerFromContext(l.ctx)
 	opniBin := path.Join(l.env.TestBin, "../../bin/opni")
 	webPort := freeport.GetFreePort()
 	opniPort := freeport.GetFreePort()
@@ -391,8 +389,8 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	ctxCa, cancelFunc := context.WithCancel(ctx)
 	alertmanagerCmd := exec.CommandContext(ctxCa, opniBin, alertmanagerArgs...)
 	plugins.ConfigureSysProcAttr(alertmanagerCmd)
-	l.logger.Debug("Starting opni alertmanagwer with : " + strings.Join(alertmanagerArgs, " "))
-	l.logger.With("alertmanager-port", webPort, "opni-port", opniPort).Info("Starting AlertManager")
+	lg.Debug("Starting opni alertmanagwer with : " + strings.Join(alertmanagerArgs, " "))
+	lg.With("alertmanager-port", webPort, "opni-port", opniPort).Info("Starting AlertManager")
 	session, err := testutil.StartCmd(alertmanagerCmd)
 	if err != nil {
 		if !errors.Is(ctx.Err(), context.Canceled) {
@@ -418,14 +416,14 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 		if err == nil {
 			defer resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
-				l.logger.Info("Alertmanager successfully started")
+				lg.Info("Alertmanager successfully started")
 				break
 			} else {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					l.logger.Warn(err.Error())
+					lg.Warn(err.Error())
 				}
-				l.logger.
+				lg.
 					With("code", resp.StatusCode, "resp", string(body)).
 					Warn(fmt.Sprintf("Alertmanager not ready yet : %d", resp.StatusCode))
 			}
@@ -437,10 +435,10 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 		}
 	}
 
-	l.logger.Debug("Syncer starting with : " + strings.Join(syncerArgs, " "))
+	lg.Debug("Syncer starting with : " + strings.Join(syncerArgs, " "))
 	syncerCmd := exec.CommandContext(ctxCa, opniBin, syncerArgs...)
 	plugins.ConfigureSysProcAttr(syncerCmd)
-	l.logger.With("port", syncerPort).Info("Starting AlertManager Syncer")
+	lg.With("port", syncerPort).Info("Starting AlertManager Syncer")
 	_, err = testutil.StartCmd(syncerCmd)
 	if err != nil {
 		if !errors.Is(ctx.Err(), context.Canceled) {
@@ -450,7 +448,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 		}
 	}
 
-	l.logger.With("address", fmt.Sprintf("http://127.0.0.1:%d", webPort)).Info("AlertManager started")
+	lg.With("address", fmt.Sprintf("http://127.0.0.1:%d", webPort)).Info("AlertManager started")
 	context.AfterFunc(ctx, func() {
 		cmd, _ := session.G()
 		if cmd != nil {

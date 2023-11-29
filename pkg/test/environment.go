@@ -1885,7 +1885,7 @@ func (e *Environment) startGateway() {
 
 	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g, pluginLoader,
 		management.WithCapabilitiesDataSource(g),
-		management.WithHealthStatusDataSource(g),
+		management.WithAgentControlDataSource(g),
 		management.WithLifecycler(lifecycler),
 	)
 	g.MustRegisterCollector(m)
@@ -2160,6 +2160,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 	var a agent.AgentInterface
 	mu := &sync.Mutex{}
 	agentCtx, cancel := context.WithCancel(options.ctx)
+
 	go func() {
 		defer cancel()
 		mu.Lock()
@@ -2179,7 +2180,8 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 				mu.Unlock()
 				return
 			}
-			globalTestPlugins.LoadPlugins(e.ctx, pl, pluginmeta.ModeAgent)
+			ctx = logger.WithAgentId(e.ctx, id)
+			globalTestPlugins.LoadPlugins(ctx, pl, pluginmeta.ModeAgent)
 			agentListMu.Lock()
 			agentList[id] = cancel
 			agentListMu.Unlock()

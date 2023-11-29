@@ -27,7 +27,6 @@ import (
 	"github.com/rancher/opni/plugins/topology/pkg/topology/gateway/drivers"
 	"github.com/rancher/opni/plugins/topology/pkg/topology/gateway/stream"
 	"google.golang.org/protobuf/proto"
-	"log/slog"
 )
 
 type Plugin struct {
@@ -35,8 +34,7 @@ type Plugin struct {
 	system.UnimplementedSystemPluginClient
 	uninstallRunner TopologyUninstallTaskRunner
 
-	ctx    context.Context
-	logger *slog.Logger
+	ctx context.Context
 
 	topologyRemoteWrite stream.TopologyStreamWriter
 	topologyBackend     backend.TopologyBackend
@@ -54,9 +52,14 @@ type Plugin struct {
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
+	lg := logger.NewPluginLogger(ctx).WithGroup("topology")
+	streamWriteLg := lg.With("component", "stream")
+	uninstallRunnerLg := lg.WithGroup("topology-uninstall-runner")
+	backendLg := lg.WithGroup("topology-backend")
+
+	ctx = logger.WithPluginLogger(ctx, lg)
 	p := &Plugin{
 		ctx:                 ctx,
-		logger:              logger.NewPluginLogger().WithGroup("topology"),
 		nc:                  future.New[*nats.Conn](),
 		storage:             future.New[ConfigStorageAPIs](),
 		mgmtClient:          future.New[managementv1.ManagementClient](),
@@ -69,18 +72,18 @@ func NewPlugin(ctx context.Context) *Plugin {
 	}
 	future.Wait1(p.nc, func(nc *nats.Conn) {
 		p.topologyRemoteWrite.Initialize(stream.TopologyStreamWriteConfig{
-			Logger: p.logger.With("component", "stream"),
-			Nc:     nc,
+			Context: logger.WithPluginLogger(ctx, streamWriteLg),
+			Nc:      nc,
 		})
 	})
 
 	future.Wait2(p.storageBackend, p.uninstallController,
 		func(storageBackend storage.Backend, uninstallController *task.Controller) {
-			p.uninstallRunner.logger = p.logger.WithGroup("topology-uninstall-runner")
+			p.uninstallRunner.ctx = logger.WithPluginLogger(ctx, uninstallRunnerLg)
 			p.uninstallRunner.storageBackend = storageBackend
 		})
 
-	p.logger.Debug("waiting for async requirements for starting topology backend")
+	lg.Debug("waiting for async requirements for starting topology backend")
 	future.Wait5(p.storageBackend, p.mgmtClient, p.delegate, p.uninstallController, p.clusterDriver,
 		func(
 			storageBackend storage.Backend,
@@ -89,7 +92,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 			uninstallController *task.Controller,
 			clusterDriver drivers.ClusterDriver,
 		) {
-			p.logger.With(
+			lg.With(
 				"storageBackend", storageBackend,
 				"mgmtClient", mgmtClient,
 				"delegate", delegate,
@@ -97,14 +100,14 @@ func NewPlugin(ctx context.Context) *Plugin {
 				"clusterDriver", clusterDriver,
 			).Debug("async requirements for starting topology backend are ready")
 			p.topologyBackend.Initialize(backend.TopologyBackendConfig{
-				Logger:              p.logger.WithGroup("topology-backend"),
+				Context:             logger.WithPluginLogger(ctx, backendLg),
 				StorageBackend:      storageBackend,
 				MgmtClient:          mgmtClient,
 				Delegate:            delegate,
 				UninstallController: uninstallController,
 				ClusterDriver:       clusterDriver,
 			})
-			p.logger.Debug("initialized topology backend")
+			lg.Debug("initialized topology backend")
 		})
 
 	return p
@@ -119,6 +122,7 @@ type ConfigStorageAPIs struct {
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeGateway))
+
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
@@ -133,7 +137,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 			),
 		),
 	)
-	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(p))
+	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(ctx, p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.topologyBackend))
 	return scheme
 }

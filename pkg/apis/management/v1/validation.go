@@ -110,3 +110,15 @@ func (r *CapabilityUninstallCancelRequest) Validate() error {
 	}
 	return nil
 }
+
+func (r *StreamAgentLogsRequest) Validate() error {
+	if err := validation.Validate(r.Agent); err != nil {
+		return err
+	}
+
+	if err := validation.Validate(r.Request); err != nil {
+		return err
+	}
+
+	return nil
+}

@@ -3,7 +3,6 @@ package slo
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"emperror.dev/errors"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/metrics/compat"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -22,7 +22,9 @@ import (
 var instantMaskDisabled = true
 
 func createGrafanaSLOMask(ctx context.Context, p *Plugin, clusterId string, ruleId string) error {
-	p.logger.With("sloId", ruleId, "clusterId", clusterId).Debug("creating grafana mask")
+	lg := logger.PluginLoggerFromContext(p.ctx)
+
+	lg.With("sloId", ruleId, "clusterId", clusterId).Debug("creating grafana mask")
 	if !instantMaskDisabled {
 		_, err := p.adminClient.Get().WriteMetrics(ctx, &cortexadmin.WriteRequest{
 			ClusterID: clusterId,
@@ -49,17 +51,16 @@ func createGrafanaSLOMask(ctx context.Context, p *Plugin, clusterId string, rule
 func tryApplyThenDeleteCortexRules(
 	ctx context.Context,
 	p *Plugin,
-	lg *slog.Logger,
 	clusterId string,
 	ruleId *string,
 	toApply []rulefmt.RuleGroup,
 ) error {
+	lg := logger.PluginLoggerFromContext(ctx)
 	var errArr []error
 	for _, rules := range toApply {
 		err := applyCortexSLORules(
 			ctx,
 			p,
-			lg,
 			clusterId,
 			rules,
 		)
@@ -72,7 +73,6 @@ func tryApplyThenDeleteCortexRules(
 			err := deleteCortexSLORules(
 				ctx,
 				p,
-				lg,
 				clusterId,
 				rules.Name,
 			)
@@ -99,10 +99,11 @@ func tryApplyThenDeleteCortexRules(
 func applyCortexSLORules(
 	ctx context.Context,
 	p *Plugin,
-	lg *slog.Logger,
 	clusterId string,
 	ruleSpec rulefmt.RuleGroup,
 ) error {
+	lg := logger.PluginLoggerFromContext(ctx)
+
 	out, err := yaml.Marshal(ruleSpec)
 	if err != nil {
 		return err
@@ -125,7 +126,6 @@ func applyCortexSLORules(
 func deleteCortexSLORules(
 	ctx context.Context,
 	p *Plugin,
-	_ *slog.Logger,
 	clusterId string,
 	groupName string,
 ) error {

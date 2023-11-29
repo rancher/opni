@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/test/testlog"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
@@ -134,7 +135,7 @@ var _ = Describe("Opensearch Admin V2", Ordered, Label("integration"), func() {
 			kubernetes_manager.KubernetesManagerDriverOptions{
 				K8sClient:         k8sClient,
 				OpensearchCluster: opniCluster,
-				Logger:            testlog.Log,
+				Context:           logger.WithPluginLogger(context.Background(), testlog.Log),
 			},
 		)
 		Expect(err).NotTo(HaveOccurred())

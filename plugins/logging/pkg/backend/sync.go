@@ -112,6 +112,8 @@ func (b *LoggingBackend) shouldDisableNode(ctx context.Context) bool {
 }
 
 func (b *LoggingBackend) requestNodeSync(ctx context.Context, cluster *opnicorev1.Reference) {
+	lg := logger.PluginLoggerFromContext(b.Context)
+
 	_, err := b.Delegate.WithTarget(cluster).SyncNow(ctx, &capabilityv1.Filter{
 		CapabilityNames: []string{wellknown.CapabilityLogs},
 	})
@@ -121,14 +123,14 @@ func (b *LoggingBackend) requestNodeSync(ctx context.Context, cluster *opnicorev
 		name = "(all)"
 	}
 	if err != nil {
-		b.Logger.With(
+		lg.With(
 			"cluster", name,
 			"capability", wellknown.CapabilityLogs,
 			logger.Err(err),
 		).Warn("failed to request node sync; nodes may not be updated immediately")
 		return
 	}
-	b.Logger.With(
+	lg.With(
 		"cluster", name,
 		"capability", wellknown.CapabilityLogs,
 	).Info("node sync requested")

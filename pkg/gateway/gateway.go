@@ -57,6 +57,7 @@ type Gateway struct {
 	logger        *slog.Logger
 	httpServer    *GatewayHTTPServer
 	grpcServer    *GatewayGRPCServer
+	delegate      *DelegateServer
 	statusQuerier health.HealthStatusQuerier
 
 	storageBackend  storage.Backend
@@ -301,6 +302,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		capBackendStore: capBackendStore,
 		httpServer:      httpServer,
 		grpcServer:      grpcServer,
+		delegate:        delegate,
 		statusQuerier:   monitor,
 	}
 
@@ -359,7 +361,7 @@ func (g *Gateway) CapabilitiesStore() capabilities.BackendStore {
 	return g.capBackendStore
 }
 
-// Implements management.HealthStatusDataSource
+// Implements management.AgentControlDataSource
 func (g *Gateway) GetClusterHealthStatus(ref *corev1.Reference) (*corev1.HealthStatus, error) {
 	hs := g.statusQuerier.GetHealthStatus(ref.Id)
 	if hs.Health == nil && hs.Status == nil {
@@ -368,7 +370,25 @@ func (g *Gateway) GetClusterHealthStatus(ref *corev1.Reference) (*corev1.HealthS
 	return hs, nil
 }
 
-// Implements management.HealthStatusDataSource
+// Implements management.AgentControlDataSource
+func (g *Gateway) StreamLogs(ctx context.Context, id *corev1.Reference, req *controlv1.LogStreamRequest) (controlv1.Log_StreamLogsClient, error) {
+	var stream controlv1.Log_StreamLogsClient
+	var err error
+
+	g.delegate.UseClient(id, func(cc grpc.ClientConnInterface) {
+		logsClient := controlv1.NewLogClient(cc)
+		stream, err = logsClient.StreamLogs(ctx, req)
+	})
+
+	if err != nil {
+		g.logger.Error("failed to fetch remote logs", logger.Err(err))
+		return nil, err
+	}
+
+	return stream, nil
+}
+
+// Implements management.AgentControlDataSource
 func (g *Gateway) WatchClusterHealthStatus(ctx context.Context) <-chan *corev1.ClusterHealthStatus {
 	return g.statusQuerier.WatchHealthStatus(ctx)
 }

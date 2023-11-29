@@ -22,6 +22,7 @@ import (
 	"github.com/rancher/opni/pkg/opni/cliutil"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/hooks"
+	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/update/noop"
 	"github.com/samber/lo"
@@ -99,7 +100,7 @@ func BuildGatewayCmd() *cobra.Command {
 
 		m := management.NewServer(ctx, &gatewayConfig.Spec.Management, g, pluginLoader,
 			management.WithCapabilitiesDataSource(g),
-			management.WithHealthStatusDataSource(g),
+			management.WithAgentControlDataSource(g),
 			management.WithLifecycler(lifecycler),
 		)
 
@@ -110,6 +111,7 @@ func BuildGatewayCmd() *cobra.Command {
 			lg.Info(fmt.Sprintf("loaded %d plugins", numLoaded))
 			close(doneLoadingPlugins)
 		}))
+		ctx = logger.WithMode(ctx, meta.ModeGateway)
 		pluginLoader.LoadPlugins(ctx, gatewayConfig.Spec.Plugins.Dir, plugins.GatewayScheme)
 		select {
 		case <-doneLoadingPlugins:

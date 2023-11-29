@@ -15,8 +15,6 @@ import (
 	"sync"
 	"time"
 
-	"log/slog"
-
 	"github.com/cortexproject/cortex/pkg/cortexpb"
 	"github.com/cortexproject/cortex/pkg/distributor"
 	"github.com/rancher/opni/plugins/metrics/apis/cortexadmin"
@@ -44,7 +42,7 @@ type CortexAdminServer struct {
 type CortexAdminServerConfig struct {
 	CortexClientSet ClientSet                  `validate:"required"`
 	Config          *v1beta1.GatewayConfigSpec `validate:"required"`
-	Logger          *slog.Logger               `validate:"required"`
+	Context         context.Context            `validate:"required"`
 }
 
 func (p *CortexAdminServer) Initialize(conf CortexAdminServerConfig) {
@@ -59,6 +57,8 @@ func (p *CortexAdminServer) Initialize(conf CortexAdminServerConfig) {
 var _ cortexadmin.CortexAdminServer = (*CortexAdminServer)(nil)
 
 func (p *CortexAdminServer) AllUserStats(ctx context.Context, _ *emptypb.Empty) (*cortexadmin.UserIDStatsList, error) {
+	lg := logger.PluginLoggerFromContext(p.Context)
+
 	if !p.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
@@ -76,7 +76,7 @@ func (p *CortexAdminServer) AllUserStats(ctx context.Context, _ *emptypb.Empty) 
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			p.Logger.With(
+			lg.With(
 				"err", err,
 			).Error("failed to close response body")
 		}
@@ -147,7 +147,7 @@ func (p *CortexAdminServer) WriteMetrics(ctx context.Context, in *cortexadmin.Wr
 	if !p.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
-	lg := p.Logger.With(
+	lg := logger.PluginLoggerFromContext(p.Context).With(
 		"clusterID", in.ClusterID,
 		"seriesCount", len(in.Timeseries),
 	)
@@ -162,7 +162,7 @@ func (p *CortexAdminServer) WriteMetrics(ctx context.Context, in *cortexadmin.Wr
 	lg.Debug("writing metrics to cortex")
 	_, err := p.CortexClientSet.Distributor().Push(outgoingContext(ctx, in), cortexReq)
 	if err != nil {
-		p.Logger.With(logger.Err(err)).Error("failed to write metrics")
+		lg.With(logger.Err(err)).Error("failed to write metrics")
 		return nil, err
 	}
 	return &cortexadmin.WriteResponse{}, nil
@@ -185,7 +185,7 @@ func (p *CortexAdminServer) Query(
 	if !p.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
-	lg := p.Logger.With(
+	lg := logger.PluginLoggerFromContext(p.Context).With(
 		"query", in.Query,
 	)
 	lg.Debug("handling query")
@@ -241,7 +241,7 @@ func (p *CortexAdminServer) QueryRange(
 	if !p.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
-	lg := p.Logger.With(
+	lg := logger.PluginLoggerFromContext(p.Context).With(
 		"query", in.Query,
 	)
 	client := p.CortexClientSet
@@ -324,7 +324,7 @@ func (p *CortexAdminServer) GetRule(ctx context.Context,
 	if !p.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
-	lg := p.Logger.With(
+	lg := logger.PluginLoggerFromContext(p.Context).With(
 		"group name", in.GroupName,
 	)
 
@@ -377,7 +377,7 @@ func (p *CortexAdminServer) ListRules(ctx context.Context, req *cortexadmin.List
 	if !p.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
-	lg := p.Logger.With(
+	lg := logger.PluginLoggerFromContext(p.Context).With(
 		"cluster id", req.ClusterId,
 	)
 	if err := req.Validate(); err != nil {
@@ -436,7 +436,7 @@ func (p *CortexAdminServer) LoadRules(ctx context.Context,
 	if !p.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
-	lg := p.Logger.With(
+	lg := logger.PluginLoggerFromContext(p.Context).With(
 		"cluster", in.ClusterId,
 	)
 	if err := in.Validate(); err != nil {
@@ -476,7 +476,7 @@ func (p *CortexAdminServer) DeleteRule(
 	if !p.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
-	lg := p.Logger.With(
+	lg := logger.PluginLoggerFromContext(p.Context).With(
 		"group", in.GroupName,
 		"namespace", in.Namespace,
 		"cluster", in.ClusterId,
@@ -552,7 +552,7 @@ func (p *CortexAdminServer) GetSeriesMetrics(ctx context.Context, request *corte
 }
 
 func (p *CortexAdminServer) ExtractRawSeries(ctx context.Context, request *cortexadmin.MatcherRequest) (*cortexadmin.QueryResponse, error) {
-	lg := p.Logger.With("series matcher", request.MatchExpr)
+	lg := logger.PluginLoggerFromContext(p.Context).With("series matcher", request.MatchExpr)
 	lg.Debug("fetching raw series")
 	return p.Query(ctx, &cortexadmin.QueryRequest{
 		Tenants: []string{request.Tenant},
@@ -632,7 +632,7 @@ func (p *CortexAdminServer) FlushBlocks(
 	body, _ := io.ReadAll(resp.Body)
 	err = resp.Body.Close()
 	if err != nil {
-		p.Logger.Error("failed to close response body")
+		logger.PluginLoggerFromContext(p.Context).Error("failed to close response body")
 	}
 	if err := json.NewDecoder(bytes.NewReader(body)).Decode(&ring); err != nil {
 		return nil, err
@@ -641,7 +641,7 @@ func (p *CortexAdminServer) FlushBlocks(
 	// flush all active ingesters
 	wg := errgroup.Group{}
 	for _, ingester := range ring.Ingesters {
-		lg := p.Logger.With(
+		lg := logger.PluginLoggerFromContext(p.Context).With(
 			"id", ingester.ID,
 		)
 		if ingester.State != "ACTIVE" {
@@ -800,13 +800,13 @@ func (p *CortexAdminServer) proxyCortexToPrometheus(
 	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{tenant}))
 	resp, err := p.CortexClientSet.HTTP().Do(req)
 	if err != nil {
-		p.Logger.With(
+		logger.PluginLoggerFromContext(p.Context).With(
 			"request", url,
 		).Error("failed with %v", err)
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		p.Logger.With(
+		logger.PluginLoggerFromContext(p.Context).With(
 			"request", url,
 		).Error(fmt.Sprintf("request failed with %s", resp.Status))
 		return nil, fmt.Errorf("request failed with: %s", resp.Status)

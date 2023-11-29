@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	"log/slog"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth"
@@ -43,7 +42,6 @@ type HttpApiServerConfig struct {
 	CortexClientSet  ClientSet                     `validate:"required"`
 	Config           *v1beta1.GatewayConfigSpec    `validate:"required"`
 	CortexTLSConfig  *tls.Config                   `validate:"required"`
-	Logger           *slog.Logger                  `validate:"required"`
 	StorageBackend   storage.Backend               `validate:"required"`
 	AuthMiddlewares  map[string]auth.Middleware    `validate:"required"`
 }
@@ -61,25 +59,25 @@ var _ httpext.HTTPAPIExtension = (*HttpApiServer)(nil)
 
 func (p *HttpApiServer) ConfigureRoutes(router *gin.Engine) {
 	p.WaitForInit()
+	lg := logger.NewPluginLogger(p.PluginContext)
+	lg.Info("configuring http api server")
 
-	p.Logger.Info("configuring http api server")
-
-	router.Use(logger.GinLogger(p.Logger), gin.Recovery())
+	router.Use(logger.GinLogger(lg), gin.Recovery())
 
 	rbacProvider := storage.NewRBACProvider(p.StorageBackend)
 	rbacMiddleware := rbac.NewMiddleware(rbacProvider, orgIDCodec)
 	authMiddleware, ok := p.AuthMiddlewares[p.Config.AuthProvider]
 	if !ok {
-		p.Logger.With(
+		lg.With(
 			"name", p.Config.AuthProvider,
 		).Error("auth provider not found")
 		os.Exit(1)
 	}
 
 	fwds := &forwarders{
-		QueryFrontend: fwd.To(p.Config.Cortex.QueryFrontend.HTTPAddress, fwd.WithLogger(p.Logger), fwd.WithTLS(p.CortexTLSConfig), fwd.WithName("query-frontend")),
-		Alertmanager:  fwd.To(p.Config.Cortex.Alertmanager.HTTPAddress, fwd.WithLogger(p.Logger), fwd.WithTLS(p.CortexTLSConfig), fwd.WithName("alertmanager")),
-		Ruler:         fwd.To(p.Config.Cortex.Ruler.HTTPAddress, fwd.WithLogger(p.Logger), fwd.WithTLS(p.CortexTLSConfig), fwd.WithName("ruler")),
+		QueryFrontend: fwd.To(p.Config.Cortex.QueryFrontend.HTTPAddress, fwd.WithLogger(lg), fwd.WithTLS(p.CortexTLSConfig), fwd.WithName("query-frontend")),
+		Alertmanager:  fwd.To(p.Config.Cortex.Alertmanager.HTTPAddress, fwd.WithLogger(lg), fwd.WithTLS(p.CortexTLSConfig), fwd.WithName("alertmanager")),
+		Ruler:         fwd.To(p.Config.Cortex.Ruler.HTTPAddress, fwd.WithLogger(lg), fwd.WithTLS(p.CortexTLSConfig), fwd.WithName("ruler")),
 	}
 
 	mws := &middlewares{
@@ -97,11 +95,13 @@ func (p *HttpApiServer) ConfigureRoutes(router *gin.Engine) {
 }
 
 func (p *HttpApiServer) configureAlertmanager(router *gin.Engine, f *forwarders, m *middlewares) {
+	lg := logger.NewPluginLogger(p.PluginContext)
+
 	orgIdLimiter := func(c *gin.Context) {
 		ids := rbac.AuthorizedClusterIDs(c)
 		if len(ids) > 1 {
 			user, _ := rbac.AuthorizedUserID(c)
-			p.Logger.With(
+			lg.With(
 				"request", c.FullPath(),
 				"user", user,
 			).Debug("multiple org ids found, limiting to first")

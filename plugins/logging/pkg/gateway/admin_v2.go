@@ -8,9 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"log/slog"
-
 	"github.com/lestrrat-go/backoff/v2"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/versions"
 	"github.com/rancher/opni/plugins/logging/apis/loggingadmin"
 	loggingerrors "github.com/rancher/opni/plugins/logging/pkg/errors"
@@ -63,9 +62,9 @@ var defaultIndices = []string{
 
 type LoggingManagerV2 struct {
 	loggingadmin.UnsafeLoggingAdminV2Server
+	ctx               context.Context
 	managementDriver  management.ClusterDriver
 	backendDriver     backend.ClusterDriver
-	logger            *slog.Logger
 	alertingServer    *alerting.AlertingManagementServer
 	opensearchManager *opensearchdata.Manager
 	otelForwarder     *otel.Forwarder
@@ -83,6 +82,8 @@ func (m *LoggingManagerV2) GetOpensearchCluster(ctx context.Context, _ *emptypb.
 }
 
 func (m *LoggingManagerV2) DeleteOpensearchCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	lg := logger.PluginLoggerFromContext(m.ctx)
+
 	// Check that it is safe to delete the cluster
 	m.opensearchManager.UnsetClient()
 
@@ -96,7 +97,7 @@ func (m *LoggingManagerV2) DeleteOpensearchCluster(ctx context.Context, _ *empty
 	err = m.managementDriver.DeleteCluster(ctx)
 	if err != nil {
 		if errors.Is(err, loggingerrors.ErrLoggingCapabilityExists) {
-			m.logger.Error("can not delete opensearch until logging capability is uninstalled from all clusters")
+			lg.Error("can not delete opensearch until logging capability is uninstalled from all clusters")
 		}
 		return nil, err
 	}
@@ -186,9 +187,10 @@ func (m *LoggingManagerV2) DoUpgrade(ctx context.Context, options *loggingadmin.
 }
 
 func (m *LoggingManagerV2) GetStorageClasses(ctx context.Context, _ *emptypb.Empty) (*loggingadmin.StorageClassResponse, error) {
+	lg := logger.PluginLoggerFromContext(m.ctx)
 	storageClassNames, err := m.managementDriver.GetStorageClasses(ctx)
 	if err != nil {
-		m.logger.Error(fmt.Sprintf("failed to list storageclasses: %v", err))
+		lg.Error(fmt.Sprintf("failed to list storageclasses: %v", err))
 		return nil, err
 	}
 
@@ -289,25 +291,31 @@ func (m *LoggingManagerV2) ListSnapshotSchedules(ctx context.Context, _ *emptypb
 }
 
 func (m *LoggingManagerV2) validDurationString(duration string) bool {
+	lg := logger.PluginLoggerFromContext(m.ctx)
+
 	match, err := regexp.MatchString(`^\d+[dMmyh]`, duration)
 	if err != nil {
-		m.logger.Error(fmt.Sprintf("could not run regexp: %v", err))
+		lg.Error(fmt.Sprintf("could not run regexp: %v", err))
 		return false
 	}
 	return match
 }
 
 func (m *LoggingManagerV2) validateStorage(dataNodes *loggingadmin.DataDetails) error {
+	lg := logger.PluginLoggerFromContext(m.ctx)
+
 	if dataNodes.GetReplicas() < 2 && !dataNodes.GetPersistence().GetEnabled() {
-		m.logger.Error("minimum of 2 data nodes required if no persistent storage")
+		lg.Error("minimum of 2 data nodes required if no persistent storage")
 		return loggingerrors.ErrInvalidDataPersistence
 	}
 	return nil
 }
 
 func (m *LoggingManagerV2) opensearchClusterReady() bool {
+	lg := logger.PluginLoggerFromContext(m.ctx)
+
 	absentRetriesMax := 3
-	ctx := context.TODO()
+	ctx := m.ctx
 	expBackoff := backoff.Exponential(
 		backoff.WithMaxRetries(0),
 		backoff.WithMinInterval(5*time.Second),
@@ -321,18 +329,18 @@ FETCH:
 		absentRetries := 0
 		select {
 		case <-b.Done():
-			m.logger.Warn("plugin context cancelled before Opensearch object created")
+			lg.Warn("plugin context cancelled before Opensearch object created")
 			return true
 		case <-b.Next():
 			state := m.backendDriver.GetInstallStatus(ctx)
 			switch state {
 			case backend.Error:
-				m.logger.Error("failed to fetch opensearch cluster, can't check readiness")
+				lg.Error("failed to fetch opensearch cluster, can't check readiness")
 				return true
 			case backend.Absent:
 				absentRetries++
 				if absentRetries > absentRetriesMax {
-					m.logger.Error("failed to fetch opensearch cluster, can't check readiness")
+					lg.Error("failed to fetch opensearch cluster, can't check readiness")
 					return true
 				}
 				continue

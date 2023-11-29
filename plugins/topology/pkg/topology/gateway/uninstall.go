@@ -16,7 +16,7 @@ import (
 )
 
 type TopologyUninstallTaskRunner struct {
-	logger         *slog.Logger
+	ctx            context.Context
 	storageBackend storage.Backend
 }
 

@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"log/slog"
-
 	healthpkg "github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"
 	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
@@ -20,8 +18,7 @@ import (
 )
 
 type Plugin struct {
-	ctx    context.Context
-	logger *slog.Logger
+	ctx context.Context
 
 	httpServer   *HttpServer
 	ruleStreamer *RuleStreamer
@@ -31,16 +28,16 @@ type Plugin struct {
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
-	lg := logger.NewPluginLogger().WithGroup("metrics")
+	lg := logger.NewPluginLogger(ctx).WithGroup("metrics")
+	ctx = logger.WithPluginLogger(ctx, lg)
 
 	ct := healthpkg.NewDefaultConditionTracker(lg)
 
 	p := &Plugin{
 		ctx:          ctx,
-		logger:       lg,
-		httpServer:   NewHttpServer(ct, lg),
-		ruleStreamer: NewRuleStreamer(ct, lg),
-		node:         NewMetricsNode(ct, lg),
+		httpServer:   NewHttpServer(ctx, ct),
+		ruleStreamer: NewRuleStreamer(ctx, ct),
+		node:         NewMetricsNode(ctx, ct),
 	}
 
 	for _, name := range drivers.NodeDrivers.List() {
@@ -65,7 +62,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 }
 
 func (p *Plugin) ConfigureNode(nodeId string, cfg *node.MetricsCapabilityConfig) error {
-	lg := p.logger.With("nodeId", nodeId)
+	lg := logger.PluginLoggerFromContext(p.ctx).With("nodeId", nodeId)
 	lg.Debug("metrics capability config updated")
 
 	// at this point, we know the config has been updated
@@ -90,22 +87,22 @@ func (p *Plugin) ConfigureNode(nodeId string, cfg *node.MetricsCapabilityConfig)
 
 	switch {
 	case currentlyRunning && shouldRun:
-		p.logger.Debug("reconfiguring rule sync")
+		lg.Debug("reconfiguring rule sync")
 		p.stopRuleStreamer()
 		startRuleStreamer()
 	case currentlyRunning && !shouldRun:
-		p.logger.Debug("stopping rule sync")
+		lg.Debug("stopping rule sync")
 		p.stopRuleStreamer()
 		p.stopRuleStreamer = nil
-		p.logger.Debug("disabling http server")
+		lg.Debug("disabling http server")
 		p.httpServer.SetEnabled(false)
 	case !currentlyRunning && shouldRun:
-		p.logger.Debug("starting rule sync")
+		lg.Debug("starting rule sync")
 		startRuleStreamer()
-		p.logger.Debug("enabling http server")
+		lg.Debug("enabling http server")
 		p.httpServer.SetEnabled(true)
 	case !currentlyRunning && !shouldRun:
-		p.logger.Debug("rule sync is disabled")
+		lg.Debug("rule sync is disabled")
 	}
 
 	return nil
@@ -113,10 +110,11 @@ func (p *Plugin) ConfigureNode(nodeId string, cfg *node.MetricsCapabilityConfig)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeAgent))
+
 	p := NewPlugin(ctx)
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewAgentPlugin(p.node))
 	scheme.Add(health.HealthPluginID, health.NewPlugin(p.node))
-	scheme.Add(stream.StreamAPIExtensionPluginID, stream.NewAgentPlugin(p))
+	scheme.Add(stream.StreamAPIExtensionPluginID, stream.NewAgentPlugin(ctx, p))
 	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p.httpServer))
 	return scheme
 }

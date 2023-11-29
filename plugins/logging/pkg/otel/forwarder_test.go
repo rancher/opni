@@ -4,6 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"path"
+	"text/template"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/logging/pkg/otel"
@@ -15,12 +22,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
-	"net"
-	"net/http"
-	"os"
-	"path"
-	"text/template"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -82,6 +83,7 @@ var _ = Describe("OTEL forwarder", Ordered, Label("integration"), func() {
 
 		By("setting up the forwarder")
 		forwarder := otel.NewTraceForwarder(
+			ctx,
 			otel.WithAddress(fmt.Sprintf("localhost:%d", preprocessorCfg.PreprocessorPort)),
 			otel.WithDialOptions(grpc.WithTransportCredentials(insecure.NewCredentials())),
 			otel.WithPrivileged(false),

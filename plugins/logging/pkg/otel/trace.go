@@ -29,10 +29,15 @@ type TraceForwarder struct {
 	clientMu sync.RWMutex
 }
 
-func NewTraceForwarder(opts ...ForwarderOption) *TraceForwarder {
+func NewTraceForwarder(ctx context.Context, opts ...ForwarderOption) *TraceForwarder {
+	lg := logger.PluginLoggerFromContext(ctx)
+	if lg == nil {
+		lg = logger.NewPluginLogger(ctx).WithGroup("default-otel")
+	}
+
 	options := forwarderOptions{
 		collectorAddressOverride: defaultAddress,
-		lg:                       logger.NewPluginLogger().WithGroup("default-otel"),
+		ctx:                      logger.WithPluginLogger(ctx, lg),
 	}
 	options.apply(opts...)
 	return &TraceForwarder{
@@ -50,6 +55,7 @@ func (f *TraceForwarder) SetClient(cc grpc.ClientConnInterface) {
 }
 
 func (f *TraceForwarder) InitializeTraceForwarder() coltracepb.TraceServiceClient {
+	lg := logger.PluginLoggerFromContext(f.ctx)
 	if f.cc == nil {
 		ctx := context.Background()
 		expBackoff := backoff.Exponential(
@@ -63,7 +69,7 @@ func (f *TraceForwarder) InitializeTraceForwarder() coltracepb.TraceServiceClien
 		for {
 			select {
 			case <-b.Done():
-				f.lg.Warn("plugin context cancelled before gRPC client created")
+				lg.Warn("plugin context cancelled before gRPC client created")
 				return nil
 			case <-b.Next():
 				conn, err := grpc.Dial(
@@ -71,7 +77,7 @@ func (f *TraceForwarder) InitializeTraceForwarder() coltracepb.TraceServiceClien
 					f.dialOptions...,
 				)
 				if err != nil {
-					f.lg.Error("failed dial grpc: %v", err)
+					lg.Error("failed dial grpc: %v", err)
 					continue
 				}
 				return coltracepb.NewTraceServiceClient(conn)
@@ -85,8 +91,10 @@ func (f *TraceForwarder) Export(
 	ctx context.Context,
 	request *coltracepb.ExportTraceServiceRequest,
 ) (*coltracepb.ExportTraceServiceResponse, error) {
+	lg := logger.PluginLoggerFromContext(f.ctx)
+
 	if !f.Client.IsSet() {
-		f.lg.Error("collector is unavailable")
+		lg.Error("collector is unavailable")
 		return nil, status.Errorf(codes.Unavailable, "collector is unavailable")
 	}
 
@@ -107,7 +115,7 @@ func (f *TraceForwarder) Export(
 	}
 
 	if len(values)%2 != 0 {
-		f.lg.Warn(fmt.Sprintf("invalid number of attribute values: %d", len(values)))
+		lg.Warn(fmt.Sprintf("invalid number of attribute values: %d", len(values)))
 		return f.forwardTrace(ctx, request)
 	}
 
@@ -148,9 +156,11 @@ func (f *TraceForwarder) forwardTrace(
 	ctx context.Context,
 	request *coltracepb.ExportTraceServiceRequest,
 ) (*coltracepb.ExportTraceServiceResponse, error) {
+	lg := logger.PluginLoggerFromContext(f.ctx)
+
 	resp, err := f.Client.Client.Export(ctx, request)
 	if err != nil {
-		f.lg.Error("failed to forward traces: %v", err)
+		lg.Error("failed to forward traces: %v", err)
 		return nil, err
 	}
 	return resp, nil

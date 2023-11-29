@@ -6,8 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"log/slog"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/rancher/opni/pkg/agent"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -33,7 +31,7 @@ import (
 )
 
 type TopologyBackendConfig struct {
-	Logger              *slog.Logger                              `validate:"required"`
+	Context             context.Context                           `validate:"required"`
 	StorageBackend      storage.Backend                           `validate:"required"`
 	MgmtClient          managementv1.ManagementClient             `validate:"required"`
 	Delegate            streamext.StreamDelegate[agent.ClientSet] `validate:"required"`
@@ -113,6 +111,7 @@ func (t *TopologyBackend) canInstall(ctx context.Context) error {
 }
 
 func (t *TopologyBackend) requestNodeSync(ctx context.Context, cluster *corev1.Reference) {
+	lg := logger.PluginLoggerFromContext(t.Context)
 	_, err := t.Delegate.WithTarget(cluster).SyncNow(ctx, &capabilityv1.Filter{
 		CapabilityNames: []string{wellknown.CapabilityTopology},
 	})
@@ -121,14 +120,14 @@ func (t *TopologyBackend) requestNodeSync(ctx context.Context, cluster *corev1.R
 		name = "(all)"
 	}
 	if err != nil {
-		t.Logger.With(
+		lg.With(
 			"cluster", name,
 			"capability", wellknown.CapabilityTopology,
 			logger.Err(err),
 		).Warn("failed to request node sync; nodes may not be updated immediately")
 		return
 	}
-	t.Logger.With(
+	lg.With(
 		"cluster", name,
 		"capability", wellknown.CapabilityTopology,
 	).Info("node sync requested")
@@ -138,7 +137,7 @@ func (t *TopologyBackend) Install(ctx context.Context, req *capabilityv1.Install
 	ctxTimeout, ca := context.WithTimeout(ctx, time.Second*60)
 	defer ca()
 	if err := t.WaitForInitContext(ctxTimeout); err != nil {
-		// !! t.logger is not initialized if the deadline is exceeded
+		// !! lg is not initialized if the deadline is exceeded
 		return nil, err
 	}
 
@@ -276,6 +275,7 @@ func (t *TopologyBackend) InstallerTemplate(_ context.Context, _ *emptypb.Empty)
 }
 
 func (t *TopologyBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node.SyncResponse, error) {
+	lg := logger.PluginLoggerFromContext(t.Context)
 	t.WaitForInit()
 
 	id := cluster.StreamAuthorizedID(ctx)
@@ -297,7 +297,7 @@ func (t *TopologyBackend) Sync(ctx context.Context, req *node.SyncRequest) (*nod
 	if enabled {
 		if err := t.ClusterDriver.ShouldDisableNode(cluster.Reference()); err != nil {
 			reason := status.Convert(err).Message()
-			t.Logger.With(
+			lg.With(
 				"reason", reason,
 			)
 		}
@@ -311,7 +311,7 @@ func (t *TopologyBackend) Sync(ctx context.Context, req *node.SyncRequest) (*nod
 
 	status := t.nodeStatus[id]
 	if status == nil {
-		t.Logger.Debug("No current status found, setting to default")
+		lg.Debug("No current status found, setting to default")
 		t.nodeStatus[id] = &capabilityv1.NodeCapabilityStatus{}
 		status = t.nodeStatus[id]
 	}

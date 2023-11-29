@@ -8,8 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"log/slog"
-
 	"github.com/opensearch-project/opensearch-go/opensearchutil"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/util"
@@ -42,10 +40,10 @@ type timestampedEvent struct {
 
 type EventCollector struct {
 	EventCollectorOptions
+	ctx       context.Context
 	clientset kubernetes.Interface
 	queue     workqueue.RateLimitingInterface
 	informer  informercorev1.EventInformer
-	logger    *slog.Logger
 	state     scrapeState
 	namespace string
 }
@@ -82,7 +80,7 @@ func WithRestConfig(restConfig *rest.Config) EventCollectorOption {
 }
 
 func NewEventCollector(
-	logger *slog.Logger,
+	ctx context.Context,
 	opts ...EventCollectorOption,
 ) (*EventCollector, error) {
 	options := EventCollectorOptions{
@@ -112,10 +110,10 @@ func NewEventCollector(
 	informer := factory.Core().V1().Events()
 
 	return &EventCollector{
+		ctx:                   ctx,
 		EventCollectorOptions: options,
 		clientset:             clientset,
 		informer:              informer,
-		logger:                logger,
 		namespace:             namespace,
 	}, nil
 }
@@ -127,6 +125,7 @@ func (c *EventCollector) Name() string {
 }
 
 func (c *EventCollector) ConfigureNode(config *node.LoggingCapabilityConfig) {
+	lg := logger.PluginLoggerFromContext(c.ctx)
 	c.state.Lock()
 	defer c.state.Unlock()
 	if config.GetEnabled() {
@@ -138,7 +137,7 @@ func (c *EventCollector) ConfigureNode(config *node.LoggingCapabilityConfig) {
 		go func() {
 			err := c.run(c.state.stopCh)
 			if err != nil {
-				c.logger.Error("failed to start events", logger.Err(err))
+				lg.Error("failed to start events", logger.Err(err))
 				c.state.Lock()
 				close(c.state.stopCh)
 				c.state.running = false
@@ -158,6 +157,7 @@ func (c *EventCollector) ConfigureNode(config *node.LoggingCapabilityConfig) {
 }
 
 func (c *EventCollector) run(stopCh <-chan struct{}) error {
+	lg := logger.PluginLoggerFromContext(c.ctx)
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
@@ -178,16 +178,16 @@ func (c *EventCollector) run(stopCh <-chan struct{}) error {
 		},
 	})
 
-	c.logger.Info("starting event collector")
+	lg.Info("starting event collector")
 	go c.informer.Informer().Run(stopCh)
 
 	if ok := cache.WaitForCacheSync(stopCh, c.informer.Informer().HasSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
-	c.logger.Info("collector started")
+	lg.Info("collector started")
 	wait.Until(c.runWorker, time.Second, stopCh)
 
-	c.logger.Info("shutting down collector")
+	lg.Info("shutting down collector")
 	return nil
 }
 
@@ -200,9 +200,10 @@ func (c *EventCollector) runWorker() {
 }
 
 func (c *EventCollector) enqueueEvent(obj interface{}) {
+	lg := logger.PluginLoggerFromContext(c.ctx)
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
-		c.logger.Error(fmt.Sprintf("could't get key for event %+v: %s", obj, err))
+		lg.Error(fmt.Sprintf("could't get key for event %+v: %s", obj, err))
 	}
 	c.queue.Add(timestampedEvent{
 		key:  key,
@@ -211,9 +212,10 @@ func (c *EventCollector) enqueueEvent(obj interface{}) {
 }
 
 func (c *EventCollector) processNextItem() bool {
+	lg := logger.PluginLoggerFromContext(c.ctx)
 	event, shutdown := c.queue.Get()
 	if shutdown {
-		c.logger.Info("queue shutdown, halting event shipping")
+		lg.Info("queue shutdown, halting event shipping")
 		return false
 	}
 	defer c.queue.Done(event)
@@ -224,18 +226,19 @@ func (c *EventCollector) processNextItem() bool {
 		return true
 	}
 	if c.maxRetries == 0 || c.queue.NumRequeues(event) < c.maxRetries {
-		c.logger.Warn(fmt.Sprintf("failed to process event %s, requeueing: %v", event, err))
+		lg.Warn(fmt.Sprintf("failed to process event %s, requeueing: %v", event, err))
 		c.queue.AddRateLimited(event)
 		return true
 	}
 
-	c.logger.Error(fmt.Sprintf("failed to process event %s, giving up: %v", event, err))
+	lg.Error(fmt.Sprintf("failed to process event %s, giving up: %v", event, err))
 	c.queue.Forget(event)
 	utilruntime.HandleError(err)
 	return true
 }
 
 func (c *EventCollector) processItem(obj interface{}) error {
+	lg := logger.PluginLoggerFromContext(c.ctx)
 	eventObj := obj.(timestampedEvent)
 	event, _, err := c.informer.Informer().GetIndexer().GetByKey(eventObj.key)
 	if err != nil {
@@ -243,7 +246,7 @@ func (c *EventCollector) processItem(obj interface{}) error {
 	}
 
 	if event == nil || util.IsInterfaceNil(event) {
-		c.logger.Info("nil event, skipping")
+		lg.Info("nil event, skipping")
 		return nil
 	}
 

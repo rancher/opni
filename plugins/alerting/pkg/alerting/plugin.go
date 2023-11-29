@@ -28,7 +28,6 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/endpoints/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting/notifications/v1"
 	"github.com/rancher/opni/plugins/alerting/pkg/node_backend"
-	"log/slog"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
@@ -56,8 +55,7 @@ type Plugin struct {
 	alertops.ConfigReconcilerServer
 	system.UnimplementedSystemPluginClient
 
-	ctx    context.Context
-	logger *slog.Logger
+	ctx context.Context
 
 	storageClientSet future.Future[spec.AlertingClientSet]
 
@@ -98,7 +96,9 @@ var (
 )
 
 func NewPlugin(ctx context.Context) *Plugin {
-	lg := logger.NewPluginLogger().WithGroup("alerting")
+	lg := logger.NewPluginLogger(ctx).WithGroup("alerting")
+	ctx = logger.WithPluginLogger(ctx, lg)
+
 	storageClientSet := future.New[spec.AlertingClientSet]()
 	metricReader := metricsdk.NewManualReader()
 	metricsExporter.RegisterMeterProvider(metricsdk.NewMeterProvider(
@@ -106,8 +106,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 	))
 	collector := collector.NewCollectorServer(metricReader)
 	p := &Plugin{
-		ctx:    ctx,
-		logger: lg,
+		ctx: ctx,
 
 		storageClientSet: storageClientSet,
 
@@ -131,29 +130,34 @@ func NewPlugin(ctx context.Context) *Plugin {
 		CollectorServer: collector,
 	}
 
-	p.syncController = NewSyncController(p.logger.With("component", "sync-controller"))
+	syncCtrlLg := lg.With("component", "sync-controller")
+	p.syncController = NewSyncController(logger.WithPluginLogger(ctx, syncCtrlLg))
 	p.hsServer = newHealthStatusServer(
 		p.ready,
 		p.healthy,
 	)
+	httpProxyLg := lg.With("component", "http-proxy")
 	p.httpProxy = proxy.NewProxyServer(
-		lg.With("component", "http-proxy"),
+		logger.WithPluginLogger(ctx, httpProxyLg),
 	)
 
+	nodeLg := lg.With("component", "node-backend")
 	p.node = *node_backend.NewAlertingNodeBackend(
-		p.logger.With("component", "node-backend"),
+		logger.WithPluginLogger(ctx, nodeLg),
 	)
+
+	notificationLg := lg.With("component", "notifications")
 	p.NotificationServerComponent = notifications.NewNotificationServerComponent(
-		p.logger.With("component", "notifications"),
+		logger.WithPluginLogger(ctx, notificationLg),
 	)
+	endpointLg := lg.With("component", "endpoints")
 	p.EndpointServerComponent = endpoints.NewEndpointServerComponent(
-		p.ctx,
-		p.logger.With("component", "endpoints"),
+		logger.WithPluginLogger(ctx, endpointLg),
 		p.NotificationServerComponent,
 	)
+	alarmLg := lg.With("component", "alarms")
 	p.AlarmServerComponent = alarms.NewAlarmServerComponent(
-		p.ctx,
-		p.logger.With("component", "alarms"),
+		logger.WithPluginLogger(ctx, alarmLg),
 		p.NotificationServerComponent,
 	)
 
@@ -251,6 +255,7 @@ var (
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
+
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p))
@@ -289,6 +294,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 
 	scheme.Add(metrics.MetricsPluginID, metrics.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.node))
-	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(p))
+	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewGatewayPlugin(ctx, p))
 	return scheme
 }

@@ -1,6 +1,7 @@
 package metrics_test
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"time"
@@ -79,11 +80,13 @@ var _ = Describe("Target Runner", Ordered, Label("unit"), func() {
 	)
 
 	BeforeEach(func() {
-		lg := logger.NewPluginLogger().WithGroup("test-runner")
+		ctx := context.Background()
+		lg := logger.NewPluginLogger(ctx).WithGroup("test-runner")
+		ctx = logger.WithPluginLogger(ctx, lg)
 
 		writerClient = &mockRemoteWriteClient{}
 
-		runner = agent.NewTargetRunner(lg)
+		runner = agent.NewTargetRunner(ctx)
 		runner.SetRemoteWriteClient(clients.NewLocker(nil, func(connInterface grpc.ClientConnInterface) remotewrite.RemoteWriteClient {
 			return writerClient
 		}))

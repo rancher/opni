@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/render"
+	"github.com/rancher/opni/pkg/logger"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -45,9 +46,10 @@ func (p protoJSON) Render(w http.ResponseWriter) error {
 }
 
 func (f *LogsForwarder) renderProto(c *gin.Context) {
+	lg := logger.PluginLoggerFromContext(f.ctx)
 	body, err := readBody(c)
 	if err != nil {
-		f.lg.Error(fmt.Sprintf("failed to read body: %v", err))
+		lg.Error(fmt.Sprintf("failed to read body: %v", err))
 		c.Status(http.StatusBadRequest)
 		return
 	}
@@ -55,8 +57,8 @@ func (f *LogsForwarder) renderProto(c *gin.Context) {
 	req := &collogspb.ExportLogsServiceRequest{}
 	err = proto.Unmarshal(body, req)
 	if err != nil {
-		f.lg.Error(fmt.Sprintf("failed to unmarshal body: %v", err))
-		f.lg.Debug(fmt.Sprintf("body: %x", body))
+		lg.Error(fmt.Sprintf("failed to unmarshal body: %v", err))
+		lg.Debug(fmt.Sprintf("body: %x", body))
 		c.Status(http.StatusBadRequest)
 		return
 	}
@@ -72,9 +74,10 @@ func (f *LogsForwarder) renderProto(c *gin.Context) {
 }
 
 func (f *LogsForwarder) renderProtoJSON(c *gin.Context) {
+	lg := logger.PluginLoggerFromContext(f.ctx)
 	body, err := readBody(c)
 	if err != nil {
-		f.lg.Error(fmt.Sprintf("failed to read body: %v", err))
+		lg.Error(fmt.Sprintf("failed to read body: %v", err))
 		c.Status(http.StatusBadRequest)
 		return
 	}
@@ -82,7 +85,7 @@ func (f *LogsForwarder) renderProtoJSON(c *gin.Context) {
 	req := &collogspb.ExportLogsServiceRequest{}
 	err = protojson.Unmarshal(body, req)
 	if err != nil {
-		f.lg.Error(fmt.Sprintf("failed to unmarshal body: %v", err))
+		lg.Error(fmt.Sprintf("failed to unmarshal body: %v", err))
 		c.Status(http.StatusBadRequest)
 		return
 	}
@@ -98,9 +101,10 @@ func (f *LogsForwarder) renderProtoJSON(c *gin.Context) {
 }
 
 func (f *TraceForwarder) renderProto(c *gin.Context) {
+	lg := logger.PluginLoggerFromContext(f.ctx)
 	body, err := readBody(c)
 	if err != nil {
-		f.lg.Error("failed to read body: %v", err)
+		lg.Error("failed to read body: %v", err)
 		c.Status(http.StatusBadRequest)
 		return
 	}
@@ -108,8 +112,8 @@ func (f *TraceForwarder) renderProto(c *gin.Context) {
 	req := &coltracepb.ExportTraceServiceRequest{}
 	err = proto.Unmarshal(body, req)
 	if err != nil {
-		f.lg.Error("failed to unmarshal body: %v", err)
-		f.lg.Debug(fmt.Sprintf("body: %x", body))
+		lg.Error("failed to unmarshal body: %v", err)
+		lg.Debug(fmt.Sprintf("body: %x", body))
 		c.Status(http.StatusBadRequest)
 		return
 	}
@@ -125,9 +129,10 @@ func (f *TraceForwarder) renderProto(c *gin.Context) {
 }
 
 func (f *TraceForwarder) renderProtoJSON(c *gin.Context) {
+	lg := logger.PluginLoggerFromContext(f.ctx)
 	body, err := readBody(c)
 	if err != nil {
-		f.lg.Error("failed to read body: %v", err)
+		lg.Error("failed to read body: %v", err)
 		c.Status(http.StatusBadRequest)
 		return
 	}
@@ -135,7 +140,7 @@ func (f *TraceForwarder) renderProtoJSON(c *gin.Context) {
 	req := &coltracepb.ExportTraceServiceRequest{}
 	err = protojson.Unmarshal(body, req)
 	if err != nil {
-		f.lg.Error("failed to unmarshal body: %v", err)
+		lg.Error("failed to unmarshal body: %v", err)
 		c.Status(http.StatusBadRequest)
 		return
 	}

@@ -5,8 +5,6 @@ import (
 	"slices"
 	"sync"
 
-	"log/slog"
-
 	"github.com/rancher/opni/pkg/agent"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -37,7 +35,7 @@ type LoggingBackend struct {
 }
 
 type LoggingBackendConfig struct {
-	Logger              *slog.Logger                              `validate:"required"`
+	Context             context.Context                           `validate:"required"`
 	StorageBackend      storage.Backend                           `validate:"required"`
 	MgmtClient          managementv1.ManagementClient             `validate:"required"`
 	Delegate            streamext.StreamDelegate[agent.ClientSet] `validate:"required"`
@@ -50,6 +48,7 @@ var _ node.NodeLoggingCapabilityServer = (*LoggingBackend)(nil)
 
 // TODO: set up watches on underlying k8s objects to dynamically request a sync
 func (b *LoggingBackend) Initialize(conf LoggingBackendConfig) {
+	lg := logger.PluginLoggerFromContext(context.Background())
 	b.InitOnce(func() {
 		if err := loggingutil.Validate.Struct(conf); err != nil {
 			panic(err)
@@ -66,14 +65,14 @@ func (b *LoggingBackend) Initialize(conf LoggingBackendConfig) {
 		go func() {
 			clusters, err := b.MgmtClient.ListClusters(context.Background(), &managementv1.ListClustersRequest{})
 			if err != nil {
-				b.Logger.With(
+				lg.With(
 					logger.Err(err),
 				).Error("could not list clusters for reconciliation")
 				return
 			}
 
 			if err := b.reconcileClusterMetadata(context.Background(), clusters.Items); err != nil {
-				b.Logger.With(logger.Err(err)).Error("could not reconcile opni agents with metadata index, some agents may not be included")
+				lg.With(logger.Err(err)).Error("could not reconcile opni agents with metadata index, some agents may not be included")
 				return
 			}
 

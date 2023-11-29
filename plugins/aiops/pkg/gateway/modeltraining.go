@@ -12,6 +12,7 @@ import (
 	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	"github.com/nats-io/nats.go"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/plugins/aiops/apis/admin"
 	"github.com/rancher/opni/plugins/aiops/apis/modeltraining"
 	"google.golang.org/grpc/codes"
@@ -116,6 +117,7 @@ func (p *AIOpsPlugin) persistInitialJobInfo(ctx context.Context, in *modeltraini
 }
 
 func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTrainingParametersList) (*modeltraining.ModelTrainingResponse, error) {
+	lg := logger.PluginLoggerFromContext(p.ctx)
 	parametersBytes, err := p.persistInitialJobInfo(ctx, in)
 	if err != nil {
 		return nil, err
@@ -123,7 +125,7 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 	_, err = p.LaunchAIServices(ctx)
 	if err != nil {
 		delErr := errors.Join(p.deleteTrainingJobInfo(ctx), err)
-		p.Logger.Error(fmt.Sprintf("failed to launch AI services : %s", delErr))
+		lg.Error(fmt.Sprintf("failed to launch AI services : %s", delErr))
 		return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("failed to launch AI services : %s", delErr))
 	}
 	resp, err := p.requestModelTraining(ctx, parametersBytes)
@@ -133,7 +135,7 @@ func (p *AIOpsPlugin) TrainModel(ctx context.Context, in *modeltraining.ModelTra
 		ctxca, ca := context.WithTimeout(ctx, 10*time.Second)
 		defer ca()
 		delErr := errors.Join(p.deleteTrainingJobInfo(ctxca), err)
-		p.Logger.Error(fmt.Sprintf("failed to request model training : %s", delErr))
+		lg.Error(fmt.Sprintf("failed to request model training : %s", delErr))
 		return nil, delErr
 	}
 
@@ -177,7 +179,8 @@ func (p *AIOpsPlugin) PutModelTrainingStatus(ctx context.Context, in *modeltrain
 }
 
 func (p *AIOpsPlugin) deleteModelTrainingStatus(ctx context.Context) error {
-	p.Logger.Info("Deleting model training status...")
+	lg := logger.PluginLoggerFromContext(p.ctx)
+	lg.Info("Deleting model training status...")
 	statisticsKv, err := p.statisticsKv.GetContext(ctx)
 	if err != nil {
 		return err
@@ -186,7 +189,8 @@ func (p *AIOpsPlugin) deleteModelTrainingStatus(ctx context.Context) error {
 }
 
 func (p *AIOpsPlugin) deleteModelTrainingParams(ctx context.Context) error {
-	p.Logger.Info("Deleting model training parameters...")
+	lg := logger.PluginLoggerFromContext(p.ctx)
+	lg.Info("Deleting model training parameters...")
 	modelTrainingKv, err := p.modelTrainingKv.GetContext(ctx)
 	if err != nil {
 		return err

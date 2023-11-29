@@ -22,7 +22,8 @@ func (p *Plugin) StreamServers() []streamext.Server {
 }
 
 func (p *Plugin) UseStreamClient(cc grpc.ClientConnInterface) {
-	p.topologyStreamer.SetTopologyStreamClient(stream.NewRemoteTopologyClient(cc))
 	p.topologyStreamer.SetIdentityClient(controlv1.NewIdentityClient(cc))
+
+	p.topologyStreamer.SetTopologyStreamClient(stream.NewRemoteTopologyClient(cc))
 	p.node.SetClient(node.NewNodeTopologyCapabilityClient(cc))
 }

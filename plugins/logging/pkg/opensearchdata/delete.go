@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/util"
 	loggingerrors "github.com/rancher/opni/plugins/logging/pkg/errors"
@@ -16,12 +17,13 @@ import (
 // to the generic task controller
 
 func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc ...ReadyFunc) error {
+	lg := logger.PluginLoggerFromContext(m.ctx)
 	m.WaitForInit()
 
 	for _, r := range readyFunc {
 		exitEarly := r()
 		if exitEarly {
-			m.logger.Warn("opensearch cluster is never able to receive queries")
+			lg.Warn("opensearch cluster is never able to receive queries")
 			return nil
 		}
 
@@ -65,13 +67,13 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc 
 		defer resp.Body.Close()
 
 		if resp.IsError() {
-			m.logger.Error(fmt.Sprintf("opensearch request failed: %s", resp.String()))
+			lg.Error(fmt.Sprintf("opensearch request failed: %s", resp.String()))
 			return loggingerrors.ErrOpensearchResponse
 		}
 
 		respString := util.ReadString(resp.Body)
 		taskID := gjson.Get(respString, "task").String()
-		m.logger.Debug(fmt.Sprintf("opensearch taskID is :%s", taskID))
+		lg.Debug(fmt.Sprintf("opensearch taskID is :%s", taskID))
 		_, err = m.systemKV.Get().Put(ctx, &system.PutRequest{
 			Key:   fmt.Sprintf("%s%s", opensearchPrefix, id),
 			Value: []byte(taskID),
@@ -85,12 +87,13 @@ func (m *Manager) DoClusterDataDelete(ctx context.Context, id string, readyFunc 
 }
 
 func (m *Manager) DeleteTaskStatus(ctx context.Context, id string, readyFunc ...ReadyFunc) (DeleteStatus, error) {
+	lg := logger.PluginLoggerFromContext(m.ctx)
 	m.WaitForInit()
 
 	for _, r := range readyFunc {
 		exitEarly := r()
 		if exitEarly {
-			m.logger.Warn("opensearch cluster is never able to receive queries")
+			lg.Warn("opensearch cluster is never able to receive queries")
 			return DeleteFinishedWithErrors, nil
 		}
 	}
@@ -104,7 +107,7 @@ func (m *Manager) DeleteTaskStatus(ctx context.Context, id string, readyFunc ...
 	}
 	// If ID doesn't exist in KV set task to finished with errors
 	if !idExists {
-		m.logger.Warn("could not find cluster id in KV store")
+		lg.Warn("could not find cluster id in KV store")
 		return DeleteFinishedWithErrors, nil
 	}
 
@@ -118,7 +121,7 @@ func (m *Manager) DeleteTaskStatus(ctx context.Context, id string, readyFunc ...
 	taskID := string(value.GetValue())
 
 	if taskID == pendingValue {
-		m.logger.Debug("kv status is pending")
+		lg.Debug("kv status is pending")
 		return DeletePending, nil
 	}
 
@@ -139,7 +142,7 @@ func (m *Manager) DeleteTaskStatus(ctx context.Context, id string, readyFunc ...
 	case resp.IsError():
 		return DeleteError, loggingerrors.ErrOpensearchResponse
 	case !gjson.Get(body, "completed").Bool():
-		m.logger.Debug(body)
+		lg.Debug(body)
 		return DeleteRunning, nil
 	case len(gjson.Get(body, "response.failures").Array()) > 0:
 		status = DeleteFinishedWithErrors

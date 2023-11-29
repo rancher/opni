@@ -10,8 +10,6 @@ import (
 
 	"slices"
 
-	"log/slog"
-
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -35,7 +33,6 @@ type AlertingNode struct {
 	controlv1.UnsafeHealthServer
 
 	ctx        context.Context
-	lg         *slog.Logger
 	capability string
 
 	configMu   sync.RWMutex
@@ -56,12 +53,10 @@ type AlertingNode struct {
 
 func NewAlertingNode(
 	ctx context.Context,
-	lg *slog.Logger,
 	ct health.ConditionTracker,
 ) *AlertingNode {
 	node := &AlertingNode{
 		ctx:        ctx,
-		lg:         lg,
 		conditions: ct,
 		capability: wellknown.CapabilityAlerting,
 		listeners:  []ConfigPropagator{},
@@ -102,12 +97,14 @@ func (s *AlertingNode) SetClients(
 }
 
 func (s *AlertingNode) SyncNow(_ context.Context, req *capabilityv1.Filter) (*emptypb.Empty, error) {
+	lg := logger.PluginLoggerFromContext(s.ctx)
+
 	if len(req.CapabilityNames) > 0 {
 		if !slices.Contains(req.CapabilityNames, s.capability) {
-			s.lg.Debug(fmt.Sprintf("ignoring sync request due to capability filter '%s'", s.capability))
+			lg.Debug(fmt.Sprintf("ignoring sync request due to capability filter '%s'", s.capability))
 			return &emptypb.Empty{}, nil
 		}
-		s.lg.Debug(fmt.Sprintf("received %s node sync request", s.capability))
+		lg.Debug(fmt.Sprintf("received %s node sync request", s.capability))
 
 		if !s.hasNodeSyncClient() {
 			return nil, status.Error(codes.Unavailable, "not connected to node server")
@@ -125,7 +122,9 @@ func (s *AlertingNode) SyncNow(_ context.Context, req *capabilityv1.Filter) (*em
 }
 
 func (s *AlertingNode) doSync(ctx context.Context) {
-	s.lg.Debug(fmt.Sprintf("syncing %s node", s.capability))
+	lg := logger.PluginLoggerFromContext(s.ctx)
+
+	lg.Debug(fmt.Sprintf("syncing %s node", s.capability))
 	if !s.hasNodeSyncClient() && !s.hasRemoteHealthClient() {
 		s.conditions.Set(health.CondConfigSync, health.StatusPending, "no clients set, skipping")
 		return
@@ -143,9 +142,9 @@ func (s *AlertingNode) doSync(ctx context.Context) {
 	s.conditions.Clear(health.CondConfigSync)
 	switch syncResp.GetConfigStatus() {
 	case corev1.ConfigStatus_UpToDate:
-		s.lg.Info(fmt.Sprintf("%s node config is up to date", s.capability))
+		lg.Info(fmt.Sprintf("%s node config is up to date", s.capability))
 	case corev1.ConfigStatus_NeedsUpdate:
-		s.lg.Info(fmt.Sprintf("%s updating node config", s.capability))
+		lg.Info(fmt.Sprintf("%s updating node config", s.capability))
 		if err := s.updateConfig(ctx, syncResp.GetUpdatedConfig()); err != nil {
 			s.conditions.Set(health.CondNodeDriver, health.StatusFailure, err.Error())
 			return
@@ -156,10 +155,12 @@ func (s *AlertingNode) doSync(ctx context.Context) {
 }
 
 func (s *AlertingNode) updateConfig(ctx context.Context, config *node.AlertingCapabilityConfig) error {
+	lg := logger.PluginLoggerFromContext(s.ctx)
+
 	s.idMu.RLock()
 	id, err := s.identityClient.Whoami(ctx, &emptypb.Empty{})
 	if err != nil {
-		s.lg.With(logger.Err(err)).Error(fmt.Sprintf("failed to fetch %s node id %s", s.capability, err))
+		lg.With(logger.Err(err)).Error(fmt.Sprintf("failed to fetch %s node id %s", s.capability, err))
 		return err
 	}
 	s.idMu.RUnlock()
@@ -183,7 +184,7 @@ func (s *AlertingNode) updateConfig(ctx context.Context, config *node.AlertingCa
 
 	if err := eg.Error(); err != nil {
 		s.config.Conditions = (append(s.config.GetConditions(), err.Error()))
-		s.lg.With(logger.Err(err)).Error(fmt.Sprintf("%s node configuration error", s.capability))
+		lg.With(logger.Err(err)).Error(fmt.Sprintf("%s node configuration error", s.capability))
 		return err
 	} else {
 		s.config = config
@@ -222,23 +223,25 @@ func (s *AlertingNode) GetHealth(_ context.Context, _ *emptypb.Empty) (*corev1.H
 }
 
 func (s *AlertingNode) sendHealthUpdate() {
+	lg := logger.PluginLoggerFromContext(s.ctx)
+
 	s.healthMu.RLock()
 	defer s.healthMu.RUnlock()
 
 	if !s.hasRemoteHealthClient() {
-		s.lg.Warn(fmt.Sprintf("failed to send %s node health update, remote health client not set", s.capability))
+		lg.Warn(fmt.Sprintf("failed to send %s node health update, remote health client not set", s.capability))
 		return
 	}
 
 	health, err := s.GetHealth(s.ctx, &emptypb.Empty{})
 	if err != nil {
-		s.lg.With(logger.Err(err)).Warn(fmt.Sprintf("failed to get %s node health", s.capability))
+		lg.With(logger.Err(err)).Warn(fmt.Sprintf("failed to get %s node health", s.capability))
 		return
 	}
 
 	if _, err := s.healthListenerClient.UpdateHealth(s.ctx, health); err != nil {
-		s.lg.With(logger.Err(err)).Warn(fmt.Sprintf("failed to send %s node health updates", s.capability))
+		lg.With(logger.Err(err)).Warn(fmt.Sprintf("failed to send %s node health updates", s.capability))
 	} else {
-		s.lg.Debug("send node health update")
+		lg.Debug("send node health update")
 	}
 }

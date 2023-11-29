@@ -21,6 +21,7 @@ import (
 )
 
 func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
+	lg := logger.PluginLoggerFromContext(p.ctx)
 	p.mgmtClient.Set(client)
 	cfg, err := client.GetConfig(
 		context.Background(),
@@ -28,20 +29,20 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		grpc.WaitForReady(true),
 	)
 	if err != nil {
-		p.logger.With(logger.Err(err)).Error("failed to get config")
+		lg.With(logger.Err(err)).Error("failed to get config")
 		os.Exit(1)
 	}
 
 	objectList, err := machinery.LoadDocuments(cfg.Documents)
 	if err != nil {
-		p.logger.With(logger.Err(err)).Error("failed to load config")
+		lg.With(logger.Err(err)).Error("failed to load config")
 		os.Exit(1)
 	}
 	machinery.LoadAuthProviders(p.ctx, objectList)
 	objectList.Visit(func(config *v1beta1.GatewayConfig) {
 		backend, err := machinery.ConfigureStorageBackend(p.ctx, &config.Spec.Storage)
 		if err != nil {
-			p.logger.With(
+			lg.With(
 				"err", err,
 			).Error("failed to configure storage backend")
 			os.Exit(1)
@@ -54,6 +55,8 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 }
 
 func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
+	lg := logger.PluginLoggerFromContext(p.ctx)
+
 	// set other futures before trying to acquire NATS connection
 	ctrl, err := task.NewController(
 		p.ctx,
@@ -62,7 +65,7 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		&p.uninstallRunner)
 
 	if err != nil {
-		p.logger.With(
+		lg.With(
 			logger.Err(err),
 		).Error("failed to create uninstall task controller")
 	}
@@ -85,7 +88,7 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	}
 	nc, err := natsutil.AcquireNATSConnection(p.ctx, cfg)
 	if err != nil {
-		p.logger.With(
+		lg.With(
 			logger.Err(err),
 		).Error("fatal :  failed to acquire NATS connection")
 		os.Exit(1)

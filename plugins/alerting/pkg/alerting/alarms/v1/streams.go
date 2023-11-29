@@ -13,8 +13,6 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
 
-	"log/slog"
-
 	"github.com/nats-io/nats.go"
 	"github.com/rancher/opni/pkg/alerting/fingerprint"
 	"github.com/rancher/opni/pkg/alerting/message"
@@ -82,7 +80,8 @@ func NewCortexStatusSubject() string {
 }
 
 func (p *AlarmServerComponent) onSystemConditionCreate(conditionId, conditionName, namespace string, condition *alertingv1.AlertCondition) error {
-	lg := p.logger.With("onSystemConditionCreate", conditionId)
+	lg := logger.PluginLoggerFromContext(p.ctx).With("onSystemConditionCreate", conditionId)
+	ctx := logger.WithPluginLogger(p.ctx, lg)
 	lg.Debug(fmt.Sprintf("received condition update: %v", condition))
 	disconnect := condition.GetAlertType().GetSystem()
 	jsCtx, cancel := context.WithCancel(p.ctx)
@@ -92,12 +91,11 @@ func (p *AlarmServerComponent) onSystemConditionCreate(conditionId, conditionNam
 		&internalConditionMetadata{
 			conditionId:        conditionId,
 			conditionName:      conditionName,
-			lg:                 lg,
 			clusterId:          agentId,
 			alertmanagerlabels: map[string]string{},
 		},
 		&internalConditionContext{
-			parentCtx:        p.ctx,
+			parentCtx:        ctx,
 			evaluationCtx:    jsCtx,
 			evaluateInterval: DisconnectStreamEvaluateInterval,
 			cancelEvaluation: cancel,
@@ -166,7 +164,8 @@ func (p *AlarmServerComponent) onSystemConditionCreate(conditionId, conditionNam
 }
 
 func (p *AlarmServerComponent) onDownstreamCapabilityConditionCreate(conditionId, conditionName, namespace string, condition *alertingv1.AlertCondition) error {
-	lg := p.logger.With("onCapabilityStatusCreate", conditionId)
+	lg := logger.PluginLoggerFromContext(p.ctx).With("onCapabilityStatusCreate", conditionId)
+	ctx := logger.WithPluginLogger(p.ctx, lg)
 	capability := condition.GetAlertType().GetDownstreamCapability()
 	lg.Debug(fmt.Sprintf("received condition update: %v", condition))
 	jsCtx, cancel := context.WithCancel(p.ctx)
@@ -176,12 +175,11 @@ func (p *AlarmServerComponent) onDownstreamCapabilityConditionCreate(conditionId
 		&internalConditionMetadata{
 			conditionId:        conditionId,
 			conditionName:      conditionName,
-			lg:                 lg,
 			clusterId:          agentId,
 			alertmanagerlabels: map[string]string{},
 		},
 		&internalConditionContext{
-			parentCtx:        p.ctx,
+			parentCtx:        ctx,
 			evaluationCtx:    jsCtx,
 			evaluateInterval: CapabilityStreamEvaluateInterval,
 			cancelEvaluation: cancel,
@@ -488,7 +486,8 @@ func reduceCortexAdminStates(componentsToTrack []string, cStatus *cortexadmin.Co
 }
 
 func (p *AlarmServerComponent) onCortexClusterStatusCreate(conditionId, conditionName, namespace string, condition *alertingv1.AlertCondition) error {
-	lg := p.logger.With("onCortexClusterStatusCreate", conditionId)
+	lg := logger.PluginLoggerFromContext(p.ctx).With("onCortexClusterStatusCreate", conditionId)
+	ctx := logger.WithPluginLogger(p.ctx, lg)
 	cortex := condition.GetAlertType().GetMonitoringBackend()
 	lg.Debug(fmt.Sprintf("received condition update: %v", condition))
 	jsCtx, cancel := context.WithCancel(p.ctx)
@@ -498,12 +497,11 @@ func (p *AlarmServerComponent) onCortexClusterStatusCreate(conditionId, conditio
 		&internalConditionMetadata{
 			conditionId:        conditionId,
 			conditionName:      conditionName,
-			lg:                 lg,
 			clusterId:          "", // unused here
 			alertmanagerlabels: map[string]string{},
 		},
 		&internalConditionContext{
-			parentCtx:        p.ctx,
+			parentCtx:        ctx,
 			evaluationCtx:    jsCtx,
 			evaluateInterval: CortexStreamEvaluateInterval,
 			cancelEvaluation: cancel,
@@ -566,7 +564,6 @@ func (p *AlarmServerComponent) onCortexClusterStatusCreate(conditionId, conditio
 }
 
 type internalConditionMetadata struct {
-	lg                 *slog.Logger
 	conditionName      string
 	conditionId        string
 	clusterId          string
@@ -632,6 +629,7 @@ type InternalConditionEvaluator[T proto.Message] struct {
 
 // infinite & blocking : must be run in a goroutine
 func (c *InternalConditionEvaluator[T]) SubscriberLoop() {
+	lg := logger.PluginLoggerFromContext(c.parentCtx)
 	defer c.cancelEvaluation()
 	// replay consumer if it exists
 	t := time.NewTicker(c.evaluateInterval)
@@ -644,7 +642,7 @@ func (c *InternalConditionEvaluator[T]) SubscriberLoop() {
 		case <-t.C:
 			subStream, err := c.js.ChanSubscribe(c.streamSubject, c.msgCh)
 			if err != nil {
-				c.lg.Warn("failed to subscribe to stream %s", err)
+				lg.Warn("failed to subscribe to stream %s", err)
 				continue
 			}
 			defer subStream.Unsubscribe()
@@ -658,16 +656,16 @@ func (c *InternalConditionEvaluator[T]) SubscriberLoop() {
 	for {
 		select {
 		case <-c.parentCtx.Done():
-			c.lg.Info("parent context is exiting, exiting evaluation loop")
+			lg.Info("parent context is exiting, exiting evaluation loop")
 			return
 		case <-c.evaluationCtx.Done():
-			c.lg.Info("evaluation context is exiting, exiting evaluation loop")
+			lg.Info("evaluation context is exiting, exiting evaluation loop")
 			return
 		case msg := <-c.msgCh:
 			var status T
 			err := json.Unmarshal(msg.Data, &status)
 			if err != nil {
-				c.lg.Error("error", logger.Err(err))
+				lg.Error("error", logger.Err(err))
 			}
 			healthy, md, ts := c.healthOnMessage(status)
 			incomingState := alertingv1.CachedState{
@@ -684,25 +682,27 @@ func (c *InternalConditionEvaluator[T]) SubscriberLoop() {
 
 // infinite & blocking : must be run in a goroutine
 func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
+	lg := logger.PluginLoggerFromContext(c.parentCtx)
+
 	defer c.cancelEvaluation() // cancel parent context, if we return (non-recoverable)
 	ticker := time.NewTicker(c.evaluateInterval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-c.parentCtx.Done():
-			c.lg.Info("parent context is exiting, exiting evaluation loop")
+			lg.Info("parent context is exiting, exiting evaluation loop")
 			return
 		case <-c.evaluationCtx.Done():
-			c.lg.Info("evaluation context is exiting, exiting evaluation loop")
+			lg.Info("evaluation context is exiting, exiting evaluation loop")
 			return
 		case <-ticker.C:
 			lastKnownState, err := c.stateStorage.Get(c.evaluationCtx, c.conditionId)
 			if err != nil {
-				c.lg.With("id", c.conditionId, "name", c.conditionName).Error(fmt.Sprintf("failed to get last internal condition state %s", err))
+				lg.With("id", c.conditionId, "name", c.conditionName).Error(fmt.Sprintf("failed to get last internal condition state %s", err))
 				continue
 			}
 			if !lastKnownState.Healthy {
-				c.lg.Debug(fmt.Sprintf("condition %s is unhealthy", c.conditionName))
+				lg.Debug(fmt.Sprintf("condition %s is unhealthy", c.conditionName))
 				interval := timestamppb.Now().AsTime().Sub(lastKnownState.Timestamp.AsTime())
 				if interval > c.evaluateDuration { // then we must fire an alert
 					if !c.IsFiring() {
@@ -715,11 +715,11 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 							Metadata:  lastKnownState.Metadata,
 						})
 						if err != nil {
-							c.lg.Error("error", logger.Err(err))
+							lg.Error("error", logger.Err(err))
 						}
 						err = c.incidentStorage.OpenInterval(c.evaluationCtx, c.conditionId, string(c.fingerprint), timestamppb.Now())
 						if err != nil {
-							c.lg.Error("error", logger.Err(err))
+							lg.Error("error", logger.Err(err))
 						}
 					}
 					alertLabels := map[string]string{
@@ -735,17 +735,17 @@ func (c *InternalConditionEvaluator[T]) EvaluateLoop() {
 						)
 					}
 
-					c.lg.Debug(fmt.Sprintf("triggering alert for condition %s", c.conditionName))
+					lg.Debug(fmt.Sprintf("triggering alert for condition %s", c.conditionName))
 					c.triggerHook(c.evaluationCtx, c.conditionId, alertLabels, alertAnnotations)
 				}
 			} else if lastKnownState.Healthy && c.IsFiring() &&
 				// avoid potential noise from api streams & replays
 				lastKnownState.Timestamp.AsTime().Add(-c.evaluateInterval).Before(time.Now()) {
-				c.lg.Debug(fmt.Sprintf("condition %s is now healthy again after having fired", c.conditionName))
+				lg.Debug(fmt.Sprintf("condition %s is now healthy again after having fired", c.conditionName))
 				c.SetFiring(false)
 				err = c.incidentStorage.CloseInterval(c.evaluationCtx, c.conditionId, string(c.fingerprint), timestamppb.Now())
 				if err != nil {
-					c.lg.Error("error", logger.Err(err))
+					lg.Error("error", logger.Err(err))
 				}
 				c.resolveHook(c.evaluationCtx, c.conditionId, map[string]string{
 					message.NotificationPropertyFingerprint: string(c.fingerprint),
@@ -780,12 +780,14 @@ func (c *InternalConditionEvaluator[T]) UpdateState(ctx context.Context, s *aler
 }
 
 func (c *InternalConditionEvaluator[T]) CalculateInitialState() {
+	lg := logger.PluginLoggerFromContext(c.parentCtx)
+
 	incomingState := alertingv1.DefaultCachedState()
 	if _, getErr := c.incidentStorage.Get(c.evaluationCtx, c.conditionId); getErr != nil {
 		if status, ok := status.FromError(getErr); ok && status.Code() == codes.NotFound {
 			err := c.incidentStorage.Put(c.evaluationCtx, c.conditionId, alertingv1.NewIncidentIntervals())
 			if err != nil {
-				c.lg.Error("error", logger.Err(err))
+				lg.Error("error", logger.Err(err))
 				c.cancelEvaluation()
 				return
 			}
@@ -794,7 +796,7 @@ func (c *InternalConditionEvaluator[T]) CalculateInitialState() {
 			return
 		}
 	} else if getErr != nil {
-		c.lg.Error("error", logger.Err(getErr))
+		lg.Error("error", logger.Err(getErr))
 	}
 	if st, getErr := c.stateStorage.Get(c.evaluationCtx, c.conditionId); getErr != nil {
 		if code, ok := status.FromError(getErr); ok && code.Code() == codes.NotFound {

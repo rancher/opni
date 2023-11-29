@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"log/slog"
 
 	healthpkg "github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"
@@ -20,26 +19,27 @@ import (
 
 type Plugin struct {
 	ctx           context.Context
-	logger        *slog.Logger
 	node          *LoggingNode
 	otelForwarder *otel.Forwarder
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
-	lg := logger.NewPluginLogger().WithGroup("logging")
+	lg := logger.NewPluginLogger(ctx).WithGroup("logging")
+	ctx = logger.WithPluginLogger(ctx, lg)
+	logForwarderLg := lg.WithGroup("otel-logs-forwarder")
+	traceForwarderLg := lg.WithGroup("otel-trace-forwarder")
 
 	ct := healthpkg.NewDefaultConditionTracker(lg)
 
 	p := &Plugin{
-		ctx:    ctx,
-		logger: lg,
-		node:   NewLoggingNode(ct, lg),
+		ctx:  ctx,
+		node: NewLoggingNode(ctx, ct),
 		otelForwarder: otel.NewForwarder(
 			otel.NewLogsForwarder(
-				otel.WithLogger(lg.WithGroup("otel-logs-forwarder")),
+				logger.WithPluginLogger(ctx, logForwarderLg),
 				otel.WithPrivileged(true)),
 			otel.NewTraceForwarder(
-				otel.WithLogger(lg.WithGroup("otel-trace-forwarder")),
+				logger.WithPluginLogger(ctx, traceForwarderLg),
 				otel.WithPrivileged(true)),
 		),
 	}
@@ -69,10 +69,11 @@ var (
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme(meta.WithMode(meta.ModeAgent))
+
 	p := NewPlugin(ctx)
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewAgentPlugin(p.node))
 	scheme.Add(health.HealthPluginID, health.NewPlugin(p.node))
-	scheme.Add(stream.StreamAPIExtensionPluginID, stream.NewAgentPlugin(p))
+	scheme.Add(stream.StreamAPIExtensionPluginID, stream.NewAgentPlugin(ctx, p))
 	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p.otelForwarder))
 	return scheme
 }

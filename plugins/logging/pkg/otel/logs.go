@@ -36,10 +36,15 @@ type LogsForwarder struct {
 	clientMu sync.RWMutex
 }
 
-func NewLogsForwarder(opts ...ForwarderOption) *LogsForwarder {
+func NewLogsForwarder(ctx context.Context, opts ...ForwarderOption) *LogsForwarder {
+	lg := logger.PluginLoggerFromContext(ctx)
+	if lg == nil {
+		lg = logger.NewPluginLogger(ctx).WithGroup("default-otel")
+	}
+
 	options := forwarderOptions{
 		collectorAddressOverride: defaultAddress,
-		lg:                       logger.NewPluginLogger().WithGroup("default-otel"),
+		ctx:                      logger.WithPluginLogger(ctx, lg),
 	}
 	options.apply(opts...)
 	return &LogsForwarder{
@@ -57,6 +62,7 @@ func (f *LogsForwarder) SetClient(cc grpc.ClientConnInterface) {
 }
 
 func (f *LogsForwarder) initializeLogsForwarder() collogspb.LogsServiceClient {
+	lg := logger.PluginLoggerFromContext(f.ctx)
 	if f.cc == nil {
 		ctx := context.Background()
 		expBackoff := backoff.Exponential(
@@ -70,7 +76,7 @@ func (f *LogsForwarder) initializeLogsForwarder() collogspb.LogsServiceClient {
 		for {
 			select {
 			case <-b.Done():
-				f.lg.Warn("plugin context cancelled before gRPC client created")
+				lg.Warn("plugin context cancelled before gRPC client created")
 				return nil
 			case <-b.Next():
 				conn, err := grpc.Dial(
@@ -78,7 +84,7 @@ func (f *LogsForwarder) initializeLogsForwarder() collogspb.LogsServiceClient {
 					f.dialOptions...,
 				)
 				if err != nil {
-					f.lg.Error(fmt.Sprintf("failed dial grpc: %v", err))
+					lg.Error(fmt.Sprintf("failed dial grpc: %v", err))
 					continue
 				}
 				return collogspb.NewLogsServiceClient(conn)
@@ -92,8 +98,9 @@ func (f *LogsForwarder) Export(
 	ctx context.Context,
 	request *collogspb.ExportLogsServiceRequest,
 ) (*collogspb.ExportLogsServiceResponse, error) {
+	lg := logger.PluginLoggerFromContext(f.ctx)
 	if !f.Client.IsSet() {
-		f.lg.Error("collector is unavailable")
+		lg.Error("collector is unavailable")
 		return nil, status.Errorf(codes.Unavailable, "collector is unavailable")
 	}
 	clusterID := cluster.StreamAuthorizedID(ctx)
@@ -111,7 +118,7 @@ func (f *LogsForwarder) Export(
 	}
 
 	if len(values)%2 != 0 {
-		f.lg.Warn(fmt.Sprintf("invalid number of attribute values: %d", len(values)))
+		lg.Warn(fmt.Sprintf("invalid number of attribute values: %d", len(values)))
 		return f.forwardLogs(ctx, request)
 	}
 
@@ -155,9 +162,10 @@ func (f *LogsForwarder) forwardLogs(
 	ctx context.Context,
 	request *collogspb.ExportLogsServiceRequest,
 ) (*collogspb.ExportLogsServiceResponse, error) {
+	lg := logger.PluginLoggerFromContext(f.ctx)
 	resp, err := f.Client.Client.Export(ctx, request)
 	if err != nil {
-		f.lg.Error("failed to forward logs: %v", logger.Err(err))
+		lg.Error("failed to forward logs: %v", logger.Err(err))
 		return nil, err
 	}
 	return resp, nil

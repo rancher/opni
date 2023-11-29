@@ -9,8 +9,6 @@ import (
 	"slices"
 	"strings"
 
-	"log/slog"
-
 	"github.com/hashicorp/go-plugin"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/kralicky/totem"
@@ -54,7 +52,7 @@ func WithMetrics(conf GatewayStreamMetricsConfig) GatewayStreamApiExtensionPlugi
 	}
 }
 
-func NewGatewayPlugin(p StreamAPIExtension, opts ...GatewayStreamApiExtensionPluginOption) plugin.Plugin {
+func NewGatewayPlugin(ctx context.Context, p StreamAPIExtension, opts ...GatewayStreamApiExtensionPluginOption) plugin.Plugin {
 	options := GatewayStreamApiExtensionPluginOptions{}
 	options.apply(opts...)
 
@@ -67,9 +65,11 @@ func NewGatewayPlugin(p StreamAPIExtension, opts ...GatewayStreamApiExtensionPlu
 		name = fmt.Sprintf("plugin_%s", parts[slices.Index(parts, "plugins")+1])
 	}
 
+	lg := logger.NewPluginLogger(ctx).WithGroup(name).WithGroup("stream")
+	ctx = logger.WithPluginLogger(ctx, lg)
 	ext := &gatewayStreamExtensionServerImpl{
+		ctx:           ctx,
 		name:          name,
-		logger:        logger.NewPluginLogger().WithGroup(name).WithGroup("stream"),
 		metricsConfig: options.metricsConfig,
 	}
 	if p != nil {
@@ -105,19 +105,20 @@ type gatewayStreamExtensionServerImpl struct {
 	streamv1.UnimplementedStreamServer
 	apiextensions.UnsafeStreamAPIExtensionServer
 
+	ctx           context.Context
 	name          string
 	servers       []*richServer
 	clientHandler StreamClientHandler
-	logger        *slog.Logger
 	metricsConfig GatewayStreamMetricsConfig
 	meterProvider *metric.MeterProvider
 }
 
 // Implements streamv1.StreamServer
 func (e *gatewayStreamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer) error {
+	lg := logger.PluginLoggerFromContext(e.ctx)
 	id := cluster.StreamAuthorizedID(stream.Context())
 
-	e.logger.With(
+	lg.With(
 		"id", id,
 	).Debug("stream connected")
 
@@ -144,7 +145,7 @@ func (e *gatewayStreamExtensionServerImpl) Connect(stream streamv1.Stream_Connec
 	ts, err := totem.NewServer(stream, opts...)
 
 	if err != nil {
-		e.logger.With(
+		lg.With(
 			logger.Err(err),
 		).Error("failed to create stream server")
 		return err
@@ -155,15 +156,15 @@ func (e *gatewayStreamExtensionServerImpl) Connect(stream streamv1.Stream_Connec
 
 	_, errC := ts.Serve()
 
-	e.logger.Debug("stream server started")
+	lg.Debug("stream server started")
 
 	err = <-errC
 	if errors.Is(err, io.EOF) || status.Code(err) == codes.OK {
-		e.logger.Debug("stream server exited")
+		lg.Debug("stream server exited")
 	} else if status.Code(err) == codes.Canceled {
-		e.logger.Debug("stream server closed")
+		lg.Debug("stream server closed")
 	} else {
-		e.logger.With(
+		lg.With(
 			logger.Err(err),
 		).Warn("stream server exited with error")
 	}
@@ -172,13 +173,15 @@ func (e *gatewayStreamExtensionServerImpl) Connect(stream streamv1.Stream_Connec
 
 // ConnectInternal implements apiextensions.StreamAPIExtensionServer
 func (e *gatewayStreamExtensionServerImpl) ConnectInternal(stream apiextensions.StreamAPIExtension_ConnectInternalServer) error {
+	lg := logger.PluginLoggerFromContext(e.ctx)
+
 	if e.clientHandler == nil {
 		stream.SendHeader(metadata.Pairs("accept-internal-stream", "false"))
 		return nil
 	}
 	stream.SendHeader(metadata.Pairs("accept-internal-stream", "true"))
 
-	e.logger.Debug("internal gateway stream connected")
+	lg.Debug("internal gateway stream connected")
 
 	ts, err := totem.NewServer(
 		stream,
@@ -197,11 +200,11 @@ func (e *gatewayStreamExtensionServerImpl) ConnectInternal(stream apiextensions.
 	select {
 	case err := <-errC:
 		if errors.Is(err, io.EOF) {
-			e.logger.Debug("stream disconnected")
+			lg.Debug("stream disconnected")
 		} else if status.Code(err) == codes.Canceled {
-			e.logger.Debug("stream closed")
+			lg.Debug("stream closed")
 		} else {
-			e.logger.With(
+			lg.With(
 				logger.Err(err),
 			).Warn("stream disconnected with error")
 		}
@@ -209,7 +212,7 @@ func (e *gatewayStreamExtensionServerImpl) ConnectInternal(stream apiextensions.
 	default:
 	}
 
-	e.logger.Debug("calling client handler")
+	lg.Debug("calling client handler")
 	go e.clientHandler.UseStreamClient(cc)
 
 	return <-errC

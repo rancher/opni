@@ -1,8 +1,9 @@
 package plugins
 
 import (
+	"context"
 	"fmt"
-	"os"
+	"io"
 	"os/exec"
 
 	"github.com/hashicorp/go-hclog"
@@ -10,6 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/auth/session"
 	"github.com/rancher/opni/pkg/caching"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util/streams"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -41,9 +43,14 @@ func WithSecureConfig(sc *plugin.SecureConfig) ClientOption {
 	}
 }
 
-func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, opts ...ClientOption) *plugin.ClientConfig {
+func ClientConfig(ctx context.Context, md meta.PluginMeta, scheme meta.Scheme, opts ...ClientOption) *plugin.ClientConfig {
 	options := &ClientOptions{}
 	options.apply(opts...)
+
+	if md.ExtendedMetadata != nil {
+		mode := md.ExtendedMetadata.ModeList.Modes[0]
+		ctx = logger.WithMode(ctx, mode)
+	}
 
 	cc := &plugin.ClientConfig{
 		Plugins:          scheme.PluginMap(),
@@ -51,7 +58,8 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, opts ...ClientOption) 
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 		Managed:          true,
 		Logger: hclog.New(&hclog.LoggerOptions{
-			Level: hclog.Error,
+			Level:  hclog.Error,
+			Output: io.Discard,
 		}),
 		GRPCDialOptions: []grpc.DialOption{
 			grpc.WithChainUnaryInterceptor(
@@ -61,8 +69,7 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, opts ...ClientOption) 
 			grpc.WithPerRPCCredentials(cluster.ClusterIDKey),
 			grpc.WithPerRPCCredentials(session.AttributesKey),
 		},
-		SyncStderr: os.Stderr,
-		Stderr:     os.Stderr,
+		Stderr: logger.NewPluginFileWriter(ctx),
 	}
 
 	if options.reattach != nil {

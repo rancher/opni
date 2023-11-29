@@ -1,6 +1,10 @@
 package v1
 
 import (
+	"fmt"
+	"log/slog"
+	"regexp"
+
 	"github.com/rancher/opni/pkg/validation"
 )
 
@@ -81,6 +85,44 @@ func (a *PatchSpec) Validate() error {
 func (a *PatchList) Validate() error {
 	for _, patch := range a.Items {
 		if err := patch.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *LogStreamRequest) Validate() error {
+	if r.GetSince() == nil {
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "since")
+	}
+	if r.GetUntil() == nil {
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "until")
+	}
+	since := r.GetSince().AsTime()
+	until := r.GetUntil().AsTime()
+	if since.After(until) {
+		return fmt.Errorf("%w: %s", validation.ErrInvalidValue, "start time must be before end time")
+	}
+
+	if r.GetFilters() == nil {
+		return nil
+	}
+
+	switch slog.Level(r.GetFilters().GetLevel()) {
+	case slog.LevelDebug:
+	case slog.LevelInfo:
+	case slog.LevelWarn:
+	case slog.LevelError:
+	default:
+		return fmt.Errorf("%w: %s", validation.ErrInvalidValue, "log level")
+	}
+
+	for _, name := range r.GetFilters().GetNamePattern() {
+		if name == "" {
+			return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "filter pattern")
+		}
+
+		if _, err := regexp.Compile(name); err != nil {
 			return err
 		}
 	}

@@ -136,10 +136,11 @@ type taskRunner struct {
 
 	backoffPolicy backoff.Policy
 
-	logger *slog.Logger
+	ctx context.Context
 }
 
-func newTaskRunner(logger *slog.Logger) *taskRunner {
+func newTaskRunner(ctx context.Context) *taskRunner {
+	lg := logger.PluginLoggerFromContext(ctx).WithGroup("task-runner")
 	return &taskRunner{
 		backoffPolicy: backoff.Exponential(
 			backoff.WithMaxRetries(0),
@@ -147,7 +148,7 @@ func newTaskRunner(logger *slog.Logger) *taskRunner {
 			backoff.WithMaxInterval(5*time.Minute),
 			backoff.WithMultiplier(1.1),
 		),
-		logger: logger.WithGroup("task-runner"),
+		ctx: logger.WithPluginLogger(ctx, lg),
 	}
 }
 
@@ -167,6 +168,7 @@ func (tr *taskRunner) OnTaskPending(_ context.Context, _ task.ActiveTask) error 
 }
 
 func (tr *taskRunner) doPush(ctx context.Context, writeRequest *prompb.WriteRequest) error {
+	lg := logger.PluginLoggerFromContext(tr.ctx)
 	expbackoff := tr.backoffPolicy.Start(ctx)
 
 	for {
@@ -194,7 +196,7 @@ func (tr *taskRunner) doPush(ctx context.Context, writeRequest *prompb.WriteRequ
 
 			switch {
 			case strings.Contains(err.Error(), "ingestion rate limit"):
-				tr.logger.With(
+				lg.With(
 					logger.Err(err),
 				).Warn("failed to push to remote write, retrying...")
 			default:
@@ -316,7 +318,7 @@ type TargetRunner interface {
 }
 
 type taskingTargetRunner struct {
-	logger *slog.Logger
+	ctx context.Context
 
 	runnerMu sync.RWMutex
 	runner   *taskRunner
@@ -324,10 +326,10 @@ type taskingTargetRunner struct {
 	controller *task.Controller
 }
 
-func NewTargetRunner(logger *slog.Logger) TargetRunner {
+func NewTargetRunner(ctx context.Context) TargetRunner {
 	store := inmemory.NewKeyValueStore[*corev1.TaskStatus](util.ProtoClone)
 
-	runner := newTaskRunner(logger)
+	runner := newTaskRunner(ctx)
 
 	controller, err := task.NewController(context.Background(), "target-runner", store, runner)
 	if err != nil {
@@ -335,13 +337,15 @@ func NewTargetRunner(logger *slog.Logger) TargetRunner {
 	}
 
 	return &taskingTargetRunner{
-		logger:     logger,
+		ctx:        ctx,
 		runner:     runner,
 		controller: controller,
 	}
 }
 
 func (runner *taskingTargetRunner) Start(target *remoteread.Target, query *remoteread.Query) error {
+	lg := logger.PluginLoggerFromContext(runner.ctx)
+
 	if status, err := runner.controller.TaskStatus(target.Meta.Name); err != nil {
 		if !strings.Contains(err.Error(), "not found") {
 			return fmt.Errorf("error checking for target status: %s", err)
@@ -362,12 +366,14 @@ func (runner *taskingTargetRunner) Start(target *remoteread.Target, query *remot
 		return fmt.Errorf("could not run target: %w", err)
 	}
 
-	runner.logger.Info(fmt.Sprintf("started target '%s'", target.Meta.Name))
+	lg.Info(fmt.Sprintf("started target '%s'", target.Meta.Name))
 
 	return nil
 }
 
 func (runner *taskingTargetRunner) Stop(name string) error {
+	lg := logger.PluginLoggerFromContext(runner.ctx)
+
 	status, err := runner.controller.TaskStatus(name)
 	if err != nil {
 		return fmt.Errorf("target not found")
@@ -380,7 +386,7 @@ func (runner *taskingTargetRunner) Stop(name string) error {
 
 	runner.controller.CancelTask(name)
 
-	runner.logger.Info(fmt.Sprintf("stopped target '%s'", name))
+	lg.Info(fmt.Sprintf("stopped target '%s'", name))
 
 	return nil
 }

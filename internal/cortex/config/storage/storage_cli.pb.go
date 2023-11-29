@@ -329,12 +329,14 @@ func (in *AzureConfig) FlagSet(prefix ...string) *pflag.FlagSet {
 	fs.Var(flagutil.StringPtrValue(nil, &in.ContainerName), strings.Join(append(prefix, "container-name"), "."), "Azure storage container name")
 	fs.Var(flagutil.StringPtrValue(nil, &in.EndpointSuffix), strings.Join(append(prefix, "endpoint-suffix"), "."), "Azure storage endpoint suffix without schema. The account name will be prefixed to this value to create the FQDN")
 	fs.Var(flagutil.IntPtrValue(flagutil.Ptr[int32](20), &in.MaxRetries), strings.Join(append(prefix, "max-retries"), "."), "Number of retries for recoverable errors")
-	fs.Var(flagutil.StringPtrValue(nil, &in.MsiResource), strings.Join(append(prefix, "msi-resource"), "."), "\x1b[31m[secret]\x1b[0m Azure storage MSI resource. Either this or account key must be set.")
-	fs.Var(flagutil.StringPtrValue(nil, &in.UserAssignedId), strings.Join(append(prefix, "user-assigned-id"), "."), "Azure storage MSI resource managed identity client Id. If not supplied system assigned identity is used")
+	fs.MarkDeprecated(strings.Join(append(prefix, "msi-resource"), "."), "Deprecated: Azure storage MSI resource. It will be set automatically by Azure SDK.")
+	fs.Var(flagutil.StringPtrValue(nil, &in.MsiResource), strings.Join(append(prefix, "msi-resource"), "."), "Deprecated: Azure storage MSI resource. It will be set automatically by Azure SDK.")
+	fs.Var(flagutil.StringPtrValue(nil, &in.UserAssignedId), strings.Join(append(prefix, "user-assigned-id"), "."), "Azure storage MSI resource managed identity client Id. If not supplied default Azure credential will be used. Set it to empty if you need to authenticate via Azure Workload Identity.")
 	if in.Http == nil {
 		in.Http = &HttpConfig{}
 	}
 	fs.AddFlagSet(in.Http.FlagSet(append(prefix, "http")...))
+	fs.Var(flagutil.StringPtrValue(nil, &in.ConnectionString), strings.Join(append(prefix, "connection-string"), "."), "\x1b[31m[secret]\x1b[0m The values of `account-name` and `endpoint-suffix` values will not be ignored if `connection-string` is set. Use this method over `account-key` if you need to authenticate via a SAS token or if you use the Azurite emulator.")
 	return fs
 }
 
@@ -345,8 +347,8 @@ func (in *AzureConfig) RedactSecrets() {
 	if in.GetAccountKey() != "" {
 		in.AccountKey = flagutil.Ptr("***")
 	}
-	if in.GetMsiResource() != "" {
-		in.MsiResource = flagutil.Ptr("***")
+	if in.GetConnectionString() != "" {
+		in.ConnectionString = flagutil.Ptr("***")
 	}
 }
 
@@ -365,14 +367,14 @@ func (in *AzureConfig) UnredactSecrets(unredacted *AzureConfig) error {
 			*in.AccountKey = *unredacted.AccountKey
 		}
 	}
-	if in.GetMsiResource() == "***" {
-		if unredacted.GetMsiResource() == "" {
+	if in.GetConnectionString() == "***" {
+		if unredacted.GetConnectionString() == "" {
 			details = append(details, &errdetails.ErrorInfo{
 				Reason:   "DISCONTINUITY",
-				Metadata: map[string]string{"field": "msi_resource"},
+				Metadata: map[string]string{"field": "connection_string"},
 			})
 		} else {
-			*in.MsiResource = *unredacted.MsiResource
+			*in.ConnectionString = *unredacted.ConnectionString
 		}
 	}
 	if len(details) == 0 {

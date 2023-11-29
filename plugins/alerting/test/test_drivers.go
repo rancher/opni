@@ -75,6 +75,7 @@ type TestEnvAlertingClusterDriverOptions struct {
 
 type TestEnvAlertingClusterDriver struct {
 	env              *test.Environment
+	ctx              context.Context
 	managedInstances []AlertingServerUnit
 	enabled          *atomic.Bool
 	ConfigFile       string
@@ -103,7 +104,6 @@ func NewTestEnvAlertingClusterDriver(env *test.Environment, options TestEnvAlert
 	}
 	configFile := path.Join(dir, "alertmanager.yaml")
 	lg := logger.NewPluginLogger(env.Context()).WithGroup("alerting-test-cluster-driver").With("config-file", configFile)
-	env.SetContext(logger.WithPluginLogger(env.Context(), lg))
 
 	initial := &atomic.Bool{}
 	initial.Store(false)
@@ -129,6 +129,7 @@ func NewTestEnvAlertingClusterDriver(env *test.Environment, options TestEnvAlert
 
 	return &TestEnvAlertingClusterDriver{
 		env:                    env,
+		ctx:                    logger.WithPluginLogger(env.Context(), lg),
 		managedInstances:       []AlertingServerUnit{},
 		enabled:                initial,
 		ConfigFile:             configFile,
@@ -204,7 +205,7 @@ func (l *TestEnvAlertingClusterDriver) ConfigureCluster(_ context.Context, confi
 }
 
 func (l *TestEnvAlertingClusterDriver) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*alertops.InstallStatus, error) {
-	lg := logger.PluginLoggerFromContext(l.env.Context())
+	lg := logger.PluginLoggerFromContext(l.ctx)
 	if !l.enabled.Load() {
 		return &alertops.InstallStatus{
 			State: alertops.InstallState_NotInstalled,
@@ -332,7 +333,7 @@ func (l *TestEnvAlertingClusterDriver) StartAlertingBackendServer(
 	ctx context.Context,
 	configFilePath string,
 ) AlertingServerUnit {
-	lg := logger.PluginLoggerFromContext(l.env.Context())
+	lg := logger.PluginLoggerFromContext(l.ctx)
 	opniBin := path.Join(l.env.TestBin, "../../bin/opni")
 	webPort := freeport.GetFreePort()
 	opniPort := freeport.GetFreePort()

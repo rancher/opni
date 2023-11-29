@@ -499,11 +499,6 @@ func (e *Environment) Context() context.Context {
 	return e.ctx
 }
 
-func (e *Environment) SetContext(ctx context.Context) context.Context {
-	e.ctx = ctx
-	return e.ctx
-}
-
 func (e *Environment) StartEmbeddedJetstream() (*nats.Conn, error) {
 	ports := freeport.GetFreePorts(1)
 
@@ -2165,7 +2160,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 	var a agent.AgentInterface
 	mu := &sync.Mutex{}
 	agentCtx, cancel := context.WithCancel(options.ctx)
-	e.ctx = logger.WithAgentId(e.ctx, id)
+
 	go func() {
 		defer cancel()
 		mu.Lock()
@@ -2185,7 +2180,8 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 				mu.Unlock()
 				return
 			}
-			globalTestPlugins.LoadPlugins(e.ctx, pl, pluginmeta.ModeAgent)
+			ctx = logger.WithAgentId(e.ctx, id)
+			globalTestPlugins.LoadPlugins(ctx, pl, pluginmeta.ModeAgent)
 			agentListMu.Lock()
 			agentList[id] = cancel
 			agentListMu.Unlock()

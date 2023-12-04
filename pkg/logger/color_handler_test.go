@@ -98,7 +98,7 @@ func TestHandler(t *testing.T) {
 			F: func(l *slog.Logger) {
 				l.Info("test", "key", "val")
 			},
-			Want: `2009 Nov 10 23:00:00 INFO logger/color_handler_test.go:98 test key=val`,
+			Want: `2009 Nov 10 23:00:00 INFO logger/color_handler_test.go:99 test key=val`,
 		},
 		{
 			Opts: &LoggerOptions{
@@ -107,7 +107,7 @@ func TestHandler(t *testing.T) {
 			F: func(l *slog.Logger) {
 				l.Info("test", "key", "val")
 			},
-			Want: `INFO test key=val`,
+			Want: `2009 Nov 10 23:00:00 INFO test key=val`,
 		},
 		{
 			Opts: &LoggerOptions{
@@ -161,7 +161,7 @@ func TestHandler(t *testing.T) {
 			F: func(l *slog.Logger) {
 				l.WithGroup("group").Info("test", "key", "val", "key2", "val2")
 			},
-			Want: `2009 Nov 10 23:00:00 INFO group test key=val key2=val2`,
+			Want: `2009 Nov 10 23:00:00 INFO group test key2=val2`,
 		},
 		{
 			Opts: &LoggerOptions{
@@ -324,7 +324,7 @@ func TestHandler(t *testing.T) {
 			F: func(l *slog.Logger) {
 				l.Info("test")
 			},
-			Want: `2009 Nov 10 23:00:00 INFO logger/color_handler_test.go:324 test`,
+			Want: `2009 Nov 10 23:00:00 INFO logger/color_handler_test.go:325 test`,
 		},
 		{
 			F: func(l *slog.Logger) {
@@ -332,6 +332,14 @@ func TestHandler(t *testing.T) {
 				l.Error("test", Err(errTest))
 			},
 			Want: `2009 Nov 10 23:00:00 ERROR group test err=fail`,
+		},
+		{
+			F: func(l *slog.Logger) {
+				var t *T
+				l = l.With("t", t)
+				l.Info("test")
+			},
+			Want: `2009 Nov 10 23:00:00 INFO test t=""`,
 		},
 	}
 
@@ -523,3 +531,11 @@ var (
 	testDuration = 23 * time.Second
 	errTest      = errors.New("fail")
 )
+
+type T struct {
+	U
+}
+
+type U interface {
+	MarshalText() ([]byte, error)
+}

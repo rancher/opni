@@ -20,7 +20,7 @@ require (
 	github.com/cert-manager/cert-manager v1.10.2
 	github.com/charmbracelet/bubbles v0.16.1
 	github.com/charmbracelet/bubbletea v0.24.2
-	github.com/charmbracelet/lipgloss v0.7.1
+	github.com/charmbracelet/lipgloss v0.9.1
 	github.com/cisco-open/k8s-objectmatcher v1.9.0
 	github.com/cisco-open/operator-tools v0.30.0
 	github.com/cortexproject/cortex v0.0.0-00010101000000-000000000000

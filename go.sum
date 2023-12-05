@@ -1550,8 +1550,8 @@ github.com/jaehnri/grafana-operator/v5 v5.0.0-20231107224428-8e66ce068452 h1:dCV
 github.com/jaehnri/grafana-operator/v5 v5.0.0-20231107224428-8e66ce068452/go.mod h1:4z2BvavZe2RdEVYjtLGMQ7grfQ7+2sSSqMiosXtNbG4=
 github.com/jan-law/slog-sampling v0.0.0-20231013170129-ef692b2d04c4 h1:05hLE3ki21Fnkh0vxNBjW1hgv4aKK222Cu4tutU1rNY=
 github.com/jan-law/slog-sampling v0.0.0-20231013170129-ef692b2d04c4/go.mod h1:ZcJuHhGp3oTkGnOyl+ePWSci8XzCWQENC6JxkrE75EM=
-github.com/jarcoal/httpmock v1.3.0 h1:2RJ8GP0IIaWwcC9Fp2BmVi8Kog3v2Hn7VXM3fTd+nuc=
-github.com/jarcoal/httpmock v1.3.0/go.mod h1:3yb8rc4BI7TCBhFY8ng0gjuLKJNquuDNiPaZjnENuYg=
+github.com/jarcoal/httpmock v1.3.1 h1:iUx3whfZWVf3jT01hQTO/Eo5sAYtB2/rqaUuOtpInww=
+github.com/jarcoal/httpmock v1.3.1/go.mod h1:3yb8rc4BI7TCBhFY8ng0gjuLKJNquuDNiPaZjnENuYg=
 github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 h1:BQSFePA1RWJOlocH6Fxy8MmwDt+yVQYULKfN0RoTN8A=
 github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99/go.mod h1:1lJo3i6rXxKeerYnT8Nvf0QmHCRC1n8sfWVwXF2Frvo=
 github.com/jedib0t/go-pretty/v6 v6.4.6 h1:v6aG9h6Uby3IusSSEjHaZNXpHFhzqMmjXcPq1Rjl9Jw=

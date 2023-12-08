@@ -3,6 +3,7 @@ package alarms
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	"github.com/google/go-cmp/cmp"
 	alertingv1 "github.com/rancher/opni/pkg/apis/alerting/v1"
@@ -64,7 +65,7 @@ func (a *AlarmServerComponent) SyncRules(ctx context.Context, rules *rules.RuleM
 		incomingCond := &alertingv1.AlertCondition{
 			// immutable sync fields
 			Id:      rule.RuleId.Id,
-			GroupId: rule.GroupId.Id,
+			GroupId: url.PathEscape(rule.GroupId.Id),
 			AlertType: &alertingv1.AlertTypeDetails{
 				Type: &alertingv1.AlertTypeDetails_PrometheusQuery{
 					PrometheusQuery: &alertingv1.AlertConditionPrometheusQuery{

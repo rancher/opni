@@ -14,7 +14,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	opsterv1 "opensearch.opster.io/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -23,93 +25,73 @@ const (
 )
 
 var (
-	dataPrepperTemplate = template.Must(template.New("dataprepper").Parse(`log-pipeline:
-  workers: 8
-  delay: 100
-  buffer:
-    bounded_blocking:
-      buffer_size: 4096
-      batch_size: 512
-  source:
-    http:
-      ssl: false
-  sink:
-  - opensearch:
-      hosts: ["{{ .OpensearchEndpoint }}"]
-      {{- if .Insecure }}
-      insecure: true
-      {{- end }}
-      username: {{ .Username }}
-      password: {{ .Password }}
-      index: logs
-{{- if .EnableTracing }}
-entry-pipeline:
-  workers : 8
-  delay: "100"
-  buffer:
-    bounded_blocking:
-      buffer_size: 4096
-      batch_size: 160
+	dataPrepperTemplate = template.Must(template.New("dataprepper").Parse(`otel-trace-pipeline:
+  workers: 8 
+  delay: "100" 
   source:
     otel_trace_source:
-      ssl: false
-  sink:
-  - pipeline:
-      name: "raw-pipeline"
-  - pipeline:
-      name: "service-map-pipeline"
-raw-pipeline:
-  workers : 8
+      ssl: false # Change this to enable encryption in transit
+      authentication:
+        unauthenticated:
   buffer:
     bounded_blocking:
-      buffer_size: 4096
-      batch_size: 160
+      buffer_size: 25600
+      batch_size: 400
+  sink:
+    - pipeline:
+        name: "raw-pipeline"
+    - pipeline:
+        name: "service-map-pipeline"
+raw-pipeline:
+  workers: 8 
+  delay: "3000" 
   source:
     pipeline:
-      name: "entry-pipeline"
+      name: "otel-trace-pipeline"
+  buffer:
+    bounded_blocking:
+      buffer_size: 25600
+      batch_size: 3200
   processor:
-  - otel_trace_raw:
-  - add_entries:
-      entries:
-      - key: cluster_id
-        value: {{ .ClusterID }}
+    - otel_trace_raw:
+    - otel_trace_group:
+        hosts: ["{{ .OpensearchEndpoint }}"]
+        {{- if .Insecure }}
+        insecure: true
+        {{- end }}
+        username: {{ .Username }}
+        password: {{ .Password }}
   sink:
-  - opensearch:
-      hosts: ["{{ .OpensearchEndpoint }}"]
-      {{- if .Insecure }}
-      insecure: true
-      {{- end }}
-      username: {{ .Username }}
-      password: {{ .Password }}
-      index: otel-v1-apm-span
-      index_type: management_disabled
+    - opensearch:
+        hosts: ["{{ .OpensearchEndpoint }}"]
+        {{- if .Insecure }}
+        insecure: true
+        {{- end }}
+        username: {{ .Username }}
+        password: {{ .Password }}
+        index_type: trace-analytics-raw
 service-map-pipeline:
-  workers : 1
+  workers: 8
   delay: "100"
   source:
     pipeline:
-      name: "entry-pipeline"
+      name: "otel-trace-pipeline"
   processor:
-  - service_map_stateful:
-  - add_entries:
-      entries:
-      - key: cluster_id
-        value: {{ .ClusterID }}
+    - service_map:
+        window_duration: 180 
   buffer:
     bounded_blocking:
-      buffer_size: 512
-      batch_size: 8
+      buffer_size: 25600
+      batch_size: 400
   sink:
-  - opensearch:
-      hosts: ["{{ .OpensearchEndpoint }}"]
-      {{- if .Insecure }}
-      insecure: true
-      {{- end }}
-      username: {{ .Username }}
-      password: {{ .Password }}
-      index: otel-v1-apm-service-map
-      index_type: management_disabled
-{{- end }}
+    - opensearch:
+        hosts: ["{{ .OpensearchEndpoint }}"]
+        {{- if .Insecure }}
+        insecure: true
+        {{- end }}
+        username: {{ .Username }}
+        password: {{ .Password }}
+        index_type: trace-analytics-service-map
 `))
 )
 
@@ -132,6 +114,10 @@ func (r *Reconciler) config() (resources.Resource, []byte) {
 		return resources.Error(secret, err), []byte{}
 	}
 
+	username, ok := passwordSecret.Data["username"]
+	if !ok {
+		return resources.Error(secret, errors.New("username secret key does not exist")), []byte{}
+	}
 	password, ok := passwordSecret.Data[r.dataPrepper.Spec.PasswordFrom.Key]
 	if !ok {
 		return resources.Error(secret, errors.New("password secret key does not exist")), []byte{}
@@ -145,16 +131,11 @@ func (r *Reconciler) config() (resources.Resource, []byte) {
 		ClusterID          string
 		EnableTracing      bool
 	}{
-		Username: r.dataPrepper.Spec.Username,
-		Password: string(password),
-		OpensearchEndpoint: func() string {
-			if r.urlOverride != "" {
-				return r.urlOverride
-			}
-			return r.dataPrepper.Spec.Opensearch.Endpoint
-		}(),
-		Insecure:      r.dataPrepper.Spec.Opensearch.InsecureDisableSSLVerify || r.forceInsecure,
-		ClusterID:     r.dataPrepper.Spec.ClusterID,
+		Username:           string(username),
+		Password:           string(password),
+		OpensearchEndpoint: r.opensearchEndpoint(),
+		//Insecure:           r.dataPrepper.Spec.Opensearch.InsecureDisableSSLVerify || r.forceInsecure,
+		ClusterID:     "f6cd589f-d88b-4c6e-94e5-b694c9d3fb34", //TODO: fetch from the right source
 		EnableTracing: r.dataPrepper.Spec.EnableTracing,
 	}
 
@@ -289,4 +270,19 @@ func (r *Reconciler) deployment(configData []byte) resources.Resource {
 	ctrl.SetControllerReference(r.dataPrepper, deploy, r.client.Scheme())
 
 	return resources.Present(deploy)
+}
+
+func (r *Reconciler) opensearchEndpoint() string {
+	lg := log.FromContext(r.ctx)
+
+	cluster := &opsterv1.OpenSearchCluster{}
+	err := r.client.Get(r.ctx, types.NamespacedName{
+		Name:      r.dataPrepper.Spec.OpensearchCluster.Name,
+		Namespace: r.dataPrepper.Namespace,
+	}, cluster)
+	if err != nil {
+		lg.Error(err, "can't get opensearch details")
+		return ""
+	}
+	return fmt.Sprintf("https://%s:9200", cluster.Spec.General.ServiceName)
 }

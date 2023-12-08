@@ -29,6 +29,7 @@ var (
 				IndexPatterns: []string{
 					"logs*",
 					"ss4o_traces-kubernetes-opni*",
+					"otel-v1-apm-span*",
 				},
 				AllowedActions: []string{
 					"read",

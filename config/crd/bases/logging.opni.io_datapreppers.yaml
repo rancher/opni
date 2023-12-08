@@ -54,10 +54,10 @@ spec:
                 type: object
               opensearch:
                 properties:
-                  endpoint:
+                  name:
                     type: string
-                  insecureDisableSSLVerify:
-                    type: boolean
+                  namespace:
+                    type: string
                 type: object
               passwordFrom:
                 properties:

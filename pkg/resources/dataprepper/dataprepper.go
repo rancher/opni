@@ -78,6 +78,8 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	lg := log.FromContext(r.ctx)
 	conditions := []string{}
 
+	lg.Info(fmt.Sprintf("starting data prepper reconciliation"))
+
 	defer func() {
 		// When the reconciler is done, figure out what the state of the opnicluster
 		// is and set it in the state field accordingly.
@@ -114,7 +116,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		return
 	}
 
-	if r.dataPrepper.Spec.Opensearch == nil {
+	if r.dataPrepper.Spec.OpensearchCluster == nil {
 		retErr = errors.New("missing opensearch configuration")
 	}
 

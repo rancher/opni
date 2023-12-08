@@ -21,8 +21,8 @@ import (
 
 const (
 	configKey             = "config.yaml"
-	preprocessorVersion   = "v0.1.5-rc1-0.85.0"
-	preprocessorImageRepo = "ghcr.io/rancher-sandbox"
+	preprocessorVersion   = "trace-index"
+	preprocessorImageRepo = "docker.io/jaehnri"
 	preprocessorImage     = "opni-otel-collector"
 	otlpGRPCPort          = 4317
 )
@@ -35,6 +35,9 @@ receivers:
       grpc: {}
       http: {}
 processors:
+  batch:
+    timeout: 15s
+    send_batch_size: 1000
   resource:
     attributes:
     - key: container_image
@@ -83,6 +86,10 @@ processors:
       - set(attributes["kubernetes_component"], attributes["k8s.pod.labels.component"]) where attributes["k8s.pod.labels.tier"] == "control-plane"
 
 exporters:
+  otlp:
+    endpoint: {{ .DataPrepperEndpoint }}
+    tls:
+      insecure: true
   opensearch:
     http:
       endpoint: {{ .Endpoint }}
@@ -91,6 +98,7 @@ exporters:
         cert_file: /etc/otel/certs/tls.crt
         key_file: /etc/otel/certs/tls.key
     logs_index: {{ .WriteIndex }}
+    trace_index: otel-v1-apm-span
     dataset: kubernetes
     namespace: opni
     mapping:
@@ -107,13 +115,15 @@ service:
       exporters: ["opensearch"]
     traces:
       receivers: ["otlp"]
-      exporters: ["opensearch"]
+      processors: ["batch"]
+      exporters: ["otlp"]
 `))
 )
 
 type PreprocessorConfig struct {
-	Endpoint   string
-	WriteIndex string
+	Endpoint            string
+	DataPrepperEndpoint string
+	WriteIndex          string
 }
 
 func (r *Reconciler) configMapName() string {
@@ -137,6 +147,10 @@ func (r *Reconciler) opensearchEndpoint() string {
 		return ""
 	}
 	return fmt.Sprintf("https://%s:9200", cluster.Spec.General.ServiceName)
+}
+
+func (r *Reconciler) dataPrepperEndpoint() string {
+	return fmt.Sprintf("http://%s:21890", "opni-shipper")
 }
 
 func (r *Reconciler) preprocessorVolumes() (
@@ -209,8 +223,9 @@ func (r *Reconciler) configMap() (resources.Resource, string) {
 
 	var buffer bytes.Buffer
 	err := templatePreprocessorConfig.Execute(&buffer, PreprocessorConfig{
-		Endpoint:   r.opensearchEndpoint(),
-		WriteIndex: r.preprocessor.Spec.WriteIndex,
+		Endpoint:            r.opensearchEndpoint(),
+		WriteIndex:          r.preprocessor.Spec.WriteIndex,
+		DataPrepperEndpoint: r.dataPrepperEndpoint(),
 	})
 	if err != nil {
 		return resources.Error(cm, err), ""

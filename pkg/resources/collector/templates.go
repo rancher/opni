@@ -283,6 +283,7 @@ processors:
       statements:
       - set(attributes["log_type"], "event") where attributes["k8s.event.uid"] != nil
   {{ template "metrics-prometheus-processor" .}}
+
 exporters:
   otlphttp:
     endpoint: "{{ .AgentEndpoint }}"
@@ -311,6 +312,7 @@ service:
   {{- if .TracesEnabled }}
     traces:
       receivers: ["otlp"]
+      processors: ["memory_limiter", "batch"]
       exporters: ["otlphttp"]
   {{- end }}
   {{ template "metrics-remotewrite-pipeline" .}}

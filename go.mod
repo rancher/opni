@@ -97,7 +97,7 @@ require (
 	github.com/qmuntal/stateless v1.6.8
 	github.com/rancher/charts-build-scripts v0.0.0-00010101000000-000000000000
 	github.com/rancher/kubernetes-provider-detector v0.1.5
-	github.com/rancher/wrangler v1.1.1-0.20230419173538-80fdf092be3b
+	github.com/rancher/wrangler v1.1.2
 	github.com/samber/lo v1.38.1
 	github.com/samber/slog-multi v1.0.1
 	github.com/samber/slog-sampling v1.0.0

@@ -1,0 +1,5 @@
+syntax = "proto3";
+
+package alerting;
+
+option go_package = "github.com/rancher/opni/pkg/apis/alerting/v2";
